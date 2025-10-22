@@ -141,14 +141,13 @@ export function getPose(pose: OpenPose | Pose2d, index = 0) {
 	}
 	const points = pose.people[index].pose_keypoints_2d
 	console.log(`pose has ${points.length} points`)
-	const p = points
-		.map((point, i, ps) => {
-			if (i % 3 === 0) {
-				return { x: point, y: ps[i + 1], confidence: ps[i + 2] }
-			} else return undefined
-		})
-		.filter((p) => p && Array.isArray(p) && p[2] !== 0)
-
+	const p = points.map((point, i, ps) => {
+		if (i % 3 === 0) {
+			return { x: point, y: ps[i + 1], confidence: ps[i + 2] }
+		} else return undefined
+	}).filter(p => p)
+	// const p = mapped.filter((p) => p && p.confidence !== 0)
+	console.log(p.length)
 	if (p.length !== 18) throw new Error("pose must have 18 points")
 
 	const joints = p.map(

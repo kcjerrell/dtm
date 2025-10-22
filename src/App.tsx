@@ -5,7 +5,7 @@ import { lazy, type PropsWithChildren, Suspense, useEffect, useRef, useState } f
 import { ErrorBoundary } from "react-error-boundary"
 import { BiDetail } from "react-icons/bi"
 import { useSnapshot } from "valtio"
-import { Preview, useIsPreviewActive } from "./components/preview/Preview"
+import { Preview, useIsPreviewActive } from "@/components/preview/Preview"
 import AppState from "./hooks/useAppState"
 import { Loading } from "./main"
 import "./menu"
