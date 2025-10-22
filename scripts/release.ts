@@ -9,7 +9,7 @@ import fse from "fs-extra"
 import { exec, spawn } from 'node:child_process'
 import { Octokit } from "@octokit/rest"
 
-const startTime = Date.now()
+const startTime = Date.now() - 60 * 15 * 1000
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
@@ -58,23 +58,24 @@ await fse.writeFile("src-tauri/Cargo.toml", cargoTomlLinesUpdated.join("\n"))
 
 // yarn tauri build
 // make sure exec is set up so you can enter your password when needed
-await runTauriBuild()
+// await runTauriBuild()
 
 // make sure we have everything
-const dmgPath = `./src-tauri/target/release/bundle/dmg/DTM_${version}_aarch64.dmg`
+const dmgPath = `./src-tauri/target/universal-apple-darwin/release/bundle/dmg/DTM_${version}_universal.dmg`
+// const dmgPath = `./src-tauri/target/release/bundle/dmg/DTM_${version}_aarch64.dmg`
 if (!fse.existsSync(dmgPath)) {
   throw new Error(`Could not find ${dmgPath}`)
 }
 const dmgData = await fse.readFile(dmgPath)
 
-const tarGzPath = `./src-tauri/target/release/bundle/macos/DTM.app.tar.gz`
+const tarGzPath = `./src-tauri/target/universal-apple-darwin/release/bundle/macos/DTM.app.tar.gz`
 if (!fse.existsSync(tarGzPath))
   throw new Error(`Could not find ${tarGzPath}`)
 if (fse.statSync(tarGzPath).ctimeMs < startTime)
   throw new Error('tar.gz is old')
 const tarGzData = await fse.readFile(tarGzPath)
 
-const tarGzSigPath = `./src-tauri/target/release/bundle/macos/DTM.app.tar.gz.sig`
+const tarGzSigPath = `./src-tauri/target/universal-apple-darwin/release/bundle/macos/DTM.app.tar.gz.sig`
 if (!fse.existsSync(tarGzSigPath))
   throw new Error(`Could not find ${tarGzSigPath}`)
 if (fse.statSync(tarGzSigPath).ctimeMs < startTime)
@@ -149,7 +150,7 @@ async function createRelease(tag: string) {
 
 async function runTauriBuild() {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn("yarn", ["tauri", "build"], {
+    const child = spawn("yarn", ["build-universal"], {
       stdio: "inherit", // inherit console output
       env: {
         ...process.env, // keep existing env vars

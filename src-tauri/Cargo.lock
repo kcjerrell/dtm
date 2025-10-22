@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "dtm"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "little_exif",
  "objc2 0.6.2",
