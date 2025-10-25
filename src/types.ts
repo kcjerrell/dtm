@@ -128,8 +128,30 @@ export type ImageItem = {
 
 export type ImageSource = {
 	source: "drop" | "clipboard" | "open"
-	file?: string,
+	file?: string
 	url?: string
 	image?: string
 	pasteboardType?: string
+}
+
+export type TensorHistory = {
+	lineage: number
+	width: number
+	height: number
+	seed: number
+	steps: number
+	guidance_scale: number
+	strength: number
+	model: string
+	tensor_id: number
+	mask_id: number
+	batch_size: number
+	preview_id: number
+	prompt: string
+	negative_prompt: string
+	image_id: number
+	clip_id: number
+	row_id: number
+	loras: string[]
+	controls: string[]
 }

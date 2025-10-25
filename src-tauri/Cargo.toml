@@ -34,6 +34,9 @@ tauri-plugin-shell = "2"
 little_exif = "0.6.15"
 web-image-meta = "0.2.1"
 quick-xml = "0.38.3"
+rusqlite = { version = "0.37.0", features = ["bundled", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
+flatbuffers = "25.9.23"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2 = "0.6.2"

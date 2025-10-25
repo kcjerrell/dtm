@@ -1,10 +1,56 @@
-use tauri::{TitleBarStyle};
+use std::sync::Mutex;
+
+use tauri::{Manager, State, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest;
-
 use tauri_plugin_window_state::StateFlags;
 
+use crate::dt_project::ProjectDb;
+
 mod clipboard;
+mod dt_project;
+
+#[tauri::command]
+fn add_project(state: State<ProjectDb>, project_file: String) -> Result<(), String> {
+    let project = state
+        .add_project(&project_file)
+        .map_err(|e| e.to_string())?;
+
+    let _ = state.scan_project(&project).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn load_db(app: tauri::AppHandle) -> Result<(), String> {
+    let db_path = app.path().app_data_dir().unwrap().join("projects.db");
+    let project_db = dt_project::ProjectDb::new(db_path.to_str().unwrap()).map_err(|e| e.to_string())?;
+    app.manage(project_db);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_tensor_history(
+    project_file: String,
+    index: u32,
+    count: u32,
+) -> Result<Vec<dt_project::TensorHistory>, String> {
+    let project = dt_project::DTProject::new(&project_file).unwrap();
+    Ok(project
+        .get_tensor_history(index as i64, count as i64)
+        .unwrap())
+}
+
+#[tauri::command]
+fn get_tensor(project_file: String, name: String) -> Result<dt_project::TensorResult, String> {
+    let project = dt_project::DTProject::new(&project_file).unwrap();
+    Ok(project.get_tensor(name).unwrap())
+}
+
+#[tauri::command]
+fn get_thumb_half(project_file: String, thumb_id: i64) -> Result<Vec<u8>, String> {
+    let project = dt_project::DTProject::new(&project_file).unwrap();
+    Ok(project.get_thumb_half(thumb_id)?)
+}
 
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
@@ -80,9 +126,15 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
-            // load_metadata
-            // init_panel,
+            get_tensor_history,
+            get_tensor,
+            get_thumb_half,
+            add_project,
+            load_db
         ])
+        // .manage(AppState {
+        //     project_db: Mutex::new(None)
+        // })
         .setup(|app| {
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
@@ -113,3 +165,7 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+// struct AppState {
+//     pub project_db: Mutex<Option<dt_project::ProjectDb>>,
+// }
