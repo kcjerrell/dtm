@@ -5,6 +5,7 @@ export const CheckRoot = chakra(
 	motion.div,
 	{
 		base: {
+			display: 'flex',
 			bgImage: {
 				_light: "url(check_light.png)",
 				_dark: "url(check_dark.png)",

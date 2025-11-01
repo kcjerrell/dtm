@@ -1,56 +1,25 @@
-use std::sync::Mutex;
+use std::path::PathBuf;
 
-use tauri::{Manager, State, TitleBarStyle};
+use tauri::{http, Manager, TitleBarStyle, UriSchemeContext, UriSchemeResponder};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_window_state::StateFlags;
 
-use crate::dt_project::ProjectDb;
-
 mod clipboard;
-mod dt_project;
 
-#[tauri::command]
-fn add_project(state: State<ProjectDb>, project_file: String) -> Result<(), String> {
-    let project = state
-        .add_project(&project_file)
-        .map_err(|e| e.to_string())?;
+mod projects_db;
 
-    let _ = state.scan_project(&project).map_err(|e| e.to_string())?;
-    Ok(())
-}
+use once_cell::sync::Lazy;
+use tokio::runtime::Runtime;
 
-#[tauri::command]
-fn load_db(app: tauri::AppHandle) -> Result<(), String> {
-    let db_path = app.path().app_data_dir().unwrap().join("projects.db");
-    let project_db = dt_project::ProjectDb::new(db_path.to_str().unwrap()).map_err(|e| e.to_string())?;
-    app.manage(project_db);
-    Ok(())
-}
+pub static TOKIO_RT: Lazy<Runtime> =
+    Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
-#[tauri::command]
-fn get_tensor_history(
-    project_file: String,
-    index: u32,
-    count: u32,
-) -> Result<Vec<dt_project::TensorHistory>, String> {
-    let project = dt_project::DTProject::new(&project_file).unwrap();
-    Ok(project
-        .get_tensor_history(index as i64, count as i64)
-        .unwrap())
-}
-
-#[tauri::command]
-fn get_tensor(project_file: String, name: String) -> Result<dt_project::TensorResult, String> {
-    let project = dt_project::DTProject::new(&project_file).unwrap();
-    Ok(project.get_tensor(name).unwrap())
-}
-
-#[tauri::command]
-fn get_thumb_half(project_file: String, thumb_id: i64) -> Result<Vec<u8>, String> {
-    let project = dt_project::DTProject::new(&project_file).unwrap();
-    Ok(project.get_thumb_half(thumb_id)?)
-}
+// #[tauri::command]
+// fn get_tensor(project_file: String, name: String) -> Result<dt_project::TensorResult, String> {
+//     let project = dt_project::DTProject::new(&project_file).unwrap();
+//     Ok(project.get_tensor(name).unwrap())
+// }
 
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
@@ -102,6 +71,9 @@ async fn fetch_image_file(url: String) -> Result<Vec<u8>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use projects_db::commands::*;
+    use projects_db::dtm_dtproject_protocol;
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -126,12 +98,44 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
-            get_tensor_history,
-            get_tensor,
-            get_thumb_half,
-            add_project,
-            load_db
+            // get_tensor_history,
+            // get_tensor,
+            // get_thumb_half,
+            projects_db_get_image_count,
+            projects_db_list_projects,
+            projects_db_add_project,
+            projects_db_remove_project,
+            projects_db_scan_project,
+            dt_project_get_tensor_history,
+            projects_db_scan_all_projects,
+            dt_project_get_thumb_half,
+            projects_db_list_images,
+            dt_project_get_history_full,
+            projects_db_find_images,
         ])
+        .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
+            println!("dtm: {}", request.uri().path());
+
+            std::thread::spawn(move || {
+                let path = request.uri().path()[1..].to_string();
+                let parts: Vec<&str> = path.split('/').collect();
+                println!("parts: {:#?}", parts);
+
+                TOKIO_RT.block_on(async move {
+                    if request.uri().host().unwrap() == "dtproject" {
+                        dtm_dtproject_protocol(parts, responder).await;
+                    } else {
+                        responder.respond(
+                            http::Response::builder()
+                                .status(http::StatusCode::BAD_REQUEST)
+                                .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
+                                .body("failed to read file".as_bytes().to_vec())
+                                .unwrap(),
+                        );
+                    }
+                });
+            });
+        })
         // .manage(AppState {
         //     project_db: Mutex::new(None)
         // })
@@ -165,7 +169,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-// struct AppState {
-//     pub project_db: Mutex<Option<dt_project::ProjectDb>>,
-// }

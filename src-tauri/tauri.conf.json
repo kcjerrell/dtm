@@ -32,7 +32,9 @@
           "ipc:",
           "http://ipc.localhost",
           "asset:",
+          "http://localhost:1420",
           "tauri:",
+          "dtm:",
           "https://cdn.discordapp.com",
           "https://api.github.com",
           "http://api.github.com"

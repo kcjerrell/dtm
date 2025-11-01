@@ -6,6 +6,7 @@ declare global {
 				readonly [P in keyof T]: ReadonlyState<T[P]>
 		  }
 		| Readonly<T>
+	type Snap<T> = ReadOnlyState<T>
 
 	type ChakraProps = Omit<BoxProps, "direction">
 

@@ -134,6 +134,17 @@ export type ImageSource = {
 	pasteboardType?: string
 }
 
+export type DTImage = {
+	dt_id: number,
+	image_id: number
+	row_id: number
+	model_file: string
+	model_id: number
+	negative_prompt: string
+	prompt: string
+	wall_clock: string
+}
+
 export type TensorHistory = {
 	lineage: number
 	width: number
@@ -153,5 +164,6 @@ export type TensorHistory = {
 	clip_id: number
 	row_id: number
 	loras: string[]
-	controls: string[]
+	controls: string[],
+	project_id: number
 }
