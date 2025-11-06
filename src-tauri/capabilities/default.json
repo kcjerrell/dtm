@@ -26,8 +26,34 @@
     "fs:allow-appdata-write-recursive",
     "fs:allow-exists",
     "fs:allow-read-file",
+    "fs:allow-read-dir",
     "fs:allow-stat",
     "fs:allow-write-text-file",
+    "fs:allow-read",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        "$HOME/Library/Containers/com.liuliu.draw-things/Data/*"
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        "$HOME/Library/Containers/com.liuliu.draw-things/Data/Documents/*"
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        "$HOME/Library/Containers/com.liuliu.draw-things/Data/Documents/*"
+      ]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        "$HOME/Library/Containers/com.liuliu.draw-things/Data/Documents/*"
+      ]
+    },
     "http:default",
     "nspopover:allow-hide-popover",
     "nspopover:allow-is-popover-shown",

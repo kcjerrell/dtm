@@ -144,13 +144,13 @@ const themeConfig = defineConfig({
 					"1": {
 						value: {
 							_light: "#51ac35",
-							_dark: "#2d3d29",
+							_dark: "#66b851ff",
 						},
 					},
 					DEFAULT: {
 						value: {
 							_light: "#d0fcc9",
-							_dark: "#316524",
+							_dark: "#5bc640ff",
 						},
 					},
 				},

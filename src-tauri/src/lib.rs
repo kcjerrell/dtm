@@ -101,18 +101,23 @@ pub fn run() {
             // get_tensor_history,
             // get_tensor,
             // get_thumb_half,
+
             projects_db_get_image_count,
             projects_db_list_projects,
             projects_db_add_project,
             projects_db_remove_project,
             projects_db_scan_project,
-            dt_project_get_tensor_history,
             projects_db_scan_all_projects,
-            dt_project_get_thumb_half,
             projects_db_list_images,
-            dt_project_get_history_full,
             projects_db_find_images,
-            dt_project_get_tensor
+            projects_db_list_watch_folders,
+            projects_db_add_watch_folder,
+            projects_db_remove_watch_folder,
+
+            dt_project_get_tensor_history,
+            dt_project_get_thumb_half,
+            dt_project_get_history_full,
+            dt_project_get_tensor,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             println!("dtm: {}", request.uri().path());

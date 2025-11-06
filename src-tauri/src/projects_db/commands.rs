@@ -169,3 +169,29 @@ pub async fn dt_project_get_tensor(project_file: String, name: String) -> Result
 
     // Ok(png)
 }
+
+#[tauri::command]
+pub async fn projects_db_list_watch_folders(
+    app: tauri::AppHandle,
+) -> Result<Vec<entity::watch_folder::Model>, String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    Ok(projects_db.list_watch_folders().await.unwrap())
+}
+
+#[tauri::command]
+pub async fn projects_db_add_watch_folder(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<entity::watch_folder::Model, String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    Ok(projects_db.add_watch_folder(&path).await.unwrap())
+}
+
+#[tauri::command]
+pub async fn projects_db_remove_watch_folder(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<(), String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    Ok(projects_db.remove_watch_folder(&path).await.unwrap())
+}

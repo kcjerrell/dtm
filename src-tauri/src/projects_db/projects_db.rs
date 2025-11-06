@@ -203,12 +203,12 @@ impl ProjectsDb {
                             .iter()
                             // .filter(|h| h.index_in_a_clip == 0 && h.generated)
                             .map(|h| images::ActiveModel {
-                                project_id: Set(project.project_id as i64),
-                                dt_id: Set(h.image_id as i64),
+                                project_id: Set(project.project_id as i32),
+                                dt_id: Set(h.image_id as i32),
                                 prompt: Set(Some(h.prompt.clone())),
                                 negative_prompt: Set(Some(h.negative_prompt.clone())),
                                 model_id: Set(map.get(&h.model).copied()),
-                                row_id: Set(h.row_id as i64),
+                                row_id: Set(h.row_id as i32),
                                 wall_clock: Set(DateTime::from_timestamp(h.wall_clock / 1000, 0)
                                     .unwrap()
                                     .naive_utc()),
@@ -268,44 +268,48 @@ impl ProjectsDb {
         Ok(())
     }
 
-pub async fn find_images(
-    &self,
-    term: &str,
-    opts: ListImagesOptions,
-) -> Result<Paged<ImageExtra>, DbErr> {
-    print!("ListImagesOptions: {:#?}, FindImagesOptions: {:#?}\n", term, opts);
+    pub async fn find_images(
+        &self,
+        term: &str,
+        opts: ListImagesOptions,
+    ) -> Result<Paged<ImageExtra>, DbErr> {
+        print!(
+            "ListImagesOptions: {:#?}, FindImagesOptions: {:#?}\n",
+            term, opts
+        );
 
-    // Base query without pagination
-    let mut base_query = images::Entity::find()
-        .join(JoinType::LeftJoin, images::Relation::Models.def())
-        .filter(images::Column::Prompt.contains(term));
+        // Base query without pagination
+        let mut base_query = images::Entity::find()
+            .join(JoinType::LeftJoin, images::Relation::Models.def())
+            .filter(images::Column::Prompt.contains(term));
 
-    if let Some(project_id) = opts.project_id {
-        base_query = base_query.filter(images::Column::ProjectId.eq(project_id));
+        if let Some(project_id) = opts.project_id {
+            base_query = base_query.filter(images::Column::ProjectId.eq(project_id));
+        }
+
+        // Clone before applying limit/offset
+        let mut data_query = base_query
+            .clone()
+            .order_by(images::Column::WallClock, Order::Desc)
+            .column_as(entity::models::Column::Filename, "model_file");
+
+        if let Some(skip) = opts.skip {
+            data_query = data_query.offset(skip);
+        }
+
+        if let Some(take) = opts.take {
+            data_query = data_query.limit(take);
+        }
+
+        // 1️⃣ Count total
+        let total = base_query.clone().count(&self.db).await?;
+
+        // 2️⃣ Fetch limited data
+        let items = data_query.into_model::<ImageExtra>().all(&self.db).await?;
+
+        // 3️⃣ Combine
+        Ok(Paged { items, total })
     }
-
-    // Clone before applying limit/offset
-    let mut data_query = base_query.clone()
-        .order_by(images::Column::WallClock, Order::Desc)
-        .column_as(entity::models::Column::Filename, "model_file");
-
-    if let Some(skip) = opts.skip {
-        data_query = data_query.offset(skip);
-    }
-
-    if let Some(take) = opts.take {
-        data_query = data_query.limit(take);
-    }
-
-    // 1️⃣ Count total
-    let total = base_query.clone().count(&self.db).await?;
-
-    // 2️⃣ Fetch limited data
-    let items = data_query.into_model::<ImageExtra>().all(&self.db).await?;
-
-    // 3️⃣ Combine
-    Ok(Paged { items, total })
-}
 
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<Vec<ImageExtra>, DbErr> {
         print!("ListImagesOptions: {:#?}\n", opts);
@@ -329,6 +333,32 @@ pub async fn find_images(
 
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
         Ok(result)
+    }
+
+    pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folder::Model>, DbErr> {
+        let folder = entity::watch_folder::Entity::find()
+            .into_model()
+            .all(&self.db)
+            .await?;
+
+        Ok(folder)
+    }
+
+    pub async fn add_watch_folder(&self, path: &str) -> Result<entity::watch_folder::Model, DbErr> {
+        let folder = entity::watch_folder::ActiveModel {
+            path: Set(path.to_string()),
+            ..Default::default()
+        };
+        let folder = folder.insert(&self.db).await?;
+        Ok(folder)
+    }
+
+    pub async fn remove_watch_folder(&self, path: &str) -> Result<(), DbErr> {
+        let _folder = entity::watch_folder::Entity::delete_many()
+            .filter(entity::watch_folder::Column::Path.eq(path.to_string()))
+            .exec(&self.db)
+            .await?;
+        Ok(())
     }
 }
 
