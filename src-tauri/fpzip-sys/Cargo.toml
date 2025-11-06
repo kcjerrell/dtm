@@ -1,0 +1,16 @@
+[package]
+name = "fpzip-sys"
+version = "0.3.1"
+authors = ["jvo203 <chris.zapart@nao.ac.jp>"]
+edition = "2024"
+description = "Raw Rust bindings to FPZIP (https://github.com/LLNL/fpzip)."
+repository = "https://github.com/jvo203/fpzip-sys"
+readme = "README.md"
+license = "MIT"
+categories = ["compression", "external-ffi-bindings", "science"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+bindgen = "0.71"
+cmake = "0.1"
