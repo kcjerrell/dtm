@@ -2,7 +2,7 @@ import { Box, chakra, Flex } from "@chakra-ui/react"
 import { AnimatePresence, motion, } from "motion/react"
 import { useRef } from "react"
 import { useSnapshot } from "valtio"
-import { showPreview } from "@/components/preview/Preview"
+import { showPreview } from "@/components/preview"
 import { MetadataStore } from "../state/store"
 
 interface CurrentImageProps extends ChakraProps {}

@@ -1,6 +1,6 @@
 import { Box, Button, HStack, Input, VStack } from "@chakra-ui/react"
 import { proxy, useSnapshot } from "valtio"
-import { CheckRoot } from "@/metadata/Containers"
+import { CheckRoot } from "@/components"
 import { Panel } from "@/components/common"
 import { getClipboardTypes } from "@/utils/clipboard"
 

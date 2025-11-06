@@ -17,6 +17,7 @@ type AppStateType = {
 		| "error"
 	updateAttempts: number
 	currentView: string
+	isSidebarVisible: boolean
 }
 
 let update: Awaited<ReturnType<typeof check>> = null
@@ -26,6 +27,7 @@ const store: AppStateType = proxy({
 	updateStatus:  "unknown",
 	updateAttempts: 0,
 	currentView: localStorage.getItem("currentView") || "metadata",
+	isSidebarVisible: true
 })
 
 async function checkForUpdate() {
@@ -99,12 +101,17 @@ async function setView(view: string) {
 	localStorage.setItem("currentView", view)
 }
 
+function setShowSidebar(show: boolean) {
+	store.isSidebarVisible = show
+}
+
 const AppState = {
 	store,
 	checkForUpdate,
 	downloadAndInstallUpdate,
 	setView,
-	retryUpdate
+	retryUpdate,
+	showSidebar: setShowSidebar
 }
 
 export default AppState

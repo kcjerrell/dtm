@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    error::Error,
     sync::{Arc, LazyLock, RwLock},
 };
 
@@ -10,7 +11,7 @@ use tauri::{
     UriSchemeResponder,
 };
 
-use crate::projects_db::{DTProject, ProjectsDb};
+use crate::projects_db::{tensors::tensor_to_png_bytes, DTProject, ProjectsDb};
 
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
@@ -23,16 +24,24 @@ pub async fn dtm_dtproject_protocol(path: Vec<&str>, responder: UriSchemeRespond
     let item_type = path[0];
     let project_id: i64 = path[1].parse().unwrap();
     let project_path = get_project_path(project_id as u64).await.unwrap();
-    let item_id: i64 = path[2].parse().unwrap();
+    let item_id = path[2];
 
-    if item_type == "thumbhalf" {
-        thumbhalf(&project_path, item_id, responder).await.unwrap();
-    }
+    match item_type {
+        "thumbhalf" => thumbhalf(&project_path, item_id, responder).await.unwrap(),
+        "tensor" => tensor(&project_path, item_id, responder).await.unwrap(),
+        _ => responder.respond(
+            Response::builder()
+                .status(404)
+                .body("Not Found".as_bytes().to_vec())
+                .unwrap(),
+        ),
+    };
 }
 
-async fn thumbhalf(path: &str, item_id: i64, responder: UriSchemeResponder) -> Result<(), DbErr> {
+async fn thumbhalf(path: &str, item_id: &str, responder: UriSchemeResponder) -> Result<(), DbErr> {
+    let id: i64 = item_id.parse().unwrap();
     let dtp = DTProject::get(path).await.unwrap();
-    let thumb = dtp.get_thumb_half(item_id as i64).await.unwrap();
+    let thumb = dtp.get_thumb_half(id).await.unwrap();
     let thumb = extract_jpeg_slice(&thumb).unwrap();
     responder.respond(
         Response::builder()
@@ -42,6 +51,24 @@ async fn thumbhalf(path: &str, item_id: i64, responder: UriSchemeResponder) -> R
             .unwrap(),
     );
 
+    Ok(())
+}
+
+async fn tensor(
+    project_file: &str,
+    name: &str,
+    responder: UriSchemeResponder,
+) -> Result<(), String> {
+    let dtp = DTProject::get(project_file).await.unwrap();
+    let tensor = dtp.get_tensor_raw(name).await.unwrap();
+    let png = tensor_to_png_bytes(tensor).unwrap();
+    responder.respond(
+        Response::builder()
+            .status(200)
+            .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
+            .body(png)
+            .unwrap(),
+    );
     Ok(())
 }
 

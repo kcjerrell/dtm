@@ -1,16 +1,15 @@
-import { type ComponentProps, useEffect, useRef } from "react"
-import { CheckRoot, ContentPane, LayoutRoot } from "./Containers"
+import { useEffect } from "react"
+import { ContentPane, LayoutRoot } from "./Containers"
 import CurrentImage from "./components/CurrentImage"
 import History from "./history/History"
 import InfoPanel from "./infoPanel/InfoPanel"
 import { loadImage2 } from "./state/imageLoaders"
+import { selectImage } from "./state/store"
 import Toolbar from "./toolbar/Toolbar"
 import { useMetadataDrop } from "./useMetadataDrop"
-import { selectImage } from "./state/store"
 
-function Metadata(props: ComponentProps<typeof CheckRoot>) {
+function Metadata(props: ChakraProps) {
 	const { ...restProps } = props
-	const rootRef = useRef<HTMLDivElement>(null)
 	const { handlers } = useMetadataDrop()
 
 	useEffect(() => {
@@ -30,25 +29,14 @@ function Metadata(props: ComponentProps<typeof CheckRoot>) {
 	}, [])
 
 	return (
-		<CheckRoot ref={rootRef} id={"metadata"} {...handlers} {...restProps}>
-			<LayoutRoot>
-				<ContentPane>
-					<Toolbar zIndex={3} />
-					<CurrentImage />
-					<History zIndex={2}/>
-				</ContentPane>
-				<InfoPanel />
-			</LayoutRoot>
-
-			{/* <Preview
-					src={currentImage?.url}
-					onClick={() => {
-						MetadataStore.zoomPreview = false
-					}}
-					show={zoomPreview}
-					imgRef={imgRef}
-				/> */}
-		</CheckRoot>
+		<LayoutRoot id={"metadata"} {...handlers} {...restProps}>
+			<ContentPane>
+				<Toolbar zIndex={3} />
+				<CurrentImage />
+				<History zIndex={2} />
+			</ContentPane>
+			<InfoPanel />
+		</LayoutRoot>
 	)
 }
 

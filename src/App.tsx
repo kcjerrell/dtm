@@ -1,17 +1,18 @@
-import { Box, Button, type ButtonProps, chakra, HStack, Spacer, VStack } from "@chakra-ui/react"
+import { Button, HStack, IconButton, Spacer } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
-import { lazy, type PropsWithChildren, Suspense, useEffect, useRef, useState } from "react"
+import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { BiDetail } from "react-icons/bi"
 import { useSnapshot } from "valtio"
-import { Preview, useIsPreviewActive } from "@/components/preview/Preview"
-import AppState from "./hooks/useAppState"
+import { CheckRoot, Sidebar, Tooltip } from "@/components"
+import { Preview, useIsPreviewActive } from "@/components/preview"
+import ErrorFallback from "./ErrorFallback"
+import AppState from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
-import ErrorFallback from "./ErrorFallback"
-
-const sidebarEnabled = false
+import { FaMoon } from "react-icons/fa6"
+import { toggleColorMode } from "./components/ui/color-mode"
 
 function App() {
 	const firstRender = useRef(true)
@@ -21,8 +22,6 @@ function App() {
 
 	const isPreviewActive = useIsPreviewActive()
 
-	const [showSidebar, setShowSidebar] = useState(true)
-
 	return (
 		<HStack
 			position={"relative"}
@@ -30,92 +29,57 @@ function App() {
 			height={"100vh"}
 			overflow="hidden"
 			alignItems={"stretch"}
+			justifyContent={"stretch"}
 			gap={0}
-			bgColor={"434753"}
+			bgColor={"check.2"}
 			transformOrigin={"left top"}
 			zoom={1}
 		>
-			{sidebarEnabled && (
-				<Button
-					variant={"ghost"}
-					onClick={() => setShowSidebar(true)}
-					position={"absolute"}
-					top={"20px"}
-					left={"5px"}
-					zIndex={5}
-				>
-					{"->"}
-				</Button>
-			)}
 			<LayoutGroup>
-				{sidebarEnabled && (
-					<VStack
-						inert={isPreviewActive}
-						position={"absolute"}
-						top={"0px"}
-						bottom={"0px"}
-						zIndex={5}
-						overflow="clip"
-						justifyContent={"flex-start"}
-						paddingTop={"30px"}
-						transformOrigin={"right center"}
-						asChild
-					>
-						<motion.div
-							layout={"position"}
-							initial={{ width: 75, skewY: 0, rotateY: 0, left: 0 }}
-							animate={
-								showSidebar
-									? {
-											rotateY: [45, 0, 0],
-											skewY: [10, 0, 0],
-											left: [-68, 0, 0],
-											scale: [0.95, 0.95, 1],
-											backdropFilter: [1, 1, 8].map((v) => `blur(${v}px)`),
-										}
-									: {
-											rotateY: [0, 0, 45],
-											skewY: [0, 0, 10],
-											left: [0, 0, -68],
-											scale: [1, 0.95, 0.95],
-											backdropFilter: [8, 1, 1].map((v) => `blur(${v}px)`),
-										}
-							}
-							transition={{
-								duration: 2,
-								times: [0, 0.5, 1],
+				<Sidebar inert={isPreviewActive}>
+					{sidebarItems.map((item) => (
+						<Sidebar.Button
+							key={item.viewId}
+							label={item.label}
+							icon={item.icon}
+							isActive={snap.currentView === item.viewId}
+							onClick={() => AppState.setView(item.viewId)}
+						/>
+					))}
+					<Spacer />
+					<Tooltip tip={"Toggle color mode"}>
+						<IconButton
+							color={"fg.2"}
+							_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+							size="2xs"
+							variant="ghost"
+							onClick={(e) => {
+								e.stopPropagation()
+								toggleColorMode()
 							}}
 						>
-							{sidebarItems.map((item) => (
-								<SidebarItem
-									key={item.viewId}
-									item={item}
-									isActive={snap.currentView === item.viewId}
-									onClick={() => AppState.setView(item.viewId)}
-								/>
-							))}
-							<Spacer />
-							<Button variant={"ghost"} onClick={() => setShowSidebar(false)}>
-								{"<-"}
-							</Button>
-						</motion.div>
-					</VStack>
-				)}
-				<ErrorBoundary FallbackComponent={ErrorFallback}>
-					<Suspense fallback={<Loading />}>
-						<AnimatePresence>
-							<ViewContainer firstRender={firstRender} inert={isPreviewActive}>
-								<View
-									flex={"1 1 auto"}
-									boxShadow={
-										"0px 0px 16px -3px #00000033, 0px 0px 8px -2px #00000022, 0px 0px 4px -1px #00000011"
-									}
-									borderRadius={"xl"}
-								/>
-							</ViewContainer>
-						</AnimatePresence>
-					</Suspense>
-				</ErrorBoundary>
+							<FaMoon />
+						</IconButton>
+					</Tooltip>
+					<Button variant={"ghost"} onClick={() => AppState.showSidebar(false)}>
+						{"<-"}
+					</Button>
+				</Sidebar>
+				<CheckRoot>
+					<ErrorBoundary FallbackComponent={ErrorFallback}>
+						<Suspense fallback={<Loading />}>
+							<AnimatePresence mode={"wait"}>
+								<ViewContainer
+									key={snap.currentView}
+									firstRender={firstRender}
+									inert={isPreviewActive}
+								>
+									<View flex={"1 1 auto"} />
+								</ViewContainer>
+							</AnimatePresence>
+						</Suspense>
+					</ErrorBoundary>
+				</CheckRoot>
 			</LayoutGroup>
 			<Preview />
 		</HStack>
@@ -136,36 +100,37 @@ function ViewContainer(
 
 	return (
 		<motion.div
+			layout
 			inert={inert}
-			initial={{ opacity: 0, scale: 0.95 }}
-			animate={{ opacity: 1, scale: 1 }}
-			exit={{ opacity: 0, scale: 0.95 }}
-			style={{ width: "100%", height: "100%", display: "flex" }}
+			initial={{ opacity: 0, scale: 0.95, filter: "blur(0px)" }}
+			animate={{
+				opacity: 1,
+				scale: 1,
+				filter: "blur(0px)",
+				transition: { duration: 0.1 },
+			}}
+			exit={{
+				opacity: 0,
+				scale: 0.95,
+				filter: "blur(0px)",
+				transition: { duration: 0.2 },
+			}}
+			style={{
+				width: "100%",
+				height: "100%",
+				display: "flex",
+				flex: "1 1 auto",
+				overflow: "clip",
+				justifyContent: "stretch",
+				alignItems: "stretch",
+				paddingBlock: "4px",
+				boxShadow: "0px 2px 4px -2px #00000099",
+			}}
 		>
 			{children}
 		</motion.div>
 	)
 }
-
-const SidebarButton = chakra("button", {
-	base: {
-		display: "flex",
-		flexDirection: "column",
-		alignItems: "center",
-		transition: "all 0.2s ease-in-out",
-		fontSize: "xs",
-		width: "100%",
-		borderRight: "2px solid transparent",
-		color: "fg.3",
-	},
-	variants: {
-		isActive: {
-			true: {
-				color: "highlight",
-			},
-		},
-	},
-})
 
 const sidebarItems = [
 	{
@@ -183,45 +148,17 @@ const sidebarItems = [
 		label: "Library",
 		icon: BiDetail,
 	},
+	{ viewId: "projects", label: "Projects", icon: BiDetail },
 	{ viewId: "scratch", label: "Scratch", icon: BiDetail },
 ]
 
-interface SidebarButtonProps extends ButtonProps {
-	item: (typeof sidebarItems)[number]
-	isActive: boolean
-	onClick: () => void
-}
-
-function SidebarItem(props: SidebarButtonProps) {
-	const { item, isActive, onClick, ...rest } = props
-	const { label, icon: Icon } = item
-	return (
-		<Box
-			position={"relative"}
-			width={"100%"}
-			// paddingRight={"5px"}
-			borderInline={"3px solid transparent"}
-			borderRightColor={isActive ? "highlight" : "transparent"}
-			borderRadius={"xs"}
-		>
-			<SidebarButton isActive={isActive} onClick={onClick} {...rest}>
-				<Box width={"35px"} height={"35px"} padding={2} aspectRatio={1} asChild>
-					<Icon />
-				</Box>
-				<Box fontSize={"10px"} fontWeight={"500"}>
-					{label}
-				</Box>
-			</SidebarButton>
-		</Box>
-	)
-}
-
 const views = {
-	metadata: lazy(() => import("./metadata/MetadataContainer")),
+	metadata: lazy(() => import("./metadata/Metadata")),
 	mini: lazy(() => import("./Mini")),
 	vid: lazy(() => import("./vid/Vid")),
 	library: lazy(() => import("./library/Library")),
-	scratch: lazy(() => import("./dtProjects/DTProjects")),
+	projects: lazy(() => import("./dtProjects/DTProjects")),
+	scratch: lazy(() => import("./scratch/VList")),
 }
 
 function getView(view: string) {

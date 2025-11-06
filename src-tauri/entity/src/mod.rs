@@ -9,3 +9,4 @@ pub mod images;
 pub mod loras;
 pub mod models;
 pub mod projects;
+pub mod watch_folder;

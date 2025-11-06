@@ -12,6 +12,7 @@ interface DataItemProps<T> extends ChakraProps {
 	onCollapseChange?: (collapsed: "collapsed" | "expanded") => void
 	initialCollapse?: "collapsed" | "expanded"
 	expanded?: boolean
+	onClick?: (e: React.MouseEvent, data: T, label: string) => void
 }
 
 function DataItem(props: DataItemProps<unknown>) {
@@ -23,6 +24,7 @@ function DataItem(props: DataItemProps<unknown>) {
 		ignore,
 		onCollapseChange,
 		initialCollapse,
+		onClick,
 		expanded,
 		...rest
 	} = props
@@ -38,10 +40,15 @@ function DataItem(props: DataItemProps<unknown>) {
 	const colSpan = cols ?? span
 	const gridColumn = colSpan > 1 ? `1 / span ${colSpan}` : undefined
 
-	const handleClick = useCallback(() => {
-		setJustCopied(true)
-		navigator.clipboard.writeText(content ?? "")
-	}, [setJustCopied, content])
+	const handleClick = useCallback((e: React.MouseEvent) => {
+		if (onClick) {
+			onClick(e, data, label)
+		}
+		else {
+			setJustCopied(true)
+			navigator.clipboard.writeText(content ?? "")
+		}
+	}, [setJustCopied, content, data, label, onClick])
 
 	if (ignore) return null
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["migration", "entity", "."]
+members = ["migration", "entity", ".", "fpzip-sys"]
 
 [package]
 name = "dtm"
@@ -23,6 +23,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 entity = { path = "./entity" }
 migration = { path = "./migration" }
+fpzip-sys = { path = "./fpzip-sys" }
 tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
@@ -53,6 +54,12 @@ tokio = "1.48.0"
 mime = "0.3.17"
 once_cell = "1.21.3"
 moka = { version = "0.12.11", features = ["future"] }
+bytes = "1.10.1"
+byteorder = "1.5.0"
+half = "2"
+bytemuck = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+anyhow = "1.0.100"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2 = "0.6.2"

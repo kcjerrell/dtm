@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",
     "release": "tsx scripts/release.ts",
-    "gen-icons": "tauri icon ./app-icon.png"
+    "gen-icons": "tauri icon ./app-icon.png",
+    "generate:entities": "dotenv -e .env -- sh -c 'echo $DB_URL && sea-orm-cli generate entity --database-url \"$DB_URL\" --output-dir src-tauri/entity/src --with-serde serialize'",
+    "what": "which dotenv"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.26.0",
@@ -29,6 +31,7 @@
     "@tauri-apps/plugin-updater": "~2",
     "@tauri-apps/plugin-window-state": "~2",
     "@tauri-store/valtio": "^3.1.0",
+    "dt-grpc-ts": "/Users/kcjer/Projects/dt-grpc-ts",
     "exifr": "git+https://github.com/m-hayabusa/exifr.git#add-webp-support",
     "exifreader": "^4.31.2",
     "motion": "^12.23.12",
@@ -63,6 +66,7 @@
     "vite": "^7.0.4",
     "vite-bundle-visualizer": "^1.2.1",
     "vite-plugin-html-injection": "^1.5.2",
+    "vite-plugin-wasm": "^3.5.0",
     "vite-tsconfig-paths": "^5.1.4"
   }
 }

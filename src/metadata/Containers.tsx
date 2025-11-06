@@ -1,33 +1,12 @@
 import { chakra, defineRecipe } from "@chakra-ui/react"
-import { motion } from "motion/react"
-
-export const CheckRoot = chakra(
-	motion.div,
-	{
-		base: {
-			display: 'flex',
-			bgImage: {
-				_light: "url(check_light.png)",
-				_dark: "url(check_dark.png)",
-			},
-			bgSize: "50px 50px",
-			// bgPos: "right",
-			width: "100%",
-			height: "100%",
-			overscrollBehavior: "none none",
-			position: "relative",
-		},
-	},
-	{ forwardProps: ["transition"] },
-)
 
 export const LayoutRoot = chakra(
 	"div",
 	defineRecipe({
 		base: {
-			position: "absolute",
+			// position: "absolute",
 			display: "flex",
-			width: "100%",
+			// width: "100%",
 			justifyContent: "normal",
 			alignItems: "stretch",
 			gap: 0,
@@ -73,7 +52,7 @@ export const InfoPaneContainer = chakra(
 			flex: "0 0 20rem",
 			gap: 0,
 			alignItems: "stretch",
-			overflow: "hidden",
+			overflow: "clip",
 			bgColor: "bg.3",
 			right: 0,
 			marginLeft: "auto",

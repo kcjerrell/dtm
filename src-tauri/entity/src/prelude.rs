@@ -7,3 +7,4 @@ pub use super::images::Entity as Images;
 pub use super::loras::Entity as Loras;
 pub use super::models::Entity as Models;
 pub use super::projects::Entity as Projects;
+pub use super::watch_folder::Entity as WatchFolder;

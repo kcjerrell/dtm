@@ -1,147 +1,208 @@
-import { Box, chakra } from "@chakra-ui/react"
-import { get } from "http"
-import { JSX, RefObject, useCallback, useEffect, useRef } from "react"
+import { Box, chakra, VStack } from "@chakra-ui/react"
+import { type JSX, useCallback, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { proxy, useSnapshot } from "valtio"
+import { proxyMap } from "valtio/utils"
 
-interface VirtualizedListProps<T> extends ChakraProps {
-	overscan?: number
-	itemComponent: (props: { value: T }) => JSX.Element
+export interface VirtualizedListProps<T, P> extends ChakraProps {
 	items: T[] | Readonly<T[]>
-	keyFn?: (item: T) => string | number
-	estimatedItemSize: number | string
+	itemComponent: React.ComponentType<VirtualizedListItemProps<T, P>>
+	/** number of screens */
+	overscan?: number
+	keyFn?: (item: T, index: number) => string | number
+	initialRenderCount?: number
+	itemProps?: P
 }
 
+export interface VirtualizedListItemProps<T, P> {
+	items: T[] | Readonly<T[]>
+	value: T | Readonly<T>
+	index: number
+	itemProps: P
+	onSizeChanged?: (index: number, isBaseSize: boolean) => void
+}
+
+type ProxyMap<K, V> = ReturnType<typeof proxyMap<K, V>>
 type StateProxy = {
 	currentItem: number
 	updates: number
+	preSpacerHeight: number
+	postSpacerHeight: number
+	minThreshold: number
+	maxThreshold: number
 	firstIndex: number
 	lastIndex: number
 	visibleHeight: number
+	expanded: ReturnType<typeof proxyMap<number, number>>
 }
-let renderCount = 0
-function VirtualizedList<T>(props: VirtualizedListProps<T>) {
-	const { overscan = 10, itemComponent, items, keyFn, estimatedItemSize, ...restProps } = props
+function VirtualizedList<T, P extends Record<string, unknown>>(props: VirtualizedListProps<T, P>) {
+	const {
+		itemComponent,
+		items,
+		keyFn,
+		initialRenderCount = 250,
+		overscan = 2,
+		itemProps,
+		...restProps
+	} = props
+	const Item = itemComponent
 
 	const stateRef = useRef<StateProxy>(null)
 	if (stateRef.current === null) {
 		stateRef.current = proxy({
 			currentItem: 0,
 			updates: 0,
+			preSpacerHeight: 0,
+			minThreshold: 0,
 			firstIndex: 0,
-			lastIndex: overscan * 4,
+			lastIndex: initialRenderCount,
+			maxThreshold: 0,
+			postSpacerHeight: 0,
 			visibleHeight: 1,
+			expanded: proxyMap<number, number>(),
 		})
 	}
 	const state = stateRef.current as StateProxy
+	const snap = useSnapshot(state)
 
-	const containerRef = useRef<HTMLDivElement>(null)
+	const scrollContainerRef = useRef<HTMLDivElement>(null)
+	const scrollContentRef = useRef<HTMLDivElement>(null)
 	const topSpaceRef = useRef<HTMLDivElement>(null)
 	const bottomSpaceRef = useRef<HTMLDivElement>(null)
 
-	const lastScrollPos = useRef(0)
+	const calcFirstAndLastIndex = useCallback(() => {
+		const container = scrollContainerRef.current
+		const content = scrollContentRef.current
+		if (!container || !content) return { first: -1, last: -1 }
 
-	const snap = useSnapshot(state)
+		const scrollTop = container.scrollTop
+		const scrollBottom = scrollTop + container.clientHeight
+		const itemHeight = getItemHeight(content, state.expanded, state.firstIndex)
 
-	const Item = itemComponent
-	const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement, UIEvent>) => {
-		if (!containerRef.current || !topSpaceRef.current || !bottomSpaceRef.current) return
+		let first = -1
+		let last = -1
 
-		const scrollPos = e.currentTarget.scrollTop
-		const bottomEdge = scrollPos + containerRef.current.clientHeight
-		
-		if (
-			scrollPos - state.visibleHeight < topSpaceRef.current.clientHeight ||
-			bottomEdge + state.visibleHeight > bottomSpaceRef.current.offsetTop
-		) {
-			const avgHeight = getAverageItemHeight(containerRef.current)
-			const itemsPerScreen = Math.floor(state.visibleHeight / avgHeight)
-			const firstChildVisible = Math.floor(scrollPos / avgHeight)
-			console.log(
-				// scrollPos,
-				// bottomEdge,
-				// topSpaceRef.current.clientHeight,
-				// bottomSpaceRef.current.offsetTop,
-{				avgHeight,
-				visHeight: state.visibleHeight,
-				itemsPerScreen,
-				firstChildVisible}
-			)
-			console.log("jump")
-			
-			state.firstIndex =
-				Math.max(0, firstChildVisible - itemsPerScreen * 2)
-			state.lastIndex = firstChildVisible + itemsPerScreen * 3
+		let t = 0
+		for (let i = 0; i < items.length; i++) {
+			const h = state.expanded.get(i) ?? itemHeight
+			t += h
+			if (first === -1 && t >= scrollTop) first = i
+			if (t >= scrollBottom) {
+				last = i
+				break
+			}
 		}
-	}, [state])
 
-	// useEffect(() => {
-	// 	const observer = new IntersectionObserver(
-	// 		(entries) => {
-	// 			for (const e of entries) {
-	// 				if (e.target === bottomSpaceRef.current && e.isIntersecting) {
-	// 					// bottom spacer is a screen height away from the sreen
-	// 					const itemsPerScreen = Math.floor(snap.visibleHeight / getAverageItemHeight(containerRef.current))
-	// 					state.lastIndex = Math.min(items.length, state.lastIndex + itemsPerScreen)
-	// 					state.firstIndex = Math.max(0, state.lastIndex - itemsPerScreen * 4)
-	// 				}
-	// 				if (e.target === topSpaceRef.current && e.isIntersecting) {
-	// 					const itemsPerScreen = Math.floor(snap.visibleHeight / getAverageItemHeight(containerRef.current))
-	// 					state.firstIndex = Math.max(0, state.firstIndex - itemsPerScreen)
-	// 					state.lastIndex = state.firstIndex + itemsPerScreen * 4
-	// 				}
-	// 			}
-	// 		},
-	// 		{ rootMargin: `${snap.visibleHeight}px 0px`, root: containerRef.current },
-	// 	) // preload ahead
+		return { first, last }
+	}, [items.length, state])
 
-	// 	if (topSpaceRef.current) observer.observe(topSpaceRef.current)
-	// 	if (bottomSpaceRef.current) observer.observe(bottomSpaceRef.current)
+	const recalculate = useCallback(() => {
+		const scrollContent = scrollContentRef.current
+		const scrollContainer = scrollContainerRef.current
+		if (!scrollContent || !scrollContainer) return
 
-	// 	return () => observer.disconnect()
-	// }, [items.length, state, snap.visibleHeight])
+		const { first, last } = calcFirstAndLastIndex()
+		if (first === -1 || last === -1) return
+		const visibleItemsCount = last - first + 1
+
+		const itemHeight = getItemHeight(scrollContent, state.expanded, state.firstIndex)
+
+		state.firstIndex = Math.max(0, first - visibleItemsCount * overscan)
+		state.lastIndex = Math.min(items.length, last + visibleItemsCount * overscan)
+
+		const [pre, mid, post] = calcRangeHeights(
+			state.firstIndex,
+			state.lastIndex,
+			items.length,
+			itemHeight,
+			state.expanded,
+		)
+
+		state.preSpacerHeight = pre
+		state.postSpacerHeight = post
+
+		state.minThreshold = (scrollContainer.scrollTop + pre) / 2
+		const scrollBottom = scrollContainer.scrollTop + scrollContainer.clientHeight
+		state.maxThreshold = (scrollBottom + pre + mid) / 2 - scrollContainer.clientHeight
+	}, [items.length, overscan, state, calcFirstAndLastIndex])
+
+	const handleScroll = useCallback(
+		(e: React.UIEvent<HTMLDivElement, UIEvent>) => {
+			if (
+				e.currentTarget.scrollTop < state.minThreshold ||
+				e.currentTarget.scrollTop > state.maxThreshold
+			) {
+				recalculate()
+			}
+		},
+		[recalculate, state],
+	)
 
 	useEffect(() => {
-		if (!containerRef.current) return
+		recalculate()
+	}, [recalculate])
+
+	useEffect(() => {
+		if (!scrollContainerRef.current) return
 		const ro = new ResizeObserver(() => {
-			if (!containerRef.current) return
-			state.visibleHeight = containerRef.current.clientHeight
+			if (!scrollContainerRef.current) return
+			state.visibleHeight = scrollContainerRef.current.clientHeight
+			recalculate()
 		})
-		ro.observe(containerRef.current)
+		ro.observe(scrollContainerRef.current)
 
 		return () => ro.disconnect()
-	}, [state])
+	}, [state, recalculate])
 
-	const itemSize = getAverageItemHeight(containerRef.current) ?? 1
-	const topSpace = `${itemSize * state.firstIndex}px` //`calc(${itemSize} * ${state.firstIndex})`
-	const bottomSpace = `${itemSize * (items.length - state.lastIndex)}px` //`calc(${itemSize} * ${items.length - state.lastIndex})`
-	// console.log("render", renderCount++)
+	const handleSizeChanged = useCallback(
+		(index: number, baseSize: boolean) => {
+			const actualIndex = index - snap.firstIndex + 1
+
+			if (baseSize) {
+				state.expanded.delete(index)
+				return
+			}
+
+			const element = scrollContentRef.current?.children[actualIndex] as HTMLDivElement
+			const nextElement = scrollContainerRef.current?.firstElementChild?.children[
+				actualIndex + 1
+			] as HTMLDivElement
+			state.expanded.set(index, nextElement?.offsetTop - element?.offsetTop)
+		},
+		[state, snap.firstIndex],
+	)
+
 	return (
 		<Container
-			ref={containerRef}
+			ref={scrollContainerRef}
 			position={"relative"}
 			onScroll={(e) => handleScroll(e)}
 			{...restProps}
 		>
-			<Content gridTemplateRows={`repeat(${items.length}, 1fr)`} height={`${itemSize * items.length}px`}>
-				<Box ref={topSpaceRef} gridRowStart={1} gridRowEnd={snap.firstIndex} display={snap.firstIndex > 0 ? "block" : "none"} />
-				{items.slice(snap.firstIndex, snap.lastIndex).map((item, i) => (
-					<Item
-						index={i + snap.firstIndex}
-						gridRow={i + snap.firstIndex + 1}
-						value={item}
-						key={keyFn?.(item) ?? i}
-					/>
-				))}
+			<VStack ref={scrollContentRef}>
+				<Box ref={topSpaceRef} height={`${snap.preSpacerHeight}px`} />
+				{items.slice(snap.firstIndex, snap.lastIndex).map((item, i) => {
+					const index = i + snap.firstIndex
+					return (
+						<Item
+							index={index}
+							items={items as T[]}
+							onSizeChanged={handleSizeChanged}
+							value={item}
+							key={keyFn?.(item, index) ?? i}
+							itemProps={itemProps}
+						/>
+					)
+				})}
 				<div
 					ref={bottomSpaceRef}
 					style={{
-						gridRowStart: snap.lastIndex + 2,
-						gridRowEnd: items.length,
+						height: `${snap.postSpacerHeight}px`,
 					}}
 				/>
-			</Content>
-			{createPortal(
+			</VStack>
+
+			{/* {createPortal(
 				<Box position={"absolute"} bottom={2} right={2} whiteSpace={"pre-"}>
 					Items: {items.length} <br />
 					Current Item: {snap.currentItem} <br />
@@ -150,7 +211,7 @@ function VirtualizedList<T>(props: VirtualizedListProps<T>) {
 					Height: {snap.visibleHeight}
 				</Box>,
 				document.getElementById("root"),
-			)}
+			)} */}
 		</Container>
 	)
 }
@@ -170,52 +231,77 @@ const Content = chakra("div", {
 		gridTemplateColumns: "1fr",
 		justifyContent: "flex-start",
 		alignItems: "stretch",
-		gap: 0
+		gap: 0,
 	},
 })
 
-type DerefRefType<T = Record<string, RefObject<unknown>>> = {
-	[K in keyof T]: T[K] extends RefObject<infer V> ? V : never
-}
-
 export default VirtualizedList
 
-function countVisibleItems(container: HTMLDivElement | null) {
-	if (!container) return
+function getItemHeight(
+	container: HTMLDivElement | null,
+	expanded: Map<number, number>,
+	first: number,
+) {
+	if (!container) return 1
 
-	const content = container.firstChild as HTMLDivElement
-	if (!content) return
+	if (!container || container.childNodes.length <= 2) return 1
+	if (container.childNodes.length === 3)
+		return (container.childNodes[1] as HTMLDivElement).clientHeight
 
-	const top = container.scrollTop
-	const bottom = top + container.clientHeight
+	// instead of getting the item height, I need the distance to the next item
+	// and thanks to the spacer there will always be a next item so I don't have to worry about checking
+	let actual = -1
+	for (let i = 1; i < container.childNodes.length - 1; i++) {
+		actual = first + i - 1
+		if (expanded.has(actual)) continue
 
-	let visible = 0
+		const a = container.childNodes[i] as HTMLDivElement
+		const b = container.childNodes[i + 1] as HTMLDivElement
 
-	for (const child of content.childNodes as Iterable<HTMLElement>) {
-		if (child.offsetTop < bottom && child.offsetTop + child.clientHeight > top) {
-			visible++
+		return b.offsetTop - a.offsetTop
+	}
+
+	return 1
+}
+
+function calcRangeHeights(
+	first: number,
+	last: number,
+	length: number,
+	baseHeight: number,
+	expanded: ProxyMap<number, number>,
+) {
+	const [pre, mid, post] = sumGroups(expanded, first, last)
+
+	const preCount = first
+	const preHeight = (preCount - pre.count) * baseHeight + pre.sum
+
+	const midCount = last - first + 1
+	const midHeight = (midCount - mid.count) * baseHeight + mid.sum
+
+	const postCount = length - last - 1
+	const postHeight = (postCount - post.count) * baseHeight + post.sum
+
+	return [preHeight, midHeight, postHeight]
+}
+
+function sumGroups(map: Map<number, number>, pre: number, post: number) {
+	const preGroup = { sum: 0, count: 0 }
+	const midGroup = { sum: 0, count: 0 }
+	const postGroup = { sum: 0, count: 0 }
+
+	for (const [k, v] of map.entries()) {
+		if (k < pre) {
+			preGroup.sum += v
+			preGroup.count++
+		} else if (k > post) {
+			postGroup.sum += v
+			postGroup.count++
+		} else {
+			midGroup.sum += v
+			midGroup.count++
 		}
 	}
 
-	return visible
-}
-
-function getAverageItemHeight(container: HTMLDivElement | null) {
-	if (!container) return 1
-
-	const content = container.firstChild as HTMLDivElement
-	if (!content || content.childNodes.length <= 2) return 1
-
-	let total = 0
-	let count = 0
-
-	for (const child of content.childNodes as Iterable<HTMLElement>) {
-		count += 1
-		// skip the spacers
-		if (count === 1 || count === content.childNodes.length) continue
-
-		total += child.clientHeight
-	}
-
-	return total / count
+	return [preGroup, midGroup, postGroup]
 }

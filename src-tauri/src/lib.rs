@@ -112,6 +112,7 @@ pub fn run() {
             projects_db_list_images,
             dt_project_get_history_full,
             projects_db_find_images,
+            dt_project_get_tensor
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             println!("dtm: {}", request.uri().path());

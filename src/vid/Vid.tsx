@@ -1,4 +1,4 @@
-import { CheckRoot } from "@/metadata/Containers"
+import { CheckRoot } from "@/components"
 import { clipboardTextTypes, parseText } from "@/metadata/state/imageLoaders"
 import { getClipboardText, getClipboardTypes } from "@/utils/clipboard"
 import {

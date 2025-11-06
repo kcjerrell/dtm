@@ -1,4 +1,4 @@
-import SliderWithInput from "@/components/sliderWithInput"
+import { SliderWithInput } from '@/components'
 import { clipboardTextTypes, parseText } from "@/metadata/state/imageLoaders"
 import { getClipboardTypes, getClipboardText } from "@/utils/clipboard"
 import { shuffle } from "@/utils/helpers"

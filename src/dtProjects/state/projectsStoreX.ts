@@ -1,14 +1,15 @@
 import { invoke } from "@tauri-apps/api/core"
 import { proxy } from "valtio"
-import { DTImage, TensorHistory } from "@/types"
+import { DTImage, TensorHistoryNode } from "@/types"
 import { open } from "@tauri-apps/plugin-dialog"
 import { listen } from "@tauri-apps/api/event"
 import { readDir } from "@tauri-apps/plugin-fs"
 import { path } from "@tauri-apps/api"
 import { ScanProgressEvent, DTProject } from "../types"
+import { convertResponseImage } from "dt-grpc-ts/web"
 
-let scanProgressUnlisten: () => void = () => void 0
-async function listenToScanProgress() {
+let scanProgressUnlisten: () => void = () => undefined
+async function attachListeners() {
 	scanProgressUnlisten()
 	scanProgressUnlisten = await listen("projects_db_scan_progress", (e: ScanProgressEvent) => {
 		console.log(e.payload)
@@ -22,7 +23,8 @@ async function listenToScanProgress() {
 
 		if (path) {
 			const project = state.projects.find((p) => p.path === path)
-			if (project) project.image_count = images_scanned
+			// if (project) project.image_count = images_scanned
+			if (project) project.scanProgress = Math.round((100 * images_scanned) / images_total)
 		}
 
 		if (state.scanningProject !== path) {
@@ -41,15 +43,15 @@ async function listenToScanProgress() {
 	})
 }
 
-function unlistenToScanProgress() {
+function removeListeners() {
 	scanProgressUnlisten()
-	scanProgressUnlisten = () => void 0
+	scanProgressUnlisten = () => undefined
 }
 
 export const state = proxy({
 	projects: [] as DTProject[],
 	items: [] as DTImage[],
-	itemDetails: {} as Record<number, TensorHistory>,
+	itemDetails: {} as Record<number, TensorHistoryNode>,
 	thumbs: {} as Record<number, string>,
 	scanProgress: -1,
 	scanningProject: "",
@@ -130,7 +132,7 @@ export async function selectProject(path: Pick<DTProject, "project_id">) {
 
 	const items = await listImages({ projectId: project.project_id, take: null })
 	console.log(items)
-	state.items = items as TensorHistory[]
+	state.items = items as TensorHistoryNode[]
 	state.itemDetails = proxy({})
 
 	// if (projectData.selectedProject) {
@@ -220,7 +222,7 @@ export async function selectItem(index: number) {
 		projectFile: project.path,
 		skip: state.items[index].row_id,
 		take: 1,
-	})) as TensorHistory[]
+	})) as TensorHistoryNode[]
 
 	console.log(state.items[index].row_id, history)
 
@@ -229,14 +231,29 @@ export async function selectItem(index: number) {
 
 export async function search(term: string) {
 	await invoke("projects_db_find_images", { promptSearch: term }).then((r) => {
-		state.items = r
+		const { items, total } = r
+		state.items = items
 	})
 }
 
+async function getTensor(projectFile: string, name: string) {
+	console.log("hello", projectFile, name)
+	// const tensor = await invoke("dt_project_get_tensor", { projectFile, name })
+
+	// if (tensor && Array.isArray(tensor)) {
+	// 	const data = new Uint8Array(tensor)
+	// 	const b64 = btoa(String.fromCharCode.apply(null, data))
+	// 	return `data:image/png;base64,${b64}`
+	// }
+
+	// console.log(tensor)
+}
+
 const DTProjectsStore = {
-	listenToScanProgress,
-	unlistenToScanProgress,
-	state
+	attachListeners,
+	removeListeners,
+	state,
+	getTensor,
 }
 
 export default DTProjectsStore

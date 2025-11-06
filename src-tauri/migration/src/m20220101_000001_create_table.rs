@@ -173,6 +173,16 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_table(
+                Table::create()
+                .table(WatchFolder::Table)
+                .if_not_exists()
+                .col(ColumnDef::new(WatchFolder::WatchFolderId).integer().not_null().auto_increment().primary_key())
+                .col(ColumnDef::new(WatchFolder::Path).text().not_null().unique_key())
+                .to_owned(),
+            ).await?;
+
         Ok(())
     }
 
@@ -245,4 +255,11 @@ enum ImageCnets {
     Table,
     ImageId,
     CnetId,
+}
+
+#[derive(Iden)]
+enum WatchFolder {
+    Table,
+    WatchFolderId,
+    Path,
 }

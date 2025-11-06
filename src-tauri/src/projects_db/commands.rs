@@ -1,8 +1,13 @@
+use std::{fs::File, io::Write};
+
 use futures::SinkExt;
 use tauri::Emitter;
 
 use crate::projects_db::{
-    DTProject, MixedError, ProjectsDb, TensorHistory, dt_project::TensorHistoryExtra, projects_db::{ImageExtra, ProjectExtra, ScanProgress}
+    dt_project::TensorHistoryExtra,
+    projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress},
+    tensors::tensor_to_png_bytes,
+    DTProject, MixedError, ProjectsDb, TensorHistory,
 };
 
 #[tauri::command]
@@ -77,7 +82,7 @@ pub async fn projects_db_find_images(
     prompt_search: String,
     take: Option<u64>,
     skip: Option<u64>,
-) -> Result<Vec<ImageExtra>, String> {
+) -> Result<Paged<ImageExtra>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
 
     let opts = super::projects_db::ListImagesOptions {
@@ -149,4 +154,18 @@ pub async fn dt_project_get_history_full(
     let project = DTProject::get(&project_file).await.unwrap();
     let history = project.get_history_full(skip, take).await.unwrap();
     Ok(history)
+}
+
+#[tauri::command]
+pub async fn dt_project_get_tensor(project_file: String, name: String) -> Result<Vec<u8>, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    let buffer = project.get_tensor(&name).await.unwrap();
+    Ok(buffer)
+    // let png = tensor_to_png_bytes(&buffer).unwrap();
+
+    // let path = format!("{}.png", name);
+    // let mut file = File::create(path).unwrap();
+    // file.write_all(&png).unwrap();
+
+    // Ok(png)
 }

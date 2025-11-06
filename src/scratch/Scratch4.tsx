@@ -1,6 +1,6 @@
 import { Box, HStack, VStack } from "@chakra-ui/react"
 import { proxy, useSnapshot } from "valtio"
-import { CheckRoot } from "@/metadata/Containers"
+import { CheckRoot } from "@/components"
 import { MotionBox, Panel } from "@/components/common"
 import { motion } from 'motion/react'
 

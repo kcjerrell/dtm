@@ -25,7 +25,7 @@
       ]
     }
   },
-  "include": ["src", "src/global.ts"],
+  "include": ["./src", "./src/global.ts"],
   // "exclude": ["src/scratch/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

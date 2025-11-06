@@ -7,15 +7,15 @@ use serde::Serialize;
 #[sea_orm(table_name = "images")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub image_id: i64,
-    pub project_id: i64,
+    pub image_id: i32,
+    pub project_id: i32,
     pub model_id: Option<i32>,
     #[sea_orm(column_type = "Text", nullable)]
     pub prompt: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub negative_prompt: Option<String>,
-    pub dt_id: i64,
-    pub row_id: i64,
+    pub dt_id: i32,
+    pub row_id: i32,
     pub wall_clock: DateTime,
 }
 

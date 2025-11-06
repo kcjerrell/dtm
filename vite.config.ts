@@ -1,7 +1,8 @@
-import { defineConfig } from "vite";
+import { defineConfig, ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
+import wasm from "vite-plugin-wasm";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -26,6 +27,7 @@ export default defineConfig(async () => ({
       }
     }),
     tsconfigPaths(),
+    wasm(),
   ],
   resolve: {
     alias: {
