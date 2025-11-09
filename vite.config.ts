@@ -23,7 +23,9 @@ export default defineConfig(async () => ({
     }),
     react({
       babel: {
-        plugins: ['babel-plugin-react-compiler'],
+        plugins: ['babel-plugin-react-compiler',
+          ["@babel/plugin-proposal-decorators", { "version": "2023-11" }]
+        ],
       }
     }),
     tsconfigPaths(),

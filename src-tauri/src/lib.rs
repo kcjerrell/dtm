@@ -112,7 +112,7 @@ pub fn run() {
             projects_db_find_images,
             projects_db_list_watch_folders,
             projects_db_add_watch_folder,
-            projects_db_remove_watch_folder,
+            projects_db_remove_watch_folders,
 
             dt_project_get_tensor_history,
             dt_project_get_thumb_half,

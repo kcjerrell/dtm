@@ -1,4 +1,4 @@
-import { Button, HStack, IconButton, Spacer } from "@chakra-ui/react"
+import { Box, Button, HStack, IconButton, Spacer } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react"
@@ -46,7 +46,13 @@ function App() {
 							onClick={() => AppState.setView(item.viewId)}
 						/>
 					))}
-					<Spacer />
+					<Box bgColor={"fg.1/10"} flex={"1 1 auto"} width={"100%"} position={"relative"}>
+						<motion.div
+							animate={{ top: ["5%", "95%"] }}
+							transition={{ duration: 1, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }}
+							style={{left: "50%", width: "5px", height: "5px", position: "absolute", backgroundColor: "blue", borderRadius: "50%"}}
+						/>
+					</Box>
 					<Tooltip tip={"Toggle color mode"}>
 						<IconButton
 							color={"fg.2"}
@@ -158,7 +164,7 @@ const views = {
 	vid: lazy(() => import("./vid/Vid")),
 	library: lazy(() => import("./library/Library")),
 	projects: lazy(() => import("./dtProjects/DTProjects")),
-	scratch: lazy(() => import("./scratch/VList")),
+	scratch: lazy(() => import("./scratch/Scratch4")),
 }
 
 function getView(view: string) {

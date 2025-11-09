@@ -31,6 +31,7 @@
     "@tauri-apps/plugin-updater": "~2",
     "@tauri-apps/plugin-window-state": "~2",
     "@tauri-store/valtio": "^3.1.0",
+    "derive-valtio": "^0.2.0",
     "dt-grpc-ts": "/Users/kcjer/Projects/dt-grpc-ts",
     "exifr": "git+https://github.com/m-hayabusa/exifr.git#add-webp-support",
     "exifreader": "^4.31.2",
@@ -48,6 +49,7 @@
     "valtio": "^2.1.7"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^7.28.0",
     "@biomejs/biome": "2.2.5",
     "@octokit/rest": "^22.0.0",
     "@tauri-apps/cli": "^2",

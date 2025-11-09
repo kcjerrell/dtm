@@ -72,20 +72,26 @@ const themeConfig = defineConfig({
 				bg: {
 					"1": {
 						value: {
-							_light: "#f2f3f4",
-							_dark: "#141417",
+							_light: "#e0e1e2",
+							_dark: "#141617ff",
+						},
+					},
+					"deep": {
+						value: {
+							_light: "#c7c9caff",
+							_dark: "#0e0f10ff",
 						},
 					},
 					"2": {
 						value: {
 							_light: "#e8eaeb",
-							_dark: "#252525",
+							_dark: "#1f2224ff",
 						},
 					},
 					"3": {
 						value: {
-							_light: "#e0e1e2",
-							_dark: "#272932",
+							_light: "#f2f3f4",
+							_dark: "#272a2dff",
 						},
 					},
 					"0": {

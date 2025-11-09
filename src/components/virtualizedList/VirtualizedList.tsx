@@ -40,7 +40,7 @@ function VirtualizedList<T, P extends Record<string, unknown>>(props: Virtualize
 		itemComponent,
 		items,
 		keyFn,
-		initialRenderCount = 250,
+		initialRenderCount = 50,
 		overscan = 2,
 		itemProps,
 		...restProps
@@ -199,7 +199,9 @@ function VirtualizedList<T, P extends Record<string, unknown>>(props: Virtualize
 					style={{
 						height: `${snap.postSpacerHeight}px`,
 					}}
-				/>
+				>
+					{snap.postSpacerHeight} {items.length}
+				</div>
 			</VStack>
 
 			{/* {createPortal(

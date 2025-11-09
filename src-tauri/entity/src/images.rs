@@ -14,8 +14,8 @@ pub struct Model {
     pub prompt: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub negative_prompt: Option<String>,
-    pub dt_id: i32,
-    pub row_id: i32,
+    pub dt_id: i64,
+    pub row_id: i64,
     pub wall_clock: DateTime,
 }
 

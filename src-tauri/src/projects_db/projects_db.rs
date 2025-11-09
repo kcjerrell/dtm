@@ -204,11 +204,11 @@ impl ProjectsDb {
                             // .filter(|h| h.index_in_a_clip == 0 && h.generated)
                             .map(|h| images::ActiveModel {
                                 project_id: Set(project.project_id as i32),
-                                dt_id: Set(h.image_id as i32),
+                                dt_id: Set(h.image_id),
                                 prompt: Set(Some(h.prompt.clone())),
                                 negative_prompt: Set(Some(h.negative_prompt.clone())),
                                 model_id: Set(map.get(&h.model).copied()),
-                                row_id: Set(h.row_id as i32),
+                                row_id: Set(h.row_id),
                                 wall_clock: Set(DateTime::from_timestamp(h.wall_clock / 1000, 0)
                                     .unwrap()
                                     .naive_utc()),
@@ -273,45 +273,46 @@ impl ProjectsDb {
         term: &str,
         opts: ListImagesOptions,
     ) -> Result<Paged<ImageExtra>, DbErr> {
-        print!(
-            "ListImagesOptions: {:#?}, FindImagesOptions: {:#?}\n",
-            term, opts
-        );
+        todo!();
+        // print!(
+        //     "ListImagesOptions: {:#?}, FindImagesOptions: {:#?}\n",
+        //     term, opts
+        // );
 
-        // Base query without pagination
-        let mut base_query = images::Entity::find()
-            .join(JoinType::LeftJoin, images::Relation::Models.def())
-            .filter(images::Column::Prompt.contains(term));
+        // // Base query without pagination
+        // let mut base_query = images::Entity::find()
+        //     .join(JoinType::LeftJoin, images::Relation::Models.def())
+        //     .filter(images::Column::Prompt.contains(term));
 
-        if let Some(project_id) = opts.project_id {
-            base_query = base_query.filter(images::Column::ProjectId.eq(project_id));
-        }
+        // if let Some(project_id) = opts.project_ids {
+        //     base_query = base_query.filter(images::Column::ProjectId.eq(project_ids));
+        // }
 
-        // Clone before applying limit/offset
-        let mut data_query = base_query
-            .clone()
-            .order_by(images::Column::WallClock, Order::Desc)
-            .column_as(entity::models::Column::Filename, "model_file");
+        // // Clone before applying limit/offset
+        // let mut data_query = base_query
+        //     .clone()
+        //     .order_by(images::Column::WallClock, Order::Desc)
+        //     .column_as(entity::models::Column::Filename, "model_file");
 
-        if let Some(skip) = opts.skip {
-            data_query = data_query.offset(skip);
-        }
+        // if let Some(skip) = opts.skip {
+        //     data_query = data_query.offset(skip as u64);
+        // }
 
-        if let Some(take) = opts.take {
-            data_query = data_query.limit(take);
-        }
+        // if let Some(take) = opts.take {
+        //     data_query = data_query.limit(take as u64);
+        // }
 
-        // 1️⃣ Count total
-        let total = base_query.clone().count(&self.db).await?;
+        // // 1️⃣ Count total
+        // let total = base_query.clone().count(&self.db).await?;
 
-        // 2️⃣ Fetch limited data
-        let items = data_query.into_model::<ImageExtra>().all(&self.db).await?;
+        // // 2️⃣ Fetch limited data
+        // let items = data_query.into_model::<ImageExtra>().all(&self.db).await?;
 
-        // 3️⃣ Combine
-        Ok(Paged { items, total })
+        // // 3️⃣ Combine
+        // Ok(Paged { items, total })
     }
 
-    pub async fn list_images(&self, opts: ListImagesOptions) -> Result<Vec<ImageExtra>, DbErr> {
+    pub async fn list_images(&self, opts: ListImagesOptions) -> Result<Paged<ImageExtra>, DbErr> {
         print!("ListImagesOptions: {:#?}\n", opts);
 
         let mut query = images::Entity::find()
@@ -319,20 +320,22 @@ impl ProjectsDb {
             .column_as(entity::models::Column::Filename, "model_file")
             .order_by(images::Column::WallClock, Order::Desc);
 
-        if let Some(project_id) = opts.project_id {
-            query = query.filter(images::Column::ProjectId.eq(project_id));
+        if let Some(project_ids) = &opts.project_ids {
+            if !project_ids.is_empty() {
+                query = query.filter(images::Column::ProjectId.is_in(project_ids.clone()));
+            }
         }
 
         if let Some(skip) = opts.skip {
-            query = query.offset(skip);
+            query = query.offset(skip as u64);
         }
 
         if let Some(take) = opts.take {
-            query = query.limit(take);
+            query = query.limit(take as u64);
         }
-
+        let count = query.clone().count(&self.db).await?;
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
-        Ok(result)
+        Ok(Paged { items: result, total: count })
     }
 
     pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folder::Model>, DbErr> {
@@ -353,23 +356,28 @@ impl ProjectsDb {
         Ok(folder)
     }
 
-    pub async fn remove_watch_folder(&self, path: &str) -> Result<(), DbErr> {
-        let _folder = entity::watch_folder::Entity::delete_many()
-            .filter(entity::watch_folder::Column::Path.eq(path.to_string()))
+    pub async fn remove_watch_folders(&self, paths: Vec<String>) -> Result<(), DbErr> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        entity::watch_folder::Entity::delete_many()
+            .filter(entity::watch_folder::Column::Path.is_in(paths))
             .exec(&self.db)
             .await?;
+
         Ok(())
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ListImagesOptions {
-    pub project_id: Option<u64>,
+    pub project_ids: Option<Vec<i32>>,
     pub model: Option<String>,
     pub sort: Option<String>,
     pub direction: Option<String>,
-    pub take: Option<u64>,
-    pub skip: Option<u64>,
+    pub take: Option<i32>,
+    pub skip: Option<i32>,
 }
 
 #[derive(Debug, FromQueryResult, Serialize)]

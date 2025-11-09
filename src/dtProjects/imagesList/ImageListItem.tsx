@@ -3,15 +3,15 @@ import { MeasureGrid } from "@/components"
 import { showPreview } from "@/components/preview"
 import type { VirtualizedListItemProps } from "@/components/virtualizedList/VirtualizedList"
 import DataItem from "@/metadata/infoPanel/DataItem"
-import type { DTImage } from "@/types"
-import type { ProjectDataStateType } from "../state/projectsStoreX"
+import { ImageExtra } from '@/commands'
+import { DTProjectsState } from '../state/projectStore'
 
 interface ImagesListItemProps {
-	snap: ReadonlyState<ProjectDataStateType>
+	snap: ReadonlyState<DTProjectsState>
 	onSelect: (index: number) => void
 }
 
-function ImagesListItem(props: VirtualizedListItemProps<DTImage, ImagesListItemProps>) {
+function ImagesListItem(props: VirtualizedListItemProps<ImageExtra, ImagesListItemProps>) {
 	const { index, itemProps } = props
 	const { snap, onSelect } = itemProps
 	const item = snap.items[index]

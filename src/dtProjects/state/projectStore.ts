@@ -1,14 +1,16 @@
-import { proxy } from "valtio"
-import type { DTImage, DTProject, ScanProgressEvent, TensorHistoryExtra } from "../types"
+import { proxy, useSnapshot } from "valtio"
+import type { DTProject, ScanProgressEvent, TensorHistoryExtra } from "../types"
 import { listen } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
-import { loadWatchFolders } from './watchFolders'
-import { loadProjects } from './projects'
+import { addWatchFolder, loadWatchFolders, scanFolder } from "./watchFolders"
+import { addProjects, checkProjects, loadProjects } from "./projects"
+import { ImageExtra, projectsDb } from "@/commands"
 
 const state = proxy({
 	projects: [] as DTProject[],
 	watchFolders: [] as string[],
-	items: [] as DTImage[],
+	imageSource: null as ImagesSource | null,
+	items: [] as ImageExtra[],
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
 	scanProgress: -1,
 	scanningProject: "",
@@ -18,10 +20,35 @@ const state = proxy({
 	searchInput: "",
 })
 
+export type DTProjectsState = typeof state
+
 async function init() {
 	await attachListeners()
-  await loadWatchFolders()
-  await loadProjects()
+	await loadWatchFolders()
+	await loadProjects()
+
+	const knownProjects = state.projects.reduce(
+		(acc, p) => {
+			acc[p.path] = false
+			return acc
+		},
+		{} as Record<string, boolean>,
+	)
+
+	for (const folder of state.watchFolders) {
+		const folderProjects = await scanFolder(folder)
+		for (const fp of folderProjects) {
+			if (fp in knownProjects) continue
+			knownProjects[fp] = true
+		}
+	}
+
+	const newProjects = Object.entries(knownProjects)
+		.filter(([_k, v]) => v)
+		.map(([k]) => k)
+	await addProjects(newProjects)
+
+	// await projectsDb.scanAllProjects()
 }
 
 let scanProgressUnlisten: () => void = () => undefined
@@ -70,11 +97,40 @@ function removeListeners() {
 	scanProgressUnlisten = () => undefined
 }
 
+type ImagesSource = {
+	projects?: DTProject[]
+	search?: unknown
+	filter?: unknown
+}
+
+async function setImagesSource(source: ImagesSource) {
+	console.log('imagesource', source)
+	if (JSON.stringify(source) === JSON.stringify(state.imageSource)) return
+	state.imageSource = source
+	state.items = []
+	if (source.projects) {
+		const result = await projectsDb.listImages({projectIds: source.projects.map(p => p.project_id), skip: 0, take: 250})
+		state.items = Array(result.total)
+		state.items.splice(0, result.items.length, ...result.items)
+		console.log(result.total)
+		// state.items = result.items
+	}
+}
+
 const DTProjects = {
 	state,
 	loadProjects,
 	removeListeners,
-  init,
+	init,
+	setImagesSource,
+}
+
+export function useDTProjects() {
+	const snap = useSnapshot(DTProjects.state)
+	return {
+		snap,
+		...DTProjects,
+	}
 }
 
 export default DTProjects

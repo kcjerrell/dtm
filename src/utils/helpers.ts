@@ -1,3 +1,5 @@
+import { open } from "@tauri-apps/plugin-dialog"
+
 export function areEquivalent(a: unknown[], b: unknown[]) {
 	if (a.length !== b.length) return false
 	for (let i = 0; i < a.length; i++) {
@@ -84,4 +86,28 @@ export async function settledValues<T>(promises: Promise<T>[]): Promise<NonNulla
 		.filter(isFulfilled)
 		.map((r) => r.value)
 		.filter((v): v is Awaited<NonNullable<T>> => v !== null)
+}
+
+type OpenOptions = Parameters<typeof open>[0]
+type SingleOpenOptions = OpenOptions & { multiple: false | undefined}
+type SingleOpenAndCallback<T> = (f: string) => T | Promise<T>
+type MultipleOpenOptions = OpenOptions & { multiple: true}
+type MultiOpenAndCallback<T> = (f: string[]) => T | Promise<T>
+
+export async function openAnd<T>(callback: SingleOpenAndCallback<T>, options: SingleOpenOptions): Promise<T | null>
+export async function openAnd<T>(callback: MultiOpenAndCallback<T>, options: MultipleOpenOptions) : Promise<T | null>
+export async function openAnd<T>(
+	callback: SingleOpenAndCallback<T> | MultiOpenAndCallback<T>,
+	options: Parameters<typeof open>[0] = {},
+) {
+	const files = await open(options)
+	if (!files || (Array.isArray(files) && files.length === 0)) return null
+
+	if (options.multiple) {
+		const arg = Array.isArray(files) ? files as string[] : [files]
+		return (callback as MultiOpenAndCallback<T>)(arg)
+	}
+	else {
+		return (callback as SingleOpenAndCallback<T>)(files)
+	}
 }

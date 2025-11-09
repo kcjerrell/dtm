@@ -1,13 +1,9 @@
-use std::{fs::File, io::Write};
-
-use futures::SinkExt;
 use tauri::Emitter;
 
 use crate::projects_db::{
     dt_project::TensorHistoryExtra,
     projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress},
-    tensors::tensor_to_png_bytes,
-    DTProject, MixedError, ProjectsDb, TensorHistory,
+    DTProject, ProjectsDb, TensorHistory,
 };
 
 #[tauri::command]
@@ -75,18 +71,18 @@ pub async fn projects_db_scan_all_projects(app_handle: tauri::AppHandle) -> Resu
 #[tauri::command]
 pub async fn projects_db_find_images(
     app: tauri::AppHandle,
-    project_id: Option<u64>,
+    project_ids: Option<Vec<i32>>,
     sort: Option<String>,
     direction: Option<String>,
     model: Option<String>,
     prompt_search: String,
-    take: Option<u64>,
-    skip: Option<u64>,
+    take: Option<i32>,
+    skip: Option<i32>,
 ) -> Result<Paged<ImageExtra>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
 
     let opts = super::projects_db::ListImagesOptions {
-        project_id,
+        project_ids,
         sort,
         direction,
         model,
@@ -100,24 +96,25 @@ pub async fn projects_db_find_images(
 #[tauri::command]
 pub async fn projects_db_list_images(
     app: tauri::AppHandle,
-    project_id: Option<u64>,
+    project_ids: Option<Vec<i32>>,
     sort: Option<String>,
     direction: Option<String>,
     model: Option<String>,
     prompt_search: Option<String>,
-    take: Option<u64>,
-    skip: Option<u64>,
-) -> Result<Vec<ImageExtra>, String> {
+    take: Option<i32>,
+    skip: Option<i32>,
+) -> Result<Paged<ImageExtra>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-
     let opts = super::projects_db::ListImagesOptions {
-        project_id,
+        project_ids,
         sort,
         direction,
         model,
         take,
         skip,
     };
+
+    println!("list images: {:?}", opts);
 
     Ok(projects_db.list_images(opts).await.unwrap())
 }
@@ -188,10 +185,15 @@ pub async fn projects_db_add_watch_folder(
 }
 
 #[tauri::command]
-pub async fn projects_db_remove_watch_folder(
+pub async fn projects_db_remove_watch_folders(
     app: tauri::AppHandle,
-    path: String,
+    paths: Vec<String>,
 ) -> Result<(), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
-    Ok(projects_db.remove_watch_folder(&path).await.unwrap())
+    let projects_db = ProjectsDb::get_or_init(&app)
+        .await
+        .map_err(|e| e.to_string())?;
+    projects_db
+        .remove_watch_folders(paths)
+        .await
+        .map_err(|e| e.to_string())
 }

@@ -60,8 +60,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::ModelId).integer())
                     .col(ColumnDef::new(Images::Prompt).text())
                     .col(ColumnDef::new(Images::NegativePrompt).text())
-                    .col(ColumnDef::new(Images::DtId).integer().not_null())
-                    .col(ColumnDef::new(Images::RowId).integer().not_null())
+                    .col(ColumnDef::new(Images::DtId).big_integer().not_null())
+                    .col(ColumnDef::new(Images::RowId).big_integer().not_null())
                     .col(ColumnDef::new(Images::WallClock).date_time().not_null())
                     .index(
                         Index::create()

@@ -4,6 +4,7 @@ import { readDir } from '@tauri-apps/plugin-fs'
 import { DTProject } from '../types'
 import DTProjects from './projectStore'
 import { path } from '@tauri-apps/api'
+import { projectsDb } from '@/commands'
 
 export async function addProject(directory = false) {
 	const result = await open({
@@ -61,5 +62,20 @@ export async function scanAllProjects() {
 
 export async function removeProject(projectFile: string) {
 	await invoke("projects_db_remove_project", { path: projectFile })
+	await loadProjects()
+}
+
+export async function checkProjects(projectsFiles: string[]) {
+	for (const projectFile of projectsFiles) {
+		if (DTProjects.state.projects.includes(projectFile)) {
+
+		}
+	}
+}
+
+export async function addProjects(projectFiles: string[]) {
+	for (const pf of projectFiles) {
+		await projectsDb.addProject(pf)
+	}
 	await loadProjects()
 }
