@@ -1,7 +1,7 @@
 import { Panel, VirtualizedList } from "@/components"
 import ImagesListItem from "./ImageListItem"
 import { useSnapshot } from "valtio"
-import DTProjects, { getRequestOpts, useDTProjects } from "../state/projectStore"
+import DTProjects, { getRequestOpts, selectItem, useDTProjects } from "../state/projectStore"
 import PVList, { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
 import { ImageExtra, projectsDb } from "@/commands"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -46,10 +46,13 @@ function ImagesList(props: ImagesList) {
 				key={JSON.stringify(snap.imageSource)}
 				itemComponent={ImagesListItem as PVListItemComponent<ImageExtra>}
 				initialRenderCount={50}
-				itemProps={{ snap, onSelect: () => {} }}
+				itemProps={{
+					snap
+				}}
 				pageSize={250}
 				totalCount={totalCount}
 				getItems={getItems}
+				keyFn={(item) => `${item.project_id}_${item.row_id}`}
 			/>
 		</Panel>
 	)

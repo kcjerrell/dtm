@@ -16,7 +16,7 @@ pub struct Model {
     pub negative_prompt: Option<String>,
     pub dt_id: i64,
     pub row_id: i64,
-    pub wall_clock: DateTime,
+    pub wall_clock: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

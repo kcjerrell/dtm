@@ -3,7 +3,7 @@ use tauri::Emitter;
 use crate::projects_db::{
     dt_project::TensorHistoryExtra,
     projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress},
-    DTProject, ProjectsDb, TensorHistory,
+    DTProject, ProjectsDb, TensorHistoryImport,
 };
 
 #[tauri::command]
@@ -124,7 +124,7 @@ pub async fn dt_project_get_tensor_history(
     project_file: String,
     index: u32,
     count: u32,
-) -> Result<Vec<TensorHistory>, String> {
+) -> Result<Vec<TensorHistoryImport>, String> {
     let project = DTProject::get(&project_file).await.unwrap();
     Ok(project
         .get_tensor_history(index as i64, count as i64)

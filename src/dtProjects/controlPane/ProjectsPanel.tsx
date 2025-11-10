@@ -1,6 +1,6 @@
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useUiState } from "@/metadata/state/uiState"
-import { Progress } from "@chakra-ui/react"
+import { Box, HStack, Progress } from "@chakra-ui/react"
 import DTProjects, { useDTProjects } from "../state/projectStore"
 import { PaneListContainer, PanelListItem } from "@/components"
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
@@ -58,8 +58,12 @@ function ProjectListItem(props: ProjectListItemProps) {
 	const { project, ...restProps } = props
 	const { handlers, isSelected } = useSelectable(project)
 	return (
-		<PanelListItem selectable selected={isSelected} {...restProps} {...handlers}>
-			{project.path.split("/").pop()?.slice(0, -8)}
+		<PanelListItem selectable selected={isSelected} asChild {...restProps} {...handlers}>
+			<HStack>
+				<Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>
+				<Box>{project.scanningStatus}</Box>
+				<Box>{project.image_count}</Box>
+			</HStack>
 		</PanelListItem>
 	)
 }

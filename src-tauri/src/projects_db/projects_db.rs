@@ -201,7 +201,7 @@ impl ProjectsDb {
 
                         let images: Vec<images::ActiveModel> = histories
                             .iter()
-                            // .filter(|h| h.index_in_a_clip == 0 && h.generated)
+                            .filter(|h| h.index_in_a_clip == 0 && h.generated)
                             .map(|h| images::ActiveModel {
                                 project_id: Set(project.project_id as i32),
                                 dt_id: Set(h.image_id),
@@ -209,9 +209,7 @@ impl ProjectsDb {
                                 negative_prompt: Set(Some(h.negative_prompt.clone())),
                                 model_id: Set(map.get(&h.model).copied()),
                                 row_id: Set(h.row_id),
-                                wall_clock: Set(DateTime::from_timestamp(h.wall_clock / 1000, 0)
-                                    .unwrap()
-                                    .naive_utc()),
+                                wall_clock: Set(DateTime::from_timestamp(h.wall_clock, 0).unwrap_or_default()),
                                 ..Default::default()
                             })
                             .collect();
@@ -335,7 +333,10 @@ impl ProjectsDb {
         }
         let count = query.clone().count(&self.db).await?;
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
-        Ok(Paged { items: result, total: count })
+        Ok(Paged {
+            items: result,
+            total: count,
+        })
     }
 
     pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folder::Model>, DbErr> {

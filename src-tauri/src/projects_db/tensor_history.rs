@@ -1,56 +1,58 @@
+use chrono::{DateTime, NaiveDateTime};
+
 use super::tensor_history_mod::{Control, LoRA};
 use crate::projects_db::tensor_history_generated::{
     root_as_tensor_history_node, Reason, SamplerType, SeedMode,
 };
 
 #[derive(serde::Serialize, Debug)]
-pub struct TensorHistory {
+pub struct TensorHistoryImport {
     pub lineage: i64,
     pub logical_time: i64,
-    pub width: u16,
-    pub height: u16,
-    pub seed: u32,
-    pub steps: u32,
-    pub guidance_scale: f32,
-    pub strength: f32,
+    // pub width: u16,
+    // pub height: u16,
+    // pub seed: u32,
+    // pub steps: u32,
+    // pub guidance_scale: f32,
+    // pub strength: f32,
     pub model: String,
-    pub tensor_id: i64,
-    pub mask_id: i64,
+    // pub tensor_id: i64,
+    // pub mask_id: i64,
     pub wall_clock: i64,
     // pub text_edits: i64,
     // pub text_lineage: i64,
-    pub batch_size: u32,
-    pub sampler: String,
+    // pub batch_size: u32,
+    // pub sampler: String,
     // pub hires_fix: bool,
     // pub hires_fix_start_width: u16,
     // pub hires_fix_start_height: u16,
     // pub hires_fix_strength: f32,
-    pub upscaler: Option<String>,
+    // pub upscaler: Option<String>,
     // pub scale_factor: u16,
-    pub depth_map_id: i64,
+    // pub depth_map_id: i64,
     pub generated: bool,
-    pub image_guidance_scale: f32,
-    pub seed_mode: String,
+    // pub image_guidance_scale: f32,
+    // pub seed_mode: String,
     // pub clip_skip: u32,
     pub controls: Vec<String>,
-    pub scribble_id: i64,
-    pub pose_id: i64,
+    // pub scribble_id: i64,
+    // pub pose_id: i64,
     pub loras: Vec<String>,
-    pub color_palette_id: i64,
+    // pub color_palette_id: i64,
     // pub mask_blur: f32,
-    pub custom_id: i64,
+    // pub custom_id: i64,
     // pub face_restoration: Option<String>,
     // pub decode_with_attention: bool,
     // pub hires_fix_decode_with_attention: bool,
     // pub clip_weight: f32,
     // pub negative_prompt_for_image_prior: bool,
     // pub image_prior_steps: u32,
-    pub data_stored: i32,
+    // pub data_stored: i32,
     pub preview_id: i64,
     // pub content_offset_x: i32,
     // pub content_offset_y: i32,
     // pub scale_factor_by_120: i32,
-    pub refiner_model: Option<String>,
+    // pub refiner_model: Option<String>,
     // pub original_image_height: u32,
     // pub original_image_width: u32,
     // pub crop_top: i32,
@@ -63,7 +65,7 @@ pub struct TensorHistory {
     // pub refiner_start: f32,
     // pub negative_original_image_height: u32,
     // pub negative_original_image_width: u32,
-    pub shuffle_data_stored: i32,
+    // pub shuffle_data_stored: i32,
     // pub fps_id: u32,
     // pub motion_bucket_id: u32,
     // pub cond_aug: f32,
@@ -105,86 +107,65 @@ pub struct TensorHistory {
     // pub tea_cache_max_skip_steps: i32,
     pub prompt: String,
     pub negative_prompt: String,
-    pub clip_id: i64,
+    // pub clip_id: i64,
     pub index_in_a_clip: i32,
     // pub causal_inference_enabled: bool,
     // pub causal_inference: i32,
     // pub causal_inference_pad: i32,
     // pub cfg_zero_star: bool,
     // pub cfg_zero_init_steps: i32,
-    pub generation_time: f64,
+    // pub generation_time: f64,
     // pub reason: i32,
     pub image_id: i64,
     pub row_id: i64,
 }
 
-pub fn parse_tensor_history(
-    blob: &[u8],
-    row_id: i64,
-    image_id: i64,
-) -> Result<TensorHistory, String> {
-    // root_as_tensor_history_node returns a table accessor borrowed from blob
-    let node = root_as_tensor_history_node(blob)
-        .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
+impl TensorHistoryImport {
+    pub fn new(
+        blob: &[u8],
+        row_id: i64,
+        image_id: i64,
+    ) -> Result<Self, String> {
+        // root_as_tensor_history_node returns a table accessor borrowed from blob
+        let node = root_as_tensor_history_node(blob)
+            .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
 
-    let loras: Vec<String> = node
-        .loras()
-        .map(|v| {
-            v.iter()
-                .filter_map(|l| l.file()) // `c.file()` returns Option<&str>
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
+        let loras: Vec<String> = node
+            .loras()
+            .map(|v| {
+                v.iter()
+                    .filter_map(|l| l.file()) // `c.file()` returns Option<&str>
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        let controls: Vec<String> = node
+            .controls()
+            .map(|v| {
+                v.iter()
+                    .filter_map(|c| c.file()) // `c.file()` returns Option<&str>
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        Ok(Self {
+            prompt: node.text_prompt().unwrap_or("").to_string(),
+            negative_prompt: node.negative_text_prompt().unwrap_or("").to_string(),
+            model: node.model().unwrap_or("").to_string(),
+            image_id,
+            lineage: node.lineage(),
+            preview_id: node.preview_id(),
+            row_id,
+            controls,
+            loras,
+            generated: node.generated(),
+            index_in_a_clip: node.index_in_a_clip(),
+            logical_time: node.logical_time(),
+            wall_clock: node.wall_clock(),
         })
-        .unwrap_or_default();
-
-    let controls: Vec<String> = node
-        .controls()
-        .map(|v| {
-            v.iter()
-                .filter_map(|c| c.file()) // `c.file()` returns Option<&str>
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-
-    Ok(TensorHistory {
-        seed: node.seed(),
-        width: node.start_width(),
-        height: node.start_height(),
-        prompt: node.text_prompt().unwrap_or("").to_string(),
-        negative_prompt: node.negative_text_prompt().unwrap_or("").to_string(),
-        steps: node.steps(),
-        batch_size: node.batch_size(),
-        guidance_scale: node.guidance_scale(),
-        mask_id: node.mask_id(),
-        model: node.model().unwrap_or("").to_string(),
-        strength: node.strength(),
-        tensor_id: node.tensor_id(),
-        image_id,
-        lineage: node.lineage(),
-        preview_id: node.preview_id(),
-        clip_id: node.clip_id(),
-        row_id,
-        refiner_model: node.refiner_model().take().map(|s| s.to_string()),
-        controls,
-        loras,
-        color_palette_id: node.color_palette_id(),
-        generation_time: node.generation_time(),
-        custom_id: node.custom_id(),
-        data_stored: node.data_stored(),
-        depth_map_id: node.depth_map_id(),
-        generated: node.generated(),
-        image_guidance_scale: node.image_guidance_scale(),
-        index_in_a_clip: node.index_in_a_clip(),
-        logical_time: node.logical_time(),
-        pose_id: node.pose_id(),
-        sampler: node.sampler().variant_name().unwrap().to_string(),
-        scribble_id: node.scribble_id(),
-        seed_mode: node.seed_mode().variant_name().unwrap().to_string(),
-        shuffle_data_stored: node.shuffle_data_stored(),
-        upscaler: node.upscaler().take().map(|s| s.to_string()),
-        wall_clock: node.wall_clock(),
-    })
+    }
 }
 
 #[derive(serde::Serialize, Debug)]
@@ -200,7 +181,7 @@ pub struct TensorHistoryNode {
     pub model: Option<String>,
     pub tensor_id: i64,
     pub mask_id: i64,
-    pub wall_clock: i64,
+    pub wall_clock: Option<NaiveDateTime>,
     pub text_edits: i64,
     pub text_lineage: i64,
     pub batch_size: u32,
@@ -326,7 +307,7 @@ impl TryFrom<&[u8]> for TensorHistoryNode {
             model: node.model().map(|m| m.to_string()),
             tensor_id: node.tensor_id(),
             mask_id: node.mask_id(),
-            wall_clock: node.wall_clock(),
+            wall_clock: DateTime::from_timestamp(node.wall_clock(), 0).and_then(|dt| Some(dt.naive_local())),
             text_edits: node.text_edits(),
             text_lineage: node.text_lineage(),
             batch_size: node.batch_size(),

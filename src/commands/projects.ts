@@ -106,11 +106,11 @@ export const dtProject = {
 		invoke("dt_project_get_thumb_half", { project_file, thumb_id }),
 
 	getHistoryFull: async (
-		project_file: string,
+		projectFile: string,
 		skip: number,
 		take: number,
 	): Promise<TensorHistoryExtra[]> =>
-		invoke("dt_project_get_history_full", { project_file, skip, take }),
+		invoke("dt_project_get_history_full", { projectFile, skip, take }),
 
 	getTensor: async (project_file: string, name: string): Promise<Uint8Array> =>
 		invoke("dt_project_get_tensor", { project_file, name }),

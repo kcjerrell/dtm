@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
-use crate::projects_db::{
-    tensor_history::{parse_tensor_history, TensorHistoryNode},
-    TensorHistory,
-};
+use crate::projects_db::{tensor_history::TensorHistoryNode, TensorHistoryImport};
 use byteorder::{LittleEndian, WriteBytesExt};
-use bytes::BytesMut;
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use serde::Serialize;
@@ -51,10 +47,10 @@ impl DTProject {
         &self,
         first_id: i64,
         count: i64,
-    ) -> Result<Vec<TensorHistory>, Error> {
+    ) -> Result<Vec<TensorHistoryImport>, Error> {
         let last_id = first_id + count;
 
-        let items: Vec<TensorHistory> = query(
+        let items: Vec<TensorHistoryImport> = query(
           "SELECT p, f86, tensorhistorynode.rowid FROM tensorhistorynode LEFT JOIN tensorhistorynode__f86 ON tensorhistorynode.rowid == tensorhistorynode__f86.rowid
            WHERE tensorhistorynode.rowid BETWEEN ?1 AND ?2
            ORDER BY tensorhistorynode.rowid ASC"
@@ -65,7 +61,8 @@ impl DTProject {
             let p: Vec<u8> = row.get(0);
             let image_id: i64 = row.get(1);
             let row_id: i64 = row.get(2);
-            parse_tensor_history(&p, row_id, image_id).unwrap()
+            TensorHistoryImport::new(&p, row_id, image_id).unwrap()
+            // parse_tensor_history(&p, row_id, image_id).unwrap()
         })
         .fetch_all(&self.pool).await?;
 

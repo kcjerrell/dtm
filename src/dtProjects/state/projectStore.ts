@@ -1,10 +1,16 @@
 import { proxy, useSnapshot } from "valtio"
-import type { DTProject, ScanProgressEvent, TensorHistoryExtra } from "../types"
+import type { DTProject, ScanProgressEvent } from "../types"
 import { listen } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
 import { addWatchFolder, loadWatchFolders, scanFolder } from "./watchFolders"
 import { addProjects, checkProjects, loadProjects } from "./projects"
-import { ImageExtra, ListImagesOptions, projectsDb } from "@/commands"
+import {
+	dtProject,
+	ImageExtra,
+	ListImagesOptions,
+	projectsDb,
+	TensorHistoryExtra,
+} from "@/commands"
 
 const state = proxy({
 	projects: [] as DTProject[],
@@ -48,7 +54,7 @@ async function init() {
 		.map(([k]) => k)
 	await addProjects(newProjects)
 
-	// await projectsDb.scanAllProjects()
+	await projectsDb.scanAllProjects()
 }
 
 let scanProgressUnlisten: () => void = () => undefined
@@ -131,6 +137,22 @@ export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | 
 			projectIds: imagesSource.projects.map((p) => p.project_id),
 		}
 	}
+}
+
+export async function selectItem(item: ImageExtra) {
+	if (state.expandedItems[item.row_id]) {
+		delete state.expandedItems[item.row_id]
+		return
+	}
+
+	state.expandedItems[item.row_id] = true
+
+	const project = state.projects.find((p) => p.project_id === item.project_id)
+	if (!project) return
+
+	const history = await dtProject.getHistoryFull(project.path, 1, 1)
+
+	state.itemDetails[item.row_id] = history[0]
 }
 
 export default DTProjects

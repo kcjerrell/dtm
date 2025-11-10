@@ -262,7 +262,7 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 							index={index}
 							onSizeChanged={handleSizeChanged}
 							value={item}
-							key={keyFn?.(item, index) ?? i}
+							key={item ? keyFn?.(item, index) : index}
 							itemProps={itemProps}
 						/>
 					)

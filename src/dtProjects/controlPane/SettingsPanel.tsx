@@ -4,7 +4,7 @@ import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
 import { Box, HStack, VStack } from "@chakra-ui/react"
 import { useDTProjects } from "../state/projectStore"
-import { addWatchFolder, removeWatchFolders } from "../state/watchFolders"
+import { addDefaultWatchFolder, addWatchFolder, removeWatchFolders } from "../state/watchFolders"
 
 interface SettingsPanelComponentProps extends ChakraProps {}
 
@@ -46,6 +46,7 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 					))}
 				</VStack> */}
 			</PaneListContainer>
+			<PanelButton onClick={() => addDefaultWatchFolder()}>Add default folder</PanelButton>
 		</TabContent>
 	)
 }

@@ -5,7 +5,7 @@ mod projects_db;
 pub use projects_db::{MixedError, ProjectsDb};
 
 mod tensor_history;
-pub use tensor_history::TensorHistory;
+pub use tensor_history::TensorHistoryImport;
 
 pub mod tensor_history_generated;
 

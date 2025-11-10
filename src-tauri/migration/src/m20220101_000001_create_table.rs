@@ -62,7 +62,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::NegativePrompt).text())
                     .col(ColumnDef::new(Images::DtId).big_integer().not_null())
                     .col(ColumnDef::new(Images::RowId).big_integer().not_null())
-                    .col(ColumnDef::new(Images::WallClock).date_time().not_null())
+                    .col(ColumnDef::new(Images::WallClock).timestamp().not_null())
                     .index(
                         Index::create()
                             .name("idx_images_rowid_projectid_unique")

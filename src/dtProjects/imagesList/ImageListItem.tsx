@@ -4,7 +4,7 @@ import { showPreview } from "@/components/preview"
 import type { VirtualizedListItemProps } from "@/components/virtualizedList/VirtualizedList"
 import DataItem from "@/metadata/infoPanel/DataItem"
 import { ImageExtra } from "@/commands"
-import { DTProjectsState } from "../state/projectStore"
+import { DTProjectsState, selectItem } from "../state/projectStore"
 import { PVListItemProps } from "@/components/virtualizedList/PVLIst"
 
 interface ImagesListItemProps {
@@ -13,9 +13,8 @@ interface ImagesListItemProps {
 }
 
 function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>) {
-	const { index, itemProps, value: item } = props
-	const { snap, onSelect } = itemProps
-	const expanded = snap.expandedItems[index]
+	const { index, itemProps, value: item, onSizeChanged } = props
+	const { snap } = itemProps
 
 	const elemProps = {
 		boxShadow: "sm",
@@ -23,8 +22,6 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 		padding: 1,
 		_hover: { bgColor: "bg.0" },
 	} as ChakraProps
-
-	const details = expanded ? (snap.itemDetails[index] ?? null) : undefined
 
 	if (!item)
 		return (
@@ -34,14 +31,20 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 			</HStack>
 		)
 
+	const expanded = snap.expandedItems[item.row_id]
+	const details = expanded ? (snap.itemDetails[item.row_id] ?? null) : undefined
+
 	const row = (
-		<VStack key={item?.row_id || index} width={"100%"} {...elemProps}>
+		<VStack width={"100%"} {...elemProps}>
 			<HStack
 				width={"100%"}
 				alignItems={"flex-start"}
 				// bgColor={"bg.2"}
 				gap={2}
-				onClick={() => onSelect(index)}
+				onClick={() => {
+					selectItem(item)
+					onSizeChanged?.(index, snap.expandedItems[item.row_id])
+				}}
 			>
 				<Box position={"relative"} flex={"0 0 auto"}>
 					<Image
@@ -113,7 +116,7 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 								showPreview(null, `dtm://dtproject/tensor/${item.project_id}/${v}`)
 							}
 
-						return <DataItem key={k} label={k} data={v} onClick={onClick} />
+						return <DataItem key={k} label={k} data={v} onClick={onClick} initialCollapse={"expanded"}/>
 					})}
 				</MeasureGrid>
 			)}
