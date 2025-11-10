@@ -38,7 +38,6 @@ function updateSelectedList<T>(state: SelectableContextType<T>) {
 	state.selectedItems = Object.values(state.items)
 		.filter((it) => it.selected)
 		.map((it) => it.item)
-
 	if (state.onSelectionChanged) {
 		state.onSelectionChanged(state.selectedItems)
 	}

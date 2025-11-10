@@ -1,15 +1,36 @@
 import { Panel, VirtualizedList } from "@/components"
 import ImagesListItem from "./ImageListItem"
 import { useSnapshot } from "valtio"
-import DTProjects, { useDTProjects } from "../state/projectStore"
+import DTProjects, { getRequestOpts, useDTProjects } from "../state/projectStore"
+import PVList, { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
+import { ImageExtra, projectsDb } from "@/commands"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 interface ImagesList extends ChakraProps {}
 
 function ImagesList(props: ImagesList) {
 	const { ...rest } = props
-	const { snap } = useDTProjects()
+	const { snap, state } = useDTProjects()
+	const [totalCount, setTotalCount] = useState(0)
 
-	console.log(snap)
+	useEffect(() => {
+		if (!state.imageSource) return
+		const opts = getRequestOpts(state.imageSource)
+		projectsDb.listImages({ ...opts, take: 0, skip: 0 }).then((res) => {
+			setTotalCount(res.total)
+		})
+	}, [state.imageSource])
+
+	const getItems = useCallback(
+		async (skip, take) => {
+			if (!state.imageSource) return []
+			const opts = getRequestOpts(snap.imageSource)
+			const res = await projectsDb.listImages({ ...opts, take, skip })
+			return res.items
+		},
+		[snap.imageSource],
+	)
+
 	return (
 		<Panel
 			mr={1}
@@ -21,12 +42,14 @@ function ImagesList(props: ImagesList) {
 			bgColor={"bg.2"}
 			{...rest}
 		>
-			<VirtualizedList
+			<PVList<ImageExtra>
 				key={JSON.stringify(snap.imageSource)}
-				itemComponent={ImagesListItem}
+				itemComponent={ImagesListItem as PVListItemComponent<ImageExtra>}
 				initialRenderCount={50}
-				items={snap.items}
 				itemProps={{ snap, onSelect: () => {} }}
+				pageSize={250}
+				totalCount={totalCount}
+				getItems={getItems}
 			/>
 		</Panel>
 	)

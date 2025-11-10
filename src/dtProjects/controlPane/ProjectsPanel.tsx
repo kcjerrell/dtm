@@ -12,12 +12,20 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
 	const { snap } = useDTProjects()
 
-	const { SelectableGroup, selectedItems } = useSelectableGroup<DTProject>({ mode: "multipleModifier", keyFn: (p) => p.path })
+	const { SelectableGroup, selectedItems } = useSelectableGroup<DTProject>({
+		mode: "multipleModifier",
+		keyFn: (p) => p.path,
+	})
 
 	return (
 		<TabContent value={"projects"} {...restProps}>
 			<PaneListContainer>
-				<SelectableGroup onSelectionChanged={(e) => DTProjects.setImagesSource({ projects: e })}>
+				<SelectableGroup
+					onSelectionChanged={(e) => {
+						console.log(toJSON(e))
+						DTProjects.setImagesSource({ projects: e })
+					}}
+				>
 					{snap.projects.map((project) => (
 						<ProjectListItem key={project.path} project={project} />
 					))}

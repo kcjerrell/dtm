@@ -3,18 +3,18 @@ import { MeasureGrid } from "@/components"
 import { showPreview } from "@/components/preview"
 import type { VirtualizedListItemProps } from "@/components/virtualizedList/VirtualizedList"
 import DataItem from "@/metadata/infoPanel/DataItem"
-import { ImageExtra } from '@/commands'
-import { DTProjectsState } from '../state/projectStore'
+import { ImageExtra } from "@/commands"
+import { DTProjectsState } from "../state/projectStore"
+import { PVListItemProps } from "@/components/virtualizedList/PVLIst"
 
 interface ImagesListItemProps {
 	snap: ReadonlyState<DTProjectsState>
 	onSelect: (index: number) => void
 }
 
-function ImagesListItem(props: VirtualizedListItemProps<ImageExtra, ImagesListItemProps>) {
-	const { index, itemProps } = props
+function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>) {
+	const { index, itemProps, value: item } = props
 	const { snap, onSelect } = itemProps
-	const item = snap.items[index]
 	const expanded = snap.expandedItems[index]
 
 	const elemProps = {
@@ -26,8 +26,16 @@ function ImagesListItem(props: VirtualizedListItemProps<ImageExtra, ImagesListIt
 
 	const details = expanded ? (snap.itemDetails[index] ?? null) : undefined
 
+	if (!item)
+		return (
+			<HStack width={"100%"} {...elemProps}>
+				<Box flex={"0 0 auto"} width={"8rem"} height={"8rem"} bgColor={"gray"} />
+				<Box>Loading...</Box>
+			</HStack>
+		)
+
 	const row = (
-		<VStack key={item.row_id} width={"100%"} {...elemProps}>
+		<VStack key={item?.row_id || index} width={"100%"} {...elemProps}>
 			<HStack
 				width={"100%"}
 				alignItems={"flex-start"}

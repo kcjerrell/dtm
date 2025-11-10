@@ -31,6 +31,7 @@
     "@tauri-apps/plugin-updater": "~2",
     "@tauri-apps/plugin-window-state": "~2",
     "@tauri-store/valtio": "^3.1.0",
+    "async-mutex": "^0.5.0",
     "derive-valtio": "^0.2.0",
     "dt-grpc-ts": "/Users/kcjer/Projects/dt-grpc-ts",
     "exifr": "git+https://github.com/m-hayabusa/exifr.git#add-webp-support",

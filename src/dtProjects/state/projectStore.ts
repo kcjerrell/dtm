@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
 import { addWatchFolder, loadWatchFolders, scanFolder } from "./watchFolders"
 import { addProjects, checkProjects, loadProjects } from "./projects"
-import { ImageExtra, projectsDb } from "@/commands"
+import { ImageExtra, ListImagesOptions, projectsDb } from "@/commands"
 
 const state = proxy({
 	projects: [] as DTProject[],
@@ -104,17 +104,8 @@ type ImagesSource = {
 }
 
 async function setImagesSource(source: ImagesSource) {
-	console.log('imagesource', source)
 	if (JSON.stringify(source) === JSON.stringify(state.imageSource)) return
 	state.imageSource = source
-	state.items = []
-	if (source.projects) {
-		const result = await projectsDb.listImages({projectIds: source.projects.map(p => p.project_id), skip: 0, take: 250})
-		state.items = Array(result.total)
-		state.items.splice(0, result.items.length, ...result.items)
-		console.log(result.total)
-		// state.items = result.items
-	}
 }
 
 const DTProjects = {
@@ -130,6 +121,15 @@ export function useDTProjects() {
 	return {
 		snap,
 		...DTProjects,
+	}
+}
+
+export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | undefined {
+	console.log(imagesSource)
+	if (imagesSource.projects) {
+		return {
+			projectIds: imagesSource.projects.map((p) => p.project_id),
+		}
 	}
 }
 
