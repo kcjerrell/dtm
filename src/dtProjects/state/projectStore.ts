@@ -1,19 +1,19 @@
-import { proxy, useSnapshot } from "valtio"
-import type { DTProject, ScanProgressEvent } from "../types"
-import { listen } from "@tauri-apps/api/event"
-import { invoke } from "@tauri-apps/api/core"
-import { addWatchFolder, loadWatchFolders, scanFolder } from "./watchFolders"
-import { addProjects, checkProjects, loadProjects } from "./projects"
 import {
 	dtProject,
-	ImageExtra,
-	ListImagesOptions,
+	type ImageExtra,
+	type ListImagesOptions,
+	ProjectExtra,
 	projectsDb,
-	TensorHistoryExtra,
+	type TensorHistoryExtra,
 } from "@/commands"
+import { listen } from "@tauri-apps/api/event"
+import { proxy, useSnapshot } from "valtio"
+import type { ScanProgressEvent } from "../types"
+import { addProjects, loadProjects } from "./projects"
+import { loadWatchFolders, scanFolder } from "./watchFolders"
 
 const state = proxy({
-	projects: [] as DTProject[],
+	projects: [] as ProjectExtra[],
 	watchFolders: [] as string[],
 	imageSource: null as ImagesSource | null,
 	items: [] as ImageExtra[],
@@ -21,7 +21,7 @@ const state = proxy({
 	scanProgress: -1,
 	scanningProject: "",
 	totalThisRun: 0,
-	selectedProject: null as DTProject | null,
+	selectedProject: null as ProjectExtra | null,
 	expandedItems: {} as Record<number, boolean>,
 	searchInput: "",
 })
@@ -61,7 +61,7 @@ let scanProgressUnlisten: () => void = () => undefined
 async function attachListeners() {
 	scanProgressUnlisten()
 
-	let scanningProject: DTProject | null = null
+	let scanningProject: ProjectExtra | null = null
 	scanProgressUnlisten = await listen("projects_db_scan_progress", (e: ScanProgressEvent) => {
 		console.log(e.payload)
 		const {
@@ -104,7 +104,7 @@ function removeListeners() {
 }
 
 type ImagesSource = {
-	projects?: DTProject[]
+	projects?: ProjectExtra[]
 	search?: unknown
 	filter?: unknown
 }
@@ -134,25 +134,25 @@ export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | 
 	console.log(imagesSource)
 	if (imagesSource.projects) {
 		return {
-			projectIds: imagesSource.projects.map((p) => p.project_id),
+			projectIds: imagesSource.projects.map((p) => p.id),
 		}
 	}
 }
 
 export async function selectItem(item: ImageExtra) {
-	if (state.expandedItems[item.row_id]) {
-		delete state.expandedItems[item.row_id]
+	if (state.expandedItems[item.node_id]) {
+		delete state.expandedItems[item.node_id]
 		return
 	}
 
-	state.expandedItems[item.row_id] = true
+	state.expandedItems[item.node_id] = true
 
-	const project = state.projects.find((p) => p.project_id === item.project_id)
+	const project = state.projects.find((p) => p.id === item.project_id)
 	if (!project) return
+	console.log(toJSON(item))
+	const history = await dtProject.getHistoryFull(project.path, item.node_id)
 
-	const history = await dtProject.getHistoryFull(project.path, 1, 1)
-
-	state.itemDetails[item.row_id] = history[0]
+	state.itemDetails[item.node_id] = history
 }
 
 export default DTProjects

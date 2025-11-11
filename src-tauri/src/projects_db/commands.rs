@@ -42,7 +42,7 @@ pub async fn projects_db_list_projects(
 }
 
 #[tauri::command]
-pub async fn projects_db_scan_project(app: tauri::AppHandle, path: String) -> Result<(), String> {
+pub async fn projects_db_scan_project(app: tauri::AppHandle, path: String, full_scan: Option<bool>) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
     let update = |images_scanned: i32, images_total: i32| {
         app.emit(
@@ -57,7 +57,7 @@ pub async fn projects_db_scan_project(app: tauri::AppHandle, path: String) -> Re
         )
         .unwrap();
     };
-    pdb.scan_project(&path, update).await?;
+    pdb.scan_project(&path, update, full_scan.unwrap_or(false)).await?;
     Ok(())
 }
 
@@ -144,12 +144,11 @@ pub async fn dt_project_get_thumb_half(
 #[tauri::command]
 pub async fn dt_project_get_history_full(
     project_file: String,
-    skip: i64,
-    take: i64,
-) -> Result<Vec<TensorHistoryExtra>, String> {
-    println!("dt_project_get_history_full");
+    row_id: i64
+) -> Result<TensorHistoryExtra, String> {
+    println!("dt_project_get_history_full, {}, {:?}", project_file, row_id);
     let project = DTProject::get(&project_file).await.unwrap();
-    let history = project.get_history_full(skip, take).await.unwrap();
+    let history = project.get_history_full(row_id).await.unwrap();
     Ok(history)
 }
 
@@ -170,7 +169,7 @@ pub async fn dt_project_get_tensor(project_file: String, name: String) -> Result
 #[tauri::command]
 pub async fn projects_db_list_watch_folders(
     app: tauri::AppHandle,
-) -> Result<Vec<entity::watch_folder::Model>, String> {
+) -> Result<Vec<entity::watch_folders::Model>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     Ok(projects_db.list_watch_folders().await.unwrap())
 }
@@ -179,7 +178,7 @@ pub async fn projects_db_list_watch_folders(
 pub async fn projects_db_add_watch_folder(
     app: tauri::AppHandle,
     path: String,
-) -> Result<entity::watch_folder::Model, String> {
+) -> Result<entity::watch_folders::Model, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     Ok(projects_db.add_watch_folder(&path).await.unwrap())
 }

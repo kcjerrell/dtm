@@ -5,22 +5,23 @@
 import { invoke } from "@tauri-apps/api/core"
 
 export type ProjectExtra = {
-	project_id: number
+	id: number
 	path: string
 	image_count: number
 	last_id?: number
+	filesize: number
+	modified: number
 }
 
 export type ImageExtra = {
-	image_id: number
+	id: number
 	project_id: number
 	model_id?: number
 	model_file?: string
 	prompt?: string
 	negative_prompt?: string
-	dt_id: number
-	row_id: number
-	wall_clock: string // NaiveDateTime as ISO string
+	preview_id: number
+	node_id: number
 }
 
 export type TensorHistoryExtra = {
@@ -71,7 +72,7 @@ export const projectsDb = {
 
 	listProjects: async (): Promise<ProjectExtra[]> => invoke("projects_db_list_projects"),
 
-	scanProject: async (path: string): Promise<void> => invoke("projects_db_scan_project", { path }),
+	scanProject: async (path: string, fullScan = false): Promise<void> => invoke("projects_db_scan_project", { path, fullScan }),
 
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_scan_all_projects"),
 
@@ -105,12 +106,8 @@ export const dtProject = {
 	getThumbHalf: async (project_file: string, thumb_id: number): Promise<Uint8Array> =>
 		invoke("dt_project_get_thumb_half", { project_file, thumb_id }),
 
-	getHistoryFull: async (
-		projectFile: string,
-		skip: number,
-		take: number,
-	): Promise<TensorHistoryExtra[]> =>
-		invoke("dt_project_get_history_full", { projectFile, skip, take }),
+	getHistoryFull: async (projectFile: string, rowId: number): Promise<TensorHistoryExtra> =>
+		invoke("dt_project_get_history_full", { projectFile, rowId }),
 
 	getTensor: async (project_file: string, name: string): Promise<Uint8Array> =>
 		invoke("dt_project_get_tensor", { project_file, name }),

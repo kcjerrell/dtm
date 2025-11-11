@@ -4,26 +4,15 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize)]
-#[sea_orm(table_name = "projects")]
+#[sea_orm(table_name = "watch_folders")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     #[sea_orm(column_type = "Text", unique)]
     pub path: String,
-    pub filesize: Option<i64>,
-    pub modified: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "super::images::Entity")]
-    Images,
-}
-
-impl Related<super::images::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Images.def()
-    }
-}
+pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime};
 use serde::Serialize;
 use tokio::sync::OnceCell;
 
@@ -12,7 +12,6 @@ use sea_orm::{
     FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
     RelationTrait, Set, TransactionTrait,
 };
-use sqlx::{migrate::MigrateDatabase, Sqlite};
 use tauri::{Emitter, Manager};
 
 use crate::projects_db::DTProject;
@@ -46,21 +45,8 @@ impl ProjectsDb {
     }
 
     pub async fn new(db_path: &str) -> Result<Self, DbErr> {
-        // if !Sqlite::database_exists(db_path).await.unwrap_or(false) {
-        //     println!("Creating database {}", db_path);
-        //     match Sqlite::create_database(db_path).await {
-        //         Ok(_) => println!("Create db success"),
-        //         Err(error) => panic!("error: {}", error),
-        //     }
-        // } else {
-        //     println!("Database already exists");
-        // }
-
         let db = Database::connect(db_path).await?;
-
-        // Apply all pending migrations
         Migrator::up(&db, None).await?;
-
         Ok(Self { db: db })
     }
 
@@ -85,7 +71,7 @@ impl ProjectsDb {
             .exec_with_returning(&self.db)
             .await?;
 
-        let project = self.get_project(project.project_id).await?;
+        let project = self.get_project(project.id).await?;
 
         Ok(project)
     }
@@ -114,7 +100,7 @@ impl ProjectsDb {
                 Expr::col((Images, images::Column::ProjectId)).count(),
                 "image_count",
             )
-            .column_as(Expr::col((Images, images::Column::RowId)).max(), "last_id")
+            .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
             .into_model::<ProjectExtra>()
             .one(&self.db)
             .await?;
@@ -133,8 +119,8 @@ impl ProjectsDb {
                 Expr::col((Images, images::Column::ProjectId)).count(),
                 "image_count",
             )
-            .column_as(Expr::col((Images, images::Column::RowId)).max(), "last_id")
-            .group_by(projects::Column::ProjectId)
+            .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
+            .group_by(projects::Column::Id)
             .into_model::<ProjectExtra>()
             .all(&self.db)
             .await?;
@@ -142,7 +128,12 @@ impl ProjectsDb {
         Ok(results)
     }
 
-    pub async fn scan_project<F>(&self, path: &str, mut on_progress: F) -> Result<(), MixedError>
+    pub async fn scan_project<F>(
+        &self,
+        path: &str,
+        mut on_progress: F,
+        full_scan: bool,
+    ) -> Result<(), MixedError>
     where
         F: FnMut(i32, i32),
     {
@@ -150,14 +141,11 @@ impl ProjectsDb {
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
         let project = self.add_project(path).await?;
-        let start = project.last_id.or(Some(-1)).unwrap();
+        let start = match full_scan {
+            true => 0,
+            false => project.last_id.or(Some(-1)).unwrap(),
+        };
 
-        println!(
-            "Scanning project {} from {} to {}, entries {}, last_id {}",
-            path, start, end, dt_project_info.history_count, dt_project_info.history_max_id
-        );
-
-        let mut i = 0;
         for batch_start in (start..end).step_by(250) {
             let batch_end = (batch_start + 250).min(end);
             let histories = dt_project
@@ -165,19 +153,49 @@ impl ProjectsDb {
                 .await?;
 
             // I know there's a better way to do this, because I used to do it with prisma
+            // let mut unique_models: HashSet<String> = HashSet::new();
+            // let used_models: Vec<entity::models::ActiveModel> = histories
+            //     .iter()
+            //     .filter_map(|h| {
+            //         if unique_models.contains(&h.model) {
+            //             return None;
+            //         }
+            //         unique_models.insert(h.model.clone());
+            //         Some(entity::models::ActiveModel {
+            //             filename: Set(h.model.clone()),
+            //             ..Default::default()
+            //         })
+            //     })
+            //     .collect();
+
             let mut unique_models: HashSet<String> = HashSet::new();
-            let used_models: Vec<entity::models::ActiveModel> = histories
+            // let mut unique_refiners: HashSet<String> = HashSet::new();
+            let mut unique_loras: HashSet<String> = HashSet::new();
+            let mut unique_cnets: HashSet<String> = HashSet::new();
+
+            for h in &histories {
+                unique_models.insert(h.model.clone());
+                unique_loras.extend(h.loras.iter().cloned());
+                unique_cnets.extend(h.controls.iter().cloned());
+            }
+
+            let mut used_models: Vec<entity::models::ActiveModel> = unique_models
                 .iter()
-                .filter_map(|h| {
-                    if unique_models.contains(&h.model) {
-                        return None;
-                    }
-                    unique_models.insert(h.model.clone());
-                    Some(entity::models::ActiveModel {
-                        filename: Set(h.model.clone()),
-                        ..Default::default()
-                    })
+                .map(|m| entity::models::ActiveModel {
+                    model_type: Set("model".to_string()),
+                    filename: Set(m.clone()),
+                    ..Default::default()
                 })
+                .chain(unique_loras.iter().map(|m| entity::models::ActiveModel {
+                    model_type: Set("lora".to_string()),
+                    filename: Set(m.clone()),
+                    ..Default::default()
+                }))
+                .chain(unique_cnets.iter().map(|m| entity::models::ActiveModel {
+                    model_type: Set("cnet".to_string()),
+                    filename: Set(m.clone()),
+                    ..Default::default()
+                }))
                 .collect();
 
             let _ = self
@@ -187,36 +205,37 @@ impl ProjectsDb {
                         let models: Vec<entity::models::Model> =
                             entity::models::Entity::insert_many(used_models)
                                 .on_conflict(
-                                    OnConflict::column(entity::models::Column::Filename)
-                                        .update_column(entity::models::Column::Filename)
-                                        .to_owned(),
+                                    OnConflict::columns([
+                                        entity::models::Column::Filename,
+                                        entity::models::Column::ModelType,
+                                    ])
+                                    .update_column(entity::models::Column::Filename)
+                                    .to_owned(),
                                 )
                                 .exec_with_returning_many(txn)
                                 .await?;
 
-                        let map: std::collections::HashMap<String, i32> = models
-                            .iter()
-                            .map(|m| (m.filename.clone(), m.model_id))
-                            .collect();
+                        let map: std::collections::HashMap<String, i32> =
+                            models.iter().map(|m| (m.filename.clone(), m.id)).collect();
 
                         let images: Vec<images::ActiveModel> = histories
                             .iter()
-                            .filter(|h| h.index_in_a_clip == 0 && h.generated)
+                            .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                             .map(|h| images::ActiveModel {
-                                project_id: Set(project.project_id as i32),
-                                dt_id: Set(h.image_id),
+                                project_id: Set(project.id as i32),
+                                node_id: Set(h.row_id),
+                                preview_id: Set(h.preview_id),
                                 prompt: Set(Some(h.prompt.clone())),
                                 negative_prompt: Set(Some(h.negative_prompt.clone())),
                                 model_id: Set(map.get(&h.model).copied()),
-                                row_id: Set(h.row_id),
-                                wall_clock: Set(DateTime::from_timestamp(h.wall_clock, 0).unwrap_or_default()),
+
                                 ..Default::default()
                             })
                             .collect();
                         let _ = entity::images::Entity::insert_many(images)
                             .on_conflict(
                                 OnConflict::columns([
-                                    images::Column::RowId,
+                                    images::Column::NodeId,
                                     images::Column::ProjectId,
                                 ])
                                 .do_nothing()
@@ -256,11 +275,11 @@ impl ProjectsDb {
                 .unwrap();
             };
 
-            if let Err(err) = self.scan_project(&proj.path, update).await {
+            if let Err(err) = self.scan_project(&proj.path, update, false).await {
                 eprintln!("Error scanning project {}: {}", proj.path, err);
             }
             projects_scanned += 1;
-            let upd_proj = self.get_project(proj.project_id).await?;
+            let upd_proj = self.get_project(proj.id).await?;
         }
 
         Ok(())
@@ -314,9 +333,9 @@ impl ProjectsDb {
         print!("ListImagesOptions: {:#?}\n", opts);
 
         let mut query = images::Entity::find()
-            .join(JoinType::LeftJoin, images::Relation::Models.def())
-            .column_as(entity::models::Column::Filename, "model_file")
-            .order_by(images::Column::WallClock, Order::Desc);
+            .join(JoinType::LeftJoin, images::Relation::Models1.def())
+            .column_as(entity::models::Column::Filename, "model_file");
+        // .order_by(images::Column::WallClock, Order::Desc);
 
         if let Some(project_ids) = &opts.project_ids {
             if !project_ids.is_empty() {
@@ -339,8 +358,8 @@ impl ProjectsDb {
         })
     }
 
-    pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folder::Model>, DbErr> {
-        let folder = entity::watch_folder::Entity::find()
+    pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folders::Model>, DbErr> {
+        let folder = entity::watch_folders::Entity::find()
             .into_model()
             .all(&self.db)
             .await?;
@@ -348,8 +367,11 @@ impl ProjectsDb {
         Ok(folder)
     }
 
-    pub async fn add_watch_folder(&self, path: &str) -> Result<entity::watch_folder::Model, DbErr> {
-        let folder = entity::watch_folder::ActiveModel {
+    pub async fn add_watch_folder(
+        &self,
+        path: &str,
+    ) -> Result<entity::watch_folders::Model, DbErr> {
+        let folder = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
             ..Default::default()
         };
@@ -362,8 +384,8 @@ impl ProjectsDb {
             return Ok(());
         }
 
-        entity::watch_folder::Entity::delete_many()
-            .filter(entity::watch_folder::Column::Path.is_in(paths))
+        entity::watch_folders::Entity::delete_many()
+            .filter(entity::watch_folders::Column::Path.is_in(paths))
             .exec(&self.db)
             .await?;
 
@@ -383,10 +405,12 @@ pub struct ListImagesOptions {
 
 #[derive(Debug, FromQueryResult, Serialize)]
 pub struct ProjectExtra {
-    pub project_id: i32,
+    pub id: i32,
     pub path: String,
     pub image_count: i64,
     pub last_id: Option<i64>,
+    pub filesize: Option<i64>,
+    pub modified: Option<i64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -461,15 +485,14 @@ impl From<MixedError> for String {
 
 #[derive(Debug, FromQueryResult, Serialize)]
 pub struct ImageExtra {
-    pub image_id: i64,
+    pub id: i64,
     pub project_id: i64,
     pub model_id: Option<i32>,
     pub model_file: Option<String>,
     pub prompt: Option<String>,
     pub negative_prompt: Option<String>,
-    pub dt_id: i64,
-    pub row_id: i64,
-    pub wall_clock: NaiveDateTime,
+    pub preview_id: i64,
+    pub node_id: i64,
 }
 
 #[derive(Debug, Serialize)]

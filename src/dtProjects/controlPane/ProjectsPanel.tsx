@@ -3,8 +3,8 @@ import { useUiState } from "@/metadata/state/uiState"
 import { Box, HStack, Progress } from "@chakra-ui/react"
 import DTProjects, { useDTProjects } from "../state/projectStore"
 import { PaneListContainer, PanelListItem } from "@/components"
+import { ProjectExtra, projectsDb } from "@/commands"
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
-import { DTProject } from "../types"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -12,7 +12,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
 	const { snap } = useDTProjects()
 
-	const { SelectableGroup, selectedItems } = useSelectableGroup<DTProject>({
+	const { SelectableGroup, selectedItems } = useSelectableGroup<ProjectExtra>({
 		mode: "multipleModifier",
 		keyFn: (p) => p.path,
 	})
@@ -52,13 +52,13 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 export default ProjectsPanel
 
 interface ProjectListItemProps extends ChakraProps {
-	project: DTProject
+	project: ProjectExtra
 }
 function ProjectListItem(props: ProjectListItemProps) {
 	const { project, ...restProps } = props
 	const { handlers, isSelected } = useSelectable(project)
 	return (
-		<PanelListItem selectable selected={isSelected} asChild {...restProps} {...handlers}>
+		<PanelListItem selectable selected={isSelected} asChild {...restProps} {...handlers} onContextMenu={() => projectsDb.scanProject(project.path, true)}>
 			<HStack>
 				<Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>
 				<Box>{project.scanningStatus}</Box>

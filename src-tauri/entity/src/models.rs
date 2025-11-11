@@ -7,22 +7,33 @@ use serde::Serialize;
 #[sea_orm(table_name = "models")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub model_id: i32,
-    #[sea_orm(column_type = "Text", unique)]
+    pub id: i32,
+    pub model_type: String,
+    #[sea_orm(column_type = "Text")]
     pub filename: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub name: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub version: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::images::Entity")]
-    Images,
+    #[sea_orm(has_many = "super::image_cnets::Entity")]
+    ImageCnets,
+    #[sea_orm(has_many = "super::image_loras::Entity")]
+    ImageLoras,
 }
 
-impl Related<super::images::Entity> for Entity {
+impl Related<super::image_cnets::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Images.def()
+        Relation::ImageCnets.def()
+    }
+}
+
+impl Related<super::image_loras::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ImageLoras.def()
     }
 }
 

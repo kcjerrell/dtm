@@ -31,9 +31,9 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 			</HStack>
 		)
 
-	const expanded = snap.expandedItems[item.row_id]
-	const details = expanded ? (snap.itemDetails[item.row_id] ?? null) : undefined
-
+	const expanded = snap.expandedItems[item.node_id]
+	const details = expanded ? (snap.itemDetails[item.node_id] ?? null) : undefined
+	console.log(toJSON(item))
 	const row = (
 		<VStack width={"100%"} {...elemProps}>
 			<HStack
@@ -43,12 +43,12 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 				gap={2}
 				onClick={() => {
 					selectItem(item)
-					onSizeChanged?.(index, snap.expandedItems[item.row_id])
+					onSizeChanged?.(index, snap.expandedItems[item.node_id])
 				}}
 			>
 				<Box position={"relative"} flex={"0 0 auto"}>
 					<Image
-						src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.dt_id}`}
+						src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
 						alt={item.prompt}
 						width={"8rem"}
 						height={"8rem"}
@@ -116,7 +116,9 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 								showPreview(null, `dtm://dtproject/tensor/${item.project_id}/${v}`)
 							}
 
-						return <DataItem key={k} label={k} data={v} onClick={onClick} initialCollapse={"expanded"}/>
+						return (
+							<DataItem key={k} label={k} data={v} onClick={onClick} initialCollapse={"expanded"} />
+						)
 					})}
 				</MeasureGrid>
 			)}

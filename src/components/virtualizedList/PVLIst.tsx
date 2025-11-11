@@ -4,6 +4,7 @@ import { createPortal } from "react-dom"
 import { proxy, useSnapshot } from "valtio"
 import { proxyMap } from "valtio/utils"
 import { Mutex } from "async-mutex"
+import { usePagedItemSource } from "./PagedItemSource"
 
 export interface PVListProps<T, P = unknown> extends ChakraProps {
 	itemComponent: PVListItemComponent<T, P>
@@ -14,7 +15,7 @@ export interface PVListProps<T, P = unknown> extends ChakraProps {
 	itemProps?: P
 	totalCount: number
 	pageSize: number
-	getItems: (skip: number, take: number) => Promise<(T | undefined)[]>
+	getItems: (skip: number, take: number) => Promise<T[] | undefined>
 }
 
 export type PVListItemComponent<T, P = unknown> = React.ComponentType<PVListItemProps<T, P>>
@@ -24,14 +25,6 @@ export interface PVListItemProps<T, P = unknown> {
 	index: number
 	itemProps: P
 	onSizeChanged?: (index: number, isBaseSize: boolean) => void
-}
-
-type Page<T> = {
-	/** inclusive */
-	from: number
-	/** inclusive */
-	to: number
-	items: T[]
 }
 
 type ProxyMap<K, V> = ReturnType<typeof proxyMap<K, V>>
@@ -44,8 +37,6 @@ type StateProxy<T> = {
 	lastIndex: number
 	visibleHeight: number
 	expanded: ReturnType<typeof proxyMap<number, number>>
-	pages: Page<T>[]
-	renderItems: (T | null)[]
 }
 function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 	const {
@@ -61,6 +52,8 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 	} = props
 	const Item = itemComponent
 
+	const { renderItems, setRenderWindow } = usePagedItemSource({ getItems, pageSize, totalCount })
+
 	const stateRef = useRef<StateProxy<T>>(null)
 	if (stateRef.current === null) {
 		stateRef.current = proxy({
@@ -72,8 +65,6 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 			postSpacerHeight: 0,
 			visibleHeight: 1,
 			expanded: proxyMap<number, number>(),
-			pages: [],
-			renderItems: [],
 		})
 	}
 	const state = stateRef.current as StateProxy<T>
@@ -83,65 +74,6 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 	const scrollContentRef = useRef<HTMLDivElement>(null)
 	const topSpaceRef = useRef<HTMLDivElement>(null)
 	const bottomSpaceRef = useRef<HTMLDivElement>(null)
-
-	const pageLoader = useRef(new Mutex())
-	const loadersWaiting = useRef(0)
-
-	const ensurePages = useCallback(async () => {
-		loadersWaiting.current++
-		await pageLoader.current.runExclusive(async () => {
-			loadersWaiting.current--
-			const { firstIndex, lastIndex, pages } = state
-
-			const firstPage = Math.floor(firstIndex / pageSize)
-			const lastPage = Math.floor(lastIndex / pageSize)
-
-			let pagesLoaded = 0
-
-			for (let i = firstPage; i <= lastPage; i++) {
-				if (pages[i]) continue
-				const page = await getItems(i * pageSize, pageSize)
-				pages[i] = { from: i * pageSize, to: (i + 1) * pageSize - 1, items: page }
-				pagesLoaded++
-			}
-
-			if (pagesLoaded) setRenderItems(state)
-
-			// if a loader is waiting, we'll go ahead and yield
-			if (loadersWaiting.current) return
-
-			// if not, let's check for the neighboring pages
-			const nextPage = Math.min(lastPage + 1, Math.ceil(totalCount / pageSize) - 1)
-			if (!pages[nextPage]) {
-				const page = await getItems(nextPage * pageSize, pageSize)
-				pages[nextPage] = {
-					from: nextPage * pageSize,
-					to: (nextPage + 1) * pageSize - 1,
-					items: page,
-				}
-			}
-			const prevPage = Math.max(firstPage - 1, 0)
-			if (!pages[prevPage]) {
-				const page = await getItems(prevPage * pageSize, pageSize)
-				pages[prevPage] = {
-					from: prevPage * pageSize,
-					to: (prevPage + 1) * pageSize - 1,
-					items: page,
-				}
-			}
-		})
-	}, [pageSize, state, getItems, totalCount])
-
-	const setRenderWindow = useCallback(
-		(first: number, last: number) => {
-			state.firstIndex = first
-			state.lastIndex = last
-
-			setRenderItems(state)
-			ensurePages()
-		},
-		[state, ensurePages],
-	)
 
 	const calcFirstAndLastIndex = useCallback(() => {
 		const container = scrollContainerRef.current
@@ -180,9 +112,9 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 
 		const itemHeight = getItemHeight(scrollContent, state.expanded, state.firstIndex)
 
-		const firstIndex = Math.max(0, first - visibleItemsCount * overscan)
-		const lastIndex = Math.min(totalCount, last + visibleItemsCount * overscan)
-		setRenderWindow(firstIndex, lastIndex)
+		state.firstIndex = Math.max(0, first - visibleItemsCount * overscan)
+		state.lastIndex = Math.min(totalCount, last + visibleItemsCount * overscan)
+		setRenderWindow(state.firstIndex, state.lastIndex)
 
 		const [pre, mid, post] = calcRangeHeights(
 			state.firstIndex,
@@ -230,18 +162,21 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 
 	const handleSizeChanged = useCallback(
 		(index: number, baseSize: boolean) => {
-			const actualIndex = index - snap.firstIndex + 1
+			setTimeout((res) => {
+				const actualIndex = index - snap.firstIndex + 1
 
-			if (baseSize) {
-				state.expanded.delete(index)
-				return
-			}
+				if (baseSize) {
+					state.expanded.delete(index)
+					return
+				}
 
-			const element = scrollContentRef.current?.children[actualIndex] as HTMLDivElement
-			const nextElement = scrollContainerRef.current?.firstElementChild?.children[
-				actualIndex + 1
-			] as HTMLDivElement
-			state.expanded.set(index, nextElement?.offsetTop - element?.offsetTop)
+				const element = scrollContentRef.current?.children[actualIndex] as HTMLDivElement
+				const nextElement = scrollContainerRef.current?.firstElementChild?.children[
+					actualIndex + 1
+				] as HTMLDivElement
+				state.expanded.set(index, nextElement?.offsetTop - element?.offsetTop)
+				console.log("size", state.expanded.get(index))
+			}, 1000)
 		},
 		[state, snap.firstIndex],
 	)
@@ -255,7 +190,7 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 		>
 			<VStack ref={scrollContentRef}>
 				<Box ref={topSpaceRef} height={`${snap.preSpacerHeight}px`} />
-				{snap.renderItems.map((item, i) => {
+				{renderItems.map((item, i) => {
 					const index = i + snap.firstIndex
 					return (
 						<Item
@@ -379,37 +314,4 @@ function sumGroups(map: Map<number, number>, pre: number, post: number) {
 	}
 
 	return [preGroup, midGroup, postGroup]
-}
-
-function setRenderItems<T>(state: StateProxy<T>) {
-	const { firstIndex, lastIndex, pages } = state
-
-	function* getItems() {
-		let index = firstIndex
-		let page: Page<T> | undefined
-		while (index <= lastIndex) {
-			// assign the current page
-			if (!page || page.to < index) {
-				page = pages.find((p) => p && p.from <= index && p.to >= index)
-			}
-
-			// yield the item
-			yield page?.items[index - page?.from] ?? null
-
-			index++
-		}
-	}
-
-	state.renderItems = [...getItems()]
-}
-
-/** returns the pages as {from: 0, to: 250} which should match the Page[] */
-function getRequiredPages(firstIndex: number, lastIndex: number, pageSize: number) {
-	const fromPage = Math.floor(firstIndex / pageSize)
-	const toPage = Math.ceil(lastIndex / pageSize)
-
-	return Array.from({ length: toPage - fromPage }, (_, i) => ({
-		from: (i + fromPage) * pageSize,
-		to: (i + fromPage + 1) * pageSize - 1,
-	}))
 }

@@ -162,12 +162,8 @@ impl DTProject {
         Ok(thumbnail)
     }
 
-    pub async fn get_history_full(
-        &self,
-        skip: i64,
-        take: i64,
-    ) -> Result<Vec<TensorHistoryExtra>, String> {
-        let items: Vec<TensorHistoryExtra> = query(
+    pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, String> {
+        let item: TensorHistoryExtra = query(
             "
             SELECT
                 thn.rowid,
@@ -210,14 +206,11 @@ impl DTProject {
             ) AS td
             ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
 
-            WHERE thn.rowid >= ?1
+            WHERE thn.rowid == ?1
             ORDER BY thn.rowid
-			
-			LIMIT ?2;
-            ",
+		    ",
         )
-        .bind(skip)
-        .bind(take)
+        .bind(row_id)
         .map(|row: SqliteRow| {
             let row_id = row.get(0);
             let lineage = row.get(1);
@@ -247,10 +240,10 @@ impl DTProject {
                 history: history.unwrap(),
             }
         })
-        .fetch_all(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(|e| e.to_string())?;
-        Ok(items)
+        Ok(item)
     }
 }
 

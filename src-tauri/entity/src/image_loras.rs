@@ -17,19 +17,19 @@ pub enum Relation {
     #[sea_orm(
         belongs_to = "super::images::Entity",
         from = "Column::ImageId",
-        to = "super::images::Column::ImageId",
+        to = "super::images::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
     Images,
     #[sea_orm(
-        belongs_to = "super::loras::Entity",
+        belongs_to = "super::models::Entity",
         from = "Column::LoraId",
-        to = "super::loras::Column::LoraId",
+        to = "super::models::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Loras,
+    Models,
 }
 
 impl Related<super::images::Entity> for Entity {
@@ -38,9 +38,9 @@ impl Related<super::images::Entity> for Entity {
     }
 }
 
-impl Related<super::loras::Entity> for Entity {
+impl Related<super::models::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Loras.def()
+        Relation::Models.def()
     }
 }
 

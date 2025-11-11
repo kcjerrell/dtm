@@ -1,10 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from "@tauri-apps/plugin-dialog"
 import { readDir } from '@tauri-apps/plugin-fs'
-import { DTProject } from '../types'
 import DTProjects from './projectStore'
 import { path } from '@tauri-apps/api'
-import { projectsDb } from '@/commands'
+import { ProjectExtra, projectsDb } from '@/commands'
 
 export async function addProject(directory = false) {
 	const result = await open({
@@ -39,11 +38,11 @@ export async function addProject(directory = false) {
 }
 
 export async function loadProjects() {
-	const projects = (await invoke("projects_db_list_projects")) as DTProject[]
+	const projects = (await invoke("projects_db_list_projects")) as ProjectExtra[]
 
 	DTProjects.state.projects = projects.sort((a, b) =>
 		a.path.toLowerCase().localeCompare(b.path.toLowerCase()),
-	) as DTProject[]
+	) as ProjectExtra[]
 }
 
 export async function scanProject(projectFile: string) {

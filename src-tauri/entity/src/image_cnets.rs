@@ -15,32 +15,32 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::cnets::Entity",
-        from = "Column::CnetId",
-        to = "super::cnets::Column::CnetId",
-        on_update = "NoAction",
-        on_delete = "Cascade"
-    )]
-    Cnets,
-    #[sea_orm(
         belongs_to = "super::images::Entity",
         from = "Column::ImageId",
-        to = "super::images::Column::ImageId",
+        to = "super::images::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
     Images,
-}
-
-impl Related<super::cnets::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Cnets.def()
-    }
+    #[sea_orm(
+        belongs_to = "super::models::Entity",
+        from = "Column::CnetId",
+        to = "super::models::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    Models,
 }
 
 impl Related<super::images::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Images.def()
+    }
+}
+
+impl Related<super::models::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Models.def()
     }
 }
 

@@ -52,7 +52,7 @@ function ImagesList(props: ImagesList) {
 				pageSize={250}
 				totalCount={totalCount}
 				getItems={getItems}
-				keyFn={(item) => `${item.project_id}_${item.row_id}`}
+				keyFn={(item) => `${item.project_id}_${item.node_id}`}
 			/>
 		</Panel>
 	)

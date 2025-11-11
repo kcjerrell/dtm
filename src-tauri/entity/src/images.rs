@@ -7,16 +7,16 @@ use serde::Serialize;
 #[sea_orm(table_name = "images")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub image_id: i32,
+    pub id: i32,
     pub project_id: i32,
     pub model_id: Option<i32>,
+    pub refiner_id: Option<i32>,
     #[sea_orm(column_type = "Text", nullable)]
     pub prompt: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub negative_prompt: Option<String>,
-    pub dt_id: i64,
-    pub row_id: i64,
-    pub wall_clock: DateTimeUtc,
+    pub node_id: i64,
+    pub preview_id: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -27,16 +27,24 @@ pub enum Relation {
     ImageLoras,
     #[sea_orm(
         belongs_to = "super::models::Entity",
-        from = "Column::ModelId",
-        to = "super::models::Column::ModelId",
+        from = "Column::RefinerId",
+        to = "super::models::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
-    Models,
+    Models2,
+    #[sea_orm(
+        belongs_to = "super::models::Entity",
+        from = "Column::ModelId",
+        to = "super::models::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Models1,
     #[sea_orm(
         belongs_to = "super::projects::Entity",
         from = "Column::ProjectId",
-        to = "super::projects::Column::ProjectId",
+        to = "super::projects::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
@@ -55,33 +63,9 @@ impl Related<super::image_loras::Entity> for Entity {
     }
 }
 
-impl Related<super::models::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Models.def()
-    }
-}
-
 impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Projects.def()
-    }
-}
-
-impl Related<super::cnets::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::image_cnets::Relation::Cnets.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::image_cnets::Relation::Images.def().rev())
-    }
-}
-
-impl Related<super::loras::Entity> for Entity {
-    fn to() -> RelationDef {
-        super::image_loras::Relation::Loras.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::image_loras::Relation::Images.def().rev())
     }
 }
 

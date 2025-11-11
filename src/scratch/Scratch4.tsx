@@ -4,6 +4,7 @@ import { CheckRoot } from "@/components"
 import { MotionBox, Panel } from "@/components/common"
 import { motion } from "motion/react"
 import PVList from "@/components/virtualizedList/PVLIst"
+import { useMemo } from "react"
 
 const store = proxy({
 	someState: "Hello",
@@ -18,6 +19,9 @@ class PagedCollection {}
 function Empty(props) {
 	const snap = useSnapshot(store)
 
+	const t = useMemo(() => 5, [])
+
+	console.log("memo", t)
 	return (
 		<CheckRoot width={"full"} height={"full"} zoom={1}>
 			<Panel>
