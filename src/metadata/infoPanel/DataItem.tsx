@@ -40,27 +40,22 @@ function DataItem(props: DataItemProps<unknown>) {
 	const colSpan = cols ?? span
 	const gridColumn = colSpan > 1 ? `1 / span ${colSpan}` : undefined
 
-	const handleClick = useCallback((e: React.MouseEvent) => {
-		if (onClick) {
-			onClick(e, data, label)
-		}
-		else {
-			setJustCopied(true)
-			navigator.clipboard.writeText(content ?? "")
-		}
-	}, [setJustCopied, content, data, label, onClick])
+	const handleClick = useCallback(
+		(e: React.MouseEvent) => {
+			if (onClick) {
+				onClick(e, data, label)
+			} else {
+				setJustCopied(true)
+				navigator.clipboard.writeText(content ?? "")
+			}
+		},
+		[setJustCopied, content, data, label, onClick],
+	)
 
 	if (ignore) return null
 
 	return (
-		<GridItem
-			alignItems={"stretch"}
-			display={"flex"}
-			flexDirection={"column"}
-			gridColumn={gridColumn}
-			position={"relative"}
-			{...rest}
-		>
+		<Root gridColumn={gridColumn} {...rest}>
 			{/* <VStack gap={0}> */}
 			<HStack justifyContent={"space-between"}>
 				<Box
@@ -74,7 +69,7 @@ function DataItem(props: DataItemProps<unknown>) {
 					{justCopied ? "Copied!" : label}
 				</Box>
 			</HStack>
-			<DataItemContent
+			<Content
 				className={"peer"}
 				collapse={collapse}
 				type={type}
@@ -82,7 +77,7 @@ function DataItem(props: DataItemProps<unknown>) {
 				maxHeight={maxHeight}
 			>
 				{content}
-			</DataItemContent>
+			</Content>
 			{collapse !== "normal" && (
 				<Box
 					fontSize={"xs"}
@@ -106,13 +101,44 @@ function DataItem(props: DataItemProps<unknown>) {
 					{collapse === "collapsed" ? "(more)" : "(less)"}
 				</Box>
 			)}
-		</GridItem>
+		</Root>
 	)
 }
 
 export default DataItem
 
-const DataItemContent = chakra("div", {
+const Root = chakra("div", {
+	base: {
+		position: "relative",
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "stretch",
+	},
+})
+
+const ExpandButton = chakra("div", {
+	base: {
+		fontSize: "xs",
+		color: "fg.2",
+		position: "absolute",
+		bottom: 0,
+		right: 0,
+		pl: "2.5rem",
+		pt: "1rem",
+		fontWeight: 600,
+		bgImage:
+			"radial-gradient(farthest-side at bottom right, var(--chakra-colors-bg-1) 50%, #00000000 100%)",
+		_hover: {
+			color: "fg.1",
+		},
+		_peerHover: {
+			bgImage:
+				"radial-gradient(farthest-side at bottom right, var(--chakra-colors-bg-2) 50%, #00000000 100%)",
+		},
+	},
+})
+
+const Content = chakra("div", {
 	base: {
 		outline: "1px solid transparent",
 		padding: "2px",
@@ -167,7 +193,7 @@ const DataItemContent = chakra("div", {
 			object: {
 				textIndent: "1rem hanging each-line",
 				fontFamily: "monospace",
-				fontSize: '0.8rem'
+				fontSize: "0.8rem",
 			},
 			string: {},
 			number: {},

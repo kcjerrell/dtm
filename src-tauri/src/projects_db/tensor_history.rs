@@ -18,7 +18,7 @@ pub struct TensorHistoryImport {
     pub model: String,
     // pub tensor_id: i64,
     // pub mask_id: i64,
-    pub wall_clock: i64,
+    pub wall_clock: Option<NaiveDateTime>,
     // pub text_edits: i64,
     // pub text_lineage: i64,
     // pub batch_size: u32,
@@ -163,7 +163,7 @@ impl TensorHistoryImport {
             generated: node.generated(),
             index_in_a_clip: node.index_in_a_clip(),
             logical_time: node.logical_time(),
-            wall_clock: node.wall_clock(),
+            wall_clock: wall_clock_to_datetime(node.wall_clock()),
         })
     }
 }
@@ -307,7 +307,7 @@ impl TryFrom<&[u8]> for TensorHistoryNode {
             model: node.model().map(|m| m.to_string()),
             tensor_id: node.tensor_id(),
             mask_id: node.mask_id(),
-            wall_clock: DateTime::from_timestamp(node.wall_clock(), 0).and_then(|dt| Some(dt.naive_local())),
+            wall_clock: wall_clock_to_datetime(node.wall_clock()),
             text_edits: node.text_edits(),
             text_lineage: node.text_lineage(),
             batch_size: node.batch_size(),
@@ -404,5 +404,21 @@ impl TryFrom<&[u8]> for TensorHistoryNode {
             generation_time: node.generation_time(),
             reason: node.reason().0,
         })
+    }
+}
+
+fn wall_clock_to_datetime(value: i64) -> Option<NaiveDateTime> {
+    if value > 1_000_000_000_000_000 {
+        // microseconds
+        let secs = value / 1_000_000;
+        let micros = (value % 1_000_000) as u32;
+        DateTime::from_timestamp(secs, micros * 1000)
+            .map(|dt| dt.naive_local())
+    } else if value > 1_000_000_000 {
+        // seconds
+        DateTime::from_timestamp(value, 0)
+            .map(|dt| dt.naive_local())
+    } else {
+        None
     }
 }

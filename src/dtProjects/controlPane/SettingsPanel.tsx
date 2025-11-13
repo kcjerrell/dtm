@@ -1,10 +1,9 @@
-import { PanelButton, PaneListContainer, PanelListItem, PanelSectionHeader } from "@/components"
+import { HStack } from "@chakra-ui/react"
+import { PaneListContainer, PanelButton, PanelListItem, PanelSectionHeader } from "@/components"
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
-import { Box, HStack, VStack } from "@chakra-ui/react"
-import { useDTProjects } from "../state/projectStore"
-import { addDefaultWatchFolder, addWatchFolder, removeWatchFolders } from "../state/watchFolders"
+import { useDTProjects, WatchFolders } from "../state/projectStore"
 
 interface SettingsPanelComponentProps extends ChakraProps {}
 
@@ -28,13 +27,13 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 					<PanelButton
 						tone={"danger"}
 						display={!selectedItems.length ? "none" : "flex"}
-						onClick={() => removeWatchFolders(selectedItems)}
+						onClick={() => WatchFolders.removeWatchFolders(selectedItems as string[])}
 					>
 						Remove
 					</PanelButton>
 					<PanelButton
 						onClick={() =>
-							openAnd(addWatchFolder, { directory: true, multiple: false, title: "Select folder" })
+							openAnd(WatchFolders.addWatchFolder, { directory: true, multiple: false, title: "Select folder" })
 						}
 					>
 						Add
@@ -46,12 +45,12 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 					))}
 				</VStack> */}
 			</PaneListContainer>
-			<PanelButton onClick={() => addDefaultWatchFolder()}>Add default folder</PanelButton>
+			<PanelButton onClick={() => WatchFolders.addDefaultWatchFolder()}>Add default folder</PanelButton>
 		</TabContent>
 	)
 }
 
-function WatchFolderItem(props) {
+function WatchFolderItem(props: { folder: string }) {
 	const { folder } = props
 	const { isSelected, handlers } = useSelectable(folder, false)
 

@@ -276,7 +276,7 @@ function PreviewZoom(props: PreviewProps) {
 	)
 }
 
-function contain(
+export function contain(
 	naturalWidth: number,
 	naturalHeight: number,
 	innerWidth: number,

@@ -5,6 +5,7 @@ import { MotionBox, Panel } from "@/components/common"
 import { motion } from "motion/react"
 import PVList from "@/components/virtualizedList/PVLIst"
 import { useMemo } from "react"
+import PVGrid from "@/components/virtualizedList/PVGrid"
 
 const store = proxy({
 	someState: "Hello",
@@ -25,10 +26,15 @@ function Empty(props) {
 	return (
 		<CheckRoot width={"full"} height={"full"} zoom={1}>
 			<Panel>
-				<PVList
+				<PVGrid
+					width={"80vw"}
+					height={"80vh"}
+					keyFn={(item, index) => index}
+					maxItemSize={150}
 					itemComponent={Item}
 					totalCount={4000}
 					pageSize={100}
+					initialRowCount={5}
 					getItems={(skip, take) => getItems(skip, take)}
 				/>
 			</Panel>
@@ -41,7 +47,7 @@ export default Empty
 function Item(props) {
 	if (props.value === null) return <Box>Loading...</Box>
 	return (
-		<Box>
+		<Box bgColor={`#${(Math.floor(Math.random() * 0xffffff)).toString(16)}`} aspectRatio={"1 / 1"}>
 			{props.index} {props.value}
 		</Box>
 	)

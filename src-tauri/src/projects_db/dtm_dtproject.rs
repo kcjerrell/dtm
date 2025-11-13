@@ -27,7 +27,12 @@ pub async fn dtm_dtproject_protocol(path: Vec<&str>, responder: UriSchemeRespond
     let item_id = path[2];
 
     match item_type {
-        "thumbhalf" => thumbhalf(&project_path, item_id, responder).await.unwrap(),
+        "thumb" => thumb(&project_path, item_id, false, responder)
+            .await
+            .unwrap(),
+        "thumbhalf" => thumb(&project_path, item_id, true, responder)
+            .await
+            .unwrap(),
         "tensor" => tensor(&project_path, item_id, responder).await.unwrap(),
         _ => responder.respond(
             Response::builder()
@@ -38,10 +43,18 @@ pub async fn dtm_dtproject_protocol(path: Vec<&str>, responder: UriSchemeRespond
     };
 }
 
-async fn thumbhalf(path: &str, item_id: &str, responder: UriSchemeResponder) -> Result<(), DbErr> {
+async fn thumb(
+    path: &str,
+    item_id: &str,
+    half: bool,
+    responder: UriSchemeResponder,
+) -> Result<(), DbErr> {
     let id: i64 = item_id.parse().unwrap();
     let dtp = DTProject::get(path).await.unwrap();
-    let thumb = dtp.get_thumb_half(id).await.unwrap();
+    let thumb = match half {
+        true => dtp.get_thumb_half(id).await.unwrap(),
+        false => dtp.get_thumb(id).await.unwrap(),
+    };
     let thumb = extract_jpeg_slice(&thumb).unwrap();
     responder.respond(
         Response::builder()
@@ -60,15 +73,30 @@ async fn tensor(
     responder: UriSchemeResponder,
 ) -> Result<(), String> {
     let dtp = DTProject::get(project_file).await.unwrap();
-    let tensor = dtp.get_tensor_raw(name).await.unwrap();
-    let png = tensor_to_png_bytes(tensor).unwrap();
-    responder.respond(
-        Response::builder()
-            .status(200)
-            .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
-            .body(png)
+
+    let builder: Response<Vec<u8>> = match classify_type(name).unwrap_or("") {
+        "color_palette" | "pose" | "scribble" => Response::builder()
+            .status(400)
+            .body("Not implemented".as_bytes().to_vec())
             .unwrap(),
-    );
+        "tensor_history" | "custom" | "shuffle" | "depth_map" => {
+            let tensor = dtp.get_tensor_raw(name).await.unwrap();
+            let png = tensor_to_png_bytes(tensor).unwrap();
+
+            Response::builder()
+                .status(200)
+                .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
+                .body(png)
+                .unwrap()
+        }
+        _ => Response::builder()
+            .status(400)
+            .body("Unknown item time".as_bytes().to_vec())
+            .unwrap()
+    };
+
+    responder.respond(builder);
+
     Ok(())
 }
 
@@ -84,6 +112,10 @@ async fn get_project_path(project_id: u64) -> Result<String, DbErr> {
         .unwrap()
         .insert(project_id, project.path.clone());
     Ok(project.path)
+}
+
+fn classify_type(s: &str) -> Option<&str> {
+    s.rsplit_once('_').map(|(prefix, _)| prefix)
 }
 
 fn extract_jpeg_slice(data: &[u8]) -> Option<Vec<u8>> {

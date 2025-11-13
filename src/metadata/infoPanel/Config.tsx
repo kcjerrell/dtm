@@ -2,16 +2,18 @@ import { Box, HStack } from "@chakra-ui/react"
 import MeasureGrid, { MeasureGridProps } from "@/components/measureGrid/MeasureGrid"
 import type { ImageItem } from "../state/ImageItem"
 import DataItem from "./DataItem"
+import { DrawThingsMetaData } from '@/types'
 
 interface ConfigProps extends MeasureGridProps {
-	imageSnap: ReadonlyState<ImageItem>
+	imageSnap?: ReadonlyState<ImageItem>
 	expandItems?: string[]
 	onItemCollapseChanged?: (key: string, collapse: "collapsed" | "expanded") => void
+	dtData?: DrawThingsMetaData
 }
 
 function Config(props: ConfigProps) {
-	const { imageSnap, expandItems, onItemCollapseChanged, ...rest } = props
-	const dtData = imageSnap?.dtData
+	const { imageSnap, expandItems, onItemCollapseChanged, dtData: dtDataProp, ...rest } = props
+	const dtData = dtDataProp ?? imageSnap?.dtData
 
 	if (!dtData)
 		return (

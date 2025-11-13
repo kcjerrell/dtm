@@ -1,80 +1,40 @@
-import { invoke } from '@tauri-apps/api/core'
-import { open } from "@tauri-apps/plugin-dialog"
-import { readDir } from '@tauri-apps/plugin-fs'
-import DTProjects from './projectStore'
-import { path } from '@tauri-apps/api'
-import { ProjectExtra, projectsDb } from '@/commands'
+import { invoke } from "@tauri-apps/api/core"
+import { type ProjectExtra, projectsDb } from "@/commands"
+import type { DTProjectsState } from "./projectStore"
 
-export async function addProject(directory = false) {
-	const result = await open({
-		multiple: !directory,
-		directory,
-		defaultPath: "/Users/kcjer/Library/Containers/com.liuliu.draw-things/Data/Documents",
-		filters: [
-			{
-				name: "Draw Things Projects",
-				extensions: ["sqlite3"],
-			},
-		],
-	})
+export interface ProjectState extends ProjectExtra {
+	isScanning?: boolean
+	isMissing?: boolean
+}
 
-	if (!result) return
-	const files: string[] = []
+class ProjectsService {
+	#state: DTProjectsState
 
-	if (directory) {
-		const dirFiles = (await readDir(result)).filter((f) => f.name.endsWith(".sqlite3"))
-		files.push(...(await Promise.all(dirFiles.map(async (f) => await path.join(result, f.name)))))
-	} else if (Array.isArray(result)) {
-		for (const file of result) {
-			files.push(file)
+	constructor(state: DTProjectsState) {
+		this.#state = state
+	}
+
+	async loadProjects() {
+			const projects = await projectsDb.listProjects()
+
+			this.#state.projects = projects.sort((a, b) =>
+				a.path.toLowerCase().localeCompare(b.path.toLowerCase()),
+			)
+	}
+
+	async removeProjects(projectFiles: string[]) {
+		for (const projectFile of projectFiles) {
+			await invoke("projects_db_remove_project", { path: projectFile })
 		}
+		await this.loadProjects()
 	}
 
-	for (const file of files) {
-		await invoke("projects_db_add_project", { path: file })
-	}
-
-	await loadProjects()
-}
-
-export async function loadProjects() {
-	const projects = (await invoke("projects_db_list_projects")) as ProjectExtra[]
-
-	DTProjects.state.projects = projects.sort((a, b) =>
-		a.path.toLowerCase().localeCompare(b.path.toLowerCase()),
-	) as ProjectExtra[]
-}
-
-export async function scanProject(projectFile: string) {
-	await invoke("projects_db_scan_project", { path: projectFile })
-	await loadProjects()
-}
-
-export async function scanAllProjects() {
-	const start = Date.now()
-	await invoke("projects_db_scan_all_projects")
-	const end = Date.now()
-	await loadProjects()
-	DTProjects.state.scanProgress = -1
-	console.log({ end, start }, end - start)
-}
-
-export async function removeProject(projectFile: string) {
-	await invoke("projects_db_remove_project", { path: projectFile })
-	await loadProjects()
-}
-
-export async function checkProjects(projectsFiles: string[]) {
-	for (const projectFile of projectsFiles) {
-		if (DTProjects.state.projects.includes(projectFile)) {
-
-		}
+	async addProjects(projectFiles: string[]) {
+			for (const pf of projectFiles) {
+				await projectsDb.addProject(pf)
+			}
+			await this.loadProjects()
 	}
 }
 
-export async function addProjects(projectFiles: string[]) {
-	for (const pf of projectFiles) {
-		await projectsDb.addProject(pf)
-	}
-	await loadProjects()
-}
+export default ProjectsService

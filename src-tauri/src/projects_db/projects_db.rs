@@ -100,7 +100,7 @@ impl ProjectsDb {
                 Expr::col((Images, images::Column::ProjectId)).count(),
                 "image_count",
             )
-            .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
+            .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
             .into_model::<ProjectExtra>()
             .one(&self.db)
             .await?;
@@ -133,7 +133,7 @@ impl ProjectsDb {
         path: &str,
         mut on_progress: F,
         full_scan: bool,
-    ) -> Result<(), MixedError>
+    ) -> Result<u64, MixedError>
     where
         F: FnMut(i32, i32),
     {
@@ -228,7 +228,7 @@ impl ProjectsDb {
                                 prompt: Set(Some(h.prompt.clone())),
                                 negative_prompt: Set(Some(h.negative_prompt.clone())),
                                 model_id: Set(map.get(&h.model).copied()),
-
+                                wall_clock: Set(h.wall_clock.unwrap()),
                                 ..Default::default()
                             })
                             .collect();
@@ -252,7 +252,14 @@ impl ProjectsDb {
             on_progress(batch_end as i32, end as i32);
         }
 
-        Ok(())
+        Ok(self
+            .list_images(ListImagesOptions {
+                project_ids: Some([project.id].to_vec()),
+                take: Some(0),
+                ..Default::default()
+            })
+            .await?
+            .total)
     }
 
     pub async fn scan_all_projects(&self, app: &tauri::AppHandle) -> Result<(), MixedError> {
@@ -267,6 +274,7 @@ impl ProjectsDb {
                     ScanProgress {
                         projects_scanned,
                         projects_total,
+                        project_final: -1,
                         project_path: proj.path.clone(),
                         images_scanned,
                         images_total,
@@ -274,12 +282,28 @@ impl ProjectsDb {
                 )
                 .unwrap();
             };
+            //
 
-            if let Err(err) = self.scan_project(&proj.path, update, false).await {
-                eprintln!("Error scanning project {}: {}", proj.path, err);
+            match self.scan_project(&proj.path, update, false).await {
+                Ok(total) => {
+                    app.emit(
+                        "projects_db_scan_progress",
+                        ScanProgress {
+                            projects_scanned,
+                            projects_total,
+                            project_final: total as i32,
+                            project_path: proj.path.clone(),
+                            images_scanned: -1,
+                            images_total: -1,
+                        },
+                    )
+                    .unwrap();
+                }
+                Err(err) => {
+                    eprintln!("Error scanning project {}: {}", proj.path, err);
+                }
             }
             projects_scanned += 1;
-            let upd_proj = self.get_project(proj.id).await?;
         }
 
         Ok(())
@@ -334,8 +358,8 @@ impl ProjectsDb {
 
         let mut query = images::Entity::find()
             .join(JoinType::LeftJoin, images::Relation::Models1.def())
-            .column_as(entity::models::Column::Filename, "model_file");
-        // .order_by(images::Column::WallClock, Order::Desc);
+            .column_as(entity::models::Column::Filename, "model_file")
+            .order_by(images::Column::WallClock, Order::Desc);
 
         if let Some(project_ids) = &opts.project_ids {
             if !project_ids.is_empty() {
@@ -393,7 +417,7 @@ impl ProjectsDb {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Default)]
 pub struct ListImagesOptions {
     pub project_ids: Option<Vec<i32>>,
     pub model: Option<String>,
@@ -417,6 +441,7 @@ pub struct ProjectExtra {
 pub struct ScanProgress {
     pub projects_scanned: i32,
     pub projects_total: i32,
+    pub project_final: i32,
     pub project_path: String,
     pub images_scanned: i32,
     pub images_total: i32,

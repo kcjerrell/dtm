@@ -35,6 +35,7 @@ export type TensorHistoryExtra = {
 	pose_id?: string
 	color_palette_id?: string
 	custom_id?: string
+	moodboard_ids: string[]
 	history: Record<string, unknown>
 	project_path: string
 }
@@ -72,7 +73,8 @@ export const projectsDb = {
 
 	listProjects: async (): Promise<ProjectExtra[]> => invoke("projects_db_list_projects"),
 
-	scanProject: async (path: string, fullScan = false): Promise<void> => invoke("projects_db_scan_project", { path, fullScan }),
+	scanProject: async (path: string, fullScan = false): Promise<void> =>
+		invoke("projects_db_scan_project", { path, fullScan }),
 
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_scan_all_projects"),
 
@@ -111,4 +113,12 @@ export const dtProject = {
 
 	getTensor: async (project_file: string, name: string): Promise<Uint8Array> =>
 		invoke("dt_project_get_tensor", { project_file, name }),
+
+	getPredecessorCandidates: async (
+		projectFile: string,
+		rowId: number,
+		lineage: number,
+		logicalTime: number,
+	): Promise<TensorHistoryExtra[]> =>
+		invoke("dt_project_find_predecessor_candidates", { projectFile, rowId, lineage, logicalTime }),
 }

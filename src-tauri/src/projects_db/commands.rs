@@ -42,7 +42,11 @@ pub async fn projects_db_list_projects(
 }
 
 #[tauri::command]
-pub async fn projects_db_scan_project(app: tauri::AppHandle, path: String, full_scan: Option<bool>) -> Result<(), String> {
+pub async fn projects_db_scan_project(
+    app: tauri::AppHandle,
+    path: String,
+    full_scan: Option<bool>,
+) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
     let update = |images_scanned: i32, images_total: i32| {
         app.emit(
@@ -50,6 +54,7 @@ pub async fn projects_db_scan_project(app: tauri::AppHandle, path: String, full_
             ScanProgress {
                 projects_scanned: 0,
                 projects_total: 1,
+                project_final: -1,
                 project_path: path.clone(),
                 images_scanned,
                 images_total,
@@ -57,7 +62,29 @@ pub async fn projects_db_scan_project(app: tauri::AppHandle, path: String, full_
         )
         .unwrap();
     };
-    pdb.scan_project(&path, update, full_scan.unwrap_or(false)).await?;
+    match pdb
+        .scan_project(&path, update, full_scan.unwrap_or(false))
+        .await
+    {
+        Ok(total) => {
+            app.emit(
+                "projects_db_scan_progress",
+                ScanProgress {
+                    projects_scanned: 1,
+                    projects_total: 1,
+                    project_final: total as i32,
+                    project_path: path.clone(),
+                    images_scanned: -1,
+                    images_total: -1,
+                },
+            )
+            .unwrap();
+        }
+        Err(err) => {
+            eprintln!("Error scanning project {}: {}", path, err);
+        }
+    }
+
     Ok(())
 }
 
@@ -144,9 +171,12 @@ pub async fn dt_project_get_thumb_half(
 #[tauri::command]
 pub async fn dt_project_get_history_full(
     project_file: String,
-    row_id: i64
+    row_id: i64,
 ) -> Result<TensorHistoryExtra, String> {
-    println!("dt_project_get_history_full, {}, {:?}", project_file, row_id);
+    println!(
+        "dt_project_get_history_full, {}, {:?}",
+        project_file, row_id
+    );
     let project = DTProject::get(&project_file).await.unwrap();
     let history = project.get_history_full(row_id).await.unwrap();
     Ok(history)
@@ -164,6 +194,20 @@ pub async fn dt_project_get_tensor(project_file: String, name: String) -> Result
     // file.write_all(&png).unwrap();
 
     // Ok(png)
+}
+
+#[tauri::command]
+pub async fn dt_project_find_predecessor_candidates(
+    project_file: String,
+    row_id: i64,
+    lineage: i64,
+    logical_time: i64,
+) -> Result<Vec<TensorHistoryExtra>, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    Ok(project
+        .find_predecessor_candidates(row_id, lineage, logical_time)
+        .await
+        .unwrap())
 }
 
 #[tauri::command]

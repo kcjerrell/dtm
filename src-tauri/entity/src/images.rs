@@ -17,6 +17,7 @@ pub struct Model {
     pub negative_prompt: Option<String>,
     pub node_id: i64,
     pub preview_id: i64,
+    pub wall_clock: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

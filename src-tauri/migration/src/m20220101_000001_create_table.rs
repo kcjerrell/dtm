@@ -92,6 +92,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::NegativePrompt).text())
                     .col(ColumnDef::new(Images::NodeId).big_integer().not_null())
                     .col(ColumnDef::new(Images::PreviewId).big_integer().not_null())
+                    .col(ColumnDef::new(Images::WallClock).date_time().not_null())
                     .index(
                         Index::create()
                             .name("idx_images_nodeid_projectid_unique")
@@ -232,6 +233,7 @@ enum Images {
     NegativePrompt,
     NodeId,
     PreviewId,
+    WallClock,
 }
 
 #[derive(Iden)]
