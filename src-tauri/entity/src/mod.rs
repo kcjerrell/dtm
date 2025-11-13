@@ -2,9 +2,10 @@
 
 pub mod prelude;
 
-pub mod image_cnets;
+pub mod image_controls;
 pub mod image_loras;
 pub mod images;
 pub mod models;
 pub mod projects;
+pub mod seaql_migrations;
 pub mod watch_folders;

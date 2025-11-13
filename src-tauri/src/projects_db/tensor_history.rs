@@ -172,12 +172,12 @@ impl TensorHistoryImport {
 pub struct TensorHistoryNode {
     pub lineage: i64,
     pub logical_time: i64,
-    pub start_width: u16,
-    pub start_height: u16,
-    pub seed: u32,
-    pub steps: u32,
-    pub guidance_scale: f32,
-    pub strength: f32,
+    pub start_width: u16,       //
+    pub start_height: u16,      //
+    pub seed: u32,              //
+    pub steps: u32,             //
+    pub guidance_scale: f32,    //    
+    pub strength: f32,          //
     pub model: Option<String>,
     pub tensor_id: i64,
     pub mask_id: i64,
@@ -185,16 +185,16 @@ pub struct TensorHistoryNode {
     pub text_edits: i64,
     pub text_lineage: i64,
     pub batch_size: u32,
-    pub sampler: i8,
-    pub hires_fix: bool,
-    pub hires_fix_start_width: u16,
-    pub hires_fix_start_height: u16,
-    pub hires_fix_strength: f32,
-    pub upscaler: Option<String>,
+    pub sampler: i8,            //
+    pub hires_fix: bool,        //
+    pub hires_fix_start_width: u16,     //
+    pub hires_fix_start_height: u16,    //
+    pub hires_fix_strength: f32,        //
+    pub upscaler: Option<String>,       //
     pub scale_factor: u16,
     pub depth_map_id: i64,
     pub generated: bool,
-    pub image_guidance_scale: f32,
+    pub image_guidance_scale: f32,      //
     pub seed_mode: i8,
     pub clip_skip: u32,
     pub controls: Option<Vec<Control>>,
@@ -234,17 +234,17 @@ pub struct TensorHistoryNode {
     pub num_frames: u32,
     pub mask_blur_outset: i32,
     pub sharpness: f32,
-    pub shift: f32,
+    pub shift: f32,             //      
     pub stage_2_steps: u32,
     pub stage_2_cfg: f32,
     pub stage_2_shift: f32,
-    pub tiled_decoding: bool,
-    pub decoding_tile_width: u16,
+    pub tiled_decoding: bool,       //
+    pub decoding_tile_width: u16,   
     pub decoding_tile_height: u16,
     pub decoding_tile_overlap: u16,
     pub stochastic_sampling_gamma: f32,
     pub preserve_original_after_inpaint: bool,
-    pub tiled_diffusion: bool,
+    pub tiled_diffusion: bool,      //
     pub diffusion_tile_width: u16,
     pub diffusion_tile_height: u16,
     pub diffusion_tile_overlap: u16,
@@ -256,13 +256,13 @@ pub struct TensorHistoryNode {
     pub separate_open_clip_g: bool,
     pub open_clip_g_text: Option<String>,
     pub speed_up_with_guidance_embed: bool,
-    pub guidance_embed: f32,
-    pub resolution_dependent_shift: bool,
+    pub guidance_embed: f32,    //
+    pub resolution_dependent_shift: bool,   //
     // pub profile_data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
     pub tea_cache_start: i32,
     pub tea_cache_end: i32,
     pub tea_cache_threshold: f32,
-    pub tea_cache: bool,
+    pub tea_cache: bool,    //
     pub separate_t5: bool,
     pub t5_text: Option<String>,
     pub tea_cache_max_skip_steps: i32,

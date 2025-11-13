@@ -4,12 +4,11 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize)]
-#[sea_orm(table_name = "watch_folder")]
+#[sea_orm(table_name = "seaql_migrations")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub watch_folder_id: i32,
-    #[sea_orm(column_type = "Text", unique)]
-    pub path: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub version: String,
+    pub applied_at: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

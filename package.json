@@ -13,7 +13,7 @@
     "tauri": "dotenv -- tauri",
     "release": "tsx scripts/release.ts",
     "gen-icons": "tauri icon ./app-icon.png",
-    "generate:entities": "dotenv -e .env -- sh -c 'echo $DB_URL && sea-orm-cli generate entity --database-url \"$DB_URL\" --output-dir src-tauri/entity/src --with-serde serialize'",
+    "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize'",
     "what": "which dotenv"
   },
   "dependencies": {

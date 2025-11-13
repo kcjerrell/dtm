@@ -6,25 +6,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // 1. watch_folders
-        manager
-            .create_table(
-                Table::create()
-                    .table(WatchFolders::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(WatchFolders::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(WatchFolders::Path).text().not_null().unique_key())
-                    .to_owned(),
-            )
-            .await?;
-
-        // 2. projects
+        // projects
         manager
             .create_table(
                 Table::create()
@@ -34,17 +16,28 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Projects::Id)
                             .integer()
                             .not_null()
-                            .auto_increment()
-                            .primary_key(),
+                            .primary_key()
+                            .auto_increment(),
                     )
-                    .col(ColumnDef::new(Projects::Path).text().not_null().unique_key())
-                    .col(ColumnDef::new(Projects::Filesize).big_integer())
-                    .col(ColumnDef::new(Projects::Modified).big_integer())
+                    .col(ColumnDef::new(Projects::Path).string().not_null())
+                    .col(ColumnDef::new(Projects::Filesize).big_integer().null())
+                    .col(ColumnDef::new(Projects::Modified).big_integer().null())
                     .to_owned(),
             )
             .await?;
 
-        // 3. models (merged models/loras/cnets)
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_projects_path")
+                    .table(Projects::Table)
+                    .col(Projects::Path)
+                    .unique()
+                    .to_owned(),
+            )
+            .await?;
+
+        // models
         manager
             .create_table(
                 Table::create()
@@ -54,25 +47,28 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Models::Id)
                             .integer()
                             .not_null()
-                            .auto_increment()
-                            .primary_key(),
+                            .primary_key()
+                            .auto_increment(),
                     )
-                    .col(ColumnDef::new(Models::ModelType).string().not_null())
-                    .col(ColumnDef::new(Models::Filename).text().not_null())
-                    .col(ColumnDef::new(Models::Name).text())
-                    .col(ColumnDef::new(Models::Version).text())
-                    .index(
-                        Index::create()
-                            .name("idx_models_type_filename_unique")
-                            .col(Models::ModelType)
-                            .col(Models::Filename)
-                            .unique(),
-                    )
+                    .col(ColumnDef::new(Models::ModelType).tiny_integer().not_null())
+                    .col(ColumnDef::new(Models::Filename).string().not_null())
+                    .col(ColumnDef::new(Models::Name).string().null())
+                    .col(ColumnDef::new(Models::Version).string().null())
                     .to_owned(),
             )
             .await?;
 
-        // 4. images
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_models_type")
+                    .table(Models::Table)
+                    .col(Models::ModelType)
+                    .to_owned(),
+            )
+            .await?;
+
+        // images
         manager
             .create_table(
                 Table::create()
@@ -82,45 +78,174 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Images::Id)
                             .integer()
                             .not_null()
-                            .auto_increment()
-                            .primary_key(),
+                            .primary_key()
+                            .auto_increment(),
                     )
                     .col(ColumnDef::new(Images::ProjectId).integer().not_null())
-                    .col(ColumnDef::new(Images::ModelId).integer())
-                    .col(ColumnDef::new(Images::RefinerId).integer())
-                    .col(ColumnDef::new(Images::Prompt).text())
-                    .col(ColumnDef::new(Images::NegativePrompt).text())
                     .col(ColumnDef::new(Images::NodeId).big_integer().not_null())
                     .col(ColumnDef::new(Images::PreviewId).big_integer().not_null())
-                    .col(ColumnDef::new(Images::WallClock).date_time().not_null())
-                    .index(
-                        Index::create()
-                            .name("idx_images_nodeid_projectid_unique")
-                            .col(Images::NodeId)
-                            .col(Images::ProjectId)
-                            .unique(),
+                    .col(ColumnDef::new(Images::ClipId).big_integer().not_null())
+                    .col(ColumnDef::new(Images::WallClock).timestamp().not_null())
+                    .col(ColumnDef::new(Images::ModelId).integer().null())
+                    .col(ColumnDef::new(Images::RefinerId).integer().null())
+                    .col(ColumnDef::new(Images::RefinerStart).float().null())
+                    .col(ColumnDef::new(Images::UpscalerId).integer().null())
+                    .col(ColumnDef::new(Images::Prompt).text().null())
+                    .col(ColumnDef::new(Images::NegativePrompt).text().null())
+                    .col(
+                        ColumnDef::new(Images::StartWidth)
+                            .unsigned()
+                            .small_integer()
+                            .not_null(),
                     )
+                    .col(
+                        ColumnDef::new(Images::StartHeight)
+                            .unsigned()
+                            .small_integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(Images::Seed).unsigned().integer().not_null())
+                    .col(ColumnDef::new(Images::Strength).float().not_null())
+                    .col(
+                        ColumnDef::new(Images::Steps)
+                            .unsigned()
+                            .small_integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(Images::GuidanceScale).float().not_null())
+                    .col(ColumnDef::new(Images::Shift).float().not_null())
+                    .col(ColumnDef::new(Images::Sampler).tiny_integer().not_null())
+                    .col(ColumnDef::new(Images::HiresFix).boolean().not_null())
+                    .col(ColumnDef::new(Images::TiledDecoding).boolean().not_null())
+                    .col(ColumnDef::new(Images::TiledDiffusion).boolean().not_null())
+                    .col(ColumnDef::new(Images::TeaCache).boolean().not_null())
+                    .col(ColumnDef::new(Images::CfgZeroStar).boolean().not_null())
                     .foreign_key(
                         ForeignKey::create()
+                            .name("fk_images_project")
                             .from(Images::Table, Images::ProjectId)
-                            .to(Projects::Table, Projects::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .to(Projects::Table, Projects::Id),
                     )
                     .foreign_key(
                         ForeignKey::create()
+                            .name("fk_images_model")
                             .from(Images::Table, Images::ModelId)
                             .to(Models::Table, Models::Id),
                     )
                     .foreign_key(
                         ForeignKey::create()
+                            .name("fk_images_refiner")
                             .from(Images::Table, Images::RefinerId)
+                            .to(Models::Table, Models::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_images_upscaler")
+                            .from(Images::Table, Images::UpscalerId)
                             .to(Models::Table, Models::Id),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 5. image_loras
+        // Indexes for images
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_images_project_id")
+                    .table(Images::Table)
+                    .col(Images::ProjectId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_images_wall_clock")
+                    .table(Images::Table)
+                    .col(Images::WallClock)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_images_model_ids")
+                    .table(Images::Table)
+                    .col(Images::ModelId)
+                    .col(Images::RefinerId)
+                    .col(Images::UpscalerId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_images_strength")
+                    .table(Images::Table)
+                    .col(Images::Strength)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_images_guidance_scale")
+                    .table(Images::Table)
+                    .col(Images::GuidanceScale)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_images_seed")
+                    .table(Images::Table)
+                    .col(Images::Seed)
+                    .to_owned(),
+            )
+            .await?;
+
+        // image_controls
+        manager
+            .create_table(
+                Table::create()
+                    .table(ImageControls::Table)
+                    .if_not_exists()
+                    .col(ColumnDef::new(ImageControls::ImageId).integer().not_null())
+                    .col(
+                        ColumnDef::new(ImageControls::ControlId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ImageControls::Weight).float().not_null())
+                    .primary_key(
+                        Index::create()
+                            .col(ImageControls::ImageId)
+                            .col(ImageControls::ControlId),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_image_controls_image")
+                            .from(ImageControls::Table, ImageControls::ImageId)
+                            .to(Images::Table, Images::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_image_controls_control")
+                            .from(ImageControls::Table, ImageControls::ControlId)
+                            .to(Models::Table, Models::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        // image_loras
         manager
             .create_table(
                 Table::create()
@@ -128,6 +253,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(ColumnDef::new(ImageLoras::ImageId).integer().not_null())
                     .col(ColumnDef::new(ImageLoras::LoraId).integer().not_null())
+                    .col(ColumnDef::new(ImageLoras::Weight).float().not_null())
                     .primary_key(
                         Index::create()
                             .col(ImageLoras::ImageId)
@@ -135,48 +261,64 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
+                            .name("fk_image_loras_image")
                             .from(ImageLoras::Table, ImageLoras::ImageId)
-                            .to(Images::Table, Images::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .to(Images::Table, Images::Id),
                     )
-                    // references models table, where model_type='lora'
                     .foreign_key(
                         ForeignKey::create()
+                            .name("fk_image_loras_lora")
                             .from(ImageLoras::Table, ImageLoras::LoraId)
-                            .to(Models::Table, Models::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .to(Models::Table, Models::Id),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 6. image_cnets
+        // watchfolders
         manager
             .create_table(
                 Table::create()
-                    .table(ImageCnets::Table)
+                    .table(WatchFolders::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(ImageCnets::ImageId).integer().not_null())
-                    .col(ColumnDef::new(ImageCnets::CnetId).integer().not_null())
-                    .primary_key(
-                        Index::create()
-                            .col(ImageCnets::ImageId)
-                            .col(ImageCnets::CnetId),
+                    .col(
+                        ColumnDef::new(WatchFolders::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(ImageCnets::Table, ImageCnets::ImageId)
-                            .to(Images::Table, Images::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    // references models table, where model_type='cnet'
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(ImageCnets::Table, ImageCnets::CnetId)
-                            .to(Models::Table, Models::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
+                    .col(ColumnDef::new(WatchFolders::Path).string().not_null())
+                    .col(ColumnDef::new(WatchFolders::Recursive).boolean().default(false))
                     .to_owned(),
+            )
+            .await?;
+
+        // FTS5 virtual table for prompt + negative_prompt
+        // manager
+        //     .create_table(
+        //         Table::create()
+        //             .table(ImagesFts::Table)
+        //             .if_not_exists()
+        //             .col(ColumnDef::new(ImagesFts::Prompt).text())
+        //             .col(ColumnDef::new(ImagesFts::NegativePrompt).text())
+        //             .engine("fts5(prompt, negative_prompt, content='images', content_rowid='id')")
+        //             .to_owned(),
+        //     )
+        //     .await?;
+
+        manager
+            .get_connection()
+            .execute_unprepared(
+                r#"
+        CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
+        USING fts5(
+            prompt,
+            negative_prompt,
+            content='images',
+            content_rowid='id'
+        );
+        "#,
             )
             .await?;
 
@@ -184,23 +326,30 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table(ImageCnets::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(ImageLoras::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Images::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Models::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Projects::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(WatchFolders::Table).to_owned()).await?;
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TABLE IF EXISTS images_fts;")
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ImageLoras::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ImageControls::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Images::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Models::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Projects::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(WatchFolders::Table).to_owned())
+            .await?;
         Ok(())
     }
-}
-
-// === Table Identities ===
-
-#[derive(Iden)]
-enum WatchFolders {
-    Table,
-    Id,
-    Path,
 }
 
 #[derive(Iden)]
@@ -227,13 +376,37 @@ enum Images {
     Table,
     Id,
     ProjectId,
-    ModelId,
-    RefinerId,
-    Prompt,
-    NegativePrompt,
     NodeId,
     PreviewId,
+    ClipId,
     WallClock,
+    ModelId,
+    RefinerId,
+    RefinerStart,
+    UpscalerId,
+    Prompt,
+    NegativePrompt,
+    StartWidth,
+    StartHeight,
+    Seed,
+    Strength,
+    Steps,
+    GuidanceScale,
+    Shift,
+    Sampler,
+    HiresFix,
+    TiledDecoding,
+    TiledDiffusion,
+    TeaCache,
+    CfgZeroStar,
+}
+
+#[derive(Iden)]
+enum ImageControls {
+    Table,
+    ImageId,
+    ControlId,
+    Weight,
 }
 
 #[derive(Iden)]
@@ -241,11 +414,20 @@ enum ImageLoras {
     Table,
     ImageId,
     LoraId,
+    Weight,
 }
 
 #[derive(Iden)]
-enum ImageCnets {
+enum WatchFolders {
     Table,
-    ImageId,
-    CnetId,
+    Id,
+    Path,
+    Recursive,
+}
+
+#[derive(Iden)]
+enum ImagesFts {
+    Table,
+    Prompt,
+    NegativePrompt,
 }

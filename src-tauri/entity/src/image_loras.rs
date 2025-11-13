@@ -3,13 +3,15 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "image_loras")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub image_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub lora_id: i32,
+    #[sea_orm(column_type = "Float")]
+    pub weight: f32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -19,7 +21,7 @@ pub enum Relation {
         from = "Column::ImageId",
         to = "super::images::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "NoAction"
     )]
     Images,
     #[sea_orm(
@@ -27,7 +29,7 @@ pub enum Relation {
         from = "Column::LoraId",
         to = "super::models::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "NoAction"
     )]
     Models,
 }

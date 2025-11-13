@@ -8,7 +8,7 @@ use serde::Serialize;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    #[sea_orm(column_type = "Text", unique)]
+    #[sea_orm(unique)]
     pub path: String,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
