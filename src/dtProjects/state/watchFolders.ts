@@ -1,7 +1,7 @@
 import { path } from "@tauri-apps/api"
 import { exists, readDir, stat } from "@tauri-apps/plugin-fs"
 import { projectsDb } from "@/commands"
-import type { DTProjectsState } from "./projectStore"
+import type { DTProjectsState, IDTProjectsStore } from "./projectStore"
 
 export type WatchFolderType = {
 	path: string
@@ -9,20 +9,24 @@ export type WatchFolderType = {
 }
 
 type ListProjectsResult = {
-	path: string,
+	path: string
 	filesize: number
 	modified: number
 }
 
 class WatchFolderService {
-	#store: DTProjectsState
-	constructor(store: DTProjectsState) {
-		this.#store = store
+	#dtp: IDTProjectsStore
+	#state: DTProjectsState
+
+	constructor(dtp: IDTProjectsStore) {
+		this.#dtp = dtp
+		this.#state = dtp.state
 	}
 
 	async loadWatchFolders() {
 		const folders = (await projectsDb.listWatchFolders()) as WatchFolderType[]
-		this.#store.watchFolders = folders
+		this.#state.watchFolders = folders
+		console.log("loaded watch folders")
 	}
 
 	async addWatchFolder(folderPath: string) {
@@ -66,11 +70,11 @@ class WatchFolderService {
 
 				projects.push({
 					path: projectPath,
-					fileSize: stats.size,
+					filesize: stats.size,
 					modified: stats.mtime?.getTime() ?? 0,
 				})
 			}
-			
+
 			return projects
 		} catch (e) {
 			console.error(e)

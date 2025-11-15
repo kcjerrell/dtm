@@ -167,6 +167,7 @@ impl DTProject {
             height,
             width,
             channels,
+            dim,
             data,
         })
     }
@@ -206,58 +207,12 @@ impl DTProject {
     }
 
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, String> {
-        let mut item: TensorHistoryExtra = query(
-            "
-            SELECT
-                thn.rowid,
-                thn.__pk0 AS lineage,
-                thn.__pk1 AS logical_time,
-                thn.p      AS data_blob,
-
-                -- Indexed fields from tensordata with prefix & 0 → NULL
-                'tensor_history_'   || NULLIF(td.f20, 0) AS tensor_id,
-                'mask_'             || NULLIF(td.f22, 0) AS mask_id,
-                'depth_map_'        || NULLIF(td.f24, 0) AS depth_map_id,
-                'scribble_'         || NULLIF(td.f26, 0) AS scribble_id,
-                'pose_'             || NULLIF(td.f28, 0) AS pose_id,
-                'color_palette_'    || NULLIF(td.f30, 0) AS color_palette_id,
-                'custom_'           || NULLIF(td.f32, 0) AS custom_id
-
-            FROM tensorhistorynode AS thn
-
-            -- Join tensordata on the two primary keys
-            LEFT JOIN (
-                SELECT
-                    td.rowid,
-                    td.__pk0,
-                    td.__pk1,
-                    f20.f20 AS f20,
-                    f22.f22 AS f22,
-                    f24.f24 AS f24,
-                    f26.f26 AS f26,
-                    f28.f28 AS f28,
-                    f30.f30 AS f30,
-                    f32.f32 AS f32
-                FROM tensordata AS td
-                LEFT JOIN tensordata__f20 AS f20 ON f20.rowid = td.rowid
-                LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
-                LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
-                LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
-                LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
-                LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
-                LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
-            ) AS td
-            ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
-
-            WHERE thn.rowid == ?1
-            ORDER BY thn.rowid
-		    ",
-        )
-        .bind(row_id)
-        .map(|row: SqliteRow| self.map_full(row))
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let mut item: TensorHistoryExtra = query(&full_query_where("thn.rowid == ?1"))
+            .bind(row_id)
+            .map(|row: SqliteRow| self.map_full(row))
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
 
         item.moodboard_ids = self
             .get_shuffle_ids(item.lineage, item.logical_time)
@@ -343,6 +298,18 @@ impl DTProject {
             .await
             .map_err(|e| e.to_string())?;
 
+        // if a candidate has the same lineage, it is predecessor
+        let same_lineage: Vec<&TensorHistoryExtra> = candidates
+            .iter()
+            .filter(|c| c.lineage == lineage)
+            // .cloned()
+            .collect();
+        if same_lineage.len() == 1 {
+            return Ok(Vec::from([same_lineage[0].clone()]));
+        }
+
+
+
         Ok(candidates)
     }
 }
@@ -353,7 +320,7 @@ pub struct DTProjectInfo {
     pub history_max_id: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct TensorHistoryExtra {
     pub row_id: i64,
     pub lineage: i64,
@@ -370,6 +337,7 @@ pub struct TensorHistoryExtra {
     pub project_path: String,
 }
 
+#[derive(Debug, Serialize, Clone)]
 pub struct TensorRaw {
     pub tensor_type: i64,
     pub data_type: i32,
@@ -377,6 +345,7 @@ pub struct TensorRaw {
     pub width: i32,
     pub height: i32,
     pub channels: i32,
+    pub dim: Vec<u8>,
     pub data: Vec<u8>,
 }
 
@@ -391,7 +360,7 @@ fn full_query_where(where_expr: &str) -> String {
 
                 -- Indexed fields from tensordata with prefix & 0 → NULL
                 'tensor_history_'   || NULLIF(td.f20, 0) AS tensor_id,
-                'mask_'             || NULLIF(td.f22, 0) AS mask_id,
+                'binary_mask_'      || NULLIF(td.f22, 0) AS mask_id,
                 'depth_map_'        || NULLIF(td.f24, 0) AS depth_map_id,
                 'scribble_'         || NULLIF(td.f26, 0) AS scribble_id,
                 'pose_'             || NULLIF(td.f28, 0) AS pose_id,
@@ -429,4 +398,9 @@ fn full_query_where(where_expr: &str) -> String {
 		    ",
         where_expr
     )
+}
+
+pub enum ProjectRef {
+    Path(String),
+    Id(i64),
 }

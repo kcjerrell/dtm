@@ -1,12 +1,10 @@
-import { ImageExtra, projectsDb } from "@/commands"
-import { Panel } from "@/components"
-import PVGrid from "@/components/virtualizedList/PVGrid"
-import { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
 import { Box, Image } from "@chakra-ui/react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { type ImageExtra, projectsDb } from "@/commands"
+import { Panel } from "@/components"
+import PVGrid from "@/components/virtualizedList/PVGrid"
+import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
 import { getRequestOpts, useDTProjects } from "../state/projectStore"
-import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
-import { motion } from "motion/react"
 
 interface ImagesList extends ChakraProps {}
 
@@ -30,7 +28,7 @@ function ImagesList(props: ImagesList) {
 			const res = await projectsDb.listImages({ ...opts, take, skip })
 			return res.items
 		},
-		[snap.imageSource],
+		[snap.imageSource, state.imageSource],
 	)
 
 	return (

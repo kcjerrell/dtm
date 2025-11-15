@@ -3,13 +3,13 @@ import { PaneListContainer, PanelButton, PanelListItem, PanelSectionHeader } fro
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
-import { useDTProjects, WatchFolders } from "../state/projectStore"
+import { useDTProjects } from "../state/projectStore"
 
 interface SettingsPanelComponentProps extends ChakraProps {}
 
 function SettingsPanel(props: SettingsPanelComponentProps) {
 	const { ...restProps } = props
-	const { snap } = useDTProjects()
+	const { snap, store } = useDTProjects()
 
 	const { SelectableGroup, selectedItems } = useSelectableGroup({ mode: "multipleModifier" })
 
@@ -20,20 +20,24 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			<PaneListContainer>
 				<SelectableGroup>
 					{snap.watchFolders.map((folder, i) => (
-						<WatchFolderItem key={folder} folder={folder} />
+						<WatchFolderItem key={folder.path} folder={folder.path} />
 					))}
 				</SelectableGroup>
 				<HStack justifyContent={"flex-end"}>
 					<PanelButton
 						tone={"danger"}
 						display={!selectedItems.length ? "none" : "flex"}
-						onClick={() => WatchFolders.removeWatchFolders(selectedItems as string[])}
+						onClick={() => store.watchFolders.removeWatchFolders(selectedItems as string[])}
 					>
 						Remove
 					</PanelButton>
 					<PanelButton
 						onClick={() =>
-							openAnd(WatchFolders.addWatchFolder, { directory: true, multiple: false, title: "Select folder" })
+							openAnd(store.watchFolders.addWatchFolder, {
+								directory: true,
+								multiple: false,
+								title: "Select folder",
+							})
 						}
 					>
 						Add
@@ -45,7 +49,9 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 					))}
 				</VStack> */}
 			</PaneListContainer>
-			<PanelButton onClick={() => WatchFolders.addDefaultWatchFolder()}>Add default folder</PanelButton>
+			<PanelButton onClick={() => store.watchFolders.addDefaultWatchFolder()}>
+				Add default folder
+			</PanelButton>
 		</TabContent>
 	)
 }

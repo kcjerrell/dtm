@@ -1,17 +1,19 @@
+use once_cell::sync::Lazy;
+use sea_orm::DbErr;
 use std::{
     collections::HashMap,
     error::Error,
     sync::{Arc, LazyLock, RwLock},
 };
-
-use once_cell::sync::Lazy;
-use sea_orm::DbErr;
 use tauri::{
     http::{self, Response},
     UriSchemeResponder,
 };
 
-use crate::projects_db::{tensors::tensor_to_png_bytes, DTProject, ProjectsDb};
+use crate::projects_db::{
+    tensors::{scribble_mask_to_png, tensor_to_png_bytes},
+    DTProject, ProjectsDb,
+};
 
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
@@ -73,15 +75,24 @@ async fn tensor(
     responder: UriSchemeResponder,
 ) -> Result<(), String> {
     let dtp = DTProject::get(project_file).await.unwrap();
+    let tensor = dtp.get_tensor_raw(name).await.unwrap();
 
     let builder: Response<Vec<u8>> = match classify_type(name).unwrap_or("") {
-        "color_palette" | "pose" | "scribble" => Response::builder()
+        "pose" => Response::builder()
             .status(400)
-            .body("Not implemented".as_bytes().to_vec())
+            .body("Not supported".as_bytes().to_vec())
             .unwrap(),
-        "tensor_history" | "custom" | "shuffle" | "depth_map" => {
-            let tensor = dtp.get_tensor_raw(name).await.unwrap();
+        "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
             let png = tensor_to_png_bytes(tensor).unwrap();
+
+            Response::builder()
+                .status(200)
+                .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
+                .body(png)
+                .unwrap()
+        }
+        "scribble" | "binary_mask" => {
+            let png = scribble_mask_to_png(tensor).unwrap();
 
             Response::builder()
                 .status(200)
@@ -92,7 +103,7 @@ async fn tensor(
         _ => Response::builder()
             .status(400)
             .body("Unknown item time".as_bytes().to_vec())
-            .unwrap()
+            .unwrap(),
     };
 
     responder.respond(builder);

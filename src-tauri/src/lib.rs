@@ -118,7 +118,8 @@ pub fn run() {
             dt_project_get_thumb_half,
             dt_project_get_history_full,
             dt_project_get_tensor,
-            dt_project_find_predecessor_candidates
+            dt_project_find_predecessor_candidates,
+            dt_project_get_tensor_raw
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             println!("dtm: {}", request.uri().path());

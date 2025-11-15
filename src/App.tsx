@@ -46,13 +46,13 @@ function App() {
 							onClick={() => AppState.setView(item.viewId)}
 						/>
 					))}
-					<Box bgColor={"fg.1/10"} flex={"1 1 auto"} width={"100%"} position={"relative"}>
+					{/* <Box bgColor={"fg.1/10"} flex={"1 1 auto"} width={"100%"} position={"relative"}>
 						<motion.div
 							animate={{ top: ["5%", "95%"] }}
 							transition={{ duration: 1, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }}
 							style={{left: "50%", width: "5px", height: "5px", position: "absolute", backgroundColor: "blue", borderRadius: "50%"}}
 						/>
-					</Box>
+					</Box> */}
 					<Tooltip tip={"Toggle color mode"}>
 						<IconButton
 							color={"fg.2"}

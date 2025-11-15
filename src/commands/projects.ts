@@ -48,6 +48,17 @@ export type ScanProgress = {
 	images_total: number
 }
 
+export type TensorRaw = {
+	tensor_type: number
+	data_type: number
+	format: number
+	width: number
+	height: number
+	channels: number
+	dim: ArrayBuffer
+	data: ArrayBuffer
+}
+
 export type ListImagesOptions = {
 	projectIds?: number[]
 	sort?: string
@@ -73,8 +84,12 @@ export const projectsDb = {
 
 	listProjects: async (): Promise<ProjectExtra[]> => invoke("projects_db_list_projects"),
 
-	scanProject: async (path: string, fullScan = false): Promise<void> =>
-		invoke("projects_db_scan_project", { path, fullScan }),
+	scanProject: async (
+		path: string,
+		fullScan = false,
+		filesize?: number,
+		modified?: number,
+	): Promise<void> => invoke("projects_db_scan_project", { path, fullScan, filesize, modified }),
 
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_scan_all_projects"),
 
@@ -113,6 +128,9 @@ export const dtProject = {
 
 	getTensor: async (project_file: string, name: string): Promise<Uint8Array> =>
 		invoke("dt_project_get_tensor", { project_file, name }),
+
+	getTensorRaw: async (projectFile: string, projectId: number, tensorId: string): Promise<TensorRaw> =>
+		invoke("dt_project_get_tensor_raw", { projectFile, projectId, tensorId }),
 
 	getPredecessorCandidates: async (
 		projectFile: string,

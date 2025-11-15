@@ -1,9 +1,7 @@
 use tauri::Emitter;
 
 use crate::projects_db::{
-    dt_project::TensorHistoryExtra,
-    projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress},
-    DTProject, ProjectsDb, TensorHistoryImport,
+    DTProject, ProjectsDb, TensorHistoryImport, dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw}, projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress}
 };
 
 #[tauri::command]
@@ -46,6 +44,8 @@ pub async fn projects_db_scan_project(
     app: tauri::AppHandle,
     path: String,
     full_scan: Option<bool>,
+    filesize: Option<i64>,
+    modified: Option<i64>,
 ) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
     let update = |images_scanned: i32, images_total: i32| {
@@ -67,6 +67,9 @@ pub async fn projects_db_scan_project(
         .await
     {
         Ok(total) => {
+            pdb.update_project(&path, filesize, modified)
+                .await
+                .map_err(|e| e.to_string())?;
             app.emit(
                 "projects_db_scan_progress",
                 ScanProgress {
@@ -105,6 +108,7 @@ pub async fn projects_db_find_images(
     prompt_search: String,
     take: Option<i32>,
     skip: Option<i32>,
+    search: Option<String>,
 ) -> Result<Paged<ImageExtra>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
 
@@ -115,6 +119,7 @@ pub async fn projects_db_find_images(
         model,
         take,
         skip,
+        search,
     };
 
     Ok(projects_db.find_images(&prompt_search, opts).await.unwrap())
@@ -139,6 +144,7 @@ pub async fn projects_db_list_images(
         model,
         take,
         skip,
+        search: prompt_search,
     };
 
     println!("list images: {:?}", opts);
@@ -208,6 +214,26 @@ pub async fn dt_project_find_predecessor_candidates(
         .find_predecessor_candidates(row_id, lineage, logical_time)
         .await
         .unwrap())
+}
+
+#[tauri::command]
+pub async fn dt_project_get_tensor_raw(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    tensor_id: String,
+) -> Result<TensorRaw, String> {
+    let project_ref = match project_id {
+        Some(pid) => ProjectRef::Id(pid),
+        None => match project_path {
+            Some(path) => ProjectRef::Path(path),
+            None => return Err("No project specified".to_string()),
+        }
+    };
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let project = projects_db.get_dt_project(project_ref).await?;
+    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    Ok(tensor)
 }
 
 #[tauri::command]

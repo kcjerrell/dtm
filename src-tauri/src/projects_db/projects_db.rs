@@ -4,7 +4,10 @@ use chrono::{DateTime, NaiveDateTime};
 use serde::Serialize;
 use tokio::sync::OnceCell;
 
-use entity::{images, projects};
+use entity::{
+    images::{self, Sampler},
+    projects,
+};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
@@ -14,7 +17,7 @@ use sea_orm::{
 };
 use tauri::{Emitter, Manager};
 
-use crate::projects_db::DTProject;
+use crate::projects_db::{DTProject, TensorHistoryImport, dt_project::{self, ProjectRef}};
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
 
@@ -128,6 +131,35 @@ impl ProjectsDb {
         Ok(results)
     }
 
+    pub async fn update_project(
+        &self,
+        path: &str,
+        filesize: Option<i64>,
+        modified: Option<i64>,
+    ) -> Result<(), DbErr> {
+        // Fetch existing project
+        let mut project: projects::ActiveModel = projects::Entity::find()
+            .filter(projects::Column::Path.eq(path))
+            .one(&self.db)
+            .await?
+            .ok_or(DbErr::RecordNotFound(format!("Project {path} not found")))?
+            .into();
+
+        // Apply updates
+        if let Some(v) = filesize {
+            project.filesize = Set(Some(v));
+        }
+
+        if let Some(v) = modified {
+            project.modified = Set(Some(v));
+        }
+
+        // Save changes
+        let updated: projects::Model = project.update(&self.db).await?;
+
+        Ok(()) // or Ok(updated) depending on your typedef
+    }
+
     pub async fn scan_project<F>(
         &self,
         path: &str,
@@ -172,27 +204,39 @@ impl ProjectsDb {
             // let mut unique_refiners: HashSet<String> = HashSet::new();
             let mut unique_loras: HashSet<String> = HashSet::new();
             let mut unique_cnets: HashSet<String> = HashSet::new();
+            let mut upscalers: HashSet<String> = HashSet::new();
 
             for h in &histories {
                 unique_models.insert(h.model.clone());
-                unique_loras.extend(h.loras.iter().cloned());
-                unique_cnets.extend(h.controls.iter().cloned());
+                if h.refiner_model.is_some() {
+                    unique_models.insert(h.refiner_model.clone().unwrap());
+                }
+                if h.upscaler.is_some() {
+                    upscalers.insert(h.upscaler.clone().unwrap());
+                }
+                unique_loras.extend(h.loras.iter().map(|l| l.model.to_string()));
+                unique_cnets.extend(h.controls.iter().map(|c| c.model.to_string()));
             }
 
-            let mut used_models: Vec<entity::models::ActiveModel> = unique_models
+            let used_models: Vec<entity::models::ActiveModel> = unique_models
                 .iter()
                 .map(|m| entity::models::ActiveModel {
-                    model_type: Set("model".to_string()),
+                    model_type: Set(entity::models::ModelType::Model),
                     filename: Set(m.clone()),
                     ..Default::default()
                 })
+                .chain(upscalers.iter().map(|m| entity::models::ActiveModel {
+                    model_type: Set(entity::models::ModelType::Upscaler),
+                    filename: Set(m.clone()),
+                    ..Default::default()
+                }))
                 .chain(unique_loras.iter().map(|m| entity::models::ActiveModel {
-                    model_type: Set("lora".to_string()),
+                    model_type: Set(entity::models::ModelType::Lora),
                     filename: Set(m.clone()),
                     ..Default::default()
                 }))
                 .chain(unique_cnets.iter().map(|m| entity::models::ActiveModel {
-                    model_type: Set("cnet".to_string()),
+                    model_type: Set(entity::models::ModelType::Cnet),
                     filename: Set(m.clone()),
                     ..Default::default()
                 }))
@@ -221,14 +265,40 @@ impl ProjectsDb {
                         let images: Vec<images::ActiveModel> = histories
                             .iter()
                             .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
-                            .map(|h| images::ActiveModel {
+                            .map(|h: &TensorHistoryImport| images::ActiveModel {
                                 project_id: Set(project.id as i32),
                                 node_id: Set(h.row_id),
                                 preview_id: Set(h.preview_id),
+                                clip_id: Set(h.clip_id),
                                 prompt: Set(Some(h.prompt.clone())),
                                 negative_prompt: Set(Some(h.negative_prompt.clone())),
                                 model_id: Set(map.get(&h.model).copied()),
+                                refiner_id: Set(h
+                                    .refiner_model
+                                    .as_ref()
+                                    .and_then(|name| map.get(name).copied())),
+                                refiner_start: Set(Some(h.refiner_start)),
+                                upscaler_id: Set(h
+                                    .upscaler
+                                    .as_ref()
+                                    .and_then(|name| map.get(name).copied())),
+                                start_width: Set(h.width as i16),
+                                start_height: Set(h.height as i16),
+                                seed: Set(h.seed as i32),
+                                strength: Set(h.strength),
+                                steps: Set(h.steps as i16),
+                                guidance_scale: Set(h.guidance_scale),
+                                shift: Set(h.shift),
+                                sampler: Set(
+                                    Sampler::try_from(h.sampler).unwrap_or(Sampler::Unknown)
+                                ),
+                                hires_fix: Set(h.hires_fix),
+                                tiled_decoding: Set(h.tiled_decoding),
+                                tiled_diffusion: Set(h.tiled_diffusion),
+                                tea_cache: Set(h.tea_cache),
+                                cfg_zero_star: Set(h.cfg_zero_star),
                                 wall_clock: Set(h.wall_clock.unwrap()),
+                                // Leave other fields as default (id, relations, etc)
                                 ..Default::default()
                             })
                             .collect();
@@ -367,6 +437,10 @@ impl ProjectsDb {
             }
         }
 
+        if let Some(search) = &opts.search {
+            query = query.filter(images::Column::Prompt.contains(search));
+        }
+
         if let Some(skip) = opts.skip {
             query = query.offset(skip as u64);
         }
@@ -415,6 +489,21 @@ impl ProjectsDb {
 
         Ok(())
     }
+
+    pub async fn get_dt_project(&self, project_ref: ProjectRef) -> Result<std::sync::Arc<dt_project::DTProject>, String> {
+        let project_path = match project_ref {
+            ProjectRef::Path(path) => path,
+            ProjectRef::Id(id) => {
+                let project = entity::projects::Entity::find_by_id(id as i32)
+                    .one(&self.db)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .unwrap();
+                project.path
+            }
+        };
+        Ok(dt_project::DTProject::get(&project_path).await.unwrap())
+    }
 }
 
 #[derive(Debug, Serialize, Clone, Default)]
@@ -425,6 +514,7 @@ pub struct ListImagesOptions {
     pub direction: Option<String>,
     pub take: Option<i32>,
     pub skip: Option<i32>,
+    pub search: Option<String>,
 }
 
 #[derive(Debug, FromQueryResult, Serialize)]

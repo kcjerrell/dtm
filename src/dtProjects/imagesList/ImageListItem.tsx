@@ -1,11 +1,10 @@
 import { Box, HStack, Image, VStack } from "@chakra-ui/react"
+import type { ImageExtra } from "@/commands"
 import { MeasureGrid } from "@/components"
 import { showPreview } from "@/components/preview"
-import type { VirtualizedListItemProps } from "@/components/virtualizedList/VirtualizedList"
+import type { PVListItemProps } from "@/components/virtualizedList/PVLIst"
 import DataItem from "@/metadata/infoPanel/DataItem"
-import { ImageExtra } from "@/commands"
-import { DTProjectsState, selectItem } from "../state/projectStore"
-import { PVListItemProps } from "@/components/virtualizedList/PVLIst"
+import { type DTProjectsState, selectItem } from "../state/projectStore"
 
 interface ImagesListItemProps {
 	snap: ReadonlyState<DTProjectsState>
@@ -39,7 +38,6 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 			<HStack
 				width={"100%"}
 				alignItems={"flex-start"}
-				// bgColor={"bg.2"}
 				gap={2}
 				onClick={() => {
 					selectItem(item)

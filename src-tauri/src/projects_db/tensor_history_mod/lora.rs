@@ -2,7 +2,7 @@ use crate::projects_db::tensor_history_generated::{LoRA as LoRAFb, LoRAMode};
 use flatbuffers::{ForwardsUOffset, Vector};
 use serde::ser::SerializeStruct;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LoRA {
     pub file: Option<String>,
     pub weight: f32,

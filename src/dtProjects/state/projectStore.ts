@@ -5,12 +5,13 @@ import {
 	type ImageExtra,
 	type ListImagesOptions,
 	type ProjectExtra,
-	type TensorHistoryExtra
+	type TensorHistoryExtra,
 } from "@/commands"
 import type { ScanProgressEvent } from "../types"
 import ProjectService, { type ProjectState } from "./projects"
-import { ScannerService } from './scanner'
+import { ScannerService } from "./scanner"
 import WatchFolderService, { type WatchFolderType } from "./watchFolders"
+import ProjectsService from "./projects"
 
 const state = proxy({
 	projects: [] as ProjectState[],
@@ -33,53 +34,49 @@ const state = proxy({
 		width: 0,
 		height: 0,
 	},
-	services: ref({} as ServicesType)
 })
 
-export type DTProjectsState = typeof state
-
-export const WatchFolders = new WatchFolderService(state)
-export const Projects = new ProjectService(state)
-export const Scanner = new ScannerService(state)
-
-state.services.WatchFolders = WatchFolders
-state.services.Projects = Projects
-state.services.Scanner = Scanner
-
-type ServicesType = {
-	WatchFolders: WatchFolderService
-	Projects: ProjectService
-	Scanner: ScannerService
+export interface IDTProjectsStore {
+	state: DTProjectsState
+	projects: ProjectsService
+	watchFolders: WatchFolderService
+	scanner: ScannerService
 }
+class DTProjectsStore implements IDTProjectsStore {
+	state: DTProjectsState
+	projects: ProjectsService
+	watchFolders: WatchFolderService
+	scanner: ScannerService
 
-async function init() {
-	await attachListeners()
-	await WatchFolders.loadWatchFolders()
-	await Projects.loadProjects()
+	#initialized = false
 
-	const knownProjects = state.projects.reduce(
-		(acc, p) => {
-			acc[p.path] = false
-			return acc
-		},
-		{} as Record<string, boolean>,
-	)
+	constructor() {
+		this.state = state
+		this.projects = new ProjectsService(this)
+		this.scanner = new ScannerService(this)
+		this.watchFolders = new WatchFolderService(this)
+	}
 
-	for (const folder of state.watchFolders) {
-		const folderProjects = await Scanner.scanFolder(folder)
-		for (const fp of folderProjects) {
-			if (fp in knownProjects) continue
-			knownProjects[fp] = true
+	async init() {
+		await attachListeners()
+
+		if (!this.#initialized) {
+			this.#initialized = true
+			await this.watchFolders.loadWatchFolders()
+			await this.projects.loadProjects()
+			await this.scanner.scanAndWatch()
 		}
 	}
 
-	const newProjects = Object.entries(knownProjects)
-		.filter(([_k, v]) => v)
-		.map(([k]) => k)
-	await Projects.addProjects(newProjects)
-
-	// await projectsDb.scanAllProjects()
+	removeListeners() {
+		scanProgressUnlisten()
+		scanProgressUnlisten = () => undefined
+	}
 }
+
+const store = new DTProjectsStore()
+
+export type DTProjectsState = typeof state
 
 let scanProgressUnlisten: () => void = () => undefined
 async function attachListeners() {
@@ -130,14 +127,9 @@ async function attachListeners() {
 	})
 }
 
-export function removeListeners() {
-	scanProgressUnlisten()
-	scanProgressUnlisten = () => undefined
-}
-
 export type ImagesSource = {
 	projects?: ProjectExtra[]
-	search?: unknown
+	search?: string
 	filter?: unknown
 }
 
@@ -180,29 +172,30 @@ async function loadDetails(item: ImageExtra) {
 }
 
 export const DTProjects = {
+	store,
 	state,
-	removeListeners,
-	init,
 	setImagesSource,
 	showDetailsOverlay,
 	hideDetailsOverlay,
 }
 
- export function useDTProjects() {
-	const snap = useSnapshot(DTProjects.state)
+export function useDTProjects() {
+	const snap = useSnapshot(store.state)
 	return {
 		snap,
 		...DTProjects,
 	}
 }
 
- export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | undefined {
+export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | undefined {
 	console.log(imagesSource)
+	const opts = {} as ListImagesOptions
 	if (imagesSource.projects) {
-		return {
-			projectIds: imagesSource.projects.map((p) => p.id),
-		}
+		opts.projectIds = imagesSource.projects.map((p) => p.id)
 	}
+	if (imagesSource.search) opts.promptSearch = imagesSource.search
+
+	return opts
 }
 
 export async function selectItem(item: ImageExtra) {

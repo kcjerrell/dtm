@@ -19,7 +19,12 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(Projects::Path).string().not_null())
+                    .col(
+                        ColumnDef::new(Projects::Path)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Projects::Filesize).big_integer().null())
                     .col(ColumnDef::new(Projects::Modified).big_integer().null())
                     .to_owned(),
@@ -54,6 +59,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Models::Filename).string().not_null())
                     .col(ColumnDef::new(Models::Name).string().null())
                     .col(ColumnDef::new(Models::Version).string().null())
+                    .index(
+                        Index::create()
+                            .name("idx_models_modeltype_filename")
+                            .col(Models::ModelType)
+                            .col(Models::Filename)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -143,6 +155,13 @@ impl MigrationTrait for Migration {
                             .name("fk_images_upscaler")
                             .from(Images::Table, Images::UpscalerId)
                             .to(Models::Table, Models::Id),
+                    )
+                    .index(
+                        Index::create()
+                            .name("idx_images_project_id_node_id")
+                            .col(Images::ProjectId)
+                            .col(Images::NodeId)
+                            .unique(),
                     )
                     .to_owned(),
             )
@@ -288,8 +307,12 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(WatchFolders::Path).string().not_null())
-                    .col(ColumnDef::new(WatchFolders::Recursive).boolean().default(false))
+                    .col(ColumnDef::new(WatchFolders::Path).string().unique_key().not_null())
+                    .col(
+                        ColumnDef::new(WatchFolders::Recursive)
+                            .boolean()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;

@@ -1,20 +1,20 @@
-import { DataItem, Panel } from "@/components"
-import { contain } from "@/components/preview"
-import { useInitRef } from "@/hooks/useInitRef"
-import { Box, chakra, HStack, Image, VStack } from "@chakra-ui/react"
+import { Box, chakra, Image, VStack } from "@chakra-ui/react"
 import {
 	AnimatePresence,
 	motion,
 	useAnimate,
 	useMotionValue,
-	ValueAnimationTransition,
+	type ValueAnimationTransition,
 } from "motion/react"
-import { ComponentProps, useEffect, useRef } from "react"
+import { type ComponentProps, useEffect, useRef } from "react"
 import { proxy, subscribe } from "valtio"
-import { useDTProjects } from "../state/projectStore"
+import type { ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
+import { DataItem, Panel } from "@/components"
+import { contain } from "@/components/preview"
+import { useInitRef } from "@/hooks/useInitRef"
+import { useDTProjects } from "../state/projectStore"
 import TensorsList from "./TensorsList"
-import { ImageExtra } from "@/commands"
 
 const trans: ValueAnimationTransition[] = [
 	{
@@ -132,16 +132,30 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 			{/* {item && ( */}
 			<Container
 				ref={rootRef}
+				// display={item ? "grid" : "none"}
+
 				pointerEvents={item ? "all" : "none"}
 				onClick={() => hideDetailsOverlay()}
 				variants={{
-					open: { opacity: 1, backgroundColor: "#00000066", backdropFilter: "blur(4px)" },
-					close: { opacity: 1, backgroundColor: "#00000000", backdropFilter: "blur(0px)" },
+					open: {
+						opacity: 1,
+						backgroundColor: "#00000066",
+						backdropFilter: "blur(4px)",
+						visibility: "visible",
+						transition: { visibility: { delay: 0, duration: 0 } },
+					},
+					close: {
+						opacity: 1,
+						backgroundColor: "#00000000",
+						backdropFilter: "blur(0px)",
+						visibility: "hidden",
+						transition: { visibility: { delay: 0.2, duration: 0 } },
+					},
 				}}
 				initial={"closed"}
 				exit={"closed"}
 				animate={item ? "open" : "close"}
-				transition={{ duration: 0.3 }}
+				transition={{ duration: 0.2 }}
 				{...rest}
 			>
 				<VStack
@@ -208,9 +222,10 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 				>
 					<motion.div
 						variants={{
-							open: { scale: 0.9, transition: { delay: 0.1, duration: 0.2 } },
-							close: { scale: 0.9, opacity: "0%", transition: { duration: 0.2 } },
+							open: { scale: 1, opacity: 1, transition: { delay: 0.1, duration: 0.2 } },
+							close: { scale: 0.9, opacity: 0, transition: { duration: 0.2 } },
 						}}
+						initial={"close"}
 						animate={item ? "open" : "close"}
 					>
 						<DataItem label={"Prompt"} data={item?.prompt} maxLines={6} />

@@ -1,10 +1,9 @@
-import TabContent from "@/metadata/infoPanel/TabContent"
-import { useUiState } from "@/metadata/state/uiState"
 import { Box, HStack, Progress } from "@chakra-ui/react"
-import DTProjects, { useDTProjects } from "../state/projectStore"
+import { type ProjectExtra, projectsDb } from "@/commands"
 import { PaneListContainer, PanelListItem } from "@/components"
-import { ProjectExtra, projectsDb } from "@/commands"
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
+import TabContent from "@/metadata/infoPanel/TabContent"
+import DTProjects, { useDTProjects } from "../state/projectStore"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -12,7 +11,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
 	const { snap } = useDTProjects()
 
-	const { SelectableGroup, selectedItems } = useSelectableGroup<ProjectExtra>({
+	const { SelectableGroup } = useSelectableGroup<ProjectExtra>({
 		mode: "multipleModifier",
 		keyFn: (p) => p.path,
 	})
@@ -61,7 +60,6 @@ function ProjectListItem(props: ProjectListItemProps) {
 		<PanelListItem selectable selected={isSelected} asChild {...restProps} {...handlers} onContextMenu={() => projectsDb.scanProject(project.path, true)}>
 			<HStack>
 				<Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>
-				<Box>{project.scanningStatus}</Box>
 				<Box>{project.image_count}</Box>
 			</HStack>
 		</PanelListItem>

@@ -1,26 +1,22 @@
-import { Box, Button, HStack, Input, Progress, Spacer, VStack } from "@chakra-ui/react"
+import { Box } from "@chakra-ui/react"
 import { GoGear } from "react-icons/go"
 import { MdImageSearch } from "react-icons/md"
 import { PiCoffee } from "react-icons/pi"
-import { Panel } from "@/components"
-import TabContent from "@/metadata/infoPanel/TabContent"
-import { capitalize } from "@/utils/helpers"
-import DTProjects from "../DTProjects"
-import { useUiState } from "@/metadata/state/uiState"
 import { useSnapshot } from "valtio"
+import { Panel } from "@/components"
 import AppState from "@/hooks/appState"
-import { useDTProjects } from "../state/projectStore"
-import SettingsPanel from "./SettingsPanel"
 import Tabs from "@/metadata/infoPanel/tabs"
-import SearchPanel from "./SearchPanel"
+import { useUiState } from "@/metadata/state/uiState"
+import { capitalize } from "@/utils/helpers"
 import ProjectsPanel from "./ProjectsPanel"
+import SearchPanel from "./SearchPanel"
+import SettingsPanel from "./SettingsPanel"
 
 interface ControlPane extends ChakraProps {}
 
 function ControlPane(props: ControlPane) {
 	const { ...restProps } = props
 	const { uiSnap, uiState } = useUiState()
-	const { snap } = useDTProjects()
 	const { isSidebarVisible } = useSnapshot(AppState.store)
 
 	return (
@@ -34,6 +30,7 @@ function ControlPane(props: ControlPane) {
 			mb={1}
 			mt={0}
 			ml={1}
+			{...restProps}
 		>
 			<Tabs.Root
 				lazyMount

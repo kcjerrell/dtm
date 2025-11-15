@@ -1,7 +1,7 @@
 import { ImageExtra, TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
-import { Panel, Tooltip } from "@/components"
-import { Box, chakra, HStack, Image, Spacer, VStack } from "@chakra-ui/react"
+import { Tooltip } from "@/components"
+import { Box, chakra, HStack, Spacer, VStack } from "@chakra-ui/react"
 
 const _thumbnailSize = "4rem"
 
@@ -16,19 +16,22 @@ function TensorsList(props: TensorsListComponentProps) {
 
 	if (!item || !details) return <Box height={_thumbnailSize} />
 
-	const { depth_map_id, moodboard_ids, custom_id, scribble_id, pose_id, color_palette_id } = details
+	const { depth_map_id, moodboard_ids, custom_id, scribble_id, pose_id, color_palette_id, mask_id } = details
 	const tensors = {
 		Depth: depth_map_id,
 		Custom: custom_id,
 		Scribble: scribble_id,
 		Pose: pose_id,
 		Color: color_palette_id,
+		Mask: mask_id
 	}
 
 	return (
 		<HStack padding={4} {...restProps}>
 			{Object.entries(tensors).map(([label, id]) => {
 				if (!id) return null
+				// if (label === "Pose")
+				// 	return <PoseImage key={label} projectId={item.project_id} tensorId={id}/>
 				return (
 					<Group padding={0.5} key={label}>
 						<Images>
@@ -47,9 +50,7 @@ function TensorsList(props: TensorsListComponentProps) {
 								key={candidate.row_id}
 								tip={`(${candidate.row_id}) lineage: ${candidate.lineage}, logical time: ${candidate.logical_time}`}
 							>
-								<Thumbnail
-									src={urls.tensor(item?.project_id, candidate.tensor_id)}
-								/>
+								<Thumbnail src={urls.tensor(item?.project_id, candidate.tensor_id)} />
 							</Tooltip>
 						))}
 					</Images>
