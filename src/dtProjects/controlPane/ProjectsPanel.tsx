@@ -1,7 +1,7 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import { FiFolder, FiRefreshCw } from "react-icons/fi"
 import { MdBlock } from "react-icons/md"
-import { type ProjectExtra, projectsDb } from "@/commands"
+import { type ProjectExtra, pdb } from "@/commands"
 import { PaneListContainer, PanelListItem } from "@/components"
 import ToolbarItem from "@/components/ToolbarItem"
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
@@ -107,7 +107,7 @@ function ProjectListItem(props: ProjectListItemProps) {
 			asChild
 			{...restProps}
 			{...handlers}
-			onContextMenu={() => projectsDb.scanProject(project.path, true)}
+			onContextMenu={() => pdb.scanProject(project.path, true)}
 		>
 			<HStack justifyContent={"space-between"}>
 				<Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>

@@ -8,13 +8,13 @@ use crate::projects_db::{
 };
 
 #[tauri::command]
-pub async fn projects_db_get_image_count(app_handle: tauri::AppHandle) -> Result<u32, String> {
+pub async fn projects_db_image_count(app_handle: tauri::AppHandle) -> Result<u32, String> {
     let projects_db = ProjectsDb::get_or_init(&app_handle).await?;
     Ok(projects_db.get_image_count().await.unwrap())
 }
 
 #[tauri::command]
-pub async fn projects_db_add_project(
+pub async fn projects_db_project_add(
     app_handle: tauri::AppHandle,
     path: String,
 ) -> Result<ProjectExtra, String> {
@@ -24,7 +24,7 @@ pub async fn projects_db_add_project(
 }
 
 #[tauri::command]
-pub async fn projects_db_remove_project(
+pub async fn projects_db_project_remove(
     app_handle: tauri::AppHandle,
     path: String,
 ) -> Result<(), String> {
@@ -34,7 +34,7 @@ pub async fn projects_db_remove_project(
 }
 
 #[tauri::command]
-pub async fn projects_db_list_projects(
+pub async fn projects_db_project_list(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<super::projects_db::ProjectExtra>, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
@@ -43,7 +43,7 @@ pub async fn projects_db_list_projects(
 }
 
 #[tauri::command]
-pub async fn projects_db_scan_project(
+pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
     path: String,
     full_scan: Option<bool>,
@@ -95,41 +95,14 @@ pub async fn projects_db_scan_project(
 }
 
 #[tauri::command]
-pub async fn projects_db_scan_all_projects(app_handle: tauri::AppHandle) -> Result<(), String> {
+pub async fn projects_db_project_scan_all(app_handle: tauri::AppHandle) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
     pdb.scan_all_projects(&app_handle).await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn projects_db_find_images(
-    app: tauri::AppHandle,
-    project_ids: Option<Vec<i32>>,
-    sort: Option<String>,
-    direction: Option<String>,
-    model: Option<String>,
-    prompt_search: String,
-    take: Option<i32>,
-    skip: Option<i32>,
-    search: Option<String>,
-) -> Result<Paged<ImageExtra>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
-
-    let opts = super::projects_db::ListImagesOptions {
-        project_ids,
-        sort,
-        direction,
-        model,
-        take,
-        skip,
-        search,
-    };
-
-    Ok(projects_db.find_images(&prompt_search, opts).await.unwrap())
-}
-
-#[tauri::command]
-pub async fn projects_db_list_images(
+pub async fn projects_db_image_list(
     app: tauri::AppHandle,
     project_ids: Option<Vec<i32>>,
     sort: Option<String>,
@@ -247,14 +220,14 @@ pub async fn dt_project_find_predecessor_candidates(
 }
 
 #[tauri::command]
-pub async fn projects_db_rebuild_images_fts(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     projects_db.rebuild_images_fts().await.unwrap();
     Ok(())
 }
 
 #[tauri::command]
-pub async fn projects_db_list_watch_folders(
+pub async fn projects_db_watch_folder_list(
     app: tauri::AppHandle,
 ) -> Result<Vec<entity::watch_folders::Model>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
@@ -262,7 +235,7 @@ pub async fn projects_db_list_watch_folders(
 }
 
 #[tauri::command]
-pub async fn projects_db_add_watch_folder(
+pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
 ) -> Result<entity::watch_folders::Model, String> {
@@ -271,7 +244,7 @@ pub async fn projects_db_add_watch_folder(
 }
 
 #[tauri::command]
-pub async fn projects_db_remove_watch_folders(
+pub async fn projects_db_watch_folder_remove(
     app: tauri::AppHandle,
     paths: Vec<String>,
 ) -> Result<(), String> {

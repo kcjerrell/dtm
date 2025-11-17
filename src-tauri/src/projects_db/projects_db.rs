@@ -49,7 +49,7 @@ impl ProjectsDb {
         CELL.get().ok_or("Database not initialized".to_string())
     }
 
-    pub async fn new(db_path: &str) -> Result<Self, DbErr> {
+    async fn new(db_path: &str) -> Result<Self, DbErr> {
         let db = Database::connect(db_path).await?;
         Migrator::up(&db, None).await?;
         Ok(Self { db: db })
@@ -446,50 +446,6 @@ impl ProjectsDb {
         }
 
         Ok(())
-    }
-
-    pub async fn find_images(
-        &self,
-        term: &str,
-        opts: ListImagesOptions,
-    ) -> Result<Paged<ImageExtra>, DbErr> {
-        todo!();
-        // print!(
-        //     "ListImagesOptions: {:#?}, FindImagesOptions: {:#?}\n",
-        //     term, opts
-        // );
-
-        // // Base query without pagination
-        // let mut base_query = images::Entity::find()
-        //     .join(JoinType::LeftJoin, images::Relation::Models.def())
-        //     .filter(images::Column::Prompt.contains(term));
-
-        // if let Some(project_id) = opts.project_ids {
-        //     base_query = base_query.filter(images::Column::ProjectId.eq(project_ids));
-        // }
-
-        // // Clone before applying limit/offset
-        // let mut data_query = base_query
-        //     .clone()
-        //     .order_by(images::Column::WallClock, Order::Desc)
-        //     .column_as(entity::models::Column::Filename, "model_file");
-
-        // if let Some(skip) = opts.skip {
-        //     data_query = data_query.offset(skip as u64);
-        // }
-
-        // if let Some(take) = opts.take {
-        //     data_query = data_query.limit(take as u64);
-        // }
-
-        // // 1️⃣ Count total
-        // let total = base_query.clone().count(&self.db).await?;
-
-        // // 2️⃣ Fetch limited data
-        // let items = data_query.into_model::<ImageExtra>().all(&self.db).await?;
-
-        // // 3️⃣ Combine
-        // Ok(Paged { items, total })
     }
 
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<Paged<ImageExtra>, DbErr> {

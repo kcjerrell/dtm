@@ -2,7 +2,7 @@ import { stat } from "@tauri-apps/plugin-fs"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 import type { ProjectState } from "./projects"
 import type WatchFolderService from "./watchFolders"
-import { projectsDb } from "@/commands"
+import { pdb } from "@/commands"
 
 export class ScannerService {
 	#dtp: IDTProjectsStore
@@ -75,7 +75,7 @@ export class ScannerService {
 				// update
 				if (project.action === "update") {
 					console.log("update ", project.project.path)
-					await projectsDb.scanProject(
+					await pdb.scanProject(
 						project.project.path,
 						false,
 						project.project.filesize,
@@ -85,6 +85,6 @@ export class ScannerService {
 			}
 			// add watchers
 		}
-		await projectsDb.rebuildIndex()
+		await pdb.rebuildIndex()
 	}
 }

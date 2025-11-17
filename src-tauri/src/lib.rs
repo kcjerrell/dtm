@@ -104,25 +104,26 @@ pub fn run() {
             // get_tensor,
             // get_thumb_half,
 
-            projects_db_get_image_count,
-            projects_db_list_projects,
-            projects_db_add_project,
-            projects_db_remove_project,
-            projects_db_scan_project,
-            projects_db_scan_all_projects,
-            projects_db_list_images,
-            projects_db_find_images,
-            projects_db_list_watch_folders,
-            projects_db_add_watch_folder,
-            projects_db_remove_watch_folders,
-            projects_db_rebuild_images_fts,
+            projects_db_project_list,
+            projects_db_project_add,
+            projects_db_project_remove,
+            projects_db_project_scan,
+            projects_db_project_scan_all, // #unused
 
-            dt_project_get_tensor_history,
-            dt_project_get_thumb_half,
-            dt_project_get_history_full,
-            dt_project_get_tensor,
+            projects_db_image_count, // #unused
+            projects_db_image_list,
+            projects_db_image_rebuild_fts,
+
+            projects_db_watch_folder_list,
+            projects_db_watch_folder_add,
+            projects_db_watch_folder_remove,
+
+            dt_project_get_tensor_history, // #unused
+            dt_project_get_thumb_half, // #unused
+            dt_project_get_history_full, 
+            dt_project_get_tensor, // #unused
             dt_project_find_predecessor_candidates,
-            dt_project_get_tensor_raw,
+            dt_project_get_tensor_raw, // #unused
             dt_project_decode_tensor
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {

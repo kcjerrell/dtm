@@ -73,48 +73,45 @@ export type ListImagesOptions = {
 // Command wrappers
 // --------------------
 
-export const projectsDb = {
-	getImageCount: async (): Promise<number> => invoke("projects_db_get_image_count"),
+export const pdb = {
+	// #unused
+	getImageCount: async (): Promise<number> => invoke("projects_db_image_count"),
 
 	addProject: async (path: string): Promise<ProjectExtra> =>
-		invoke("projects_db_add_project", { path }),
+		invoke("projects_db_project_add", { path }),
 
 	removeProject: async (path: string): Promise<void> =>
-		invoke("projects_db_remove_project", { path }),
+		invoke("projects_db_project_remove", { path }),
 
-	listProjects: async (): Promise<ProjectExtra[]> => invoke("projects_db_list_projects"),
+	listProjects: async (): Promise<ProjectExtra[]> => invoke("projects_db_project_list"),
 
 	scanProject: async (
 		path: string,
 		fullScan = false,
 		filesize?: number,
 		modified?: number,
-	): Promise<void> => invoke("projects_db_scan_project", { path, fullScan, filesize, modified }),
+	): Promise<void> => invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
 
-	scanAllProjects: async (): Promise<void> => invoke("projects_db_scan_all_projects"),
-
-	findImages: async (
-		prompt_search: string,
-		opts: ListImagesOptions,
-	): Promise<{ items: ImageExtra[]; total: number }> =>
-		invoke("projects_db_find_images", { prompt_search, ...opts }),
+	// #unused
+	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
 
 	listImages: async (opts: ListImagesOptions): Promise<{ items: ImageExtra[]; total: number }> =>
-		invoke("projects_db_list_images", opts ?? {}),
+		invoke("projects_db_image_list", opts ?? {}),
 
 	listWatchFolders: async (): Promise<Record<string, unknown>[]> =>
-		invoke("projects_db_list_watch_folders"),
+		invoke("projects_db_watch_folder_list"),
 
 	addWatchFolder: async (path: string): Promise<Record<string, unknown>> =>
-		invoke("projects_db_add_watch_folder", { path }),
+		invoke("projects_db_watch_folder_add", { path }),
 
 	removeWatchFolders: async (paths: string[]): Promise<void> =>
-		invoke("projects_db_remove_watch_folders", { paths }),
+		invoke("projects_db_watch_folders_remove", { paths }),
 
-	rebuildIndex: async (): Promise<void> => invoke("projects_db_rebuild_images_fts"),
+	rebuildIndex: async (): Promise<void> => invoke("projects_db_image_rebuild_fts"),
 }
 
 export const dtProject = {
+	// #unused
 	getTensorHistory: async (
 		project_file: string,
 		index: number,
@@ -122,12 +119,14 @@ export const dtProject = {
 	): Promise<Record<string, unknown>[]> =>
 		invoke("dt_project_get_tensor_history", { project_file, index, count }),
 
+		// #unused
 	getThumbHalf: async (project_file: string, thumb_id: number): Promise<Uint8Array> =>
 		invoke("dt_project_get_thumb_half", { project_file, thumb_id }),
 
 	getHistoryFull: async (projectFile: string, rowId: number): Promise<TensorHistoryExtra> =>
 		invoke("dt_project_get_history_full", { projectFile, rowId }),
 
+	// #unused
 	getTensor: async (tensorId: string, project: string | number): Promise<Uint8Array> => {
 		const opts = {
 			tensorId,
@@ -137,6 +136,7 @@ export const dtProject = {
 		return invoke("dt_project_get_tensor", opts)
 	},
 
+	// #unused
 	getTensorRaw: async (
 		projectFile: string,
 		projectId: number,

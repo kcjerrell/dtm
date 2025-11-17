@@ -1,6 +1,6 @@
 import { Box, Image } from "@chakra-ui/react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { type ImageExtra, projectsDb } from "@/commands"
+import { type ImageExtra, pdb } from "@/commands"
 import { Panel } from "@/components"
 import PVGrid from "@/components/virtualizedList/PVGrid"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
@@ -16,7 +16,7 @@ function ImagesList(props: ImagesList) {
 	useEffect(() => {
 		if (!state.imageSource) return
 		const opts = getRequestOpts(state.imageSource)
-		projectsDb.listImages({ ...opts, take: 0, skip: 0 }).then((res) => {
+		pdb.listImages({ ...opts, take: 0, skip: 0 }).then((res) => {
 			setTotalCount(res.total)
 		})
 	}, [state.imageSource])
@@ -25,7 +25,7 @@ function ImagesList(props: ImagesList) {
 		async (skip, take) => {
 			if (!state.imageSource) return []
 			const opts = getRequestOpts(snap.imageSource)
-			const res = await projectsDb.listImages({ ...opts, take, skip })
+			const res = await pdb.listImages({ ...opts, take, skip })
 			return res.items
 		},
 		[snap.imageSource, state.imageSource],
