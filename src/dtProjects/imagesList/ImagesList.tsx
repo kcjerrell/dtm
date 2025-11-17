@@ -66,7 +66,12 @@ function GridItem(props) {
 
 	const imgRef = useRef<HTMLImageElement>(null)
 
-	if (!item) return null
+	if (!item)
+		return (
+			<Box padding={0.5}>
+				<Box bgColor={"fg.1/20"} width={"100%"} height={"100%"} />
+			</Box>
+		)
 
 	const isPreviewing =
 		item.project_id === snap?.detailsOverlay?.item?.project_id &&
@@ -76,6 +81,7 @@ function GridItem(props) {
 		<Box padding={0.5} onClick={() => showDetailsOverlay(item, imgRef.current)}>
 			{!isPreviewing && (
 				<Image
+					bgColor={"bg.1/20"}
 					// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
 					ref={imgRef}
 					width={"100%"}

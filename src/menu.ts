@@ -15,11 +15,16 @@ import { toggleColorMode } from "./components/ui/color-mode"
 import { postMessage } from "./context/Messages"
 import AppState from "./hooks/appState"
 import { loadImage2 } from "./metadata/state/imageLoaders"
-import { clearAll, clearCurrent, createImageItem, MetadataStore } from "./metadata/state/store"
 import { themeHelpers } from "./theme/helpers"
 import { getLocalImage } from "./utils/clipboard"
 
 const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
+
+let _metadataStore = null as typeof import("./metadata/state/store") | null
+async function getMetadataStore() {
+	if (!_metadataStore) _metadataStore = await import("./metadata/state/store")
+	return _metadataStore
+}
 
 const aboutApp: AboutMetadata = {
 	name: "DTM",
@@ -101,7 +106,7 @@ const fileSubmenu = await Submenu.new({
 				if (imagePath == null) return
 				const image = await getLocalImage(imagePath)
 				if (image)
-					await createImageItem(image, await pathLib.extname(imagePath), {
+					await (await getMetadataStore()).createImageItem(image, await pathLib.extname(imagePath), {
 						source: "open",
 						file: imagePath,
 					})
@@ -119,21 +124,21 @@ const fileSubmenu = await Submenu.new({
 			text: "Close",
 			id: "file_close",
 			action: async () => {
-				await clearCurrent()
+				await (await getMetadataStore()).clearCurrent()
 			},
 		}),
 		await MenuItem.new({
 			text: "Close unpinned",
 			id: "file_closeUnpinned",
 			action: async () => {
-				await clearAll(true)
+				await (await getMetadataStore()).clearAll(true)
 			},
 		}),
 		await MenuItem.new({
 			text: "Close all",
 			id: "file_closeAll",
 			action: async () => {
-				await clearAll(false)
+				await (await getMetadataStore()).clearAll(false)
 			},
 		}),
 	],
@@ -222,16 +227,16 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
 				text: "Clear pinned images on exit",
 				id: "options_clearPinsOnExit",
 				checked: opts?.clearPinsOnExit,
-				action: () => {
-					MetadataStore.clearPinsOnExit = !opts?.clearPinsOnExit
+				action: async () => {
+					(await getMetadataStore()).MetadataStore.clearPinsOnExit = !opts?.clearPinsOnExit
 				},
 			}),
 			await CheckMenuItem.new({
 				text: "Clear history on exit",
 				id: "options_clearHistoryOnExit",
 				checked: opts?.clearHistoryOnExit,
-				action: () => {
-					MetadataStore.clearHistoryOnExit = !opts?.clearHistoryOnExit
+				action: async () => {
+					(await getMetadataStore()).MetadataStore.clearHistoryOnExit = !opts?.clearHistoryOnExit
 				},
 			}),
 		],
@@ -241,7 +246,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
 let lastOpts: CreateOptionMenuOpts | null = null
 
 async function updateMenu(opts?: CreateOptionMenuOpts) {
-	lastOpts = opts ?? createOpts()
+	lastOpts = opts ?? await createOpts()
 	const menus = [aboutSubmenu, fileSubmenu, editSubmenu, await createOptionsMenu(lastOpts)]
 	if (import.meta.env.DEV) menus.push(viewSubmenu)
 	const menu = await Menu.new({
@@ -251,19 +256,19 @@ async function updateMenu(opts?: CreateOptionMenuOpts) {
 	menu.setAsAppMenu()
 }
 
-function createOpts(): CreateOptionMenuOpts {
+async function createOpts(): Promise<CreateOptionMenuOpts> {
 	return {
-		clearHistoryOnExit: MetadataStore.clearHistoryOnExit,
-		clearPinsOnExit: MetadataStore.clearPinsOnExit,
+		clearHistoryOnExit: (await getMetadataStore()).MetadataStore.clearHistoryOnExit,
+		clearPinsOnExit: (await getMetadataStore()).MetadataStore.clearPinsOnExit,
 	}
 }
 
 await updateMenu()
 
-subscribe(MetadataStore, async () => {
+subscribe((await getMetadataStore()).MetadataStore, async () => {
 	if (
-		lastOpts?.clearHistoryOnExit !== MetadataStore.clearHistoryOnExit ||
-		lastOpts?.clearPinsOnExit !== MetadataStore.clearPinsOnExit
+		lastOpts?.clearHistoryOnExit !== (await getMetadataStore()).MetadataStore.clearHistoryOnExit ||
+		lastOpts?.clearPinsOnExit !== (await getMetadataStore()).MetadataStore.clearPinsOnExit
 	) {
 		await updateMenu()
 	}

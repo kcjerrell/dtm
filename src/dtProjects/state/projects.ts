@@ -22,7 +22,6 @@ class ProjectsService {
 			this.#state.projects = projects.sort((a, b) =>
 				a.path.toLowerCase().localeCompare(b.path.toLowerCase()),
 			)
-			console.log('loaded projects')
 	}
 
 	async removeProjects(projectFiles: string[]) {

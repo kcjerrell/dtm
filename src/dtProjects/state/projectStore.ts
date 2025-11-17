@@ -10,12 +10,12 @@ import {
 import type { ScanProgressEvent } from "../types"
 import ProjectService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
-import WatchFolderService, { type WatchFolderType } from "./watchFolders"
+import WatchFolderService, { type WatchFolderState } from "./watchFolders"
 import ProjectsService from "./projects"
 
 const state = proxy({
 	projects: [] as ProjectState[],
-	watchFolders: [] as WatchFolderType[],
+	watchFolders: [] as WatchFolderState[],
 	imageSource: null as ImagesSource | null,
 	items: [] as ImageExtra[],
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
@@ -83,7 +83,7 @@ const store = new DTProjectsStore()
 
 export type DTProjectsStateType = {
     projects: ProjectState[];
-    watchFolders: WatchFolderType[];
+    watchFolders: WatchFolderState[];
     imageSource: ImagesSource | null;
     items: ImageExtra[];
     itemDetails: Record<number, TensorHistoryExtra>;
@@ -110,7 +110,6 @@ async function attachListeners() {
 
 	let scanningProject: ProjectExtra | null = null
 	scanProgressUnlisten = await listen("projects_db_scan_progress", (e: ScanProgressEvent) => {
-		console.log(e.payload)
 		const {
 			images_scanned,
 			images_total,
@@ -212,7 +211,6 @@ export function useDTProjects() {
 }
 
 export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | undefined {
-	console.log(imagesSource)
 	const opts = {} as ListImagesOptions
 	if (imagesSource.projects) {
 		opts.projectIds = imagesSource.projects.map((p) => p.id)
@@ -232,7 +230,6 @@ export async function selectItem(item: ImageExtra) {
 
 	const project = state.projects.find((p) => p.id === item.project_id)
 	if (!project) return
-	console.log(toJSON(item))
 	const history = await dtProject.getHistoryFull(project.path, item.node_id)
 
 	state.itemDetails[item.node_id] = history

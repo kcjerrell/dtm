@@ -32,7 +32,6 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 
 	const expanded = snap.expandedItems[item.node_id]
 	const details = expanded ? (snap.itemDetails[item.node_id] ?? null) : undefined
-	console.log(toJSON(item))
 	const row = (
 		<VStack width={"100%"} {...elemProps}>
 			<HStack
@@ -109,8 +108,6 @@ function ImagesListItem(props: PVListItemProps<ImageExtra, ImagesListItemProps>)
 							typeof v === "string"
 						)
 							onClick = async (e) => {
-								console.log(e, `dtm://dtproject/tensor/${item.project_id}/${v}`)
-								// const image = await DTProjectsStore.getTensor(details.project_path, v as string)
 								showPreview(null, `dtm://dtproject/tensor/${item.project_id}/${v}`)
 							}
 

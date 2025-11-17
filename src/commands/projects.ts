@@ -11,6 +11,7 @@ export type ProjectExtra = {
 	last_id?: number
 	filesize: number
 	modified: number
+	excluded: boolean
 }
 
 export type ImageExtra = {
@@ -67,6 +68,13 @@ export type ListImagesOptions = {
 	promptSearch?: string
 	take?: number
 	skip?: number
+}
+
+export type WatchFolder = {
+	id: number
+	path: string,
+	recursive: boolean
+	itemType: "Projects" | "ModelInfo"
 }
 
 // --------------------
@@ -148,7 +156,7 @@ export const dtProject = {
 		project: string | number,
 		tensorId: string,
 		asPng: boolean,
-		nodeId: number,
+		nodeId?: number,
 	): Promise<Uint8Array> => {
 		const opts = {
 			tensorId,
@@ -157,7 +165,6 @@ export const dtProject = {
 			asPng,
 			nodeId
 		}
-		console.log(opts)
 		return invoke("dt_project_decode_tensor", opts)
 	},
 

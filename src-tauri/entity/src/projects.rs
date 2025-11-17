@@ -12,6 +12,7 @@ pub struct Model {
     pub path: String,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
+    pub excluded: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

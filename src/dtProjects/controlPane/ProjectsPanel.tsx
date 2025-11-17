@@ -45,7 +45,6 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 			<PaneListContainer overflowY={"auto"} className="hide-scrollbar">
 				<SelectableGroup
 					onSelectionChanged={(e) => {
-						console.log(toJSON(e))
 						DTProjects.setImagesSource({ projects: e })
 					}}
 				>

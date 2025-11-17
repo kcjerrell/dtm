@@ -163,13 +163,6 @@ export default function VirtualizedList<T>(props: VirtualizedListProps<T>) {
 		[recomputeVisibleRange],
 	)
 
-	console.log({
-		firstIndex: snap.firstIndex,
-		lastIndex: snap.lastIndex,
-		itemsLength: items.length,
-		heightsSize: heights.current.size,
-	})
-
 	const safeIndex = (n: number) => Math.max(0, Math.min(items.length, n))
 
 	const totalHeight = getOffsetBefore(items.length)

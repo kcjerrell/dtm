@@ -30,7 +30,6 @@ export function hasDrawThingsData(
 
 export function getDrawThingsDataFromExif(exif?: ExifType | null): DrawThingsMetaData | undefined {
 	const hasExif = hasDrawThingsData(exif, true)
-	console.log(hasExif, exif)
 	if (hasExif) {
 		try {
 			const value = exif.exif.UserComment.value

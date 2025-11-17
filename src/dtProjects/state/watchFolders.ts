@@ -1,10 +1,9 @@
 import { path } from "@tauri-apps/api"
 import { exists, readDir, stat } from "@tauri-apps/plugin-fs"
-import { pdb } from "@/commands"
+import { pdb, type WatchFolder } from "@/commands"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
-export type WatchFolderType = {
-	path: string
+export type WatchFolderState = WatchFolder & {
 	isMissing?: boolean
 }
 
@@ -24,9 +23,8 @@ class WatchFolderService {
 	}
 
 	async loadWatchFolders() {
-		const folders = (await pdb.listWatchFolders()) as WatchFolderType[]
+		const folders = (await pdb.listWatchFolders()) as WatchFolderState[]
 		this.#state.watchFolders = folders
-		console.log("loaded watch folders")
 	}
 
 	async addWatchFolder(folderPath: string) {
@@ -54,7 +52,7 @@ class WatchFolderService {
 		await this.addWatchFolder(defaultPath)
 	}
 
-	async listProjects(folder: WatchFolderType) {
+	async listProjects(folder: WatchFolderState) {
 		try {
 			if (!(await exists(folder.path))) {
 				folder.isMissing = true

@@ -496,6 +496,7 @@ impl ProjectsDb {
     ) -> Result<entity::watch_folders::Model, DbErr> {
         let folder = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
+            item_type: Set(entity::watch_folders::ItemType::Projects),
             ..Default::default()
         };
         let folder = folder.insert(&self.db).await?;

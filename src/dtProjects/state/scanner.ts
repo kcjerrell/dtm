@@ -74,7 +74,6 @@ export class ScannerService {
 
 				// update
 				if (project.action === "update") {
-					console.log("update ", project.project.path)
 					await pdb.scanProject(
 						project.project.path,
 						false,

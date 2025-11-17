@@ -27,6 +27,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Projects::Filesize).big_integer().null())
                     .col(ColumnDef::new(Projects::Modified).big_integer().null())
+                    .col(ColumnDef::new(Projects::Excluded).boolean().not_null().default(false))
                     .to_owned(),
             )
             .await?;
@@ -313,6 +314,7 @@ impl MigrationTrait for Migration {
                             .boolean()
                             .default(false),
                     )
+                    .col(ColumnDef::new(WatchFolders::ItemType).tiny_integer().not_null())
                     .to_owned(),
             )
             .await?;
@@ -382,6 +384,7 @@ enum Projects {
     Path,
     Filesize,
     Modified,
+    Excluded,
 }
 
 #[derive(Iden)]
@@ -446,6 +449,7 @@ enum WatchFolders {
     Id,
     Path,
     Recursive,
+    ItemType,
 }
 
 #[derive(Iden)]

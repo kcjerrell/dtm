@@ -42,7 +42,6 @@ function PoseImage(props: PoseImageComponentProps) {
 					width: 768,
 					height: 768,
 				}
-				console.log(pose)
 
 				const image = await drawPose(pose)
 				if (image) setSrc(`data:image/png;base64,${await uint8ArrayToBase64(image)}`)

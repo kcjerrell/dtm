@@ -34,7 +34,6 @@ function Metadata(props: ChakraProps) {
 	useEffect(() => {
 		if (AppState.store.viewRequests.metadata?.length) {
 			const req = AppState.store.viewRequests.metadata.pop()
-			console.log(req)
 			if (req?.open) {
 				const image = dtProject
 					.decodeTensor(req.open.projectId, req.open.tensorId, true, req.open.nodeId)

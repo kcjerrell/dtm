@@ -20,7 +20,6 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 
 	const { SelectableGroup, selectedItems } = useSelectableGroup({ mode: "multipleModifier" })
 
-	console.log("render")
 	return (
 		<TabContent value={"settings"} {...restProps}>
 			<PanelSectionHeader>Watch Folders</PanelSectionHeader>

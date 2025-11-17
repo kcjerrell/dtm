@@ -15,7 +15,6 @@ function ColorPaletteImage(props: ColorPaletteImageComponentProps) {
 	useEffect(() => {
 		if (!(projectId ?? projectPath) || !tensorId) return
 		dtProject.decodeTensor(projectId ?? projectPath, tensorId, false).then(async (data) => {
-			console.log(getColors(new Uint8Array(data)))
 		})
 	}, [projectId, projectPath, tensorId])
 
@@ -28,7 +27,6 @@ export default ColorPaletteImage
 
 function getColors(data: Uint8Array, channels: number = 3) {
 	const palette = {} as Record<string, number>
-	console.log(data.length)
 	for (let i = 0; i < data.length; i += channels) {
 		const r = data[i]
 		const g = data[i + 1]
@@ -37,7 +35,6 @@ function getColors(data: Uint8Array, channels: number = 3) {
 
 		if (palette[key]) palette[key]++
 		else palette[key] = 1
-		console.log("cp", key)
 	}
 
 	return Object.keys(palette).sort()

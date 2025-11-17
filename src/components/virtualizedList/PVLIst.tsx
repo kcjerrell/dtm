@@ -175,7 +175,6 @@ function PVList<T, P = unknown>(props: PVListProps<T, P>) {
 					actualIndex + 1
 				] as HTMLDivElement
 				state.expanded.set(index, nextElement?.offsetTop - element?.offsetTop)
-				console.log("size", state.expanded.get(index))
 			}, 1000)
 		},
 		[state, snap.firstIndex],
