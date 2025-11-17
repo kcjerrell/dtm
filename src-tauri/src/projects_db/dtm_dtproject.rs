@@ -86,7 +86,6 @@ async fn tensor(
 
     let metadata = match node {
         Some(node) => {
-            println!("node: {}", node);
             Some(dtp.get_history_full(node).await.unwrap().history)
         }
         None => None,

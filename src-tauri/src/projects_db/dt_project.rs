@@ -187,7 +187,6 @@ impl DTProject {
     }
 
     pub async fn get_thumb_half(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
-        println!("thumb_id: {}", thumb_id);
         let result = query("SELECT p FROM thumbnailhistoryhalfnode WHERE __pk0 = ?1")
             .bind(thumb_id)
             .fetch_one(&self.pool)
@@ -197,7 +196,6 @@ impl DTProject {
     }
 
     pub async fn get_thumb(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
-        println!("thumb_id: {}", thumb_id);
         let result = query("SELECT p FROM thumbnailhistorynode WHERE __pk0 = ?1")
             .bind(thumb_id)
             .fetch_one(&self.pool)

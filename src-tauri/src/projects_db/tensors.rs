@@ -34,11 +34,6 @@ pub fn decode_tensor(
     let pixel_count = tensor.width * tensor.height * tensor.channels;
     let is_compressed = true;
 
-    println!(
-        "[DEBUG] height: {}, width: {}, channels: {}, pixel_count: {}, compressed: {}",
-        tensor.height, tensor.width, tensor.channels, pixel_count, is_compressed
-    );
-
     // Allocate output buffer as f32
     let mut out = vec![0.0f32; pixel_count as usize];
 
@@ -111,7 +106,6 @@ pub fn decode_tensor(
 fn decode_pose(tensor: TensorRaw) -> std::result::Result<Vec<u8>, anyhow::Error> {
     if tensor.data[0] == 0x66 && tensor.data[1] == 0x70 && tensor.data[2] == 0x79 {
         let dec = decompress_fzip(tensor.data);
-        println!("dec: {:#?}", dec);
         Ok(f32_to_u8(dec.unwrap()))
     } else {
         Ok(tensor.data)

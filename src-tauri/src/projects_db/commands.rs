@@ -150,8 +150,6 @@ pub async fn projects_db_list_images(
         search: prompt_search,
     };
 
-    println!("list images: {:?}", opts);
-
     Ok(projects_db.list_images(opts).await.unwrap())
 }
 
@@ -182,10 +180,6 @@ pub async fn dt_project_get_history_full(
     project_file: String,
     row_id: i64,
 ) -> Result<TensorHistoryExtra, String> {
-    println!(
-        "dt_project_get_history_full, {}, {:?}",
-        project_file, row_id
-    );
     let project = DTProject::get(&project_file).await.unwrap();
     let history = project.get_history_full(row_id).await.unwrap();
     Ok(history)
@@ -229,7 +223,6 @@ pub async fn dt_project_decode_tensor(
 
     let metadata = match node_id {
         Some(node) => {
-            println!("node: {}", node);
             Some(project.get_history_full(node).await.unwrap().history)
         }
         None => None,

@@ -38,7 +38,6 @@ fn get_path(app_handle: &tauri::AppHandle) -> String {
 impl ProjectsDb {
     pub async fn get_or_init(app_handle: &tauri::AppHandle) -> Result<&'static ProjectsDb, String> {
         CELL.get_or_try_init(|| async {
-            println!("init database");
             ProjectsDb::new(&get_path(app_handle))
                 .await
                 .map_err(|e| e.to_string())
@@ -321,7 +320,6 @@ impl ProjectsDb {
                             TryInsertResult::Inserted(inserted) => inserted,
                             _ => Vec::new(),
                         };
-                        println!("inserted {} images", inserted_images.len());
 
                         let mut image_loras: Vec<entity::image_loras::ActiveModel> = Vec::new();
                         let mut image_controls: Vec<entity::image_controls::ActiveModel> = Vec::new();
@@ -361,11 +359,6 @@ impl ProjectsDb {
                             }
                         }
 
-                        println!(
-                            "inserting {} image controls and {} image loras",
-                            image_controls.len(),
-                            image_loras.len()
-                        );
                         let _ = entity::image_controls::Entity::insert_many(image_controls)
                             .on_conflict(
                                 OnConflict::columns([
