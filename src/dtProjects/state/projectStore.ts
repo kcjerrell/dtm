@@ -25,6 +25,7 @@ const state = proxy({
 	selectedProject: null as ProjectExtra | null,
 	expandedItems: {} as Record<number, boolean>,
 	searchInput: "",
+	itemSize: 200,
 	detailsOverlay: {
 		item: null as ImageExtra | null,
 		lastItem: null as ImageExtra | null,
@@ -37,13 +38,13 @@ const state = proxy({
 })
 
 export interface IDTProjectsStore {
-	state: DTProjectsState
+	state: DTProjectsStateType
 	projects: ProjectsService
 	watchFolders: WatchFolderService
 	scanner: ScannerService
 }
 class DTProjectsStore implements IDTProjectsStore {
-	state: DTProjectsState
+	state: DTProjectsStateType
 	projects: ProjectsService
 	watchFolders: WatchFolderService
 	scanner: ScannerService
@@ -72,11 +73,36 @@ class DTProjectsStore implements IDTProjectsStore {
 		scanProgressUnlisten()
 		scanProgressUnlisten = () => undefined
 	}
+
+	setItemSize(size: number) {
+		this.state.itemSize = size
+	}
 }
 
 const store = new DTProjectsStore()
 
-export type DTProjectsState = typeof state
+export type DTProjectsStateType = {
+    projects: ProjectState[];
+    watchFolders: WatchFolderType[];
+    imageSource: ImagesSource | null;
+    items: ImageExtra[];
+    itemDetails: Record<number, TensorHistoryExtra>;
+    scanProgress: number;
+    scanningProject: string;
+    totalThisRun: number;
+    selectedProject: ProjectExtra | null;
+    expandedItems: Record<number, boolean>;
+		searchInput: string;
+		itemSize: number;
+    detailsOverlay: {
+        item: ImageExtra | null;
+        lastItem: ImageExtra | null;
+        candidates: TensorHistoryExtra[];
+        sourceRect: DOMRect | null;
+        width: number;
+        height: number;
+    };
+}
 
 let scanProgressUnlisten: () => void = () => undefined
 async function attachListeners() {

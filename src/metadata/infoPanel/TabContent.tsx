@@ -1,4 +1,4 @@
-import { Box, useTabsContext } from "@chakra-ui/react"
+import { Box, Flex, useTabsContext } from "@chakra-ui/react"
 import { useEffect, useRef } from "react"
 import Tabs from "./tabs"
 
@@ -6,10 +6,11 @@ interface TabContentProps extends ChakraProps {
 	updateScroll?: (tab: string, scrollPos: number) => void
 	scrollPos?: number
 	value?: string
+	contentProps?: ChakraProps
 }
 
 const TabContent = (props: TabContentProps) => {
-	const { updateScroll, scrollPos, children, value, ...rest } = props
+	const { updateScroll, scrollPos, children, value, contentProps, ...rest } = props
 	const cv = useTabsContext()
 
 	const scrollRef = useRef<HTMLDivElement>(null)
@@ -44,7 +45,7 @@ const TabContent = (props: TabContentProps) => {
 			width={"100%"}
 			{...rest}
 		>
-			<Box ref={scrollContentRef}>{children}</Box>
+			<Flex flexDir={"column"} ref={scrollContentRef} {...contentProps}>{children}</Flex>
 		</Tabs.Content>
 	)
 }

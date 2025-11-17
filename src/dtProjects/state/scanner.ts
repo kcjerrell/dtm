@@ -1,12 +1,12 @@
 import { stat } from "@tauri-apps/plugin-fs"
-import type { DTProjectsState, IDTProjectsStore } from "./projectStore"
+import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 import type { ProjectState } from "./projects"
 import type WatchFolderService from "./watchFolders"
 import { projectsDb } from "@/commands"
 
 export class ScannerService {
 	#dtp: IDTProjectsStore
-	#state: DTProjectsState
+	#state: DTProjectsStateType
 
 	constructor(dtp: IDTProjectsStore) {
 		this.#dtp = dtp
@@ -23,6 +23,10 @@ export class ScannerService {
 			project: p as ProjectState | Awaited<ReturnType<WatchFolderService["listProjects"]>>[number],
 			action: "unknown",
 		}))
+
+		projects.forEach((p) => {
+			;(p as unknown as ProjectState).isScanning = true
+		})
 
 		// read each watch folder, match against list
 		for (const folder of this.#state.watchFolders) {

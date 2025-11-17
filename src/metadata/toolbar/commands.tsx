@@ -10,9 +10,10 @@ import { clearAll, MetadataStore, pinImage } from "../state/store"
 import PinnedIcon from "./PinnedIcon"
 
 let separatorId = 0
-const separator = () => ({ id: `separator-${separatorId++}`, separator: true }) as ToolbarCommand
+const separator = () =>
+	({ id: `separator-${separatorId++}`, separator: true }) as ToolbarCommand<unknown>
 
-export const toolbarCommands: ToolbarCommand[] = [
+export const toolbarCommands: ToolbarCommand<typeof MetadataStore>[] = [
 	{
 		id: "loadFromClipboard",
 		tip: "Load image from clipboard",
@@ -32,7 +33,7 @@ export const toolbarCommands: ToolbarCommand[] = [
 			if (!store.currentImage) return
 			await ImageStore.copy(store.currentImage?.id)
 		},
-		checkVisible: (snap) => snap.currentImage != null,
+		check: (snap) => snap.currentImage != null,
 		icon: FiCopy,
 	},
 	separator(),
@@ -42,7 +43,7 @@ export const toolbarCommands: ToolbarCommand[] = [
 		getIcon: (snap: ReadonlyState<typeof MetadataStore>) => (
 			<PinnedIcon pin={snap.currentImage?.pin} />
 		),
-		checkVisible: (snap) => snap.currentImage != null,
+		check: (snap) => snap.currentImage != null,
 		action: async () => {
 			const pin = MetadataStore.currentImage?.pin !== null ? null : true
 			pinImage(true, pin)
@@ -58,7 +59,7 @@ export const toolbarCommands: ToolbarCommand[] = [
 		id: "clearUnpinned",
 		tip: "Clear unpinned images",
 		action: () => clearAll(true),
-		checkVisible: (snap) => snap.images.some((im) => im.pin == null),
+		check: (snap) => snap.images.some((im) => im.pin == null),
 		icon: FiXCircle,
 	},
 	separator(),
@@ -76,7 +77,7 @@ export const toolbarCommands: ToolbarCommand[] = [
 				await ImageStore.saveCopy(store.currentImage.id, savePath)
 			}
 		},
-		checkVisible: (snap) => snap.currentImage != null,
+		check: (snap) => snap.currentImage != null,
 		icon: FiSave,
 	},
 	{
@@ -87,7 +88,7 @@ export const toolbarCommands: ToolbarCommand[] = [
 			if (!store.currentImage?.source?.file) return
 			await revealItemInDir(store.currentImage?.source?.file)
 		},
-		checkVisible: (snap) => snap.currentImage?.source?.file != null,
+		check: (snap) => snap.currentImage?.source?.file != null,
 		icon: FiFolder,
 	},
 	{
@@ -98,21 +99,24 @@ export const toolbarCommands: ToolbarCommand[] = [
 			if (!store.currentImage?.source?.url) return
 			await openUrl(store.currentImage.source.url)
 		},
-		checkVisible: (snap) => snap.currentImage?.source?.url != null,
+		check: (snap) => snap.currentImage?.source?.url != null,
 		icon: TbBrowser,
 	},
 ]
 
-type SnapCallback<T = void> = (snap: ReadonlyState<typeof MetadataStore>) => T
+type SnapCallback<TArg, T2Arg = never, TRet = void> = (
+	snap: ReadonlyState<TArg>,
+	arg?: T2Arg,
+) => TRet
 
-export type ToolbarCommand = {
+export type ToolbarCommand<TArg, T2Arg = never> = {
 	id: string
-	action: (state: typeof MetadataStore) => void
-	checkVisible?: SnapCallback<boolean>
+	action: (state: TArg, arg?: T2Arg) => void
+	check?: SnapCallback<TArg, T2Arg, boolean>
 	tip?: string
-	getTip?: SnapCallback<string>
+	getTip?: SnapCallback<TArg, T2Arg, string>
 	icon?: IconType
-	getIcon?: SnapCallback<React.ReactElement>
+	getIcon?: SnapCallback<TArg, T2Arg, React.ReactElement>
 	separator?: true
 	slotId?: string
 }

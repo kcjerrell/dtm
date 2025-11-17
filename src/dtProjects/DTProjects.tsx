@@ -5,7 +5,9 @@ import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
 import ImagesList from "./imagesList/ImagesList"
 import { DTProjects } from "./state/projectStore"
 
-function ProjectData(props) {
+function ProjectData(props: ChakraProps) {
+	const { ...restProps } = props
+
 	const { store } = DTProjects
 
 	useEffect(() => {
@@ -14,7 +16,7 @@ function ProjectData(props) {
 	}, [store.init, store.removeListeners])
 
 	return (
-		<LayoutRoot position={"relative"}>
+		<LayoutRoot position={"relative"} {...restProps}>
 			<ControlPane />
 			<ImagesList />
 			<DetailsOverlay />

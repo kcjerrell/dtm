@@ -46,7 +46,7 @@ function ImagesList(props: ImagesList) {
 			<PVGrid<ImageExtra>
 				key={JSON.stringify(snap.imageSource)}
 				itemComponent={GridItem as PVListItemComponent<ImageExtra>}
-				maxItemSize={200}
+				maxItemSize={snap.itemSize}
 				itemProps={{
 					snap,
 					showDetailsOverlay,

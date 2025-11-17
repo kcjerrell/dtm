@@ -22,6 +22,9 @@ function ToolbarButton(props: PropsWithChildren<ToolbarButtonProps>) {
 					scale: 1.35,
 					color: "fg.1",
 				}}
+				_disabled={{
+					cursor: "default",
+				}}
 				scale={1.2}
 				size={"sm"}
 				variant={"ghost"}
@@ -33,9 +36,5 @@ function ToolbarButton(props: PropsWithChildren<ToolbarButtonProps>) {
 		</Tooltip>
 	)
 }
-
-const ToolbarButtonSomething = chakra("div", {
-	base: {},
-})
 
 export default ToolbarButton

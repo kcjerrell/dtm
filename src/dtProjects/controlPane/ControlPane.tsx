@@ -12,6 +12,27 @@ import ProjectsPanel from "./ProjectsPanel"
 import SearchPanel from "./SearchPanel"
 import SettingsPanel from "./SettingsPanel"
 
+const tabs = [
+	{
+		label: "Search",
+		value: "search",
+		Icon: MdImageSearch,
+		component: SearchPanel,
+	},
+	{
+		label: "Projects",
+		value: "projects",
+		Icon: PiCoffee,
+		component: ProjectsPanel,
+	},
+	{
+		label: "Settings",
+		value: "settings",
+		Icon: GoGear,
+		component: SettingsPanel,
+	},
+]
+
 interface ControlPane extends ChakraProps {}
 
 function ControlPane(props: ControlPane) {
@@ -22,6 +43,7 @@ function ControlPane(props: ControlPane) {
 	return (
 		<Panel
 			flex={"0 0 20rem"}
+			width={"20rem"}
 			paddingY={1}
 			paddingX={2}
 			borderRadius={"md"}
@@ -41,32 +63,26 @@ function ControlPane(props: ControlPane) {
 					uiState.selectedTab = e.value
 				}}
 			>
-				<Tabs.List paddingLeft={isSidebarVisible ? 0 : "50px"}>
-					{(
-						[
-							["search", MdImageSearch],
-							["projects", PiCoffee],
-							["settings", GoGear],
-						] as const
-					).map(([tab, Icon]) => (
-						<Tabs.Trigger key={tab} value={tab} paddingBlock={0.5} height={"2rem"}>
-							<Icon style={{ width: "1.25rem", height: "1.25rem" }} />
-							<Box
-								width={isSidebarVisible || tab === uiSnap.selectedTab ? "auto" : 0}
-								overflow={"hidden"}
-								whiteSpace={"nowrap"}
-							>
-								{capitalize(tab)}
-							</Box>
-						</Tabs.Trigger>
-					))}
-					<Tabs.Indicator />
-				</Tabs.List>
+				<TabList paddingLeft={isSidebarVisible ? 0 : "50px"} />
 				<SearchPanel />
 				<ProjectsPanel />
 				<SettingsPanel />
 			</Tabs.Root>
 		</Panel>
+	)
+}
+
+function TabList(props: ChakraProps) {
+	return (
+		<Tabs.List {...props}>
+			{tabs.map(({ value, Icon, label }) => (
+				<Tabs.Trigger key={value} value={value} paddingBlock={0.5} height={"2rem"}>
+					<Icon style={{ width: "1.25rem", height: "1.25rem" }} />
+					<Box>{label}</Box>
+				</Tabs.Trigger>
+			))}
+			<Tabs.Indicator />
+		</Tabs.List>
 	)
 }
 

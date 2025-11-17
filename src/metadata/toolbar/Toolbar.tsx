@@ -21,7 +21,7 @@ function Toolbar(props: ChakraProps) {
 
 	const buttons = toolbarCommands.map((item) => {
 		if (item.separator) return () => null
-		const isVisible = item.checkVisible?.(snap) ?? true
+		const isVisible = item.check?.(snap) ?? true
 		const state = isVisible ? "show" : "hide"
 		// const isChanged = prevState.current[i] !== state
 		// prevState.current[i] = state

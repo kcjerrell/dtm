@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import { type ProjectExtra, projectsDb } from "@/commands"
-import type { DTProjectsState, IDTProjectsStore } from "./projectStore"
+import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 export interface ProjectState extends ProjectExtra {
 	isScanning?: boolean
@@ -9,7 +9,7 @@ export interface ProjectState extends ProjectExtra {
 
 class ProjectsService {
 	#dtp: IDTProjectsStore
-	#state: DTProjectsState
+	#state: DTProjectsStateType
 
 	constructor(dtp: IDTProjectsStore) {
 		this.#dtp = dtp

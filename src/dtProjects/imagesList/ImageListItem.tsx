@@ -4,10 +4,10 @@ import { MeasureGrid } from "@/components"
 import { showPreview } from "@/components/preview"
 import type { PVListItemProps } from "@/components/virtualizedList/PVLIst"
 import DataItem from "@/metadata/infoPanel/DataItem"
-import { type DTProjectsState, selectItem } from "../state/projectStore"
+import { type DTProjectsStateType, selectItem } from "../state/projectStore"
 
 interface ImagesListItemProps {
-	snap: ReadonlyState<DTProjectsState>
+	snap: ReadonlyState<DTProjectsStateType>
 	onSelect: (index: number) => void
 }
 

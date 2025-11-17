@@ -1,7 +1,7 @@
 import { path } from "@tauri-apps/api"
 import { exists, readDir, stat } from "@tauri-apps/plugin-fs"
 import { projectsDb } from "@/commands"
-import type { DTProjectsState, IDTProjectsStore } from "./projectStore"
+import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 export type WatchFolderType = {
 	path: string
@@ -16,7 +16,7 @@ type ListProjectsResult = {
 
 class WatchFolderService {
 	#dtp: IDTProjectsStore
-	#state: DTProjectsState
+	#state: DTProjectsStateType
 
 	constructor(dtp: IDTProjectsStore) {
 		this.#dtp = dtp
@@ -33,6 +33,7 @@ class WatchFolderService {
 		if (await exists(folderPath)) {
 			await projectsDb.addWatchFolder(folderPath)
 			await this.loadWatchFolders()
+			await this.#dtp.scanner.scanAndWatch()
 		} else {
 			throw new Error("DNE")
 		}

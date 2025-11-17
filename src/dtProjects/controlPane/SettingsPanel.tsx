@@ -1,9 +1,16 @@
 import { HStack } from "@chakra-ui/react"
-import { PaneListContainer, PanelButton, PanelListItem, PanelSectionHeader } from "@/components"
+import {
+	PaneListContainer,
+	PanelButton,
+	PanelListItem,
+	PanelSectionHeader,
+	SliderWithInput,
+} from "@/components"
 import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
 import { useDTProjects } from "../state/projectStore"
+import { Slider } from "@/components/ui/slider"
 
 interface SettingsPanelComponentProps extends ChakraProps {}
 
@@ -52,6 +59,12 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			<PanelButton onClick={() => store.watchFolders.addDefaultWatchFolder()}>
 				Add default folder
 			</PanelButton>
+			<Slider
+				min={100}
+				max={500}
+				value={[snap.itemSize]}
+				onValueChange={(value) => store.setItemSize(value.value[0])}
+			/>
 		</TabContent>
 	)
 }
