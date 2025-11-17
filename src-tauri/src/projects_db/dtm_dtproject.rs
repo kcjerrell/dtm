@@ -1,3 +1,4 @@
+use migration::ExprTrait;
 use once_cell::sync::Lazy;
 use sea_orm::DbErr;
 use std::{
@@ -11,7 +12,7 @@ use tauri::{
 };
 
 use crate::projects_db::{
-    tensors::{scribble_mask_to_png, tensor_to_png_bytes},
+    tensors::{decode_tensor, scribble_mask_to_png},
     DTProject, ProjectsDb,
 };
 
@@ -21,12 +22,15 @@ use crate::projects_db::{
 static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<u64, String>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
-pub async fn dtm_dtproject_protocol(path: Vec<&str>, responder: UriSchemeResponder) {
-    println!("dtm_dtproject_protocol: {}", path.join("/"));
-    let item_type = path[0];
-    let project_id: i64 = path[1].parse().unwrap();
+pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: UriSchemeResponder) {
+    let path: Vec<&str> = request.uri().path().split('/').collect();
+    let item_type = path[1];
+    let project_id: i64 = path[2].parse().unwrap();
     let project_path = get_project_path(project_id as u64).await.unwrap();
-    let item_id = path[2];
+    let item_id = path[3];
+
+    let query = request.uri().query();
+    let node: Option<i64> = get_node(query).and_then(|n| n.parse().ok());
 
     match item_type {
         "thumb" => thumb(&project_path, item_id, false, responder)
@@ -35,7 +39,9 @@ pub async fn dtm_dtproject_protocol(path: Vec<&str>, responder: UriSchemeRespond
         "thumbhalf" => thumb(&project_path, item_id, true, responder)
             .await
             .unwrap(),
-        "tensor" => tensor(&project_path, item_id, responder).await.unwrap(),
+        "tensor" => tensor(&project_path, item_id, node, responder)
+            .await
+            .unwrap(),
         _ => responder.respond(
             Response::builder()
                 .status(404)
@@ -72,37 +78,42 @@ async fn thumb(
 async fn tensor(
     project_file: &str,
     name: &str,
+    node: Option<i64>,
     responder: UriSchemeResponder,
 ) -> Result<(), String> {
     let dtp = DTProject::get(project_file).await.unwrap();
     let tensor = dtp.get_tensor_raw(name).await.unwrap();
 
-    let builder: Response<Vec<u8>> = match classify_type(name).unwrap_or("") {
-        "pose" => Response::builder()
-            .status(400)
-            .body("Not supported".as_bytes().to_vec())
-            .unwrap(),
-        "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
-            let png = tensor_to_png_bytes(tensor).unwrap();
+    let metadata = match node {
+        Some(node) => {
+            println!("node: {}", node);
+            Some(dtp.get_history_full(node).await.unwrap().history)
+        }
+        None => None,
+    };
 
-            Response::builder()
-                .status(200)
-                .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
-                .body(png)
-                .unwrap()
+    let body = match classify_type(name).unwrap_or("") {
+        "pose" => None,
+        "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
+            let mut png = decode_tensor(tensor, true, metadata).unwrap();
+            Some(png)
         }
         "scribble" | "binary_mask" => {
             let png = scribble_mask_to_png(tensor).unwrap();
-
-            Response::builder()
-                .status(200)
-                .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
-                .body(png)
-                .unwrap()
+            Some(png)
         }
-        _ => Response::builder()
+        _ => None,
+    };
+
+    let builder = match body {
+        Some(body) => Response::builder()
+            .status(200)
+            .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
+            .body(body)
+            .unwrap(),
+        None => Response::builder()
             .status(400)
-            .body("Unknown item time".as_bytes().to_vec())
+            .body("".as_bytes().to_vec())
             .unwrap(),
     };
 
@@ -143,4 +154,14 @@ fn extract_jpeg_slice(data: &[u8]) -> Option<Vec<u8>> {
     let end = start + 2 + end + 2; // include EOI marker
 
     Some(data[start..end].to_vec())
+}
+
+fn get_node(query: Option<&str>) -> Option<&str> {
+    match query {
+        Some(query) => query.split('&').find_map(|pair| {
+            let (k, v) = pair.split_once('=')?;
+            (k == "node").then_some(v)
+        }),
+        None => None,
+    }
 }

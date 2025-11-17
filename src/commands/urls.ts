@@ -4,7 +4,11 @@ const urls = {
 	thumb: (image: ImageExtra) => `dtm://dtproject/thumb/${image.project_id}/${image.preview_id}`,
 	thumbHalf: (image: ImageExtra) =>
 		`dtm://dtproject/thumbhalf/${image.project_id}/${image.preview_id}`,
-	tensor: (projectId: number, name: string) => `dtm://dtproject/tensor/${projectId}/${name}`,
+	tensor: (projectId: number, name: string, nodeId: number) => {
+		const base = `dtm://dtproject/tensor/${projectId}/${name}`
+		if (nodeId) return `${base}?node=${nodeId}`
+		return base
+	},
 }
 
 export default urls

@@ -63,6 +63,8 @@ anyhow = "1.0.100"
 num_enum = "0.7.5"
 base64 = "0.22.1"
 flate2 = "1.1.5"
+png = "0.18.0"
+
 
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2 = "0.6.2"

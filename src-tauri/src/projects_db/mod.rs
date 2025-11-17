@@ -17,3 +17,6 @@ pub use dtm_dtproject::dtm_dtproject_protocol;
 mod tensor_history_mod;
 
 mod tensors;
+
+mod metadata;
+pub use metadata::build_drawthings_json;

@@ -1,6 +1,14 @@
-import { postMessage } from '@/context/Messages'
+import { postMessage } from "@/context/Messages"
 import { check } from "@tauri-apps/plugin-updater"
 import { proxy } from "valtio"
+
+type ViewRequest = {
+	open: {
+		projectId?: number,
+		tensorId?: string,
+		nodeId?: number,
+	}
+}
 
 type AppStateType = {
 	// update: Awaited<ReturnType<typeof check>>
@@ -18,16 +26,18 @@ type AppStateType = {
 	updateAttempts: number
 	currentView: string
 	isSidebarVisible: boolean
+	viewRequests: Record<string, ViewRequest[]>
 }
 
 let update: Awaited<ReturnType<typeof check>> = null
 const store: AppStateType = proxy({
 	updateSize: 0,
 	updateProgress: 0,
-	updateStatus:  "unknown",
+	updateStatus: "unknown",
 	updateAttempts: 0,
 	currentView: localStorage.getItem("currentView") || "metadata",
-	isSidebarVisible: true
+	isSidebarVisible: true,
+	viewRequests: {},
 })
 
 async function checkForUpdate() {
@@ -43,8 +53,7 @@ async function checkForUpdate() {
 				duration: 5000,
 				uType: "update",
 			})
-		}
-		else store.updateStatus = "none"
+		} else store.updateStatus = "none"
 	} catch (e) {
 		console.error(e)
 		store.updateStatus = "error"
@@ -68,15 +77,15 @@ async function downloadAndInstallUpdate() {
 			message: "Installing update...",
 			uType: "update",
 		})
-   await update.install()
-	
-	 store.updateStatus = "installed"
-	 postMessage({
-		 channel: "toolbar",
-		 message: "Update installed! Click the update button to restart",
-		 duration: 3000,
-		 uType: "update",
-	 })
+		await update.install()
+
+		store.updateStatus = "installed"
+		postMessage({
+			channel: "toolbar",
+			message: "Update installed! Click the update button to restart",
+			duration: 3000,
+			uType: "update",
+		})
 	} catch (e) {
 		console.error(e)
 		store.updateStatus = "error"
@@ -98,11 +107,17 @@ async function retryUpdate() {
 
 async function setView(view: string) {
 	store.currentView = view
+	if (!store.viewRequests[view]) store.viewRequests[view] = []
 	localStorage.setItem("currentView", view)
 }
 
 function setShowSidebar(show: boolean) {
 	store.isSidebarVisible = show
+}
+
+async function setViewRequest(view: string, request: ViewRequest) {
+	await setView(view)
+	store.viewRequests[view].push(request)
 }
 
 const AppState = {
@@ -111,7 +126,8 @@ const AppState = {
 	downloadAndInstallUpdate,
 	setView,
 	retryUpdate,
-	showSidebar: setShowSidebar
+	showSidebar: setShowSidebar,
+	setViewRequest,
 }
 
 export default AppState

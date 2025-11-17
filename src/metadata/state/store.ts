@@ -247,6 +247,7 @@ export async function getExif(arg: ArrayBuffer | string): Promise<ExifType | nul
 			iptc: true,
 			mergeOutput: false,
 		})
+		console.log(JSON.stringify(exif, null, 2))
 		return exif
 	} catch (e) {
 		console.warn(e)

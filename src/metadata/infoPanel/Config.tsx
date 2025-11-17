@@ -32,29 +32,29 @@ function Config(props: ConfigProps) {
 		<MeasureGrid columns={2} gap={1} fontSize={"xs"} maxItemLines={6} padding={1} {...rest}>
 			<DataItem
 				label={"Size"}
-				data={`${dtData?.config.width} x ${dtData?.config.height}`}
-				ignore={dtData?.config.width === undefined || dtData?.config.height === undefined}
+				data={`${dtData?.config?.width} x ${dtData?.config?.height}`}
+				ignore={dtData?.config?.width === undefined || dtData?.config?.height === undefined}
 			/>
-			<DataItem label={"Seed"} data={dtData?.config.seed} decimalPlaces={0} />
+			<DataItem label={"Seed"} data={dtData?.config?.seed} decimalPlaces={0} />
 			{null}
-			<DataItem label={"Model"} data={dtData?.config.model} cols={2} />
-			<DataItem label={"Sampler"} data={samplerLabels[dtData?.config.sampler]} cols={2} />
+			<DataItem label={"Model"} data={dtData?.config?.model} cols={2} />
+			<DataItem label={"Sampler"} data={samplerLabels[dtData?.config?.sampler]} cols={2} />
 			<HStack gridColumn={"span 2"} width={"100%"} justifyContent={"space-between"}>
 				<DataItem
 					label={"Steps"}
-					data={dtData?.config.steps}
+					data={dtData?.config?.steps}
 					decimalPlaces={0}
 					flex={"1 1 min-content"}
 				/>
 				<DataItem
 					label={"ImageGuidance"}
-					data={dtData?.config.imageGuidanceScale}
+					data={dtData?.config?.imageGuidanceScale}
 					decimalPlaces={1}
 					flex={"1 1 min-content"}
 				/>
 				<DataItem
 					label={"Shift"}
-					data={dtData?.config.shift}
+					data={dtData?.config?.shift}
 					decimalPlaces={2}
 					flex={"3 0 min-content"}
 				/>

@@ -298,19 +298,47 @@ impl DTProject {
             .await
             .map_err(|e| e.to_string())?;
 
-        // if a candidate has the same lineage, it is predecessor
-        let same_lineage: Vec<&TensorHistoryExtra> = candidates
-            .iter()
-            .filter(|c| c.lineage == lineage)
-            // .cloned()
-            .collect();
-        if same_lineage.len() == 1 {
-            return Ok(Vec::from([same_lineage[0].clone()]));
+        let mut same_lineage: Option<&TensorHistoryExtra> = None;
+        let mut one_less: Option<&TensorHistoryExtra> = None;
+        let mut next_closest: Option<&TensorHistoryExtra> = None;
+        let mut highest_closest: Option<&TensorHistoryExtra> = None;
+
+        for candidate in &candidates {
+            use std::cmp::Ordering::*;
+
+            match candidate.lineage.cmp(&lineage) {
+                Equal => {
+                    same_lineage = Some(candidate);
+                }
+                Less => {
+                    if candidate.lineage == lineage - 1 {
+                        one_less = Some(candidate);
+                    }
+                }
+                Greater => {
+                    next_closest = match next_closest {
+                        Some(existing) if candidate.lineage < existing.lineage => Some(candidate),
+                        None => Some(candidate),
+                        other => other,
+                    };
+
+                    highest_closest = match highest_closest {
+                        Some(existing) if candidate.lineage > existing.lineage => Some(candidate),
+                        None => Some(candidate),
+                        other => other,
+                    };
+                }
+            }
         }
 
+        let result: Vec<TensorHistoryExtra> =
+            [same_lineage, one_less, next_closest, highest_closest]
+                .into_iter()
+                .flatten() // remove None, leave &TensorHistoryExtra
+                .cloned() // clone only the ones we actually return
+                .collect();
 
-
-        Ok(candidates)
+        Ok(result)
     }
 }
 
@@ -359,13 +387,13 @@ fn full_query_where(where_expr: &str) -> String {
                 thn.p      AS data_blob,
 
                 -- Indexed fields from tensordata with prefix & 0 → NULL
-                'tensor_history_'   || NULLIF(td.f20, 0) AS tensor_id,
-                'binary_mask_'      || NULLIF(td.f22, 0) AS mask_id,
-                'depth_map_'        || NULLIF(td.f24, 0) AS depth_map_id,
-                'scribble_'         || NULLIF(td.f26, 0) AS scribble_id,
-                'pose_'             || NULLIF(td.f28, 0) AS pose_id,
-                'color_palette_'    || NULLIF(td.f30, 0) AS color_palette_id,
-                'custom_'           || NULLIF(td.f32, 0) AS custom_id
+                MAX('tensor_history_'   || NULLIF(td.f20, 0)) AS tensor_id,
+                MAX('binary_mask_'      || NULLIF(td.f22, 0)) AS mask_id,
+                MAX('depth_map_'        || NULLIF(td.f24, 0)) AS depth_map_id,
+                MAX('scribble_'         || NULLIF(td.f26, 0)) AS scribble_id,
+                MAX('pose_'             || NULLIF(td.f28, 0)) AS pose_id,
+                MAX('color_palette_'    || NULLIF(td.f30, 0)) AS color_palette_id,
+                MAX('custom_'           || NULLIF(td.f32, 0)) AS custom_id
 
             FROM tensorhistorynode AS thn
 
@@ -394,6 +422,7 @@ fn full_query_where(where_expr: &str) -> String {
             ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
 
             WHERE {}
+            GROUP BY thn.rowid, thn.__pk0, thn.__pk1
             ORDER BY thn.rowid
 		    ",
         where_expr

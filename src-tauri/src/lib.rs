@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use std::path::PathBuf;
 
 use tauri::{http, Manager, TitleBarStyle, UriSchemeContext, UriSchemeResponder};
@@ -113,25 +115,21 @@ pub fn run() {
             projects_db_list_watch_folders,
             projects_db_add_watch_folder,
             projects_db_remove_watch_folders,
+            projects_db_rebuild_images_fts,
 
             dt_project_get_tensor_history,
             dt_project_get_thumb_half,
             dt_project_get_history_full,
             dt_project_get_tensor,
             dt_project_find_predecessor_candidates,
-            dt_project_get_tensor_raw
+            dt_project_get_tensor_raw,
+            dt_project_decode_tensor
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
-            println!("dtm: {}", request.uri().path());
-
             std::thread::spawn(move || {
-                let path = request.uri().path()[1..].to_string();
-                let parts: Vec<&str> = path.split('/').collect();
-                println!("parts: {:#?}", parts);
-
                 TOKIO_RT.block_on(async move {
                     if request.uri().host().unwrap() == "dtproject" {
-                        dtm_dtproject_protocol(parts, responder).await;
+                        dtm_dtproject_protocol(request, responder).await;
                     } else {
                         responder.respond(
                             http::Response::builder()

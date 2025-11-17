@@ -11,13 +11,16 @@ use entity::{
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
-    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, DbErr, EntityTrait,
-    FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    RelationTrait, Set, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
+    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, RelationTrait, Set, Statement, TransactionTrait, TryInsertResult,
 };
 use tauri::{Emitter, Manager};
 
-use crate::projects_db::{DTProject, TensorHistoryImport, dt_project::{self, ProjectRef}};
+use crate::projects_db::{
+    dt_project::{self, ProjectRef},
+    DTProject, TensorHistoryImport,
+};
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
 
@@ -302,7 +305,7 @@ impl ProjectsDb {
                                 ..Default::default()
                             })
                             .collect();
-                        let _ = entity::images::Entity::insert_many(images)
+                        let inserted = entity::images::Entity::insert_many(images)
                             .on_conflict(
                                 OnConflict::columns([
                                     images::Column::NodeId,
@@ -312,8 +315,81 @@ impl ProjectsDb {
                                 .to_owned(),
                             )
                             .do_nothing()
-                            .exec(txn)
+                            .exec_with_returning_many(txn)
                             .await?;
+                        let inserted_images = match inserted {
+                            TryInsertResult::Inserted(inserted) => inserted,
+                            _ => Vec::new(),
+                        };
+                        println!("inserted {} images", inserted_images.len());
+
+                        let mut image_loras: Vec<entity::image_loras::ActiveModel> = Vec::new();
+                        let mut image_controls: Vec<entity::image_controls::ActiveModel> = Vec::new();
+
+                        for im in inserted_images {
+                            let h = histories.iter().find(|h| h.row_id == im.node_id);
+                            if let Some(h) = h {
+                                let controls: Vec<entity::image_controls::ActiveModel> = h
+                                    .controls
+                                    .iter()
+                                    .map(|c| {
+                                        let control_id = map.get(&c.model).unwrap();
+                                        entity::image_controls::ActiveModel {
+                                            image_id: Set(im.id),
+                                            control_id: Set(*control_id),
+                                            weight: Set(c.weight),
+                                            ..Default::default()
+                                        }
+                                    })
+                                    .collect();
+                                image_controls.extend(controls);
+
+                                let loras: Vec<entity::image_loras::ActiveModel> = h
+                                    .loras
+                                    .iter()
+                                    .map(|l| {
+                                        let lora_id = map.get(&l.model).unwrap();
+                                        entity::image_loras::ActiveModel {
+                                            image_id: Set(im.id),
+                                            lora_id: Set(*lora_id),
+                                            weight: Set(l.weight),
+                                            ..Default::default()
+                                        }
+                                    })
+                                    .collect();
+                                image_loras.extend(loras);
+                            }
+                        }
+
+                        println!(
+                            "inserting {} image controls and {} image loras",
+                            image_controls.len(),
+                            image_loras.len()
+                        );
+                        let _ = entity::image_controls::Entity::insert_many(image_controls)
+                            .on_conflict(
+                                OnConflict::columns([
+                                    entity::image_controls::Column::ImageId,
+                                    entity::image_controls::Column::ControlId,
+                                ])
+                                .do_nothing()
+                                .to_owned(),
+                            )
+                            .do_nothing()
+                            .exec_without_returning(txn);
+
+                        let _ = entity::image_loras::Entity::insert_many(image_loras)
+                            .on_conflict(
+                                OnConflict::columns([
+                                    entity::image_loras::Column::ImageId,
+                                    entity::image_loras::Column::LoraId,
+                                ])
+                                .do_nothing()
+                                .to_owned(),
+                            )
+                            .do_nothing()
+                            .exec_without_returning(txn);
+
                         Ok(())
                     })
                 })
@@ -490,7 +566,21 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn get_dt_project(&self, project_ref: ProjectRef) -> Result<std::sync::Arc<dt_project::DTProject>, String> {
+    pub async fn rebuild_images_fts(&self) -> Result<(), sea_orm::DbErr> {
+        self.db
+            .execute(Statement::from_string(
+                self.db.get_database_backend(),
+                "INSERT INTO images_fts(images_fts) VALUES('rebuild')".to_owned(),
+            ))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_dt_project(
+        &self,
+        project_ref: ProjectRef,
+    ) -> Result<std::sync::Arc<dt_project::DTProject>, String> {
         let project_path = match project_ref {
             ProjectRef::Path(path) => path,
             ProjectRef::Id(id) => {

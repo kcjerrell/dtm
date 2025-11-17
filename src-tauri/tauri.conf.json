@@ -46,7 +46,8 @@
           "tauri:",
           "http:",
           "https:",
-          "https://cdn.discordapp.com"
+          "https://cdn.discordapp.com",
+          "dtm:"
         ],
         "style-src": [
           "'self'",

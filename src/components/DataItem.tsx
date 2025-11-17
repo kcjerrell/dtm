@@ -18,6 +18,8 @@ function DataItem(props: DataItemProps) {
 
 	const contentRef = useRef<HTMLDivElement>(null)
 
+	const [display, isObject, dataType] = prepData(data)
+
 	useLayoutEffect(() => {
 		if (!contentRef.current || !maxLines) return
 		const style = getComputedStyle(contentRef.current)
@@ -45,7 +47,7 @@ function DataItem(props: DataItemProps) {
 				{label && <Label>{label}</Label>}
 			</HStack>
 			<Content ref={contentRef} collapse={getVariant(collapsible, collapsed)} maxHeight={maxHeight}>
-				<motion.div layout>{prepData(data)}</motion.div>
+				<motion.div layout>{display}</motion.div>
 			</Content>
 			{collapsible && (
 				<ExpandButton onClick={() => setCollapsed(!collapsed)}>

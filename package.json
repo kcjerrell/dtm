@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "scripts/prebuild.sh && tsc && vite build",
+    "build": "scripts/prebuild.sh && vite build",
     "build-dep": "chmod +x scripts/prebuild.sh && scripts/prebuild.sh",
-    "build-universal": "dotenv -- tauri build --target universal-apple-darwin",
+    "build:universal": "dotenv -- tauri build --target universal-apple-darwin",
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",
     "release": "tsx scripts/release.ts",

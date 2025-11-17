@@ -110,6 +110,8 @@ export const projectsDb = {
 
 	removeWatchFolders: async (paths: string[]): Promise<void> =>
 		invoke("projects_db_remove_watch_folders", { paths }),
+
+	rebuildIndex: async (): Promise<void> => invoke("projects_db_rebuild_images_fts"),
 }
 
 export const dtProject = {
@@ -126,11 +128,38 @@ export const dtProject = {
 	getHistoryFull: async (projectFile: string, rowId: number): Promise<TensorHistoryExtra> =>
 		invoke("dt_project_get_history_full", { projectFile, rowId }),
 
-	getTensor: async (project_file: string, name: string): Promise<Uint8Array> =>
-		invoke("dt_project_get_tensor", { project_file, name }),
+	getTensor: async (tensorId: string, project: string | number): Promise<Uint8Array> => {
+		const opts = {
+			tensorId,
+			projectId: typeof project === "string" ? undefined : project,
+			projectFile: typeof project === "string" ? project : undefined,
+		}
+		return invoke("dt_project_get_tensor", opts)
+	},
 
-	getTensorRaw: async (projectFile: string, projectId: number, tensorId: string): Promise<TensorRaw> =>
+	getTensorRaw: async (
+		projectFile: string,
+		projectId: number,
+		tensorId: string,
+	): Promise<TensorRaw> =>
 		invoke("dt_project_get_tensor_raw", { projectFile, projectId, tensorId }),
+
+	decodeTensor: async (
+		project: string | number,
+		tensorId: string,
+		asPng: boolean,
+		nodeId: number,
+	): Promise<Uint8Array> => {
+		const opts = {
+			tensorId,
+			projectId: typeof project === "string" ? undefined : project,
+			projectFile: typeof project === "string" ? project : undefined,
+			asPng,
+			nodeId
+		}
+		console.log(opts)
+		return invoke("dt_project_decode_tensor", opts)
+	},
 
 	getPredecessorCandidates: async (
 		projectFile: string,

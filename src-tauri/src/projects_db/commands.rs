@@ -1,7 +1,10 @@
 use tauri::Emitter;
 
 use crate::projects_db::{
-    DTProject, ProjectsDb, TensorHistoryImport, dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw}, projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress}
+    dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
+    projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress},
+    tensors::decode_tensor,
+    DTProject, ProjectsDb, TensorHistoryImport,
 };
 
 #[tauri::command]
@@ -189,17 +192,51 @@ pub async fn dt_project_get_history_full(
 }
 
 #[tauri::command]
-pub async fn dt_project_get_tensor(project_file: String, name: String) -> Result<Vec<u8>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    let buffer = project.get_tensor(&name).await.unwrap();
+pub async fn dt_project_get_tensor(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    tensor_id: String,
+) -> Result<Vec<u8>, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let buffer = project.get_tensor(&tensor_id).await.unwrap();
     Ok(buffer)
-    // let png = tensor_to_png_bytes(&buffer).unwrap();
+}
 
-    // let path = format!("{}.png", name);
-    // let mut file = File::create(path).unwrap();
-    // file.write_all(&png).unwrap();
+#[tauri::command]
+pub async fn dt_project_get_tensor_raw(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    tensor_id: String,
+) -> Result<TensorRaw, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    Ok(tensor)
+}
 
-    // Ok(png)
+#[tauri::command]
+pub async fn dt_project_decode_tensor(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    node_id: Option<i64>,
+    tensor_id: String,
+    as_png: bool
+) -> Result<tauri::ipc::Response, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+
+    let metadata = match node_id {
+        Some(node) => {
+            println!("node: {}", node);
+            Some(project.get_history_full(node).await.unwrap().history)
+        }
+        None => None,
+    };
+
+    let buffer = decode_tensor(tensor, as_png, metadata).unwrap();
+    Ok(tauri::ipc::Response::new(buffer))
 }
 
 #[tauri::command]
@@ -217,23 +254,10 @@ pub async fn dt_project_find_predecessor_candidates(
 }
 
 #[tauri::command]
-pub async fn dt_project_get_tensor_raw(
-    app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
-    tensor_id: String,
-) -> Result<TensorRaw, String> {
-    let project_ref = match project_id {
-        Some(pid) => ProjectRef::Id(pid),
-        None => match project_path {
-            Some(path) => ProjectRef::Path(path),
-            None => return Err("No project specified".to_string()),
-        }
-    };
+pub async fn projects_db_rebuild_images_fts(app: tauri::AppHandle) -> Result<(), String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-    let project = projects_db.get_dt_project(project_ref).await?;
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
-    Ok(tensor)
+    projects_db.rebuild_images_fts().await.unwrap();
+    Ok(())
 }
 
 #[tauri::command]
@@ -265,4 +289,21 @@ pub async fn projects_db_remove_watch_folders(
         .remove_watch_folders(paths)
         .await
         .map_err(|e| e.to_string())
+}
+
+async fn get_project(
+    app: tauri::AppHandle,
+    project_path: Option<String>,
+    project_id: Option<i64>,
+) -> Result<std::sync::Arc<DTProject>, String> {
+    let project_ref = match project_id {
+        Some(pid) => ProjectRef::Id(pid),
+        None => match project_path {
+            Some(path) => ProjectRef::Path(path),
+            None => return Err("No project specified".to_string()),
+        },
+    };
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let project = projects_db.get_dt_project(project_ref).await?;
+    Ok(project)
 }

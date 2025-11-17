@@ -209,6 +209,7 @@ type PrepDataOpts = {
 	decimalPlaces?: number
 }
 type PrepDataTypes = "string" | "number" | "boolean" | "array" | "object" | "null" | "undefined"
+
 export function prepData(
 	data: unknown,
 	opts?: PrepDataOpts,

@@ -158,11 +158,9 @@ async function loadDetails(item: ImageExtra) {
 	// await new Promise((res) => setTimeout(res, 500))
 	const project = state.projects.find((p) => p.id === item.project_id)
 	if (!project) return
-	console.log(toJSON(item))
 	const history = await dtProject.getHistoryFull(project.path, item.node_id)
 
 	state.itemDetails[item.node_id] = history
-	console.log(history.lineage, history.logical_time)
 	state.detailsOverlay.candidates = await dtProject.getPredecessorCandidates(
 		project.path,
 		history.row_id,
