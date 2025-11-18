@@ -189,15 +189,13 @@ pub async fn dt_project_decode_tensor(
     project_path: Option<String>,
     node_id: Option<i64>,
     tensor_id: String,
-    as_png: bool
+    as_png: bool,
 ) -> Result<tauri::ipc::Response, String> {
     let project = get_project(app, project_path, project_id).await.unwrap();
     let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
 
     let metadata = match node_id {
-        Some(node) => {
-            Some(project.get_history_full(node).await.unwrap().history)
-        }
+        Some(node) => Some(project.get_history_full(node).await.unwrap().history),
         None => None,
     };
 
@@ -238,23 +236,24 @@ pub async fn projects_db_watch_folder_list(
 pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
+    item_type: entity::watch_folders::ItemType,
+    recursive: bool,
 ) -> Result<entity::watch_folders::Model, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-    Ok(projects_db.add_watch_folder(&path).await.unwrap())
+    Ok(projects_db
+        .add_watch_folder(&path, item_type, recursive)
+        .await
+        .unwrap())
 }
 
 #[tauri::command]
 pub async fn projects_db_watch_folder_remove(
     app: tauri::AppHandle,
-    paths: Vec<String>,
+    ids: Vec<i64>,
 ) -> Result<(), String> {
-    let projects_db = ProjectsDb::get_or_init(&app)
-        .await
-        .map_err(|e| e.to_string())?;
-    projects_db
-        .remove_watch_folders(paths)
-        .await
-        .map_err(|e| e.to_string())
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    projects_db.remove_watch_folders(ids).await.unwrap();
+    Ok(())
 }
 
 async fn get_project(

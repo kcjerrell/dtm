@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { fetch } from "@tauri-apps/plugin-http"
 import { dtProject } from "@/commands"
 import { drawPose } from "@/utils/pose"
-import { uint8ArrayToBase64 } from "@/utils/helpers"
+import { chunk, uint8ArrayToBase64 } from "@/utils/helpers"
 
 interface PoseImageComponentProps extends ChakraProps {
 	projectPath?: string
@@ -57,12 +57,3 @@ function PoseImage(props: PoseImageComponentProps) {
 }
 
 export default PoseImage
-
-
-function chunk(values: number[], chunkSize: number): number[][] {
-	const chunks: number[][] = []
-	for (let i = 0; i < values.length; i += chunkSize) {
-		chunks.push(values.slice(i, i + chunkSize))
-	}
-	return chunks
-}

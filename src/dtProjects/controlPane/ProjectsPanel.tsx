@@ -9,6 +9,7 @@ import TabContent from "@/metadata/infoPanel/TabContent"
 import type { ToolbarCommand } from "@/metadata/toolbar/commands"
 import DTProjects, { type DTProjectsStateType, useDTProjects } from "../state/projectStore"
 import type { ProjectState } from "../state/projects"
+import { PaneListScroll } from '@/components/common'
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -29,29 +30,32 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 			contentProps={{ maxHeight: "100%", overflowY: "clip" }}
 			{...restProps}
 		>
-			<HStack justifyContent={"flex-end"} transition={"all 0.2s ease"}>
-				{toolbarCommands.map((command) => (
-					<ToolbarItem
-						key={command.id}
-						command={command}
-						state={state as DTProjectsStateType}
-						arg={selectedItems as ProjectExtra[]}
-					/>
-				))}
-				{/* <ToolbarButton icon={MdBlock} tip={"Exclude project"} />
+			<PaneListContainer overflowY={'clip'}>
+				<PaneListScroll className="hide-scrollbar">
+					<SelectableGroup
+						onSelectionChanged={(e) => {
+							DTProjects.setImagesSource({ projects: e })
+						}}
+					>
+						{snap.projects.map((project) => (
+							<ProjectListItem key={project.path} project={project} />
+						))}
+					</SelectableGroup>
+				</PaneListScroll>
+
+				<HStack justifyContent={"flex-end"}>
+					{toolbarCommands.map((command) => (
+						<ToolbarItem
+							key={command.id}
+							command={command}
+							state={state as DTProjectsStateType}
+							arg={selectedItems as ProjectExtra[]}
+						/>
+					))}
+					{/* <ToolbarButton icon={MdBlock} tip={"Exclude project"} />
 				<ToolbarButton icon={FiRefreshCw} tip={"Manual rescan"} />
 				<ToolbarButton icon={FiFolder} tip={"Open folder"} /> */}
-			</HStack>
-			<PaneListContainer overflowY={"auto"} className="hide-scrollbar">
-				<SelectableGroup
-					onSelectionChanged={(e) => {
-						DTProjects.setImagesSource({ projects: e })
-					}}
-				>
-					{snap.projects.map((project) => (
-						<ProjectListItem key={project.path} project={project} />
-					))}
-				</SelectableGroup>
+				</HStack>
 			</PaneListContainer>
 
 			<HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
@@ -110,7 +114,11 @@ function ProjectListItem(props: ProjectListItemProps) {
 		>
 			<HStack justifyContent={"space-between"}>
 				<Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>
-				{project.isScanning ? <Box>-</Box> : <Box>{project.image_count}</Box>}
+				{project.isScanning ? (
+					<Box color={"fg.3"}>-</Box>
+				) : (
+					<Box color={"fg.3"}>{project.image_count}</Box>
+				)}
 			</HStack>
 		</PanelListItem>
 	)

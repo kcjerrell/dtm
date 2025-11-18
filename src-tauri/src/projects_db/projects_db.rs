@@ -322,7 +322,8 @@ impl ProjectsDb {
                         };
 
                         let mut image_loras: Vec<entity::image_loras::ActiveModel> = Vec::new();
-                        let mut image_controls: Vec<entity::image_controls::ActiveModel> = Vec::new();
+                        let mut image_controls: Vec<entity::image_controls::ActiveModel> =
+                            Vec::new();
 
                         for im in inserted_images {
                             let h = histories.iter().find(|h| h.row_id == im.node_id);
@@ -493,23 +494,37 @@ impl ProjectsDb {
     pub async fn add_watch_folder(
         &self,
         path: &str,
+        item_type: entity::watch_folders::ItemType,
+        recursive: bool,
     ) -> Result<entity::watch_folders::Model, DbErr> {
         let folder = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
-            item_type: Set(entity::watch_folders::ItemType::Projects),
+            item_type: Set(item_type),
+            recursive: Set(recursive),
             ..Default::default()
         };
-        let folder = folder.insert(&self.db).await?;
+        let folder = entity::watch_folders::Entity::insert(folder)
+            .on_conflict(
+                OnConflict::columns([
+                    entity::watch_folders::Column::Path,
+                    entity::watch_folders::Column::ItemType,
+                ])
+                .value(entity::watch_folders::Column::Path, path)
+                .to_owned(),
+            )
+            .exec_with_returning(&self.db)
+            .await?;
+
         Ok(folder)
     }
 
-    pub async fn remove_watch_folders(&self, paths: Vec<String>) -> Result<(), DbErr> {
-        if paths.is_empty() {
+    pub async fn remove_watch_folders(&self, ids: Vec<i64>) -> Result<(), DbErr> {
+        if ids.is_empty() {
             return Ok(());
         }
 
         entity::watch_folders::Entity::delete_many()
-            .filter(entity::watch_folders::Column::Path.is_in(paths))
+            .filter(entity::watch_folders::Column::Id.is_in(ids))
             .exec(&self.db)
             .await?;
 

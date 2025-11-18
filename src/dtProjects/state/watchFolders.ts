@@ -2,6 +2,25 @@ import { path } from "@tauri-apps/api"
 import { exists, readDir, stat } from "@tauri-apps/plugin-fs"
 import { pdb, type WatchFolder } from "@/commands"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
+import { proxy } from "valtio"
+import { arrayIfOnly } from '@/utils/helpers'
+
+const home = await path.homeDir()
+const _defaultProjectPath = await path.join(
+	home,
+	"/Library/Containers/com.liuliu.draw-things/Data/Documents",
+)
+const _defaultModelInfoPaths = [
+	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Library/Caches/net"),
+	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Documents/Models"),
+]
+
+export type WatchFolderServiceState = {
+	projectFolders: WatchFolderState[]
+	modelInfoFolders: WatchFolderState[]
+	hasProjectDefault: boolean
+	hasModelInfoDefault: boolean
+}
 
 export type WatchFolderState = WatchFolder & {
 	isMissing?: boolean
@@ -15,21 +34,37 @@ type ListProjectsResult = {
 
 class WatchFolderService {
 	#dtp: IDTProjectsStore
-	#state: DTProjectsStateType
+	rootState: DTProjectsStateType
+	state: WatchFolderServiceState
 
 	constructor(dtp: IDTProjectsStore) {
 		this.#dtp = dtp
-		this.#state = dtp.state
+		this.rootState = dtp.state
+
+		this.state = proxy({
+			modelInfoFolders: [] as WatchFolderState[],
+			hasModelInfoDefault: false,
+			projectFolders: [] as WatchFolderState[],
+			hasProjectDefault: false,
+		})
 	}
 
 	async loadWatchFolders() {
-		const folders = (await pdb.listWatchFolders()) as WatchFolderState[]
-		this.#state.watchFolders = folders
+		const folders = (await pdb.watchFolders.listAll()) as WatchFolderState[]
+
+		this.state.projectFolders = folders.filter((f) => f.item_type === "Projects")
+		this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
+
+		this.state.modelInfoFolders = folders.filter((f) => f.item_type === "ModelInfo")
+		// this is potentially slow but should be like 2-4 items so not slow
+		this.state.hasModelInfoDefault = _defaultModelInfoPaths.every((f) =>
+			this.state.modelInfoFolders.some((mif) => mif.path === f),
+		)
 	}
 
-	async addWatchFolder(folderPath: string) {
+	async addWatchFolder(folderPath: string, type: "Projects" | "ModelInfo") {
 		if (await exists(folderPath)) {
-			await pdb.addWatchFolder(folderPath)
+			await pdb.watchFolders.add(folderPath, type, false)
 			await this.loadWatchFolders()
 			await this.#dtp.scanner.scanAndWatch()
 		} else {
@@ -37,19 +72,18 @@ class WatchFolderService {
 		}
 	}
 
-	async removeWatchFolders(folders: string[] | Readonly<string[]>) {
-		await pdb.removeWatchFolders(folders as string[])
+	async removeWatchFolders(folders: WatchFolderState | readonly WatchFolderState[]) {
+		await pdb.watchFolders.remove(arrayIfOnly(folders).map(f => f.id))
 		await this.loadWatchFolders()
 	}
 
-	async addDefaultWatchFolder() {
-		const home = await path.homeDir()
-		const defaultPath = await path.join(
-			home,
-			"/Library/Containers/com.liuliu.draw-things/Data/Documents",
-		)
-
-		await this.addWatchFolder(defaultPath)
+	async addDefaultWatchFolder(type: "Projects" | "ModelInfo") {
+		if (type === "Projects") await this.addWatchFolder(_defaultProjectPath, type)
+		else if (type === "ModelInfo") {
+			for (const f of _defaultModelInfoPaths) {
+				await this.addWatchFolder(f, type)
+			}
+		}
 	}
 
 	async listProjects(folder: WatchFolderState) {

@@ -8,6 +8,8 @@ declare global {
 		| Readonly<T>
 	type Snap<T> = ReadOnlyState<T>
 
+	type MaybeReadOnly<T> = T | ReadonlyState<T>
+
 	type ChakraProps = Omit<BoxProps, "direction">
 
 	function toJSON<T>(object: T): T

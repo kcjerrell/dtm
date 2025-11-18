@@ -10,12 +10,35 @@ import {
 import type { ScanProgressEvent } from "../types"
 import ProjectService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
-import WatchFolderService, { type WatchFolderState } from "./watchFolders"
+import WatchFolderService, { WatchFolderServiceState, type WatchFolderState } from "./watchFolders"
 import ProjectsService from "./projects"
+
+export type DTProjectsStateType = {
+    projects: ProjectState[];
+    watchFolders: WatchFolderServiceState;
+    imageSource: ImagesSource | null;
+    items: ImageExtra[];
+    itemDetails: Record<number, TensorHistoryExtra>;
+    scanProgress: number;
+    scanningProject: string;
+    totalThisRun: number;
+    selectedProject: ProjectExtra | null;
+    expandedItems: Record<number, boolean>;
+		searchInput: string;
+		itemSize: number;
+    detailsOverlay: {
+        item: ImageExtra | null;
+        lastItem: ImageExtra | null;
+        candidates: TensorHistoryExtra[];
+        sourceRect: DOMRect | null;
+        width: number;
+        height: number;
+    };
+}
 
 const state = proxy({
 	projects: [] as ProjectState[],
-	watchFolders: [] as WatchFolderState[],
+	watchFolders: {} as WatchFolderServiceState,
 	imageSource: null as ImagesSource | null,
 	items: [] as ImageExtra[],
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
@@ -55,7 +78,9 @@ class DTProjectsStore implements IDTProjectsStore {
 		this.state = state
 		this.projects = new ProjectsService(this)
 		this.scanner = new ScannerService(this)
+
 		this.watchFolders = new WatchFolderService(this)
+		this.state.watchFolders = this.watchFolders.state
 	}
 
 	async init() {
@@ -80,29 +105,6 @@ class DTProjectsStore implements IDTProjectsStore {
 }
 
 const store = new DTProjectsStore()
-
-export type DTProjectsStateType = {
-    projects: ProjectState[];
-    watchFolders: WatchFolderState[];
-    imageSource: ImagesSource | null;
-    items: ImageExtra[];
-    itemDetails: Record<number, TensorHistoryExtra>;
-    scanProgress: number;
-    scanningProject: string;
-    totalThisRun: number;
-    selectedProject: ProjectExtra | null;
-    expandedItems: Record<number, boolean>;
-		searchInput: string;
-		itemSize: number;
-    detailsOverlay: {
-        item: ImageExtra | null;
-        lastItem: ImageExtra | null;
-        candidates: TensorHistoryExtra[];
-        sourceRect: DOMRect | null;
-        width: number;
-        height: number;
-    };
-}
 
 let scanProgressUnlisten: () => void = () => undefined
 async function attachListeners() {

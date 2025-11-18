@@ -89,13 +89,19 @@ export async function settledValues<T>(promises: Promise<T>[]): Promise<NonNulla
 }
 
 type OpenOptions = Parameters<typeof open>[0]
-type SingleOpenOptions = OpenOptions & { multiple: false | undefined}
+type SingleOpenOptions = OpenOptions & { multiple: false | undefined }
 type SingleOpenAndCallback<T> = (f: string) => T | Promise<T>
-type MultipleOpenOptions = OpenOptions & { multiple: true}
+type MultipleOpenOptions = OpenOptions & { multiple: true }
 type MultiOpenAndCallback<T> = (f: string[]) => T | Promise<T>
 
-export async function openAnd<T>(callback: SingleOpenAndCallback<T>, options: SingleOpenOptions): Promise<T | null>
-export async function openAnd<T>(callback: MultiOpenAndCallback<T>, options: MultipleOpenOptions) : Promise<T | null>
+export async function openAnd<T>(
+	callback: SingleOpenAndCallback<T>,
+	options: SingleOpenOptions,
+): Promise<T | null>
+export async function openAnd<T>(
+	callback: MultiOpenAndCallback<T>,
+	options: MultipleOpenOptions,
+): Promise<T | null>
 export async function openAnd<T>(
 	callback: SingleOpenAndCallback<T> | MultiOpenAndCallback<T>,
 	options: Parameters<typeof open>[0] = {},
@@ -104,10 +110,24 @@ export async function openAnd<T>(
 	if (!files || (Array.isArray(files) && files.length === 0)) return null
 
 	if (options.multiple) {
-		const arg = Array.isArray(files) ? files as string[] : [files]
+		const arg = Array.isArray(files) ? (files as string[]) : [files]
 		return (callback as MultiOpenAndCallback<T>)(arg)
-	}
-	else {
+	} else {
 		return (callback as SingleOpenAndCallback<T>)(files)
 	}
+}
+
+export function arrayIfOnly<T>(arg: T | readonly T[]): T[] {
+	return Array.isArray(arg) ? [...arg] : [arg as T]
+}
+
+const test = arrayIfOnly([2, 3, 4])
+
+
+export function chunk<T>(values: T[], chunkSize: number): T[][] {
+	const chunks: T[][] = []
+	for (let i = 0; i < values.length; i += chunkSize) {
+		chunks.push(values.slice(i, i + chunkSize))
+	}
+	return chunks
 }

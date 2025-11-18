@@ -29,7 +29,7 @@ export class ScannerService {
 		})
 
 		// read each watch folder, match against list
-		for (const folder of this.#state.watchFolders) {
+		for (const folder of this.#state.watchFolders.projectFolders) {
 			const folderProjects = await WatchFolders.listProjects(folder)
 
 			for (const projectFile of folderProjects) {

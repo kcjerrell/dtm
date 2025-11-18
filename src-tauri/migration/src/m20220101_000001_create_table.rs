@@ -27,18 +27,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Projects::Filesize).big_integer().null())
                     .col(ColumnDef::new(Projects::Modified).big_integer().null())
-                    .col(ColumnDef::new(Projects::Excluded).boolean().not_null().default(false))
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_projects_path")
-                    .table(Projects::Table)
-                    .col(Projects::Path)
-                    .unique()
+                    .col(
+                        ColumnDef::new(Projects::Excluded)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -62,7 +56,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Models::Version).string().null())
                     .index(
                         Index::create()
-                            .name("idx_models_modeltype_filename")
+                            .name("idx_models_model_type_filename")
                             .col(Models::ModelType)
                             .col(Models::Filename)
                             .unique(),
@@ -308,13 +302,24 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(WatchFolders::Path).string().unique_key().not_null())
+                    .col(ColumnDef::new(WatchFolders::Path).string().not_null())
                     .col(
                         ColumnDef::new(WatchFolders::Recursive)
                             .boolean()
                             .default(false),
                     )
-                    .col(ColumnDef::new(WatchFolders::ItemType).tiny_integer().not_null())
+                    .col(
+                        ColumnDef::new(WatchFolders::ItemType)
+                            .tiny_integer()
+                            .not_null(),
+                    )
+                    .index(
+                        Index::create()
+                            .name("idx_watch_folders_path_item_type")
+                            .col(WatchFolders::Path)
+                            .col(WatchFolders::ItemType)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await?;

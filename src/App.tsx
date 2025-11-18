@@ -33,7 +33,6 @@ function App() {
 			gap={0}
 			bgColor={"check.2"}
 			transformOrigin={"left top"}
-			zoom={1}
 		>
 			<LayoutGroup>
 				<Sidebar inert={isPreviewActive}>

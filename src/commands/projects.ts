@@ -72,9 +72,9 @@ export type ListImagesOptions = {
 
 export type WatchFolder = {
 	id: number
-	path: string,
+	path: string
 	recursive: boolean
-	itemType: "Projects" | "ModelInfo"
+	item_type: "Projects" | "ModelInfo"
 }
 
 // --------------------
@@ -106,16 +106,20 @@ export const pdb = {
 	listImages: async (opts: ListImagesOptions): Promise<{ items: ImageExtra[]; total: number }> =>
 		invoke("projects_db_image_list", opts ?? {}),
 
-	listWatchFolders: async (): Promise<Record<string, unknown>[]> =>
-		invoke("projects_db_watch_folder_list"),
-
-	addWatchFolder: async (path: string): Promise<Record<string, unknown>> =>
-		invoke("projects_db_watch_folder_add", { path }),
-
-	removeWatchFolders: async (paths: string[]): Promise<void> =>
-		invoke("projects_db_watch_folders_remove", { paths }),
-
 	rebuildIndex: async (): Promise<void> => invoke("projects_db_image_rebuild_fts"),
+
+	watchFolders: {
+		listAll: async (): Promise<WatchFolder[]> => invoke("projects_db_watch_folder_list"),
+
+		add: async (
+			path: string,
+			itemType: "Projects" | "ModelInfo",
+			recursive: boolean,
+		): Promise<WatchFolder> => invoke("projects_db_watch_folder_add", { path, itemType, recursive }),
+
+		remove: async (ids: number[] | number): Promise<void> =>
+			invoke("projects_db_watch_folder_remove", { ids: Array.isArray(ids) ? ids : [ids] }),
+	},
 }
 
 export const dtProject = {
@@ -127,7 +131,7 @@ export const dtProject = {
 	): Promise<Record<string, unknown>[]> =>
 		invoke("dt_project_get_tensor_history", { project_file, index, count }),
 
-		// #unused
+	// #unused
 	getThumbHalf: async (project_file: string, thumb_id: number): Promise<Uint8Array> =>
 		invoke("dt_project_get_thumb_half", { project_file, thumb_id }),
 
@@ -163,7 +167,7 @@ export const dtProject = {
 			projectId: typeof project === "string" ? undefined : project,
 			projectFile: typeof project === "string" ? project : undefined,
 			asPng,
-			nodeId
+			nodeId,
 		}
 		return invoke("dt_project_decode_tensor", opts)
 	},
