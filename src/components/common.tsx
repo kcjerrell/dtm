@@ -123,6 +123,8 @@ export const PanelListItem = chakra(
 			_focusVisible: {
 				outline: "2px inset {colors.blue.400/70} !important",
 			},
+			willChange: "transform",
+			contain: "paint"
 		},
 		variants: {
 			selectable: {
@@ -130,7 +132,7 @@ export const PanelListItem = chakra(
 					_hover: {
 						// boxShadow: "0px 0px 18px -8px #00000022, 0px 2px 8px -2px #00000033",
 						transform: "scale(1.01)",
-						bgColor: "bg.3",
+						bgColor: "bg.0",
 						transition: "all 0.1s ease-out",
 					},
 				},

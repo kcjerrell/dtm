@@ -17,8 +17,8 @@ function ProjectData(props: ChakraProps) {
 
 	return (
 		<LayoutRoot position={"relative"} {...restProps}>
-			<ControlPane />
-			<ImagesList />
+			<ControlPane margin={2} />
+			<ImagesList margin={2} marginLeft={0}/>
 			<DetailsOverlay />
 		</LayoutRoot>
 	)

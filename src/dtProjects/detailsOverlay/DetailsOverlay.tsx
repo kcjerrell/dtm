@@ -43,12 +43,12 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 	const { item, lastItem, sourceElement } = snap.detailsOverlay ?? {}
 	const details = item ? snap.itemDetails[item?.node_id] : null
 
-	const src = item || lastItem ? urls.thumbHalf(item ?? (lastItem as ImageExtra)) : undefined
-	const srcFull = details
-		? urls.tensor(item?.project_id, details.tensor_id, item?.node_id)
-		: item || lastItem
-			? urls.thumb(item ?? (lastItem as ImageExtra))
-			: undefined
+	const srcFull = item || lastItem ? urls.thumb(item ?? (lastItem as ImageExtra)) : undefined
+	// const srcFull = details
+	// 	? urls.tensor(item?.project_id, details.tensor_id, item?.node_id)
+	// 	: item || lastItem
+	// 		? urls.thumb(item ?? (lastItem as ImageExtra))
+	// 		: undefined
 
 	const rootRef = useRef<HTMLDivElement>(null)
 	const imgRef = useRef<HTMLImageElement>(null)
@@ -140,14 +140,21 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 					open: {
 						opacity: 1,
 						backgroundColor: "#00000099",
-						backdropFilter: "blur(4px)",
+						backdropFilter: "blur(5px)",
 						visibility: "visible",
-						transition: { visibility: { delay: 0, duration: 0 } },
+						filter: "blur(0px)",
+						transition: {
+							visibility: { delay: 0, duration: 0 },
+							// opacity: { duration: 0.2 },
+							duration: 0.2,
+							ease: "easeOut",
+						},
 					},
 					close: {
 						opacity: 0,
-						// backgroundColor: "#00000000",
+						backgroundColor: "#00000000",
 						backdropFilter: "blur(0px)",
+						filter: "blur(5px)",
 						visibility: "hidden",
 						transition: { visibility: { delay: 0.1, duration: 0 } },
 					},
@@ -209,12 +216,28 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 							{/* )} */}
 						</AnimatePresence>
 						<Image
+							key={srcFull}
 							ref={imgRef}
 							src={srcFull}
 							width={"100%"}
 							height={"100%"}
 							objectFit={"contain"}
-						/>
+						>
+							{/* <motion.img
+								// initial={{ maskImage: "radial-gradient(circle, #000000FF 20%, #00000000 20%)" }}
+								initial={{ opacity: 0 }}
+								animate={{
+									// maskImage: [
+									// 	"radial-gradient(circle, #000000FF 0%, #00000000 50%)",
+									// 	"radial-gradient(circle, #000000FF 10%, #00000000 95%)",
+									// 	"radial-gradient(circle, #000000FF 75%, #00000000 100%)",
+									// 	"radial-gradient(circle, #000000FF 100%, #00000000 100%)",
+									// ],
+									opacity: item ? 1 : 0,
+								}}
+								transition={{ duration: 0.3, delay: 0.1 }}
+							/> */}
+						</Image>
 					</Box>
 					<TensorsList
 						flex={"0 0 6rem"}
@@ -225,11 +248,17 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 				</VStack>
 
 				<VStack height={"100%"} overflow={"clip"} padding={1}>
-					<Button onClick={() => AppState.setViewRequest("metadata", { open: {
-						nodeId: item?.node_id,
-						projectId: item?.project_id,
-						tensorId: details?.tensor_id
-					}})}>
+					<Button
+						onClick={() =>
+							AppState.setViewRequest("metadata", {
+								open: {
+									nodeId: item?.node_id,
+									projectId: item?.project_id,
+									tensorId: details?.tensor_id,
+								},
+							})
+						}
+					>
 						Hello
 					</Button>
 					<Panel

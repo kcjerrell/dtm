@@ -1,13 +1,13 @@
 import {
-	Context,
 	createContext,
 	memo,
 	type PropsWithChildren,
 	useContext,
 	useEffect,
-	useMemo,
+	useMemo
 } from "react"
 import { proxy, useSnapshot } from "valtio"
+import { useInitRef } from "./useInitRef"
 
 type Selectable<T> = {
 	selected: boolean
@@ -101,27 +101,32 @@ const defaultSelectableGroupOptions = {
 } as const
 export function useSelectableGroup<T>(opts: SelectableGroupOptions<T> = {}) {
 	const options = { ...defaultSelectableGroupOptions, ...opts }
-	const cv = proxy({
-		items: {} as Record<string, Selectable<T>>,
-		selectedItems: [] as T[],
-		options,
-		onSelectionChanged: undefined,
-		keyFn: options.keyFn,
-	}) as SelectableContextType<T>
+	const cv = useInitRef(
+		() =>
+			proxy({
+				items: {} as Record<string, Selectable<T>>,
+				selectedItems: [] as T[],
+				options,
+				onSelectionChanged: undefined,
+				keyFn: options.keyFn,
+			}) as SelectableContextType<T>,
+	)
 
-	const Context = SelectableContext as Context<SelectableContextType<T>>
-
-	const SelectableGroup = memo((props: SelectableGroupProps<T>) => {
-		const { children, onSelectionChanged } = props
-		if (cv.onSelectionChanged !== onSelectionChanged) {
-			cv.onSelectionChanged = onSelectionChanged
-		}
-		return <Context value={cv}>{children}</Context>
-	})
+	const SelectableGroup = useMemo(
+		() =>
+			memo((props: SelectableGroupProps<T>) => {
+				const { children, onSelectionChanged } = props
+				if (cv.onSelectionChanged !== onSelectionChanged) {
+					cv.onSelectionChanged = onSelectionChanged
+				}
+				return <SelectableContext value={cv}>{children}</SelectableContext>
+			}),
+		[cv],
+	)
 
 	const snap = useSnapshot(cv)
 
-	return { SelectableGroup, selectedItems: snap.selectedItems }
+	return { SelectableGroup, selectedItems: snap.selectedItems, state: cv }
 }
 
 export function useSelectable<T>(item: T, initialValue = false) {
@@ -129,8 +134,8 @@ export function useSelectable<T>(item: T, initialValue = false) {
 	if (!context) throw new Error("useSelectable must be used within a SelectableGroup")
 	const snap = useSnapshot(context)
 	const key = context.keyFn(item)
-
 	useEffect(() => {
+
 		if (!(key in context.items)) {
 			context.items[key] = { item, selected: initialValue }
 		}

@@ -115,10 +115,14 @@ export const pdb = {
 			path: string,
 			itemType: "Projects" | "ModelInfo",
 			recursive: boolean,
-		): Promise<WatchFolder> => invoke("projects_db_watch_folder_add", { path, itemType, recursive }),
+		): Promise<WatchFolder> =>
+			invoke("projects_db_watch_folder_add", { path, itemType, recursive }),
 
 		remove: async (ids: number[] | number): Promise<void> =>
 			invoke("projects_db_watch_folder_remove", { ids: Array.isArray(ids) ? ids : [ids] }),
+
+		update: async (id: number, recursive: boolean): Promise<WatchFolder> =>
+			invoke("projects_db_watch_folder_update", { id, recursive }),
 	},
 }
 

@@ -1,7 +1,7 @@
-import { prepData } from '@/metadata/infoPanel/DataItem'
 import { chakra, HStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { useLayoutEffect, useRef, useState } from "react"
+import { prepData } from "@/metadata/infoPanel/DataItem"
 
 interface DataItemProps extends ChakraProps {
 	label?: string
@@ -43,10 +43,8 @@ function DataItem(props: DataItemProps) {
 
 	return (
 		<Root {...rest}>
-			<HStack>
-				{label && <Label>{label}</Label>}
-			</HStack>
-			<Content ref={contentRef} collapse={getVariant(collapsible, collapsed)} maxHeight={maxHeight}>
+			<HStack>{label && <Label>{label}</Label>}</HStack>
+			<Content type={dataType} ref={contentRef} collapse={getVariant(collapsible, collapsed)} maxHeight={maxHeight}>
 				<motion.div layout>{display}</motion.div>
 			</Content>
 			{collapsible && (
@@ -130,6 +128,7 @@ const Content = chakra(
 			overflowY: "clip",
 			minWidth: 0,
 			whiteSpace: "pre-wrap",
+			wordBreak: "break-word",
 			borderRadius: "sm",
 			_dark: {
 				_hover: {
@@ -173,7 +172,7 @@ const Content = chakra(
 			},
 			type: {
 				object: {
-					textIndent: "1rem hanging each-line",
+					textIndent: "hanging each-line 2.5	rem",
 					fontFamily: "monospace",
 					fontSize: "0.8rem",
 				},
@@ -185,8 +184,7 @@ const Content = chakra(
 				undefined: {},
 			},
 		},
-	},
-	{ defaultProps: { layout: true } },
+	}
 )
 
 export default DataItem

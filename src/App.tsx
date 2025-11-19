@@ -1,18 +1,19 @@
-import { Box, Button, HStack, IconButton, Spacer } from "@chakra-ui/react"
+import { Button, HStack, IconButton } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { BiDetail } from "react-icons/bi"
+import { FaMoon } from "react-icons/fa6"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
 import { Preview, useIsPreviewActive } from "@/components/preview"
+import TauriDragHandle from './components/TauriDragHandle'
+import { toggleColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
 import AppState from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
-import { FaMoon } from "react-icons/fa6"
-import { toggleColorMode } from "./components/ui/color-mode"
 
 function App() {
 	const firstRender = useRef(true)
@@ -34,6 +35,7 @@ function App() {
 			bgColor={"check.2"}
 			transformOrigin={"left top"}
 		>
+			<TauriDragHandle />
 			<LayoutGroup>
 				<Sidebar inert={isPreviewActive}>
 					{sidebarItems.map((item) => (
@@ -128,7 +130,7 @@ function ViewContainer(
 				overflow: "clip",
 				justifyContent: "stretch",
 				alignItems: "stretch",
-				paddingBlock: "4px",
+				// paddingBlock: "4px",
 				boxShadow: "0px 2px 4px -2px #00000099",
 			}}
 		>
@@ -163,7 +165,7 @@ const views = {
 	vid: lazy(() => import("./vid/Vid")),
 	library: lazy(() => import("./library/Library")),
 	projects: lazy(() => import("./dtProjects/DTProjects")),
-	scratch: lazy(() => import("./scratch/Scratch4")),
+	scratch: lazy(() => import("./scratch/Scratch6")),
 }
 
 function getView(view: string) {

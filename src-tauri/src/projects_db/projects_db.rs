@@ -531,6 +531,15 @@ impl ProjectsDb {
         Ok(())
     }
 
+    pub async fn update_watch_folder(&self, id: i32, recursive: bool) -> Result<entity::watch_folders::Model, DbErr> {
+        let folder = entity::watch_folders::Entity::find_by_id(id).one(&self.db).await?;
+        let mut folder: entity::watch_folders::ActiveModel = folder.unwrap().into();
+        folder.recursive = Set(recursive);
+
+        let folder: entity::watch_folders::Model = folder.update(&self.db).await?;
+        Ok(folder)
+    }
+
     pub async fn rebuild_images_fts(&self) -> Result<(), sea_orm::DbErr> {
         self.db
             .execute(Statement::from_string(

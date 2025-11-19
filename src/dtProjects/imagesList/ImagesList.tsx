@@ -33,10 +33,8 @@ function ImagesList(props: ImagesList) {
 
 	return (
 		<Panel
-			mr={1}
-			mb={1}
-			mt={0}
-			ml={1}
+			position="relative"
+			margin={2}
 			p={0.5}
 			overflow={"clip"}
 			flex={"1 1 auto"}

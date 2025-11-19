@@ -256,6 +256,19 @@ pub async fn projects_db_watch_folder_remove(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn projects_db_watch_folder_update(
+    app: tauri::AppHandle,
+    id: i32,
+    recursive: bool,
+) -> Result<entity::watch_folders::Model, String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    Ok(projects_db
+        .update_watch_folder(id, recursive)
+        .await
+        .unwrap())
+}
+
 async fn get_project(
     app: tauri::AppHandle,
     project_path: Option<String>,

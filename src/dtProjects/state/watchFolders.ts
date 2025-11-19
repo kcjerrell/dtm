@@ -1,9 +1,10 @@
 import { path } from "@tauri-apps/api"
 import { exists, readDir, stat } from "@tauri-apps/plugin-fs"
-import { pdb, type WatchFolder } from "@/commands"
-import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 import { proxy } from "valtio"
-import { arrayIfOnly } from '@/utils/helpers'
+import { pdb, type WatchFolder } from "@/commands"
+import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
+import { arrayIfOnly, clearArray } from "@/utils/helpers"
+import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 const home = await path.homeDir()
 const _defaultProjectPath = await path.join(
@@ -22,9 +23,12 @@ export type WatchFolderServiceState = {
 	hasModelInfoDefault: boolean
 }
 
-export type WatchFolderState = WatchFolder & {
-	isMissing?: boolean
-}
+export type WatchFolderState = Selectable<
+	WatchFolder & {
+		isMissing?: boolean
+		selected?: boolean
+	}
+>
 
 type ListProjectsResult = {
 	path: string
@@ -50,9 +54,11 @@ class WatchFolderService {
 	}
 
 	async loadWatchFolders() {
-		const folders = (await pdb.watchFolders.listAll()) as WatchFolderState[]
+		const res = (await pdb.watchFolders.listAll()) as WatchFolder[]
+		const folders = res.map((f) => makeSelectable(f as WatchFolderState))
 
-		this.state.projectFolders = folders.filter((f) => f.item_type === "Projects")
+		clearArray(this.state.projectFolders, folders.filter((f) => f.item_type === "Projects"))
+		// this.state.projectFolders = folders.filter((f) => f.item_type === "Projects")
 		this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
 
 		this.state.modelInfoFolders = folders.filter((f) => f.item_type === "ModelInfo")
@@ -73,8 +79,23 @@ class WatchFolderService {
 	}
 
 	async removeWatchFolders(folders: WatchFolderState | readonly WatchFolderState[]) {
-		await pdb.watchFolders.remove(arrayIfOnly(folders).map(f => f.id))
+		await pdb.watchFolders.remove(arrayIfOnly(folders).map((f) => f.id))
 		await this.loadWatchFolders()
+	}
+
+	async setRecursive(folder: WatchFolderState | readonly WatchFolderState[], value: boolean) {
+		const toUpdate = arrayIfOnly(folder)
+		for (const folder of toUpdate) {
+			const updFolder = await pdb.watchFolders.update(folder.id, value)
+
+			const folders =
+				folder.item_type === "Projects" ? this.state.projectFolders : this.state.modelInfoFolders
+
+			const idx = folders.findIndex((f) => f.id === folder.id)
+			if (idx !== -1) {
+				folders[idx].recursive = updFolder.recursive
+			}
+		}
 	}
 
 	async addDefaultWatchFolder(type: "Projects" | "ModelInfo") {

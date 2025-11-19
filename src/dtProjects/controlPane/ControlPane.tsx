@@ -7,7 +7,6 @@ import { Panel } from "@/components"
 import AppState from "@/hooks/appState"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useUiState } from "@/metadata/state/uiState"
-import { capitalize } from "@/utils/helpers"
 import ProjectsPanel from "./ProjectsPanel"
 import SearchPanel from "./SearchPanel"
 import SettingsPanel from "./SettingsPanel"
@@ -45,13 +44,10 @@ function ControlPane(props: ControlPane) {
 			flex={"0 0 20rem"}
 			width={"20rem"}
 			paddingY={1}
-			paddingX={2}
+			paddingX={1}
 			borderRadius={"md"}
 			bgColor={"bg.2"}
-			mr={1}
-			mb={1}
-			mt={0}
-			ml={1}
+			margin={2}
 			{...restProps}
 		>
 			<Tabs.Root

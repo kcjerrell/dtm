@@ -61,6 +61,8 @@ function TensorsList(props: TensorsListComponentProps) {
 									tensorId={id}
 									height={_thumbnailSize}
 									width={_thumbnailSize}
+									bgColor={"bg.1"}
+									border={"1px solid gray"}
 								/>
 							) : (
 								<Thumbnail src={urls.tensor(item?.project_id, id)} />
@@ -161,7 +163,8 @@ const Thumbnail = chakra("img", {
 		width: _thumbnailSize,
 		height: _thumbnailSize,
 		objectFit: "cover",
-		bgColor: "#00000055",
+		bgColor: "bg.1",
+		border: "1px solid gray",
 		transformOrigin: "center bottom",
 		_first: {
 			borderInlineStartRadius: "lg",

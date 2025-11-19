@@ -131,3 +131,7 @@ export function chunk<T>(values: T[], chunkSize: number): T[][] {
 	}
 	return chunks
 }
+
+export function clearArray<T>(arr: T[], newItems: T[] = []) {
+	arr.splice(0, arr.length, ...newItems)
+}
