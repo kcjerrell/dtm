@@ -1,8 +1,8 @@
 import { stat } from "@tauri-apps/plugin-fs"
+import { pdb } from "@/commands"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 import type { ProjectState } from "./projects"
 import type WatchFolderService from "./watchFolders"
-import { pdb } from "@/commands"
 
 export class ScannerService {
 	#dtp: IDTProjectsStore
@@ -19,6 +19,26 @@ export class ScannerService {
 		await Projects.loadProjects()
 
 		// load list of projects mapped to {project, action}
+		await this.scanProjects()
+		await this.scanModelFiles()
+	}
+
+	private async scanModelFiles() {
+		const { watchFolders: WatchFolders } = this.#dtp
+
+		for (const folder of this.#state.watchFolders.modelInfoFolders) {
+			const modelFiles = await WatchFolders.listModelInfoFiles(folder)
+
+			for (const file of modelFiles) {
+				console.log("info file", file)
+				await pdb.scanModelInfo(file.path, file.modelType)
+			}
+		}
+	}
+
+	private async scanProjects() {
+		const { watchFolders: WatchFolders, projects: Projects } = this.#dtp
+
 		const projects = this.#state.projects.map((p) => ({
 			project: p as ProjectState | Awaited<ReturnType<WatchFolderService["listProjects"]>>[number],
 			action: "unknown",
@@ -33,42 +53,27 @@ export class ScannerService {
 			const folderProjects = await WatchFolders.listProjects(folder)
 
 			for (const projectFile of folderProjects) {
-				const project = projects.find((p) => p.project.path === projectFile.path)
-				// set action to add if not listed
-				if (!project) {
-					projects.push({ project: projectFile, action: "add" })
-					continue
-				}
-				// set action to 'update' if filesize or mdate mismatch
-				if (
-					project.project.filesize !== projectFile.filesize ||
-					project.project.modified !== projectFile.modified
-				) {
-					project.action = "update"
-				} else {
-					project.action = "none"
-				}
+				const projectEntity = projects.find((p) => p.project.path === projectFile.path)
+				if (!projectEntity) projects.push({ project: projectFile, action: "add" })
+				else projectEntity.action = determineScanAction(projectFile, projectEntity)
 			}
 
 			// iterate through projects, project without action check stat and update action
-			for (const project of projects) {
+			for (const project of projects as { project: ProjectState; action: string }[]) {
 				if (project.action === "unknown") {
+					console.warn("Project action unknown? Is this happening?", project)
 					const projectPath = project.project.path
 					const stats = await stat(projectPath)
 					if (!stats) {
-						;(project.project as ProjectState).isMissing = true
+						project.project.isMissing = true
 						continue
 					}
-					if (
-						(project.project as ProjectState).filesize !== stats.size ||
-						(project.project as ProjectState).modified !== stats.mtime?.getTime()
-					)
-						project.action = "update"
+					project.action = "update"
 				}
 
 				// adds new projects
 				if (project.action === "add") {
-					const result = await Projects.addProjects([project.project.path])
+					await Projects.addProjects([project.project.path])
 					project.action = "update"
 				}
 
@@ -82,8 +87,23 @@ export class ScannerService {
 					)
 				}
 			}
-			// add watchers
 		}
+
 		await pdb.rebuildIndex()
+	}
+}
+
+function determineScanAction(
+	projectFile: Partial<ProjectState>,
+	projectEntity: { project: Partial<ProjectState>; action?: string },
+) {
+	// set action to 'update' if filesize or mdate mismatch
+	if (
+		projectEntity.project.filesize !== projectFile.filesize ||
+		projectEntity.project.modified !== projectFile.modified
+	) {
+		return "update"
+	} else {
+		return "none"
 	}
 }

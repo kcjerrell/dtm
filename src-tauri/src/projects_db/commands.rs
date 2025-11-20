@@ -269,6 +269,20 @@ pub async fn projects_db_watch_folder_update(
         .unwrap())
 }
 
+#[tauri::command]
+pub async fn projects_db_scan_model_info(
+    app: tauri::AppHandle,
+    file_path: String,
+    model_type: entity::models::ModelType,
+) -> Result<(), String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    projects_db
+        .scan_model_info(&file_path, model_type)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 async fn get_project(
     app: tauri::AppHandle,
     project_path: Option<String>,

@@ -124,6 +124,18 @@ export const pdb = {
 		update: async (id: number, recursive: boolean): Promise<WatchFolder> =>
 			invoke("projects_db_watch_folder_update", { id, recursive }),
 	},
+
+	scanModelInfo: async (filePath: string, modelType: ModelType): Promise<void> =>
+		invoke("projects_db_scan_model_info", { filePath, modelType }),
+}
+
+export type ModelType = "Model" | "Lora" | "Cnet" | "Upscaler"
+
+export type ModelInfo = {
+	file: string
+	name: string
+	version: string
+	model_type: ModelType
 }
 
 export const dtProject = {

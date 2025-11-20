@@ -1,12 +1,11 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, NaiveDateTime};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 
 use entity::{
-    images::{self, Sampler},
-    projects,
+    images::{self, Sampler}, models::ModelType, projects
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
@@ -568,6 +567,63 @@ impl ProjectsDb {
         };
         Ok(dt_project::DTProject::get(&project_path).await.unwrap())
     }
+
+    pub async fn update_models(&self, models: Vec<ModelInfo>) -> Result<(), DbErr> {
+        let models: Vec<entity::models::ActiveModel> = models
+            .iter()
+            .map(|m| entity::models::ActiveModel {
+                filename: Set(m.file.clone()),
+                name: Set(Some(m.name.clone())),
+                version: Set(Some(m.version.clone())),
+                model_type: Set(m.model_type),
+                ..Default::default()
+            })
+            .collect();
+
+        entity::models::Entity::insert_many(models)
+            .on_conflict(
+                OnConflict::columns([
+                    entity::models::Column::Filename,
+                    entity::models::Column::ModelType,
+                ])
+                .update_columns([
+                    entity::models::Column::Name,
+                    entity::models::Column::Version,
+                ])
+                .to_owned(),
+            )
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn scan_model_info(&self, path: &str, model_type: ModelType) -> Result<(), MixedError> {
+        #[derive(Deserialize)]
+        struct ModelInfoImport {
+            file: String,
+            name: String,
+            version: String,
+        }
+
+        let file = std::fs::File::open(path)?;
+        let reader = std::io::BufReader::new(file);
+        let models: Vec<ModelInfoImport> = serde_json::from_reader(reader).map_err(|e| e.to_string())?;
+
+        let models: Vec<ModelInfo> = models
+            .into_iter()
+            .map(|m| ModelInfo {
+                file: m.file,
+                name: m.name,
+                version: m.version,
+                model_type,
+            })
+            .collect();
+
+        self.update_models(models).await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize, Clone, Default)]
@@ -678,4 +734,12 @@ pub struct ImageExtra {
 pub struct Paged<T> {
     pub items: Vec<T>,
     pub total: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModelInfo {
+    pub file: String,
+    pub name: String,
+    pub version: String,
+    pub model_type: ModelType
 }

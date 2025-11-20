@@ -16,6 +16,17 @@ const _defaultModelInfoPaths = [
 	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Documents/Models"),
 ]
 
+const modelInfoFilenames = {
+	"custom.json": "Model",
+	// "custom_prompt_style.json": "",
+	"custom_controlnet.json": "Cnet",
+	"custom_lora.json": "Lora",
+	"uncurated_models.json": "Model",
+	"models.json": "Model",
+	"loras.json": "Lora",
+	"controlnets.json": "Cnet",
+} as Record<string, "Model" | "Cnet" | "Lora">
+
 export type WatchFolderServiceState = {
 	projectFolders: WatchFolderState[]
 	modelInfoFolders: WatchFolderState[]
@@ -34,6 +45,11 @@ type ListProjectsResult = {
 	path: string
 	filesize: number
 	modified: number
+}
+
+type ListModelInfoFilesResult = {
+	path: string
+	modelType: "Model" | "Cnet" | "Lora"
 }
 
 class WatchFolderService {
@@ -57,7 +73,10 @@ class WatchFolderService {
 		const res = (await pdb.watchFolders.listAll()) as WatchFolder[]
 		const folders = res.map((f) => makeSelectable(f as WatchFolderState))
 
-		clearArray(this.state.projectFolders, folders.filter((f) => f.item_type === "Projects"))
+		clearArray(
+			this.state.projectFolders,
+			folders.filter((f) => f.item_type === "Projects"),
+		)
 		// this.state.projectFolders = folders.filter((f) => f.item_type === "Projects")
 		this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
 
@@ -108,6 +127,8 @@ class WatchFolderService {
 	}
 
 	async listProjects(folder: WatchFolderState) {
+		if (folder.item_type !== "Projects") return []
+
 		try {
 			if (!(await exists(folder.path))) {
 				folder.isMissing = true
@@ -130,6 +151,32 @@ class WatchFolderService {
 			}
 
 			return projects
+		} catch (e) {
+			console.error(e)
+			return []
+		}
+	}
+
+	async listModelInfoFiles(folder: WatchFolderState) {
+		if (folder.item_type !== "ModelInfo") return []
+
+		try {
+			if (!(await exists(folder.path))) {
+				folder.isMissing = true
+				return []
+			}
+			folder.isMissing = false
+
+			const dirFiles = await readDir(folder.path)
+			const modelInfoFiles = [] as ListModelInfoFilesResult[]
+			for (const file of dirFiles) {
+				if (!file.isFile || !file.name.endsWith(".json")) continue
+				if (file.name in modelInfoFilenames) {
+					const infoPath = await path.join(folder.path, file.name)
+					modelInfoFiles.push({ path: infoPath, modelType: modelInfoFilenames[file.name] })
+				}
+			}
+			return modelInfoFiles
 		} catch (e) {
 			console.error(e)
 			return []

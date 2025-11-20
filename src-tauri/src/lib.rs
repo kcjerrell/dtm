@@ -118,6 +118,7 @@ pub fn run() {
             projects_db_watch_folder_add,
             projects_db_watch_folder_remove,
             projects_db_watch_folder_update,
+            projects_db_scan_model_info,
 
             dt_project_get_tensor_history, // #unused
             dt_project_get_thumb_half, // #unused
