@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::projects_db::{tensor_history::TensorHistoryNode, TensorHistoryImport};
 use byteorder::{LittleEndian, WriteBytesExt};
@@ -307,6 +307,7 @@ impl DTProject {
             match candidate.lineage.cmp(&lineage) {
                 Equal => {
                     same_lineage = Some(candidate);
+                    break;
                 }
                 Less => {
                     if candidate.lineage == lineage - 1 {
@@ -329,12 +330,22 @@ impl DTProject {
             }
         }
 
-        let result: Vec<TensorHistoryExtra> =
-            [same_lineage, one_less, next_closest, highest_closest]
-                .into_iter()
-                .flatten() // remove None, leave &TensorHistoryExtra
-                .cloned() // clone only the ones we actually return
-                .collect();
+        if same_lineage.is_some() {
+            return Ok(vec![same_lineage.unwrap().clone()]);
+        }
+
+        let mut seen = HashSet::new();
+        let mut result = Vec::new();
+
+        for item in [one_less, next_closest, highest_closest]
+            .into_iter()
+            .flatten()
+        {
+            if seen.insert(item.row_id) {
+                // or any unique field
+                result.push(item.clone());
+            }
+        }
 
         Ok(result)
     }

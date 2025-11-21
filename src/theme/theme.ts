@@ -76,7 +76,7 @@ const themeConfig = defineConfig({
 							_dark: "#141617ff",
 						},
 					},
-					"deep": {
+					deep: {
 						value: {
 							_light: "#c7c9caff",
 							_dark: "#0e0f10ff",
@@ -172,7 +172,7 @@ const themeConfig = defineConfig({
 				pane1: {
 					value:
 						"0px 0px 4px -1px #00000033, 2px 4px 6px -2px #00000022, -1px 4px 6px -2px #00000022,  0px 3px 12px -3px #00000033",
-						// "0px 1px 4px -2px #00000033, 2px 4px 6px -2px #00000022, -1px 4px 6px -2px #00000022,  0px 3px 12px -3px #00000033",
+					// "0px 1px 4px -2px #00000033, 2px 4px 6px -2px #00000022, -1px 4px 6px -2px #00000022,  0px 3px 12px -3px #00000033",
 				},
 				pane2: {
 					value:
@@ -188,6 +188,14 @@ const themeConfig = defineConfig({
 			test: {
 				from: { transform: "translateX(0)" },
 				to: { transform: "translateX(100%)" },
+			},
+			fadeOut: {
+				from: { opacity: 1 },
+				to: { opacity: 0 },
+			},
+			fadeIn: {
+				from: { opacity: 0 },
+				to: { opacity: 1 },
 			},
 		},
 	},

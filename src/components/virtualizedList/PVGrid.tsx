@@ -166,7 +166,7 @@ function PVList<T, P = unknown>(props: PVGridProps<T, P>) {
 			{...restProps}
 		>
 			<Grid
-				gap={0}
+				gap={0.5}
 				ref={scrollContentRef}
 				gridTemplateColumns={`repeat(${snap.columns}, 1fr)`}
 				gridTemplateRows={`repeat(${Math.ceil(totalCount / snap.columns)}, ${snap.rowHeight}px)`}

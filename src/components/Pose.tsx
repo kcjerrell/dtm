@@ -28,19 +28,14 @@ function PoseImage(props: PoseImageComponentProps) {
 					const x = floats[i]
 					const y = floats[i + 1]
 					if (x === -1 && y === -1) dtPose.push(0, 0, 0)
-					else dtPose.push(...[floats[i] * 768, floats[i + 1] * 768, 1])
+					else dtPose.push(...[floats[i] * 256, floats[i + 1] * 256, 1])
 				}
 				const pose = {
 					people: chunk(dtPose, 54).map((p) => ({
 						pose_keypoints_2d: p,
 					})),
-					// [
-					// 	{
-					// 		pose_keypoints_2d: dtPose,
-					// 	},
-					// ],
-					width: 768,
-					height: 768,
+					width: 256,
+					height: 256,
 				}
 
 				const image = await drawPose(pose)

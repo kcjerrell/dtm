@@ -5,6 +5,7 @@ import { Panel } from "@/components"
 import PVGrid from "@/components/virtualizedList/PVGrid"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
 import { getRequestOpts, useDTProjects } from "../state/projectStore"
+import { motion } from "motion/react"
 
 interface ImagesList extends ChakraProps {}
 
@@ -63,32 +64,34 @@ function GridItem(props) {
 	const { showDetailsOverlay, snap } = itemProps
 
 	const imgRef = useRef<HTMLImageElement>(null)
+	const [isLoaded, setIsLoaded] = useState(false)
 
-	if (!item)
-		return (
-			<Box padding={0.5}>
-				<Box bgColor={"fg.1/20"} width={"100%"} height={"100%"} />
-			</Box>
-		)
+	if (item === undefined) return null
+	if (item === null) return <Box bgColor={"fg.1/20"} width={"100%"} height={"100%"} />
 
 	const isPreviewing =
 		item.project_id === snap?.detailsOverlay?.item?.project_id &&
 		item.node_id === snap?.detailsOverlay?.item?.node_id
 
 	return (
-		<Box padding={0.5} onClick={() => showDetailsOverlay(item, imgRef.current)}>
+		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(item, imgRef.current)}>
 			{!isPreviewing && (
-				<Image
-					bgColor={"bg.1/20"}
+				<motion.img
 					// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
-					ref={imgRef}
-					width={"100%"}
-					height={"100%"}
+					ref={(e) => {
+						imgRef.current = e
+						// if (e) e.addEventListener("load", () => setIsLoaded(true))
+					}}
+					style={{ width: "100%", height: "100%", objectFit: "cover" }}
 					src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
 					alt={item.prompt}
-					// width={"8rem"}
-					// height={"8rem"}
-					objectFit={"cover"}
+					// initial={{ opacity: 0 }}
+					// animate={{
+						// opacity: isLoaded ? 1 : 0,
+					// }}
+					// transition={{
+						// duration: 0.1,
+					// }}
 					// onClick={(e) => {
 					// 	if (expanded) e.stopPropagation()
 					// 	if (details?.tensor_id)

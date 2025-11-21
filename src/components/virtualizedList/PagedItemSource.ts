@@ -3,24 +3,30 @@ import { Mutex } from "async-mutex"
 import { useCallback, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 
+type PagedItem<T> = T | null | undefined
+
 type Page<T> = {
 	/** inclusive */
 	from: number
 	/** inclusive */
 	to: number
-	items: T[]
+	/** null indicates the item hasn't loaded yet
+	 * undefined indicates the item doesn't exist, or the request failed */
+	items: PagedItem<T>[]
 }
 
 type PagedItemSourceState<T> = {
 	pages: Page<T>[]
-	renderItems: (T | null)[]
+	renderItems: PagedItem<T>[]
 	firstIndex: number
 	lastIndex: number
 }
 
 type UsePagedItemSourceOpts<T> = {
 	getItems: (skip: number, take: number) => Promise<T[] | undefined>
+	/** use a fixed page size */
 	pageSize: number
+	/** any items beyond this number will be ignored */
 	totalCount: number
 }
 
@@ -30,7 +36,7 @@ export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
 	const state: PagedItemSourceState<T> = useInitRef(() =>
 		proxy({
 			pages: [] as Page<T>[],
-			renderItems: [] as T[],
+			renderItems: [] as PagedItem<T>[],
 			firstIndex: 0,
 			lastIndex: 0,
 			pageSize,
@@ -45,15 +51,30 @@ export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
 		async (index: number) => {
 			if (state.pages[index]) return false
 			const page = await getItems(index * pageSize, pageSize)
-			if (!page) return false
-			state.pages[index] = { from: index * pageSize, to: (index + 1) * pageSize - 1, items: page }
+			if (!page || page.length === 0) return false
+			state.pages[index] = {
+				from: index * pageSize,
+				to: (index + 1) * pageSize - 1,
+				items: [...page],
+			}
 			return true
 		},
 		[getItems, pageSize, state],
 	)
 
+	const updateRenderItems = useCallback(() => {
+		state.renderItems = getRenderItems(
+			state.firstIndex,
+			Math.min(state.lastIndex, totalCount - 1),
+			state.pages,
+		)
+	}, [state, totalCount])
+
 	const ensurePages = useCallback(async () => {
 		loadersWaiting.current++
+		// mutex is used to prevent spamming multiple requests for the same page
+		// if this turns out to be slow, we mark individual pages as loading
+		// allowing for simultaneous requests for different pages
 		await pageLoader.current.runExclusive(async () => {
 			loadersWaiting.current--
 			const { firstIndex, lastIndex } = state
@@ -67,7 +88,7 @@ export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
 				if (await loadPage(i)) pagesLoaded++
 			}
 
-			if (pagesLoaded) setRenderItems(state)
+			if (pagesLoaded) updateRenderItems()
 
 			// if a loader is waiting, we'll go ahead and yield
 			if (loadersWaiting.current) return
@@ -81,31 +102,30 @@ export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
 			const prevPage = Math.max(firstPage - 1, 0)
 			await loadPage(prevPage)
 		})
-	}, [pageSize, state, loadPage, totalCount])
+	}, [pageSize, state, loadPage, totalCount, updateRenderItems])
 
 	const setRenderWindow = useCallback(
 		(first: number, last: number) => {
 			state.firstIndex = first
 			state.lastIndex = last
 
-			setRenderItems(state)
+			updateRenderItems()
 			ensurePages()
 		},
-		[state, ensurePages],
+		[state, ensurePages, updateRenderItems],
 	)
 
 	const { renderItems } = useSnapshot(state)
+	console.log(renderItems)
 
 	return {
-    renderItems,
-    setRenderWindow,
-  }
+		renderItems,
+		setRenderWindow,
+	}
 }
 
-function setRenderItems<T>(state: PagedItemSourceState<T>) {
-	const { firstIndex, lastIndex, pages } = state
-
-	function* getItems(): Generator<T | null> {
+function getRenderItems<T>(firstIndex: number, lastIndex: number, pages: Page<T>[]) {
+	function* getItems(): Generator<T | null | undefined> {
 		let index = firstIndex
 		let page: Page<T> | undefined
 		while (index <= lastIndex) {
@@ -114,12 +134,12 @@ function setRenderItems<T>(state: PagedItemSourceState<T>) {
 				page = pages.find((p) => p && p.from <= index && p.to >= index)
 			}
 
-			// yield the item
-			yield page?.items[index - page?.from] ?? null
+			const item = page?.items[index - page?.from] ?? null
+			yield item
 
 			index++
 		}
 	}
 
-	state.renderItems = [...getItems()]
+	return [...getItems()]
 }

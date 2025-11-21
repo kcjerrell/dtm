@@ -30,17 +30,47 @@ export const CheckRoot = chakra(
 	{
 		base: {
 			display: "flex",
-			bgImage: {
-				_light: "url(check_light.png)",
-				_dark: "url(check_dark.png)",
-			},
+			// bgImage: {
+			// 	_light: "url(check_light.png)",
+			// 	_dark: "url(check_dark.png)",
+			// },
+			bgImage: "url(check_light.png)",
 			bgSize: "50px 50px",
+			bgColor: "#000000",
 			// bgPos: "right",
 			width: "100%",
 			height: "100%",
 			overscrollBehavior: "none none",
 			position: "relative",
 			borderRadius: "md",
+		},
+		variants: {
+			dark: {
+				true: {
+					_before: {
+						content: '""',
+						bgImage: "url(check_dark.png)",
+						position: "absolute",
+						width: "100%",
+						height: "100%",
+						bgSize: "50px 50px",
+						inset: 0,
+						animation: "fadeIn 0.2s ease forwards",
+					},
+				},
+				false: {
+					_before: {
+						content: '""',
+						bgImage: "url(check_dark.png)",
+						position: "absolute",
+						width: "100%",
+						height: "100%",
+						bgSize: "50px 50px",
+						inset: 0,
+						animation: "fadeOut 0.2s ease forwards",
+					},
+				},
+			},
 		},
 	},
 	{ forwardProps: ["transition"] },
@@ -124,7 +154,7 @@ export const PanelListItem = chakra(
 				outline: "2px inset {colors.blue.400/70} !important",
 			},
 			willChange: "transform",
-			contain: "paint"
+			contain: "paint",
 		},
 		variants: {
 			selectable: {

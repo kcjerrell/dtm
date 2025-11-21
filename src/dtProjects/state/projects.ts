@@ -3,6 +3,7 @@ import { type ProjectExtra, pdb } from "@/commands"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 export interface ProjectState extends ProjectExtra {
+	name: string
 	isScanning?: boolean
 	isMissing?: boolean
 }
@@ -17,25 +18,25 @@ class ProjectsService {
 	}
 
 	async loadProjects() {
-			const projects = await pdb.listProjects()
+		const projects = await pdb.listProjects()
 
-			this.#state.projects = projects.sort((a, b) =>
-				a.path.toLowerCase().localeCompare(b.path.toLowerCase()),
-			)
+		this.#state.projects = projects
+			.map((p) => ({ ...p, name: p.path.split("/").pop() as string }))
+			.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
 	}
 
 	async removeProjects(projectFiles: string[]) {
 		for (const projectFile of projectFiles) {
-			await pdb.removeProject(projectFile )
+			await pdb.removeProject(projectFile)
 		}
 		await this.loadProjects()
 	}
 
 	async addProjects(projectFiles: string[]) {
-			for (const pf of projectFiles) {
-				await pdb.addProject(pf)
-			}
-			await this.loadProjects()
+		for (const pf of projectFiles) {
+			await pdb.addProject(pf)
+		}
+		await this.loadProjects()
 	}
 }
 

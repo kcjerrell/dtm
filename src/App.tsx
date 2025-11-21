@@ -9,7 +9,7 @@ import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
 import { Preview, useIsPreviewActive } from "@/components/preview"
 import TauriDragHandle from './components/TauriDragHandle'
-import { toggleColorMode } from "./components/ui/color-mode"
+import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
 import AppState from "./hooks/appState"
 import { Loading } from "./main"
@@ -22,6 +22,7 @@ function App() {
 	const View = getView(snap.currentView)
 
 	const isPreviewActive = useIsPreviewActive()
+	const { colorMode } = useColorMode()
 
 	return (
 		<HStack
@@ -72,7 +73,7 @@ function App() {
 						{"<-"}
 					</Button>
 				</Sidebar>
-				<CheckRoot>
+				<CheckRoot dark={colorMode === "dark"}>
 					<ErrorBoundary FallbackComponent={ErrorFallback}>
 						<Suspense fallback={<Loading />}>
 							<AnimatePresence mode={"wait"}>
