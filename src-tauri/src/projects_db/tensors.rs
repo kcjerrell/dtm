@@ -26,58 +26,70 @@ pub fn decode_tensor(
     tensor: TensorRaw,
     as_png: bool,
     metadata: Option<TensorHistoryNode>,
+    scale: Option<u32>,
 ) -> Result<Vec<u8>> {
     if tensor.data_type == 16384 {
         return decode_pose(tensor);
     }
 
-    let pixel_count = tensor.width * tensor.height * tensor.channels;
-    let is_compressed = true;
+    let out = decompress_fzip(tensor.data)?;
 
-    // Allocate output buffer as f32
-    let mut out = vec![0.0f32; pixel_count as usize];
+    let (pixels, width, height) = if let Some(target_size) = scale {
+        let width = tensor.width as usize;
+        let height = tensor.height as usize;
+        let channels = tensor.channels as usize;
+        let target_size = target_size as usize;
 
-    unsafe {
-        let fpz: *mut FPZ = fpzip_read_from_buffer(tensor.data.as_ptr() as *const c_void);
-        if fpz.is_null() {
-            anyhow::bail!("Failed to create FPZIP stream (pointer is null)");
+        // Calculate center crop
+        let crop_size = width.min(height);
+        let start_x = (width - crop_size) / 2;
+        let start_y = (height - crop_size) / 2;
+
+        // Calculate sampling step
+        // We want to sample `target_size` pixels from `crop_size`
+        // step = crop_size / target_size
+        let step = crop_size as f32 / target_size as f32;
+
+        let mut pixels = Vec::with_capacity(target_size * target_size * channels);
+
+        for y in 0..target_size {
+            for x in 0..target_size {
+                let src_y = start_y + (y as f32 * step) as usize;
+                let src_x = start_x + (x as f32 * step) as usize;
+
+                if src_y < height && src_x < width {
+                    let pixel_idx = (src_y * width + src_x) * channels;
+                    for c in 0..channels {
+                        let v = out[pixel_idx + c];
+                        let f = v.clamp(-1.0, 1.0);
+                        pixels.push(((f * 0.5 + 0.5) * 255.0).round() as u8);
+                    }
+                } else {
+                     // Should not happen with correct math, but safe fallback
+                    for _ in 0..channels {
+                        pixels.push(0);
+                    }
+                }
+            }
         }
-
-        if fpzip_read_header(fpz) == 0 {
-            anyhow::bail!("Failed to read FPZIP header");
-        }
-
-        let header = fpz.read();
-        let total_values = header.nx * header.ny * header.nz * header.nf;
-
-        let n_read = fpzip_read(fpz, out.as_mut_ptr() as *mut c_void);
-        fpzip_read_close(fpz);
-
-        if tensor.data.len() != n_read {
-            anyhow::bail!(
-                "FPZIP read {} bytes, expected {}",
-                n_read,
-                tensor.data.len()
-            );
-        }
-
-        // f16data = out.iter().map(|&x| f16::from_f32(x)).collect();
-    }
-
-    // --- Map f16 [-1,1] → u8 [0,255] ---
-    let pixels: Vec<u8> = out
-        .iter()
-        .map(|v| {
-            let f = v.clamp(-1.0, 1.0);
-            ((f * 0.5 + 0.5) * 255.0).round() as u8
-        })
-        .collect();
+        (pixels, target_size as u32, target_size as u32)
+    } else {
+        // --- Map f16 [-1,1] → u8 [0,255] ---
+        let pixels: Vec<u8> = out
+            .iter()
+            .map(|v| {
+                let f = v.clamp(-1.0, 1.0);
+                ((f * 0.5 + 0.5) * 255.0).round() as u8
+            })
+            .collect();
+        (pixels, tensor.width as u32, tensor.height as u32)
+    };
 
     match as_png {
         true => Ok(write_png_with_usercomment(
             &pixels,
-            tensor.width as u32,
-            tensor.height as u32,
+            width,
+            height,
             tensor.channels as usize,
             metadata,
         )

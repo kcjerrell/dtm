@@ -30,7 +30,6 @@ export class ScannerService {
 			const modelFiles = await WatchFolders.listModelInfoFiles(folder)
 
 			for (const file of modelFiles) {
-				console.log("info file", file)
 				await pdb.scanModelInfo(file.path, file.modelType)
 			}
 		}

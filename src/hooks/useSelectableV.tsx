@@ -30,8 +30,6 @@ function selectItem<T extends Selectable>(
 	modifier: boolean,
 	value?: boolean,
 ) {
-	console.log(state)
-	console.log("selectItem", item, value)
 	const items = state.getItems()
 	const itemState = items?.find(it => state.keyFn(it) === state.keyFn(item))
 	if (!itemState) return
@@ -55,10 +53,8 @@ function selectItem<T extends Selectable>(
 				(it) => state.keyFn(it) !== state.keyFn(itemState) && it.selected,
 			)
 			const newValue = value ?? (!itemState.selected || areOthersSelected)
-			console.log(areOthersSelected, newValue)
 			clearAllSelected(state)
 			if (newValue) itemState.setSelected(newValue)
-			console.log("set selected", item.selected)
 		}
 	}
 	// multipleToggle is straightforward
@@ -120,19 +116,14 @@ export function useSelectable<T extends Selectable>(item: T) {
 	const context = useContext(SelectableContext)
 	if (!context) throw new Error("useSelectable must be used within a SelectableGroup")
 
-	const key = context.keyFn(item)
-
-	console.log("useSelectable", key)
-
 	const handlers = useMemo(
 		() => ({
 			onClick(e: React.MouseEvent) {
-				console.log(key, "got clicked")
 				const modifier = e.metaKey || e.ctrlKey || e.altKey
 				selectItem(context, item, modifier)
 			},
 		}),
-		[context, key, item],
+		[context, item],
 	)
 
 	return {

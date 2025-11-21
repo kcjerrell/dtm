@@ -462,6 +462,10 @@ impl ProjectsDb {
             }
         }
 
+        if let Some(node_id) = opts.node_id {
+            query = query.filter(images::Column::NodeId.eq(node_id));
+        }
+
         if let Some(search) = &opts.search {
             query = query.filter(images::Column::Prompt.contains(search));
         }
@@ -629,6 +633,7 @@ impl ProjectsDb {
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct ListImagesOptions {
     pub project_ids: Option<Vec<i32>>,
+    pub node_id: Option<i64>,
     pub model: Option<String>,
     pub sort: Option<String>,
     pub direction: Option<String>,

@@ -43,7 +43,6 @@ const metadataStore = store(
 
 		hooks: {
 			beforeFrontendSync(state) {
-				console.log("fe sync")
 				if (typeof state !== "object" || state === null) return state
 
 				if ("images" in state && Array.isArray(state.images)) {
@@ -247,7 +246,6 @@ export async function getExif(arg: ArrayBuffer | string): Promise<ExifType | nul
 			iptc: true,
 			mergeOutput: false,
 		})
-		console.log(JSON.stringify(exif, null, 2))
 		return exif
 	} catch (e) {
 		console.warn(e)

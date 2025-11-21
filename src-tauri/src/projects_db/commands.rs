@@ -105,6 +105,7 @@ pub async fn projects_db_project_scan_all(app_handle: tauri::AppHandle) -> Resul
 pub async fn projects_db_image_list(
     app: tauri::AppHandle,
     project_ids: Option<Vec<i32>>,
+    node_id: Option<i64>,
     sort: Option<String>,
     direction: Option<String>,
     model: Option<String>,
@@ -115,6 +116,7 @@ pub async fn projects_db_image_list(
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let opts = super::projects_db::ListImagesOptions {
         project_ids,
+        node_id,
         sort,
         direction,
         model,
@@ -199,7 +201,7 @@ pub async fn dt_project_decode_tensor(
         None => None,
     };
 
-    let buffer = decode_tensor(tensor, as_png, metadata).unwrap();
+    let buffer = decode_tensor(tensor, as_png, metadata, None).unwrap();
     Ok(tauri::ipc::Response::new(buffer))
 }
 

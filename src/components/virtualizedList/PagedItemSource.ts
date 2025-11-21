@@ -116,7 +116,6 @@ export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
 	)
 
 	const { renderItems } = useSnapshot(state)
-	console.log(renderItems)
 
 	return {
 		renderItems,

@@ -1,8 +1,8 @@
+import { invoke } from "@tauri-apps/api/core"
+
 // --------------------
 // Type definitions
 // --------------------
-
-import { invoke } from "@tauri-apps/api/core"
 
 export type ProjectExtra = {
 	id: number
@@ -62,6 +62,7 @@ export type TensorRaw = {
 
 export type ListImagesOptions = {
 	projectIds?: number[]
+	nodeId?: number
 	sort?: string
 	direction?: string
 	model?: string

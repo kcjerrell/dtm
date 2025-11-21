@@ -31,6 +31,7 @@ pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: Uri
 
     let query = request.uri().query();
     let node: Option<i64> = get_node(query).and_then(|n| n.parse().ok());
+    let scale: Option<u32> = get_scale(query).and_then(|s| s.parse().ok());
 
     match item_type {
         "thumb" => thumb(&project_path, item_id, false, responder)
@@ -39,7 +40,7 @@ pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: Uri
         "thumbhalf" => thumb(&project_path, item_id, true, responder)
             .await
             .unwrap(),
-        "tensor" => tensor(&project_path, item_id, node, responder)
+        "tensor" => tensor(&project_path, item_id, node, scale, responder)
             .await
             .unwrap(),
         _ => responder.respond(
@@ -79,6 +80,7 @@ async fn tensor(
     project_file: &str,
     name: &str,
     node: Option<i64>,
+    scale: Option<u32>,
     responder: UriSchemeResponder,
 ) -> Result<(), String> {
     let dtp = DTProject::get(project_file).await.unwrap();
@@ -94,7 +96,7 @@ async fn tensor(
     let body = match classify_type(name).unwrap_or("") {
         "pose" => None,
         "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
-            let mut png = decode_tensor(tensor, true, metadata).unwrap();
+            let mut png = decode_tensor(tensor, true, metadata, scale).unwrap();
             Some(png)
         }
         "scribble" | "binary_mask" => {
@@ -160,6 +162,16 @@ fn get_node(query: Option<&str>) -> Option<&str> {
         Some(query) => query.split('&').find_map(|pair| {
             let (k, v) = pair.split_once('=')?;
             (k == "node").then_some(v)
+        }),
+        None => None,
+    }
+}
+
+fn get_scale(query: Option<&str>) -> Option<&str> {
+    match query {
+        Some(query) => query.split('&').find_map(|pair| {
+            let (k, v) = pair.split_once('=')?;
+            (k == "s").then_some(v)
         }),
         None => None,
     }

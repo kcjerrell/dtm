@@ -25,10 +25,10 @@ function TauriDragHandle() {
 						const elems = document.elementsFromPoint(e.clientX, e.clientY) as HTMLElement[]
 						for (const elem of elems) {
 							if (elem.getAttribute("data-tauri-drag-region") === "true") continue
-							else {
-								elem.click()
-								break
-							}
+							if (!elem.click) continue
+							
+							elem.click()
+							break
 						}
 					}
 				}}

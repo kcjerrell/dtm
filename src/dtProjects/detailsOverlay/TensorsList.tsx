@@ -1,4 +1,4 @@
-import { ImageExtra, TensorHistoryExtra } from "@/commands"
+import { dtProject, ImageExtra, pdb, TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { Tooltip } from "@/components"
 import ColorPaletteImage from "@/components/ColorPalette"
@@ -37,6 +37,8 @@ function TensorsList(props: TensorsListComponentProps) {
 		Mask: mask_id,
 	}
 
+	const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
+
 	return (
 		<HStack padding={0} height={"6rem"} {...restProps}>
 			{Object.entries(tensors).map(([label, id]) => {
@@ -73,20 +75,19 @@ function TensorsList(props: TensorsListComponentProps) {
 				)
 			})}
 			<Spacer />
-			{candidates && candidates.length > 0 && (
+			{previous.length > 0 && (
 				<Group>
 					<Label>Previous</Label>
 					<Images>
-						{candidates.map((candidate) => {
-							console.log(candidate)
-							if (!candidate.tensor_id) return null
+						{previous.map((prev) => {
+							if (!prev.tensor_id) return null
 
 							return (
 								<Tooltip
-									key={candidate.row_id}
-									tip={`(${candidate.row_id}) lineage: ${candidate.lineage}, logical time: ${candidate.logical_time}`}
+									key={prev.row_id}
+									tip={`(${prev.row_id}) lineage: ${prev.lineage}, logical time: ${prev.logical_time}`}
 								>
-									<Thumbnail src={urls.tensor(item?.project_id, candidate.tensor_id)} />
+									<Thumbnail src={urls.tensor(item?.project_id, prev.tensor_id, null, 100)} />
 								</Tooltip>
 							)
 						})}
