@@ -7,7 +7,7 @@ import {
 	useMemo,
 	useRef,
 } from "react"
-import { proxy, ref, useSnapshot, type Snapshot } from "valtio"
+import { proxy, type Snapshot } from "valtio"
 
 type SelectableContextType<T extends Selectable = Selectable> = {
 	getItems: () => T[]
@@ -31,7 +31,7 @@ function selectItem<T extends Selectable>(
 	value?: boolean,
 ) {
 	const items = state.getItems()
-	const itemState = items?.find(it => state.keyFn(it) === state.keyFn(item))
+	const itemState = items?.find((it) => state.keyFn(it) === state.keyFn(item))
 	if (!itemState) return
 
 	// in single select we can clear all regardless of value
@@ -132,7 +132,7 @@ export function useSelectable<T extends Selectable>(item: T) {
 	}
 }
 
-export type Selectable<T extends object = Record<string, unknown>> = T & {
+export type Selectable<T extends object = object> = T & {
 	selected: boolean
 	setSelected: (value: boolean) => void
 	toggleSelected: () => void

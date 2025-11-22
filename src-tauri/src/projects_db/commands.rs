@@ -43,6 +43,17 @@ pub async fn projects_db_project_list(
 }
 
 #[tauri::command]
+pub async fn projects_db_project_update_exclude(
+    app_handle: tauri::AppHandle,
+    id: i32,
+    exclude: bool,
+) -> Result<(), String> {
+    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    pdb.update_exclude(id, exclude).await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
     path: String,

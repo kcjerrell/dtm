@@ -8,7 +8,6 @@ import { FaMoon } from "react-icons/fa6"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
 import { Preview, useIsPreviewActive } from "@/components/preview"
-import TauriDragHandle from './components/TauriDragHandle'
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
 import AppState from "./hooks/appState"
@@ -35,8 +34,13 @@ function App() {
 			gap={0}
 			bgColor={"check.2"}
 			transformOrigin={"left top"}
+			onPointerDownCapture={async (e) => {
+				if (e.clientY < 80) {
+					const win = await getCurrentWindow()
+					win.startDragging()
+				}
+			}}
 		>
-			<TauriDragHandle />
 			<LayoutGroup>
 				<Sidebar inert={isPreviewActive}>
 					{sidebarItems.map((item) => (
@@ -48,13 +52,6 @@ function App() {
 							onClick={() => AppState.setView(item.viewId)}
 						/>
 					))}
-					{/* <Box bgColor={"fg.1/10"} flex={"1 1 auto"} width={"100%"} position={"relative"}>
-						<motion.div
-							animate={{ top: ["5%", "95%"] }}
-							transition={{ duration: 1, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }}
-							style={{left: "50%", width: "5px", height: "5px", position: "absolute", backgroundColor: "blue", borderRadius: "50%"}}
-						/>
-					</Box> */}
 					<Tooltip tip={"Toggle color mode"}>
 						<IconButton
 							color={"fg.2"}

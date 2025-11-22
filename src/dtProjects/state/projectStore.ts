@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event"
-import { proxy, ref, useSnapshot } from "valtio"
+import { proxy, useSnapshot } from "valtio"
 import {
 	dtProject,
 	type ImageExtra,
@@ -8,32 +8,31 @@ import {
 	type TensorHistoryExtra,
 } from "@/commands"
 import type { ScanProgressEvent } from "../types"
-import ProjectService, { type ProjectState } from "./projects"
+import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
-import WatchFolderService, { WatchFolderServiceState, type WatchFolderState } from "./watchFolders"
-import ProjectsService from "./projects"
+import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
 
 export type DTProjectsStateType = {
-    projects: ProjectState[];
-    watchFolders: WatchFolderServiceState;
-    imageSource: ImagesSource | null;
-    items: ImageExtra[];
-    itemDetails: Record<number, TensorHistoryExtra>;
-    scanProgress: number;
-    scanningProject: string;
-    totalThisRun: number;
-    selectedProject: ProjectExtra | null;
-    expandedItems: Record<number, boolean>;
-		searchInput: string;
-		itemSize: number;
-    detailsOverlay: {
-        item: ImageExtra | null;
-        lastItem: ImageExtra | null;
-        candidates: TensorHistoryExtra[];
-        sourceRect: DOMRect | null;
-        width: number;
-        height: number;
-    };
+	projects: ProjectState[]
+	watchFolders: WatchFolderServiceState
+	imageSource: ImagesSource | null
+	items: ImageExtra[]
+	itemDetails: Record<number, TensorHistoryExtra>
+	scanProgress: number
+	scanningProject: string
+	totalThisRun: number
+	selectedProject: ProjectExtra | null
+	expandedItems: Record<number, boolean>
+	searchInput: string
+	itemSize: number
+	detailsOverlay: {
+		item: ImageExtra | null
+		lastItem: ImageExtra | null
+		candidates: TensorHistoryExtra[]
+		sourceRect: DOMRect | null
+		width: number
+		height: number
+	}
 }
 
 const state = proxy({

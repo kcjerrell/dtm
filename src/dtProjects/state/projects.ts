@@ -1,8 +1,9 @@
-import { invoke } from "@tauri-apps/api/core"
 import { type ProjectExtra, pdb } from "@/commands"
+import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
+import { arrayIfOnly } from "@/utils/helpers"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
-export interface ProjectState extends ProjectExtra {
+export interface ProjectState extends Selectable<ProjectExtra> {
 	name: string
 	isScanning?: boolean
 	isMissing?: boolean
@@ -21,7 +22,7 @@ class ProjectsService {
 		const projects = await pdb.listProjects()
 
 		this.#state.projects = projects
-			.map((p) => ({ ...p, name: p.path.split("/").pop() as string }))
+			.map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
 			.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
 	}
 
@@ -37,6 +38,17 @@ class ProjectsService {
 			await pdb.addProject(pf)
 		}
 		await this.loadProjects()
+	}
+
+	async setExclude(projects: ProjectState | readonly ProjectState[], exclude: boolean) {
+		const toUpdate = arrayIfOnly(projects)
+		for (const project of toUpdate) {
+			await pdb.updateExclude(project.id, exclude)
+			const idx = this.#state.projects.findIndex((p) => p.id === project.id)
+			if (idx !== -1) {
+				this.#state.projects[idx].excluded = exclude
+			}
+		}
 	}
 }
 

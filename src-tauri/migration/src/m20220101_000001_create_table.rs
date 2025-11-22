@@ -247,7 +247,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk_image_controls_image")
                             .from(ImageControls::Table, ImageControls::ImageId)
-                            .to(Images::Table, Images::Id),
+                            .to(Images::Table, Images::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -277,7 +278,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk_image_loras_image")
                             .from(ImageLoras::Table, ImageLoras::ImageId)
-                            .to(Images::Table, Images::Id),
+                            .to(Images::Table, Images::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()

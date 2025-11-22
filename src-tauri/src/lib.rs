@@ -109,6 +109,7 @@ pub fn run() {
             projects_db_project_remove,
             projects_db_project_scan,
             projects_db_project_scan_all, // #unused
+            projects_db_project_update_exclude,
 
             projects_db_image_count, // #unused
             projects_db_image_list,

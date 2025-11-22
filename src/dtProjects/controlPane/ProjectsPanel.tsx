@@ -1,15 +1,14 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
+import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { FiFolder, FiRefreshCw } from "react-icons/fi"
 import { MdBlock } from "react-icons/md"
-import { type ProjectExtra, pdb } from "@/commands"
-import { PaneListContainer, PanelListItem } from "@/components"
-import ToolbarItem from "@/components/ToolbarItem"
-import { useSelectable, useSelectableGroup } from "@/hooks/useSelectable"
+import { pdb } from "@/commands"
+import { PanelListItem } from "@/components"
+import PanelList, { type PanelListCommand } from "@/components/PanelList"
+import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
-import type { ToolbarCommand } from "@/metadata/toolbar/commands"
-import DTProjects, { type DTProjectsStateType, useDTProjects } from "../state/projectStore"
+import DTProjects, { useDTProjects } from "../state/projectStore"
 import type { ProjectState } from "../state/projects"
-import { PaneListScroll } from '@/components/common'
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -17,46 +16,28 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
 	const { snap, state } = useDTProjects()
 
-	const { SelectableGroup, selectedItems } = useSelectableGroup<ProjectExtra>({
-		mode: "multipleModifier",
-		keyFn: (p) => p.path,
-	})
-
-	const selectionEmpty = !selectedItems.length
-
 	return (
 		<TabContent
+			height={"100%"}
 			value={"projects"}
 			contentProps={{ maxHeight: "100%", overflowY: "clip" }}
 			{...restProps}
 		>
-			<PaneListContainer overflowY={'clip'}>
-				<PaneListScroll className="hide-scrollbar">
-					<SelectableGroup
-						onSelectionChanged={(e) => {
-							DTProjects.setImagesSource({ projects: e })
-						}}
-					>
-						{snap.projects.map((project) => (
-							<ProjectListItem key={project.path} project={project} />
-						))}
-					</SelectableGroup>
-				</PaneListScroll>
-
-				<HStack justifyContent={"flex-end"}>
-					{toolbarCommands.map((command) => (
-						<ToolbarItem
-							key={command.id}
-							command={command}
-							state={state as DTProjectsStateType}
-							arg={selectedItems as ProjectExtra[]}
-						/>
-					))}
-					{/* <ToolbarButton icon={MdBlock} tip={"Exclude project"} />
-				<ToolbarButton icon={FiRefreshCw} tip={"Manual rescan"} />
-				<ToolbarButton icon={FiFolder} tip={"Open folder"} /> */}
-				</HStack>
-			</PaneListContainer>
+			<PanelList
+				maxHeight={"100%"}
+				overflowY={"auto"}
+				getItems={() => state.projects}
+				itemsSnap={snap.projects}
+				keyFn={(p) => p.path}
+				commands={toolbarCommands}
+				onSelectionChanged={(e) => {
+					DTProjects.setImagesSource({ projects: e })
+				}}
+			>
+				{snap.projects.map((p) => (
+					<ProjectListItem key={p.path} project={p} />
+				))}
+			</PanelList>
 
 			<HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
 				<Box>{snap.projects.length} projects</Box>
@@ -70,27 +51,26 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	)
 }
 
-const toolbarCommands: ToolbarCommand<DTProjectsStateType, ProjectExtra[]>[] = [
+const toolbarCommands: PanelListCommand<ProjectState>[] = [
 	{
 		id: "exclude",
-		tip: "Exclude project",
-		icon: MdBlock,
-		action: (snap) => {},
-		check: (_snap, selected) => !!selected && selected?.length > 0,
-	},
-	{
-		id: "rescan",
-		tip: "Manual rescan",
-		icon: FiRefreshCw,
-		action: () => {},
-		check: (_snap, selected) => !!selected && selected?.length > 0,
+		getTip: (selected) => (selected[0]?.excluded ? "Include project" : "Exclude project"),
+		tipText: "Excluded projects will not be scanned and their images won't be listed.",
+		getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
+		onClick: (selected) => {
+			DTProjects.store.projects.setExclude(selected, !selected[0]?.excluded)
+		},
+		requiresSelection: true,
 	},
 	{
 		id: "openFolder",
-		tip: "Open folder",
+		tipTitle: "Open folder",
+		tipText: "Open project folder in file manager.",
 		icon: FiFolder,
-		action: () => {},
-		check: (_snap, selected) => !!selected && selected?.length === 1,
+		onClick: async (selected) => {
+			await revealItemInDir(selected.map((f) => f.path))
+		},
+		requiresSelection: true,
 	},
 ]
 

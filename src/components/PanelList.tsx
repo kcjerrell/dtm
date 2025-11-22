@@ -1,10 +1,11 @@
 import { HStack, VStack } from "@chakra-ui/react"
-import { Children, useEffect, useRef, type ComponentType } from "react"
+import { useEffect, useRef, type ComponentType } from "react"
 import type { IconType } from "react-icons/lib"
 import { PiInfo } from "react-icons/pi"
 import type { Snapshot } from "valtio"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import { PaneListScrollContainer } from "./common"
 
 interface PanelListComponentProps<T> extends ChakraProps {
 	emptyListText?: string | boolean
@@ -24,8 +25,12 @@ export interface PanelListCommand<T> {
 	getIcon?: (selected: Snapshot<T[]>) => IconType | ComponentType
 	requiresSelection?: boolean
 	requiresSingleSelection?: boolean
-	tip?: string
-	getTip?: (selected: Snapshot<T[]>) => string
+	getEnabled?: (selected: Snapshot<T[]>) => boolean
+	/** if present, tipTitle and tipText will be ignored */
+	tip?: React.ReactNode
+	tipTitle?: string
+	tipText?: string
+	getTip?: (selected: Snapshot<T[]>) => React.ReactNode
 	onClick: (selected: Snapshot<T[]>) => void
 }
 
@@ -85,43 +90,52 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 				</PanelSectionHeader>
 			)}
 			<PaneListContainer>
-				<SelectableGroup>{children}</SelectableGroup>
+				<PaneListScrollContainer>
+					<SelectableGroup>{children}</SelectableGroup>
+				</PaneListScrollContainer>
 
 				{!emptyListText && areItemsSelected && (
 					<PanelListItem bgColor={"transparent"} fontStyle={"italic"} textAlign={"center"}>
 						{emptyListText}
 					</PanelListItem>
 				)}
-
-				<HStack justifyContent={"flex-end"} bottom={0}>
-					{commands?.map((command) => {
-						const Icon = command.getIcon ? command.getIcon(selectedItems) : command.icon
-						const tip = command.getTip ? command.getTip(selectedItems) : command.tip
-						const disabled =
-							(command.requiresSingleSelection && selectedItems.length !== 1) ||
-							(command.requiresSelection && !areItemsSelected)
-
-						const CommandButton = (
-							<IconButton
-								key={command.id}
-								size={"sm"}
-								onClick={() => command.onClick(selectedItems)}
-								disabled={disabled}
-							>
-								{Icon && <Icon />}
-							</IconButton>
-						)
-
-						if (tip)
-							return (
-								<Tooltip key={command.id} tip={tip}>
-									{CommandButton}
-								</Tooltip>
-							)
-						return CommandButton
-					})}
-				</HStack>
 			</PaneListContainer>
+
+			<HStack justifyContent={"flex-end"} bottom={0}>
+				{commands?.map((command) => {
+					let enabled = true
+					if (command.requiresSelection && !areItemsSelected) enabled = false
+					if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
+					if (command.getEnabled) enabled = command.getEnabled(selectedItems)
+
+					const Icon = command.getIcon ? command.getIcon(selectedItems) : command.icon
+					const tip = command.getTip ? command.getTip(selectedItems) : command.tip
+
+					const CommandButton = (
+						<IconButton
+							key={command.id}
+							size={"sm"}
+							onClick={() => command.onClick(selectedItems)}
+							disabled={!enabled}
+						>
+							{Icon && <Icon />}
+						</IconButton>
+					)
+
+					if (tip || command.tipTitle || command.tipText)
+						return (
+							<Tooltip
+								key={command.id}
+								tip={tip}
+								tipTitle={command.tipTitle}
+								tipText={command.tipText}
+							>
+								{CommandButton}
+							</Tooltip>
+						)
+					return CommandButton
+				})}
+			</HStack>
 		</VStack>
 	)
 }

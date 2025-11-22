@@ -543,6 +543,30 @@ impl ProjectsDb {
         Ok(folder)
     }
 
+    pub async fn update_exclude(&self, project_id: i32, exclude: bool) -> Result<(), DbErr> {
+        let project = projects::Entity::find_by_id(project_id)
+            .one(&self.db)
+            .await?
+            .ok_or(DbErr::RecordNotFound(format!(
+                "Project {project_id} not found"
+            )))?;
+
+        let mut project: projects::ActiveModel = project.into();
+        project.excluded = Set(exclude);
+        project.update(&self.db).await?;
+
+        if exclude {
+            // Remove all images associated with this project
+            // Cascade delete will handle image_controls and image_loras
+            images::Entity::delete_many()
+                .filter(images::Column::ProjectId.eq(project_id))
+                .exec(&self.db)
+                .await?;
+        }
+
+        Ok(())
+    }
+
     pub async fn rebuild_images_fts(&self) -> Result<(), sea_orm::DbErr> {
         self.db
             .execute(Statement::from_string(

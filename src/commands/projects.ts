@@ -101,6 +101,9 @@ export const pdb = {
 		modified?: number,
 	): Promise<void> => invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
 
+	updateExclude: async (id: number, exclude: boolean): Promise<void> =>
+		invoke("projects_db_project_update_exclude", { id, exclude }),
+
 	// #unused
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
 
