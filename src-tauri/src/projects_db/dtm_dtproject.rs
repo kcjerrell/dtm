@@ -1,13 +1,8 @@
-use migration::ExprTrait;
 use once_cell::sync::Lazy;
 use sea_orm::DbErr;
-use std::{
-    collections::HashMap,
-    error::Error,
-    sync::{Arc, LazyLock, RwLock},
-};
+use std::{collections::HashMap, sync::RwLock};
 use tauri::{
-    http::{self, Response},
+    http::{self, Response, StatusCode},
     UriSchemeResponder,
 };
 
@@ -23,10 +18,38 @@ static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<u64, String>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: UriSchemeResponder) {
+    let response = match handle_request(request).await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("DTM Protocol Error: {}", e);
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(e.into_bytes())
+                .unwrap()
+        }
+    };
+
+    responder.respond(response);
+}
+
+async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>>, String> {
     let path: Vec<&str> = request.uri().path().split('/').collect();
+    if path.len() < 4 {
+        return Ok(Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body("Invalid path format".as_bytes().to_vec())
+            .map_err(|e| e.to_string())?);
+    }
+
     let item_type = path[1];
-    let project_id: i64 = path[2].parse().unwrap();
-    let project_path = get_project_path(project_id as u64).await.unwrap();
+    let project_id: i64 = path[2]
+        .parse()
+        .map_err(|_| "Invalid project ID".to_string())?;
+    
+    let project_path = get_project_path(project_id as u64)
+        .await
+        .map_err(|e| format!("Failed to get project path: {}", e))?;
+    
     let item_id = path[3];
 
     let query = request.uri().query();
@@ -34,46 +57,41 @@ pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: Uri
     let scale: Option<u32> = get_scale(query).and_then(|s| s.parse().ok());
 
     match item_type {
-        "thumb" => thumb(&project_path, item_id, false, responder)
-            .await
-            .unwrap(),
-        "thumbhalf" => thumb(&project_path, item_id, true, responder)
-            .await
-            .unwrap(),
-        "tensor" => tensor(&project_path, item_id, node, scale, responder)
-            .await
-            .unwrap(),
-        _ => responder.respond(
-            Response::builder()
-                .status(404)
-                .body("Not Found".as_bytes().to_vec())
-                .unwrap(),
-        ),
-    };
+        "thumb" => thumb(&project_path, item_id, false).await,
+        "thumbhalf" => thumb(&project_path, item_id, true).await,
+        "tensor" => tensor(&project_path, item_id, node, scale).await,
+        _ => Ok(Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body("Not Found".as_bytes().to_vec())
+            .map_err(|e| e.to_string())?),
+    }
 }
 
 async fn thumb(
     path: &str,
     item_id: &str,
     half: bool,
-    responder: UriSchemeResponder,
-) -> Result<(), DbErr> {
-    let id: i64 = item_id.parse().unwrap();
-    let dtp = DTProject::get(path).await.unwrap();
+) -> Result<Response<Vec<u8>>, String> {
+    let id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
+    
+    let dtp = DTProject::get(path)
+        .await
+        .map_err(|e| format!("Failed to open project: {}", e))?;
+        
     let thumb = match half {
-        true => dtp.get_thumb_half(id).await.unwrap(),
-        false => dtp.get_thumb(id).await.unwrap(),
+        true => dtp.get_thumb_half(id).await,
+        false => dtp.get_thumb(id).await,
     };
-    let thumb = extract_jpeg_slice(&thumb).unwrap();
-    responder.respond(
-        Response::builder()
-            .status(200)
-            .header(http::header::CONTENT_TYPE, mime::IMAGE_JPEG.essence_str())
-            .body(thumb)
-            .unwrap(),
-    );
 
-    Ok(())
+    let thumb = thumb.map_err(|e| format!("Failed to get thumb: {}", e))?;
+    
+    let thumb = extract_jpeg_slice(&thumb).ok_or("Failed to extract JPEG slice".to_string())?;
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(http::header::CONTENT_TYPE, mime::IMAGE_JPEG.essence_str())
+        .body(thumb)
+        .map_err(|e| e.to_string())
 }
 
 async fn tensor(
@@ -81,46 +99,51 @@ async fn tensor(
     name: &str,
     node: Option<i64>,
     scale: Option<u32>,
-    responder: UriSchemeResponder,
-) -> Result<(), String> {
-    let dtp = DTProject::get(project_file).await.unwrap();
-    let tensor = dtp.get_tensor_raw(name).await.unwrap();
+) -> Result<Response<Vec<u8>>, String> {
+    let dtp = DTProject::get(project_file)
+        .await
+        .map_err(|e| format!("Failed to open project: {}", e))?;
+        
+    let tensor = dtp.get_tensor_raw(name)
+        .await
+        .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
 
     let metadata = match node {
-        Some(node) => {
-            Some(dtp.get_history_full(node).await.unwrap().history)
-        }
+        Some(node) => Some(
+            dtp.get_history_full(node)
+                .await
+                .map_err(|e| format!("Failed to get history: {}", e))?
+                .history,
+        ),
         None => None,
     };
 
     let body = match classify_type(name).unwrap_or("") {
         "pose" => None,
         "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
-            let mut png = decode_tensor(tensor, true, metadata, scale).unwrap();
+            let png = decode_tensor(tensor, true, metadata, scale)
+                .map_err(|e| format!("Failed to decode tensor: {}", e))?;
             Some(png)
         }
         "scribble" | "binary_mask" => {
-            let png = scribble_mask_to_png(tensor).unwrap();
+            let png = scribble_mask_to_png(tensor)
+                .map_err(|e| format!("Failed to convert mask to png: {}", e))?;
             Some(png)
         }
         _ => None,
     };
 
-    let builder = match body {
+    match body {
         Some(body) => Response::builder()
-            .status(200)
+            .status(StatusCode::OK)
             .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
             .body(body)
-            .unwrap(),
+            .map_err(|e| e.to_string()),
         None => Response::builder()
-            .status(400)
-            .body("".as_bytes().to_vec())
-            .unwrap(),
-    };
-
-    responder.respond(builder);
-
-    Ok(())
+            .status(StatusCode::BAD_REQUEST)
+            .body("Unsupported tensor type or decoding failed".as_bytes().to_vec())
+            .map_err(|e| e.to_string()),
+    }
 }
 
 async fn get_project_path(project_id: u64) -> Result<String, DbErr> {
@@ -128,7 +151,7 @@ async fn get_project_path(project_id: u64) -> Result<String, DbErr> {
         return Ok(path);
     }
 
-    let pdb = ProjectsDb::get().unwrap();
+    let pdb = ProjectsDb::get().map_err(|e| DbErr::Custom(e.to_string()))?;
     let project = pdb.get_project(project_id as i32).await?;
     PROJECT_PATH_CACHE
         .write()

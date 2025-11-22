@@ -1,4 +1,5 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
+import { useEffect, useRef, useState } from "react"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { FiFolder, FiRefreshCw } from "react-icons/fi"
 import { MdBlock } from "react-icons/md"
@@ -15,6 +16,19 @@ interface ProjectsPanelComponentProps extends ChakraProps {}
 function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
 	const { snap, state } = useDTProjects()
+	const [showExcluded, setShowExcluded] = useState(false)
+	const toggleRef = useRef<HTMLDivElement>(null)
+
+	const activeProjects = snap.projects.filter((p) => !p.excluded)
+	const excludedProjects = snap.projects.filter((p) => p.excluded)
+
+	useEffect(() => {
+		if (showExcluded && toggleRef.current) {
+			setTimeout(() => {
+				toggleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+			}, 100)
+		}
+	}, [showExcluded])
 
 	return (
 		<TabContent
@@ -27,16 +41,40 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 				maxHeight={"100%"}
 				overflowY={"auto"}
 				getItems={() => state.projects}
-				itemsSnap={snap.projects}
+				itemsSnap={
+					showExcluded ? [...activeProjects, ...excludedProjects] : activeProjects
+				}
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
 				onSelectionChanged={(e) => {
 					DTProjects.setImagesSource({ projects: e })
 				}}
 			>
-				{snap.projects.map((p) => (
+				{activeProjects.map((p) => (
 					<ProjectListItem key={p.path} project={p} />
 				))}
+				{excludedProjects.length > 0 && (
+					<PanelListItem
+						ref={toggleRef}
+						onClick={() => setShowExcluded(!showExcluded)}
+						cursor="pointer"
+						color="fg.3"
+						_hover={{ color: "fg.1" }}
+					>
+						<HStack>
+							<Box as={showExcluded ? FiRefreshCw : MdBlock} />
+							<Box>
+								{showExcluded
+									? "Hide excluded projects"
+									: `Show excluded projects (${excludedProjects.length})`}
+							</Box>
+						</HStack>
+					</PanelListItem>
+				)}
+				{showExcluded &&
+					excludedProjects.map((p) => (
+						<ProjectListItem key={p.path} project={p} />
+					))}
 			</PanelList>
 
 			<HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
