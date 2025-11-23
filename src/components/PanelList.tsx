@@ -61,7 +61,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 	const contentRef = useRef<HTMLDivElement>(null)
 
 	const scrollY = useRef(0)
-	const scrollYMv = useSpring(0, { mass: 1, stiffness: 170, damping: 26 })
+	const scrollYMv = useSpring(0, { mass: 1, stiffness: 210, damping: 25, visualDuration: 0.5 })
 
 	useEffect(() => {
 		if (clearSelection) {
@@ -118,7 +118,6 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 						{emptyListText}
 					</PanelListItem>
 				)}
-			</PaneListContainer>
 
 			<HStack justifyContent={"flex-end"} bottom={0}>
 				{commands?.map((command) => {
@@ -155,6 +154,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 					return CommandButton
 				})}
 			</HStack>
+			</PaneListContainer>
 		</VStack>
 	)
 }

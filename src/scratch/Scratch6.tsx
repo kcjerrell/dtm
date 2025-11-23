@@ -1,33 +1,42 @@
 import { Box, VStack } from "@chakra-ui/react"
-import { proxy, useSnapshot } from "valtio"
+import { proxy, snapshot, useSnapshot } from "valtio"
 import { CheckRoot } from "@/components"
 import { Panel } from "@/components/common"
+import { useInitRef } from "@/hooks/useInitRef"
 
 const store = proxy({
 	someState: "Hello",
 	items: [] as unknown[],
+	value: 0,
 })
 
-const items = Array.from({ length: 10 }, (_, i) => ({ id: i, name: `Item ${i}` }))
-const selectables = items.map((item) => makeSelectable(item))
-store.items = selectables
+class Test {
+	state = proxy({
+		value: 0,
+	})
+
+	constructor() {
+		setInterval(() => {
+			this.state.value++
+		}, 500)
+	}
+
+	use = () => {
+		return useSnapshot(this.state)
+	}
+}
 
 function Empty(props) {
-	const snap = useSnapshot(store)
-	const itemsnap = useSnapshot(proxy(store.items))
+	const state = useInitRef(() => new Test())
+	const snap = state.use()
+	// const snap2 = useSnapshot(state.state)
+
 	return (
 		<CheckRoot width={"full"} height={"full"}>
 			<VStack width={"full"} height={"full"} justifyContent={"center"}>
 				<Panel>
-					{snap.items.map((item) => (
-						<Box
-							key={item.id}
-							onClick={() => item.setSelected(!item.selected)}
-							bgColor={item.selected ? "blue/50" : "bg.2"}
-						>
-							{item.name}
-						</Box>
-					))}
+					{snap.value}
+					{/* {snap2.value} */}
 				</Panel>
 			</VStack>
 		</CheckRoot>

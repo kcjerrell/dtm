@@ -8,12 +8,7 @@ description = "A little app for reading Draw Things Metadata"
 authors = ["kcjerrell"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "dtm_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -21,22 +16,29 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Local Modules
 entity = { path = "./entity" }
 migration = { path = "./migration" }
 fpzip-sys = { path = "./fpzip-sys" }
+
+# Core Tauri
 tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
-tauri-plugin-opener = "2"
+
+# Tauri Plugins (all GitHub v2 versions)
+# Ensures a single consistent dependency tree
+tauri-plugin-fs = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2", features = ["watch"] }
+tauri-plugin-dialog = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-clipboard-manager = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-http = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-valtio = "2"
+tauri-plugin-process = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-shell = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+
+# Third-party / utility crates
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-clipboard-manager = "2"
-tauri-plugin-fs = "2"
-tauri-plugin-store = "2"
-tauri-plugin-clipboard = "2.1.11"
-tauri-plugin-http = "2"
-tauri-plugin-valtio = "2"
-tauri-plugin-process = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-shell = "2"
 little_exif = "0.6.15"
 web-image-meta = "0.2.1"
 quick-xml = "0.38.3"
@@ -65,13 +67,14 @@ base64 = "0.22.1"
 flate2 = "1.1.5"
 png = "0.18.0"
 
-
+# macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2 = "0.6.2"
 objc2-foundation = "0.3.1"
 objc2-app-kit = "0.3.1"
 tauri-plugin-nspopover = { git = "https://github.com/freethinkel/tauri-nspopover-plugin.git", version = "4.0.0" }
 
+# Desktop-only (not mobile)
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-updater = "2"
-tauri-plugin-window-state = "2"
+tauri-plugin-updater = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }

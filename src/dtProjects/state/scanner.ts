@@ -30,6 +30,19 @@ export class ScannerService {
 		for (const project of this.#state.projects) {
 			await this.syncProject(project)
 		}
+
+		this.#dtp.watchFolders.startWatch(async (projectFiles) => {
+			for (const projectFile of projectFiles) {
+				let project = this.#state.projects.find((p) => p.path === projectFile)
+				if (!project) {
+					await this.#dtp.projects.addProjects([projectFile])
+					project = this.#state.projects.find((p) => p.path === projectFile)
+				}
+				if (project) {
+					await this.syncProject(project)
+				}
+			}
+		})
 	}
 
 	// ensure every project in the watch folders is in the db

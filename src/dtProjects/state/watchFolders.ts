@@ -1,5 +1,5 @@
 import { path } from "@tauri-apps/api"
-import { exists, readDir, stat } from "@tauri-apps/plugin-fs"
+import { exists, readDir, type UnwatchFn, watch } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import { pdb, type WatchFolder } from "@/commands"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
@@ -56,6 +56,8 @@ class WatchFolderService {
 	#dtp: IDTProjectsStore
 	rootState: DTProjectsStateType
 	state: WatchFolderServiceState
+
+	watchDisposers: UnwatchFn[] = []
 
 	constructor(dtp: IDTProjectsStore) {
 		this.#dtp = dtp
@@ -168,6 +170,30 @@ class WatchFolderService {
 			console.error(e)
 			return []
 		}
+	}
+
+	async startWatch(callback: (projectFiles: string[]) => Promise<void>) {
+		this.stopWatch()
+
+		for (const projectFolder of this.state.projectFolders) {
+			const unwatch = await watch(
+				projectFolder.path,
+				async (e) => {
+					const projectFiles = e.paths.filter((p) => p.endsWith(".sqlite3"))
+					if (projectFiles.length === 0) return
+					console.log(projectFiles, e.attrs, e.type)
+					await callback(projectFiles)
+				},
+				{ delayMs: 2000, recursive: projectFolder.recursive },
+			)
+			this.watchDisposers.push(unwatch)
+		}
+	}
+
+	stopWatch() {
+		this.watchDisposers.forEach((u) => {
+			u()
+		})
 	}
 }
 

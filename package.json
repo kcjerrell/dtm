@@ -46,6 +46,7 @@
     "react-icons": "^5.5.0",
     "react-window": "^2.2.2",
     "tauri-plugin-clipboard-api": "^2.1.11",
+    "tauri-plugin-fs-watch-api": "https://github.com/tauri-apps/tauri-plugin-fs-watch#v1",
     "tauri-plugin-nspopover": "git+https://github.com/freethinkel/tauri-nspopover-plugin",
     "valtio": "^2.1.7"
   },

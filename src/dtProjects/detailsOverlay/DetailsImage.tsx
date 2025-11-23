@@ -1,159 +1,180 @@
-import { contain } from '@/components/preview'
-import { Box } from '@chakra-ui/react'
-import { motion, useAnimate, useMotionValue, ValueAnimationTransition } from 'motion/react'
-import { useCallback, useEffect, useRef } from 'react'
+import { Box } from "@chakra-ui/react"
+import {
+	motion,
+	type TargetAndTransition,
+	useAnimate
+} from "motion/react"
+import { useCallback, useRef } from "react"
+import { useDTProjects } from "../state/projectStore"
 
-const posTransition: ValueAnimationTransition<number> = {
-	duration: 0.3,
-	ease: "circOut",
-}
+const transition = { duration: 0.25, ease: "easeInOut" }
 
 interface DetailsImageProps extends ChakraProps {
-  src: string
-  showPreview: boolean
-  sourceElement: HTMLImageElement
+	src?: string
+	srcHalf?: string
 }
 
+type LRect = { left: number; top: number; width: number; height: number }
+
 function DetailsImage(props: DetailsImageProps) {
-	const { src, showPreview, sourceElement, ...restProps } = props
+	const { src, srcHalf } = props
 
-	// const snap = useSnapshot(store)
+	const { store: dtp, snap: dtpSnap } = useDTProjects()
 
-	const leftMv = useMotionValue(0)
-	const topMv = useMotionValue(0)
-	const widthMv = useMotionValue<number>(0)
-	const heightMv = useMotionValue<number>(0)
+	const imgContainerRef = useRef<HTMLDivElement>(null)
+	const [scope, anim] = useAnimate()
 
-	const [scope, animate] = useAnimate()
+	const imgOrigin = useRef<LRect | null>(null)
+	const imgTarget = useRef<LRect | null>(null)
+	const resized = useRef(false)
 
-	const transRef = useRef<HTMLImageElement>(null)
-	const finalRef = useRef<HTMLImageElement>(null)
+	const getImageAnimOpen = useCallback(() => {
+		if (dtp.state.detailsOverlay.sourceRect && imgContainerRef.current) {
+			const imgContainerRect = imgContainerRef.current.getBoundingClientRect()
+			const posA = offsetRect(dtp.state.detailsOverlay.sourceRect, imgContainerRect)
+			imgOrigin.current = posA
 
-	// const keyHandler = useCallback((e: KeyboardEvent) => {
-	// 	if (e.key === "Escape" || e.key === " ") {
-	// 		e.stopImmediatePropagation()
-	// 		hidePreview()
-	// 	}
-	// 	if (e.key === "Tab") {
-	// 		e.stopImmediatePropagation()
-	// 		e.preventDefault()
-	// 	}
-	// }, [])
+			const naturalSize = {
+				width: dtp.state.detailsOverlay.width,
+				height: dtp.state.detailsOverlay.height,
+			}
+			const posB = offsetRect(
+				contain(naturalSize, imgContainerRef.current.getBoundingClientRect()),
+				imgContainerRef.current.getBoundingClientRect(),
+			)
+			imgTarget.current = posB
 
-	useEffect(() => {
-		if (!sourceElement || !transRef.current || !finalRef.current) return
+			return {
+				top: [posA.top, posB.top],
+				left: [posA.left, posB.left],
+				width: [posA.width, posB.width],
+				height: [posA.height, posB.height],
+				borderRadius: ["1px", "4px"],
+				transition: {
+					times: [0, 1],
+					duration: transition.duration,
+					ease: "easeOut",
+				},
+			} as TargetAndTransition
+		}
+		return {}
+	}, [dtp.state.detailsOverlay])
 
-		// if (show) {
-		// 	document.addEventListener("keydown", keyHandler, { capture: true })
-		// }
+	const getImageAnimClose = useCallback(() => {
+		const box = resized.current
+			? {
+					top: undefined, // [imgTarget.current?.top, null],
+					left: undefined, // [imgTarget.current?.left, null],
+					width: undefined, // [imgTarget.current?.width, null],
+					height: undefined, // [imgTarget.current?.height, null],
+					scale: [1, 0.5],
+					opacity: [1, 0],
+				}
+			: {
+					top: [null, imgOrigin.current?.top],
+					left: [null, imgOrigin.current?.left],
+					width: [null, imgOrigin.current?.width],
+					height: [null, imgOrigin.current?.height],
+				}
 
-		const originalRect = sourceElement.getBoundingClientRect()
-		const previewRect = contain(
-			sourceElement.naturalWidth,
-			sourceElement.naturalHeight,
-			window.innerWidth,
-			window.innerHeight,
-		)
+		return {
+			...box,
+			borderRadius: ["4px", "1px"],
+			transition: {
+				times: [0, 1],
+				duration: transition.duration,
+				ease: "easeOut",
+			},
+		} as TargetAndTransition
+	}, [])
 
-		const sourceRect = showPreview ? originalRect : previewRect
-		const targetRect = showPreview ? previewRect : originalRect
-
-		const { left, top, width, height } = sourceRect
-
-		leftMv.set(left)
-		widthMv.set(width)
-		topMv.set(top)
-		heightMv.set(height)
-
-		animate(leftMv, targetRect.left, posTransition)
-		animate(topMv, targetRect.top, posTransition)
-		animate(widthMv, targetRect.width, posTransition)
-		animate(heightMv, targetRect.height, posTransition)
-
-		animate(
-			transRef.current,
-			{ visibility: ["hidden", "visible", "visible", "hidden"] },
-			{ duration: posTransition.duration, times: [0, 0, 1, 1] },
-		)
-
-		animate(
-			finalRef.current,
-			{ visibility: ["hidden", "hidden", showPreview ? "visible" : "hidden"] },
-			{ duration: posTransition.duration, times: [0, 1, 1] },
-		)
-
-		animate(
-			sourceElement,
-			{ visibility: ["hidden", "hidden", showPreview ? "hidden" : "visible"] },
-			{ duration: posTransition.duration, times: [0, 1, 1] },
-		)
-
-		// return () => {
-		// 	document.removeEventListener("keydown", keyHandler, { capture: true })
-		// }
-	}, [animate, heightMv, leftMv, widthMv, topMv, showPreview, sourceElement])
+	const attachResizeObserver = useCallback(
+		(elem: HTMLElement) => {
+			let firstResize = true
+			resized.current = false
+			const ro = new ResizeObserver((entries) => {
+				for (const entry of entries) {
+					if (entry.target === elem) {
+						if (firstResize) {
+							firstResize = false
+							continue
+						}
+						resized.current = true
+						const imgContainerRect = elem.getBoundingClientRect()
+						const naturalSize = {
+							width: dtp.state.detailsOverlay.width,
+							height: dtp.state.detailsOverlay.height,
+						}
+						const pos = offsetRect(contain(naturalSize, imgContainerRect), imgContainerRect)
+						anim(
+							scope.current,
+							{ top: pos.top, left: pos.left, width: pos.width, height: pos.height },
+							{ duration: 0 },
+						)
+					}
+				}
+			})
+			ro.observe(elem)
+			return ro
+		},
+		[anim, dtp.state.detailsOverlay, scope],
+	)
 
 	return (
 		<Box
-			ref={scope}
-			width={"100vw"}
-			height={"100vh"}
-			overflow={"clip"}
-			position={"absolute"}
-			zIndex={20}
-			bgColor={"black/90"}
-			// onClick={() => hidePreview()}
-			pointerEvents={showPreview ? "all" : "none"}
-			{...restProps}
-			asChild
+			width={"100%"}
+			minHeight={0}
+			flex={"1 1 auto"}
+			ref={(elem: HTMLDivElement | null) => {
+				imgContainerRef.current = elem
+				if (elem) {
+					const ro = attachResizeObserver(elem)
+					return () => ro.disconnect()
+				}
+			}}
+			position={"relative"}
 		>
-			<motion.div
-				initial={{
-					opacity: 0,
-					backgroundColor: "#00000000",
+			<motion.img
+				ref={scope}
+				src={src}
+				style={{
+					// backgroundColor: "#ff000077",
+					background: `url(${srcHalf})`,
+					backgroundSize: "cover",
+					backgroundPosition: "center",
+					backgroundRepeat: "no-repeat",
+					position: "absolute",
+					zIndex: 20,
 				}}
-				animate={{
-					backgroundColor: showPreview ? "#000000dd" : "#00000000",
-					opacity: showPreview ? 1 : 0,
+				variants={{
+					open: () => getImageAnimOpen(),
+					closed: () => getImageAnimClose(),
 				}}
-				transition={{
-					...posTransition,
-					duration: showPreview ? (posTransition.duration ?? 0) * 1.5 : posTransition.duration,
-					opacity: {
-						duration: 0,
-						delay: showPreview ? 0 : posTransition.duration,
-					},
-				}}
-			>
-				<motion.img
-					ref={transRef}
-					style={{
-						position: "absolute",
-						objectFit: "contain",
-						left: leftMv,
-						top: topMv,
-						width: widthMv,
-						height: heightMv,
-					}}
-					src={src ?? undefined}
-					transition={posTransition}
-				/>
-				<motion.img
-					ref={finalRef}
-					style={{
-						position: "absolute",
-						objectFit: "contain",
-						left: 0,
-						top: 0,
-						width: "100%",
-						height: "100%",
-					}}
-					src={src ?? undefined}
-					transition={posTransition}
-				/>
-			</motion.div>
+				initial={"closed"}
+				animate={"open"}
+				exit={"closed"}
+			/>
 		</Box>
 	)
 }
 
 export default DetailsImage
+
+function offsetRect(rect: DOMRectReadOnly, offset: DOMRectReadOnly) {
+	return {
+		top: rect.top - offset.top,
+		left: rect.left - offset.left,
+		width: rect.width,
+		height: rect.height,
+	}
+}
+
+function contain(object: { width: number; height: number }, container: DOMRectReadOnly) {
+	const scale = Math.min(container.width / object.width, container.height / object.height)
+	return new DOMRectReadOnly(
+		container.left + (container.width - object.width * scale) / 2,
+		container.top + (container.height - object.height * scale) / 2,
+		object.width * scale,
+		object.height * scale,
+	)
+}

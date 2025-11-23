@@ -91,9 +91,8 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard::init())
         .plugin(tauri_plugin_valtio::Builder::new().build())
-        // .plugin(tauri_plugin_nspopover::init())
+        .plugin(tauri_plugin_nspopover::init())
         .invoke_handler(tauri::generate_handler![
             read_clipboard_types,
             read_clipboard_binary,
@@ -103,27 +102,23 @@ pub fn run() {
             // get_tensor_history,
             // get_tensor,
             // get_thumb_half,
-
             projects_db_project_list,
             projects_db_project_add,
             projects_db_project_remove,
             projects_db_project_scan,
             projects_db_project_scan_all, // #unused
             projects_db_project_update_exclude,
-
             projects_db_image_count, // #unused
             projects_db_image_list,
             projects_db_image_rebuild_fts,
-
             projects_db_watch_folder_list,
             projects_db_watch_folder_add,
             projects_db_watch_folder_remove,
             projects_db_watch_folder_update,
             projects_db_scan_model_info,
-
             dt_project_get_tensor_history, // #unused
-            dt_project_get_thumb_half, // #unused
-            dt_project_get_history_full, 
+            dt_project_get_thumb_half,     // #unused
+            dt_project_get_history_full,
             dt_project_get_tensor, // #unused
             dt_project_find_predecessor_candidates,
             dt_project_get_tensor_raw, // #unused

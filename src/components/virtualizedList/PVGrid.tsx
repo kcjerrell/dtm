@@ -213,9 +213,10 @@ function PVList<T, P = unknown>(props: PVGridProps<T, P>) {
 const Container = chakra("div", {
 	base: {
 		overflowY: "auto",
-		overflowX: "clip",
+		overflowX: "visible",
 		scrollBehavior: "smooth",
 		overscrollBehavior: "contain",
+		maxHeight: "100%",
 	},
 })
 

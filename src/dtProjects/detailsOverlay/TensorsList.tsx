@@ -5,10 +5,11 @@ import ColorPaletteImage from "@/components/ColorPalette"
 import PoseImage from "@/components/Pose"
 import { Box, chakra, Color, HStack, Spacer, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
+import { ComponentProps } from "react"
 
 const _thumbnailSize = "4rem"
 
-interface TensorsListComponentProps extends ChakraProps {
+interface TensorsListComponentProps extends ComponentProps<typeof Container> {
 	item?: ImageExtra
 	details?: TensorHistoryExtra
 	candidates?: TensorHistoryExtra[]
@@ -40,7 +41,7 @@ function TensorsList(props: TensorsListComponentProps) {
 	const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
 
 	return (
-		<HStack padding={0} height={"6rem"} {...restProps}>
+		<Container {...restProps}>
 			{Object.entries(tensors).map(([label, id]) => {
 				if (!id) return null
 				// if (label === "Pose")
@@ -104,9 +105,22 @@ function TensorsList(props: TensorsListComponentProps) {
 					</Images>
 				</Group>
 			)}
-		</HStack>
+		</Container>
 	)
 }
+
+const Container = chakra(
+	motion.div,
+	{
+		base: {
+			display: "flex",
+			flexDirection: "row",
+			padding: 0,
+			height: "6rem",
+		},
+	},
+	{ forwardProps: ["transition"] },
+)
 
 const Group = chakra(
 	motion.div,

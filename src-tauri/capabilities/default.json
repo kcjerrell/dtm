@@ -7,8 +7,6 @@
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-image",
     "clipboard-manager:allow-write-text",
-    "clipboard:read-all",
-    "clipboard:write-all",
     "core:default",
     "core:event:default",
     "core:tray:allow-new",
@@ -31,6 +29,8 @@
     "fs:allow-write-text-file",
     "fs:allow-read",
     "fs:allow-home-read-recursive",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
     {
       "identifier": "fs:allow-exists",
       "allow": [

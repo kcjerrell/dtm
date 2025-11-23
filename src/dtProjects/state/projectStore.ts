@@ -15,18 +15,23 @@ import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders
 export type DTProjectsStateType = {
 	projects: ProjectState[]
 	watchFolders: WatchFolderServiceState
+
 	imageSource: ImagesSource | null
 	items: ImageExtra[]
 	itemDetails: Record<number, TensorHistoryExtra>
+
 	scanProgress: number
 	scanningProject: string
 	totalThisRun: number
 	selectedProject: ProjectExtra | null
-	expandedItems: Record<number, boolean>
+
 	searchInput: string
+
 	itemSize: number
+
 	detailsOverlay: {
 		item: ImageExtra | null
+		subItem: string | null
 		lastItem: ImageExtra | null
 		candidates: TensorHistoryExtra[]
 		sourceRect: DOMRect | null
@@ -45,13 +50,12 @@ const state = proxy({
 	scanningProject: "",
 	totalThisRun: 0,
 	selectedProject: null as ProjectExtra | null,
-	expandedItems: {} as Record<number, boolean>,
 	searchInput: "",
 	itemSize: 200,
 	detailsOverlay: {
 		item: null as ImageExtra | null,
+		subItem: null as string | null,
 		lastItem: null as ImageExtra | null,
-		// sourceElement: ref(null as unknown as HTMLImageElement),
 		candidates: [] as TensorHistoryExtra[],
 		sourceRect: null as DOMRect | null,
 		width: 0,
@@ -65,6 +69,7 @@ export interface IDTProjectsStore {
 	watchFolders: WatchFolderService
 	scanner: ScannerService
 }
+
 class DTProjectsStore implements IDTProjectsStore {
 	state: DTProjectsStateType
 	projects: ProjectsService
@@ -100,6 +105,39 @@ class DTProjectsStore implements IDTProjectsStore {
 
 	setItemSize(size: number) {
 		this.state.itemSize = size
+	}
+
+	showDetailsOverlay(item: ImageExtra, sourceElement: HTMLImageElement) {
+		const detailsOverlay = this.state.detailsOverlay
+		detailsOverlay.item = item
+		detailsOverlay.lastItem = item
+
+		detailsOverlay.sourceRect = toJSON(sourceElement.getBoundingClientRect())
+		detailsOverlay.width = sourceElement.naturalWidth
+		detailsOverlay.height = sourceElement.naturalHeight
+
+		this.loadDetails(item)
+	}
+
+	hideDetailsOverlay() {
+		const detailsOverlay = this.state.detailsOverlay
+		detailsOverlay.item = null
+		detailsOverlay.candidates = []
+	}
+
+	async loadDetails(item: ImageExtra) {
+		// await new Promise((res) => setTimeout(res, 500))
+		const project = this.state.projects.find((p) => p.id === item.project_id)
+		if (!project) return
+		const history = await dtProject.getHistoryFull(project.path, item.node_id)
+
+		this.state.itemDetails[item.node_id] = history
+		this.state.detailsOverlay.candidates = await dtProject.getPredecessorCandidates(
+			project.path,
+			history.row_id,
+			history.lineage,
+			history.logical_time,
+		)
 	}
 }
 
@@ -164,43 +202,10 @@ export async function setImagesSource(source: ImagesSource) {
 	state.imageSource = source
 }
 
-export function showDetailsOverlay(item: ImageExtra, sourceElement: HTMLImageElement) {
-	state.detailsOverlay.item = item
-	state.detailsOverlay.lastItem = item
-
-	state.detailsOverlay.sourceRect = toJSON(sourceElement.getBoundingClientRect())
-	state.detailsOverlay.width = sourceElement.naturalWidth
-	state.detailsOverlay.height = sourceElement.naturalHeight
-
-	loadDetails(item)
-}
-
-export function hideDetailsOverlay() {
-	state.detailsOverlay.item = null
-	state.detailsOverlay.candidates = []
-}
-
-async function loadDetails(item: ImageExtra) {
-	// await new Promise((res) => setTimeout(res, 500))
-	const project = state.projects.find((p) => p.id === item.project_id)
-	if (!project) return
-	const history = await dtProject.getHistoryFull(project.path, item.node_id)
-
-	state.itemDetails[item.node_id] = history
-	state.detailsOverlay.candidates = await dtProject.getPredecessorCandidates(
-		project.path,
-		history.row_id,
-		history.lineage,
-		history.logical_time,
-	)
-}
-
 export const DTProjects = {
 	store,
 	state,
 	setImagesSource,
-	showDetailsOverlay,
-	hideDetailsOverlay,
 }
 
 export function useDTProjects() {
@@ -219,21 +224,6 @@ export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | 
 	if (imagesSource.search) opts.promptSearch = imagesSource.search
 
 	return opts
-}
-
-export async function selectItem(item: ImageExtra) {
-	if (state.expandedItems[item.node_id]) {
-		delete state.expandedItems[item.node_id]
-		return
-	}
-
-	state.expandedItems[item.node_id] = true
-
-	const project = state.projects.find((p) => p.id === item.project_id)
-	if (!project) return
-	const history = await dtProject.getHistoryFull(project.path, item.node_id)
-
-	state.itemDetails[item.node_id] = history
 }
 
 export default DTProjects

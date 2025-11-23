@@ -120,6 +120,7 @@ export const PanelListScrollContent = chakra("div", {
 		flexDirection: "column",
 		justifyContent: "flex-start",
 		alignItems: "stretch",
+		gap: 0.5
 	},
 })
 

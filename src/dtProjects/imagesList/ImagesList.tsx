@@ -5,13 +5,13 @@ import { Panel } from "@/components"
 import PVGrid from "@/components/virtualizedList/PVGrid"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
 import { getRequestOpts, useDTProjects } from "../state/projectStore"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 
 interface ImagesList extends ChakraProps {}
 
 function ImagesList(props: ImagesList) {
 	const { ...rest } = props
-	const { snap, state, showDetailsOverlay } = useDTProjects()
+	const { snap, state, store: dtp } = useDTProjects()
 	const [totalCount, setTotalCount] = useState(0)
 
 	useEffect(() => {
@@ -23,13 +23,13 @@ function ImagesList(props: ImagesList) {
 	}, [state.imageSource])
 
 	const getItems = useCallback(
-		async (skip, take) => {
+		async (skip: number, take: number) => {
 			if (!state.imageSource) return []
-			const opts = getRequestOpts(snap.imageSource)
+			const opts = getRequestOpts(state.imageSource)
 			const res = await pdb.listImages({ ...opts, take, skip })
 			return res.items
 		},
-		[snap.imageSource, state.imageSource],
+		[state.imageSource],
 	)
 
 	return (
@@ -37,7 +37,7 @@ function ImagesList(props: ImagesList) {
 			position="relative"
 			margin={2}
 			p={0.5}
-			overflow={"clip"}
+			// overflow={"clip"}
 			flex={"1 1 auto"}
 			bgColor={"bg.2"}
 			{...rest}
@@ -48,7 +48,7 @@ function ImagesList(props: ImagesList) {
 				maxItemSize={snap.itemSize}
 				itemProps={{
 					snap,
-					showDetailsOverlay,
+					showDetailsOverlay: (item, elem) => dtp.showDetailsOverlay(item, elem),
 				}}
 				pageSize={250}
 				totalCount={totalCount}
@@ -75,38 +75,39 @@ function GridItem(props) {
 
 	return (
 		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(item, imgRef.current)}>
-			{!isPreviewing && (
-				<motion.img
-					// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
-					ref={(e) => {
-						imgRef.current = e
-						// if (e) e.addEventListener("load", () => setIsLoaded(true))
-					}}
-					style={{
-						width: "100%",
-						height: "100%",
-						objectFit: "cover",
-						border: "1px solid #0000ff00",
-					}}
-					src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
-					alt={item.prompt}
-					// initial={{ opacity: 0 }}
-					// animate={{
-					// opacity: isLoaded ? 1 : 0,
-					// }}
-					// transition={{
-					// duration: 0.1,
-					// }}
-					// onClick={(e) => {
-					// 	if (expanded) e.stopPropagation()
-					// 	if (details?.tensor_id)
-					// 		showPreview(
-					// 			e.currentTarget,
-					// 			`dtm://dtproject/tensor/${item.project_id}/${details.tensor_id}`,
-					// 		)
-					// }}
-				/>
-			)}
+				{!isPreviewing && (
+					<motion.img
+						// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
+						ref={(e) => {
+							imgRef.current = e
+							// if (e) e.addEventListener("load", () => setIsLoaded(true))
+						}}
+						style={{
+							width: "100%",
+							height: "100%",
+							objectFit: "cover",
+							border: "1px solid #0000ff00",
+						}}
+						src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
+						alt={item.prompt}
+						transition={{ duration: 2 }}
+						// initial={{ opacity: 0 }}
+						// animate={{
+						// opacity: isLoaded ? 1 : 0,
+						// }}
+						// transition={{
+						// duration: 0.1,
+						// }}
+						// onClick={(e) => {
+						// 	if (expanded) e.stopPropagation()
+						// 	if (details?.tensor_id)
+						// 		showPreview(
+						// 			e.currentTarget,
+						// 			`dtm://dtproject/tensor/${item.project_id}/${details.tensor_id}`,
+						// 		)
+						// }}
+					/>
+				)}
 		</Box>
 	)
 }
