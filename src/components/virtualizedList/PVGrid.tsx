@@ -1,11 +1,8 @@
-import { Box, chakra, Grid, VStack } from "@chakra-ui/react"
-import { type JSX, useCallback, useEffect, useRef } from "react"
-import { createPortal } from "react-dom"
+import { Box, chakra, Grid } from "@chakra-ui/react"
+import { useCallback, useEffect, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
-import { proxyMap } from "valtio/utils"
-import { Mutex } from "async-mutex"
+import type { proxyMap } from "valtio/utils"
 import { usePagedItemSource } from "./PagedItemSource"
-import { motion } from "motion/react"
 
 export interface PVGridProps<T, P = unknown> extends ChakraProps {
 	itemComponent: PVGridItemComponent<T, P>
@@ -166,7 +163,7 @@ function PVList<T, P = unknown>(props: PVGridProps<T, P>) {
 			{...restProps}
 		>
 			<Grid
-				gap={0.5}
+				gap={0}
 				ref={scrollContentRef}
 				gridTemplateColumns={`repeat(${snap.columns}, 1fr)`}
 				gridTemplateRows={`repeat(${Math.ceil(totalCount / snap.columns)}, ${snap.rowHeight}px)`}
@@ -217,6 +214,8 @@ const Container = chakra("div", {
 	base: {
 		overflowY: "auto",
 		overflowX: "clip",
+		scrollBehavior: "smooth",
+		overscrollBehavior: "contain",
 	},
 })
 

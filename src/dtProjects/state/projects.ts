@@ -20,7 +20,6 @@ class ProjectsService {
 
 	async loadProjects() {
 		const projects = await pdb.listProjects()
-
 		this.#state.projects = projects
 			.map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
 			.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
@@ -44,11 +43,8 @@ class ProjectsService {
 		const toUpdate = arrayIfOnly(projects)
 		for (const project of toUpdate) {
 			await pdb.updateExclude(project.id, exclude)
-			const idx = this.#state.projects.findIndex((p) => p.id === project.id)
-			if (idx !== -1) {
-				this.#state.projects[idx].excluded = exclude
-			}
 		}
+		await this.#dtp.scanner.syncProjects()
 	}
 }
 

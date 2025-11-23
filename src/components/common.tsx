@@ -86,8 +86,7 @@ export const PaneListContainer = chakra("div", {
 		alignItems: "stretch",
 		flexDirection: "column",
 		overscrollBehavior: "contain",
-		overflowY: "clip",
-		overflowX: "clip",
+		overflowY: "clip"
 	},
 })
 
@@ -105,8 +104,8 @@ export const PaneListScrollContainer = chakra(
 			alignItems: "stretch",
 			flexDirection: "column",
 			overscrollBehavior: "contain",
+			scrollBehavior: "smooth",
 			overflowY: "auto",
-			overflowX: "clip",
 		},
 	},
 	{ defaultProps: { className: "hide-scrollbar" } },
@@ -115,13 +114,12 @@ export const PaneListScrollContainer = chakra(
 export const PanelListScrollContent = chakra("div", {
 	base: {
 		height: "auto",
-		overflowY: "auto",
-		overflowX: "clip",
+		// overflowY: "hidden",
+		// overflowX: "clip",
 		display: "flex",
 		flexDirection: "column",
 		justifyContent: "flex-start",
 		alignItems: "stretch",
-		overscrollBehavior: "contain",
 	},
 })
 

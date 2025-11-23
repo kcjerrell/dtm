@@ -14,6 +14,8 @@ type SelectableContextType<T extends Selectable = Selectable> = {
 	mode: "single" | "multipleToggle" | "multipleModifier"
 	onSelectionChanged?: (selectedItems: T[]) => void
 	keyFn: (item: T | Snapshot<T>) => string | number
+	lastSelectedItem: React.RefObject<T | null>
+	itemsSnap: Snapshot<T[]>
 }
 const SelectableContext = createContext<SelectableContextType | null>(null)
 
@@ -27,26 +29,47 @@ function selectItem<T extends Selectable>(
 	state: SelectableContextType<T>,
 	// key: string | number,
 	item: T,
-	modifier: boolean,
+	modifier?: "shift" | "cmd" | null,
 	value?: boolean,
 ) {
 	const items = state.getItems()
 	const itemState = items?.find((it) => state.keyFn(it) === state.keyFn(item))
 	if (!itemState) return
 
-	// in single select we can clear all regardless of value
+	// single select mode
 	if (state.mode === "single") {
 		const newValue = value ?? !itemState.selected
 		clearAllSelected(state)
 		if (newValue) itemState.setSelected(newValue)
 	}
-	// in modifier mode, and no modifier, then clear all selections
-	// if value is undefined, it should be true unless it's the only selected item
+	// multiple toggle mode
+	else if (state.mode === "multipleToggle") {
+		const newValue = value ?? !itemState.selected
+		itemState.setSelected(newValue)
+	}
+	// multiple modifier mode
 	else if (state.mode === "multipleModifier") {
-		if (modifier) {
-			// if modifier held, undefined value is a toggle
+		// cmd updates target item only, leaving other selections unchanged
+		if (modifier === "cmd") {
 			const newValue = value ?? !itemState.selected
 			itemState.setSelected(newValue)
+			if (newValue) state.lastSelectedItem.current = itemState
+		} else if (modifier === "shift" && state.lastSelectedItem.current) {
+			// this doesn't align with how shift works in Finder
+			// shift SELECTS all items between the last selected and target item
+			// and updates the last selected item to the target item
+			// we need to be careful about state vs snap here
+			const itemsSnap = state.itemsSnap
+			const lastItem = state.lastSelectedItem.current
+			const start = itemsSnap.findIndex(it => state.keyFn(it) === state.keyFn(lastItem))
+			const end = itemsSnap.findIndex(it => state.keyFn(it) === state.keyFn(item))
+			if (start === -1 || end === -1) return
+			for (let i = Math.min(start, end); i <= Math.max(start, end); i++) {
+				const itemSnap = itemsSnap[i]
+				const it = items.find(i => state.keyFn(i) === state.keyFn(itemSnap))
+				if (it) it.setSelected(true)
+			}
+			state.lastSelectedItem.current = itemState
 		} else {
 			// if modifier not held, undefined selects - unless it's the only selected value
 			const areOthersSelected = items.some(
@@ -54,13 +77,14 @@ function selectItem<T extends Selectable>(
 			)
 			const newValue = value ?? (!itemState.selected || areOthersSelected)
 			clearAllSelected(state)
-			if (newValue) itemState.setSelected(newValue)
+			if (newValue) {
+				itemState.setSelected(newValue)
+				state.lastSelectedItem.current = itemState
+			}
+			else {
+				state.lastSelectedItem.current = null
+			}
 		}
-	}
-	// multipleToggle is straightforward
-	else if (state.mode === "multipleToggle") {
-		const newValue = value ?? !itemState.selected
-		itemState.setSelected(newValue)
 	}
 
 	if (state.onSelectionChanged) {
@@ -93,11 +117,15 @@ export function useSelectableGroup<T extends Selectable>(
 		onSelectionChangedRef.current = onSelectionChanged
 	}
 
+	const lastSelectedItem = useRef<T | null>(null)
+
 	const cv = {
 		getItems: getItemsState,
+		itemsSnap,
 		mode,
 		keyFn,
 		onSelectionChanged,
+		lastSelectedItem,
 	}
 
 	const Context = SelectableContext as Context<SelectableContextType<T> | null>
@@ -119,7 +147,7 @@ export function useSelectable<T extends Selectable>(item: T) {
 	const handlers = useMemo(
 		() => ({
 			onClick(e: React.MouseEvent) {
-				const modifier = e.metaKey || e.ctrlKey || e.altKey
+				const modifier = getModifier(e)
 				selectItem(context, item, modifier)
 			},
 		}),
@@ -153,4 +181,10 @@ export function makeSelectable<T extends object>(item: T, initialValue = false):
 	})
 
 	return p
+}
+
+function getModifier(e: React.MouseEvent) {
+	if (e.shiftKey) return "shift"
+	if (e.metaKey) return "cmd"
+	return null
 }

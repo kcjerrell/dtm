@@ -1,11 +1,12 @@
 import { HStack, VStack } from "@chakra-ui/react"
-import { useEffect, useRef, type ComponentType } from "react"
+import { motion, useSpring } from "motion/react"
+import { type ComponentType, useEffect, useRef } from "react"
 import type { IconType } from "react-icons/lib"
 import { PiInfo } from "react-icons/pi"
 import type { Snapshot } from "valtio"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
-import { PaneListScrollContainer } from "./common"
+import { PaneListScrollContainer, PanelListScrollContent } from "./common"
 
 interface PanelListComponentProps<T> extends ChakraProps {
 	emptyListText?: string | boolean
@@ -56,6 +57,11 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 	})
 
 	const clearSelectionRef = useRef(clearSelection)
+	const wrapperRef = useRef<HTMLDivElement>(null)
+	const contentRef = useRef<HTMLDivElement>(null)
+
+	const scrollY = useRef(0)
+	const scrollYMv = useSpring(0, { mass: 1, stiffness: 170, damping: 26 })
 
 	useEffect(() => {
 		if (clearSelection) {
@@ -78,7 +84,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 				: "(No items)"
 
 	return (
-		<VStack {...boxProps} alignItems={"stretch"} gap={0}>
+		<VStack overflowY={"clip"} overflowX={"clip"} {...boxProps} alignItems={"stretch"} gap={0}>
 			{header && (
 				<PanelSectionHeader margin={0}>
 					{header}
@@ -90,8 +96,21 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 				</PanelSectionHeader>
 			)}
 			<PaneListContainer>
-				<PaneListScrollContainer>
-					<SelectableGroup>{children}</SelectableGroup>
+				<PaneListScrollContainer
+					ref={wrapperRef}
+					overflowY="clip"
+					onWheel={(e) => {
+						if (!wrapperRef.current || !contentRef.current) return
+						const max = contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
+						scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
+						scrollYMv.set(-scrollY.current)
+					}}
+				>
+					<PanelListScrollContent ref={contentRef} asChild>
+						<motion.div style={{ y: scrollYMv }}>
+							<SelectableGroup>{children}</SelectableGroup>
+						</motion.div>
+					</PanelListScrollContent>
 				</PaneListScrollContainer>
 
 				{!emptyListText && areItemsSelected && (

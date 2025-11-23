@@ -82,15 +82,20 @@ function GridItem(props) {
 						imgRef.current = e
 						// if (e) e.addEventListener("load", () => setIsLoaded(true))
 					}}
-					style={{ width: "100%", height: "100%", objectFit: "cover" }}
+					style={{
+						width: "100%",
+						height: "100%",
+						objectFit: "cover",
+						border: "1px solid #0000ff00",
+					}}
 					src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
 					alt={item.prompt}
 					// initial={{ opacity: 0 }}
 					// animate={{
-						// opacity: isLoaded ? 1 : 0,
+					// opacity: isLoaded ? 1 : 0,
 					// }}
 					// transition={{
-						// duration: 0.1,
+					// duration: 0.1,
 					// }}
 					// onClick={(e) => {
 					// 	if (expanded) e.stopPropagation()

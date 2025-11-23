@@ -199,3 +199,50 @@ fn get_scale(query: Option<&str>) -> Option<&str> {
         None => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_classify_type() {
+        assert_eq!(classify_type("pose_123"), Some("pose"));
+        assert_eq!(classify_type("tensor_history_abc"), Some("tensor_history"));
+        assert_eq!(classify_type("unknown"), None);
+    }
+
+    #[test]
+    fn test_get_node() {
+        assert_eq!(get_node(Some("node=123&foo=bar")), Some("123"));
+        assert_eq!(get_node(Some("foo=bar&node=456")), Some("456"));
+        assert_eq!(get_node(Some("foo=bar")), None);
+        assert_eq!(get_node(None), None);
+    }
+
+    #[test]
+    fn test_get_scale() {
+        assert_eq!(get_scale(Some("s=2&foo=bar")), Some("2"));
+        assert_eq!(get_scale(Some("foo=bar&s=4")), Some("4"));
+        assert_eq!(get_scale(Some("foo=bar")), None);
+        assert_eq!(get_scale(None), None);
+    }
+
+    #[test]
+    fn test_extract_jpeg_slice() {
+        let data = vec![
+            0x00, 0x00, // Garbage
+            0xFF, 0xD8, // SOI
+            0x01, 0x02, // Content
+            0xFF, 0xD9, // EOI
+            0x00, 0x00  // Garbage
+        ];
+        let extracted = extract_jpeg_slice(&data).unwrap();
+        assert_eq!(extracted, vec![0xFF, 0xD8, 0x01, 0x02, 0xFF, 0xD9]);
+
+        let no_soi = vec![0x01, 0x02, 0xFF, 0xD9];
+        assert!(extract_jpeg_slice(&no_soi).is_none());
+
+        let no_eoi = vec![0xFF, 0xD8, 0x01, 0x02];
+        assert!(extract_jpeg_slice(&no_eoi).is_none());
+    }
+}

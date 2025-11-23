@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 
 use entity::{
-    images::{self, Sampler}, models::ModelType, projects
+    images::{self, Sampler},
+    models::ModelType,
+    projects,
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
@@ -174,6 +176,11 @@ impl ProjectsDb {
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
         let project = self.add_project(path).await?;
+        
+        if project.excluded {
+            return Ok(0);
+        }
+
         let start = match full_scan {
             true => 0,
             false => project.last_id.or(Some(-1)).unwrap(),
@@ -534,8 +541,14 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn update_watch_folder(&self, id: i32, recursive: bool) -> Result<entity::watch_folders::Model, DbErr> {
-        let folder = entity::watch_folders::Entity::find_by_id(id).one(&self.db).await?;
+    pub async fn update_watch_folder(
+        &self,
+        id: i32,
+        recursive: bool,
+    ) -> Result<entity::watch_folders::Model, DbErr> {
+        let folder = entity::watch_folders::Entity::find_by_id(id)
+            .one(&self.db)
+            .await?;
         let mut folder: entity::watch_folders::ActiveModel = folder.unwrap().into();
         folder.recursive = Set(recursive);
 
@@ -553,9 +566,12 @@ impl ProjectsDb {
 
         let mut project: projects::ActiveModel = project.into();
         project.excluded = Set(exclude);
+        project.modified = Set(None);
+        project.filesize = Set(None);
         project.update(&self.db).await?;
 
         if exclude {
+            println!("Excluding project {}", project_id);
             // Remove all images associated with this project
             // Cascade delete will handle image_controls and image_loras
             images::Entity::delete_many()
@@ -626,7 +642,11 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn scan_model_info(&self, path: &str, model_type: ModelType) -> Result<(), MixedError> {
+    pub async fn scan_model_info(
+        &self,
+        path: &str,
+        model_type: ModelType,
+    ) -> Result<(), MixedError> {
         #[derive(Deserialize)]
         struct ModelInfoImport {
             file: String,
@@ -636,7 +656,8 @@ impl ProjectsDb {
 
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
-        let models: Vec<ModelInfoImport> = serde_json::from_reader(reader).map_err(|e| e.to_string())?;
+        let models: Vec<ModelInfoImport> =
+            serde_json::from_reader(reader).map_err(|e| e.to_string())?;
 
         let models: Vec<ModelInfo> = models
             .into_iter()
@@ -674,6 +695,7 @@ pub struct ProjectExtra {
     pub last_id: Option<i64>,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
+    pub excluded: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -770,5 +792,5 @@ pub struct ModelInfo {
     pub file: String,
     pub name: String,
     pub version: String,
-    pub model_type: ModelType
+    pub model_type: ModelType,
 }

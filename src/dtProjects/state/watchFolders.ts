@@ -126,7 +126,7 @@ class WatchFolderService {
 		}
 	}
 
-	async listProjects(folder: WatchFolderState) {
+	async listProjects(folder: WatchFolderState): Promise<string[]> {
 		if (folder.item_type !== "Projects") return []
 
 		try {
@@ -135,20 +135,7 @@ class WatchFolderService {
 				return []
 			}
 			folder.isMissing = false
-
-			const dirFiles = await readDir(folder.path)
-			const projects = [] as ListProjectsResult[]
-			for (const file of dirFiles) {
-				if (!file.isFile || !file.name.endsWith(".sqlite3")) continue
-				const projectPath = await path.join(folder.path, file.name)
-				const stats = await stat(projectPath)
-
-				projects.push({
-					path: projectPath,
-					filesize: stats.size,
-					modified: stats.mtime?.getTime() ?? 0,
-				})
-			}
+			const projects = await findFiles(folder.path, folder.recursive, (f) => f.endsWith(".sqlite3"))
 
 			return projects
 		} catch (e) {
@@ -185,3 +172,22 @@ class WatchFolderService {
 }
 
 export default WatchFolderService
+
+async function findFiles(
+	directory: string,
+	recursive: boolean,
+	filterFn: (file: string) => boolean,
+) {
+	const files = [] as string[]
+	const dirFiles = await readDir(directory)
+	for (const file of dirFiles) {
+		if (file.isDirectory && recursive) {
+			files.push(...(await findFiles(await path.join(directory, file.name), recursive, filterFn)))
+		}
+
+		if (!file.isFile) continue
+		if (!filterFn(file.name)) continue
+		files.push(await path.join(directory, file.name))
+	}
+	return files
+}

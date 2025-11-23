@@ -39,7 +39,6 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 		>
 			<PanelList
 				maxHeight={"100%"}
-				overflowY={"auto"}
 				getItems={() => state.projects}
 				itemsSnap={
 					showExcluded ? [...activeProjects, ...excludedProjects] : activeProjects
