@@ -115,7 +115,7 @@ pub async fn projects_db_project_scan_all(app_handle: tauri::AppHandle) -> Resul
 #[tauri::command]
 pub async fn projects_db_image_list(
     app: tauri::AppHandle,
-    project_ids: Option<Vec<i32>>,
+    project_ids: Option<Vec<i64>>,
     node_id: Option<i64>,
     sort: Option<String>,
     direction: Option<String>,
@@ -249,7 +249,7 @@ pub async fn projects_db_watch_folder_list(
 pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
-    item_type: entity::watch_folders::ItemType,
+    item_type: entity::enums::ItemType,
     recursive: bool,
 ) -> Result<entity::watch_folders::Model, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
@@ -286,7 +286,7 @@ pub async fn projects_db_watch_folder_update(
 pub async fn projects_db_scan_model_info(
     app: tauri::AppHandle,
     file_path: String,
-    model_type: entity::models::ModelType,
+    model_type: entity::enums::ModelType,
 ) -> Result<(), String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     projects_db

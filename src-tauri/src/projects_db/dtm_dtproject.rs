@@ -14,7 +14,7 @@ use crate::projects_db::{
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
 
-static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<u64, String>>> =
+static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<i64, String>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: UriSchemeResponder) {
@@ -46,7 +46,7 @@ async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>
         .parse()
         .map_err(|_| "Invalid project ID".to_string())?;
     
-    let project_path = get_project_path(project_id as u64)
+    let project_path = get_project_path(project_id)
         .await
         .map_err(|e| format!("Failed to get project path: {}", e))?;
     
@@ -146,13 +146,13 @@ async fn tensor(
     }
 }
 
-async fn get_project_path(project_id: u64) -> Result<String, DbErr> {
+async fn get_project_path(project_id: i64) -> Result<String, DbErr> {
     if let Some(path) = PROJECT_PATH_CACHE.read().unwrap().get(&project_id).cloned() {
         return Ok(path);
     }
 
     let pdb = ProjectsDb::get().map_err(|e| DbErr::Custom(e.to_string()))?;
-    let project = pdb.get_project(project_id as i32).await?;
+    let project = pdb.get_project(project_id).await?;
     PROJECT_PATH_CACHE
         .write()
         .unwrap()

@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime};
-use entity::images::Sampler;
+use entity::enums::Sampler;
 
 use super::tensor_history_mod::{Control, LoRA};
 use crate::projects_db::tensor_history_generated::{

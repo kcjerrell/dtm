@@ -5,16 +5,13 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 
 use entity::{
-    images::{self, Sampler},
-    models::ModelType,
+    images::{self},
+    enums::{Sampler, ModelType},
     projects,
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    sea_query::{Expr, OnConflict},
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, RelationTrait, Set, Statement, TransactionTrait, TryInsertResult,
+    ActiveModelAction, ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, Statement, TransactionTrait, TryInsertResult, sea_query::{Expr, OnConflict}
 };
 use tauri::{Emitter, Manager};
 
@@ -96,7 +93,7 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn get_project(&self, id: i32) -> Result<ProjectExtra, DbErr> {
+    pub async fn get_project(&self, id: i64) -> Result<ProjectExtra, DbErr> {
         use images::Entity as Images;
         use projects::Entity as Projects;
 
@@ -176,7 +173,7 @@ impl ProjectsDb {
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
         let project = self.add_project(path).await?;
-        
+
         if project.excluded {
             return Ok(0);
         }
@@ -187,215 +184,86 @@ impl ProjectsDb {
         };
 
         for batch_start in (start..end).step_by(250) {
-            let batch_end = (batch_start + 250).min(end);
             let histories = dt_project
-                .get_tensor_history(batch_start, batch_end)
+                .get_tensor_history(batch_start, 250)
                 .await?;
 
-            // I know there's a better way to do this, because I used to do it with prisma
-            // let mut unique_models: HashSet<String> = HashSet::new();
-            // let used_models: Vec<entity::models::ActiveModel> = histories
-            //     .iter()
-            //     .filter_map(|h| {
-            //         if unique_models.contains(&h.model) {
-            //             return None;
-            //         }
-            //         unique_models.insert(h.model.clone());
-            //         Some(entity::models::ActiveModel {
-            //             filename: Set(h.model.clone()),
-            //             ..Default::default()
-            //         })
-            //     })
-            //     .collect();
-
-            let mut unique_models: HashSet<String> = HashSet::new();
-            // let mut unique_refiners: HashSet<String> = HashSet::new();
-            let mut unique_loras: HashSet<String> = HashSet::new();
-            let mut unique_cnets: HashSet<String> = HashSet::new();
-            let mut upscalers: HashSet<String> = HashSet::new();
-
-            for h in &histories {
-                unique_models.insert(h.model.clone());
-                if h.refiner_model.is_some() {
-                    unique_models.insert(h.refiner_model.clone().unwrap());
-                }
-                if h.upscaler.is_some() {
-                    upscalers.insert(h.upscaler.clone().unwrap());
-                }
-                unique_loras.extend(h.loras.iter().map(|l| l.model.to_string()));
-                unique_cnets.extend(h.controls.iter().map(|c| c.model.to_string()));
-            }
-
-            let used_models: Vec<entity::models::ActiveModel> = unique_models
+            let images: Vec<images::ActiveModelEx> = histories
                 .iter()
-                .map(|m| entity::models::ActiveModel {
-                    model_type: Set(entity::models::ModelType::Model),
-                    filename: Set(m.clone()),
-                    ..Default::default()
+                .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
+                .map(|h: &TensorHistoryImport| {
+                    let mut image = images::ActiveModel::builder()
+                        .set_project_id(project.id)
+                        .set_node_id(h.row_id)
+                        .set_preview_id(h.preview_id)
+                        .set_clip_id(h.clip_id)
+                        .set_prompt(Some(h.prompt.clone()))
+                        .set_negative_prompt(Some(h.negative_prompt.clone()))
+                        .set_model(
+                            entity::models::ActiveModel::builder()
+                                .set_filename(h.model.clone())
+                                .set_model_type(ModelType::Model),
+                        )
+                        .set_refiner_start(Some(h.refiner_start))
+                        .set_start_width(h.width as i16)
+                        .set_start_height(h.height as i16)
+                        .set_seed(h.seed as i64)
+                        .set_strength(h.strength)
+                        .set_steps(h.steps as i16)
+                        .set_guidance_scale(h.guidance_scale)
+                        .set_shift(h.shift)
+                        .set_sampler(Sampler::try_from(h.sampler).unwrap())
+                        .set_hires_fix(h.hires_fix)
+                        .set_tiled_decoding(h.tiled_decoding)
+                        .set_tiled_diffusion(h.tiled_diffusion)
+                        .set_tea_cache(h.tea_cache)
+                        .set_cfg_zero_star(h.cfg_zero_star)
+                        .set_wall_clock(h.wall_clock.unwrap().and_utc());
+
+                    if let Some(refiner) = &h.refiner_model {
+                        image = image.set_refiner(
+                            entity::models::ActiveModel::builder()
+                                .set_filename(refiner)
+                                .set_model_type(ModelType::Model),
+                        );
+                    }
+
+                    if let Some(upscaler) = &h.upscaler {
+                        image = image.set_upscaler(
+                            entity::models::ActiveModel::builder()
+                                .set_filename(upscaler)
+                                .set_model_type(ModelType::Upscaler),
+                        );
+                    }
+
+                    image
                 })
-                .chain(upscalers.iter().map(|m| entity::models::ActiveModel {
-                    model_type: Set(entity::models::ModelType::Upscaler),
-                    filename: Set(m.clone()),
-                    ..Default::default()
-                }))
-                .chain(unique_loras.iter().map(|m| entity::models::ActiveModel {
-                    model_type: Set(entity::models::ModelType::Lora),
-                    filename: Set(m.clone()),
-                    ..Default::default()
-                }))
-                .chain(unique_cnets.iter().map(|m| entity::models::ActiveModel {
-                    model_type: Set(entity::models::ModelType::Cnet),
-                    filename: Set(m.clone()),
-                    ..Default::default()
-                }))
                 .collect();
 
-            let _ = self
-                .db
-                .transaction::<_, (), DbErr>(|txn| {
-                    Box::pin(async move {
-                        let models: Vec<entity::models::Model> =
-                            entity::models::Entity::insert_many(used_models)
-                                .on_conflict(
-                                    OnConflict::columns([
-                                        entity::models::Column::Filename,
-                                        entity::models::Column::ModelType,
-                                    ])
-                                    .update_column(entity::models::Column::Filename)
-                                    .to_owned(),
-                                )
-                                .exec_with_returning_many(txn)
-                                .await?;
+            for image in images {
+                // entity::images::Entity::insert(image)
+                //     .on_conflict(
+                //         OnConflict::columns(vec![
+                //             entity::images::Column::NodeId,
+                //             entity::images::Column::ProjectId,
+                //         ])
+                //         .do_nothing()
+                //         .to_owned(),
+                //     )
+                //     .exec_without_returning(&self.db)
+                //     .await?;
+                let im = image.clone();
+                let projid = im.project_id.into_value().unwrap();
+                let nodeid = im.node_id.into_value().unwrap();
+                match image.save(&self.db).await {
+                    Ok(_) => {},
+                    Err(e) => {
+                        println!("Error saving image: {} {}", projid, nodeid);
+                    }
+                }
+            }
 
-                        let map: std::collections::HashMap<String, i32> =
-                            models.iter().map(|m| (m.filename.clone(), m.id)).collect();
-
-                        let images: Vec<images::ActiveModel> = histories
-                            .iter()
-                            .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
-                            .map(|h: &TensorHistoryImport| images::ActiveModel {
-                                project_id: Set(project.id as i32),
-                                node_id: Set(h.row_id),
-                                preview_id: Set(h.preview_id),
-                                clip_id: Set(h.clip_id),
-                                prompt: Set(Some(h.prompt.clone())),
-                                negative_prompt: Set(Some(h.negative_prompt.clone())),
-                                model_id: Set(map.get(&h.model).copied()),
-                                refiner_id: Set(h
-                                    .refiner_model
-                                    .as_ref()
-                                    .and_then(|name| map.get(name).copied())),
-                                refiner_start: Set(Some(h.refiner_start)),
-                                upscaler_id: Set(h
-                                    .upscaler
-                                    .as_ref()
-                                    .and_then(|name| map.get(name).copied())),
-                                start_width: Set(h.width as i16),
-                                start_height: Set(h.height as i16),
-                                seed: Set(h.seed as i32),
-                                strength: Set(h.strength),
-                                steps: Set(h.steps as i16),
-                                guidance_scale: Set(h.guidance_scale),
-                                shift: Set(h.shift),
-                                sampler: Set(
-                                    Sampler::try_from(h.sampler).unwrap_or(Sampler::Unknown)
-                                ),
-                                hires_fix: Set(h.hires_fix),
-                                tiled_decoding: Set(h.tiled_decoding),
-                                tiled_diffusion: Set(h.tiled_diffusion),
-                                tea_cache: Set(h.tea_cache),
-                                cfg_zero_star: Set(h.cfg_zero_star),
-                                wall_clock: Set(h.wall_clock.unwrap()),
-                                // Leave other fields as default (id, relations, etc)
-                                ..Default::default()
-                            })
-                            .collect();
-                        let inserted = entity::images::Entity::insert_many(images)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    images::Column::NodeId,
-                                    images::Column::ProjectId,
-                                ])
-                                .do_nothing()
-                                .to_owned(),
-                            )
-                            .do_nothing()
-                            .exec_with_returning_many(txn)
-                            .await?;
-                        let inserted_images = match inserted {
-                            TryInsertResult::Inserted(inserted) => inserted,
-                            _ => Vec::new(),
-                        };
-
-                        let mut image_loras: Vec<entity::image_loras::ActiveModel> = Vec::new();
-                        let mut image_controls: Vec<entity::image_controls::ActiveModel> =
-                            Vec::new();
-
-                        for im in inserted_images {
-                            let h = histories.iter().find(|h| h.row_id == im.node_id);
-                            if let Some(h) = h {
-                                let controls: Vec<entity::image_controls::ActiveModel> = h
-                                    .controls
-                                    .iter()
-                                    .map(|c| {
-                                        let control_id = map.get(&c.model).unwrap();
-                                        entity::image_controls::ActiveModel {
-                                            image_id: Set(im.id),
-                                            control_id: Set(*control_id),
-                                            weight: Set(c.weight),
-                                            ..Default::default()
-                                        }
-                                    })
-                                    .collect();
-                                image_controls.extend(controls);
-
-                                let loras: Vec<entity::image_loras::ActiveModel> = h
-                                    .loras
-                                    .iter()
-                                    .map(|l| {
-                                        let lora_id = map.get(&l.model).unwrap();
-                                        entity::image_loras::ActiveModel {
-                                            image_id: Set(im.id),
-                                            lora_id: Set(*lora_id),
-                                            weight: Set(l.weight),
-                                            ..Default::default()
-                                        }
-                                    })
-                                    .collect();
-                                image_loras.extend(loras);
-                            }
-                        }
-
-                        let _ = entity::image_controls::Entity::insert_many(image_controls)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    entity::image_controls::Column::ImageId,
-                                    entity::image_controls::Column::ControlId,
-                                ])
-                                .do_nothing()
-                                .to_owned(),
-                            )
-                            .do_nothing()
-                            .exec_without_returning(txn);
-
-                        let _ = entity::image_loras::Entity::insert_many(image_loras)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    entity::image_loras::Column::ImageId,
-                                    entity::image_loras::Column::LoraId,
-                                ])
-                                .do_nothing()
-                                .to_owned(),
-                            )
-                            .do_nothing()
-                            .exec_without_returning(txn);
-
-                        Ok(())
-                    })
-                })
-                .await?;
-
-            on_progress(batch_end as i32, end as i32);
+            on_progress((batch_start + 250) as i32, end as i32);
         }
 
         Ok(self
@@ -459,7 +327,7 @@ impl ProjectsDb {
         print!("ListImagesOptions: {:#?}\n", opts);
 
         let mut query = images::Entity::find()
-            .join(JoinType::LeftJoin, images::Relation::Models1.def())
+            .join(JoinType::LeftJoin, images::Relation::Models.def())
             .column_as(entity::models::Column::Filename, "model_file")
             .order_by(images::Column::WallClock, Order::Desc);
 
@@ -504,13 +372,13 @@ impl ProjectsDb {
     pub async fn add_watch_folder(
         &self,
         path: &str,
-        item_type: entity::watch_folders::ItemType,
+        item_type: entity::enums::ItemType,
         recursive: bool,
     ) -> Result<entity::watch_folders::Model, DbErr> {
         let folder = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
             item_type: Set(item_type),
-            recursive: Set(recursive),
+            recursive: Set(Some(recursive)),
             ..Default::default()
         };
         let folder = entity::watch_folders::Entity::insert(folder)
@@ -550,7 +418,7 @@ impl ProjectsDb {
             .one(&self.db)
             .await?;
         let mut folder: entity::watch_folders::ActiveModel = folder.unwrap().into();
-        folder.recursive = Set(recursive);
+        folder.recursive = Set(Some(recursive));
 
         let folder: entity::watch_folders::Model = folder.update(&self.db).await?;
         Ok(folder)
@@ -585,10 +453,7 @@ impl ProjectsDb {
 
     pub async fn rebuild_images_fts(&self) -> Result<(), sea_orm::DbErr> {
         self.db
-            .execute(Statement::from_string(
-                self.db.get_database_backend(),
-                "INSERT INTO images_fts(images_fts) VALUES('rebuild')".to_owned(),
-            ))
+            .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
             .await?;
 
         Ok(())
@@ -675,9 +540,10 @@ impl ProjectsDb {
     }
 }
 
+
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct ListImagesOptions {
-    pub project_ids: Option<Vec<i32>>,
+    pub project_ids: Option<Vec<i64>>,
     pub node_id: Option<i64>,
     pub model: Option<String>,
     pub sort: Option<String>,
@@ -689,7 +555,7 @@ pub struct ListImagesOptions {
 
 #[derive(Debug, FromQueryResult, Serialize)]
 pub struct ProjectExtra {
-    pub id: i32,
+    pub id: i64,
     pub path: String,
     pub image_count: i64,
     pub last_id: Option<i64>,
