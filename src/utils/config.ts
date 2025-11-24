@@ -1,9 +1,11 @@
 import { DrawThingsMetaData } from "@/types"
 import { TensorHistoryNode } from "@/dtProjects/types"
+import { SeedModeLabels } from "dt-grpc-ts/web"
 
 export function extractConfigFromTensorHistoryNode(
-	node: TensorHistoryNode,
-): DrawThingsMetaData["config"] {
+	node: TensorHistoryNode | undefined | null,
+): DrawThingsMetaData["config"] | null {
+	if (!node) return null
 	return {
 		aestheticScore: node.aesthetic_score,
 		batchCount: 1, // Defaulting to 1 as it's not in TensorHistoryNode
@@ -28,11 +30,11 @@ export function extractConfigFromTensorHistoryNode(
 		guidanceEmbed: node.guidance_embed,
 		guidanceScale: node.guidance_scale,
 		guidingFrameNoise: 0, // Not found in TensorHistoryNode
-		height: node.start_height,
+		height: node.start_height * 64,
 		hiresFix: node.hires_fix,
-		hiresFixHeight: node.hires_fix_start_height,
+		hiresFixHeight: node.hires_fix_start_height * 64,
 		hiresFixStrength: node.hires_fix_strength,
-		hiresFixWidth: node.hires_fix_start_width,
+		hiresFixWidth: node.hires_fix_start_width * 64,
 		id: node.tensor_id,
 		imageGuidanceScale: node.image_guidance_scale,
 		imagePriorSteps: node.image_prior_steps,
@@ -42,12 +44,12 @@ export function extractConfigFromTensorHistoryNode(
 		model: node.model ?? "",
 		motionScale: 0, // Not found in TensorHistoryNode
 		negativeAestheticScore: node.negative_aesthetic_score,
-		negativeOriginalImageHeight: node.negative_original_image_height,
-		negativeOriginalImageWidth: node.negative_original_image_width,
+		negativeOriginalImageHeight: node.negative_original_image_height * 64,
+		negativeOriginalImageWidth: node.negative_original_image_width * 64,
 		negativePromptForImagePrior: node.negative_prompt_for_image_prior,
 		numFrames: node.num_frames,
-		originalImageHeight: node.original_image_height,
-		originalImageWidth: node.original_image_width,
+		originalImageHeight: node.original_image_height * 64,
+		originalImageWidth: node.original_image_width * 64,
 		preserveOriginalAfterInpaint: node.preserve_original_after_inpaint,
 		refinerStart: node.refiner_start,
 		resolutionDependentShift: node.resolution_dependent_shift,
@@ -68,8 +70,8 @@ export function extractConfigFromTensorHistoryNode(
 		stochasticSamplingGamma: node.stochastic_sampling_gamma,
 		strength: node.strength,
 		t5TextEncoder: node.t5_text_encoder,
-		targetImageHeight: node.target_image_height,
-		targetImageWidth: node.target_image_width,
+		targetImageHeight: node.target_image_height * 64,
+		targetImageWidth: node.target_image_width * 64,
 		teaCache: node.tea_cache,
 		teaCacheEnd: node.tea_cache_end,
 		teaCacheMaxSkipSteps: node.tea_cache_max_skip_steps,
@@ -77,8 +79,52 @@ export function extractConfigFromTensorHistoryNode(
 		teaCacheThreshold: node.tea_cache_threshold,
 		tiledDecoding: node.tiled_decoding,
 		tiledDiffusion: node.tiled_diffusion,
-		upscalerScaleFactor: node.upscaler_scale_factor,
-		width: node.start_width,
+		upscalerScaleFactor: node.upscaler_scale_factor * 64,
+		width: node.start_width * 64,
 		zeroNegativePrompt: node.zero_negative_prompt,
 	}
+}
+
+export const samplerLabels = [
+	"DPM++ 2M Karras",
+	"Euler A",
+	"DDIM",
+	"PLMS",
+	"DPM++ SDE Karras",
+	"UniPC",
+	"LCM",
+	"Euler A Substep",
+	"DPM++ SDE Substep",
+	"TCD",
+	"Euler A Trailing",
+	"DPM++ SDE Trailing",
+	"DPM++ 2M AYS",
+	"Euler A AYS",
+	"DPM++ SDE AYS",
+	"DPM++ 2M Trailing",
+	"DDIM Trailing",
+	"UniPC Trailing",
+	"UniPC AYS",
+]
+
+export function getSampler(sampler?: number | string | null) {
+	if (typeof sampler === "number") {
+		return samplerLabels[sampler]
+	}
+	const parsed = parseInt(sampler ?? "", 10)
+	if (!Number.isNaN(parsed)) {
+		return samplerLabels[parsed]
+	}
+	return sampler
+}
+
+export function getSeedMode(seedMode?: number | string | null) {
+	if (typeof seedMode === "number") {
+		return SeedModeLabels[seedMode]
+	}
+	const parsed = parseInt(seedMode ?? "", 10)
+	if (!Number.isNaN(parsed)) {
+		return SeedModeLabels[parsed]
+	}
+	return seedMode
 }

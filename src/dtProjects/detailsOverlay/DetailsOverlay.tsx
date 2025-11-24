@@ -8,6 +8,7 @@ import { DataItem, Panel } from "@/components"
 import { useDTProjects } from "../state/projectStore"
 import DetailsImage from "./DetailsImage"
 import TensorsList from "./TensorsList"
+import DetailsContent from './DetailsContent'
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
@@ -109,47 +110,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 							>
 								Hello
 							</Button> */}
-							<Panel
-								flex={"1 1 auto"}
-								key={snap.item?.id}
-								overflowY={"scroll"}
-								overflowX={"clip"}
-								onClick={(e) => e.stopPropagation()}
-								asChild
-							>
-								<motion.div
-									variants={{
-										open: {
-											opacity: 1,
-											transition: {
-												duration: transition.duration * 0.75,
-												delay: transition.duration * 0.25,
-											},
-										},
-										closed: {
-											opacity: 0,
-											transition: { duration: transition.duration },
-										},
-									}}
-									initial={"closed"}
-									animate={"open"}
-									exit={"closed"}
-								>
-									<DataItem label={"Prompt"} data={snap.item?.prompt} maxLines={6} />
-									<DataItem
-										label={"Negative Prompt"}
-										data={snap.item?.negative_prompt}
-										maxLines={6}
-									/>
-									<DataItem label={"Tensor ID"} data={details?.tensor_id} />
-									<DataItem label={"Depth Map ID"} data={details?.depth_map_id} />
-									<DataItem label={"Pose ID"} data={details?.pose_id} />
-									<DataItem label={"Scribble ID"} data={details?.scribble_id} />
-									<DataItem label={"Color Palette ID"} data={details?.color_palette_id} />
-									<DataItem label={"Custom ID"} data={details?.custom_id} />
-									<DataItem label={"Raw"} data={JSON.stringify(details, null, 2)} />
-								</motion.div>
-							</Panel>
+							<DetailsContent item={snap.item} details={details} />
 						</motion.div>
 					</VStack>
 				</Container>

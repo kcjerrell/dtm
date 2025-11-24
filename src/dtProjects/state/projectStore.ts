@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event"
-import { proxy, useSnapshot } from "valtio"
+import { proxy, Snapshot, useSnapshot } from "valtio"
 import {
 	dtProject,
 	type ImageExtra,
@@ -209,7 +209,7 @@ export const DTProjects = {
 }
 
 export function useDTProjects() {
-	const snap = useSnapshot(store.state)
+	const snap = useSnapshot(store.state) as Snapshot<DTProjectsStateType>
 	return {
 		snap,
 		...DTProjects,
