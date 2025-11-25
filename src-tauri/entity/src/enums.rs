@@ -3,7 +3,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
 /// Model type enum stored as i8
-#[derive(Copy, Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize, Hash)]
 #[sea_orm(rs_type = "i8", db_type = "TinyInteger")]
 pub enum ModelType {
     #[sea_orm(num_value = 0)]

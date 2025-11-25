@@ -42,10 +42,13 @@ pub struct Model {
     pub tiled_diffusion: bool,
     pub tea_cache: bool,
     pub cfg_zero_star: bool,
+    
     #[sea_orm(has_many)]
     pub image_controls: HasMany<super::image_controls::Entity>,
+
     #[sea_orm(has_many)]
     pub image_loras: HasMany<super::image_loras::Entity>,
+
     #[sea_orm(
         belongs_to,
         relation_enum = "Upscalers",
@@ -55,6 +58,7 @@ pub struct Model {
         on_delete = "NoAction"
     )]
     pub upscaler: HasOne<super::models::Entity>,
+
     #[sea_orm(
         belongs_to,
         relation_enum = "Refiners",
@@ -64,6 +68,7 @@ pub struct Model {
         on_delete = "NoAction"
     )]
     pub refiner: HasOne<super::models::Entity>,
+
     #[sea_orm(
         belongs_to,
         relation_enum = "Models",
@@ -73,6 +78,7 @@ pub struct Model {
         on_delete = "NoAction"
     )]
     pub model: HasOne<super::models::Entity>,
+
     #[sea_orm(
         belongs_to,
         from = "project_id",

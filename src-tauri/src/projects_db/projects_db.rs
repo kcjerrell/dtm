@@ -1,17 +1,21 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use tokio::sync::OnceCell;
 
 use entity::{
+    enums::{ModelType, Sampler},
     images::{self},
-    enums::{Sampler, ModelType},
     projects,
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    ActiveModelAction, ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, Statement, TransactionTrait, TryInsertResult, sea_query::{Expr, OnConflict}
+    sea_query::{Expr, OnConflict},
+    ActiveModelAction, ActiveModelTrait, ColumnTrait, ConnectionTrait, Database,
+    DatabaseConnection, DbErr, EntityTrait, FromQueryResult, IntoActiveModel, JoinType, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, Statement,
+    TransactionTrait, TryInsertResult,
 };
 use tauri::{Emitter, Manager};
 
@@ -184,83 +188,204 @@ impl ProjectsDb {
         };
 
         for batch_start in (start..end).step_by(250) {
-            let histories = dt_project
-                .get_tensor_history(batch_start, 250)
+            let histories = dt_project.get_tensor_history(batch_start, 250).await?;
+
+            let histories_filtered: Vec<TensorHistoryImport> = histories
+                .into_iter()
+                .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
+                .collect();
+
+            if histories_filtered.is_empty() {
+                on_progress((batch_start + 250) as i32, end as i32);
+                continue;
+            }
+
+            let models: Vec<entity::models::ActiveModel> = HashSet::<ModelTypeAndFile>::from_iter(
+                histories_filtered
+                    .iter()
+                    .flat_map(get_all_models_from_tensor_history),
+            )
+            .iter()
+            .map(|m| entity::models::ActiveModel {
+                filename: Set(m.0.clone()),
+                model_type: Set(m.1),
+                ..Default::default()
+            })
+            .collect();
+
+            let models = entity::models::Entity::insert_many(models)
+                .on_conflict(
+                    OnConflict::columns([
+                        entity::models::Column::Filename,
+                        entity::models::Column::ModelType,
+                    ])
+                    .update_column(entity::models::Column::Filename)
+                    .to_owned(),
+                )
+                .exec_with_returning(&self.db)
                 .await?;
 
-            let images: Vec<images::ActiveModelEx> = histories
+            let mut models_lookup: HashMap<ModelTypeAndFile, i64> = HashMap::new();
+            for model in models {
+                models_lookup.insert((model.filename.clone(), model.model_type), model.id);
+            }
+            let mut batch_image_loras: Vec<NodeModelWeight> = Vec::new();
+            let mut batch_image_controls: Vec<NodeModelWeight> = Vec::new();
+
+            let images: Vec<images::ActiveModel> = histories_filtered
                 .iter()
-                .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                 .map(|h: &TensorHistoryImport| {
-                    let mut image = images::ActiveModel::builder()
-                        .set_project_id(project.id)
-                        .set_node_id(h.row_id)
-                        .set_preview_id(h.preview_id)
-                        .set_clip_id(h.clip_id)
-                        .set_prompt(Some(h.prompt.clone()))
-                        .set_negative_prompt(Some(h.negative_prompt.clone()))
-                        .set_model(
-                            entity::models::ActiveModel::builder()
-                                .set_filename(h.model.clone())
-                                .set_model_type(ModelType::Model),
-                        )
-                        .set_refiner_start(Some(h.refiner_start))
-                        .set_start_width(h.width as i16)
-                        .set_start_height(h.height as i16)
-                        .set_seed(h.seed as i64)
-                        .set_strength(h.strength)
-                        .set_steps(h.steps as i16)
-                        .set_guidance_scale(h.guidance_scale)
-                        .set_shift(h.shift)
-                        .set_sampler(Sampler::try_from(h.sampler).unwrap())
-                        .set_hires_fix(h.hires_fix)
-                        .set_tiled_decoding(h.tiled_decoding)
-                        .set_tiled_diffusion(h.tiled_diffusion)
-                        .set_tea_cache(h.tea_cache)
-                        .set_cfg_zero_star(h.cfg_zero_star)
-                        .set_wall_clock(h.wall_clock.unwrap().and_utc());
+                    let mut image = images::ActiveModel {
+                        project_id: Set(project.id),
+                        node_id: Set(h.row_id),
+                        preview_id: Set(h.preview_id),
+                        clip_id: Set(h.clip_id),
+                        prompt: Set(Some(h.prompt.clone())),
+                        negative_prompt: Set(Some(h.negative_prompt.clone())),
+                        refiner_start: Set(Some(h.refiner_start)),
+                        start_width: Set(h.width as i16),
+                        start_height: Set(h.height as i16),
+                        seed: Set(h.seed as i64),
+                        strength: Set(h.strength),
+                        steps: Set(h.steps as i16),
+                        guidance_scale: Set(h.guidance_scale),
+                        shift: Set(h.shift),
+                        sampler: Set(Sampler::try_from(h.sampler).unwrap()),
+                        hires_fix: Set(h.hires_fix),
+                        tiled_decoding: Set(h.tiled_decoding),
+                        tiled_diffusion: Set(h.tiled_diffusion),
+                        tea_cache: Set(h.tea_cache),
+                        cfg_zero_star: Set(h.cfg_zero_star),
+                        wall_clock: Set(h.wall_clock.unwrap().and_utc()),
+                        ..Default::default()
+                    };
+
+                    if h.loras.len() > 0 {
+                        let image_loras: Vec<NodeModelWeight> = h
+                            .loras
+                            .iter()
+                            .map(|l| NodeModelWeight {
+                                node_id: h.row_id,
+                                model_id: *models_lookup
+                                    .get(&(l.model.clone(), ModelType::Lora))
+                                    .unwrap(),
+                                weight: l.weight,
+                            })
+                            .collect();
+                        batch_image_loras.extend(image_loras);
+                    }
+
+                    if h.controls.len() > 0 {
+                        let image_controls: Vec<NodeModelWeight> = h
+                            .controls
+                            .iter()
+                            .map(|c| NodeModelWeight {
+                                node_id: h.row_id,
+                                model_id: *models_lookup
+                                    .get(&(c.model.clone(), ModelType::Cnet))
+                                    .unwrap(),
+                                weight: c.weight,
+                            })
+                            .collect();
+                        batch_image_controls.extend(image_controls);
+                    }
+
+                    if let Some(model_id) = models_lookup.get(&(h.model.clone(), ModelType::Model))
+                    {
+                        image.model_id = Set(Some(*model_id));
+                    }
 
                     if let Some(refiner) = &h.refiner_model {
-                        image = image.set_refiner(
-                            entity::models::ActiveModel::builder()
-                                .set_filename(refiner)
-                                .set_model_type(ModelType::Model),
-                        );
+                        if let Some(refiner_id) =
+                            models_lookup.get(&(refiner.clone(), ModelType::Model))
+                        {
+                            image.refiner_id = Set(Some(*refiner_id));
+                        }
                     }
 
                     if let Some(upscaler) = &h.upscaler {
-                        image = image.set_upscaler(
-                            entity::models::ActiveModel::builder()
-                                .set_filename(upscaler)
-                                .set_model_type(ModelType::Upscaler),
-                        );
+                        if let Some(upscaler_id) =
+                            models_lookup.get(&(upscaler.clone(), ModelType::Upscaler))
+                        {
+                            image.upscaler_id = Set(Some(*upscaler_id));
+                        }
                     }
 
                     image
                 })
                 .collect();
 
-            for image in images {
-                // entity::images::Entity::insert(image)
-                //     .on_conflict(
-                //         OnConflict::columns(vec![
-                //             entity::images::Column::NodeId,
-                //             entity::images::Column::ProjectId,
-                //         ])
-                //         .do_nothing()
-                //         .to_owned(),
-                //     )
-                //     .exec_without_returning(&self.db)
-                //     .await?;
-                let im = image.clone();
-                let projid = im.project_id.into_value().unwrap();
-                let nodeid = im.node_id.into_value().unwrap();
-                match image.save(&self.db).await {
-                    Ok(_) => {},
-                    Err(e) => {
-                        println!("Error saving image: {} {}", projid, nodeid);
-                    }
+            let inserted_images = if !images.is_empty() {
+                entity::images::Entity::insert_many(images)
+                    .on_conflict(
+                        OnConflict::columns(vec![
+                            entity::images::Column::NodeId,
+                            entity::images::Column::ProjectId,
+                        ])
+                        .do_nothing()
+                        .to_owned(),
+                    )
+                    .exec_with_returning(&self.db)
+                    .await?
+            } else {
+                vec![]
+            };
+
+            let mut node_id_to_image_id: HashMap<i64, i64> = HashMap::new();
+            for img in inserted_images {
+                node_id_to_image_id.insert(img.node_id, img.id);
+            }
+
+            let mut lora_models: Vec<entity::image_loras::ActiveModel> = Vec::new();
+            for lora in batch_image_loras {
+                if let Some(image_id) = node_id_to_image_id.get(&lora.node_id) {
+                    lora_models.push(entity::image_loras::ActiveModel {
+                        image_id: Set(*image_id),
+                        lora_id: Set(lora.model_id),
+                        weight: Set(lora.weight),
+                        ..Default::default()
+                    });
                 }
+            }
+
+            if !lora_models.is_empty() {
+                entity::image_loras::Entity::insert_many(lora_models)
+                    .on_conflict(
+                        OnConflict::columns([
+                            entity::image_loras::Column::ImageId,
+                            entity::image_loras::Column::LoraId,
+                        ])
+                        .do_nothing()
+                        .to_owned(),
+                    )
+                    .exec(&self.db)
+                    .await?;
+            }
+
+            let mut control_models: Vec<entity::image_controls::ActiveModel> = Vec::new();
+            for control in batch_image_controls {
+                if let Some(image_id) = node_id_to_image_id.get(&control.node_id) {
+                    control_models.push(entity::image_controls::ActiveModel {
+                        image_id: Set(*image_id),
+                        control_id: Set(control.model_id),
+                        weight: Set(control.weight),
+                        ..Default::default()
+                    });
+                }
+            }
+
+            if !control_models.is_empty() {
+                entity::image_controls::Entity::insert_many(control_models)
+                    .on_conflict(
+                        OnConflict::columns([
+                            entity::image_controls::Column::ImageId,
+                            entity::image_controls::Column::ControlId,
+                        ])
+                        .do_nothing()
+                        .to_owned(),
+                    )
+                    .exec(&self.db)
+                    .await?;
             }
 
             on_progress((batch_start + 250) as i32, end as i32);
@@ -540,7 +665,6 @@ impl ProjectsDb {
     }
 }
 
-
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct ListImagesOptions {
     pub project_ids: Option<Vec<i64>>,
@@ -659,4 +783,29 @@ pub struct ModelInfo {
     pub name: String,
     pub version: String,
     pub model_type: ModelType,
+}
+
+type ModelTypeAndFile = (String, ModelType);
+struct NodeModelWeight {
+    pub node_id: i64,
+    pub model_id: i64,
+    pub weight: f32,
+}
+
+fn get_all_models_from_tensor_history(h: &TensorHistoryImport) -> Vec<ModelTypeAndFile> {
+    let mut all_image_models: Vec<ModelTypeAndFile> = Vec::new();
+    all_image_models.push((h.model.clone(), ModelType::Model));
+    if let Some(refiner) = &h.refiner_model {
+        all_image_models.push((refiner.clone(), ModelType::Model));
+    }
+    if let Some(upscaler) = &h.upscaler {
+        all_image_models.push((upscaler.clone(), ModelType::Upscaler));
+    }
+    for lora in &h.loras {
+        all_image_models.push((lora.model.clone(), ModelType::Lora));
+    }
+    for control in &h.controls {
+        all_image_models.push((control.model.clone(), ModelType::Cnet));
+    }
+    all_image_models
 }

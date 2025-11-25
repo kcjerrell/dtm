@@ -168,7 +168,11 @@ pub fn run() {
             //         .visible(false);
 
             // let _panel = _panel_builder.build().unwrap();
-
+            // std::env::set_var("RUST_LOG", "sea_orm=debug,sqlx=debug");
+            // tracing_subscriber::fmt()
+            //     .with_max_level(tracing::Level::DEBUG)
+            //     .with_test_writer()
+            //     .init();
             Ok(())
         })
         .run(tauri::generate_context!())

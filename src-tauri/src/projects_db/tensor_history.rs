@@ -6,7 +6,7 @@ use crate::projects_db::tensor_history_generated::{
     root_as_tensor_history_node, Reason, SamplerType, SeedMode,
 };
 
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, Clone)]
 pub struct ModelAndWeight {
     pub model: String,
     pub weight: f32,

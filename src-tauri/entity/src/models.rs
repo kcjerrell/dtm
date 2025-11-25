@@ -19,8 +19,6 @@ pub struct Model {
     pub image_controls: HasMany<super::image_controls::Entity>,
     #[sea_orm(has_many)]
     pub image_loras: HasMany<super::image_loras::Entity>,
-
-
 }
 
 impl ActiveModelBehavior for ActiveModel {}
