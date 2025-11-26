@@ -5,7 +5,8 @@ import ColorPaletteImage from "@/components/ColorPalette"
 import PoseImage from "@/components/Pose"
 import { Box, chakra, Color, HStack, Spacer, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { ComponentProps } from "react"
+import { ComponentProps, useCallback } from "react"
+import { useDTProjects } from "../state/projectStore"
 
 const _thumbnailSize = "4rem"
 
@@ -17,6 +18,16 @@ interface TensorsListComponentProps extends ComponentProps<typeof Container> {
 
 function TensorsList(props: TensorsListComponentProps) {
 	const { candidates, details, item, ...restProps } = props
+	const { store } = useDTProjects()
+
+	const showSubitem = useCallback(
+		(e: React.MouseEvent<HTMLElement>, tensorId?: string) => {
+			e.stopPropagation()
+			if (!item || !tensorId) return
+			store.showSubItem(item.project_id, tensorId, e.currentTarget)
+		},
+		[item, store],
+	)
 
 	if (!item || !details) return <Box height={"6rem"} {...restProps} />
 
@@ -57,6 +68,7 @@ function TensorsList(props: TensorsListComponentProps) {
 									tensorId={id}
 									height={_thumbnailSize}
 									width={_thumbnailSize}
+									onClick={(e) => showSubitem(e, id)}
 								/>
 							) : label === "Pose" ? (
 								<PoseImage
@@ -67,9 +79,13 @@ function TensorsList(props: TensorsListComponentProps) {
 									width={_thumbnailSize}
 									bgColor={"bg.1"}
 									border={"1px solid gray"}
+									onClick={(e) => showSubitem(e, id)}
 								/>
 							) : (
-								<Thumbnail src={urls.tensor(item?.project_id, id)} />
+								<Thumbnail
+									src={urls.tensor(item?.project_id, id, null, 100)}
+									onClick={(e) => showSubitem(e, id)}
+								/>
 							)}
 						</Images>
 					</Group>
@@ -88,7 +104,10 @@ function TensorsList(props: TensorsListComponentProps) {
 									key={prev.row_id}
 									tip={`(${prev.row_id}) lineage: ${prev.lineage}, logical time: ${prev.logical_time}`}
 								>
-									<Thumbnail src={urls.tensor(item?.project_id, prev.tensor_id, null, 100)} />
+									<Thumbnail
+										src={urls.tensor(item?.project_id, prev.tensor_id, null, 100)}
+										onClick={(e) => showSubitem(e, prev.tensor_id)}
+									/>
 								</Tooltip>
 							)
 						})}
@@ -100,7 +119,11 @@ function TensorsList(props: TensorsListComponentProps) {
 					<Label>Moodboard</Label>
 					<Images>
 						{moodboard_ids.map((id) => (
-							<Thumbnail key={id} src={urls.tensor(item?.project_id, id)} />
+							<Thumbnail
+								key={id}
+								src={urls.tensor(item?.project_id, id, null, 100)}
+								onClick={(e) => showSubitem(e, id)}
+							/>
 						))}
 					</Images>
 				</Group>
@@ -162,6 +185,7 @@ const Images = chakra("div", {
 		_groupHover: {
 			opacity: 1,
 		},
+		transition: "opacity 0.2s ease",
 	},
 })
 

@@ -270,6 +270,12 @@ export type ModelInfo = {
 	model_type: ModelType
 }
 
+export type TensorSize = {
+	width: number
+	height: number
+	channels: number
+}
+
 export const dtProject = {
 	// #unused
 	getTensorHistory: async (
@@ -303,6 +309,18 @@ export const dtProject = {
 		tensorId: string,
 	): Promise<TensorRaw> =>
 		invoke("dt_project_get_tensor_raw", { projectFile, projectId, tensorId }),
+
+	getTensorSize: async (
+		project: string | number,
+		tensorId: string,
+	): Promise<TensorSize> => {
+		const opts = {
+			tensorId,
+			projectId: typeof project === "string" ? undefined : project,
+			projectFile: typeof project === "string" ? project : undefined,
+		}
+		return invoke("dt_project_get_tensor_size", opts)
+	},
 
 	decodeTensor: async (
 		project: string | number,

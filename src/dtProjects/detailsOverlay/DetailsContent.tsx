@@ -22,6 +22,7 @@ function DetailsContent(props: DetailsContentProps) {
 			flex={"1 1 auto"}
 			overflowY={"scroll"}
 			overflowX={"clip"}
+			margin={4}
 			onClick={(e) => e.stopPropagation()}
 			{...boxProps}
 			asChild

@@ -196,6 +196,18 @@ pub async fn dt_project_get_tensor_raw(
 }
 
 #[tauri::command]
+pub async fn dt_project_get_tensor_size(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    tensor_id: String,
+) -> Result<crate::projects_db::dt_project::TensorSize, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let tensor = project.get_tensor_size(&tensor_id).await.unwrap();
+    Ok(tensor)
+}
+
+#[tauri::command]
 pub async fn dt_project_decode_tensor(
     app: tauri::AppHandle,
     project_id: Option<i64>,

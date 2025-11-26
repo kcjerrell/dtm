@@ -1,4 +1,4 @@
-import { chakra, VStack } from "@chakra-ui/react"
+import { Box, chakra, VStack } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import type { ComponentProps } from "react"
 import { useSnapshot } from "valtio"
@@ -8,7 +8,7 @@ import { DataItem, Panel } from "@/components"
 import { useDTProjects } from "../state/projectStore"
 import DetailsImage from "./DetailsImage"
 import TensorsList from "./TensorsList"
-import DetailsContent from './DetailsContent'
+import DetailsContent from "./DetailsContent"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
@@ -20,8 +20,12 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 
 	const snap = useSnapshot(dtp.state.detailsOverlay)
 	const details = snap.item ? dtpSnap.itemDetails[snap.item.node_id] : null
+	const subItem = snap.subItem
 
-	const srcHalf = snap.item || snap.lastItem ? urls.thumbHalf(snap.item ?? (snap.lastItem as ImageExtra)) : undefined
+	const srcHalf =
+		snap.item || snap.lastItem
+			? urls.thumbHalf(snap.item ?? (snap.lastItem as ImageExtra))
+			: undefined
 	const srcFull =
 		snap.item || snap.lastItem ? urls.thumb(snap.item ?? (snap.lastItem as ImageExtra)) : undefined
 
@@ -31,7 +35,10 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 				<Container
 					key={snap.item.id}
 					pointerEvents={snap.item ? "all" : "none"}
-					onClick={() => dtp.hideDetailsOverlay()}
+					onClick={() => {
+						if (subItem) dtp.hideSubItem()
+						else dtp.hideDetailsOverlay()
+					}}
 					variants={{
 						open: {
 							opacity: 1,
@@ -76,8 +83,34 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 						overflowY={"clip"}
 						alignItems={"stretch"}
 					>
-						<DetailsImage src={srcFull} srcHalf={srcHalf} />
-
+						<Box width={"100%"} minHeight={0} flex={"1 1 auto"} position={"relative"}>
+							<DetailsImage
+								inset={0}
+								src={srcFull}
+								srcHalf={srcHalf}
+								sourceRect={snap.sourceRect}
+								naturalSize={{ width: snap.width, height: snap.height }}
+								position={"absolute"}
+								zIndex={0}
+								filter={subItem ? "blur(2px)" : "none"}
+								transition={"filter 0.2s ease"}
+							/>
+							<AnimatePresence>
+								{subItem && (
+									<DetailsImage
+										key={subItem.tensorId}
+										inset={"5%"}
+										src={subItem.url}
+										srcHalf={subItem.thumbUrl}
+										sourceRect={subItem.sourceRect}
+										naturalSize={{ width: subItem.width, height: subItem.height }}
+										zIndex={1}
+										imgStyle={{ boxShadow: "pane1", border: "2px solid gray" }}
+										position={"absolute"}
+									/>
+								)}
+							</AnimatePresence>
+						</Box>
 						<TensorsList
 							flex={"0 0 4rem"}
 							margin={"1rem"}

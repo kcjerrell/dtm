@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event"
-import { proxy, Snapshot, useSnapshot } from "valtio"
+import { proxy, type Snapshot, useSnapshot } from "valtio"
 import {
 	dtProject,
 	type ImageExtra,
@@ -11,6 +11,7 @@ import type { ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
+import urls from "@/commands/urls"
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -31,7 +32,16 @@ export type DTProjectsStateType = {
 
 	detailsOverlay: {
 		item: ImageExtra | null
-		subItem: string | null
+		subItem: null | {
+			projectId: number
+			tensorId: string
+			thumbUrl: string
+			url?: string
+			width?: number
+			height?: number
+			sourceRect: DOMRect | null
+			isLoading: boolean
+		}
 		lastItem: ImageExtra | null
 		candidates: TensorHistoryExtra[]
 		sourceRect: DOMRect | null
@@ -54,7 +64,7 @@ const state = proxy({
 	itemSize: 200,
 	detailsOverlay: {
 		item: null as ImageExtra | null,
-		subItem: null as string | null,
+		subItem: null as DTProjectsStateType['detailsOverlay']['subItem'],
 		lastItem: null as ImageExtra | null,
 		candidates: [] as TensorHistoryExtra[],
 		sourceRect: null as DOMRect | null,
@@ -123,6 +133,7 @@ class DTProjectsStore implements IDTProjectsStore {
 		const detailsOverlay = this.state.detailsOverlay
 		detailsOverlay.item = null
 		detailsOverlay.candidates = []
+		detailsOverlay.subItem = null
 	}
 
 	async loadDetails(item: ImageExtra) {
@@ -138,6 +149,33 @@ class DTProjectsStore implements IDTProjectsStore {
 			history.lineage,
 			history.logical_time,
 		)
+	}
+
+	async showSubItem(projectId: number, tensorId: string, sourceElement: HTMLElement) {
+		const details = this.state.detailsOverlay
+		if (!details.item) return
+		details.subItem = {
+			projectId,
+			tensorId,
+			thumbUrl: urls.tensor(projectId, tensorId, null, 100),
+			sourceRect: toJSON(sourceElement.getBoundingClientRect()),
+			isLoading: true,
+		}
+		const size = await dtProject.getTensorSize(projectId, tensorId)
+		const loadImg = new Image()
+		loadImg.onload = () => {
+			if (details.subItem) {
+				details.subItem.url = urls.tensor(projectId, tensorId)
+				details.subItem.isLoading = false
+				details.subItem.width = size.width
+				details.subItem.height = size.height
+			}
+		}
+		loadImg.src = urls.tensor(projectId, tensorId)
+	}
+
+	hideSubItem() {
+		this.state.detailsOverlay.subItem = null
 	}
 }
 

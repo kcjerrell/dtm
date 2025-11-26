@@ -172,6 +172,25 @@ impl DTProject {
         })
     }
 
+    pub async fn get_tensor_size(&self, name: &str) -> Result<TensorSize, Error> {
+        let row = query("SELECT dim FROM tensors WHERE name = ?1")
+            .bind(name)
+            .fetch_one(&self.pool)
+            .await?;
+
+        let dim: Vec<u8> = row.get(0);
+
+        let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
+        let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
+        let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
+
+        Ok(TensorSize {
+            height,
+            width,
+            channels,
+        })
+    }
+
     pub async fn get_info(&self) -> Result<DTProjectInfo, Error> {
         let result = query(
             "SELECT COUNT(*) AS total_count, MAX(rowid) AS last_rowid FROM tensorhistorynode;",
@@ -384,6 +403,13 @@ pub struct TensorRaw {
     pub channels: i32,
     pub dim: Vec<u8>,
     pub data: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct TensorSize {
+    pub width: i32,
+    pub height: i32,
+    pub channels: i32,
 }
 
 fn full_query_where(where_expr: &str) -> String {

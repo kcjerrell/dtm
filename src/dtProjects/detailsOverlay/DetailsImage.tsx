@@ -1,25 +1,21 @@
 import { Box } from "@chakra-ui/react"
-import {
-	motion,
-	type TargetAndTransition,
-	useAnimate
-} from "motion/react"
-import { useCallback, useRef } from "react"
-import { useDTProjects } from "../state/projectStore"
+import { motion, type TargetAndTransition, useAnimate } from "motion/react"
+import { CSSProperties, useCallback, useRef } from "react"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
 interface DetailsImageProps extends ChakraProps {
 	src?: string
 	srcHalf?: string
+	sourceRect: DOMRectReadOnly | null
+	naturalSize: { width: number; height: number }
+	imgStyle?: CSSProperties
 }
 
 type LRect = { left: number; top: number; width: number; height: number }
 
 function DetailsImage(props: DetailsImageProps) {
-	const { src, srcHalf } = props
-
-	const { store: dtp, snap: dtpSnap } = useDTProjects()
+	const { src, srcHalf, sourceRect, naturalSize, imgStyle, ...restProps } = props
 
 	const imgContainerRef = useRef<HTMLDivElement>(null)
 	const [scope, anim] = useAnimate()
@@ -29,15 +25,11 @@ function DetailsImage(props: DetailsImageProps) {
 	const resized = useRef(false)
 
 	const getImageAnimOpen = useCallback(() => {
-		if (dtp.state.detailsOverlay.sourceRect && imgContainerRef.current) {
+		if (sourceRect && imgContainerRef.current) {
 			const imgContainerRect = imgContainerRef.current.getBoundingClientRect()
-			const posA = offsetRect(dtp.state.detailsOverlay.sourceRect, imgContainerRect)
+			const posA = offsetRect(sourceRect, imgContainerRect)
 			imgOrigin.current = posA
 
-			const naturalSize = {
-				width: dtp.state.detailsOverlay.width,
-				height: dtp.state.detailsOverlay.height,
-			}
 			const posB = offsetRect(
 				contain(naturalSize, imgContainerRef.current.getBoundingClientRect()),
 				imgContainerRef.current.getBoundingClientRect(),
@@ -58,7 +50,7 @@ function DetailsImage(props: DetailsImageProps) {
 			} as TargetAndTransition
 		}
 		return {}
-	}, [dtp.state.detailsOverlay])
+	}, [sourceRect, naturalSize])
 
 	const getImageAnimClose = useCallback(() => {
 		const box = resized.current
@@ -101,10 +93,6 @@ function DetailsImage(props: DetailsImageProps) {
 						}
 						resized.current = true
 						const imgContainerRect = elem.getBoundingClientRect()
-						const naturalSize = {
-							width: dtp.state.detailsOverlay.width,
-							height: dtp.state.detailsOverlay.height,
-						}
 						const pos = offsetRect(contain(naturalSize, imgContainerRect), imgContainerRect)
 						anim(
 							scope.current,
@@ -117,14 +105,11 @@ function DetailsImage(props: DetailsImageProps) {
 			ro.observe(elem)
 			return ro
 		},
-		[anim, dtp.state.detailsOverlay, scope],
+		[anim, naturalSize, scope],
 	)
 
 	return (
 		<Box
-			width={"100%"}
-			minHeight={0}
-			flex={"1 1 auto"}
 			ref={(elem: HTMLDivElement | null) => {
 				imgContainerRef.current = elem
 				if (elem) {
@@ -133,18 +118,20 @@ function DetailsImage(props: DetailsImageProps) {
 				}
 			}}
 			position={"relative"}
+			{...restProps}
 		>
 			<motion.img
 				ref={scope}
 				src={src}
 				style={{
 					// backgroundColor: "#ff000077",
-					background: `url(${srcHalf})`,
+					backgroundImage: `url(${srcHalf})`,
 					backgroundSize: "cover",
 					backgroundPosition: "center",
 					backgroundRepeat: "no-repeat",
 					position: "absolute",
 					zIndex: 20,
+					...imgStyle,
 				}}
 				variants={{
 					open: () => getImageAnimOpen(),

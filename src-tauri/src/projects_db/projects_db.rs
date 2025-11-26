@@ -200,120 +200,10 @@ impl ProjectsDb {
                 continue;
             }
 
-            let models: Vec<entity::models::ActiveModel> = HashSet::<ModelTypeAndFile>::from_iter(
-                histories_filtered
-                    .iter()
-                    .flat_map(get_all_models_from_tensor_history),
-            )
-            .iter()
-            .map(|m| entity::models::ActiveModel {
-                filename: Set(m.0.clone()),
-                model_type: Set(m.1),
-                ..Default::default()
-            })
-            .collect();
+            let models_lookup = self.process_models(&histories_filtered).await?;
 
-            let models = entity::models::Entity::insert_many(models)
-                .on_conflict(
-                    OnConflict::columns([
-                        entity::models::Column::Filename,
-                        entity::models::Column::ModelType,
-                    ])
-                    .update_column(entity::models::Column::Filename)
-                    .to_owned(),
-                )
-                .exec_with_returning(&self.db)
-                .await?;
-
-            let mut models_lookup: HashMap<ModelTypeAndFile, i64> = HashMap::new();
-            for model in models {
-                models_lookup.insert((model.filename.clone(), model.model_type), model.id);
-            }
-            let mut batch_image_loras: Vec<NodeModelWeight> = Vec::new();
-            let mut batch_image_controls: Vec<NodeModelWeight> = Vec::new();
-
-            let images: Vec<images::ActiveModel> = histories_filtered
-                .iter()
-                .map(|h: &TensorHistoryImport| {
-                    let mut image = images::ActiveModel {
-                        project_id: Set(project.id),
-                        node_id: Set(h.row_id),
-                        preview_id: Set(h.preview_id),
-                        clip_id: Set(h.clip_id),
-                        prompt: Set(Some(h.prompt.clone())),
-                        negative_prompt: Set(Some(h.negative_prompt.clone())),
-                        refiner_start: Set(Some(h.refiner_start)),
-                        start_width: Set(h.width as i16),
-                        start_height: Set(h.height as i16),
-                        seed: Set(h.seed as i64),
-                        strength: Set(h.strength),
-                        steps: Set(h.steps as i16),
-                        guidance_scale: Set(h.guidance_scale),
-                        shift: Set(h.shift),
-                        sampler: Set(Sampler::try_from(h.sampler).unwrap()),
-                        hires_fix: Set(h.hires_fix),
-                        tiled_decoding: Set(h.tiled_decoding),
-                        tiled_diffusion: Set(h.tiled_diffusion),
-                        tea_cache: Set(h.tea_cache),
-                        cfg_zero_star: Set(h.cfg_zero_star),
-                        wall_clock: Set(h.wall_clock.unwrap().and_utc()),
-                        ..Default::default()
-                    };
-
-                    if h.loras.len() > 0 {
-                        let image_loras: Vec<NodeModelWeight> = h
-                            .loras
-                            .iter()
-                            .map(|l| NodeModelWeight {
-                                node_id: h.row_id,
-                                model_id: *models_lookup
-                                    .get(&(l.model.clone(), ModelType::Lora))
-                                    .unwrap(),
-                                weight: l.weight,
-                            })
-                            .collect();
-                        batch_image_loras.extend(image_loras);
-                    }
-
-                    if h.controls.len() > 0 {
-                        let image_controls: Vec<NodeModelWeight> = h
-                            .controls
-                            .iter()
-                            .map(|c| NodeModelWeight {
-                                node_id: h.row_id,
-                                model_id: *models_lookup
-                                    .get(&(c.model.clone(), ModelType::Cnet))
-                                    .unwrap(),
-                                weight: c.weight,
-                            })
-                            .collect();
-                        batch_image_controls.extend(image_controls);
-                    }
-
-                    if let Some(model_id) = models_lookup.get(&(h.model.clone(), ModelType::Model))
-                    {
-                        image.model_id = Set(Some(*model_id));
-                    }
-
-                    if let Some(refiner) = &h.refiner_model {
-                        if let Some(refiner_id) =
-                            models_lookup.get(&(refiner.clone(), ModelType::Model))
-                        {
-                            image.refiner_id = Set(Some(*refiner_id));
-                        }
-                    }
-
-                    if let Some(upscaler) = &h.upscaler {
-                        if let Some(upscaler_id) =
-                            models_lookup.get(&(upscaler.clone(), ModelType::Upscaler))
-                        {
-                            image.upscaler_id = Set(Some(*upscaler_id));
-                        }
-                    }
-
-                    image
-                })
-                .collect();
+            let (images, batch_image_loras, batch_image_controls) =
+                self.prepare_image_data(project.id, &histories_filtered, &models_lookup);
 
             let inserted_images = if !images.is_empty() {
                 entity::images::Entity::insert_many(images)
@@ -336,57 +226,12 @@ impl ProjectsDb {
                 node_id_to_image_id.insert(img.node_id, img.id);
             }
 
-            let mut lora_models: Vec<entity::image_loras::ActiveModel> = Vec::new();
-            for lora in batch_image_loras {
-                if let Some(image_id) = node_id_to_image_id.get(&lora.node_id) {
-                    lora_models.push(entity::image_loras::ActiveModel {
-                        image_id: Set(*image_id),
-                        lora_id: Set(lora.model_id),
-                        weight: Set(lora.weight),
-                        ..Default::default()
-                    });
-                }
-            }
-
-            if !lora_models.is_empty() {
-                entity::image_loras::Entity::insert_many(lora_models)
-                    .on_conflict(
-                        OnConflict::columns([
-                            entity::image_loras::Column::ImageId,
-                            entity::image_loras::Column::LoraId,
-                        ])
-                        .do_nothing()
-                        .to_owned(),
-                    )
-                    .exec(&self.db)
-                    .await?;
-            }
-
-            let mut control_models: Vec<entity::image_controls::ActiveModel> = Vec::new();
-            for control in batch_image_controls {
-                if let Some(image_id) = node_id_to_image_id.get(&control.node_id) {
-                    control_models.push(entity::image_controls::ActiveModel {
-                        image_id: Set(*image_id),
-                        control_id: Set(control.model_id),
-                        weight: Set(control.weight),
-                        ..Default::default()
-                    });
-                }
-            }
-
-            if !control_models.is_empty() {
-                entity::image_controls::Entity::insert_many(control_models)
-                    .on_conflict(
-                        OnConflict::columns([
-                            entity::image_controls::Column::ImageId,
-                            entity::image_controls::Column::ControlId,
-                        ])
-                        .do_nothing()
-                        .to_owned(),
-                    )
-                    .exec(&self.db)
-                    .await?;
-            }
+            self.insert_related_data(
+                &node_id_to_image_id,
+                batch_image_loras,
+                batch_image_controls,
+            )
+            .await?;
 
             on_progress((batch_start + 250) as i32, end as i32);
         }
@@ -399,6 +244,205 @@ impl ProjectsDb {
             })
             .await?
             .total)
+    }
+
+    async fn process_models(
+        &self,
+        histories: &[TensorHistoryImport],
+    ) -> Result<HashMap<ModelTypeAndFile, i64>, DbErr> {
+        let models: Vec<entity::models::ActiveModel> = HashSet::<ModelTypeAndFile>::from_iter(
+            histories
+                .iter()
+                .flat_map(get_all_models_from_tensor_history),
+        )
+        .iter()
+        .map(|m| entity::models::ActiveModel {
+            filename: Set(m.0.clone()),
+            model_type: Set(m.1),
+            ..Default::default()
+        })
+        .collect();
+
+        let models = entity::models::Entity::insert_many(models)
+            .on_conflict(
+                OnConflict::columns([
+                    entity::models::Column::Filename,
+                    entity::models::Column::ModelType,
+                ])
+                .update_column(entity::models::Column::Filename)
+                .to_owned(),
+            )
+            .exec_with_returning(&self.db)
+            .await?;
+
+        let mut models_lookup: HashMap<ModelTypeAndFile, i64> = HashMap::new();
+        for model in models {
+            models_lookup.insert((model.filename.clone(), model.model_type), model.id);
+        }
+        Ok(models_lookup)
+    }
+
+    fn prepare_image_data(
+        &self,
+        project_id: i64,
+        histories: &[TensorHistoryImport],
+        models_lookup: &HashMap<ModelTypeAndFile, i64>,
+    ) -> (
+        Vec<images::ActiveModel>,
+        Vec<NodeModelWeight>,
+        Vec<NodeModelWeight>,
+    ) {
+        let mut batch_image_loras: Vec<NodeModelWeight> = Vec::new();
+        let mut batch_image_controls: Vec<NodeModelWeight> = Vec::new();
+
+        let images: Vec<images::ActiveModel> = histories
+            .iter()
+            .map(|h: &TensorHistoryImport| {
+                let mut image = images::ActiveModel {
+                    project_id: Set(project_id),
+                    node_id: Set(h.row_id),
+                    preview_id: Set(h.preview_id),
+                    clip_id: Set(h.clip_id),
+                    prompt: Set(Some(h.prompt.clone())),
+                    negative_prompt: Set(Some(h.negative_prompt.clone())),
+                    refiner_start: Set(Some(h.refiner_start)),
+                    start_width: Set(h.width as i16),
+                    start_height: Set(h.height as i16),
+                    seed: Set(h.seed as i64),
+                    strength: Set(h.strength),
+                    steps: Set(h.steps as i16),
+                    guidance_scale: Set(h.guidance_scale),
+                    shift: Set(h.shift),
+                    sampler: Set(Sampler::try_from(h.sampler).unwrap_or(Sampler::EulerA)), // Fallback instead of panic
+                    hires_fix: Set(h.hires_fix),
+                    tiled_decoding: Set(h.tiled_decoding),
+                    tiled_diffusion: Set(h.tiled_diffusion),
+                    tea_cache: Set(h.tea_cache),
+                    cfg_zero_star: Set(h.cfg_zero_star),
+                    wall_clock: Set(h.wall_clock.unwrap_or_default().and_utc()), // Handle missing wall_clock
+                    ..Default::default()
+                };
+
+                if h.loras.len() > 0 {
+                    let image_loras: Vec<NodeModelWeight> = h
+                        .loras
+                        .iter()
+                        .filter_map(|l| {
+                            models_lookup
+                                .get(&(l.model.clone(), ModelType::Lora))
+                                .map(|id| NodeModelWeight {
+                                    node_id: h.row_id,
+                                    model_id: *id,
+                                    weight: l.weight,
+                                })
+                        })
+                        .collect();
+                    batch_image_loras.extend(image_loras);
+                }
+
+                if h.controls.len() > 0 {
+                    let image_controls: Vec<NodeModelWeight> = h
+                        .controls
+                        .iter()
+                        .filter_map(|c| {
+                            models_lookup
+                                .get(&(c.model.clone(), ModelType::Cnet))
+                                .map(|id| NodeModelWeight {
+                                    node_id: h.row_id,
+                                    model_id: *id,
+                                    weight: c.weight,
+                                })
+                        })
+                        .collect();
+                    batch_image_controls.extend(image_controls);
+                }
+
+                if let Some(model_id) = models_lookup.get(&(h.model.clone(), ModelType::Model)) {
+                    image.model_id = Set(Some(*model_id));
+                }
+
+                if let Some(refiner) = &h.refiner_model {
+                    if let Some(refiner_id) =
+                        models_lookup.get(&(refiner.clone(), ModelType::Model))
+                    {
+                        image.refiner_id = Set(Some(*refiner_id));
+                    }
+                }
+
+                if let Some(upscaler) = &h.upscaler {
+                    if let Some(upscaler_id) =
+                        models_lookup.get(&(upscaler.clone(), ModelType::Upscaler))
+                    {
+                        image.upscaler_id = Set(Some(*upscaler_id));
+                    }
+                }
+
+                image
+            })
+            .collect();
+
+        (images, batch_image_loras, batch_image_controls)
+    }
+
+    async fn insert_related_data(
+        &self,
+        node_id_to_image_id: &HashMap<i64, i64>,
+        batch_image_loras: Vec<NodeModelWeight>,
+        batch_image_controls: Vec<NodeModelWeight>,
+    ) -> Result<(), DbErr> {
+        let mut lora_models: Vec<entity::image_loras::ActiveModel> = Vec::new();
+        for lora in batch_image_loras {
+            if let Some(image_id) = node_id_to_image_id.get(&lora.node_id) {
+                lora_models.push(entity::image_loras::ActiveModel {
+                    image_id: Set(*image_id),
+                    lora_id: Set(lora.model_id),
+                    weight: Set(lora.weight),
+                    ..Default::default()
+                });
+            }
+        }
+
+        if !lora_models.is_empty() {
+            entity::image_loras::Entity::insert_many(lora_models)
+                .on_conflict(
+                    OnConflict::columns([
+                        entity::image_loras::Column::ImageId,
+                        entity::image_loras::Column::LoraId,
+                    ])
+                    .do_nothing()
+                    .to_owned(),
+                )
+                .exec(&self.db)
+                .await?;
+        }
+
+        let mut control_models: Vec<entity::image_controls::ActiveModel> = Vec::new();
+        for control in batch_image_controls {
+            if let Some(image_id) = node_id_to_image_id.get(&control.node_id) {
+                control_models.push(entity::image_controls::ActiveModel {
+                    image_id: Set(*image_id),
+                    control_id: Set(control.model_id),
+                    weight: Set(control.weight),
+                    ..Default::default()
+                });
+            }
+        }
+
+        if !control_models.is_empty() {
+            entity::image_controls::Entity::insert_many(control_models)
+                .on_conflict(
+                    OnConflict::columns([
+                        entity::image_controls::Column::ImageId,
+                        entity::image_controls::Column::ControlId,
+                    ])
+                    .do_nothing()
+                    .to_owned(),
+                )
+                .exec(&self.db)
+                .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn scan_all_projects(&self, app: &tauri::AppHandle) -> Result<(), MixedError> {
