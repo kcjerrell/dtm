@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:web": "MOCK_TAURI=true vite",
     "build": "scripts/prebuild.sh && vite build",
     "build-dep": "chmod +x scripts/prebuild.sh && scripts/prebuild.sh",
     "build:universal": "dotenv -- tauri build --target universal-apple-darwin",

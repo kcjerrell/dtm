@@ -5,6 +5,7 @@ import { htmlInjectionPlugin } from "vite-plugin-html-injection";
 import wasm from "vite-plugin-wasm";
 
 const host = process.env.TAURI_DEV_HOST;
+const isMock = process.env.MOCK_TAURI === "true";
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -34,6 +35,22 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": new URL("./src", import.meta.url).pathname,
+      ...(isMock ? {
+        "@tauri-apps/api/core": new URL("./src/mocks/tauri-core.ts", import.meta.url).pathname,
+        "@tauri-apps/api/path": new URL("./src/mocks/tauri-path.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-fs": new URL("./src/mocks/tauri-fs.ts", import.meta.url).pathname,
+        "@tauri-store/valtio": new URL("./src/mocks/tauri-store.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-dialog": new URL("./src/mocks/tauri-dialog.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-shell": new URL("./src/mocks/tauri-shell.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-opener": new URL("./src/mocks/tauri-opener.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-process": new URL("./src/mocks/tauri-process.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-updater": new URL("./src/mocks/tauri-updater.ts", import.meta.url).pathname,
+        "@tauri-apps/api/window": new URL("./src/mocks/tauri-window.ts", import.meta.url).pathname,
+        "@tauri-apps/api/app": new URL("./src/mocks/tauri-app.ts", import.meta.url).pathname,
+        "@tauri-apps/api/menu": new URL("./src/mocks/tauri-menu.ts", import.meta.url).pathname,
+        "@tauri-apps/api/event": new URL("./src/mocks/tauri-event.ts", import.meta.url).pathname,
+        "@tauri-apps/api": new URL("./src/mocks/tauri-api.ts", import.meta.url).pathname,
+      } : {})
     },
   },
 
