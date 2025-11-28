@@ -1,13 +1,13 @@
 import { Box } from "@chakra-ui/react"
 import { motion, type TargetAndTransition, useAnimate } from "motion/react"
-import { CSSProperties, useCallback, useRef } from "react"
+import { type CSSProperties, useCallback, useRef } from "react"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
 interface DetailsImageProps extends ChakraProps {
 	src?: string
 	srcHalf?: string
-	sourceRect: DOMRectReadOnly | null
+	sourceRect: ValueOrGetter<Nullable<DOMRectReadOnly>>
 	naturalSize: { width: number; height: number }
 	imgStyle?: CSSProperties
 }
@@ -15,7 +15,9 @@ interface DetailsImageProps extends ChakraProps {
 type LRect = { left: number; top: number; width: number; height: number }
 
 function DetailsImage(props: DetailsImageProps) {
-	const { src, srcHalf, sourceRect, naturalSize, imgStyle, ...restProps } = props
+	const { src, srcHalf, sourceRect: sourceRectProp, naturalSize, imgStyle, ...restProps } = props
+
+	const sourceRect = typeof sourceRectProp === "function" ? sourceRectProp() : sourceRectProp
 
 	const imgContainerRef = useRef<HTMLDivElement>(null)
 	const [scope, anim] = useAnimate()

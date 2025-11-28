@@ -1,23 +1,19 @@
-use std::collections::{HashMap, HashSet};
-
-use chrono::{DateTime, NaiveDateTime};
-use serde::{Deserialize, Serialize};
-use tokio::sync::OnceCell;
-
 use entity::{
     enums::{ModelType, Sampler},
     images::{self},
     projects,
 };
-use migration::{Migrator, MigratorTrait};
+use migration::{IntoIden, Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
-    ActiveModelAction, ActiveModelTrait, ColumnTrait, ConnectionTrait, Database,
-    DatabaseConnection, DbErr, EntityTrait, FromQueryResult, IntoActiveModel, JoinType, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set, Statement,
-    TransactionTrait, TryInsertResult,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
+    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, RelationTrait, Set,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use tauri::{Emitter, Manager};
+use tokio::sync::OnceCell;
 
 use crate::projects_db::{
     dt_project::{self, ProjectRef},
@@ -510,8 +506,69 @@ impl ProjectsDb {
             query = query.filter(images::Column::NodeId.eq(node_id));
         }
 
+        if let Some(models) = &opts.model {
+            if !models.is_empty() {
+                let model_ids: Vec<i64> = models.iter().map(|&id| id as i64).collect();
+                query = query.filter(images::Column::ModelId.is_in(model_ids));
+            }
+        }
+
+        if let Some(controls) = &opts.control {
+            if !controls.is_empty() {
+                let control_ids: Vec<i64> = controls.iter().map(|&id| id as i64).collect();
+                query = query
+                    .join(JoinType::LeftJoin, images::Relation::ImageControls.def())
+                    .filter(entity::image_controls::Column::ControlId.is_in(control_ids));
+            }
+        }
+
+        if let Some(loras) = &opts.lora {
+            if !loras.is_empty() {
+                let lora_ids: Vec<i64> = loras.iter().map(|&id| id as i64).collect();
+                query = query
+                    .join(JoinType::LeftJoin, images::Relation::ImageLoras.def())
+                    .filter(entity::image_loras::Column::LoraId.is_in(lora_ids));
+            }
+        }
+
         if let Some(search) = &opts.search {
-            query = query.filter(images::Column::Prompt.contains(search));
+            // Join the FTS table
+            query = query.join(
+                sea_orm::JoinType::InnerJoin,
+                sea_orm::RelationDef {
+                    // FROM images
+                    from_tbl: sea_query::TableRef::Table(
+                        sea_query::TableName::from(images::Entity.into_iden()),
+                        None,
+                    ),
+                    from_col: sea_orm::Identity::Unary(sea_query::Alias::new("id").into_iden()),
+
+                    // TO images_fts
+                    to_tbl: sea_query::TableRef::Table(
+                        sea_query::TableName::from(sea_query::Alias::new("images_fts").into_iden()),
+                        None,
+                    ),
+                    to_col: sea_orm::Identity::Unary(sea_query::Alias::new("rowid").into_iden()),
+                    // this only matches equal column names, but we override using on_condition below
+                    rel_type: sea_orm::RelationType::HasOne,
+                    is_owner: false,
+                    skip_fk: false,
+                    on_delete: None,
+                    on_update: None,
+                    on_condition: Some(std::sync::Arc::new(|_l, _r| {
+                        sea_orm::Condition::all()
+                            .add(sea_query::Expr::cust("images_fts.rowid = images.id"))
+                    })),
+                    fk_name: None,
+                    condition_type: sea_query::ConditionType::Any,
+                },
+            );
+
+            // MATCH query
+            query = query.filter(sea_query::Expr::cust_with_values(
+                "images_fts MATCH ?",
+                [sea_orm::Value::from(search.clone())],
+            ));
         }
 
         if let Some(skip) = opts.skip {
@@ -707,13 +764,90 @@ impl ProjectsDb {
 
         Ok(())
     }
+
+    pub async fn list_models(
+        &self,
+        model_type: Option<ModelType>,
+    ) -> Result<Vec<ModelExtra>, DbErr> {
+        let mut query = entity::models::Entity::find();
+
+        if let Some(t) = model_type {
+            query = query.filter(entity::models::Column::ModelType.eq(t));
+        }
+
+        let models = query.all(&self.db).await?;
+        let mut results = Vec::new();
+
+        for model in models {
+            let count = match model.model_type {
+                ModelType::Model => {
+                    let c1 = entity::images::Entity::find()
+                        .filter(entity::images::Column::ModelId.eq(model.id))
+                        .count(&self.db)
+                        .await?;
+                    let c2 = entity::images::Entity::find()
+                        .filter(entity::images::Column::RefinerId.eq(model.id))
+                        .count(&self.db)
+                        .await?;
+                    c1 + c2
+                }
+                ModelType::Lora => {
+                    entity::image_loras::Entity::find()
+                        .filter(entity::image_loras::Column::LoraId.eq(model.id))
+                        .count(&self.db)
+                        .await?
+                }
+                ModelType::Cnet => {
+                    entity::image_controls::Entity::find()
+                        .filter(entity::image_controls::Column::ControlId.eq(model.id))
+                        .count(&self.db)
+                        .await?
+                }
+                ModelType::Upscaler => {
+                    entity::images::Entity::find()
+                        .filter(entity::images::Column::UpscalerId.eq(model.id))
+                        .count(&self.db)
+                        .await?
+                }
+                _ => 0,
+            };
+
+            if count > 0 {
+                results.push(ModelExtra {
+                    id: model.id,
+                    model_type: model.model_type,
+                    filename: model.filename,
+                    name: model.name,
+                    version: model.version,
+                    count: count as i64,
+                });
+            }
+        }
+
+        // Sort by count desc
+        results.sort_by(|a, b| b.count.cmp(&a.count));
+
+        Ok(results)
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ModelExtra {
+    pub id: i64,
+    pub model_type: ModelType,
+    pub filename: String,
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub count: i64,
 }
 
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct ListImagesOptions {
     pub project_ids: Option<Vec<i64>>,
     pub node_id: Option<i64>,
-    pub model: Option<String>,
+    pub model: Option<Vec<i32>>,
+    pub control: Option<Vec<i32>>,
+    pub lora: Option<Vec<i32>>,
     pub sort: Option<String>,
     pub direction: Option<String>,
     pub take: Option<i32>,

@@ -45,7 +45,7 @@ export const InfoPaneContainer = chakra(
 			display: "flex",
 			flexDirection: "column",
 			padding: 0,
-			margin: 1,
+			margin: 2,
 			borderRadius: "xl",
 			boxShadow: "pane1",
 			border: "pane1",

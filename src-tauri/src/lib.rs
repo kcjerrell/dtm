@@ -1,8 +1,6 @@
 #![recursion_limit = "256"]
 
-use std::path::PathBuf;
-
-use tauri::{http, Manager, TitleBarStyle, UriSchemeContext, UriSchemeResponder};
+use tauri::{http, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_window_state::StateFlags;
@@ -116,10 +114,10 @@ pub fn run() {
             projects_db_watch_folder_remove,
             projects_db_watch_folder_update,
             projects_db_scan_model_info,
+            projects_db_list_models,
             dt_project_get_tensor_history, // #unused
             dt_project_get_thumb_half,     // #unused
             dt_project_get_history_full,
-            dt_project_get_tensor, // #unused
             dt_project_find_predecessor_candidates,
             dt_project_get_tensor_raw, // #unused
             dt_project_get_tensor_size,

@@ -30,6 +30,7 @@ export class ScannerService {
 		for (const project of this.#state.projects) {
 			await this.syncProject(project)
 		}
+		await pdb.rebuildIndex()
 
 		this.#dtp.watchFolders.startWatch(async (projectFiles) => {
 			for (const projectFile of projectFiles) {

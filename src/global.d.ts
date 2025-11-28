@@ -8,7 +8,9 @@ declare global {
 		| Readonly<T>
 	type Snap<T> = ReadOnlyState<T>
 
-	type MaybeReadOnly<T> = T | ReadonlyState<T>
+	type MaybeReadonly<T> = T | ReadonlyState<T>
+	type Nullable<T> = T | null
+	type ValueOrGetter<T> = T | (() => T)
 
 	type ChakraProps = Omit<BoxProps, "direction">
 

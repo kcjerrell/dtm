@@ -4,14 +4,16 @@ import {
 	dtProject,
 	type ImageExtra,
 	type ListImagesOptions,
+	type Model,
 	type ProjectExtra,
+	pdb,
 	type TensorHistoryExtra,
 } from "@/commands"
+import urls from "@/commands/urls"
 import type { ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
-import urls from "@/commands/urls"
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -39,14 +41,19 @@ export type DTProjectsStateType = {
 			url?: string
 			width?: number
 			height?: number
-			sourceRect: DOMRect | null
 			isLoading: boolean
 		}
+		subItemSourceRect: DOMRect | null
 		lastItem: ImageExtra | null
 		candidates: TensorHistoryExtra[]
 		sourceRect: DOMRect | null
 		width: number
 		height: number
+	}
+	models?: {
+		models: Model[]
+		loras: Model[]
+		controls: Model[]
 	}
 }
 
@@ -64,7 +71,8 @@ const state = proxy({
 	itemSize: 200,
 	detailsOverlay: {
 		item: null as ImageExtra | null,
-		subItem: null as DTProjectsStateType['detailsOverlay']['subItem'],
+		subItem: null as DTProjectsStateType["detailsOverlay"]["subItem"],
+		subItemSourceRect: null as DOMRect | null,
 		lastItem: null as ImageExtra | null,
 		candidates: [] as TensorHistoryExtra[],
 		sourceRect: null as DOMRect | null,
@@ -158,9 +166,9 @@ class DTProjectsStore implements IDTProjectsStore {
 			projectId,
 			tensorId,
 			thumbUrl: urls.tensor(projectId, tensorId, null, 100),
-			sourceRect: toJSON(sourceElement.getBoundingClientRect()),
 			isLoading: true,
 		}
+		details.subItemSourceRect = toJSON(sourceElement.getBoundingClientRect())
 		const size = await dtProject.getTensorSize(projectId, tensorId)
 		const loadImg = new Image()
 		loadImg.onload = () => {
@@ -176,6 +184,15 @@ class DTProjectsStore implements IDTProjectsStore {
 
 	hideSubItem() {
 		this.state.detailsOverlay.subItem = null
+	}
+
+	async listModels() {
+		const models = await pdb.listModels()
+		this.state.models = {
+			models: models.filter((it) => it.model_type === "Model"),
+			loras: models.filter((it) => it.model_type === "Lora"),
+			controls: models.filter((it) => it.model_type === "Cnet"),
+		}
 	}
 }
 
@@ -259,8 +276,8 @@ export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | 
 	if (imagesSource.projects) {
 		opts.projectIds = imagesSource.projects.map((p) => p.id)
 	}
-	if (imagesSource.search) opts.promptSearch = imagesSource.search
-
+	if (imagesSource.search) opts.search = imagesSource.search
+	console.log(opts)
 	return opts
 }
 

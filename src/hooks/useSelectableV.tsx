@@ -183,6 +183,10 @@ export function makeSelectable<T extends object>(item: T, initialValue = false):
 	return p
 }
 
+export function makeSelectableList<T extends object>(items: T[]): Selectable<T>[] {
+	return items.map((item) => makeSelectable(item))
+}
+
 function getModifier(e: React.MouseEvent) {
 	if (e.shiftKey) return "shift"
 	if (e.metaKey) return "cmd"

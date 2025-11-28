@@ -1,14 +1,17 @@
-import { Box, chakra, VStack } from "@chakra-ui/react"
+import { Box, chakra, HStack, Spinner, VStack } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import type { ComponentProps } from "react"
+import { FiCopy, FiSave } from "react-icons/fi"
+import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import { useSnapshot } from "valtio"
 import type { ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
-import { DataItem, Panel } from "@/components"
+import { IconButton } from "@/components"
+import AppState from "@/hooks/appState"
 import { useDTProjects } from "../state/projectStore"
+import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
 import TensorsList from "./TensorsList"
-import DetailsContent from "./DetailsContent"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
@@ -75,7 +78,8 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 					{...rest}
 				>
 					<VStack
-						padding={8}
+						padding={4}
+						paddingBottom={2}
 						gap={0}
 						minHeight={0}
 						width={"100%"}
@@ -92,25 +96,61 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 								naturalSize={{ width: snap.width, height: snap.height }}
 								position={"absolute"}
 								zIndex={0}
-								filter={subItem ? "blur(2px)" : "none"}
-								transition={"filter 0.2s ease"}
+								// filter={subItem ? "blur(2px)" : "none"}
+								imgStyle={{
+									filter: subItem ? "brightness(0.5)" : "none",
+									transition: "filter 0.3s ease",
+								}}
+								transition={"filter 0.3s ease"}
 							/>
-							<AnimatePresence>
-								{subItem && (
-									<DetailsImage
-										key={subItem.tensorId}
-										inset={"5%"}
-										src={subItem.url}
-										srcHalf={subItem.thumbUrl}
-										sourceRect={subItem.sourceRect}
-										naturalSize={{ width: subItem.width, height: subItem.height }}
-										zIndex={1}
-										imgStyle={{ boxShadow: "pane1", border: "2px solid gray" }}
-										position={"absolute"}
+							<AnimatePresence initial={false} mode={"sync"}>
+								{subItem?.isLoading && (
+									<Spinner
+										color={"white"}
+										bgColor={"black"}
+										padding={1}
+										left="50%"
+										top="50%"
+										position="absolute"
+										transform="translate(-50%, -50%)"
 									/>
+								)}
+								{subItem && (
+									<VStack
+										height={"100%"}
+										width={"100%"}
+										alignItems={"center"}
+										padding={1}
+										zIndex={1}
+										key={subItem?.tensorId}
+										position={"absolute"}
+									>
+										<DetailsImage
+											width={"100%"}
+											flex={"1 1 auto"}
+											src={subItem?.url}
+											srcHalf={subItem?.thumbUrl}
+											sourceRect={() => dtp.state.detailsOverlay.subItemSourceRect}
+											naturalSize={{ width: subItem?.width, height: subItem?.height }}
+											zIndex={1}
+											imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
+											// position={"absolute"}
+										/>
+										<DetailsButtonBar
+											show={subItem && !subItem.isLoading}
+											projectId={snap.item.project_id}
+											tensorId={subItem.tensorId}
+										/>
+									</VStack>
 								)}
 							</AnimatePresence>
 						</Box>
+						<DetailsButtonBar
+							show={!subItem}
+							projectId={snap.item.project_id}
+							tensorId={details?.tensor_id}
+							nodeId={snap.item.node_id}
+						/>
 						<TensorsList
 							flex={"0 0 4rem"}
 							margin={"1rem"}
@@ -172,5 +212,61 @@ const Container = chakra(
 	},
 	{ forwardProps: ["transition"] },
 )
+
+interface DetailsButtonBarProps extends ChakraProps {
+	projectId?: number
+	tensorId?: string
+	nodeId?: number
+	show?: boolean
+}
+function DetailsButtonBar(props: DetailsButtonBarProps) {
+	const { projectId, tensorId, nodeId, show, ...restProps } = props
+	const disabled = !projectId || !tensorId
+	return (
+		<HStack
+			alignSelf={"center"}
+			margin={2}
+			zIndex={1}
+			bgColor={"bg.2"}
+			justifyContent={"center"}
+			borderRadius={"lg"}
+			paddingX={2}
+			boxShadow={"pane1"}
+			border={"1px solid gray"}
+			onClick={(e) => e.stopPropagation()}
+			asChild
+			{...restProps}
+		>
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: show ? 1 : 0 }}
+				exit={{ opacity: 0, transition: { delay: 0, duration: 0.1 } }}
+				transition={{ duration: 0.2, delay: 0.2 }}
+			>
+				<IconButton size={"sm"} disabled={disabled} onClick={() => {}}>
+					<FiCopy />
+				</IconButton>
+				<IconButton size={"sm"} disabled={disabled} onClick={() => {}}>
+					<FiSave />
+				</IconButton>
+				<IconButton
+					size={"sm"}
+					disabled={disabled}
+					onClick={() => {
+						AppState.setViewRequest("metadata", {
+							open: {
+								nodeId,
+								projectId,
+								tensorId,
+							},
+						})
+					}}
+				>
+					<PiListMagnifyingGlassBold />
+				</IconButton>
+			</motion.div>
+		</HStack>
+	)
+}
 
 export default DetailsOverlay

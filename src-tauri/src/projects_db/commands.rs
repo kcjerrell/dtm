@@ -2,7 +2,7 @@ use tauri::Emitter;
 
 use crate::projects_db::{
     dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
-    projects_db::{ImageExtra, Paged, ProjectExtra, ScanProgress},
+    projects_db::{ImageExtra, ModelExtra, Paged, ProjectExtra, ScanProgress},
     tensors::decode_tensor,
     DTProject, ProjectsDb, TensorHistoryImport,
 };
@@ -49,7 +49,9 @@ pub async fn projects_db_project_update_exclude(
     exclude: bool,
 ) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    pdb.update_exclude(id, exclude).await.map_err(|e| e.to_string())?;
+    pdb.update_exclude(id, exclude)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -119,8 +121,10 @@ pub async fn projects_db_image_list(
     node_id: Option<i64>,
     sort: Option<String>,
     direction: Option<String>,
-    model: Option<String>,
-    prompt_search: Option<String>,
+    model: Option<Vec<i32>>,
+    control: Option<Vec<i32>>,
+    lora: Option<Vec<i32>>,
+    search: Option<String>,
     take: Option<i32>,
     skip: Option<i32>,
 ) -> Result<Paged<ImageExtra>, String> {
@@ -131,115 +135,14 @@ pub async fn projects_db_image_list(
         sort,
         direction,
         model,
+        control,
+        lora,
         take,
         skip,
-        search: prompt_search,
+        search,
     };
 
     Ok(projects_db.list_images(opts).await.unwrap())
-}
-
-#[tauri::command]
-pub async fn dt_project_get_tensor_history(
-    project_file: String,
-    index: u32,
-    count: u32,
-) -> Result<Vec<TensorHistoryImport>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project
-        .get_tensor_history(index as i64, count as i64)
-        .await
-        .unwrap())
-}
-
-#[tauri::command]
-pub async fn dt_project_get_thumb_half(
-    project_file: String,
-    thumb_id: i64,
-) -> Result<Vec<u8>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project.get_thumb_half(thumb_id).await.unwrap())
-}
-
-#[tauri::command]
-pub async fn dt_project_get_history_full(
-    project_file: String,
-    row_id: i64,
-) -> Result<TensorHistoryExtra, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    let history = project.get_history_full(row_id).await.unwrap();
-    Ok(history)
-}
-
-#[tauri::command]
-pub async fn dt_project_get_tensor(
-    app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
-    tensor_id: String,
-) -> Result<Vec<u8>, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let buffer = project.get_tensor(&tensor_id).await.unwrap();
-    Ok(buffer)
-}
-
-#[tauri::command]
-pub async fn dt_project_get_tensor_raw(
-    app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
-    tensor_id: String,
-) -> Result<TensorRaw, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
-    Ok(tensor)
-}
-
-#[tauri::command]
-pub async fn dt_project_get_tensor_size(
-    app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
-    tensor_id: String,
-) -> Result<crate::projects_db::dt_project::TensorSize, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_size(&tensor_id).await.unwrap();
-    Ok(tensor)
-}
-
-#[tauri::command]
-pub async fn dt_project_decode_tensor(
-    app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
-    node_id: Option<i64>,
-    tensor_id: String,
-    as_png: bool,
-) -> Result<tauri::ipc::Response, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
-
-    let metadata = match node_id {
-        Some(node) => Some(project.get_history_full(node).await.unwrap().history),
-        None => None,
-    };
-
-    let buffer = decode_tensor(tensor, as_png, metadata, None).unwrap();
-    Ok(tauri::ipc::Response::new(buffer))
-}
-
-#[tauri::command]
-pub async fn dt_project_find_predecessor_candidates(
-    project_file: String,
-    row_id: i64,
-    lineage: i64,
-    logical_time: i64,
-) -> Result<Vec<TensorHistoryExtra>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project
-        .find_predecessor_candidates(row_id, lineage, logical_time)
-        .await
-        .unwrap())
 }
 
 #[tauri::command]
@@ -306,6 +209,109 @@ pub async fn projects_db_scan_model_info(
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn projects_db_list_models(
+    app: tauri::AppHandle,
+    model_type: Option<entity::enums::ModelType>,
+) -> Result<Vec<ModelExtra>, String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    Ok(projects_db
+        .list_models(model_type)
+        .await
+        .map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+pub async fn dt_project_get_tensor_history(
+    project_file: String,
+    index: u32,
+    count: u32,
+) -> Result<Vec<TensorHistoryImport>, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    match project.get_tensor_history(index as i64, count as i64).await {
+        Ok(history) => Ok(history),
+        Err(e) => Ok(Vec::new()),
+    }
+}
+
+#[tauri::command]
+pub async fn dt_project_get_thumb_half(
+    project_file: String,
+    thumb_id: i64,
+) -> Result<Vec<u8>, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    Ok(project.get_thumb_half(thumb_id).await.unwrap())
+}
+
+#[tauri::command]
+pub async fn dt_project_get_history_full(
+    project_file: String,
+    row_id: i64,
+) -> Result<TensorHistoryExtra, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    let history = project.get_history_full(row_id).await.unwrap();
+    Ok(history)
+}
+
+#[tauri::command]
+pub async fn dt_project_get_tensor_raw(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    tensor_id: String,
+) -> Result<TensorRaw, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    Ok(tensor)
+}
+
+#[tauri::command]
+pub async fn dt_project_get_tensor_size(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    tensor_id: String,
+) -> Result<crate::projects_db::dt_project::TensorSize, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let tensor = project.get_tensor_size(&tensor_id).await.unwrap();
+    Ok(tensor)
+}
+
+#[tauri::command]
+pub async fn dt_project_decode_tensor(
+    app: tauri::AppHandle,
+    project_id: Option<i64>,
+    project_path: Option<String>,
+    node_id: Option<i64>,
+    tensor_id: String,
+    as_png: bool,
+) -> Result<tauri::ipc::Response, String> {
+    let project = get_project(app, project_path, project_id).await.unwrap();
+    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+
+    let metadata = match node_id {
+        Some(node) => Some(project.get_history_full(node).await.unwrap().history),
+        None => None,
+    };
+
+    let buffer = decode_tensor(tensor, as_png, metadata, None).unwrap();
+    Ok(tauri::ipc::Response::new(buffer))
+}
+
+#[tauri::command]
+pub async fn dt_project_find_predecessor_candidates(
+    project_file: String,
+    row_id: i64,
+    lineage: i64,
+    logical_time: i64,
+) -> Result<Vec<TensorHistoryExtra>, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    Ok(project
+        .find_predecessor_candidates(row_id, lineage, logical_time)
+        .await
+        .unwrap())
 }
 
 async fn get_project(

@@ -1,11 +1,11 @@
-import { dtProject, ImageExtra, pdb, TensorHistoryExtra } from "@/commands"
+import { Box, chakra, Spacer } from "@chakra-ui/react"
+import { motion } from "motion/react"
+import { type ComponentProps, useCallback } from "react"
+import type { ImageExtra, TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { Tooltip } from "@/components"
 import ColorPaletteImage from "@/components/ColorPalette"
 import PoseImage from "@/components/Pose"
-import { Box, chakra, Color, HStack, Spacer, VStack } from "@chakra-ui/react"
-import { motion } from "motion/react"
-import { ComponentProps, useCallback } from "react"
 import { useDTProjects } from "../state/projectStore"
 
 const _thumbnailSize = "4rem"
@@ -92,6 +92,20 @@ function TensorsList(props: TensorsListComponentProps) {
 				)
 			})}
 			<Spacer />
+			{moodboard_ids.length > 0 && (
+				<Group>
+					<Label>Moodboard</Label>
+					<Images>
+						{moodboard_ids.map((id) => (
+							<Thumbnail
+								key={id}
+								src={urls.tensor(item?.project_id, id, null, 100)}
+								onClick={(e) => showSubitem(e, id)}
+							/>
+						))}
+					</Images>
+				</Group>
+			)}
 			{previous.length > 0 && (
 				<Group>
 					<Label>Previous</Label>
@@ -111,20 +125,6 @@ function TensorsList(props: TensorsListComponentProps) {
 								</Tooltip>
 							)
 						})}
-					</Images>
-				</Group>
-			)}
-			{moodboard_ids.length > 0 && (
-				<Group>
-					<Label>Moodboard</Label>
-					<Images>
-						{moodboard_ids.map((id) => (
-							<Thumbnail
-								key={id}
-								src={urls.tensor(item?.project_id, id, null, 100)}
-								onClick={(e) => showSubitem(e, id)}
-							/>
-						))}
 					</Images>
 				</Group>
 			)}
@@ -154,6 +154,7 @@ const Group = chakra(
 			flexDirection: "column",
 			gap: 0,
 			alignItems: "center",
+			marginInline: 2
 		},
 	},
 	{

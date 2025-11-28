@@ -1,8 +1,9 @@
-import { Box, VStack } from "@chakra-ui/react"
-import { proxy, snapshot, useSnapshot } from "valtio"
+import { Box, Button, VStack } from "@chakra-ui/react"
+import { proxy, snapshot, subscribe, useSnapshot } from "valtio"
 import { CheckRoot } from "@/components"
 import { Panel } from "@/components/common"
 import { useInitRef } from "@/hooks/useInitRef"
+import { useEffect, useEffectEvent, useRef } from "react"
 
 const store = proxy({
 	someState: "Hello",
@@ -10,34 +11,48 @@ const store = proxy({
 	value: 0,
 })
 
-class Test {
-	state = proxy({
-		value: 0,
-	})
+function useSubscribeValue<T extends Record<string, unknown>, K extends keyof T>(
+	proxy: T,
+	key: K,
+	callback: (value: T[K]) => void,
+) {
+	const prevValue = useRef(proxy[key])
+	const effectEvent = useEffectEvent(callback)
 
-	constructor() {
-		setInterval(() => {
-			this.state.value++
-		}, 500)
-	}
-
-	use = () => {
-		return useSnapshot(this.state)
-	}
+	// biome-ignore lint/correctness/useExhaustiveDependencies: effect event
+	useEffect(() => {
+		const unsubscribe = subscribe(proxy, () => {
+			if (proxy[key] === prevValue.current) return
+			prevValue.current = proxy[key]
+			effectEvent(proxy[key])
+		})
+		return () => unsubscribe()
+	}, [proxy, key])
 }
 
 function Empty(props) {
-	const state = useInitRef(() => new Test())
-	const snap = state.use()
-	// const snap2 = useSnapshot(state.state)
+	useSubscribeValue(store, "someState", (value) => {
+		console.log(value)
+	})
+
+	const snap = useSnapshot(store)
 
 	return (
 		<CheckRoot width={"full"} height={"full"}>
 			<VStack width={"full"} height={"full"} justifyContent={"center"}>
 				<Panel>
 					{snap.value}
+					{snap.items.toString()}
 					{/* {snap2.value} */}
 				</Panel>
+				<Button
+					onClick={() => {
+						store.items.push(new Date().toDateString())
+						store.someState = "Hello2"
+					}}
+				>
+					Change
+				</Button>
 			</VStack>
 		</CheckRoot>
 	)

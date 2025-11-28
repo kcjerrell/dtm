@@ -193,8 +193,10 @@ export type ListImagesOptions = {
 	nodeId?: number
 	sort?: string
 	direction?: string
-	model?: string
-	promptSearch?: string
+	model?: number[]
+	control?: number[]
+	lora?: number[]
+	search?: string
 	take?: number
 	skip?: number
 }
@@ -235,8 +237,10 @@ export const pdb = {
 	// #unused
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
 
-	listImages: async (opts: ListImagesOptions): Promise<{ items: ImageExtra[]; total: number }> =>
-		invoke("projects_db_image_list", opts ?? {}),
+	listImages: async (opts: ListImagesOptions): Promise<{ items: ImageExtra[]; total: number }> => {
+		console.log(opts)
+		return await invoke("projects_db_image_list", opts ?? {})
+	},
 
 	rebuildIndex: async (): Promise<void> => invoke("projects_db_image_rebuild_fts"),
 
@@ -259,9 +263,21 @@ export const pdb = {
 
 	scanModelInfo: async (filePath: string, modelType: ModelType): Promise<void> =>
 		invoke("projects_db_scan_model_info", { filePath, modelType }),
+
+	listModels: async (modelType?: ModelType): Promise<Model[]> =>
+		invoke("projects_db_list_models", { modelType }),
 }
 
 export type ModelType = "Model" | "Lora" | "Cnet" | "Upscaler"
+
+export type Model = {
+	id: number
+	model_type: ModelType
+	filename: string
+	name?: string
+	version?: string
+	count?: number
+}
 
 export type ModelInfo = {
 	file: string
@@ -293,16 +309,6 @@ export const dtProject = {
 		invoke("dt_project_get_history_full", { projectFile, rowId }),
 
 	// #unused
-	getTensor: async (tensorId: string, project: string | number): Promise<Uint8Array> => {
-		const opts = {
-			tensorId,
-			projectId: typeof project === "string" ? undefined : project,
-			projectFile: typeof project === "string" ? project : undefined,
-		}
-		return invoke("dt_project_get_tensor", opts)
-	},
-
-	// #unused
 	getTensorRaw: async (
 		projectFile: string,
 		projectId: number,
@@ -310,10 +316,7 @@ export const dtProject = {
 	): Promise<TensorRaw> =>
 		invoke("dt_project_get_tensor_raw", { projectFile, projectId, tensorId }),
 
-	getTensorSize: async (
-		project: string | number,
-		tensorId: string,
-	): Promise<TensorSize> => {
+	getTensorSize: async (project: string | number, tensorId: string): Promise<TensorSize> => {
 		const opts = {
 			tensorId,
 			projectId: typeof project === "string" ? undefined : project,

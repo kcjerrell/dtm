@@ -326,31 +326,20 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // FTS5 virtual table for prompt + negative_prompt
-        // manager
-        //     .create_table(
-        //         Table::create()
-        //             .table(ImagesFts::Table)
-        //             .if_not_exists()
-        //             .col(ColumnDef::new(ImagesFts::Prompt).text())
-        //             .col(ColumnDef::new(ImagesFts::NegativePrompt).text())
-        //             .engine("fts5(prompt, negative_prompt, content='images', content_rowid='id')")
-        //             .to_owned(),
-        //     )
-        //     .await?;
-
         manager
             .get_connection()
             .execute_unprepared(
                 r#"
-        CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
-        USING fts5(
-            prompt,
-            negative_prompt,
-            content='images',
-            content_rowid='id'
-        );
-        "#,
+                    CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
+                    USING fts5(
+                        prompt,
+                        negative_prompt,
+                        content='images',
+                        content_rowid='id',
+                        tokenize='porter',
+                        prefix='2 3 4'
+                    );
+                "#,
             )
             .await?;
 
@@ -457,11 +446,4 @@ enum WatchFolders {
     Path,
     Recursive,
     ItemType,
-}
-
-#[derive(Iden)]
-enum ImagesFts {
-    Table,
-    Prompt,
-    NegativePrompt,
 }
