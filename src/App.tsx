@@ -35,7 +35,7 @@ function App() {
 			bgColor={"check.2"}
 			transformOrigin={"left top"}
 			onPointerDownCapture={async (e) => {
-				if (e.clientY < 80) {
+				if (e.clientY < 50) {
 					const win = await getCurrentWindow()
 					win.startDragging()
 				}

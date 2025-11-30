@@ -330,7 +330,7 @@ export const dtProject = {
 		tensorId: string,
 		asPng: boolean,
 		nodeId?: number,
-	): Promise<Uint8Array> => {
+	): Promise<Uint8Array<ArrayBuffer>> => {
 		const opts = {
 			tensorId,
 			projectId: typeof project === "string" ? undefined : project,
@@ -338,7 +338,7 @@ export const dtProject = {
 			asPng,
 			nodeId,
 		}
-		return invoke("dt_project_decode_tensor", opts)
+		return new Uint8Array(await invoke("dt_project_decode_tensor", opts))
 	},
 
 	getPredecessorCandidates: async (

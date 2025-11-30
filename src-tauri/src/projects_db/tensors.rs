@@ -75,13 +75,17 @@ pub fn decode_tensor(
         (pixels, target_size as u32, target_size as u32)
     } else {
         // --- Map f16 [-1,1] → u8 [0,255] ---
-        let pixels: Vec<u8> = out
-            .iter()
-            .map(|v| {
-                let f = v.clamp(-1.0, 1.0);
-                ((f * 0.5 + 0.5) * 255.0).round() as u8
-            })
-            .collect();
+        // let pixels: Vec<u8> = out
+        //     .iter()
+        //     .map(|v| {
+        //         let f = v.clamp(-1.0, 1.0);
+        //         ((f * 0.5 + 0.5) * 255.0).round() as u8
+        //     })
+        //     .collect();
+        let mut pixels = vec![0u8; out.len()];
+        for i in 0..out.len() {
+            pixels[i] = ((out[i] * 0.5 + 0.5) * 255.0).round() as u8;
+        }
         (pixels, tensor.width as u32, tensor.height as u32)
     };
 

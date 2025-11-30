@@ -4,10 +4,10 @@ import type { ComponentProps } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import { useSnapshot } from "valtio"
-import type { ImageExtra } from "@/commands"
+import { dtProject, type ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { IconButton } from "@/components"
-import AppState from "@/hooks/appState"
+import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTProjects } from "../state/projectStore"
 import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
@@ -138,7 +138,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 										/>
 										<DetailsButtonBar
 											show={subItem && !subItem.isLoading}
-											projectId={snap.item.project_id}
+											item={snap.item}
 											tensorId={subItem.tensorId}
 										/>
 									</VStack>
@@ -147,9 +147,9 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 						</Box>
 						<DetailsButtonBar
 							show={!subItem}
-							projectId={snap.item.project_id}
+							item={snap.item}
+							addMetadata={true}
 							tensorId={details?.tensor_id}
-							nodeId={snap.item.node_id}
 						/>
 						<TensorsList
 							flex={"0 0 4rem"}
@@ -214,14 +214,19 @@ const Container = chakra(
 )
 
 interface DetailsButtonBarProps extends ChakraProps {
-	projectId?: number
+	item?: ImageExtra
 	tensorId?: string
-	nodeId?: number
 	show?: boolean
+	addMetadata?: boolean
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-	const { projectId, tensorId, nodeId, show, ...restProps } = props
-	const disabled = !projectId || !tensorId
+	const { item, tensorId, show, addMetadata, ...restProps } = props
+	const { store } = useDTProjects()
+
+	const projectId = item?.project_id
+	const nodeId = addMetadata ? item?.node_id : undefined
+
+	const disabled = !projectId || !tensorId || !show
 	return (
 		<HStack
 			alignSelf={"center"}
@@ -252,13 +257,17 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 				<IconButton
 					size={"sm"}
 					disabled={disabled}
-					onClick={() => {
-						AppState.setViewRequest("metadata", {
-							open: {
-								nodeId,
-								projectId,
-								tensorId,
-							},
+					onClick={async () => {
+						const projectFile = store.projects.getProjectFile(projectId)
+						if (!projectFile || !tensorId) return
+						const imgData = await dtProject.decodeTensor(projectFile, tensorId, true, nodeId)
+						if (!imgData) return
+
+						await sendToMetadata(imgData, "png", {
+							source: "project",
+							projectFile,
+							tensorId,
+							nodeId,
 						})
 					}}
 				>

@@ -46,6 +46,11 @@ class ProjectsService {
 		}
 		await this.#dtp.scanner.syncProjects()
 	}
+
+	getProjectFile(projectId?: number | null) {
+		if (Number.isNaN(projectId)) return undefined
+		return this.#state.projects.find((p) => p.id === projectId)?.path
+	}
 }
 
 export default ProjectsService

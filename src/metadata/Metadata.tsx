@@ -4,12 +4,9 @@ import CurrentImage from "./components/CurrentImage"
 import History from "./history/History"
 import InfoPanel from "./infoPanel/InfoPanel"
 import { loadImage2 } from "./state/imageLoaders"
-import { createImageItem, selectImage } from "./state/store"
+import { selectImage } from "./state/store"
 import Toolbar from "./toolbar/Toolbar"
 import { useMetadataDrop } from "./useMetadataDrop"
-import AppState from "@/hooks/appState"
-import { fetchImage } from "@/utils/clipboard"
-import { dtProject } from "@/commands"
 
 function Metadata(props: ChakraProps) {
 	const { ...restProps } = props
@@ -28,19 +25,6 @@ function Metadata(props: ChakraProps) {
 		return () => {
 			window.removeEventListener("paste", handler)
 			window.removeEventListener("keydown", escHandler)
-		}
-	}, [])
-
-	useEffect(() => {
-		if (AppState.store.viewRequests.metadata?.length) {
-			const req = AppState.store.viewRequests.metadata.pop()
-			if (req?.open) {
-				const image = dtProject
-					.decodeTensor(req.open.projectId, req.open.tensorId, true, req.open.nodeId)
-					.then((im) => {
-						createImageItem(im, "png", { source: "open", url: 'whatever' })
-					})
-			}
 		}
 	}, [])
 

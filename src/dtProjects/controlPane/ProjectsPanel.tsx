@@ -1,6 +1,6 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
-import { useEffect, useRef, useState } from "react"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { useEffect, useRef, useState } from "react"
 import { FiFolder, FiRefreshCw } from "react-icons/fi"
 import { MdBlock } from "react-icons/md"
 import { pdb } from "@/commands"

@@ -1,8 +1,5 @@
-import Tooltip from "@/components/Tooltip"
-import { ImageSource } from "@/types"
-import { HStack, IconButton, SimpleGrid, VStack } from "@chakra-ui/react"
-import { FiFolder, FiSave } from "react-icons/fi"
-import { TbBrowser } from "react-icons/tb"
+import { SimpleGrid } from "@chakra-ui/react"
+import type { ImageSource } from "@/types"
 import DataItem from "./DataItem"
 
 function SourceDetails(props: { imageSource: ImageSource }) {
@@ -47,15 +44,35 @@ function SourceDetails(props: { imageSource: ImageSource }) {
 					</Tooltip>
 				)}
 			</HStack> */}
-			{(imageSource.file || imageSource.url) && (
+			{(imageSource.file || imageSource.url || imageSource.projectFile) && (
 				<DataItem
-					gridColumn={'1 / span 2'}
+					gridColumn={"1 / span 2"}
 					gridRow={2}
 					label={"Location"}
-					data={imageSource.file || imageSource.url}
+					data={imageSource.file || imageSource.url || imageSource.projectFile}
 					wordBreak={"break-all"}
 					overflow={"clip"}
 				/>
+			)}
+			{imageSource.projectFile && (
+				<>
+					{imageSource.tensorId && (
+						<DataItem
+							gridColumn={1}
+							gridRow={3}
+							label={"Tensor ID"}
+							data={imageSource.tensorId}
+						/>
+					)}
+					{imageSource.nodeId && (
+						<DataItem
+							gridColumn={2}
+							gridRow={3}
+							label={"Node ID"}
+							data={imageSource.nodeId}
+						/>
+					)}
+				</>
 			)}
 		</SimpleGrid>
 	)
@@ -68,7 +85,7 @@ function getSourceDescription(imageSource: ImageSource) {
 
 	if (imageSource.file) type = "File"
 	if (imageSource.url) type = "URL"
-	if (imageSource.image) type = "Image"
+	if (imageSource.image || imageSource.projectFile) type = "Image"
 
 	switch (imageSource.source) {
 		case "clipboard":
@@ -77,5 +94,7 @@ function getSourceDescription(imageSource: ImageSource) {
 			return `${type} drop`
 		case "open":
 			return "Opened from file"
+		case "project":
+			return "Opened from Draw Things project"
 	}
 }

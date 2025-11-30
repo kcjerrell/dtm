@@ -10,10 +10,13 @@ import {
 	type TensorHistoryExtra,
 } from "@/commands"
 import urls from "@/commands/urls"
+import { uint8ArrayToBase64 } from "@/utils/helpers"
+import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
+import { SearchService, type SearchState } from "./search"
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -29,6 +32,7 @@ export type DTProjectsStateType = {
 	selectedProject: ProjectExtra | null
 
 	searchInput: string
+	search: SearchState
 
 	itemSize: number
 
@@ -68,6 +72,7 @@ const state = proxy({
 	totalThisRun: 0,
 	selectedProject: null as ProjectExtra | null,
 	searchInput: "",
+	search: {} as SearchState,
 	itemSize: 200,
 	detailsOverlay: {
 		item: null as ImageExtra | null,
@@ -93,6 +98,7 @@ class DTProjectsStore implements IDTProjectsStore {
 	projects: ProjectsService
 	watchFolders: WatchFolderService
 	scanner: ScannerService
+	search: SearchService
 
 	#initialized = false
 
@@ -100,6 +106,9 @@ class DTProjectsStore implements IDTProjectsStore {
 		this.state = state
 		this.projects = new ProjectsService(this)
 		this.scanner = new ScannerService(this)
+
+		this.search = new SearchService(this)
+		this.state.search = this.search.state
 
 		this.watchFolders = new WatchFolderService(this)
 		this.state.watchFolders = this.watchFolders.state
@@ -169,9 +178,32 @@ class DTProjectsStore implements IDTProjectsStore {
 			isLoading: true,
 		}
 		details.subItemSourceRect = toJSON(sourceElement.getBoundingClientRect())
+
+		if (tensorId?.startsWith("pose")) await this.showSubItemPose(projectId, tensorId)
+		else await this.showSubItemImage(projectId, tensorId)
+	}
+
+	async showSubItemPose(projectId: number, tensorId: string) {
+		const poseData = await dtProject.decodeTensor(projectId, tensorId, false)
+		const points = tensorToPoints(poseData)
+		const pose = pointsToPose(points, 1024, 1024)
+		const image = await drawPose(pose, 4)
+		const details = this.state.detailsOverlay
+		if (!image || !details.item) return
+		if (details.subItem) {
+			details.subItem.url = `data:image/png;base64,${await uint8ArrayToBase64(image)}`
+			details.subItem.isLoading = false
+			details.subItem.width = 1024
+			details.subItem.height = 1024
+		}
+	}
+
+	async showSubItemImage(projectId: number, tensorId: string) {
 		const size = await dtProject.getTensorSize(projectId, tensorId)
 		const loadImg = new Image()
 		loadImg.onload = () => {
+			const details = this.state.detailsOverlay
+			if (!details.item) return
 			if (details.subItem) {
 				details.subItem.url = urls.tensor(projectId, tensorId)
 				details.subItem.isLoading = false
@@ -268,6 +300,25 @@ export function useDTProjects() {
 	return {
 		snap,
 		...DTProjects,
+	}
+}
+
+export function useSearchService() {
+	const state = store.state.search
+	const snap = useSnapshot(state)
+	return {
+		snap,
+		state,
+	}
+}
+
+export function useSearchServiceFilter(index: number) {
+	const state = store.state.search.filters[index]
+	if (!state) throw new Error("Invalid filter index")
+	const snap = useSnapshot(state)
+	return {
+		snap,
+		state,
 	}
 }
 

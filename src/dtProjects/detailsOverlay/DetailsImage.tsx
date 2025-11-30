@@ -133,6 +133,7 @@ function DetailsImage(props: DetailsImageProps) {
 					backgroundRepeat: "no-repeat",
 					position: "absolute",
 					zIndex: 20,
+					objectFit: "cover",
 					...imgStyle,
 				}}
 				variants={{

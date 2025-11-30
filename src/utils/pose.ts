@@ -1,3 +1,4 @@
+import { chunk } from "./helpers"
 import { getPoses, isOpenPose, type OpenPose, type Pose2d } from "./poseHelpers"
 
 const limbSeq = [
@@ -65,9 +66,32 @@ const colors = [
 	[255, 0, 85],
 ]
 
-const stickWidth = 4
+export function tensorToPoints(data: Uint8Array<ArrayBuffer>) {
+	const floats = new Float32Array(data.buffer)
+	return [...floats]
+}
 
-export async function drawPose(pose: OpenPose) {
+export function pointsToPose(points: number[], width: number, height: number) {
+	const dtPose = []
+
+	for (let i = 0; i < points.length; i += 2) {
+		const x = points[i]
+		const y = points[i + 1]
+		if (x === -1 && y === -1) dtPose.push(0, 0, 0)
+		else dtPose.push(...[points[i] * width, points[i + 1] * height, 1])
+	}
+	const pose = {
+		people: chunk(dtPose, 54).map((p) => ({
+			pose_keypoints_2d: p,
+		})),
+		width,
+		height,
+	}
+
+	return pose
+}
+
+export async function drawPose(pose: OpenPose, stickWidth = 4) {
 	let poses: Pose2d[]
 	if (Array.isArray(pose)) {
 		poses = pose
@@ -103,7 +127,7 @@ export async function drawPose(pose: OpenPose) {
 			const center = { x: (pa.point.x + pb.point.x) / 2, y: (pa.point.y + pb.point.y) / 2 }
 
 			ctx.beginPath()
-			ctx.ellipse(center.x, center.y, length / 2, 4, angle, 0, 2 * Math.PI)
+			ctx.ellipse(center.x, center.y, length / 2, stickWidth, angle, 0, 2 * Math.PI)
 			ctx.fillStyle = `rgba(${colors[i][0]}, ${colors[i][1]}, ${colors[i][2]}, 0.6)`
 			ctx.fill()
 		}

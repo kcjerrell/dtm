@@ -216,6 +216,8 @@ const Container = chakra("div", {
 		overflowX: "visible",
 		scrollBehavior: "smooth",
 		overscrollBehavior: "contain",
+		"scrollbarGutter": "stable",
+		"scrollbarWidth": "thin",
 		maxHeight: "100%",
 	},
 })

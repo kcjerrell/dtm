@@ -283,12 +283,12 @@ pub async fn dt_project_get_tensor_size(
 pub async fn dt_project_decode_tensor(
     app: tauri::AppHandle,
     project_id: Option<i64>,
-    project_path: Option<String>,
+    project_file: Option<String>,
     node_id: Option<i64>,
     tensor_id: String,
     as_png: bool,
 ) -> Result<tauri::ipc::Response, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
+    let project = get_project(app, project_file, project_id).await.unwrap();
     let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
 
     let metadata = match node_id {

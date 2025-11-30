@@ -1,11 +1,15 @@
-use std::{collections::HashSet, sync::Arc};
-
 use crate::projects_db::{tensor_history::TensorHistoryNode, TensorHistoryImport};
-use byteorder::{LittleEndian, WriteBytesExt};
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use sqlx::{query, sqlite::SqliteRow, Error, Row, SqlitePool};
+use std::{
+    collections::HashSet,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
     Cache::builder()
@@ -17,8 +21,18 @@ static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
 pub struct DTProject {
     pool: SqlitePool,
     path: String,
-    has_history: bool,
-    has_moodboard: bool,
+    has_history: AtomicBool,
+    has_moodboard: AtomicBool,
+    has_tensors: AtomicBool,
+    has_thumbs: AtomicBool,
+}
+
+#[derive(Debug, Serialize)]
+enum DTProjectTable {
+    History,
+    Moodboard,
+    Tensors,
+    Thumbs,
 }
 
 impl DTProject {
@@ -26,54 +40,73 @@ impl DTProject {
         let connect_string = format!("sqlite:{}?mode=ro", db_path);
         let pool = SqlitePool::connect(&connect_string).await?;
 
-        let tables: Vec<(String,)> =
-            sqlx::query_as::<_, (String,)>("SELECT name FROM sqlite_master WHERE type='table';")
-                .fetch_all(&pool)
-                .await?;
-        // .map_err(|e| e.to_string())?;
-
-        // let has_history = tables.iter().any(|t| t.0 == "tensorhistorynode");
-        // let has_moodboard = tables.iter().any(|t| t.0 == "tensormoodboarddata");
-
-        let mut dtp = Self {
+        let dtp = Self {
             pool,
             path: db_path.to_string(),
-            has_history: false,
-            has_moodboard: false,
+            has_history: AtomicBool::new(false),
+            has_moodboard: AtomicBool::new(false),
+            has_tensors: AtomicBool::new(false),
+            has_thumbs: AtomicBool::new(false),
         };
 
-        dtp.refresh_tables().await?;
+        dtp.check_tables().await?;
 
         Ok(dtp)
     }
 
-    pub async fn refresh_tables(&mut self) -> Result<(), Error> {
-        let tables: Vec<(String,)> =
-            sqlx::query_as::<_, (String,)>("SELECT name FROM sqlite_master WHERE type='table';")
-                .fetch_all(&self.pool)
-                .await?;
-        // .map_err(|e| e.to_string())?;
-
-        let has_history = tables.iter().any(|t| t.0 == "tensorhistorynode");
-        let has_moodboard = tables.iter().any(|t| t.0 == "tensormoodboarddata");
-
-        self.has_history = has_history;
-        self.has_moodboard = has_moodboard;
-
-        Ok(())
-    }
-
-    pub async fn get(path: &str) -> Result<Arc<DTProject>, String> {
-        // Use `try_get_with` to reuse or lazily insert.
+    pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
         let arc = PROJECT_CACHE
             .try_get_with(path.to_string(), async move {
                 let proj = DTProject::new(path).await?;
                 Ok::<_, Error>(Arc::new(proj))
             })
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| Error::Protocol(e.to_string()))?;
 
         Ok(arc)
+    }
+
+    pub async fn check_tables(&self) -> Result<(), Error> {
+        let tables: Vec<(String,)> =
+            sqlx::query_as::<_, (String,)>("SELECT name FROM sqlite_master WHERE type='table';")
+                .fetch_all(&self.pool)
+                .await?;
+
+        for table in tables {
+            match table.0.as_str() {
+                "tensorhistorynode" => self.has_history.store(true, Ordering::Relaxed),
+                "tensormoodboarddata" => self.has_moodboard.store(true, Ordering::Relaxed),
+                "tensors" => self.has_tensors.store(true, Ordering::Relaxed),
+                "thumbnailhistorynode" => self.has_thumbs.store(true, Ordering::Relaxed),
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    fn has_table(&self, table: &DTProjectTable) -> bool {
+        match table {
+            DTProjectTable::History => self.has_history.load(Ordering::Relaxed),
+            DTProjectTable::Moodboard => self.has_moodboard.load(Ordering::Relaxed),
+            DTProjectTable::Tensors => self.has_tensors.load(Ordering::Relaxed),
+            DTProjectTable::Thumbs => self.has_thumbs.load(Ordering::Relaxed),
+        }
+    }
+
+    async fn check_table(&self, table: &DTProjectTable) -> Result<bool, Error> {
+        if self.has_table(table) {
+            return Ok(true);
+        }
+
+        self.check_tables().await?;
+        match self.has_table(table) {
+            true => Ok(true),
+            false => Err(Error::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Table not found",
+            ))),
+        }
     }
 
     pub async fn get_tensor_history(
@@ -81,8 +114,9 @@ impl DTProject {
         first_id: i64,
         count: i64,
     ) -> Result<Vec<TensorHistoryImport>, Error> {
-        let last_id = first_id + count;
+        self.check_table(&DTProjectTable::History).await?;
 
+        let last_id = first_id + count;
         let items: Vec<TensorHistoryImport> = query(
           "SELECT p, f86, tensorhistorynode.rowid FROM tensorhistorynode LEFT JOIN tensorhistorynode__f86 ON tensorhistorynode.rowid == tensorhistorynode__f86.rowid
            WHERE tensorhistorynode.rowid BETWEEN ?1 AND ?2
@@ -95,7 +129,6 @@ impl DTProject {
             let image_id: i64 = row.get(1);
             let row_id: i64 = row.get(2);
             TensorHistoryImport::new(&p, row_id, image_id).unwrap()
-            // parse_tensor_history(&p, row_id, image_id).unwrap()
         })
         .fetch_all(&self.pool).await?;
 
@@ -103,6 +136,7 @@ impl DTProject {
     }
 
     pub async fn get_history_count(&self) -> Result<i64, Error> {
+        self.check_table(&DTProjectTable::History).await?;
         let count: i64 = query("SELECT COUNT(*) FROM tensorhistorynode")
             .fetch_one(&self.pool)
             .await?
@@ -110,41 +144,8 @@ impl DTProject {
         Ok(count)
     }
 
-    pub async fn get_tensor(&self, name: &str) -> Result<Vec<u8>, Error> {
-        let row = query("SELECT type, format, datatype, dim, data FROM tensors WHERE name = ?1")
-            .bind(name)
-            .fetch_one(&self.pool)
-            .await?;
-
-        let t: i64 = row.get(0);
-        let format: i32 = row.get(1);
-        let datatype: i32 = row.get(2);
-        let dim: Vec<u8> = row.get(3);
-        let data: Vec<u8> = row.get(4);
-
-        let high = (t >> 32) as u32;
-        let low = t as u32;
-        let swapped_t: i64 = ((low as i64) << 32) | (high as i64);
-
-        let mut buf = Vec::with_capacity(68 + data.len());
-
-        buf.write_i64::<LittleEndian>(swapped_t)?;
-        buf.write_i32::<LittleEndian>(format)?;
-        buf.write_i32::<LittleEndian>(datatype)?;
-        buf.write_i32::<LittleEndian>(0)?;
-
-        // pad header to 68 bytes
-        let mut header = vec![0u8; 48];
-        header[..dim.len()].copy_from_slice(&dim);
-        buf.extend_from_slice(&header);
-
-        // now data starts exactly at offset 68
-        buf.extend_from_slice(&data);
-
-        Ok(buf)
-    }
-
     pub async fn get_tensor_raw(&self, name: &str) -> Result<TensorRaw, Error> {
+        self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT type, format, datatype, dim, data FROM tensors WHERE name = ?1")
             .bind(name)
             .fetch_one(&self.pool)
@@ -173,6 +174,7 @@ impl DTProject {
     }
 
     pub async fn get_tensor_size(&self, name: &str) -> Result<TensorSize, Error> {
+        self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT dim FROM tensors WHERE name = ?1")
             .bind(name)
             .fetch_one(&self.pool)
@@ -192,6 +194,7 @@ impl DTProject {
     }
 
     pub async fn get_info(&self) -> Result<DTProjectInfo, Error> {
+        self.check_table(&DTProjectTable::History).await?;
         let result = query(
             "SELECT COUNT(*) AS total_count, MAX(rowid) AS last_rowid FROM tensorhistorynode;",
         )
@@ -206,6 +209,7 @@ impl DTProject {
     }
 
     pub async fn get_thumb_half(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
+        self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistoryhalfnode WHERE __pk0 = ?1")
             .bind(thumb_id)
             .fetch_one(&self.pool)
@@ -215,6 +219,7 @@ impl DTProject {
     }
 
     pub async fn get_thumb(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
+        self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistorynode WHERE __pk0 = ?1")
             .bind(thumb_id)
             .fetch_one(&self.pool)
@@ -223,13 +228,13 @@ impl DTProject {
         Ok(thumbnail)
     }
 
-    pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, String> {
+    pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
+        self.check_table(&DTProjectTable::History).await?;
         let mut item: TensorHistoryExtra = query(&full_query_where("thn.rowid == ?1"))
             .bind(row_id)
             .map(|row: SqliteRow| self.map_full(row))
             .fetch_one(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
 
         item.moodboard_ids = self
             .get_shuffle_ids(item.lineage, item.logical_time)
@@ -274,8 +279,8 @@ impl DTProject {
         &self,
         lineage: i64,
         logical_time: i64,
-    ) -> Result<Vec<String>, String> {
-        if !self.has_moodboard {
+    ) -> Result<Vec<String>, Error> {
+        if self.check_table(&DTProjectTable::Moodboard).await.is_err() {
             return Ok(Vec::new());
         }
 
@@ -294,8 +299,7 @@ impl DTProject {
         .bind(logical_time)
         .map(|row: SqliteRow| row.get(0))
         .fetch_all(&self.pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
 
         Ok(shuffle_ids)
     }
@@ -305,15 +309,15 @@ impl DTProject {
         row_id: i64,
         lineage: i64,
         logical_time: i64,
-    ) -> Result<Vec<TensorHistoryExtra>, String> {
+    ) -> Result<Vec<TensorHistoryExtra>, Error> {
+        self.check_table(&DTProjectTable::History).await?;
         let q = &full_query_where("thn.__pk1 == ?1 AND thn.rowid < ?2");
         let candidates = query(q)
             .bind(logical_time - 1)
             .bind(row_id)
             .map(|row: SqliteRow| self.map_full(row))
             .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
 
         let mut same_lineage: Option<&TensorHistoryExtra> = None;
         let mut one_less: Option<&TensorHistoryExtra> = None;

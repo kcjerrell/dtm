@@ -127,10 +127,13 @@ export type ImageItem = {
 }
 
 export type ImageSource = {
-	source: "drop" | "clipboard" | "open"
+	source: "drop" | "clipboard" | "open" | "project"
 	file?: string
 	url?: string
 	image?: string
+	projectFile?: string
+	tensorId?: string
+	nodeId?: number
 	pasteboardType?: string
 }
 
