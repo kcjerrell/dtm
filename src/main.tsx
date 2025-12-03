@@ -7,6 +7,8 @@ import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import AppState from "./hooks/appState"
 import "./index.css"
+import { invoke } from "@tauri-apps/api/core"
+import Dev from "./Dev"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 
@@ -16,13 +18,22 @@ const hash = document.location?.hash?.slice(1)
 if (hash === "mini") AppState.setView("mini")
 else if (hash === "vid") AppState.setView("vid")
 
+const RootComponent = hash === "dev" ? Dev : App
+
 themeHelpers.applySize()
 
-// temp fix in case exception is thrown during first render.
-// use an error boundary instead
-setTimeout(() => {
-	getCurrentWindow().show()
-}, 3000)
+window.addEventListener("keypress", async (e) => {
+	if (e.key === "`") {
+		invoke("show_dev_window")
+	}
+})
+
+// this ensures that the window appears even if an error is thrown in the initial render
+if (hash !== "dev") {
+	setTimeout(() => {
+		getCurrentWindow().show()
+	}, 3000)
+}
 
 const root = document.getElementById("root")
 if (root)
@@ -30,9 +41,10 @@ if (root)
 		<StrictMode>
 			<ChakraProvider value={system}>
 				<ColorModeProvider>
-					<App />
+					<RootComponent />
 				</ColorModeProvider>
-			</ChakraProvider>,
+			</ChakraProvider>
+			,
 		</StrictMode>,
 	)
 
@@ -42,7 +54,6 @@ export function Loading() {
 			initial={{ opacity: 1 }}
 			exit={{ opacity: 0 }}
 			className={"loading-container"}
-			// style={{ zIndex: 100 }}
 			transition={{ duration: 0.5 }}
 		>
 			<div className={"loading-text"}>Loading...</div>

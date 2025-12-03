@@ -7,15 +7,13 @@
   "scripts": {
     "dev": "vite",
     "dev:web": "MOCK_TAURI=true vite",
-    "build": "scripts/prebuild.sh && vite build",
-    "build-dep": "chmod +x scripts/prebuild.sh && scripts/prebuild.sh",
+    "build": "vite build",
     "build:universal": "dotenv -- tauri build --target universal-apple-darwin",
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",
     "release": "tsx scripts/release.ts",
     "gen-icons": "tauri icon ./app-icon.png",
-    "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'",
-    "what": "which dotenv"
+    "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.26.0",
@@ -32,10 +30,11 @@
     "@tauri-apps/plugin-updater": "~2",
     "@tauri-apps/plugin-window-state": "~2",
     "@tauri-store/valtio": "^3.1.0",
+    "@uiw/react-json-view": "^2.0.0-alpha.39",
     "async-mutex": "^0.5.0",
     "derive-valtio": "^0.2.0",
     "dt-grpc-ts": "/Users/kcjer/Projects/dt-grpc-ts",
-    "exifr": "git+https://github.com/m-hayabusa/exifr.git#add-webp-support",
+    "exifr": "github:m-hayabusa/exifr#2cf6c14fcd8eab52a7a7de53af7fdb01a4a9f90f",
     "exifreader": "^4.31.2",
     "motion": "^12.23.12",
     "nanoid": "^5.1.5",
@@ -45,7 +44,6 @@
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.0.0",
     "react-icons": "^5.5.0",
-    "react-window": "^2.2.2",
     "tauri-plugin-clipboard-api": "^2.1.11",
     "tauri-plugin-fs-watch-api": "https://github.com/tauri-apps/tauri-plugin-fs-watch#v1",
     "tauri-plugin-nspopover": "git+https://github.com/freethinkel/tauri-nspopover-plugin",
@@ -56,6 +54,8 @@
     "@biomejs/biome": "2.2.5",
     "@octokit/rest": "^22.0.0",
     "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@types/fs-extra": "^11.0.4",
     "@types/plist": "^3.0.5",
     "@types/react": "^19.2.2",
@@ -67,11 +67,15 @@
     "fs-extra": "^11.3.2",
     "globals": "^16.4.0",
     "jiti": "^2.5.1",
+    "jsdom": "^27.2.0",
+    "react-redux": "^9.2.0",
+    "rollup-plugin-notify": "^1.1.0",
     "typescript": "^5.9.2",
     "vite": "^7.0.4",
     "vite-bundle-visualizer": "^1.2.1",
     "vite-plugin-html-injection": "^1.5.2",
     "vite-plugin-wasm": "^3.5.0",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.14"
   }
 }

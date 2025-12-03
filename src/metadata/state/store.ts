@@ -63,7 +63,7 @@ const metadataStore = store(
 export const MetadataStore = metadataStore.state
 await metadataStore.start()
 
-type ImageItemParam = ReadonlyState<ImageItem> | ImageItem | number | null
+export type ImageItemParam = ReadonlyState<ImageItem> | ImageItem | number | null
 
 getCurrentWindow().onCloseRequested(async (e) => {
 	e.preventDefault()
@@ -73,7 +73,7 @@ getCurrentWindow().onCloseRequested(async (e) => {
 	await window.destroy()
 })
 
-export async function cleanUp() {
+async function cleanUp() {
 	const clearHistory = MetadataStore.clearHistoryOnExit
 	const clearPins = MetadataStore.clearPinsOnExit
 
@@ -147,7 +147,7 @@ export async function clearAll(keepTabs = false) {
 	await syncImageStore()
 }
 
-export async function clearImage(images: Pick<ImageItem, "id">[]) {
+ async function clearImage(images: Pick<ImageItem, "id">[]) {
 	const ids = images.map((image) => image.id)
 	MetadataStore.images = MetadataStore.images.filter((image) => !ids.includes(image.id))
 	await syncImageStore()
@@ -196,7 +196,7 @@ export async function createImageItem(
  * replace the given ImageItem with a new one from imageData, only if the new one has DTMetadata
  * and the original does not
  */
-export async function replaceWithBetter(
+async function replaceWithBetter(
 	imageItem: ImageItem,
 	imageData: Uint8Array<ArrayBuffer>,
 	imageType: string,

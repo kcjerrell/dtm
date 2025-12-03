@@ -82,6 +82,7 @@
     }
   ],
   "windows": [
-    "main"
+    "main",
+    "dev"
   ]
 }

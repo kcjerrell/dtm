@@ -1,6 +1,6 @@
 #![recursion_limit = "256"]
 
-use tauri::{http, TitleBarStyle};
+use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest;
 use tauri_plugin_window_state::StateFlags;
@@ -69,6 +69,30 @@ async fn fetch_image_file(url: String) -> Result<Vec<u8>, String> {
 //     Ok(())
 // }
 
+#[tauri::command]
+fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
+    match app.get_webview_window("dev") {
+        Some(dev_window) => {
+            dev_window.close().unwrap();
+        }
+        None => {
+            let dev_window = WebviewWindowBuilder::new(&app, "dev", WebviewUrl::App("#dev".into()))
+                .title("DTM-dev")
+                .inner_size(600.0, 400.0)
+                .min_inner_size(600.0, 400.0)
+                .visible(true)
+                .disable_drag_drop_handler()
+                .build()
+                .unwrap();
+
+            dev_window.show().unwrap();
+            dev_window.set_focus().unwrap();
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use projects_db::commands::*;
@@ -92,6 +116,7 @@ pub fn run() {
         .plugin(tauri_plugin_valtio::Builder::new().build())
         .plugin(tauri_plugin_nspopover::init())
         .invoke_handler(tauri::generate_handler![
+            show_dev_window,
             read_clipboard_types,
             read_clipboard_binary,
             write_clipboard_binary,

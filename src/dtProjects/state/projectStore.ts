@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event"
-import { proxy, type Snapshot, useSnapshot } from "valtio"
+import { proxy, type Snapshot, snapshot, subscribe, useSnapshot } from "valtio"
 import {
 	dtProject,
 	type ImageExtra,
@@ -333,3 +333,10 @@ export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | 
 }
 
 export default DTProjects
+
+if (import.meta.env.DEV) {
+	const devStore = await import("@/Dev.tsx")
+	subscribe(store.state, () => {
+		devStore.devStore.state.projectsDb = snapshot(store.state)
+	})
+}

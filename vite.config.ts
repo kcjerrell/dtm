@@ -15,8 +15,8 @@ export default defineConfig(async () => ({
       injections: [
         {
           name: "React Devtools",
-          path: "./src/utils/reactDevtools.html",
-          type: "raw",
+          path: "./src/utils/reactDevtools.js",
+          type: "js",
           injectTo: "head",
           buildModes: "dev",
         },

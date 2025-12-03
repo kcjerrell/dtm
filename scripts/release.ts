@@ -150,7 +150,7 @@ async function createRelease(tag: string) {
 
 async function runTauriBuild() {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn("yarn", ["build-universal"], {
+    const child = spawn("npm", ["run", "build-universal"], {
       stdio: "inherit", // inherit console output
       env: {
         ...process.env, // keep existing env vars
