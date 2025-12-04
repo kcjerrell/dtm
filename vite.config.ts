@@ -4,6 +4,8 @@ import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
 import wasm from "vite-plugin-wasm";
 
+import { visualizer } from 'rollup-plugin-visualizer'
+
 const host = process.env.TAURI_DEV_HOST;
 const isMock = process.env.MOCK_TAURI === "true";
 
@@ -31,6 +33,7 @@ export default defineConfig(async () => ({
     }),
     tsconfigPaths(),
     wasm(),
+    visualizer({ open: true }),
   ],
   resolve: {
     alias: {
