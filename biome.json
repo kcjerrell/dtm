@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
 	"vcs": {
 		"enabled": false,
 		"clientKind": "git",
@@ -9,6 +9,9 @@
 		"ignoreUnknown": false,
 		"includes": [
 			"./src/**/*.{js,jsx,ts,tsx}"
+		],
+		"experimentalScannerIgnores": [
+			"reactDevtools.js"
 		]
 	},
 	"formatter": {
@@ -35,7 +38,8 @@
 		"enabled": true,
 		"actions": {
 			"source": {
-				"organizeImports": "on"
+				"organizeImports": "on",
+				"recommended": true
 			}
 		}
 	}

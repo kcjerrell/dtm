@@ -4,16 +4,14 @@ import { createPortal } from "react-dom"
 import { TbSortAscendingLetters, TbSortDescendingNumbers } from "react-icons/tb"
 import { useSnapshot } from "valtio"
 import type { Model } from "@/commands"
-import { IconButton, PanelListItem } from "@/components"
+import { IconButton, PaneListContainer, PanelListItem } from "@/components"
+import { PaneListScrollContainer, PanelListScrollContent } from "@/components/common"
 import PanelList from "@/components/PanelList"
-import { useDTProjects } from "@/dtProjects/state/projectStore"
+import { type DTProjectsStateType, useDTProjects } from "@/dtProjects/state/projectStore"
 import { makeSelectableList, type Selectable, useSelectable } from "@/hooks/useSelectableV"
 import { useProxyRef, useSubscribeValue } from "@/hooks/valtioHooks"
+import { filterObject } from "@/utils/helpers"
 import type { FilterValueSelector, ValueSelectorProps } from "./collections"
-
-// const modelsCollection = createListCollection<ModelValue>({ items: [] })
-// const lorasCollection = createListCollection<ModelValue>({ items: [] })
-// const controlsCollection = createListCollection<ModelValue>({ items: [] })
 
 function ModelValueSelectorComponent(
 	props: ValueSelectorProps<Model[]> & { modelType?: "models" | "loras" | "controls" },
@@ -30,11 +28,14 @@ function ModelValueSelectorComponent(
 		sortType: "name" as "name" | "count",
 		isOpen: false,
 		sorted: [] as Selectable<Model>[],
+		versions: [] as [string, { models: number; loras: number; controls: number }][],
+		selectedVersion: undefined as string | undefined,
 	}))
 
 	useEffect(() => {
 		state.sorted = getSorted(modelsSnap[modelType], state.sortType)
-	}, [modelsSnap[modelType], state, modelType])
+		state.versions = getVersions(dtpState.models, modelType)
+	}, [modelsSnap[modelType], state, modelType, dtpState.models])
 
 	useSubscribeValue(state, "sortType", () => {
 		state.sorted = getSorted(modelsSnap[modelType], state.sortType)
@@ -44,10 +45,7 @@ function ModelValueSelectorComponent(
 	if (!checkRoot) return null
 
 	return (
-		<Box
-			padding={0}
-			{...boxProps}
-		>
+		<Box padding={0} {...boxProps}>
 			<Box
 				width={"full"}
 				padding={2}
@@ -70,16 +68,16 @@ function ModelValueSelectorComponent(
 			</Box>
 			{snap.isOpen &&
 				createPortal(
-					<VStack
-						bgColor={"bg.1"}
-						boxShadow={"pane1"}
+					<HStack
+						alignItems={"flex-start"}
+						justifyContent={"stretch"}
 						ref={(elem) => {
 							if (!elem) return
 							const handler = (e: MouseEvent) => {
 								const insidePopup =
 									(e.target as HTMLElement).closest("[data-filter-popup]") !== null
 								if (insidePopup) return
-								e.stopPropagation()
+								// e.stopPropagation()
 								state.isOpen = false
 							}
 							window.addEventListener("click", handler, { capture: true })
@@ -96,54 +94,90 @@ function ModelValueSelectorComponent(
 						maxWidth={"25rem"}
 						overflowY={"clip"}
 						fontSize={"sm"}
-						paddingTop={2}
 					>
-						<HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
-							<Input
-								flex={"1 1 auto"}
-								key={"modelInput"}
-								placeholder="Filter"
-								value={inputValue}
-								onChange={(e) => {
-									setInputValue(e.target.value)
-									state.filterFn = buildModelFilter(e.target.value)
-								}}
-								variant="subtle"
-							/>
-							{snap.sortType === "name" ? (
-								<IconButton
-									onClick={() => {
-										state.sortType = "count"
-									}}
-								>
-									<TbSortAscendingLetters />
-								</IconButton>
-							) : (
-								<IconButton
-									onClick={() => {
-										state.sortType = "name"
-									}}
-								>
-									<TbSortDescendingNumbers />
-								</IconButton>
-							)}
-						</HStack>
-						<PanelList
-							width="full"
-							itemsState={() => state.sorted}
-							keyFn={(item) => item.id}
-							onSelectionChanged={(selected) => {
-								onValueChange?.(selected)
-							}}
-							overflowY={"auto"}
-							maxHeight={"100%"}
-							selectionMode="multipleToggle"
+						<VStack
+							flex={"1 1 auto"}
+							paddingTop={2}
+							bgColor={"bg.1"}
+							boxShadow={"pane1"}
+							overflowY={"clip"}
+							height={"full"}
 						>
-							{snap.sorted.map((model) => (
-								<ModelItem key={model.id} model={model} filterFn={state.filterFn} />
-							))}
-						</PanelList>
-					</VStack>,
+							<HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
+								<Input
+									flex={"1 1 auto"}
+									key={"modelInput"}
+									placeholder="Filter"
+									value={inputValue}
+									onChange={(e) => {
+										setInputValue(e.target.value)
+										state.filterFn = buildModelFilter(e.target.value)
+									}}
+									variant="subtle"
+								/>
+								{snap.sortType === "name" ? (
+									<IconButton
+										onClick={() => {
+											state.sortType = "count"
+										}}
+									>
+										<TbSortAscendingLetters />
+									</IconButton>
+								) : (
+									<IconButton
+										onClick={() => {
+											state.sortType = "name"
+										}}
+									>
+										<TbSortDescendingNumbers />
+									</IconButton>
+								)}
+							</HStack>
+							<PanelList
+								width="full"
+								itemsState={() => state.sorted}
+								keyFn={(item) => item.id}
+								onSelectionChanged={(selected) => {
+									onValueChange?.(selected)
+								}}
+								overflowY={"auto"}
+								maxHeight={"100%"}
+								selectionMode="multipleToggle"
+							>
+								{snap.sorted
+									.filter((m) => !snap.selectedVersion || snap.selectedVersion === m.version)
+									.map((model) => (
+										<ModelItem key={model.id} model={model} filterFn={state.filterFn} />
+									))}
+							</PanelList>
+						</VStack>
+						<PaneListContainer
+							bgColor={"bg.1"}
+							boxShadow={"pane1"}
+							maxHeight={"full"}
+							overflowY={"clip"}
+							height={"min-content"}
+						>
+							<PaneListScrollContainer>
+								<PanelListScrollContent>
+									{snap.versions.map(([version, counts]) => (
+										<PanelListItem
+											width={"full"}
+											key={version}
+											selectable
+											selected={version === snap.selectedVersion}
+											onClick={() => {
+												state.selectedVersion = version
+											}}
+										>
+											<Text>{version}</Text>
+											<Text>{counts[modelType]}</Text>
+										</PanelListItem>
+									))}
+								</PanelListScrollContent>
+							</PaneListScrollContainer>
+						</PaneListContainer>
+					</HStack>,
 					checkRoot,
 				)}
 		</Box>
@@ -189,6 +223,14 @@ function sortByCount(a: Model, b: Model) {
 function getSorted(items: MaybeReadonly<Model[]>, sortType: "name" | "count") {
 	if (sortType === "name") return makeSelectableList(items.toSorted(sortByName))
 	return makeSelectableList(items.toSorted(sortByCount))
+}
+
+function getVersions(
+	models: DTProjectsStateType["models"],
+	modelType: "models" | "loras" | "controls",
+) {
+	const versions = filterObject(models.versions, (_, counts) => counts[modelType] > 0)
+	return Object.entries(versions).sort((b, a) => a[1][modelType] - b[1][modelType])
 }
 
 export const ModelValueSelector = ModelValueSelectorComponent as FilterValueSelector<Model[]>

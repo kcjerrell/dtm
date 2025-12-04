@@ -135,3 +135,7 @@ export function chunk<T>(values: T[], chunkSize: number): T[][] {
 export function clearArray<T>(arr: T[], newItems: T[] = []) {
 	arr.splice(0, arr.length, ...newItems)
 }
+
+export function filterObject<T extends object>(obj: T, predicate: (key: keyof T, value: T[keyof T]) => boolean) {
+	return Object.fromEntries(Object.entries(obj).filter(([key, value]) => predicate(key as keyof T, value)))
+}

@@ -17,6 +17,7 @@ import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import { SearchService, type SearchState } from "./search"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
+import { versionMap } from "@/utils/models"
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -58,6 +59,7 @@ export type DTProjectsStateType = {
 		models: Model[]
 		loras: Model[]
 		controls: Model[]
+		versions: Record<string, { models: number; controls: number; loras: number }>
 	}
 }
 
@@ -88,6 +90,7 @@ const state = proxy({
 		models: [],
 		loras: [],
 		controls: [],
+		versions: {},
 	},
 }) as DTProjectsStateType
 
@@ -225,10 +228,23 @@ class DTProjectsStore implements IDTProjectsStore {
 
 	async listModels() {
 		const models = await pdb.listModels()
+
+		const versions = {} as Record<string, { models: number; controls: number; loras: number }>
+
+		for (const model of models) {
+			if (!model.version) continue
+			const version = versionMap(model.version)
+			if (!versions[version]) versions[version] = { models: 0, controls: 0, loras: 0 }
+			if (model.model_type === "Model") versions[version].models++
+			else if (model.model_type === "Lora") versions[version].loras++
+			else if (model.model_type === "Cnet") versions[version].controls++
+		}
+
 		this.state.models = {
 			models: models.filter((it) => it.model_type === "Model"),
 			loras: models.filter((it) => it.model_type === "Lora"),
 			controls: models.filter((it) => it.model_type === "Cnet"),
+			versions,
 		}
 	}
 }
