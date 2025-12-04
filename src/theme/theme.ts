@@ -169,10 +169,13 @@ const themeConfig = defineConfig({
 				},
 			},
 			shadows: {
+				pane0: {
+					value:
+						"0px 0px 3px -1px #00000033, 0px 1px 5px -2px #00000033,  0px 2px 8px -3px #00000033",
+				},
 				pane1: {
 					value:
 						"0px 0px 4px -1px #00000033, 2px 4px 6px -2px #00000022, -1px 4px 6px -2px #00000022,  0px 3px 12px -3px #00000033",
-					// "0px 1px 4px -2px #00000033, 2px 4px 6px -2px #00000022, -1px 4px 6px -2px #00000022,  0px 3px 12px -3px #00000033",
 				},
 				pane2: {
 					value:

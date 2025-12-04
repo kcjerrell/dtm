@@ -70,7 +70,7 @@ function App() {
 						{"<-"}
 					</Button>
 				</Sidebar>
-				<CheckRoot dark={colorMode === "dark"}>
+				<CheckRoot id={"check-root"} dark={colorMode === "dark"}>
 					<ErrorBoundary FallbackComponent={ErrorFallback}>
 						<Suspense fallback={<Loading />}>
 							<AnimatePresence mode={"wait"}>
@@ -107,7 +107,7 @@ function ViewContainer(
 		<motion.div
 			layout
 			inert={inert}
-			initial={{ opacity: 0, scale: 0.95, filter: "blur(0px)" }}
+			initial={{ opacity: 0, scale: 1, filter: "blur(0px)" }}
 			animate={{
 				opacity: 1,
 				scale: 1,
@@ -116,7 +116,7 @@ function ViewContainer(
 			}}
 			exit={{
 				opacity: 0,
-				scale: 0.95,
+				scale: 1,
 				filter: "blur(0px)",
 				transition: { duration: 0.2 },
 			}}

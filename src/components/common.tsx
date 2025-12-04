@@ -50,6 +50,7 @@ export const CheckRoot = chakra(
 						bgSize: "50px 50px",
 						inset: 0,
 						animation: "fadeIn 0.2s ease forwards",
+						pointerEvents: 'none'
 					},
 				},
 				false: {
@@ -62,6 +63,7 @@ export const CheckRoot = chakra(
 						bgSize: "50px 50px",
 						inset: 0,
 						animation: "fadeOut 0.2s ease forwards",
+						pointerEvents: 'none'
 					},
 				},
 			},
@@ -157,9 +159,8 @@ export const PanelListItem = chakra(
 			selectable: {
 				true: {
 					_hover: {
-						transform: "scale(1.01)",
 						bgColor: "bg.0",
-						transition: "all 0.1s ease-out",
+						transition: "all 0.05s ease-out",
 					},
 				},
 			},
@@ -173,6 +174,13 @@ export const PanelListItem = chakra(
 					borderBlock: "2px groove #00000033",
 				},
 			},
+			hoverScale: {
+				true: {
+					_hover: {
+						transform: "scale(1.01)",
+					},
+				}
+			}
 		},
 	},
 	{ defaultProps: { tabIndex: 0 } },

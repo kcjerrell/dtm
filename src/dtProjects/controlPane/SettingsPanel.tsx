@@ -61,8 +61,7 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 	return (
 		<TabContent value={"settings"} {...restProps}>
 			<PanelList
-				getItems={() => store.watchFolders.state.projectFolders}
-				itemsSnap={projectFolders}
+				itemsState={() => store.watchFolders.state.projectFolders}
 				header={"Project locations"}
 				headerInfo={"hi"}
 				commands={projectFolderCommands}
@@ -85,8 +84,7 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 
 			<PanelList
 				marginTop={4}
-				getItems={() => store.watchFolders.state.modelInfoFolders}
-				itemsSnap={modelInfoFolders}
+				itemsState={() => store.watchFolders.state.modelInfoFolders}
 				header={"Model info"}
 				headerInfo={"hi"}
 				commands={modelInfoFolderCommands}

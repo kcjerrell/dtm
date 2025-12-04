@@ -75,39 +75,40 @@ function GridItem(props) {
 
 	return (
 		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(item, imgRef.current)}>
-				{!isPreviewing && (
-					<motion.img
-						// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
-						ref={(e) => {
-							imgRef.current = e
-							// if (e) e.addEventListener("load", () => setIsLoaded(true))
-						}}
-						style={{
-							width: "100%",
-							height: "100%",
-							objectFit: "cover",
-							border: "1px solid #0000ff00",
-						}}
-						src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
-						alt={item.prompt}
-						transition={{ duration: 2 }}
-						// initial={{ opacity: 0 }}
-						// animate={{
-						// opacity: isLoaded ? 1 : 0,
-						// }}
-						// transition={{
-						// duration: 0.1,
-						// }}
-						// onClick={(e) => {
-						// 	if (expanded) e.stopPropagation()
-						// 	if (details?.tensor_id)
-						// 		showPreview(
-						// 			e.currentTarget,
-						// 			`dtm://dtproject/tensor/${item.project_id}/${details.tensor_id}`,
-						// 		)
-						// }}
-					/>
-				)}
+			{!isPreviewing && (
+				<motion.img
+					// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
+					ref={(e) => {
+						imgRef.current = e
+						// if (e) e.addEventListener("load", () => setIsLoaded(true))
+					}}
+					style={{
+						width: "100%",
+						height: "100%",
+						objectFit: "cover",
+						border: "1px solid #0000ff00",
+						backgroundColor: "#77777777"
+					}}
+					src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
+					alt={item.prompt}
+					transition={{ duration: 2 }}
+					// initial={{ opacity: 0 }}
+					// animate={{
+					// opacity: isLoaded ? 1 : 0,
+					// }}
+					// transition={{
+					// duration: 0.1,
+					// }}
+					// onClick={(e) => {
+					// 	if (expanded) e.stopPropagation()
+					// 	if (details?.tensor_id)
+					// 		showPreview(
+					// 			e.currentTarget,
+					// 			`dtm://dtproject/tensor/${item.project_id}/${details.tensor_id}`,
+					// 		)
+					// }}
+				/>
+			)}
 		</Box>
 	)
 }

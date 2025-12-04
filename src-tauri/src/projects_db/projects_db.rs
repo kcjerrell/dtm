@@ -6,7 +6,7 @@ use entity::{
 use migration::{IntoIden, Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, Database, DatabaseConnection, DbErr,
     EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, RelationTrait, Set,
 };
@@ -533,42 +533,47 @@ impl ProjectsDb {
 
         if let Some(search) = &opts.search {
             // Join the FTS table
-            query = query.join(
-                sea_orm::JoinType::InnerJoin,
-                sea_orm::RelationDef {
-                    // FROM images
-                    from_tbl: sea_query::TableRef::Table(
-                        sea_query::TableName::from(images::Entity.into_iden()),
-                        None,
-                    ),
-                    from_col: sea_orm::Identity::Unary(sea_query::Alias::new("id").into_iden()),
+            // query = query.join(
+            //     sea_orm::JoinType::InnerJoin,
+            //     sea_orm::RelationDef {
+            //         // FROM images
+            //         from_tbl: sea_query::TableRef::Table(
+            //             sea_query::TableName::from(images::Entity.into_iden()),
+            //             None,
+            //         ),
+            //         from_col: sea_orm::Identity::Unary(sea_query::Alias::new("id").into_iden()),
 
-                    // TO images_fts
-                    to_tbl: sea_query::TableRef::Table(
-                        sea_query::TableName::from(sea_query::Alias::new("images_fts").into_iden()),
-                        None,
-                    ),
-                    to_col: sea_orm::Identity::Unary(sea_query::Alias::new("rowid").into_iden()),
-                    // this only matches equal column names, but we override using on_condition below
-                    rel_type: sea_orm::RelationType::HasOne,
-                    is_owner: false,
-                    skip_fk: false,
-                    on_delete: None,
-                    on_update: None,
-                    on_condition: Some(std::sync::Arc::new(|_l, _r| {
-                        sea_orm::Condition::all()
-                            .add(sea_query::Expr::cust("images_fts.rowid = images.id"))
-                    })),
-                    fk_name: None,
-                    condition_type: sea_query::ConditionType::Any,
-                },
-            );
+            //         // TO images_fts
+            //         to_tbl: sea_query::TableRef::Table(
+            //             sea_query::TableName::from(sea_query::Alias::new("images_fts").into_iden()),
+            //             None,
+            //         ),
+            //         to_col: sea_orm::Identity::Unary(sea_query::Alias::new("rowid").into_iden()),
+            //         // this only matches equal column names, but we override using on_condition below
+            //         rel_type: sea_orm::RelationType::HasOne,
+            //         is_owner: false,
+            //         skip_fk: false,
+            //         on_delete: None,
+            //         on_update: None,
+            //         on_condition: Some(std::sync::Arc::new(|_l, _r| {
+            //             sea_orm::Condition::all()
+            //                 .add(sea_query::Expr::cust("images_fts.rowid = images.id"))
+            //         })),
+            //         fk_name: None,
+            //         condition_type: sea_query::ConditionType::Any,
+            //     },
+            // );k
 
-            // MATCH query
-            query = query.filter(sea_query::Expr::cust_with_values(
-                "images_fts MATCH ?",
-                [sea_orm::Value::from(search.clone())],
-            ));
+            // // MATCH query
+            // query = query.filter(sea_query::Expr::cust_with_values(
+            //     "images_fts MATCH ?",
+            //     [sea_orm::Value::from(search.clone())],
+            // ));
+            let mut cond = Condition::any();
+            for term in search.split_whitespace() {
+                cond = cond.add(images::Column::Prompt.contains(term));
+            }
+            query = query.filter(cond);
         }
 
         if let Some(skip) = opts.skip {

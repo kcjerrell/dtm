@@ -1,9 +1,9 @@
 import { HStack, VStack } from "@chakra-ui/react"
 import { motion, useSpring } from "motion/react"
-import { type ComponentType, useEffect, useRef } from "react"
+import { type ComponentType, useEffect, useMemo, useRef } from "react"
 import type { IconType } from "react-icons/lib"
 import { PiInfo } from "react-icons/pi"
-import type { Snapshot } from "valtio"
+import { proxy, useSnapshot, type Snapshot } from "valtio"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import { PaneListScrollContainer, PanelListScrollContent } from "./common"
@@ -14,10 +14,11 @@ interface PanelListComponentProps<T> extends ChakraProps {
 	header?: string
 	headerInfo?: string
 	keyFn?: (item: T | Snapshot<T>) => string | number
-	getItems: () => T[]
-	itemsSnap: Snapshot<T[]>
+	/** must be a valtio proxy (or a function that returns one) */
+	itemsState: ValueOrGetter<T[]>
 	onSelectionChanged?: (selected: T[]) => void
 	clearSelection?: unknown
+	selectionMode?: "multipleModifier" | "multipleToggle" | "single"
 }
 
 export interface PanelListCommand<T> {
@@ -43,15 +44,22 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 		header,
 		headerInfo,
 		keyFn,
-		getItems,
-		itemsSnap,
+		itemsState: itemsProp,
 		onSelectionChanged,
 		clearSelection,
+		selectionMode = "multipleModifier",
 		...boxProps
 	} = props
 
-	const { SelectableGroup, selectedItems } = useSelectableGroup<T>(itemsSnap, getItems, {
-		mode: "multipleModifier",
+	const itemsGetter = useMemo(() => {
+		if (typeof itemsProp === "function") return itemsProp
+		else return () => itemsProp ?? proxy([])
+	}, [itemsProp])
+	const items = itemsGetter()
+	const itemsSnap = useSnapshot(items)
+
+	const { SelectableGroup, selectedItems } = useSelectableGroup<T>(itemsSnap, itemsGetter, {
+		mode: selectionMode,
 		keyFn,
 		onSelectionChanged,
 	})
@@ -65,7 +73,6 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 
 	useEffect(() => {
 		if (clearSelection) {
-			const items = getItems()
 			items.forEach((it) => {
 				if (it.selected) {
 					it.setSelected(false)
@@ -73,7 +80,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 			})
 		}
 		clearSelectionRef.current = clearSelection
-	}, [clearSelection, getItems])
+	}, [clearSelection, items])
 
 	const areItemsSelected = selectedItems.length > 0
 	const emptyListText =
@@ -119,41 +126,41 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 					</PanelListItem>
 				)}
 
-			<HStack justifyContent={"flex-end"} bottom={0}>
-				{commands?.map((command) => {
-					let enabled = true
-					if (command.requiresSelection && !areItemsSelected) enabled = false
-					if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
-					if (command.getEnabled) enabled = command.getEnabled(selectedItems)
+				<HStack justifyContent={"flex-end"} bottom={0}>
+					{commands?.map((command) => {
+						let enabled = true
+						if (command.requiresSelection && !areItemsSelected) enabled = false
+						if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
+						if (command.getEnabled) enabled = command.getEnabled(selectedItems)
 
-					const Icon = command.getIcon ? command.getIcon(selectedItems) : command.icon
-					const tip = command.getTip ? command.getTip(selectedItems) : command.tip
+						const Icon = command.getIcon ? command.getIcon(selectedItems) : command.icon
+						const tip = command.getTip ? command.getTip(selectedItems) : command.tip
 
-					const CommandButton = (
-						<IconButton
-							key={command.id}
-							size={"sm"}
-							onClick={() => command.onClick(selectedItems)}
-							disabled={!enabled}
-						>
-							{Icon && <Icon />}
-						</IconButton>
-					)
-
-					if (tip || command.tipTitle || command.tipText)
-						return (
-							<Tooltip
+						const CommandButton = (
+							<IconButton
 								key={command.id}
-								tip={tip}
-								tipTitle={command.tipTitle}
-								tipText={command.tipText}
+								size={"sm"}
+								onClick={() => command.onClick(selectedItems)}
+								disabled={!enabled}
 							>
-								{CommandButton}
-							</Tooltip>
+								{Icon && <Icon />}
+							</IconButton>
 						)
-					return CommandButton
-				})}
-			</HStack>
+
+						if (tip || command.tipTitle || command.tipText)
+							return (
+								<Tooltip
+									key={command.id}
+									tip={tip}
+									tipTitle={command.tipTitle}
+									tipText={command.tipText}
+								>
+									{CommandButton}
+								</Tooltip>
+							)
+						return CommandButton
+					})}
+				</HStack>
 			</PaneListContainer>
 		</VStack>
 	)

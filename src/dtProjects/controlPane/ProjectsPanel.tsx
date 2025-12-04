@@ -10,6 +10,8 @@ import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import DTProjects, { useDTProjects } from "../state/projectStore"
 import type { ProjectState } from "../state/projects"
+import { useSnapshot } from "valtio"
+import { derive } from "derive-valtio"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -19,8 +21,15 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const [showExcluded, setShowExcluded] = useState(false)
 	const toggleRef = useRef<HTMLDivElement>(null)
 
-	const activeProjects = snap.projects.filter((p) => !p.excluded)
-	const excludedProjects = snap.projects.filter((p) => p.excluded)
+	const projects = derive({
+		activeProjects: (get) => get(state).projects.filter((p) => !p.excluded),
+		excludedProjects: (get) => get(state).projects.filter((p) => p.excluded),
+		allProjects: (get) =>
+			get(state).projects.toSorted((a, b) => (a.excluded ? 1 : -1) - (b.excluded ? 1 : -1)),
+	})
+
+	const activeProjectsSnap = useSnapshot(projects.activeProjects)
+	const excludedProjectsSnap = useSnapshot(projects.excludedProjects)
 
 	useEffect(() => {
 		if (showExcluded && toggleRef.current) {
@@ -39,20 +48,17 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 		>
 			<PanelList
 				maxHeight={"100%"}
-				getItems={() => state.projects}
-				itemsSnap={
-					showExcluded ? [...activeProjects, ...excludedProjects] : activeProjects
-				}
+				itemsState={showExcluded ? projects.allProjects : projects.activeProjects}
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
 				onSelectionChanged={(e) => {
 					DTProjects.setImagesSource({ projects: e })
 				}}
 			>
-				{activeProjects.map((p) => (
+				{activeProjectsSnap.map((p) => (
 					<ProjectListItem key={p.path} project={p} />
 				))}
-				{excludedProjects.length > 0 && (
+				{excludedProjectsSnap.length > 0 && (
 					<PanelListItem
 						ref={toggleRef}
 						onClick={() => setShowExcluded(!showExcluded)}
@@ -65,15 +71,13 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 							<Box>
 								{showExcluded
 									? "Hide excluded projects"
-									: `Show excluded projects (${excludedProjects.length})`}
+									: `Show excluded projects (${excludedProjectsSnap.length})`}
 							</Box>
 						</HStack>
 					</PanelListItem>
 				)}
 				{showExcluded &&
-					excludedProjects.map((p) => (
-						<ProjectListItem key={p.path} project={p} />
-					))}
+					excludedProjectsSnap.map((p) => <ProjectListItem key={p.path} project={p} />)}
 			</PanelList>
 
 			<HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
