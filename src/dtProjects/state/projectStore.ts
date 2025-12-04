@@ -15,8 +15,8 @@ import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
-import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
 import { SearchService, type SearchState } from "./search"
+import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -54,7 +54,7 @@ export type DTProjectsStateType = {
 		width: number
 		height: number
 	}
-	models?: {
+	models: {
 		models: Model[]
 		loras: Model[]
 		controls: Model[]
@@ -84,7 +84,12 @@ const state = proxy({
 		width: 0,
 		height: 0,
 	},
-})
+	models: {
+		models: [],
+		loras: [],
+		controls: [],
+	},
+}) as DTProjectsStateType
 
 export interface IDTProjectsStore {
 	state: DTProjectsStateType
@@ -303,25 +308,6 @@ export function useDTProjects() {
 	}
 }
 
-export function useSearchService() {
-	const state = store.state.search
-	const snap = useSnapshot(state)
-	return {
-		snap,
-		state,
-	}
-}
-
-export function useSearchServiceFilter(index: number) {
-	const state = store.state.search.filters[index]
-	if (!state) throw new Error("Invalid filter index")
-	const snap = useSnapshot(state)
-	return {
-		snap,
-		state,
-	}
-}
-
 export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | undefined {
 	const opts = {} as ListImagesOptions
 	if (imagesSource.projects) {
@@ -337,6 +323,6 @@ export default DTProjects
 if (import.meta.env.DEV) {
 	const devStore = await import("@/Dev.tsx")
 	subscribe(store.state, () => {
-		devStore.devStore.state.projectsDb = snapshot(store.state)
+		devStore.updateDevState("projects", state)
 	})
 }

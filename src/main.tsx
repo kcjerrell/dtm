@@ -1,14 +1,12 @@
 import { ChakraProvider } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { motion } from "motion/react"
-import { StrictMode } from "react"
+import { lazy, StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import AppState from "./hooks/appState"
 import "./index.css"
 import { invoke } from "@tauri-apps/api/core"
-import Dev from "./Dev"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 
@@ -18,7 +16,10 @@ const hash = document.location?.hash?.slice(1)
 if (hash === "mini") AppState.setView("mini")
 else if (hash === "vid") AppState.setView("vid")
 
-const RootComponent = hash === "dev" ? Dev : App
+const RootComponent = lazy(() => {
+	if (hash === "dev") return import("./Dev")
+	else return import("./App")
+})
 
 themeHelpers.applySize()
 
