@@ -1,13 +1,14 @@
-import { Button, HStack, IconButton } from "@chakra-ui/react"
+import { HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { BiDetail } from "react-icons/bi"
-import { FaMoon } from "react-icons/fa6"
+import { FaMinus, FaMoon, FaPlus } from "react-icons/fa6"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
 import { Preview, useIsPreviewActive } from "@/components/preview"
+import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
 import AppState from "./hooks/appState"
@@ -52,23 +53,53 @@ function App() {
 							onClick={() => AppState.setView(item.viewId)}
 						/>
 					))}
-					<Tooltip tip={"Toggle color mode"}>
-						<IconButton
-							color={"fg.2"}
-							_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
-							size="2xs"
-							variant="ghost"
-							onClick={(e) => {
-								e.stopPropagation()
-								toggleColorMode()
-							}}
-						>
-							<FaMoon />
-						</IconButton>
-					</Tooltip>
-					<Button variant={"ghost"} onClick={() => AppState.showSidebar(false)}>
-						{"<-"}
-					</Button>
+					<Spacer />
+					<VStack gap={0} pb={2}>
+						<Tooltip tip={"Toggle color mode"}>
+							<IconButton
+								color={"fg.2"}
+								_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+								size="xs"
+								variant="ghost"
+								onClick={(e) => {
+									e.stopPropagation()
+									toggleColorMode()
+								}}
+							>
+								<FaMoon />
+							</IconButton>
+						</Tooltip>
+						<HStack gap={0}>
+							<Tooltip tip={"Decrease font size"}>
+								<IconButton
+									color={"fg.2"}
+									_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+									size="xs"
+									variant="ghost"
+									onClick={(e) => {
+										e.stopPropagation()
+										themeHelpers.decreaseSize()
+									}}
+								>
+									<FaMinus />
+								</IconButton>
+							</Tooltip>
+							<Tooltip tip={"Increase font size"}>
+								<IconButton
+									color={"fg.2"}
+									_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+									size="xs"
+									variant="ghost"
+									onClick={(e) => {
+										e.stopPropagation()
+										themeHelpers.increaseSize()
+									}}
+								>
+									<FaPlus />
+								</IconButton>
+							</Tooltip>
+						</HStack>
+					</VStack>
 				</Sidebar>
 				<CheckRoot id={"check-root"} dark={colorMode === "dark"}>
 					<ErrorBoundary FallbackComponent={ErrorFallback}>

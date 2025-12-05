@@ -1,10 +1,6 @@
-import { IconButton, Spacer } from "@chakra-ui/react"
+import { Spacer } from "@chakra-ui/react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { FaMinus, FaMoon, FaPlus } from "react-icons/fa6"
 import { proxy, useSnapshot } from "valtio"
-import Tooltip from "@/components/Tooltip"
-import { useColorMode } from "@/components/ui/color-mode"
-import { themeHelpers } from "@/theme/helpers"
 import { capitalize } from "@/utils/helpers"
 import { InfoPaneContainer } from "../Containers"
 import { useCurrentImage } from "../state/hooks"
@@ -23,7 +19,6 @@ interface InfoPanelProps extends ChakraProps {}
 
 function InfoPanel(props: InfoPanelProps) {
 	const { ...rest } = props
-	const { toggleColorMode } = useColorMode()
 
 	const currentImage = useCurrentImage()
 
@@ -85,39 +80,6 @@ function InfoPanel(props: InfoPanelProps) {
 						</Tabs.Trigger>
 					))}
 					<Spacer />
-					<Tooltip tip={"Decrease font size"}>
-						<IconButton
-							color={"fg.3"}
-							_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
-							size="2xs"
-							variant="ghost"
-							onClick={themeHelpers.decreaseSize}
-						>
-							<FaMinus />
-						</IconButton>
-					</Tooltip>
-					<Tooltip tip={"Increase font size"}>
-						<IconButton
-							color={"fg.3"}
-							_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
-							size="2xs"
-							variant="ghost"
-							onClick={themeHelpers.increaseSize}
-						>
-							<FaPlus />
-						</IconButton>
-					</Tooltip>
-					<Tooltip tip={"Toggle color mode"}>
-						<IconButton
-							color={"fg.3"}
-							_hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
-							size="2xs"
-							variant="ghost"
-							onClick={toggleColorMode}
-						>
-							<FaMoon />
-						</IconButton>
-					</Tooltip>
 					<Tabs.Indicator />
 				</Tabs.List>
 				<TabContent

@@ -113,6 +113,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 										top="50%"
 										position="absolute"
 										transform="translate(-50%, -50%)"
+										zIndex={30}
 									/>
 								)}
 								{subItem && (

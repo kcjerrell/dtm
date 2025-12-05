@@ -1,8 +1,7 @@
-import AppState from "@/hooks/appState"
-import { chakra, VStack } from "@chakra-ui/react"
-import { motion } from "motion/react"
-import { ComponentProps, PropsWithChildren } from "react"
+import { chakra } from "@chakra-ui/react"
+import type { ComponentProps, PropsWithChildren } from "react"
 import { useSnapshot } from "valtio"
+import AppState from "@/hooks/appState"
 
 const Root = chakra(
 	"div",
@@ -13,7 +12,7 @@ const Root = chakra(
 			zIndex: 2,
 			justifyContent: "flex-start",
 			alignItems: "stretch",
-			gap: 1,
+			gap: 0,
 			paddingTop: "30px",
 			bgColor: "bg.2",
 			flex: "0 0 auto",
@@ -56,7 +55,9 @@ function SidebarComponent(props: SidebarProps) {
 
 const ButtonBase = chakra("button", {
 	base: {
+		paddingY: "8px",
 		display: "flex",
+		gap: "5px",
 		flexDirection: "column",
 		alignItems: "center",
 		transition: "all 0.2s ease-in-out",
@@ -64,12 +65,14 @@ const ButtonBase = chakra("button", {
 		color: "fg.3",
 		border: "1px solid transparent",
 		borderRight: "3px solid transparent",
+		fontWeight: "500",
 	},
 	variants: {
 		isActive: {
 			true: {
 				color: "highlight",
 				borderRightColor: "hightlight",
+				fontWeight: "600",
 			},
 		},
 		popout: {
@@ -104,20 +107,20 @@ const ButtonBase = chakra("button", {
 const ButtonContent = chakra("div", {
 	base: {
 		aspectRatio: 1,
-		flex: "1 1 auto",
-		px: 4,
-		pt: 1,
-		pb: 1,
+		// flex: "1 1 auto",
+		// px: "15px",
+		// pt: "5px",
+		// pb: "5px",
+		// padding: "5px",
 		margin: "auto",
-		width: "50px",
-		height: "50px",
+		width: "20px",
+		height: "20px",
 	},
 })
 
 const ButtonLabel = chakra("div", {
 	base: {
 		fontSize: "xs",
-		fontWeight: "500",
 		flex: "0 0 min-content",
 	},
 })

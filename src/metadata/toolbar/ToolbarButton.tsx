@@ -1,8 +1,7 @@
-import { type ButtonProps } from "@chakra-ui/react"
-import type { ComponentProps, ComponentType, JSX, PropsWithChildren, SVGProps } from "react"
+import type { ComponentProps, ComponentType, PropsWithChildren, SVGProps } from "react"
 import type { IconType } from "react-icons/lib"
+import { IconButton } from "@/components"
 import Tooltip from "@/components/Tooltip"
-import { IconButton } from '@/components'
 
 type ToolbarButtonProps = ComponentProps<typeof IconButton> & {
 	icon?: IconType | ComponentType<SVGProps<SVGSVGElement>>
@@ -18,16 +17,9 @@ function ToolbarButton(props: PropsWithChildren<ToolbarButtonProps>) {
 		<Tooltip tip={tip}>
 			<IconButton
 				color={"fg.3"}
-				// _hover={{
-				// 	bg: "unset",
-				// 	scale: 1.35,
-				// 	color: "fg.1",
-				// }}
 				_disabled={{
 					cursor: "default",
 				}}
-				// scale={1.2}
-				// size={"sm"}
 				onClick={onClick}
 				{...restProps}
 			>

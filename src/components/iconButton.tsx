@@ -193,7 +193,7 @@ const IconButton = chakra("button", {
 	},
 
 	defaultVariants: {
-		size: "md",
+		size: "sm",
 	},
 })
 
