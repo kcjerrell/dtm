@@ -71,6 +71,7 @@ export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
 	}, [state, totalCount])
 
 	const ensurePages = useCallback(async () => {
+		if (!totalCount) return
 		loadersWaiting.current++
 		// mutex is used to prevent spamming multiple requests for the same page
 		// if this turns out to be slow, we mark individual pages as loading
