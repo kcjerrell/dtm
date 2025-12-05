@@ -11,6 +11,7 @@ import { type DTProjectsStateType, useDTProjects } from "@/dtProjects/state/proj
 import { makeSelectableList, type Selectable, useSelectable } from "@/hooks/useSelectableV"
 import { useProxyRef, useSubscribeValue } from "@/hooks/valtioHooks"
 import { filterObject } from "@/utils/helpers"
+import { getVersionLabel } from "@/utils/models"
 import type { FilterValueSelector, ValueSelectorProps } from "./collections"
 
 function ModelValueSelectorComponent(
@@ -24,11 +25,10 @@ function ModelValueSelectorComponent(
 
 	const [inputValue, setInputValue] = useState("")
 	const { state, snap } = useProxyRef(() => ({
-		filterFn: (() => true) as (model: Model) => boolean,
-		sortType: "name" as "name" | "count",
+		sortType: "count" as "name" | "count",
 		isOpen: false,
 		sorted: [] as Selectable<Model>[],
-		versions: [] as [string, { models: number; loras: number; controls: number }][],
+		versions: [] as [string, { models: number; loras: number; controls: number; label: string }][],
 		selectedVersion: undefined as string | undefined,
 	}))
 
@@ -91,8 +91,9 @@ function ModelValueSelectorComponent(
 						height={"80vh"}
 						left={"25rem"}
 						width={"calc(100% - 30rem)"}
-						maxWidth={"25rem"}
-						overflowY={"clip"}
+						maxWidth={"35rem"}
+						minWidth={"20rem"}
+						overflow={"clip"}
 						fontSize={"sm"}
 					>
 						<VStack
@@ -100,8 +101,9 @@ function ModelValueSelectorComponent(
 							paddingTop={2}
 							bgColor={"bg.1"}
 							boxShadow={"pane1"}
-							overflowY={"clip"}
+							overflow={"clip"}
 							height={"full"}
+							alignItems={"stretch"}
 						>
 							<HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
 								<Input
@@ -111,7 +113,6 @@ function ModelValueSelectorComponent(
 									value={inputValue}
 									onChange={(e) => {
 										setInputValue(e.target.value)
-										state.filterFn = buildModelFilter(e.target.value)
 									}}
 									variant="subtle"
 								/>
@@ -134,44 +135,52 @@ function ModelValueSelectorComponent(
 								)}
 							</HStack>
 							<PanelList
-								width="full"
+								key={`${snap.selectedVersion ?? "model"}_list`}
+								flex={"1 1 auto"}
 								itemsState={() => state.sorted}
 								keyFn={(item) => item.id}
 								onSelectionChanged={(selected) => {
 									onValueChange?.(selected)
 								}}
 								overflowY={"auto"}
+								overflowX={"clip"}
 								maxHeight={"100%"}
 								selectionMode="multipleToggle"
 							>
-								{snap.sorted
-									.filter((m) => !snap.selectedVersion || snap.selectedVersion === m.version)
-									.map((model) => (
-										<ModelItem key={model.id} model={model} filterFn={state.filterFn} />
-									))}
+								{snap.sorted.map((model) => (
+									<ModelItem
+										key={model.id}
+										model={model}
+										filterText={inputValue}
+										filterVersion={snap.selectedVersion}
+									/>
+								))}
 							</PanelList>
 						</VStack>
 						<PaneListContainer
+							flex={"0 0 auto"}
 							bgColor={"bg.1"}
 							boxShadow={"pane1"}
 							maxHeight={"full"}
 							overflowY={"clip"}
 							height={"min-content"}
+							width={"max-content"}
 						>
 							<PaneListScrollContainer>
 								<PanelListScrollContent>
-									{snap.versions.map(([version, counts]) => (
+									{snap.versions.map(([version, info]) => (
 										<PanelListItem
 											width={"full"}
 											key={version}
 											selectable
 											selected={version === snap.selectedVersion}
 											onClick={() => {
-												state.selectedVersion = version
+												if (state.selectedVersion === version) state.selectedVersion = undefined
+												else state.selectedVersion = version
 											}}
 										>
-											<Text>{version}</Text>
-											<Text>{counts[modelType]}</Text>
+											<Text>{info.label}</Text>
+											<Text>{info[modelType]} models</Text>
 										</PanelListItem>
 									))}
 								</PanelListScrollContent>
@@ -184,10 +193,23 @@ function ModelValueSelectorComponent(
 	)
 }
 
-function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => boolean }) {
-	const { model, filterFn, ...restProps } = props
+function ModelItem(props: {
+	model: Selectable<Model>
+	filterText?: string
+	filterVersion?: string
+}) {
+	const { model, filterText, filterVersion, ...restProps } = props
 	const { isSelected, handlers } = useSelectable(model)
-	if (filterFn && !filterFn(model)) return null
+
+	if (filterText) {
+		const modelText = `${model.filename} ${model.name} ${model.version}`.toLowerCase()
+		if (!modelText.includes(filterText.toLowerCase())) return null
+	}
+
+	if (filterVersion !== undefined) {
+		if ((model.version ?? "") !== filterVersion) return null
+	}
+
 	return (
 		<PanelListItem key={model.id} selectable selected={isSelected} {...restProps} {...handlers}>
 			<Text textOverflow="ellipsis" textWrap={"nowrap"} overflowX="hidden">
@@ -195,7 +217,7 @@ function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => b
 			</Text>
 			<HStack justifyContent={"space-between"}>
 				<Text>{model.count} images</Text>
-				<Text>{model.version}</Text>
+				<Text>{getVersionLabel(model.version)}</Text>
 			</HStack>
 		</PanelListItem>
 	)
@@ -230,7 +252,11 @@ function getVersions(
 	modelType: "models" | "loras" | "controls",
 ) {
 	const versions = filterObject(models.versions, (_, counts) => counts[modelType] > 0)
-	return Object.entries(versions).sort((b, a) => a[1][modelType] - b[1][modelType])
+	return Object.entries(versions).sort((b, a) => {
+		if (a[0] === "") return -1
+		if (b[0] === "") return 1
+		return a[1][modelType] - b[1][modelType]
+	})
 }
 
 export const ModelValueSelector = ModelValueSelectorComponent as FilterValueSelector<Model[]>

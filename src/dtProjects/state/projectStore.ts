@@ -11,7 +11,7 @@ import {
 } from "@/commands"
 import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
-import { versionMap } from "@/utils/models"
+import { getVersionLabel } from "@/utils/models"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
@@ -230,12 +230,14 @@ class DTProjectsStore implements IDTProjectsStore {
 	async listModels() {
 		const models = await pdb.listModels()
 
-		const versions = {} as Record<string, { models: number; controls: number; loras: number }>
+		const versions = {
+			"": { models: 0, controls: 0, loras: 0, label: "Unknown" },
+		} as Record<string, { models: number; controls: number; loras: number; label?: string }>
 
 		for (const model of models) {
-			if (!model.version) continue
-			const version = versionMap(model.version)
-			if (!versions[version]) versions[version] = { models: 0, controls: 0, loras: 0 }
+			const version = model.version ?? ""
+			if (!versions[version])
+				versions[version] = { models: 0, controls: 0, loras: 0, label: getVersionLabel(version) }
 			if (model.model_type === "Model") versions[version].models++
 			else if (model.model_type === "Lora") versions[version].loras++
 			else if (model.model_type === "Cnet") versions[version].controls++

@@ -121,9 +121,6 @@ export function arrayIfOnly<T>(arg: T | readonly T[]): T[] {
 	return Array.isArray(arg) ? [...arg] : [arg as T]
 }
 
-const test = arrayIfOnly([2, 3, 4])
-
-
 export function chunk<T>(values: T[], chunkSize: number): T[][] {
 	const chunks: T[][] = []
 	for (let i = 0; i < values.length; i += chunkSize) {
@@ -136,6 +133,17 @@ export function clearArray<T>(arr: T[], newItems: T[] = []) {
 	arr.splice(0, arr.length, ...newItems)
 }
 
-export function filterObject<T extends object>(obj: T, predicate: (key: keyof T, value: T[keyof T]) => boolean) {
-	return Object.fromEntries(Object.entries(obj).filter(([key, value]) => predicate(key as keyof T, value)))
+export function filterObject<T extends object>(
+	obj: T,
+	predicate: (key: keyof T, value: T[keyof T]) => boolean,
+) {
+	return Object.fromEntries(
+		Object.entries(obj).filter(([key, value]) => predicate(key as keyof T, value)),
+	)
+}
+
+export function getUnknown<T>(obj: unknown, key: string): T | undefined {
+	if (obj === null || typeof obj !== "object") return undefined
+	if (key in obj) return obj[key as keyof typeof obj]
+	return undefined
 }

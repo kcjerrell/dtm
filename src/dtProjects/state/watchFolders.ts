@@ -1,9 +1,10 @@
 import { path } from "@tauri-apps/api"
-import { exists, readDir, type UnwatchFn, watch } from "@tauri-apps/plugin-fs"
+import { exists, readDir, type UnwatchFn, watch, writeTextFile } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import { pdb, type WatchFolder } from "@/commands"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import { arrayIfOnly, clearArray } from "@/utils/helpers"
+import { compileOfficialModels } from "@/utils/models"
 import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 const home = await path.homeDir()
@@ -14,6 +15,7 @@ const _defaultProjectPath = await path.join(
 const _defaultModelInfoPaths = [
 	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Library/Caches/net"),
 	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Documents/Models"),
+	"remote:official",
 ]
 
 const modelInfoFilenames = {
@@ -79,20 +81,20 @@ class WatchFolderService {
 			this.state.projectFolders,
 			folders.filter((f) => f.item_type === "Projects"),
 		)
-		// this.state.projectFolders = folders.filter((f) => f.item_type === "Projects")
 		this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
 
 		this.state.modelInfoFolders = folders.filter((f) => f.item_type === "ModelInfo")
-		// this is potentially slow but should be like 2-4 items so not slow
 		this.state.hasModelInfoDefault = _defaultModelInfoPaths.every((f) =>
 			this.state.modelInfoFolders.some((mif) => mif.path === f),
 		)
 	}
 
 	async addWatchFolder(folderPath: string, type: "Projects" | "ModelInfo") {
-		if (await exists(folderPath)) {
+		if (folderPath.startsWith("remote")) {
 			await pdb.watchFolders.add(folderPath, type, false)
-			await this.loadWatchFolders()
+			await this.#dtp.scanner.scanAndWatch()
+		} else if (await exists(folderPath)) {
+			await pdb.watchFolders.add(folderPath, type, false)
 			await this.#dtp.scanner.scanAndWatch()
 		} else {
 			throw new Error("DNE")
@@ -148,6 +150,7 @@ class WatchFolderService {
 
 	async listModelInfoFiles(folder: WatchFolderState) {
 		if (folder.item_type !== "ModelInfo") return []
+		if (folder.path.startsWith("remote")) return this.getRemoteModelInfoFiles()
 
 		try {
 			if (!(await exists(folder.path))) {
@@ -170,6 +173,34 @@ class WatchFolderService {
 			console.error(e)
 			return []
 		}
+	}
+
+	async getRemoteModelInfoFiles() {
+		console.log("fetching official models...")
+		const filenames = ["Model", "ControlNet", "LoRA"] as const
+		const modelFiles = [] as ListModelInfoFilesResult[]
+		for (const filename of filenames) {
+			console.log("fetching", filename)
+			try {
+				const modelInfo = await compileOfficialModels(filename)
+				const modelInfoJson = JSON.stringify(modelInfo, null, 2)
+				const filePath = await path.join(
+					await path.appDataDir(),
+					`official_${filename.toLowerCase()}.json`,
+				)
+				await writeTextFile(filePath, modelInfoJson)
+				modelFiles.push({
+					path: filePath,
+					modelType: filename.replace("LoRA", "Lora").replace("ControlNet", "Cnet") as
+						| "Model"
+						| "Cnet"
+						| "Lora",
+				})
+			} catch (e) {
+				console.error(e)
+			}
+		}
+		return modelFiles
 	}
 
 	async startWatch(callback: (projectFiles: string[]) => Promise<void>) {
