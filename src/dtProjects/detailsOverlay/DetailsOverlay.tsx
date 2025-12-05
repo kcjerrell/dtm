@@ -22,7 +22,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 	const { store: dtp, snap: dtpSnap } = useDTProjects()
 
 	const snap = useSnapshot(dtp.state.detailsOverlay)
-	const details = snap.item ? dtpSnap.itemDetails[snap.item.node_id] : null
+	const details = snap.item ? dtpSnap.itemDetails[snap.item.node_id] : undefined
 	const subItem = snap.subItem
 
 	const srcHalf =
@@ -126,12 +126,14 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 										position={"absolute"}
 									>
 										<DetailsImage
+											pixelated={subItem?.tensorId?.startsWith("color")}
 											width={"100%"}
 											flex={"1 1 auto"}
 											src={subItem?.url}
 											srcHalf={subItem?.thumbUrl}
 											sourceRect={() => dtp.state.detailsOverlay.subItemSourceRect}
-											naturalSize={{ width: subItem?.width, height: subItem?.height }}
+											sourceElement={subItem.sourceElement as HTMLElement}
+											naturalSize={{ width: subItem?.width ?? 1, height: subItem?.height ?? 1 }}
 											zIndex={1}
 											imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
 											// position={"absolute"}

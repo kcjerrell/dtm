@@ -175,22 +175,42 @@ impl DTProject {
 
     pub async fn get_tensor_size(&self, name: &str) -> Result<TensorSize, Error> {
         self.check_table(&DTProjectTable::Tensors).await?;
-        let row = query("SELECT dim FROM tensors WHERE name = ?1")
+        let row = query("SELECT datatype, dim FROM tensors WHERE name = ?1")
             .bind(name)
             .fetch_one(&self.pool)
             .await?;
 
-        let dim: Vec<u8> = row.get(0);
+        let datatype: i64 = row.get(0);
+        let dim: Vec<u8> = row.get(1);
 
-        let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
-        let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
-        let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
+        match datatype {
+            4096 => {
+                let height = i32::from_le_bytes(dim[0..4].try_into().ok().unwrap());
+                let width = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
+                let channels = 1;
+                Ok(TensorSize {
+                    height,
+                    width,
+                    channels,
+                })
+            }
+            131072 => {
+                let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
+                let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
+                let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
 
-        Ok(TensorSize {
-            height,
-            width,
-            channels,
-        })
+                Ok(TensorSize {
+                    height,
+                    width,
+                    channels,
+                })
+            }
+            _ => Ok(TensorSize {
+                height: 1,
+                width: 1,
+                channels: 1,
+            }),
+        }
     }
 
     pub async fn get_info(&self) -> Result<DTProjectInfo, Error> {

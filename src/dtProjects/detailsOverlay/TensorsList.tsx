@@ -1,19 +1,19 @@
-import { Box, chakra, Spacer } from "@chakra-ui/react"
+import { Box } from "@chakra-ui/react/box"
+import { Spacer } from "@chakra-ui/react/spacer"
+import { VStack } from "@chakra-ui/react/stack"
+import { chakra } from "@chakra-ui/react/styled-system"
+import { Text } from "@chakra-ui/react/text"
 import { motion } from "motion/react"
 import { type ComponentProps, useCallback } from "react"
 import type { ImageExtra, TensorHistoryExtra } from "@/commands"
-import urls from "@/commands/urls"
 import { Tooltip } from "@/components"
-import ColorPaletteImage from "@/components/ColorPalette"
-import PoseImage from "@/components/Pose"
 import { useDTProjects } from "../state/projectStore"
-
-const _thumbnailSize = "4rem"
+import TensorThumbnail from "./TensorThumbnail"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
 	item?: ImageExtra
-	details?: TensorHistoryExtra
-	candidates?: TensorHistoryExtra[]
+	details?: MaybeReadonly<TensorHistoryExtra>
+	candidates?: MaybeReadonly<TensorHistoryExtra[]>
 }
 
 function TensorsList(props: TensorsListComponentProps) {
@@ -29,7 +29,7 @@ function TensorsList(props: TensorsListComponentProps) {
 		[item, store],
 	)
 
-	if (!item || !details) return <Box height={"6rem"} {...restProps} />
+	if (!item || !details) return <Box height={"6rem"} />
 
 	const {
 		depth_map_id,
@@ -55,38 +55,16 @@ function TensorsList(props: TensorsListComponentProps) {
 		<Container {...restProps}>
 			{Object.entries(tensors).map(([label, id]) => {
 				if (!id) return null
-				// if (label === "Pose")
-				// 	return <PoseImage key={label} projectId={item.project_id} tensorId={id}/>
 				return (
 					<Group key={label}>
 						<Label>{label}</Label>
 						<Images>
-							{label === "Color" ? (
-								<ColorPaletteImage
-									key={label}
-									projectId={item.project_id}
-									tensorId={id}
-									height={_thumbnailSize}
-									width={_thumbnailSize}
-									onClick={(e) => showSubitem(e, id)}
-								/>
-							) : label === "Pose" ? (
-								<PoseImage
-									key={label}
-									projectId={item.project_id}
-									tensorId={id}
-									height={_thumbnailSize}
-									width={_thumbnailSize}
-									bgColor={"bg.1"}
-									border={"1px solid gray"}
-									onClick={(e) => showSubitem(e, id)}
-								/>
-							) : (
-								<Thumbnail
-									src={urls.tensor(item?.project_id, id, null, 100)}
-									onClick={(e) => showSubitem(e, id)}
-								/>
-							)}
+							<TensorThumbnail
+								key={label}
+								projectId={item.project_id}
+								tensorId={id}
+								onClick={(e) => showSubitem(e, id)}
+							/>
 						</Images>
 					</Group>
 				)
@@ -97,9 +75,10 @@ function TensorsList(props: TensorsListComponentProps) {
 					<Label>Moodboard</Label>
 					<Images>
 						{moodboard_ids.map((id) => (
-							<Thumbnail
+							<TensorThumbnail
 								key={id}
-								src={urls.tensor(item?.project_id, id, null, 100)}
+								projectId={item?.project_id}
+								tensorId={id}
 								onClick={(e) => showSubitem(e, id)}
 							/>
 						))}
@@ -108,7 +87,7 @@ function TensorsList(props: TensorsListComponentProps) {
 			)}
 			{previous.length > 0 && (
 				<Group>
-					<Label>Previous</Label>
+					<Label>Canvas</Label>
 					<Images>
 						{previous.map((prev) => {
 							if (!prev.tensor_id) return null
@@ -116,10 +95,19 @@ function TensorsList(props: TensorsListComponentProps) {
 							return (
 								<Tooltip
 									key={prev.row_id}
-									tip={`(${prev.row_id}) lineage: ${prev.lineage}, logical time: ${prev.logical_time}`}
+									tip={
+										<VStack alignItems={"flex-start"}>
+											<Text>{`(${prev.row_id}) lineage: ${prev.lineage}, logical time: ${prev.logical_time}`}</Text>
+											<Text>
+												Note: It is not alway possible to identify the canvas image, or determine if
+												it was used in the generation.
+											</Text>
+										</VStack>
+									}
 								>
-									<Thumbnail
-										src={urls.tensor(item?.project_id, prev.tensor_id, null, 100)}
+									<TensorThumbnail
+										projectId={item?.project_id}
+										tensorId={prev.tensor_id}
 										onClick={(e) => showSubitem(e, prev.tensor_id)}
 									/>
 								</Tooltip>
@@ -154,7 +142,7 @@ const Group = chakra(
 			flexDirection: "column",
 			gap: 0,
 			alignItems: "center",
-			marginInline: 2
+			marginInline: 2,
 		},
 	},
 	{
@@ -181,7 +169,7 @@ const Images = chakra("div", {
 		gap: 0,
 		// padding: 0.5,
 		borderRadius: "lg",
-		boxShadow: "0px 2px 14px -5px #00000044, 0px 1px 8px -3px #00000044, 1px 0px 3px 0px #00000044",
+		// boxShadow: "0px 2px 14px -5px #00000044, 0px 1px 8px -3px #00000044, 1px 0px 3px 0px #00000044",
 		opacity: 0,
 		_groupHover: {
 			opacity: 1,
@@ -199,32 +187,6 @@ const Label = chakra("span", {
 		top: "50%",
 		left: "50%",
 		transform: "translate(-50%, -50%)",
-		transition: "all 0.2s ease",
-	},
-})
-
-const Thumbnail = chakra("img", {
-	base: {
-		width: _thumbnailSize,
-		height: _thumbnailSize,
-		objectFit: "cover",
-		bgColor: "bg.1",
-		border: "1px solid gray",
-		transformOrigin: "center bottom",
-		zIndex: 1,
-		_first: {
-			borderInlineStartRadius: "lg",
-		},
-		_last: {
-			borderInlineEndRadius: "lg",
-		},
-		_hover: {
-			transform: "scale(1.1)",
-			zIndex: 2,
-			transition: "all 0.1s ease",
-			boxShadow:
-				"0px 2px 14px -5px #00000044, 0px 1px 8px -3px #00000044, 1px 0px 3px 0px #00000044",
-		},
 		transition: "all 0.2s ease",
 	},
 })

@@ -11,7 +11,7 @@ interface PoseImageComponentProps extends ChakraProps {
 }
 
 function PoseImage(props: PoseImageComponentProps) {
-	const { projectPath, projectId, tensorId, ...boxProps } = props
+	const { projectPath, projectId, tensorId, ...restProps } = props
 	const [src, setSrc] = useState<string | undefined>(undefined)
 
 	useEffect(() => {
@@ -26,11 +26,7 @@ function PoseImage(props: PoseImageComponentProps) {
 		}
 	}, [projectPath, tensorId, projectId])
 
-	return (
-		<Box {...boxProps}>
-			<Image src={src} width={"100%"} height={"100%"} />
-		</Box>
-	)
+	return <Image src={src} {...restProps} />
 }
 
 export default PoseImage

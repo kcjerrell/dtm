@@ -10,12 +10,23 @@ interface DetailsImageProps extends ChakraProps {
 	sourceRect: ValueOrGetter<Nullable<DOMRectReadOnly>>
 	naturalSize: { width: number; height: number }
 	imgStyle?: CSSProperties
+	pixelated?: boolean
+	sourceElement?: HTMLElement
 }
 
 type LRect = { left: number; top: number; width: number; height: number }
 
 function DetailsImage(props: DetailsImageProps) {
-	const { src, srcHalf, sourceRect: sourceRectProp, naturalSize, imgStyle, ...restProps } = props
+	const {
+		src,
+		srcHalf,
+		sourceRect: sourceRectProp,
+		naturalSize,
+		imgStyle,
+		pixelated,
+		sourceElement,
+		...restProps
+	} = props
 
 	const sourceRect = typeof sourceRectProp === "function" ? sourceRectProp() : sourceRectProp
 
@@ -126,7 +137,7 @@ function DetailsImage(props: DetailsImageProps) {
 				ref={scope}
 				src={src}
 				style={{
-					// backgroundColor: "#ff000077",
+					imageRendering: pixelated ? "pixelated" : "auto",
 					backgroundImage: `url(${srcHalf})`,
 					backgroundSize: "cover",
 					backgroundPosition: "center",
@@ -143,6 +154,16 @@ function DetailsImage(props: DetailsImageProps) {
 				initial={"closed"}
 				animate={"open"}
 				exit={"closed"}
+				onAnimationStart={(variant) => {
+					if (sourceElement && variant === "open") {
+						sourceElement.style.visibility = "hidden"
+					}
+				}}
+				onAnimationComplete={(variant) => {
+					if (sourceElement && variant === "closed") {
+						sourceElement.style.visibility = "visible"
+					}
+				}}
 			/>
 		</Box>
 	)

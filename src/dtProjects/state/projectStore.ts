@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event"
-import { proxy, type Snapshot, snapshot, subscribe, useSnapshot } from "valtio"
+import { proxy, ref, type Snapshot, snapshot, subscribe, useSnapshot } from "valtio"
 import {
 	dtProject,
 	type ImageExtra,
@@ -11,13 +11,13 @@ import {
 } from "@/commands"
 import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
+import { versionMap } from "@/utils/models"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import { SearchService, type SearchState } from "./search"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
-import { versionMap } from "@/utils/models"
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -47,6 +47,7 @@ export type DTProjectsStateType = {
 			width?: number
 			height?: number
 			isLoading: boolean
+			sourceElement?: HTMLElement
 		}
 		subItemSourceRect: DOMRect | null
 		lastItem: ImageExtra | null
@@ -184,9 +185,9 @@ class DTProjectsStore implements IDTProjectsStore {
 			tensorId,
 			thumbUrl: urls.tensor(projectId, tensorId, null, 100),
 			isLoading: true,
+			sourceElement: ref(sourceElement),
 		}
 		details.subItemSourceRect = toJSON(sourceElement.getBoundingClientRect())
-
 		if (tensorId?.startsWith("pose")) await this.showSubItemPose(projectId, tensorId)
 		else await this.showSubItemImage(projectId, tensorId)
 	}
@@ -255,7 +256,6 @@ let scanProgressUnlisten: () => void = () => undefined
 async function attachListeners() {
 	scanProgressUnlisten()
 
-	let scanningProject: ProjectExtra | null = null
 	scanProgressUnlisten = await listen("projects_db_scan_progress", (e: ScanProgressEvent) => {
 		const {
 			images_scanned,
@@ -271,7 +271,6 @@ async function attachListeners() {
 			if (project) {
 				project.image_count = project_final
 				project.isScanning = false
-				scanningProject = null
 			}
 			return
 		}
@@ -281,7 +280,6 @@ async function attachListeners() {
 			const project = state.projects.find((p) => p.path === path)
 			if (project) {
 				project.isScanning = true
-				scanningProject = project
 			}
 
 			if (projects_scanned === 0) state.totalThisRun = 0
@@ -336,9 +334,19 @@ export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | 
 
 export default DTProjects
 
+let _devUpdate: ReturnType<typeof setTimeout> | null = null
 if (import.meta.env.DEV) {
 	const devStore = await import("@/Dev.tsx")
 	subscribe(store.state, () => {
-		devStore.updateDevState("projects", state)
+		if (_devUpdate) clearTimeout(_devUpdate)
+		_devUpdate = setTimeout(() => {
+			const update = snapshot(state)
+			// this is a work around since elements can't be serialized
+			if (update.detailsOverlay.subItem?.sourceElement)
+				// @ts-ignore
+				delete update.detailsOverlay.subItem.sourceElement
+			devStore.updateDevState("projects", update)
+			_devUpdate = null
+		}, 200)
 	})
 }
