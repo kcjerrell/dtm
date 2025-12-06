@@ -17,7 +17,9 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
 			<Text fontWeight={600} color={"fg.2"} fontSize={"md"}>
 				{tipTitle}
 			</Text>
-			<Text color={"fg.2"} fontSize={"sm"}>{tipText}</Text>
+			<Text color={"fg.2"} fontSize={"sm"}>
+				{tipText}
+			</Text>
 		</VStack>
 	)
 
@@ -26,7 +28,15 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
 			openDelay={1000}
 			closeDelay={undefined}
 			content={Content}
-			contentProps={{ fontSize: "sm", bgColor: "bg.2", color: "fg.2", padding: 2, ...rest }}
+			contentProps={{
+				fontSize: "sm",
+				bgColor: "bg.2",
+				color: "fg.2",
+				padding: 2,
+				lineHeight: "1.25rem",
+				whiteSpace: "pre-line",
+				...rest,
+			}}
 			positioning={{ placement: "top" }}
 		>
 			{children}

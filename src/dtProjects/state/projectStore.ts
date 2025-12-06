@@ -67,7 +67,7 @@ export type DTProjectsStateType = {
 const state = proxy({
 	projects: [] as ProjectState[],
 	watchFolders: {} as WatchFolderServiceState,
-	imageSource: null as ImagesSource | null,
+	imageSource: { projects: [] } as ImagesSource | null,
 	items: [] as ImageExtra[],
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
 	scanProgress: -1,
@@ -321,6 +321,15 @@ export function useDTProjects() {
 	return {
 		snap,
 		...DTProjects,
+	}
+}
+
+export function useProjectsSummary() {
+	const { snap } = useDTProjects()
+	return {
+		totalProjects: snap.projects.length,
+		totalImages: snap.projects.reduce((acc, p) => acc + p.image_count, 0),
+		totalSize: snap.projects.reduce((acc, p) => acc + p.filesize, 0),
 	}
 }
 

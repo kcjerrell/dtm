@@ -4,7 +4,7 @@ import { MdImageSearch } from "react-icons/md"
 import { PiCoffee } from "react-icons/pi"
 import { useSnapshot } from "valtio"
 import { Panel } from "@/components"
-import AppState from "@/hooks/appState"
+import AppStore from "@/hooks/appState"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useUiState } from "@/metadata/state/uiState"
 import ProjectsPanel from "./ProjectsPanel"
@@ -37,7 +37,7 @@ interface ControlPane extends ChakraProps {}
 function ControlPane(props: ControlPane) {
 	const { ...restProps } = props
 	const { uiSnap, uiState } = useUiState()
-	const { isSidebarVisible } = useSnapshot(AppState.store)
+	const { isSidebarVisible } = useSnapshot(AppStore.store)
 
 	return (
 		<Panel

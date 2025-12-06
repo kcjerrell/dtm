@@ -72,6 +72,8 @@ export class ScannerService {
 
 			if (result.action === "update") {
 				await pdb.scanProject(project.path, false, result.filesize, result.modified)
+				project.filesize = result.filesize
+				project.modified = result.modified
 			}
 		}
 	}

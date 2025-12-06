@@ -11,14 +11,16 @@ import { Preview, useIsPreviewActive } from "@/components/preview"
 import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
-import AppState from "./hooks/appState"
+import AppStore from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
+import UpgradeButton from "./metadata/toolbar/UpgradeButton"
+import Onboard from "./Onboard"
 
 function App() {
 	const firstRender = useRef(true)
 
-	const snap = useSnapshot(AppState.store)
+	const snap = useSnapshot(AppStore.store)
 	const View = getView(snap.currentView)
 
 	const isPreviewActive = useIsPreviewActive()
@@ -50,9 +52,10 @@ function App() {
 							label={item.label}
 							icon={item.icon}
 							isActive={snap.currentView === item.viewId}
-							onClick={() => AppState.setView(item.viewId)}
+							onClick={() => AppStore.setView(item.viewId)}
 						/>
 					))}
+					<UpgradeButton marginTop={4} />
 					<Spacer />
 					<VStack gap={0} pb={2}>
 						<Tooltip tip={"Toggle color mode"}>
@@ -115,6 +118,7 @@ function App() {
 							</AnimatePresence>
 						</Suspense>
 					</ErrorBoundary>
+					{snap.onboardPhase?.startsWith("A") && <Onboard />}
 				</CheckRoot>
 			</LayoutGroup>
 			<Preview />

@@ -1,4 +1,4 @@
-import AppState from "@/hooks/appState"
+import AppStore from "@/hooks/appState"
 import type { ImageSource } from "@/types"
 import type { ImageItem } from "./ImageItem"
 
@@ -25,7 +25,7 @@ export async function sendToMetadata(
 
 	if (imageItem) {
 		store.selectImage(imageItem)
-		await AppState.setView("metadata")
+		await AppStore.setView("metadata")
 	}
 }
 

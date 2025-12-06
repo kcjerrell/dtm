@@ -95,12 +95,12 @@ function ModelValueSelectorComponent(
 						minWidth={"20rem"}
 						overflow={"clip"}
 						fontSize={"sm"}
+						bgColor={"bg.1"}
+						boxShadow={"pane1"}
 					>
 						<VStack
 							flex={"1 1 auto"}
 							paddingTop={2}
-							bgColor={"bg.1"}
-							boxShadow={"pane1"}
 							overflow={"clip"}
 							height={"full"}
 							alignItems={"stretch"}
@@ -159,8 +159,6 @@ function ModelValueSelectorComponent(
 						</VStack>
 						<PaneListContainer
 							flex={"0 0 auto"}
-							bgColor={"bg.1"}
-							boxShadow={"pane1"}
 							maxHeight={"full"}
 							overflowY={"clip"}
 							height={"min-content"}

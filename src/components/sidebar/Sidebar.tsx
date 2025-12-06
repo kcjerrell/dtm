@@ -1,7 +1,7 @@
 import { chakra } from "@chakra-ui/react"
 import type { ComponentProps, PropsWithChildren } from "react"
 import { useSnapshot } from "valtio"
-import AppState from "@/hooks/appState"
+import AppStore from "@/hooks/appState"
 
 const Root = chakra(
 	"div",
@@ -20,6 +20,7 @@ const Root = chakra(
 			borderRadius: "lg",
 			marginLeft: "0px",
 			transition: "all 0.2s ease",
+			boxShadow: "pane1",
 		},
 		variants: {
 			hidden: {
@@ -38,8 +39,8 @@ const Root = chakra(
 interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> {}
 function SidebarComponent(props: SidebarProps) {
 	const { children, ...rest } = props
-	const { isSidebarVisible } = useSnapshot(AppState.store)
-	const { showSidebar } = AppState
+	const { isSidebarVisible } = useSnapshot(AppStore.store)
+	const { showSidebar } = AppStore
 
 	return (
 		<Root
@@ -131,9 +132,9 @@ interface SidebarButtonProps extends ComponentProps<typeof ButtonBase> {
 	isActive?: boolean
 }
 
-function Button(props: SidebarButtonProps) {
+export function SidebarButton(props: SidebarButtonProps) {
 	const { label, icon: Icon, onClick, isActive = false, ...rest } = props
-	const { isSidebarVisible } = useSnapshot(AppState.store)
+	const { isSidebarVisible } = useSnapshot(AppStore.store)
 
 	return (
 		<ButtonBase
@@ -154,9 +155,9 @@ function Button(props: SidebarButtonProps) {
 }
 
 type SidebarComponents = typeof SidebarComponent & {
-	Button: typeof Button
+	Button: typeof SidebarButton
 }
 const Sidebar = SidebarComponent as SidebarComponents
-Sidebar.Button = Button
+Sidebar.Button = SidebarButton
 
 export default Sidebar

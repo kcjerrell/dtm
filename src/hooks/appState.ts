@@ -1,12 +1,13 @@
-import { postMessage } from "@/context/Messages"
 import { check } from "@tauri-apps/plugin-updater"
-import { proxy } from "valtio"
+import { store } from "@tauri-store/valtio"
+import { postMessage } from "@/context/Messages"
+import { getStoreName } from "@/utils/helpers"
 
 type ViewRequest = {
 	open: {
-		projectId?: number,
-		tensorId?: string,
-		nodeId?: number,
+		projectId?: number
+		tensorId?: string
+		nodeId?: number
 	}
 }
 
@@ -27,43 +28,54 @@ type AppStateType = {
 	currentView: string
 	isSidebarVisible: boolean
 	viewRequests: Record<string, ViewRequest[]>
+	onboardPhase: string
 }
 
 let update: Awaited<ReturnType<typeof check>> = null
-const store: AppStateType = proxy({
-	updateSize: 0,
-	updateProgress: 0,
-	updateStatus: "unknown",
-	updateAttempts: 0,
-	currentView: localStorage.getItem("currentView") || "metadata",
-	isSidebarVisible: true,
-	viewRequests: {},
-})
+const appStore = store(
+	getStoreName("app"),
+	{
+		updateSize: 0,
+		updateProgress: 0,
+		updateStatus: "unknown",
+		updateAttempts: 0,
+		currentView: "metadata",
+		isSidebarVisible: false,
+		viewRequests: {},
+		onboardPhase: "A1",
+	} as AppStateType,
+	{
+		filterKeys: ["updateSize", "updateProgress", "updateStatus", "updateAttempts", "viewRequests"],
+		filterKeysStrategy: "omit",
+	},
+)
+appStore.start()
+const appState: AppStateType = appStore.state
 
 async function checkForUpdate() {
-	if (store.updateStatus !== "unknown") return
-	store.updateStatus = "checking"
+	if (appState.updateStatus !== "unknown") return
+	appState.updateStatus = "checking"
 	try {
 		update = await check()
 		if (update) {
-			store.updateStatus = "found"
+			appState.updateStatus = "found"
 			postMessage({
 				channel: "toolbar",
 				message: "Update available! Click the update button to download",
 				duration: 5000,
 				uType: "update",
 			})
-		} else store.updateStatus = "none"
+		} else appState.updateStatus = "none"
 	} catch (e) {
 		console.error(e)
-		store.updateStatus = "error"
+		appState.updateStatus = "error"
 	}
 }
 
 async function downloadAndInstallUpdate() {
-	if (!update || store.updateStatus !== "found") return
+	if (!update || appState.updateStatus !== "found") return
 	try {
-		store.updateStatus = "downloading"
+		appState.updateStatus = "downloading"
 		postMessage({
 			channel: "toolbar",
 			message: "Downloading update...",
@@ -71,7 +83,7 @@ async function downloadAndInstallUpdate() {
 		})
 		await update.download()
 
-		store.updateStatus = "installing"
+		appState.updateStatus = "installing"
 		postMessage({
 			channel: "toolbar",
 			message: "Installing update...",
@@ -79,7 +91,7 @@ async function downloadAndInstallUpdate() {
 		})
 		await update.install()
 
-		store.updateStatus = "installed"
+		appState.updateStatus = "installed"
 		postMessage({
 			channel: "toolbar",
 			message: "Update installed! Click the update button to restart",
@@ -88,7 +100,7 @@ async function downloadAndInstallUpdate() {
 		})
 	} catch (e) {
 		console.error(e)
-		store.updateStatus = "error"
+		appState.updateStatus = "error"
 		postMessage({
 			channel: "toolbar",
 			message: "There was a problem installing the update. Click to retry.",
@@ -99,29 +111,29 @@ async function downloadAndInstallUpdate() {
 }
 
 async function retryUpdate() {
-	if (store.updateStatus !== "error" || store.updateAttempts >= 3) return
-	store.updateAttempts++
-	store.updateStatus = "unknown"
+	if (appState.updateStatus !== "error" || appState.updateAttempts >= 3) return
+	appState.updateAttempts++
+	appState.updateStatus = "unknown"
 	await checkForUpdate()
 }
 
 async function setView(view: string) {
-	store.currentView = view
-	if (!store.viewRequests[view]) store.viewRequests[view] = []
+	appState.currentView = view
+	if (!appState.viewRequests[view]) appState.viewRequests[view] = []
 	localStorage.setItem("currentView", view)
 }
 
 function setShowSidebar(show: boolean) {
-	store.isSidebarVisible = show
+	appState.isSidebarVisible = show
 }
 
 async function setViewRequest(view: string, request: ViewRequest) {
 	await setView(view)
-	store.viewRequests[view].push(request)
+	appState.viewRequests[view].push(request)
 }
 
-const AppState = {
-	store,
+const AppStore = {
+	store: appState,
 	checkForUpdate,
 	downloadAndInstallUpdate,
 	setView,
@@ -130,4 +142,4 @@ const AppState = {
 	setViewRequest,
 }
 
-export default AppState
+export default AppStore

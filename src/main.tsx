@@ -1,20 +1,20 @@
 import { ChakraProvider } from "@chakra-ui/react"
+import { invoke } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { motion } from "motion/react"
 import { lazy, StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ColorModeProvider } from "./components/ui/color-mode"
-import AppState from "./hooks/appState"
+import AppStore from "./hooks/appState"
 import "./index.css"
-import { invoke } from "@tauri-apps/api/core"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 
 window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
 const hash = document.location?.hash?.slice(1)
-if (hash === "mini") AppState.setView("mini")
-else if (hash === "vid") AppState.setView("vid")
+if (hash === "mini") AppStore.setView("mini")
+else if (hash === "vid") AppStore.setView("vid")
 
 const RootComponent = lazy(() => {
 	if (hash === "dev") return import("./Dev")

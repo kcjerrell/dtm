@@ -13,7 +13,7 @@ import { exit } from "@tauri-apps/plugin-process"
 import { subscribe } from "valtio"
 import { toggleColorMode } from "./components/ui/color-mode"
 import { postMessage } from "./context/Messages"
-import AppState from "./hooks/appState"
+import AppStore from "./hooks/appState"
 import { loadImage2 } from "./metadata/state/imageLoaders"
 import { themeHelpers } from "./theme/helpers"
 import { getLocalImage } from "./utils/clipboard"
@@ -57,7 +57,7 @@ const aboutSubmenu = await Submenu.new({
 					uType: "update",
 					duration: 3000,
 				})
-				await AppState.checkForUpdate()
+				await AppStore.checkForUpdate()
 			},
 		}),
 		await Separator(),
@@ -169,28 +169,28 @@ const viewSubmenu = await Submenu.new({
 			text: "Metadata",
 			id: "view-metadata",
 			action: async () => {
-				AppState.setView("metadata")
+				AppStore.setView("metadata")
 			},
 		}),
 		await MenuItem.new({
 			text: "Vid",
 			id: "view-vid",
 			action: async () => {
-				AppState.setView("vid")
+				AppStore.setView("vid")
 			},
 		}),
 		await MenuItem.new({
 			text: "Library",
 			id: "view-library",
 			action: async () => {
-				AppState.setView("library")
+				AppStore.setView("library")
 			},
 		}),
 		await MenuItem.new({
 			text: "Scratch",
 			id: "view-scratch",
 			action: async () => {
-				AppState.setView("scratch")
+				AppStore.setView("scratch")
 			},
 		}),
 	],

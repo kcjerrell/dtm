@@ -41,7 +41,6 @@ function Toolbar(props: ChakraProps) {
 						<LayoutGroup>
 							<AnimatePresence mode={"sync"} propagate={false}>
 								{buttons.map((render) => render())}
-								<UpgradeButton />
 							</AnimatePresence>
 						</LayoutGroup>
 					</ToolbarButtonGroup>

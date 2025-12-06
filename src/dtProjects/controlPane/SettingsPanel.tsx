@@ -1,49 +1,53 @@
+import { Box } from "@chakra-ui/react"
 import { FaMinus, FaPlus } from "react-icons/fa6"
 import { FiList } from "react-icons/fi"
 import { LuFolderTree } from "react-icons/lu"
 import { PanelButton, PanelListItem, PanelSectionHeader } from "@/components"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
-import { useInitRef } from '@/hooks/useInitRef'
+import { useInitRef } from "@/hooks/useInitRef"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
 import { type IDTProjectsStore, useDTProjects } from "../state/projectStore"
 import type { WatchFolderState } from "../state/watchFolders"
 
-function getCommands(folderType: "Projects" | "ModelInfo", store: IDTProjectsStore): PanelListCommand<WatchFolderState>[] {
+function getCommands(
+	folderType: "Projects" | "ModelInfo",
+	store: IDTProjectsStore,
+): PanelListCommand<WatchFolderState>[] {
 	const ft = folderType === "Projects" ? "proj" : "modinfo"
-return [
-			{
-				id: `${ft}-toggle-recursive`,
-				getIcon: (selected) => (selected[0]?.recursive ? FiList : LuFolderTree),
-				requiresSelection: true,
-				onClick: (selected) => {
-					store.watchFolders.setRecursive(selected, !selected[0]?.recursive)
-				},
-				getTip: (selected) => (selected[0]?.recursive ? "Disable recursive" : "Enable recursive"),
+	return [
+		{
+			id: `${ft}-toggle-recursive`,
+			getIcon: (selected) => (selected[0]?.recursive ? FiList : LuFolderTree),
+			requiresSelection: true,
+			onClick: (selected) => {
+				store.watchFolders.setRecursive(selected, !selected[0]?.recursive)
 			},
-			{
-				id: `${ft}-remove-folders`,
-				icon: FaMinus,
-				requiresSelection: true,
-				onClick: (selected) => {
-					store.watchFolders.removeWatchFolders(selected)
-				},
-				tip: "Remove selected folders",
+			getTip: (selected) => (selected[0]?.recursive ? "Disable recursive" : "Enable recursive"),
+		},
+		{
+			id: `${ft}-remove-folders`,
+			icon: FaMinus,
+			requiresSelection: true,
+			onClick: (selected) => {
+				store.watchFolders.removeWatchFolders(selected)
 			},
-			{
-				id: `${ft}-add-folder`,
-				icon: FaPlus,
-				onClick: () =>
-					openAnd((f) => store.watchFolders.addWatchFolder(f, folderType), {
-						directory: true,
-						multiple: false,
-						title: `Select ${folderType.toLowerCase()} folder`,
-					}),
-				tip: "Add folder",
-			},
-		]
+			tip: "Remove selected folders",
+		},
+		{
+			id: `${ft}-add-folder`,
+			icon: FaPlus,
+			onClick: () =>
+				openAnd((f) => store.watchFolders.addWatchFolder(f, folderType), {
+					directory: true,
+					multiple: false,
+					title: `Select ${folderType.toLowerCase()} folder`,
+				}),
+			tip: "Add folder",
+		},
+	]
 }
 
 interface SettingsPanelComponentProps extends ChakraProps {}
@@ -63,14 +67,20 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			<PanelList
 				itemsState={() => store.watchFolders.state.projectFolders}
 				header={"Project locations"}
-				headerInfo={"hi"}
+				headerInfo={"Draw Things projects in these folders will be indexed and listed in the projects tab. \n\nFor most users, only the default folder will be needed. If you move your projects to external storage, you can include the locations here."}
 				commands={projectFolderCommands}
 				keyFn={(item) => item.id}
-				clearSelection={modelInfoFolders.some(f => f.selected)}
+				clearSelection={modelInfoFolders.some((f) => f.selected)}
 			>
 				{projectFolders.map((folder) => (
 					<WatchFolderItem key={folder.id} folder={folder} />
 				))}
+
+				{projectFolders.length === 0 && (
+					<Box margin={"auto"} padding={2} opacity={0.7} color={"fg.2"} fontStyle={"italic"}>
+						(no folders added)
+					</Box>
+				)}
 			</PanelList>
 
 			{!hasProjectDefault && (
@@ -86,14 +96,19 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 				marginTop={4}
 				itemsState={() => store.watchFolders.state.modelInfoFolders}
 				header={"Model info"}
-				headerInfo={"hi"}
+				headerInfo={"Model info files in these folders will be indexed to improve search and provide more useful context. \n\nIf you use the External Model Folder setting in Draw Things, add that folder here."}
 				commands={modelInfoFolderCommands}
 				keyFn={(item) => item.id}
-				clearSelection={projectFolders.some(f => f.selected)}
+				clearSelection={projectFolders.some((f) => f.selected)}
 			>
 				{modelInfoFolders.map((folder) => (
 					<WatchFolderItem key={folder.id} folder={folder} />
 				))}
+				{modelInfoFolders.length === 0 && (
+					<Box margin={"auto"} padding={2} opacity={0.7} fontStyle={"italic"} color={"fg.2"}>
+						(no folders added)
+					</Box>
+				)}
 			</PanelList>
 
 			{!hasModelInfoDefault && (
