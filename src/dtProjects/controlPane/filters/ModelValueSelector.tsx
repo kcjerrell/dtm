@@ -1,6 +1,7 @@
 import { Box, HStack, Input, Text, VStack } from "@chakra-ui/react"
 import { type ComponentProps, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { FiX } from "react-icons/fi"
 import { TbSortAscendingLetters, TbSortDescendingNumbers } from "react-icons/tb"
 import { useSnapshot } from "valtio"
 import type { Model } from "@/commands"
@@ -13,7 +14,6 @@ import { useProxyRef, useSubscribeValue } from "@/hooks/valtioHooks"
 import { filterObject } from "@/utils/helpers"
 import { getVersionLabel } from "@/utils/models"
 import type { FilterValueSelector, ValueSelectorProps } from "./collections"
-import { FiX } from "react-icons/fi"
 
 function ModelValueSelectorComponent(
 	props: ValueSelectorProps<Model[]> & { modelType?: "models" | "loras" | "controls" },
@@ -32,6 +32,8 @@ function ModelValueSelectorComponent(
 		versions: [] as [string, { models: number; loras: number; controls: number; label: string }][],
 		selectedVersion: undefined as string | undefined,
 	}))
+
+	const filterFn = buildModelFilter(inputValue, snap.selectedVersion)
 
 	useEffect(() => {
 		if (!modelsSnap[modelType]) return
@@ -69,12 +71,20 @@ function ModelValueSelectorComponent(
 					state.isOpen = true
 				}}
 			>
-				<VStack width={"full"} alignItems={"stretch"}>
+				<VStack width={"full"} alignItems={"stretch"} overflowX={"clip"}>
 					{value && value.length > 0 ? (
 						value.map((model) => (
 							<HStack width={"full"} className={"group"} key={model.filename}>
-								<Text>{getModelLabel(model, true)}</Text>
+								<Text
+									flex={"1 1 auto"}
+									textWrap={"nowrap"}
+									textOverflow={"ellipsis"}
+									overflow={"hidden"}
+								>
+									{getModelLabel(model, true)}
+								</Text>
 								<IconButton
+									flex={"0 0 auto"}
 									margin={-2}
 									marginLeft="auto"
 									marginRight={-2}
@@ -185,12 +195,7 @@ function ModelValueSelectorComponent(
 								selectionMode="multipleToggle"
 							>
 								{snap.sorted.map((model) => (
-									<ModelItem
-										key={model.id}
-										model={model}
-										filterText={inputValue}
-										filterVersion={snap.selectedVersion}
-									/>
+									<ModelItem key={model.id} model={model} filterFn={filterFn} />
 								))}
 							</PanelList>
 						</VStack>
@@ -228,26 +233,15 @@ function ModelValueSelectorComponent(
 	)
 }
 
-function ModelItem(props: {
-	model: Selectable<Model>
-	filterText?: string
-	filterVersion?: string
-}) {
-	const { model, filterText, filterVersion, ...restProps } = props
+function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => boolean }) {
+	const { model, filterFn, ...restProps } = props
 	const { isSelected, handlers } = useSelectable(model)
 
-	if (filterText) {
-		const modelText = `${model.filename} ${model.name} ${model.version}`.toLowerCase()
-		if (!modelText.includes(filterText.toLowerCase())) return null
-	}
-
-	if (filterVersion !== undefined) {
-		if ((model.version ?? "") !== filterVersion) return null
-	}
+	if (filterFn && !filterFn(model)) return null
 
 	return (
 		<PanelListItem key={model.id} selectable selected={isSelected} {...restProps} {...handlers}>
-			<Text textOverflow="ellipsis" textWrap={"nowrap"} overflowX="hidden">
+			<Text title={model.filename} textOverflow="ellipsis" textWrap={"nowrap"} overflowX="hidden">
 				{getModelLabel(model, true)}
 			</Text>
 			<HStack justifyContent={"space-between"}>
@@ -307,7 +301,10 @@ const ControlValueSelectorComponent = (props: ComponentProps<typeof ModelValueSe
 export const ControlValueSelector = ControlValueSelectorComponent as FilterValueSelector<Model[]>
 ControlValueSelector.getValueLabel = getModelLabels
 
-export function buildModelFilter(query: string): (m: Model) => boolean {
+function buildModelFilter(
+	query: string,
+	selectedVersion: string | undefined,
+): (m: Model) => boolean {
 	const tokens = tokenize(query)
 
 	const matchers = tokens.map((token) => {
@@ -337,13 +334,18 @@ export function buildModelFilter(query: string): (m: Model) => boolean {
 
 		const lower = token.toLowerCase()
 		return (m: Model) =>
-			m.filename.toLowerCase().includes(lower) ||
-			m.name?.toLowerCase().includes(lower) ||
-			m.version?.toLowerCase().includes(lower)
+			m.filename.toLowerCase().includes(lower) || m.name?.toLowerCase().includes(lower)
 	})
 
+	if (selectedVersion) {
+		matchers.push((m: Model) => m.version === selectedVersion)
+	}
+	if (selectedVersion === "") {
+		matchers.push((m: Model) => !m.version)
+	}
+
 	if (matchers.length === 0) return () => true
-	return (m: Model) => matchers.some((fn) => fn(m))
+	return (m: Model) => matchers.every((fn) => fn(m))
 }
 
 function tokenize(text: string): string[] {
