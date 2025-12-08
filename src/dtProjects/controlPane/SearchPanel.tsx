@@ -1,4 +1,4 @@
-import { Button, Input, VStack } from "@chakra-ui/react"
+import { Button, HStack, Input, VStack } from "@chakra-ui/react"
 import { useEffect } from "react"
 import { useSnapshot } from "valtio"
 import { PanelButton } from "@/components"
@@ -21,6 +21,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
 	return (
 		<TabContent value={"search"} overflowX={"clip"} {...restProps}>
 			<Input
+			bgColor={"bg.3"}
 				value={searchService.state.searchInput}
 				onChange={(e) => {
 					searchService.state.searchInput = e.target.value
@@ -29,21 +30,15 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				borderRadius={"lg"}
 				placeholder="Search"
 			></Input>
-			<PanelButton
-				onClick={() => {
-					setImagesSource({ search: searchService.state.searchInput })
-				}}
-			>
-				Search
-			</PanelButton>
 
 			<VStack
+				display={searchSnap.filters.length > 0 ? "flex" : "none"}
 				gap={1}
 				bgColor={"bg.1"}
-				borderBlock={"0.25rem solid {colors.bg.1}"}
+				// borderBlock={"0.25rem solid {colors.bg.1}"}
 				width={"100%"}
 				alignItems={"stretch"}
-				paddingY={2}
+				paddingY={1}
 				paddingX={1}
 				marginY={2}
 				borderRadius={"sm"}
@@ -56,9 +51,40 @@ function SearchPanel(props: SearchPanelComponentProps) {
 					/>
 				))}
 			</VStack>
-			<Button marginTop={8} onClick={() => searchService.addEmptyFilter(true)}>
+			<Button
+				unstyled
+				width={"max-content"}
+				margin={"auto"}
+				padding={2}
+				color={"fg.2"}
+				_hover={{ textDecoration: "underline", color: "fg.1" }}
+				fontSize={"sm"}
+				cursor={"pointer"}
+				onClick={() => searchService.addEmptyFilter(true)}
+			>
 				Add Filter
 			</Button>
+			<HStack marginTop={4} width={"full"}>
+				<PanelButton
+				boxShadow={"xs"}
+					flex={"0 0 auto"}
+					onClick={() => {
+						searchService.state.searchInput = ""
+						searchService.clearFilters()
+					}}
+				>
+					Clear
+				</PanelButton>
+				<PanelButton
+				boxShadow={"xs"}
+					flex={"1 1 auto"}
+					onClick={() => {
+						setImagesSource({ search: searchService.state.searchInput })
+					}}
+				>
+					Search
+				</PanelButton>
+			</HStack>
 		</TabContent>
 	)
 }

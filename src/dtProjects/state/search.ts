@@ -57,6 +57,10 @@ export class SearchService {
 			filter.index = i
 		})
 	}
+
+	clearFilters() {
+		this.state.filters.splice(0, this.state.filters.length)
+	}
 }
 
 export function useSearchService() {
@@ -77,7 +81,7 @@ export function useSearchServiceFilter<T>(index: number) {
 
 	const operatorCollection = filterTargets[target ?? "none"]?.collection
 	const ValueSelector = filterTargets[target ?? "none"]?.ValueComponent as FilterValueSelector<T>
-	
+
 	const callbacks = useMemo(
 		() => ({
 			setTarget: (target?: string) => {
