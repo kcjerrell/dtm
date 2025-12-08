@@ -1,5 +1,5 @@
 import { Box, HStack, Input, Text, VStack } from "@chakra-ui/react"
-import { type ComponentProps, useEffect, useState } from "react"
+import { type ComponentProps, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { TbSortAscendingLetters, TbSortDescendingNumbers } from "react-icons/tb"
 import { useSnapshot } from "valtio"
@@ -13,6 +13,7 @@ import { useProxyRef, useSubscribeValue } from "@/hooks/valtioHooks"
 import { filterObject } from "@/utils/helpers"
 import { getVersionLabel } from "@/utils/models"
 import type { FilterValueSelector, ValueSelectorProps } from "./collections"
+import { FiX } from "react-icons/fi"
 
 function ModelValueSelectorComponent(
 	props: ValueSelectorProps<Model[]> & { modelType?: "models" | "loras" | "controls" },
@@ -33,19 +34,31 @@ function ModelValueSelectorComponent(
 	}))
 
 	useEffect(() => {
-		state.sorted = getSorted(modelsSnap[modelType], state.sortType)
-		state.versions = getVersions(dtpState.models, modelType)
-	}, [modelsSnap[modelType], state, modelType, dtpState.models])
+		if (!modelsSnap[modelType]) return
+		state.sorted = getSorted(models[modelType], state.sortType)
+		state.versions = getVersions(models, modelType)
+	}, [models[modelType], state, modelType, modelsSnap[modelType]])
 
 	useSubscribeValue(state, "sortType", () => {
-		state.sorted = getSorted(modelsSnap[modelType], state.sortType)
+		state.sorted = getSorted(models[modelType], state.sortType)
 	})
+
+	useEffect(() => {
+		const selectedIds = new Set(value?.map((v) => v.id))
+		state.sorted.forEach((item) => {
+			if (item.selected !== selectedIds.has(item.id)) {
+				item.setSelected(selectedIds.has(item.id))
+			}
+		})
+	}, [value, state.sorted])
+
+	const containerRef = useRef<HTMLDivElement>(null)
 
 	const checkRoot = document.getElementById("check-root")
 	if (!checkRoot) return null
 
 	return (
-		<Box padding={0} {...boxProps}>
+		<Box padding={0} {...boxProps} ref={containerRef}>
 			<Box
 				width={"full"}
 				padding={2}
@@ -58,7 +71,29 @@ function ModelValueSelectorComponent(
 			>
 				<VStack width={"full"} alignItems={"stretch"}>
 					{value && value.length > 0 ? (
-						value.map((model) => <Text key={model.filename}>{getModelLabel(model)}</Text>)
+						value.map((model) => (
+							<HStack width={"full"} className={"group"} key={model.filename}>
+								<Text>{getModelLabel(model, true)}</Text>
+								<IconButton
+									margin={-2}
+									marginLeft="auto"
+									marginRight={-2}
+									padding={0}
+									minHeight={"unset"}
+									height={"unset"}
+									size={"xs"}
+									visibility={"hidden"}
+									_groupHover={{ visibility: "visible" }}
+									onClick={(e: React.MouseEvent) => {
+										e.stopPropagation()
+										const newValue = value.filter((v) => v.id !== model.id)
+										onValueChange?.(newValue)
+									}}
+								>
+									<FiX />
+								</IconButton>
+							</HStack>
+						))
 					) : (
 						<Text key="empty" opacity={0.7} fontStyle={"italic"}>
 							(Select a model...)
@@ -74,6 +109,7 @@ function ModelValueSelectorComponent(
 						ref={(elem) => {
 							if (!elem) return
 							const handler = (e: MouseEvent) => {
+								if (containerRef.current?.contains(e.target as Node)) return
 								const insidePopup =
 									(e.target as HTMLElement).closest("[data-filter-popup]") !== null
 								if (insidePopup) return
@@ -97,6 +133,7 @@ function ModelValueSelectorComponent(
 						fontSize={"sm"}
 						bgColor={"bg.1"}
 						boxShadow={"pane1"}
+						gap={0}
 					>
 						<VStack
 							flex={"1 1 auto"}

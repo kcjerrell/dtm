@@ -14,7 +14,6 @@ import { subscribe } from "valtio"
 import { toggleColorMode } from "./components/ui/color-mode"
 import { postMessage } from "./context/Messages"
 import AppStore from "./hooks/appState"
-import { loadImage2 } from "./metadata/state/imageLoaders"
 import { themeHelpers } from "./theme/helpers"
 import { getLocalImage } from "./utils/clipboard"
 
@@ -116,6 +115,7 @@ const fileSubmenu = await Submenu.new({
 			text: "Open from pasteboard...",
 			id: "file_openPasteboard",
 			action: async () => {
+				const { loadImage2 } = await import("./metadata/state/imageLoaders")
 				await loadImage2("general")
 			},
 		}),
@@ -228,7 +228,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
 				id: "options_clearPinsOnExit",
 				checked: opts?.clearPinsOnExit,
 				action: async () => {
-					(await getMetadataStore()).MetadataStore.clearPinsOnExit = !opts?.clearPinsOnExit
+					AppStore.store.clearPinsOnExit = !opts?.clearPinsOnExit
 				},
 			}),
 			await CheckMenuItem.new({
@@ -236,7 +236,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
 				id: "options_clearHistoryOnExit",
 				checked: opts?.clearHistoryOnExit,
 				action: async () => {
-					(await getMetadataStore()).MetadataStore.clearHistoryOnExit = !opts?.clearHistoryOnExit
+					AppStore.store.clearHistoryOnExit = !opts?.clearHistoryOnExit
 				},
 			}),
 		],
@@ -258,17 +258,17 @@ async function updateMenu(opts?: CreateOptionMenuOpts) {
 
 async function createOpts(): Promise<CreateOptionMenuOpts> {
 	return {
-		clearHistoryOnExit: (await getMetadataStore()).MetadataStore.clearHistoryOnExit,
-		clearPinsOnExit: (await getMetadataStore()).MetadataStore.clearPinsOnExit,
+		clearHistoryOnExit: AppStore.store.clearHistoryOnExit,
+		clearPinsOnExit: AppStore.store.clearPinsOnExit,
 	}
 }
 
 await updateMenu()
 
-subscribe((await getMetadataStore()).MetadataStore, async () => {
+subscribe(AppStore.store, async () => {
 	if (
-		lastOpts?.clearHistoryOnExit !== (await getMetadataStore()).MetadataStore.clearHistoryOnExit ||
-		lastOpts?.clearPinsOnExit !== (await getMetadataStore()).MetadataStore.clearPinsOnExit
+		lastOpts?.clearHistoryOnExit !== AppStore.store.clearHistoryOnExit ||
+		lastOpts?.clearPinsOnExit !== AppStore.store.clearPinsOnExit
 	) {
 		await updateMenu()
 	}

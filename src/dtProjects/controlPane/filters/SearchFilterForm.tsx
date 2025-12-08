@@ -1,10 +1,9 @@
 import { Grid } from "@chakra-ui/react"
-import { useEffect, useRef } from "react"
+import { useRef } from "react"
 import { FiX } from "react-icons/fi"
 import { IconButton } from "@/components"
 import { type FilterOperator, useSearchServiceFilter } from "@/dtProjects/state/search"
 import FilterSelect from "./FilterSelect"
-import { filterTargets } from "./collections"
 
 interface SearchFilterFormComponentProps extends Omit<ChakraProps, "filter"> {
 	onRemove: () => void
@@ -54,7 +53,6 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
 			gridTemplateColumns={templateColumns}
 			overflow={"clip"}
 			onClick={(e) => {
-				console.log("click", target, targetRef.current)
 				if (e.target !== e.currentTarget) return
 				if (!target && !!targetRef.current)
 					(targetRef.current?.querySelector("[data-part=trigger]") as HTMLElement)?.click()
@@ -99,7 +97,6 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
 				gridRow={valueRow}
 				{...selectStyle}
 				onValueChange={(v) => {
-					console.log("change", v)
 					setValue(v)
 				}}
 			/>
@@ -123,7 +120,6 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
 
 function getLayout(target?: string) {
 	if (target && ["model", "lora", "control", "refiner"].includes(target)) {
-		console.log(target)
 		return {
 			valueColumn: "1 / 4",
 			valueRow: "2",

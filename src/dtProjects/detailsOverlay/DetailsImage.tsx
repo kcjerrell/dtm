@@ -121,6 +121,8 @@ function DetailsImage(props: DetailsImageProps) {
 		[anim, naturalSize, scope],
 	)
 
+	if (!srcHalf && !src) return null
+
 	return (
 		<Box
 			ref={(elem: HTMLDivElement | null) => {

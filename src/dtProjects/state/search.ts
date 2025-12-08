@@ -77,9 +77,7 @@ export function useSearchServiceFilter<T>(index: number) {
 
 	const operatorCollection = filterTargets[target ?? "none"]?.collection
 	const ValueSelector = filterTargets[target ?? "none"]?.ValueComponent as FilterValueSelector<T>
-
-	console.log("use search filter", target)
-
+	
 	const callbacks = useMemo(
 		() => ({
 			setTarget: (target?: string) => {

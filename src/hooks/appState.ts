@@ -29,6 +29,8 @@ type AppStateType = {
 	isSidebarVisible: boolean
 	viewRequests: Record<string, ViewRequest[]>
 	onboardPhase: string
+	clearHistoryOnExit: boolean
+	clearPinsOnExit: boolean
 }
 
 let update: Awaited<ReturnType<typeof check>> = null
@@ -43,6 +45,8 @@ const appStore = store(
 		isSidebarVisible: false,
 		viewRequests: {},
 		onboardPhase: "A1",
+		clearHistoryOnExit: false,
+		clearPinsOnExit: false,
 	} as AppStateType,
 	{
 		filterKeys: ["updateSize", "updateProgress", "updateStatus", "updateAttempts", "viewRequests"],

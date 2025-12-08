@@ -131,7 +131,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 											width={"100%"}
 											flex={"1 1 auto"}
 											src={subItem?.url}
-											srcHalf={subItem?.thumbUrl}
+											// srcHalf={subItem?.thumbUrl}
 											sourceRect={() => dtp.state.detailsOverlay.subItemSourceRect}
 											sourceElement={subItem.sourceElement as HTMLElement}
 											naturalSize={{ width: subItem?.width ?? 1, height: subItem?.height ?? 1 }}

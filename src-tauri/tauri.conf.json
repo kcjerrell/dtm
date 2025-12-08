@@ -4,7 +4,7 @@
   "version": "0.0.6",
   "identifier": "com.kcjer.dtm",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "vite",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"

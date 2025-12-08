@@ -3,6 +3,7 @@ import { readFile } from "@tauri-apps/plugin-fs"
 import { store } from "@tauri-store/valtio"
 import * as exifr from "exifr"
 import { proxy } from "valtio"
+import AppStore from "@/hooks/appState"
 import type { ImageSource } from "@/types"
 import { getStoreName } from "@/utils/helpers"
 import ImageStore from "@/utils/imageStore"
@@ -30,8 +31,6 @@ const metadataStore = store(
 		zoomPreview: false,
 		showHistory: false,
 		maxHistory: 10,
-		clearHistoryOnExit: false,
-		clearPinsOnExit: false,
 		get currentImage(): ImageItem | undefined {
 			if (MetadataStore.currentIndex === null) return undefined
 			return MetadataStore.images[MetadataStore.currentIndex]
@@ -74,8 +73,8 @@ getCurrentWindow().onCloseRequested(async (e) => {
 })
 
 async function cleanUp() {
-	const clearHistory = MetadataStore.clearHistoryOnExit
-	const clearPins = MetadataStore.clearPinsOnExit
+	const clearHistory = AppStore.store.clearHistoryOnExit
+	const clearPins = AppStore.store.clearPinsOnExit
 
 	const saveIds = MetadataStore.images
 		.filter((im) => {
