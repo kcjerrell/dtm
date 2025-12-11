@@ -47,8 +47,8 @@ function Config(props: ConfigProps) {
 					flex={"1 1 min-content"}
 				/>
 				<DataItem
-					label={"ImageGuidance"}
-					data={dtData?.config?.imageGuidanceScale}
+					label={"GuidanceScale"}
+					data={dtData?.config?.guidanceScale}
 					decimalPlaces={1}
 					flex={"1 1 min-content"}
 				/>

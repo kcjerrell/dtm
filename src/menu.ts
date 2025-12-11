@@ -81,6 +81,7 @@ const aboutSubmenu = await Submenu.new({
 		await MenuItem.new({
 			id: "dtm_quit",
 			text: "Quit DTM",
+			accelerator: "Command+Q",
 			action: async () => {
 				await exit(0)
 			},
