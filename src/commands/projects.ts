@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
+import type { ImagesSource } from "../dtProjects/types"
 
 // --------------------
 // Type definitions
@@ -237,9 +238,10 @@ export const pdb = {
 	// #unused
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
 
-	listImages: async (opts: ListImagesOptions): Promise<{ items: ImageExtra[]; total: number }> => {
-		console.log(opts)
-		return await invoke("projects_db_image_list", opts ?? {})
+	listImages: async (source: ImagesSource, skip: number, take: number): Promise<{ items: ImageExtra[]; total: number }> => {
+		// console.log(opts)
+		
+		return await invoke("projects_db_image_list", { ...source, skip, take })
 	},
 
 	rebuildIndex: async (): Promise<void> => invoke("projects_db_image_rebuild_fts"),

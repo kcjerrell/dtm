@@ -1,5 +1,4 @@
 import { HStack, Spacer, Text, VStack } from "@chakra-ui/react"
-import { useEffect, useRef } from "react"
 import { FiX } from "react-icons/fi"
 import { IconButton } from "@/components"
 import { useSearchServiceFilter } from "@/dtProjects/state/search"
@@ -58,6 +57,7 @@ function SearchFilter<T>(props: SearchFilterFormComponentProps) {
 
 	return (
 		<HStack
+			outline={"4px solid purple"}
 			border={"1px solid {gray/20}"}
 			borderRadius={"xl"}
 			// bgColor={"bg.2"}

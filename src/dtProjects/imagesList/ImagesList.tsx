@@ -1,11 +1,12 @@
-import { Box, Image } from "@chakra-ui/react"
+import { Box } from "@chakra-ui/react"
+import { motion } from "motion/react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import type { Snapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import { Panel } from "@/components"
-import PVGrid from "@/components/virtualizedList/PVGrid"
+import PVGrid, { type PVGridItemProps } from "@/components/virtualizedList/PVGrid"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
-import { getRequestOpts, useDTProjects } from "../state/projectStore"
-import { AnimatePresence, motion } from "motion/react"
+import { type DTProjectsStateType, useDTProjects } from "../state/projectStore"
 
 interface ImagesList extends ChakraProps {}
 
@@ -16,8 +17,7 @@ function ImagesList(props: ImagesList) {
 
 	useEffect(() => {
 		if (!state.imageSource) return
-		const opts = getRequestOpts(state.imageSource)
-		pdb.listImages({ ...opts, take: 0, skip: 0 }).then((res) => {
+		pdb.listImages({ ...state.imageSource }, 0, 0).then((res) => {
 			setTotalCount(res.total)
 		})
 	}, [state.imageSource])
@@ -25,8 +25,7 @@ function ImagesList(props: ImagesList) {
 	const getItems = useCallback(
 		async (skip: number, take: number) => {
 			if (!state.imageSource) return []
-			const opts = getRequestOpts(state.imageSource)
-			const res = await pdb.listImages({ ...opts, take, skip })
+			const res = await pdb.listImages({ ...state.imageSource }, skip, take)
 			return res.items
 		},
 		[state.imageSource],
@@ -48,7 +47,8 @@ function ImagesList(props: ImagesList) {
 				maxItemSize={snap.itemSize}
 				itemProps={{
 					snap,
-					showDetailsOverlay: (item, elem) => dtp.showDetailsOverlay(item, elem),
+					showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) =>
+						dtp.showDetailsOverlay(item, elem),
 				}}
 				pageSize={250}
 				totalCount={totalCount}
@@ -59,12 +59,20 @@ function ImagesList(props: ImagesList) {
 	)
 }
 
-function GridItem(props) {
+function GridItem(
+	props: PVGridItemProps<
+		ImageExtra,
+		{
+			showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => void
+			snap: Snapshot<DTProjectsStateType>
+		}
+	>,
+) {
 	const { value: item, itemProps } = props
 	const { showDetailsOverlay, snap } = itemProps
 
 	const imgRef = useRef<HTMLImageElement>(null)
-	const [isLoaded, setIsLoaded] = useState(false)
+	// const [isLoaded, setIsLoaded] = useState(false)
 
 	if (item === undefined) return null
 	if (item === null) return <Box bgColor={"fg.1/20"} width={"100%"} height={"100%"} />
@@ -74,7 +82,7 @@ function GridItem(props) {
 		item.node_id === snap?.detailsOverlay?.item?.node_id
 
 	return (
-		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(item, imgRef.current)}>
+		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(item, imgRef.current ?? undefined)}>
 			{!isPreviewing && (
 				<motion.img
 					// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
@@ -87,7 +95,7 @@ function GridItem(props) {
 						height: "100%",
 						objectFit: "cover",
 						border: "1px solid #0000ff00",
-						backgroundColor: "#77777777"
+						backgroundColor: "#77777777",
 					}}
 					src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
 					alt={item.prompt}

@@ -3,7 +3,7 @@ import { useEffect } from "react"
 import { useSnapshot } from "valtio"
 import { PanelButton } from "@/components"
 import TabContent from "@/metadata/infoPanel/TabContent"
-import { setImagesSource, useDTProjects } from "../state/projectStore"
+import { useDTProjects } from "../state/projectStore"
 import SearchFilter from "./filters/SearchFilter"
 
 interface SearchPanelComponentProps extends ChakraProps {}
@@ -21,7 +21,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
 	return (
 		<TabContent value={"search"} overflowX={"clip"} {...restProps}>
 			<Input
-			bgColor={"bg.3"}
+				bgColor={"bg.3"}
 				value={searchService.state.searchInput}
 				onChange={(e) => {
 					searchService.state.searchInput = e.target.value
@@ -66,7 +66,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
 			</Button>
 			<HStack marginTop={4} width={"full"}>
 				<PanelButton
-				boxShadow={"xs"}
+					boxShadow={"xs"}
 					flex={"0 0 auto"}
 					onClick={() => {
 						searchService.state.searchInput = ""
@@ -75,13 +75,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				>
 					Clear
 				</PanelButton>
-				<PanelButton
-				boxShadow={"xs"}
-					flex={"1 1 auto"}
-					onClick={() => {
-						setImagesSource({ search: searchService.state.searchInput })
-					}}
-				>
+				<PanelButton boxShadow={"xs"} flex={"1 1 auto"} onClick={() => searchService.search()}>
 					Search
 				</PanelButton>
 			</HStack>

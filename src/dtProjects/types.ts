@@ -1,4 +1,5 @@
 import type { TensorHistoryNode } from '@/commands'
+import type { BackendFilter } from './state/search'
 
 export type ScanProgress = {
 	projects_scanned: number
@@ -41,4 +42,10 @@ export interface TensorHistoryExtra {
 
 	history: TensorHistoryNode
 	projectPath: string
+}
+
+export type ImagesSource = {
+	projectIds?: number[]
+	search?: string
+	filters?: BackendFilter[]
 }

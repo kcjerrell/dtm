@@ -1,11 +1,18 @@
+import type { SamplerType } from "dt-grpc-ts/web"
 import { useMemo } from "react"
 import { proxy, useSnapshot } from "valtio"
+import type { Model } from "@/commands"
+import { arrayIfOnly } from "@/utils/helpers"
 import {
 	type FilterValueSelector,
 	filterTargets,
 	targetCollection,
 } from "../controlPane/filters/collections"
-import DTProjects, { type DTProjectsStateType, type IDTProjectsStore } from "./projectStore"
+import type { ImagesSource } from "../types"
+import DTProjects, {
+	type DTProjectsStateType,
+	type IDTProjectsStore,
+} from "./projectStore"
 
 export type SearchState = {
 	searchInput: string
@@ -25,13 +32,22 @@ export type FilterOperator =
 	| "has"
 	| "doesNotHave"
 
-export type Filter<T = unknown> = {
+export type Filter<T = FilterValue> = {
 	index: number
 	target?: string
 	operator?: FilterOperator
 	value?: T
 	isEditing?: boolean
 }
+
+export type BackendFilter<T = string[] | number[]> = {
+	target: string
+	operator: FilterOperator
+	value: T
+}
+
+export type ContentType = "depth" | "pose" | "color" | "custom" | "scribble" | "shuffle"
+export type FilterValue = number | ContentType[] | Model | SamplerType
 
 export class SearchService {
 	#dtp: IDTProjectsStore
@@ -60,6 +76,30 @@ export class SearchService {
 
 	clearFilters() {
 		this.state.filters.splice(0, this.state.filters.length)
+	}
+
+	search() {
+		const imageSource: ImagesSource = {}
+		if (this.state.searchInput) {
+			imageSource.search = this.state.searchInput
+			imageSource.filters = []
+		}
+		for (const filter of this.state.filters) {
+			if (!filter.target || !filter.operator || filter.value === undefined || filter.value === null)
+				continue
+			const filterTarget = filterTargets[filter.target]
+
+			const bFilter: BackendFilter = {
+				target: filter.target,
+				operator: filter.operator,
+				value: arrayIfOnly(
+					filterTarget.prepare ? filterTarget.prepare(filter.value) : filter.value,
+				) as string[] | number[],
+			}
+			imageSource.filters?.push(bFilter)
+		}
+
+		this.#dtp.state.imageSource = imageSource
 	}
 }
 
@@ -99,7 +139,6 @@ export function useSearchServiceFilter<T>(index: number) {
 				if (filterTargets[target].collection !== filterTargets[prev ?? "none"].collection) {
 					state.operator = filterTargets[target].collection.firstValue as FilterOperator
 				}
-
 			},
 			setOperator: (operator?: FilterOperator) => {
 				state.operator = operator

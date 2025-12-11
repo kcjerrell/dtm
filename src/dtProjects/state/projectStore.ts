@@ -3,7 +3,6 @@ import { proxy, ref, type Snapshot, snapshot, subscribe, useSnapshot } from "val
 import {
 	dtProject,
 	type ImageExtra,
-	type ListImagesOptions,
 	type Model,
 	type ProjectExtra,
 	pdb,
@@ -13,7 +12,7 @@ import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { getVersionLabel } from "@/utils/models"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
-import type { ScanProgressEvent } from "../types"
+import type { ImagesSource, ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import { SearchService, type SearchState } from "./search"
@@ -67,7 +66,7 @@ export type DTProjectsStateType = {
 const state = proxy({
 	projects: [] as ProjectState[],
 	watchFolders: {} as WatchFolderServiceState,
-	imageSource: { projects: [] } as ImagesSource | null,
+	imageSource: { projectIds: [] } as ImagesSource | null,
 	items: [] as ImageExtra[],
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
 	scanProgress: -1,
@@ -143,14 +142,16 @@ class DTProjectsStore implements IDTProjectsStore {
 		this.state.itemSize = size
 	}
 
-	showDetailsOverlay(item: ImageExtra, sourceElement: HTMLImageElement) {
+	showDetailsOverlay(item: ImageExtra, sourceElement?: HTMLImageElement) {
 		const detailsOverlay = this.state.detailsOverlay
 		detailsOverlay.item = item
 		detailsOverlay.lastItem = item
 
-		detailsOverlay.sourceRect = toJSON(sourceElement.getBoundingClientRect())
-		detailsOverlay.width = sourceElement.naturalWidth
-		detailsOverlay.height = sourceElement.naturalHeight
+		if (sourceElement) {
+			detailsOverlay.sourceRect = toJSON(sourceElement.getBoundingClientRect())
+			detailsOverlay.width = sourceElement.naturalWidth
+			detailsOverlay.height = sourceElement.naturalHeight
+		}
 
 		this.loadDetails(item)
 	}
@@ -299,11 +300,6 @@ async function attachListeners() {
 	})
 }
 
-export type ImagesSource = {
-	projects?: ProjectExtra[]
-	search?: string
-	filter?: unknown
-}
 
 export async function setImagesSource(source: ImagesSource) {
 	if (JSON.stringify(source) === JSON.stringify(state.imageSource)) return
@@ -331,16 +327,6 @@ export function useProjectsSummary() {
 		totalImages: snap.projects.reduce((acc, p) => acc + p.image_count, 0),
 		totalSize: snap.projects.reduce((acc, p) => acc + p.filesize, 0),
 	}
-}
-
-export function getRequestOpts(imagesSource: ImagesSource): ListImagesOptions | undefined {
-	const opts = {} as ListImagesOptions
-	if (imagesSource.projects) {
-		opts.projectIds = imagesSource.projects.map((p) => p.id)
-	}
-	if (imagesSource.search) opts.search = imagesSource.search
-	console.log(opts)
-	return opts
 }
 
 export default DTProjects

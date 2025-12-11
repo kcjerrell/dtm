@@ -52,7 +52,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
 				onSelectionChanged={(e) => {
-					DTProjects.setImagesSource({ projects: e })
+					DTProjects.setImagesSource({ projectIds: e.map((e) => e.id) })
 				}}
 			>
 				{activeProjectsSnap.map((p) => (

@@ -1,4 +1,4 @@
-import { Box, createListCollection, type ListCollection, Text } from "@chakra-ui/react"
+import { Box, createListCollection, type ListCollection } from "@chakra-ui/react"
 import type { JSX } from "react"
 import { capitalize } from "@/utils/helpers"
 import ContentValueSelector from "./ContentValueSelector"
@@ -76,6 +76,7 @@ export const filterTargets = {
 		collection: isIsNotOpsCollection,
 		ValueComponent: SamplerValueSelector,
 		initialValue: [],
+		prepare: (value: string[]) => value.map((v) => Number(v)),
 	},
 	// refiner: { collection: isIsNotOpsCollection, ValueComponent: FilterValueInput },
 	// upscaler: { collection: isIsNotOpsCollection, ValueComponent: FilterValueInput },
@@ -93,7 +94,7 @@ export const filterTargets = {
 	none: {
 		collection: createListCollection<CollectionItem>({ items: [] }),
 		ValueComponent: Object.assign(
-			(props) => (
+			(props: ValueSelectorProps<unknown>) => (
 				<Box cursor={"default"} alignContent={"center"} {...props}>
 					{/* <Text>
 						...
@@ -111,6 +112,7 @@ export const filterTargets = {
 		collection: CollectionType
 		ValueComponent: FilterValueSelector<unknown>
 		initialValue?: unknown
+		prepare?: (value: unknown) => unknown
 	}
 >
 
