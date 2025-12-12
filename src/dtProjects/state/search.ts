@@ -8,11 +8,7 @@ import {
 	filterTargets,
 	targetCollection,
 } from "../controlPane/filters/collections"
-import type { ImagesSource } from "../types"
-import DTProjects, {
-	type DTProjectsStateType,
-	type IDTProjectsStore,
-} from "./projectStore"
+import DTProjects, { type DTProjectsStateType, type IDTProjectsStore } from "./projectStore"
 
 export type SearchState = {
 	searchInput: string
@@ -21,16 +17,15 @@ export type SearchState = {
 
 export type FilterOperator =
 	| "eq"
+	| "neq"
 	| "gt"
 	| "gte"
 	| "lt"
 	| "lte"
 	| "is"
-	| "isNot"
-	| "isIn"
-	| "isNotIn"
+	| "isnot"
 	| "has"
-	| "doesNotHave"
+	| "doesnothave"
 
 export type Filter<T = FilterValue> = {
 	index: number
@@ -78,12 +73,12 @@ export class SearchService {
 		this.state.filters.splice(0, this.state.filters.length)
 	}
 
-	search() {
-		const imageSource: ImagesSource = {}
-		if (this.state.searchInput) {
-			imageSource.search = this.state.searchInput
-			imageSource.filters = []
-		}
+	/** updates the current image source with the latest values from the search panel */
+	applySearch() {
+		// empty string should be undefined
+		const searchText = this.state.searchInput || undefined
+		
+		const filters: BackendFilter[] = []
 		for (const filter of this.state.filters) {
 			if (!filter.target || !filter.operator || filter.value === undefined || filter.value === null)
 				continue
@@ -96,10 +91,10 @@ export class SearchService {
 					filterTarget.prepare ? filterTarget.prepare(filter.value) : filter.value,
 				) as string[] | number[],
 			}
-			imageSource.filters?.push(bFilter)
+			filters.push(bFilter)
 		}
 
-		this.#dtp.state.imageSource = imageSource
+		this.#dtp.setSearchFilter(searchText, filters)
 	}
 }
 

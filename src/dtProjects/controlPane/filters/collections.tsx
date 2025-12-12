@@ -1,5 +1,6 @@
 import { Box, createListCollection, type ListCollection } from "@chakra-ui/react"
 import type { JSX } from "react"
+import type { Model } from "@/commands"
 import { capitalize } from "@/utils/helpers"
 import ContentValueSelector from "./ContentValueSelector"
 import FloatValueInput from "./FloatValueInput"
@@ -38,7 +39,7 @@ const numberOpsCollection = createListCollection({
 
 const isIsNotOps = [
 	{ value: "is", label: "is", plural: "is in" },
-	{ value: "isNot", label: "is not", plural: "is not in" },
+	{ value: "isnot", label: "is not", plural: "is not in" },
 ]
 const isIsNotOpsCollection = createListCollection({
 	items: isIsNotOps,
@@ -46,7 +47,7 @@ const isIsNotOpsCollection = createListCollection({
 
 const hasOps = [
 	{ value: "has", label: "has" },
-	{ value: "doesNotHave", label: "doesn't have" },
+	{ value: "doesnothave", label: "doesn't have" },
 ]
 const hasOpsCollection = createListCollection({
 	items: hasOps,
@@ -64,13 +65,27 @@ export function getOperatorLabel(op: string) {
 	return allOps[op] || "?"
 }
 
+const prepareModelFilterValue = (value: Model[]) => value.map((v) => v.id)
+const prepareSizeFilterValue = (value: number) => Math.round(value / 64)
+
 export const filterTargets = {
-	model: { collection: isIsNotOpsCollection, ValueComponent: ModelValueSelector, initialValue: [] },
-	lora: { collection: isIsNotOpsCollection, ValueComponent: LoraValueSelector, initialValue: [] },
+	model: {
+		collection: isIsNotOpsCollection,
+		ValueComponent: ModelValueSelector,
+		initialValue: [],
+		prepare: prepareModelFilterValue,
+	},
+	lora: {
+		collection: isIsNotOpsCollection,
+		ValueComponent: LoraValueSelector,
+		initialValue: [],
+		prepare: prepareModelFilterValue,
+	},
 	control: {
 		collection: isIsNotOpsCollection,
 		ValueComponent: ControlValueSelector,
 		initialValue: [],
+		prepare: prepareModelFilterValue,
 	},
 	sampler: {
 		collection: isIsNotOpsCollection,
@@ -83,8 +98,8 @@ export const filterTargets = {
 	content: { collection: hasOpsCollection, ValueComponent: ContentValueSelector, initialValue: [] },
 	seed: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 0 },
 	steps: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 20 },
-	width: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 1024 },
-	height: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 1024 },
+	width: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 1024, prepare: prepareSizeFilterValue },
+	height: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 1024, prepare: prepareSizeFilterValue },
 	textGuidance: {
 		collection: numberOpsCollection,
 		ValueComponent: FloatValueInput,

@@ -5,10 +5,7 @@ use entity::{
 };
 use migration::{IntoIden, Migrator, MigratorTrait};
 use sea_orm::{
-    sea_query::{Expr, OnConflict},
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, Database, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, RelationTrait, Set,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Set, sea_query::{Expr, OnConflict}
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -17,6 +14,7 @@ use tokio::sync::OnceCell;
 
 use crate::projects_db::{
     dt_project::{self, ProjectRef},
+    filters::ListImagesFilter,
     DTProject, TensorHistoryImport,
 };
 
@@ -489,7 +487,7 @@ impl ProjectsDb {
     }
 
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<Paged<ImageExtra>, DbErr> {
-        print!("ListImagesOptions: {:#?}\n", opts);
+        // print!("ListImagesOptions: {:#?}\n", opts);
 
         let mut query = images::Entity::find()
             .join(JoinType::LeftJoin, images::Relation::Models.def())
@@ -499,35 +497,6 @@ impl ProjectsDb {
         if let Some(project_ids) = &opts.project_ids {
             if !project_ids.is_empty() {
                 query = query.filter(images::Column::ProjectId.is_in(project_ids.clone()));
-            }
-        }
-
-        if let Some(node_id) = opts.node_id {
-            query = query.filter(images::Column::NodeId.eq(node_id));
-        }
-
-        if let Some(models) = &opts.model {
-            if !models.is_empty() {
-                let model_ids: Vec<i64> = models.iter().map(|&id| id as i64).collect();
-                query = query.filter(images::Column::ModelId.is_in(model_ids));
-            }
-        }
-
-        if let Some(controls) = &opts.control {
-            if !controls.is_empty() {
-                let control_ids: Vec<i64> = controls.iter().map(|&id| id as i64).collect();
-                query = query
-                    .join(JoinType::LeftJoin, images::Relation::ImageControls.def())
-                    .filter(entity::image_controls::Column::ControlId.is_in(control_ids));
-            }
-        }
-
-        if let Some(loras) = &opts.lora {
-            if !loras.is_empty() {
-                let lora_ids: Vec<i64> = loras.iter().map(|&id| id as i64).collect();
-                query = query
-                    .join(JoinType::LeftJoin, images::Relation::ImageLoras.def())
-                    .filter(entity::image_loras::Column::LoraId.is_in(lora_ids));
             }
         }
 
@@ -576,6 +545,12 @@ impl ProjectsDb {
             query = query.filter(cond);
         }
 
+        if let Some(filters) = opts.filters {
+            for f in filters {
+                query = f.target.apply(f.operator, &f.value, query);
+            }
+        }
+
         if let Some(skip) = opts.skip {
             query = query.offset(skip as u64);
         }
@@ -583,6 +558,10 @@ impl ProjectsDb {
         if let Some(take) = opts.take {
             query = query.limit(take as u64);
         }
+
+        let stmt = query.clone().build(self.db.get_database_backend());
+        println!("Query: {:#?}", stmt);
+
         let count = query.clone().count(&self.db).await?;
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
         Ok(Paged {
@@ -849,15 +828,12 @@ pub struct ModelExtra {
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct ListImagesOptions {
     pub project_ids: Option<Vec<i64>>,
-    pub node_id: Option<i64>,
-    pub model: Option<Vec<i32>>,
-    pub control: Option<Vec<i32>>,
-    pub lora: Option<Vec<i32>>,
+    pub search: Option<String>,
+    pub filters: Option<Vec<ListImagesFilter>>,
     pub sort: Option<String>,
     pub direction: Option<String>,
     pub take: Option<i32>,
     pub skip: Option<i32>,
-    pub search: Option<String>,
 }
 
 #[derive(Debug, FromQueryResult, Serialize)]

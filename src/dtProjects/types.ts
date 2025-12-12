@@ -1,5 +1,5 @@
-import type { TensorHistoryNode } from '@/commands'
-import type { BackendFilter } from './state/search'
+import type { TensorHistoryNode } from "@/commands"
+import type { BackendFilter } from "./state/search"
 
 export type ScanProgress = {
 	projects_scanned: number
@@ -25,8 +25,6 @@ export type DTImage = {
 	wall_clock: string
 }
 
-
-
 export interface TensorHistoryExtra {
 	rowId: number
 	lineage: number
@@ -48,4 +46,6 @@ export type ImagesSource = {
 	projectIds?: number[]
 	search?: string
 	filters?: BackendFilter[]
+	sort?: string
+	direction?: "asc" | "desc"
 }

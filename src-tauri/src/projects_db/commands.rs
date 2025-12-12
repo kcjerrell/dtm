@@ -1,10 +1,7 @@
 use tauri::Emitter;
 
 use crate::projects_db::{
-    dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
-    projects_db::{ImageExtra, ModelExtra, Paged, ProjectExtra, ScanProgress},
-    tensors::decode_tensor,
-    DTProject, ProjectsDb, TensorHistoryImport,
+    DTProject, ProjectsDb, TensorHistoryImport, dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw}, filters::ListImagesFilter, projects_db::{ImageExtra, ModelExtra, Paged, ProjectExtra, ScanProgress}, tensors::decode_tensor
 };
 
 #[tauri::command]
@@ -118,28 +115,22 @@ pub async fn projects_db_project_scan_all(app_handle: tauri::AppHandle) -> Resul
 pub async fn projects_db_image_list(
     app: tauri::AppHandle,
     project_ids: Option<Vec<i64>>,
-    node_id: Option<i64>,
+    search: Option<String>,
+    filters: Option<Vec<ListImagesFilter>>,
     sort: Option<String>,
     direction: Option<String>,
-    model: Option<Vec<i32>>,
-    control: Option<Vec<i32>>,
-    lora: Option<Vec<i32>>,
-    search: Option<String>,
     take: Option<i32>,
     skip: Option<i32>,
 ) -> Result<Paged<ImageExtra>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let opts = super::projects_db::ListImagesOptions {
         project_ids,
-        node_id,
+        search,
+        filters,
         sort,
         direction,
-        model,
-        control,
-        lora,
         take,
         skip,
-        search,
     };
 
     Ok(projects_db.list_images(opts).await.unwrap())

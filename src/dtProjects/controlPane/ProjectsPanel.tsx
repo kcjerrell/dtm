@@ -17,7 +17,7 @@ interface ProjectsPanelComponentProps extends ChakraProps {}
 
 function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
-	const { snap, state } = useDTProjects()
+	const { snap, state, store } = useDTProjects()
 	const [showExcluded, setShowExcluded] = useState(false)
 	const toggleRef = useRef<HTMLDivElement>(null)
 
@@ -52,7 +52,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
 				onSelectionChanged={(e) => {
-					DTProjects.setImagesSource({ projectIds: e.map((e) => e.id) })
+					store.setProjectsFilter(e.map((e) => e.id))
 				}}
 			>
 				{activeProjectsSnap.map((p) => (

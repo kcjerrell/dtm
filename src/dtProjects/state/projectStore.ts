@@ -15,7 +15,7 @@ import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ImagesSource, ScanProgressEvent } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
-import { SearchService, type SearchState } from "./search"
+import { type BackendFilter, SearchService, type SearchState } from "./search"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
 
 export type DTProjectsStateType = {
@@ -66,7 +66,7 @@ export type DTProjectsStateType = {
 const state = proxy({
 	projects: [] as ProjectState[],
 	watchFolders: {} as WatchFolderServiceState,
-	imageSource: { projectIds: [] } as ImagesSource | null,
+	imageSource: { projectIds: [] } as ImagesSource,
 	items: [] as ImageExtra[],
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
 	scanProgress: -1,
@@ -94,14 +94,9 @@ const state = proxy({
 	},
 }) as DTProjectsStateType
 
-export interface IDTProjectsStore {
-	state: DTProjectsStateType
-	projects: ProjectsService
-	watchFolders: WatchFolderService
-	scanner: ScannerService
-}
+export type IDTProjectsStore = DTProjectsStore
 
-class DTProjectsStore implements IDTProjectsStore {
+class DTProjectsStore {
 	state: DTProjectsStateType
 	projects: ProjectsService
 	watchFolders: WatchFolderService
@@ -250,6 +245,15 @@ class DTProjectsStore implements IDTProjectsStore {
 			controls: models.filter((it) => it.model_type === "Cnet"),
 			versions,
 		}
+	}
+
+	setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
+		this.state.imageSource.search = searchText
+		this.state.imageSource.filters = filter
+	}
+
+	setProjectsFilter(projectIds: number[]) {
+		this.state.imageSource.projectIds = projectIds
 	}
 }
 

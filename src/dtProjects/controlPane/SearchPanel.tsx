@@ -75,7 +75,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				>
 					Clear
 				</PanelButton>
-				<PanelButton boxShadow={"xs"} flex={"1 1 auto"} onClick={() => searchService.search()}>
+				<PanelButton boxShadow={"xs"} flex={"1 1 auto"} onClick={() => searchService.applySearch()}>
 					Search
 				</PanelButton>
 			</HStack>
