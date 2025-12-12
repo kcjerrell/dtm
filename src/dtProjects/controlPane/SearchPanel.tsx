@@ -1,4 +1,5 @@
 import { Button, HStack, Input, VStack } from "@chakra-ui/react"
+import { motion } from "motion/react"
 import { useEffect } from "react"
 import { useSnapshot } from "valtio"
 import { PanelButton } from "@/components"
@@ -29,7 +30,11 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				border={"2px solid gray"}
 				borderRadius={"lg"}
 				placeholder="Search"
-			></Input>
+				width={"full"}
+				asChild
+			>
+				<motion.input layoutId="search-indicator" transition={{ layout: { duration: 0 } }} />
+			</Input>
 
 			<VStack
 				display={searchSnap.filters.length > 0 ? "flex" : "none"}

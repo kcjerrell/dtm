@@ -22,7 +22,7 @@ export type DTProjectsStateType = {
 	projects: ProjectState[]
 	watchFolders: WatchFolderServiceState
 
-	imageSource: ImagesSource | null
+	imageSource: ImagesSource
 	items: ImageExtra[]
 	itemDetails: Record<number, TensorHistoryExtra>
 

@@ -6,6 +6,7 @@ import { type ImageExtra, pdb } from "@/commands"
 import { Panel } from "@/components"
 import PVGrid, { type PVGridItemProps } from "@/components/virtualizedList/PVGrid"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
+import SearchIndicator from "../SearchIndicator"
 import { type DTProjectsStateType, useDTProjects } from "../state/projectStore"
 
 interface ImagesList extends ChakraProps {}
@@ -55,6 +56,7 @@ function ImagesList(props: ImagesList) {
 				getItems={getItems}
 				keyFn={(item) => `${item.project_id}_${item.node_id}`}
 			/>
+			<SearchIndicator position={"absolute"} top={2} left={2} />
 		</Panel>
 	)
 }
