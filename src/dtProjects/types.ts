@@ -1,4 +1,4 @@
-import type { TensorHistoryNode } from "@/commands"
+import type { Model, TensorHistoryNode } from "@/commands"
 import type { BackendFilter } from "./state/search"
 
 export type ScanProgress = {
@@ -49,3 +49,15 @@ export type ImagesSource = {
 	sort?: string
 	direction?: "asc" | "desc"
 }
+
+export type VersionModel = Model & {
+	isVersion: true
+	modelCount: number
+	modelIds: number[]
+}
+
+export function isVersionModel(model: Model | VersionModel): model is VersionModel {
+	return "isVersion" in model && model.isVersion
+}
+
+export type ModelVersionInfo = { label?: string; models: number; controls: number; loras: number }

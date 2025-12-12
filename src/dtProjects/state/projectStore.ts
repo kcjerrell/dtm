@@ -12,11 +12,13 @@ import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { getVersionLabel } from "@/utils/models"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
-import type { ImagesSource, ScanProgressEvent } from "../types"
+import type { ImagesSource, ModelVersionInfo, ScanProgressEvent, VersionModel } from "../types"
 import ProjectsService, { type ProjectState } from "./projects"
 import { ScannerService } from "./scanner"
 import { type BackendFilter, SearchService, type SearchState } from "./search"
 import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders"
+
+type ModelsList = (Model | VersionModel)[]
 
 export type DTProjectsStateType = {
 	projects: ProjectState[]
@@ -56,10 +58,10 @@ export type DTProjectsStateType = {
 		height: number
 	}
 	models: {
-		models: Model[]
-		loras: Model[]
-		controls: Model[]
-		versions: Record<string, { models: number; controls: number; loras: number }>
+		models: ModelsList
+		loras: ModelsList
+		controls: ModelsList
+		versions: Record<string, ModelVersionInfo>
 	}
 }
 
@@ -224,13 +226,13 @@ class DTProjectsStore {
 	}
 
 	async listModels() {
-		const models = await pdb.listModels()
+		const dbModels = await pdb.listModels()
 
 		const versions = {
 			"": { models: 0, controls: 0, loras: 0, label: "Unknown" },
 		} as Record<string, { models: number; controls: number; loras: number; label?: string }>
 
-		for (const model of models) {
+		for (const model of dbModels) {
 			const version = model.version ?? ""
 			if (!versions[version])
 				versions[version] = { models: 0, controls: 0, loras: 0, label: getVersionLabel(version) }
@@ -239,10 +241,66 @@ class DTProjectsStore {
 			else if (model.model_type === "Cnet") versions[version].controls++
 		}
 
+		const models: ModelsList = dbModels.filter((it) => it.model_type === "Model")
+		const loras: ModelsList = dbModels.filter((it) => it.model_type === "Lora")
+		const controls: ModelsList = dbModels.filter((it) => it.model_type === "Cnet")
+
+		let versionModelId = -1
+		for (const [version, info] of Object.entries(versions)) {
+			const baseVersionModel = {
+				filename: "",
+				name: info.label,
+				version: version,
+				isVersion: true,
+			}
+
+			if (info.models > 0) {
+				const versionModels = models.filter((m) => m.version === version)
+				const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
+				const modelIds = versionModels.map((m) => m.id)
+				models.push({
+					...baseVersionModel,
+					id: versionModelId--,
+					model_type: "Model",
+					modelCount: info.models,
+					count: imageCount,
+					modelIds,
+				})
+			}
+
+			if (info.loras > 0) {
+				const versionModels = loras.filter((m) => m.version === version)
+				const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
+				const modelIds = versionModels.map((m) => m.id)
+				loras.push({
+					...baseVersionModel,
+					id: versionModelId--,
+					model_type: "Lora",
+					modelCount: info.loras,
+					count: imageCount,
+					modelIds,
+				})
+			}
+
+			if (info.controls > 0) {
+				const versionModels = controls.filter((m) => m.version === version)
+				const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
+				const modelIds = versionModels.map((m) => m.id)
+				controls.push({
+					...baseVersionModel,
+					id: versionModelId--,
+					model_type: "Cnet",
+					modelCount: info.controls,
+					count: imageCount,
+					modelIds,
+				})
+			}
+		}
+
 		this.state.models = {
-			models: models.filter((it) => it.model_type === "Model"),
-			loras: models.filter((it) => it.model_type === "Lora"),
-			controls: models.filter((it) => it.model_type === "Cnet"),
+			models,
+			loras,
+			controls,
 			versions,
 		}
 	}
@@ -303,7 +361,6 @@ async function attachListeners() {
 		state.scanProgress = progress
 	})
 }
-
 
 export async function setImagesSource(source: ImagesSource) {
 	if (JSON.stringify(source) === JSON.stringify(state.imageSource)) return

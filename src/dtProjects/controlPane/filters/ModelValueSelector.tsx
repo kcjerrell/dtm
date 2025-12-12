@@ -9,6 +9,7 @@ import { IconButton, PaneListContainer, PanelListItem } from "@/components"
 import { PaneListScrollContainer, PanelListScrollContent } from "@/components/common"
 import PanelList from "@/components/PanelList"
 import { type DTProjectsStateType, useDTProjects } from "@/dtProjects/state/projectStore"
+import { isVersionModel, type VersionModel } from "@/dtProjects/types"
 import { makeSelectableList, type Selectable, useSelectable } from "@/hooks/useSelectableV"
 import { useProxyRef, useSubscribeValue } from "@/hooks/valtioHooks"
 import { filterObject } from "@/utils/helpers"
@@ -246,14 +247,17 @@ function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => b
 			</Text>
 			<HStack justifyContent={"space-between"}>
 				<Text>{model.count} images</Text>
-				<Text>{getVersionLabel(model.version)}</Text>
+				<Text>{!isVersionModel(model) && getVersionLabel(model.version)}</Text>
 			</HStack>
 		</PanelListItem>
 	)
 }
 
-function getModelLabel(model?: Model, noVersion?: boolean) {
+function getModelLabel(model?: Model | VersionModel, noVersion?: boolean) {
 	if (!model) return ""
+
+	if (isVersionModel(model)) return `${model.name ?? model.version} (${model.modelCount} models)`
+
 	if (model.name && model.version && !noVersion) return `${model.name} (${model.version})`
 	if (model.name) return model.name
 	return model.filename
@@ -304,7 +308,7 @@ ControlValueSelector.getValueLabel = getModelLabels
 function buildModelFilter(
 	query: string,
 	selectedVersion: string | undefined,
-): (m: Model) => boolean {
+): (m: Model | VersionModel) => boolean {
 	const tokens = tokenize(query)
 
 	const matchers = tokens.map((token) => {
@@ -344,8 +348,19 @@ function buildModelFilter(
 		matchers.push((m: Model) => !m.version)
 	}
 
-	if (matchers.length === 0) return () => true
-	return (m: Model) => matchers.every((fn) => fn(m))
+	if (matchers.length === 0)
+		return (m: Model | VersionModel) => {
+			if ("isVersion" in m && m.isVersion) return false
+			return true
+		}
+
+	return (m: Model | VersionModel) => {
+		if ("isVersion" in m && m.isVersion) {
+			return m.version === selectedVersion
+		}
+
+		return matchers.every((fn) => fn(m))
+	}
 }
 
 function tokenize(text: string): string[] {

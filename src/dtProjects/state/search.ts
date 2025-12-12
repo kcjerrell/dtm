@@ -77,12 +77,12 @@ export class SearchService {
 	applySearch() {
 		// empty string should be undefined
 		const searchText = this.state.searchInput || undefined
-		
+
 		const filters: BackendFilter[] = []
 		for (const filter of this.state.filters) {
 			if (!filter.target || !filter.operator || filter.value === undefined || filter.value === null)
 				continue
-			const filterTarget = filterTargets[filter.target]
+			const filterTarget = filterTargets[filter.target as keyof typeof filterTargets]
 
 			const bFilter: BackendFilter = {
 				target: filter.target,

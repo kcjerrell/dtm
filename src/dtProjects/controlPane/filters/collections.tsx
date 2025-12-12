@@ -1,6 +1,7 @@
 import { Box, createListCollection, type ListCollection } from "@chakra-ui/react"
 import type { JSX } from "react"
 import type { Model } from "@/commands"
+import { isVersionModel, type VersionModel } from "@/dtProjects/types"
 import { capitalize } from "@/utils/helpers"
 import ContentValueSelector from "./ContentValueSelector"
 import FloatValueInput from "./FloatValueInput"
@@ -20,12 +21,12 @@ export type FilterValueSelector<T = unknown> = ((props: ValueSelectorProps<T>) =
 
 export function getValueSelector(target?: string) {
 	if (!target) return filterTargets.none.ValueComponent
-	return filterTargets[target]?.ValueComponent
+	return filterTargets[target as keyof typeof filterTargets]?.ValueComponent
 }
 type CollectionItem = { value: string; label: string; plural?: string }
 type CollectionType = ListCollection<CollectionItem>
 
-const numberOps = [
+const numberOps: CollectionItem[] = [
 	{ value: "eq", label: "=" },
 	{ value: "neq", label: "≠" },
 	{ value: "gt", label: ">" },
@@ -33,23 +34,23 @@ const numberOps = [
 	{ value: "lt", label: "<" },
 	{ value: "lte", label: "<=" },
 ]
-const numberOpsCollection = createListCollection({
+const numberOpsCollection: CollectionType = createListCollection({
 	items: numberOps,
 })
 
-const isIsNotOps = [
+const isIsNotOps: CollectionItem[] = [
 	{ value: "is", label: "is", plural: "is in" },
 	{ value: "isnot", label: "is not", plural: "is not in" },
 ]
-const isIsNotOpsCollection = createListCollection({
+const isIsNotOpsCollection: CollectionType = createListCollection({
 	items: isIsNotOps,
 })
 
-const hasOps = [
+const hasOps: CollectionItem[] = [
 	{ value: "has", label: "has" },
 	{ value: "doesnothave", label: "doesn't have" },
 ]
-const hasOpsCollection = createListCollection({
+const hasOpsCollection: CollectionType = createListCollection({
 	items: hasOps,
 })
 
@@ -65,7 +66,12 @@ export function getOperatorLabel(op: string) {
 	return allOps[op] || "?"
 }
 
-const prepareModelFilterValue = (value: Model[]) => value.map((v) => v.id)
+const prepareModelFilterValue = (value: (Model | VersionModel)[]) => {
+	return value.flatMap((m) => {
+		if (isVersionModel(m)) return m.modelIds
+		return m.id
+	})
+}
 const prepareSizeFilterValue = (value: number) => Math.round(value / 64)
 
 export const filterTargets = {
@@ -92,19 +98,29 @@ export const filterTargets = {
 		ValueComponent: SamplerValueSelector,
 		initialValue: [],
 		prepare: (value: string[]) => value.map((v) => Number(v)),
-	},
+	} as FilterImplementation<string[]>,
 	// refiner: { collection: isIsNotOpsCollection, ValueComponent: FilterValueInput },
 	// upscaler: { collection: isIsNotOpsCollection, ValueComponent: FilterValueInput },
 	content: { collection: hasOpsCollection, ValueComponent: ContentValueSelector, initialValue: [] },
 	seed: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 0 },
 	steps: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 20 },
-	width: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 1024, prepare: prepareSizeFilterValue },
-	height: { collection: numberOpsCollection, ValueComponent: IntValueInput, initialValue: 1024, prepare: prepareSizeFilterValue },
+	width: {
+		collection: numberOpsCollection,
+		ValueComponent: IntValueInput,
+		initialValue: 1024,
+		prepare: prepareSizeFilterValue,
+	} as FilterImplementation<number>,
+	height: {
+		collection: numberOpsCollection,
+		ValueComponent: IntValueInput,
+		initialValue: 1024,
+		prepare: prepareSizeFilterValue,
+	} as FilterImplementation<number>,
 	textGuidance: {
 		collection: numberOpsCollection,
 		ValueComponent: FloatValueInput,
 		initialValue: 3.5,
-	},
+	} as FilterImplementation<number>,
 	shift: { collection: numberOpsCollection, ValueComponent: FloatValueInput, initialValue: 3.12 },
 	none: {
 		collection: createListCollection<CollectionItem>({ items: [] }),
@@ -120,16 +136,15 @@ export const filterTargets = {
 				getValueLabel: () => "Unknown target",
 			},
 		),
-	},
-} as unknown as Record<
-	string,
-	{
-		collection: CollectionType
-		ValueComponent: FilterValueSelector<unknown>
-		initialValue?: unknown
-		prepare?: (value: unknown) => unknown
-	}
->
+	} as FilterImplementation<unknown>,
+} as unknown as Record<string, FilterImplementation>
+
+type FilterImplementation<T = unknown> = {
+	collection: CollectionType
+	ValueComponent: FilterValueSelector<T>
+	initialValue?: T
+	prepare?: (value: T) => unknown
+}
 
 export const targetCollection = createListCollection({
 	items: Object.keys(filterTargets)
