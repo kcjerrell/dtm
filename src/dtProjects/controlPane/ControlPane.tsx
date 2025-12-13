@@ -4,9 +4,9 @@ import { MdImageSearch } from "react-icons/md"
 import { PiCoffee } from "react-icons/pi"
 import { useSnapshot } from "valtio"
 import { Panel } from "@/components"
+import { usePDB } from "@/dtProjects/state/context"
 import AppStore from "@/hooks/appState"
 import Tabs from "@/metadata/infoPanel/tabs"
-import { useUiState } from "@/metadata/state/uiState"
 import ProjectsPanel from "./ProjectsPanel"
 import SearchPanel from "./SearchPanel"
 import SettingsPanel from "./SettingsPanel"
@@ -36,7 +36,8 @@ interface ControlPane extends ChakraProps {}
 
 function ControlPane(props: ControlPane) {
 	const { ...restProps } = props
-	const { uiSnap, uiState } = useUiState()
+	const { uiState } = usePDB()
+	const uiSnap = uiState.useSnap()
 	const { isSidebarVisible } = useSnapshot(AppStore.store)
 
 	return (
@@ -56,7 +57,7 @@ function ControlPane(props: ControlPane) {
 				height={"100%"}
 				value={uiSnap.selectedTab}
 				onValueChange={(e) => {
-					uiState.selectedTab = e.value
+					uiState.setSelectedTab(e.value as typeof uiSnap.selectedTab)
 				}}
 			>
 				<TabList paddingLeft={isSidebarVisible ? 0 : "50px"} />

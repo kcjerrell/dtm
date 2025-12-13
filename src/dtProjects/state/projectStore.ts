@@ -1,14 +1,8 @@
 import { listen } from "@tauri-apps/api/event"
 import { proxy, ref, type Snapshot, snapshot, subscribe, useSnapshot } from "valtio"
-import {
-	dtProject,
-	type ImageExtra,
-	type Model,
-	type ProjectExtra,
-	pdb,
-	type TensorHistoryExtra,
-} from "@/commands"
+import { dtProject, type ImageExtra, type Model, pdb, type TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
+import va from "@/utils/array"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { getVersionLabel } from "@/utils/models"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
@@ -21,19 +15,22 @@ import WatchFolderService, { type WatchFolderServiceState } from "./watchFolders
 type ModelsList = (Model | VersionModel)[]
 
 export type DTProjectsStateType = {
-	projects: ProjectState[]
 	watchFolders: WatchFolderServiceState
+	projects: ProjectState[]
+	selectedProjects: ProjectState[]
+	models: {
+		models: ModelsList
+		loras: ModelsList
+		controls: ModelsList
+		versions: Record<string, ModelVersionInfo>
+	}
 
 	imageSource: ImagesSource
-	items: ImageExtra[]
+	imageSourceTotal?: number
+	imageSourceCounts?: Record<number, number>
+
 	itemDetails: Record<number, TensorHistoryExtra>
 
-	scanProgress: number
-	scanningProject: string
-	totalThisRun: number
-	selectedProject: ProjectExtra | null
-
-	searchInput: string
 	search: SearchState
 
 	itemSize: number
@@ -57,27 +54,28 @@ export type DTProjectsStateType = {
 		width: number
 		height: number
 	}
-	models: {
-		models: ModelsList
-		loras: ModelsList
-		controls: ModelsList
-		versions: Record<string, ModelVersionInfo>
-	}
 }
 
-const state = proxy({
-	projects: [] as ProjectState[],
+const state = proxy<DTProjectsStateType>({
 	watchFolders: {} as WatchFolderServiceState,
+	projects: [] as ProjectState[],
+	selectedProjects: [],
+	models: {
+		models: [],
+		loras: [],
+		controls: [],
+		versions: {},
+	},
+
 	imageSource: { projectIds: [] } as ImagesSource,
-	items: [] as ImageExtra[],
+	imageSourceCounts: undefined,
+
 	itemDetails: {} as Record<number, TensorHistoryExtra>,
-	scanProgress: -1,
-	scanningProject: "",
-	totalThisRun: 0,
-	selectedProject: null as ProjectExtra | null,
-	searchInput: "",
+
 	search: {} as SearchState,
+
 	itemSize: 200,
+
 	detailsOverlay: {
 		item: null as ImageExtra | null,
 		subItem: null as DTProjectsStateType["detailsOverlay"]["subItem"],
@@ -88,13 +86,7 @@ const state = proxy({
 		width: 0,
 		height: 0,
 	},
-	models: {
-		models: [],
-		loras: [],
-		controls: [],
-		versions: {},
-	},
-}) as DTProjectsStateType
+} as unknown as DTProjectsStateType)
 
 export type IDTProjectsStore = DTProjectsStore
 
@@ -308,10 +300,23 @@ class DTProjectsStore {
 	setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
 		this.state.imageSource.search = searchText
 		this.state.imageSource.filters = filter
+
+		this.getListImagesCounts()
 	}
 
-	setProjectsFilter(projectIds: number[]) {
-		this.state.imageSource.projectIds = projectIds
+	async getListImagesCounts() {
+		const { total, counts } = await pdb.listImagesCount(this.state.imageSource)
+		const projectCounts = {} as Record<number, number>
+		for (const project of this.state.projects) {
+			projectCounts[project.id] = counts.find((p) => p.project_id === project.id)?.count ?? 0
+		}
+
+		this.state.imageSourceCounts = projectCounts
+	}
+
+	setSelectedProjects(projects: ProjectState[]) {
+		va.set(this.state.selectedProjects, projects)
+		this.state.imageSource.projectIds = projects.map((p) => p.id)
 	}
 }
 
@@ -321,56 +326,14 @@ let scanProgressUnlisten: () => void = () => undefined
 async function attachListeners() {
 	scanProgressUnlisten()
 
-	scanProgressUnlisten = await listen("projects_db_scan_progress", (e: ScanProgressEvent) => {
-		const {
-			images_scanned,
-			images_total,
-			project_final,
-			project_path: path,
-			projects_scanned,
-			projects_total,
-		} = e.payload
-
-		if (project_final >= 0) {
-			const project = state.projects.find((p) => p.path === path)
-			if (project) {
-				project.image_count = project_final
-				project.isScanning = false
-			}
-			return
-		}
-
-		// if project_path has changed from previous event
-		if (path && path !== state.scanningProject) {
-			const project = state.projects.find((p) => p.path === path)
-			if (project) {
-				project.isScanning = true
-			}
-
-			if (projects_scanned === 0) state.totalThisRun = 0
-			state.totalThisRun += images_total
-
-			state.scanningProject = path
-		}
-
-		const currentScanned = state.totalThisRun - images_total + images_scanned
-		const avgTotalPerProject = state.totalThisRun / (projects_scanned + 1)
-		const estimatedTotal = avgTotalPerProject * projects_total
-
-		const progress = Math.round((currentScanned / estimatedTotal) * 100)
-		state.scanProgress = progress
+	scanProgressUnlisten = await listen("projects_db_scan_progress", (_e: ScanProgressEvent) => {
+		console.log("is this being emitted?")
 	})
-}
-
-export async function setImagesSource(source: ImagesSource) {
-	if (JSON.stringify(source) === JSON.stringify(state.imageSource)) return
-	state.imageSource = source
 }
 
 export const DTProjects = {
 	store,
 	state,
-	setImagesSource,
 }
 
 export function useDTProjects() {
@@ -401,7 +364,7 @@ if (import.meta.env.DEV) {
 			const update = snapshot(state)
 			// this is a work around since elements can't be serialized
 			if (update.detailsOverlay.subItem?.sourceElement)
-				// @ts-ignore
+				// @ts-expect-error
 				delete update.detailsOverlay.subItem.sourceElement
 			devStore.updateDevState("projects", update)
 			_devUpdate = null

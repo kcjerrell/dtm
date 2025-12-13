@@ -4,7 +4,6 @@ import type { ComponentProps } from "react"
 import { FiX } from "react-icons/fi"
 import { IconButton, MotionBox } from "@/components"
 import { useDTProjects } from "@/dtProjects/state/projectStore"
-import { useUiState } from "@/metadata/state/uiState"
 
 const dur = 0.2
 
@@ -14,30 +13,36 @@ function SearchIndicator(props: SearchIndicatorProps) {
 	const { ...boxProps } = props
 
 	const { snap, store } = useDTProjects()
-	const { uiSnap } = useUiState()
+
+	const hasSearch = !!snap.imageSource.search
+	const hasFilters = !!snap.imageSource.filters?.length
 
 	return (
-		<AnimatePresence>
-			{uiSnap.selectedTab === "projects" && (
+		<AnimatePresence mode={"popLayout"}>
+			{(hasSearch || hasFilters) && (
 				<MotionBox
 					display={"flex"}
 					className={"group"}
+					overflow={"clip"}
 					gap={0}
 					padding={0}
 					borderRadius={"0px 1rem 1rem 0rem"}
 					{...boxProps}
 					initial={{ boxShadow: "0px 1px 4px -1px #00000000, 0px 4px 16px -4px #00000000" }}
 					animate={{ boxShadow: "0px 1px 4px -1px #00000055, 0px 4px 16px -4px #00000055" }}
+					exit={{ opacity: 0 }}
 					layout={true}
-					layoutId="search-indicator"
+					zIndex={0}
 					transition={{ duration: dur, ease: "easeInOut" }}
 				>
 					<MotionBox
+						// display={snap.imageSource.search ? "flex" : "none"}
 						paddingY={1}
 						paddingX={2}
 						bgColor={"bg.3"}
 						fontStyle={"italic"}
 						zIndex={1}
+						boxShadow={"pane1"}
 						layout={true}
 						initial={{
 							borderRadius: "0.5rem 0.5rem 0.5rem 0.5rem",
@@ -50,7 +55,9 @@ function SearchIndicator(props: SearchIndicatorProps) {
 						transition={{ duration: dur }}
 						style={{}}
 					>
-						"{snap.imageSource.search}"
+						{hasSearch
+							? `"${snap.imageSource.search}"`
+							: `${snap.imageSource.filters?.length} filters active`}
 					</MotionBox>
 					<MotionBox
 						borderRadius={"0px 1rem 1rem 0rem"}
@@ -89,6 +96,7 @@ function SearchIndicator(props: SearchIndicatorProps) {
 							opacity={1}
 							_groupHover={{ opacity: 0 }}
 							alignContent={"center"}
+							display={hasFilters ? "block" : "none"}
 						>
 							+{snap.imageSource.filters?.length ?? 0}
 						</Box>
@@ -109,7 +117,7 @@ function SearchIndicator(props: SearchIndicatorProps) {
 							height={"full"}
 							size={"xs"}
 							// visibility={"collapsed"}
-							opacity={0}
+							opacity={hasFilters ? 0 : 1}
 							_groupHover={{ opacity: 1 }}
 							onClick={() => {
 								store.setSearchFilter()
@@ -117,7 +125,7 @@ function SearchIndicator(props: SearchIndicatorProps) {
 						>
 							<FiX />
 						</IconButton>
-						<Box visibility={"hidden"}>+X</Box>
+						<Box visibility={"hidden"}>+{snap.imageSource.filters?.length ?? 0}</Box>
 					</MotionBox>
 				</MotionBox>
 			)}

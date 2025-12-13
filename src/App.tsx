@@ -197,7 +197,7 @@ const views = {
 	mini: lazy(() => import("./Mini")),
 	vid: lazy(() => import("./vid/Vid")),
 	library: lazy(() => import("./library/Library")),
-	projects: lazy(() => import("./dtProjects/DTProjects")),
+	projects: lazy(() => import("./dtProjects/DTProjectsContainer")),
 	scratch: lazy(() => import("./scratch/Scratch6")),
 }
 

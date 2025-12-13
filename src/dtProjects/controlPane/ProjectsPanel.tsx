@@ -1,8 +1,10 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { derive } from "derive-valtio"
 import { useEffect, useRef, useState } from "react"
 import { FiFolder, FiRefreshCw } from "react-icons/fi"
 import { MdBlock } from "react-icons/md"
+import { useSnapshot } from "valtio"
 import { pdb } from "@/commands"
 import { PanelListItem } from "@/components"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
@@ -10,8 +12,6 @@ import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import DTProjects, { useDTProjects } from "../state/projectStore"
 import type { ProjectState } from "../state/projects"
-import { useSnapshot } from "valtio"
-import { derive } from "derive-valtio"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -52,7 +52,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
 				onSelectionChanged={(e) => {
-					store.setProjectsFilter(e.map((e) => e.id))
+					store.setSelectedProjects(e)
 				}}
 			>
 				{activeProjectsSnap.map((p) => (
@@ -119,10 +119,20 @@ export default ProjectsPanel
 
 interface ProjectListItemProps extends ChakraProps {
 	project: ProjectState
+	altCount?: number
 }
 function ProjectListItem(props: ProjectListItemProps) {
-	const { project, ...restProps } = props
+	const { project, altCount, ...restProps } = props
 	const { handlers, isSelected } = useSelectable(project)
+
+	let count: number | string = project.image_count
+	let countStyle: string | undefined
+
+	if (altCount !== undefined) {
+		count = altCount || ""
+		countStyle = "italic"
+	}
+
 	return (
 		<PanelListItem
 			position={"relative"}
@@ -138,7 +148,9 @@ function ProjectListItem(props: ProjectListItemProps) {
 				{project.isScanning ? (
 					<Box color={"fg.3"}>-</Box>
 				) : (
-					<Box color={"fg.3"}>{project.image_count}</Box>
+					<Box color={"fg.3"} fontStyle={countStyle}>
+						{count}
+					</Box>
 				)}
 			</HStack>
 		</PanelListItem>

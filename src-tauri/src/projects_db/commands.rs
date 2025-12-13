@@ -1,7 +1,7 @@
 use tauri::Emitter;
 
 use crate::projects_db::{
-    DTProject, ProjectsDb, TensorHistoryImport, dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw}, filters::ListImagesFilter, projects_db::{ImageExtra, ModelExtra, Paged, ProjectExtra, ScanProgress}, tensors::decode_tensor
+    DTProject, ProjectsDb, TensorHistoryImport, dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw}, filters::ListImagesFilter, projects_db::{ImageExtra, ListImagesResult, ModelExtra, Paged, ProjectExtra, ScanProgress}, tensors::decode_tensor
 };
 
 #[tauri::command]
@@ -121,7 +121,8 @@ pub async fn projects_db_image_list(
     direction: Option<String>,
     take: Option<i32>,
     skip: Option<i32>,
-) -> Result<Paged<ImageExtra>, String> {
+    count: Option<bool>,
+) -> Result<ListImagesResult, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let opts = super::projects_db::ListImagesOptions {
         project_ids,
@@ -131,6 +132,7 @@ pub async fn projects_db_image_list(
         direction,
         take,
         skip,
+        count,
     };
 
     Ok(projects_db.list_images(opts).await.unwrap())

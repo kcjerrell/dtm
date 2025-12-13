@@ -3,17 +3,20 @@ import { AnimatePresence } from "motion/react"
 import type { ComponentProps } from 'react'
 import { type Snapshot, useSnapshot } from "valtio"
 import { MotionBox } from "./components"
+import { usePDB } from './dtProjects/state/context'
 import { useDTProjects } from "./dtProjects/state/projectStore"
 import AppStore from "./hooks/appState"
-import { useUiState } from "./metadata/state/uiState"
+import type { UIStateType } from './metadata/state/uiState'
 
 interface OnboardComponentProps extends ComponentProps<typeof MotionBox> {}
 
 function Onboard(props: OnboardComponentProps) {
 	const { ...boxProps } = props
 	const appSnap = useSnapshot(AppStore.store)
-	const { uiSnap } = useUiState()
 	const { snap: dtpSnap } = useDTProjects()
+	
+	const { uiState } = usePDB()
+	const uiSnap = uiState.useSnap()
 
 	const combinedSnap: CombinedSnap = {
 		appSnap,
@@ -81,7 +84,7 @@ function Onboard(props: OnboardComponentProps) {
 
 type CombinedSnap = {
 	appSnap: Snapshot<typeof AppStore.store>
-	uiSnap: ReturnType<typeof useUiState>["uiSnap"]
+	uiSnap: Snapshot<UIStateType>
 	dtpSnap: ReturnType<typeof useDTProjects>["snap"]
 }
 

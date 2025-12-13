@@ -1,5 +1,5 @@
-use entity::images;
-use sea_orm::{ColumnTrait, QueryFilter};
+use entity::{image_controls, image_loras, images};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryTrait};
 use serde::{Deserialize, Serialize};
 
 impl ListImagesFilterTarget {
@@ -24,8 +24,8 @@ impl ListImagesFilterTarget {
             | ListImagesFilterTarget::Shift => self.apply_numeric(op, value, q),
 
             // TODO: Lora / Control are relations — depends on how you want to filter
-            ListImagesFilterTarget::Lora => q,
-            ListImagesFilterTarget::Control => q,
+            ListImagesFilterTarget::Lora => apply_lora_filter(op, value, q),
+            ListImagesFilterTarget::Control => apply_control_filter(op, value, q),
         }
     }
 }
@@ -33,7 +33,7 @@ impl ListImagesFilterTarget {
 fn apply_model_filter(
     op: ListImagesFilterOperator,
     value: &ListImagesFilterValue,
-    mut q: sea_orm::Select<images::Entity>,
+    q: sea_orm::Select<images::Entity>,
 ) -> sea_orm::Select<images::Entity> {
     use sea_orm::QueryFilter;
     use ListImagesFilterOperator::*;
@@ -55,7 +55,7 @@ fn apply_model_filter(
 fn apply_sampler_filter(
     op: ListImagesFilterOperator,
     value: &ListImagesFilterValue,
-    mut q: sea_orm::Select<images::Entity>,
+    q: sea_orm::Select<images::Entity>,
 ) -> sea_orm::Select<images::Entity> {
     use sea_orm::QueryFilter;
     use ListImagesFilterOperator::*;
@@ -118,6 +118,62 @@ trait NumericFilter {
             Lte => q.filter(self.col().lte(n)),
             _ => q,
         }
+    }
+}
+
+fn apply_lora_filter(
+    op: ListImagesFilterOperator,
+    value: &ListImagesFilterValue,
+    q: sea_orm::Select<images::Entity>,
+) -> sea_orm::Select<images::Entity> {
+    use sea_orm::{QueryFilter, QuerySelect};
+    use ListImagesFilterOperator::*;
+
+    let nums = match value {
+        ListImagesFilterValue::Number(v) => v,
+        _ => return q,
+    };
+
+    let ids: Vec<i64> = nums.iter().map(|n| *n as i64).collect();
+
+    let subquery = image_loras::Entity::find()
+        .select_only()
+        .column(image_loras::Column::ImageId)
+        .filter(image_loras::Column::LoraId.is_in(ids))
+        .into_query();
+
+    match op {
+        Is => q.filter(images::Column::Id.in_subquery(subquery)),
+        IsNot => q.filter(images::Column::Id.not_in_subquery(subquery)),
+        _ => q,
+    }
+}
+
+fn apply_control_filter(
+    op: ListImagesFilterOperator,
+    value: &ListImagesFilterValue,
+    q: sea_orm::Select<images::Entity>,
+) -> sea_orm::Select<images::Entity> {
+    use sea_orm::{QueryFilter, QuerySelect};
+    use ListImagesFilterOperator::*;
+
+    let nums = match value {
+        ListImagesFilterValue::Number(v) => v,
+        _ => return q,
+    };
+
+    let ids: Vec<i64> = nums.iter().map(|n| *n as i64).collect();
+
+    let subquery = image_controls::Entity::find()
+        .select_only()
+        .column(image_controls::Column::ImageId)
+        .filter(image_controls::Column::ControlId.is_in(ids))
+        .into_query();
+
+    match op {
+        Is => q.filter(images::Column::Id.in_subquery(subquery)),
+        IsNot => q.filter(images::Column::Id.not_in_subquery(subquery)),
+        _ => q,
     }
 }
 

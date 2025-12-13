@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
-import type { ImagesSource } from "../dtProjects/types"
+import type { ImagesSource as ListImagesOpts } from "../dtProjects/types"
 
 // --------------------
 // Type definitions
@@ -238,10 +238,31 @@ export const pdb = {
 	// #unused
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
 
-	listImages: async (source: ImagesSource, skip: number, take: number): Promise<{ items: ImageExtra[]; total: number }> => {
-		// console.log(opts)
-		
-		return await invoke("projects_db_image_list", { ...source, skip, take })
+	listImages: async (
+		source: ListImagesOpts,
+		skip: number,
+		take: number,
+	): Promise<{ items: ImageExtra[]; total: number }> => {
+		const result: Record<string, unknown> = await invoke("projects_db_image_list", {
+			...source,
+			skip,
+			take,
+		})
+		if ("Images" in result) return result.Images as { items: ImageExtra[]; total: number }
+		else return { items: [], total: 0 }
+	},
+
+	/**
+	 * ignores projectIds, returns count of image matches in each project.
+	 */
+	listImagesCount: async (source: ListImagesOpts) => {
+		const opts = { ...source, projectIds: undefined, count: true }
+		const result: Record<string, unknown> = await invoke("projects_db_image_list", opts)
+		if ("Counts" in result) {
+			const counts = result.Counts as { project_id: number; count: number }[]
+			const total = counts.reduce((acc, item) => acc + item.count, 0)
+			return { counts, total }
+		} else return { counts: [], total: 0 }
 	},
 
 	rebuildIndex: async (): Promise<void> => invoke("projects_db_image_rebuild_fts"),

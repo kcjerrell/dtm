@@ -3,9 +3,12 @@ use entity::{
     images::{self},
     projects,
 };
-use migration::{IntoIden, Migrator, MigratorTrait};
+use migration::{Migrator, MigratorTrait};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Set, sea_query::{Expr, OnConflict}
+    sea_query::{Expr, OnConflict},
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, Database, DatabaseConnection, DbErr,
+    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait, Set,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -230,14 +233,18 @@ impl ProjectsDb {
             on_progress((batch_start + 250) as i32, end as i32);
         }
 
-        Ok(self
+        let total = self
             .list_images(ListImagesOptions {
                 project_ids: Some([project.id].to_vec()),
                 take: Some(0),
                 ..Default::default()
             })
-            .await?
-            .total)
+            .await?;
+
+        match total {
+            ListImagesResult::Counts(_) => panic!("Unexpected result"),
+            ListImagesResult::Images(images) => Ok(images.total),
+        }
     }
 
     async fn process_models(
@@ -486,7 +493,7 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn list_images(&self, opts: ListImagesOptions) -> Result<Paged<ImageExtra>, DbErr> {
+    pub async fn list_images(&self, opts: ListImagesOptions) -> Result<ListImagesResult, DbErr> {
         // print!("ListImagesOptions: {:#?}\n", opts);
 
         let mut query = images::Entity::find()
@@ -551,6 +558,27 @@ impl ProjectsDb {
             }
         }
 
+        if Some(true) == opts.count {
+            let project_counts = query
+                .select_only()
+                .column(images::Column::ProjectId)
+                .column_as(images::Column::Id.count(), "count")
+                .group_by(images::Column::ProjectId)
+                .into_model::<ImageCount>()
+                .all(&self.db)
+                .await?;
+
+            return Ok(ListImagesResult::Counts(
+                project_counts
+                    .into_iter()
+                    .map(|p| ImageCount {
+                        project_id: p.project_id,
+                        count: p.count,
+                    })
+                    .collect(),
+            ));
+        }
+
         if let Some(skip) = opts.skip {
             query = query.offset(skip as u64);
         }
@@ -563,11 +591,12 @@ impl ProjectsDb {
         println!("Query: {:#?}", stmt);
 
         let count = query.clone().count(&self.db).await?;
+
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
-        Ok(Paged {
+        Ok(ListImagesResult::Images(Paged {
             items: result,
             total: count,
-        })
+        }))
     }
 
     pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folders::Model>, DbErr> {
@@ -815,6 +844,18 @@ impl ProjectsDb {
     }
 }
 
+#[derive(Debug, FromQueryResult, Serialize)]
+pub struct ImageCount {
+    pub project_id: i64,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub enum ListImagesResult {
+    Counts(Vec<ImageCount>),
+    Images(Paged<ImageExtra>),
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct ModelExtra {
     pub id: i64,
@@ -834,6 +875,7 @@ pub struct ListImagesOptions {
     pub direction: Option<String>,
     pub take: Option<i32>,
     pub skip: Option<i32>,
+    pub count: Option<bool>,
 }
 
 #[derive(Debug, FromQueryResult, Serialize)]
