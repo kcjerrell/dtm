@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import "./index.css"
+import { DTPProvider } from "./dtProjects/state/context"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 
@@ -23,11 +24,12 @@ const RootComponent = lazy(() => {
 
 themeHelpers.applySize()
 
-window.addEventListener("keypress", async (e) => {
-	if (e.key === "`") {
-		invoke("show_dev_window")
-	}
-})
+if (import.meta.env.DEV)
+	window.addEventListener("keypress", async (e) => {
+		if (e.key === "`") {
+			invoke("show_dev_window")
+		}
+	})
 
 // this ensures that the window appears even if an error is thrown in the initial render
 if (hash !== "dev") {
@@ -42,7 +44,9 @@ if (root)
 		<StrictMode>
 			<ChakraProvider value={system}>
 				<ColorModeProvider>
-					<RootComponent />
+					<DTPProvider>
+						<RootComponent />
+					</DTPProvider>
 				</ColorModeProvider>
 			</ChakraProvider>
 			,

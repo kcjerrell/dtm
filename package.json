@@ -9,6 +9,7 @@
     "dev:web": "MOCK_TAURI=true vite",
     "dev:vite": "vite",
     "build": "vite build",
+    "build:mac": "dotenv -- tauri build",
     "build:universal": "dotenv -- tauri build --target universal-apple-darwin",
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",

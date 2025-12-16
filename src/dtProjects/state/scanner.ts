@@ -34,7 +34,6 @@ class ScannerService extends DTPStateService {
 		await this.watchFolders.loadWatchFolders()
 		await this.projects.loadProjects()
 
-		// load list of projects mapped to {project, action}
 		await this.syncProjects()
 		await this.scanModelFiles()
 	}
