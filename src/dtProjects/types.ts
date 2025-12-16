@@ -48,6 +48,7 @@ export type ImagesSource = {
 	filters?: BackendFilter[]
 	sort?: string
 	direction?: "asc" | "desc"
+	count?: boolean
 }
 
 export type VersionModel = Model & {

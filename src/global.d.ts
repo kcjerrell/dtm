@@ -9,7 +9,7 @@ declare global {
 	type Snap<T> = ReadOnlyState<T>
 
 	type MaybeReadonly<T> = T | ReadonlyState<T>
-	type Nullable<T> = T | null
+	type Nullable<T> = T | null | undefined
 	type ValueOrGetter<T> = T | (() => T)
 
 	type ChakraProps = Omit<BoxProps, "direction">

@@ -2,7 +2,7 @@ import { chakra } from "@chakra-ui/react/styled-system"
 import urls from "@/commands/urls"
 import PoseImage from "@/components/Pose"
 
-const _thumbnailSize = "4rem"
+const _thumbnailSize = "60px"
 
 interface ThumbnailProps extends ChakraProps {
 	projectId: number

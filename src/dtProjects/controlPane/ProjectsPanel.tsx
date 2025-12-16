@@ -10,26 +10,30 @@ import { PanelListItem } from "@/components"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
-import DTProjects, { useDTProjects } from "../state/projectStore"
+import { useDTP } from "../state/context"
+import type ProjectsController from "../state/projects"
 import type { ProjectState } from "../state/projects"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
 function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
-	const { snap, state, store } = useDTProjects()
+	// const { snap, state, store } = useDTProjects()
+	const { projects } = useDTP()
 	const [showExcluded, setShowExcluded] = useState(false)
 	const toggleRef = useRef<HTMLDivElement>(null)
 
-	const projects = derive({
-		activeProjects: (get) => get(state).projects.filter((p) => !p.excluded),
-		excludedProjects: (get) => get(state).projects.filter((p) => p.excluded),
+	const groups = derive({
+		activeProjects: (get) => get(projects.state).projects.filter((p) => !p.excluded),
+		excludedProjects: (get) => get(projects.state).projects.filter((p) => p.excluded),
 		allProjects: (get) =>
-			get(state).projects.toSorted((a, b) => (a.excluded ? 1 : -1) - (b.excluded ? 1 : -1)),
+			get(projects.state).projects.toSorted(
+				(a, b) => (a.excluded ? 1 : -1) - (b.excluded ? 1 : -1),
+			),
 	})
 
-	const activeProjectsSnap = useSnapshot(projects.activeProjects)
-	const excludedProjectsSnap = useSnapshot(projects.excludedProjects)
+	const activeProjectsSnap = useSnapshot(groups.activeProjects)
+	const excludedProjectsSnap = useSnapshot(groups.excludedProjects)
 
 	useEffect(() => {
 		if (showExcluded && toggleRef.current) {
@@ -48,11 +52,11 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 		>
 			<PanelList
 				maxHeight={"100%"}
-				itemsState={showExcluded ? projects.allProjects : projects.activeProjects}
+				itemsState={showExcluded ? groups.allProjects : groups.activeProjects}
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
 				onSelectionChanged={(e) => {
-					store.setSelectedProjects(e)
+					projects.setSelectedProjects(e)
 				}}
 			>
 				{activeProjectsSnap.map((p) => (
@@ -81,25 +85,25 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 			</PanelList>
 
 			<HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
-				<Box>{snap.projects.length} projects</Box>
+				<Box>{groups.activeProjects.length} projects</Box>
 
-				<Box>{snap.projects.reduce((p, c) => p + c.image_count, 0)} images</Box>
+				<Box>{groups.activeProjects.reduce((p, c) => p + c.image_count, 0)} images</Box>
 				<Box>
-					<FormatByte value={snap.projects.reduce((p, c) => p + c.filesize, 0)} />
+					<FormatByte value={groups.activeProjects.reduce((p, c) => p + c.filesize, 0)} />
 				</Box>
 			</HStack>
 		</TabContent>
 	)
 }
 
-const toolbarCommands: PanelListCommand<ProjectState>[] = [
+const toolbarCommands: PanelListCommand<ProjectState, ProjectsController>[] = [
 	{
 		id: "exclude",
 		getTip: (selected) => (selected[0]?.excluded ? "Include project" : "Exclude project"),
 		tipText: "Excluded projects will not be scanned and their images won't be listed.",
 		getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
-		onClick: (selected) => {
-			DTProjects.store.projects.setExclude(selected, !selected[0]?.excluded)
+		onClick: (selected, context?: ProjectsController) => {
+			context?.setExclude(selected, !selected[0]?.excluded)
 		},
 		requiresSelection: true,
 	},

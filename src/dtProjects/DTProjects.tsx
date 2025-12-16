@@ -1,34 +1,29 @@
 import { FormatByte, Text } from "@chakra-ui/react"
-import { useEffect } from "react"
-import { useSnapshot } from "valtio"
 import { Panel } from "@/components"
 import { LayoutRoot } from "@/metadata/Containers"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
 import ImagesList from "./imagesList/ImagesList"
-import { usePDB } from "./state/context"
-import { DTProjects, useProjectsSummary } from "./state/projectStore"
+import { useDTP } from "./state/context"
 
 function ProjectData(props: ChakraProps) {
 	const { ...restProps } = props
 
-	const { store } = DTProjects
-	const snap = useSnapshot(store.state)
-	const summary = useProjectsSummary()
-
-	const { uiState } = usePDB()
+	const { projects, uiState, images } = useDTP()
+	const summary = projects.useProjectsSummary()
 	const uiSnap = uiState.useSnap()
+	const imagesSnap = images.useSnap()
 
-	useEffect(() => {
-		store.init()
-		return () => store.removeListeners()
-	}, [store.init, store.removeListeners])
+	// useEffect(() => {
+		// store.init()
+		// return () => store.removeListeners()
+	// }, [])
 
 	return (
 		<LayoutRoot position={"relative"} {...restProps}>
 			<ControlPane margin={2} />
 
-			{uiSnap.selectedTab !== "settings" && snap.imageSource ? (
+			{uiSnap.selectedTab !== "settings" && imagesSnap.imageSource ? (
 				<ImagesList margin={2} marginLeft={0} />
 			) : (
 				<Panel

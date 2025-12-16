@@ -1,22 +1,21 @@
 import { Button, HStack, Input, VStack } from "@chakra-ui/react"
 import { useEffect } from "react"
-import { useSnapshot } from "valtio"
 import { PanelButton } from "@/components"
 import TabContent from "@/metadata/infoPanel/TabContent"
-import { useDTProjects } from "../state/projectStore"
-import SearchFilter from "./filters/SearchFilter"
+import { useDTP } from "../state/context"
+import SearchFilterForm from "./filters/SearchFilterForm"
 
 interface SearchPanelComponentProps extends ChakraProps {}
 
 function SearchPanel(props: SearchPanelComponentProps) {
 	const { ...restProps } = props
-	const { store } = useDTProjects()
-	const searchService = store.search
-	const searchSnap = useSnapshot(searchService.state)
+	const { models, search } = useDTP()
+
+	const searchSnap = search.useSnap()
 
 	useEffect(() => {
-		store.listModels()
-	}, [store.listModels])
+		models.refreshModels()
+	}, [models.refreshModels])
 
 	// useEffect(() => {
 	// searchService.incLayoutId()
@@ -26,9 +25,9 @@ function SearchPanel(props: SearchPanelComponentProps) {
 		<TabContent value={"search"} overflowX={"clip"} {...restProps}>
 			<Input
 				bgColor={"bg.3"}
-				value={searchService.state.searchInput}
+				value={searchSnap.searchInput}
 				onChange={(e) => {
-					searchService.state.searchInput = e.target.value
+					search.state.searchInput = e.target.value
 				}}
 				border={"2px solid gray"}
 				borderRadius={"lg"}
@@ -49,10 +48,10 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				borderRadius={"sm"}
 			>
 				{searchSnap.filters.map((filter) => (
-					<SearchFilter
+					<SearchFilterForm
 						index={filter.index}
 						key={filter.index}
-						onRemove={() => searchService.removeFilter(filter.index)}
+						onRemove={() => search.removeFilter(filter.index)}
 					/>
 				))}
 			</VStack>
@@ -65,7 +64,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				_hover={{ textDecoration: "underline", color: "fg.1" }}
 				fontSize={"sm"}
 				cursor={"pointer"}
-				onClick={() => searchService.addEmptyFilter(true)}
+				onClick={() => search.addEmptyFilter(true)}
 			>
 				Add Filter
 			</Button>
@@ -74,13 +73,13 @@ function SearchPanel(props: SearchPanelComponentProps) {
 					boxShadow={"xs"}
 					flex={"0 0 auto"}
 					onClick={() => {
-						searchService.state.searchInput = ""
-						searchService.clearFilters()
+						search.state.searchInput = ""
+						search.clearFilters()
 					}}
 				>
 					Clear
 				</PanelButton>
-				<PanelButton boxShadow={"xs"} flex={"1 1 auto"} onClick={() => searchService.applySearch()}>
+				<PanelButton boxShadow={"xs"} flex={"1 1 auto"} onClick={() => search.applySearch()}>
 					Search
 				</PanelButton>
 			</HStack>

@@ -3,12 +3,12 @@ import { AnimatePresence, motion } from "motion/react"
 import type { ComponentProps } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
-import { useSnapshot } from "valtio"
 import { dtProject, type ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { IconButton } from "@/components"
+import { DarkMode } from "@/components/ui/color-mode"
 import { sendToMetadata } from "@/metadata/state/interop"
-import { useDTProjects } from "../state/projectStore"
+import { useDTP } from "../state/context"
 import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
 import TensorsList from "./TensorsList"
@@ -19,179 +19,187 @@ interface DetailsOverlayProps extends ComponentProps<typeof Container> {}
 
 function DetailsOverlay(props: DetailsOverlayProps) {
 	const { ...rest } = props
-	const { store: dtp, snap: dtpSnap } = useDTProjects()
 
-	const snap = useSnapshot(dtp.state.detailsOverlay)
-	const details = snap.item ? dtpSnap.itemDetails[snap.item.node_id] : undefined
-	const subItem = snap.subItem
+	const { uiState } = useDTP()
+	const snap = uiState.useDetailsOveralay()
+
+	const { item, itemDetails } = snap
+
+	const isVisible = !!item
 
 	const srcHalf =
-		snap.item || snap.lastItem
-			? urls.thumbHalf(snap.item ?? (snap.lastItem as ImageExtra))
-			: undefined
+		item || snap.lastItem ? urls.thumbHalf(item ?? (snap.lastItem as ImageExtra)) : undefined
 	const srcFull =
-		snap.item || snap.lastItem ? urls.thumb(snap.item ?? (snap.lastItem as ImageExtra)) : undefined
+		item || snap.lastItem ? urls.thumb(item ?? (snap.lastItem as ImageExtra)) : undefined
 
 	return (
-		<AnimatePresence>
-			{snap.item && (
-				<Container
-					key={snap.item.id}
-					pointerEvents={snap.item ? "all" : "none"}
-					onClick={() => {
-						if (subItem) dtp.hideSubItem()
-						else dtp.hideDetailsOverlay()
-					}}
-					variants={{
-						open: {
-							opacity: 1,
-							backgroundColor: "#00000099",
-							backdropFilter: "blur(5px)",
-							visibility: "visible",
-							transition: {
-								visibility: {
-									duration: 0,
-									delay: 0,
-								},
-								duration: transition.duration,
-								ease: "easeOut",
-							},
+		<Container
+			onClick={() => {
+				if (snap.subItem) uiState.hideSubItem()
+				else uiState.hideDetailsOverlay()
+			}}
+			variants={{
+				open: {
+					opacity: 1,
+					backgroundColor: "#00000099",
+					backdropFilter: "blur(5px)",
+					// display: "flex",
+					visibility: 'visible',
+					pointerEvents: 'auto',
+					transition: {
+						visibility: {
+							duration: 0,
+							delay: 0,
 						},
-						closed: {
-							opacity: 1,
-							backgroundColor: "#00000000",
-							backdropFilter: "blur(0px)",
-							visibility: "hidden",
-							transition: {
-								duration: transition.duration,
-								visibility: {
-									duration: 0,
-									delay: transition.duration,
-								},
-							},
+						duration: transition.duration,
+						ease: "easeOut",
+					},
+				},
+				closed: {
+					opacity: 1,
+					backgroundColor: "#00000000",
+					backdropFilter: "blur(0px)",
+					// visibility: "hidden",
+					visibility: 'hidden',
+					pointerEvents: 'none',
+					transition: {
+						visibility: {
+							duration: 0,
+							delay: transition.duration,
 						},
-					}}
-					initial={"closed"}
-					exit={"closed"}
-					animate={snap.item ? "open" : "closed"}
-					transition={{ duration: transition.duration }}
-					{...rest}
-				>
-					<VStack
-						padding={4}
-						paddingBottom={2}
-						gap={0}
-						minHeight={0}
-						width={"100%"}
-						height={"100%"}
-						overflowY={"clip"}
-						alignItems={"stretch"}
-					>
-						<Box width={"100%"} minHeight={0} flex={"1 1 auto"} position={"relative"}>
-							<DetailsImage
-								inset={0}
-								src={srcFull}
-								srcHalf={srcHalf}
-								sourceRect={snap.sourceRect}
-								naturalSize={{ width: snap.width, height: snap.height }}
-								position={"absolute"}
-								zIndex={0}
-								// filter={subItem ? "blur(2px)" : "none"}
-								imgStyle={{
-									filter: subItem ? "brightness(0.5)" : "none",
-									transition: "filter 0.3s ease",
-								}}
-								transition={"filter 0.3s ease"}
+						duration: transition.duration,
+						ease: "easeOut",
+					},
+				},
+			}}
+			initial={"closed"}
+			exit={"closed"}
+			animate={isVisible ? "open" : "closed"}
+			transition={{ duration: transition.duration }}
+			{...rest}
+		>
+			<VStack
+				padding={4}
+				paddingBottom={0}
+				gap={0}
+				minHeight={0}
+				width={"100%"}
+				height={"100%"}
+				overflowY={"clip"}
+				alignItems={"stretch"}
+			>
+				<Box width={"100%"} minHeight={0} flex={"1 1 auto"} position={"relative"}>
+					<DetailsImage
+						inset={0}
+						src={srcFull}
+						srcHalf={srcHalf}
+						sourceRect={snap.sourceRect ?? null}
+						naturalSize={{ width: snap.width ?? 1, height: snap.height ?? 1 }}
+						position={"absolute"}
+						zIndex={0}
+						// filter={subItem ? "blur(2px)" : "none"}
+						imgStyle={{
+							filter: snap.subItem ? "brightness(0.5)" : "none",
+							transition: "filter 0.3s ease",
+						}}
+						transition={"filter 0.3s ease"}
+					/>
+					<AnimatePresence initial={false} mode={"sync"}>
+						{snap.subItem?.isLoading && (
+							<Spinner
+								color={"white"}
+								bgColor={"black"}
+								padding={1}
+								left="50%"
+								top="50%"
+								position="absolute"
+								transform="translate(-50%, -50%)"
+								zIndex={30}
 							/>
-							<AnimatePresence initial={false} mode={"sync"}>
-								{subItem?.isLoading && (
-									<Spinner
-										color={"white"}
-										bgColor={"black"}
-										padding={1}
-										left="50%"
-										top="50%"
-										position="absolute"
-										transform="translate(-50%, -50%)"
-										zIndex={30}
+						)}
+						{snap.subItem && (
+							<VStack
+								height={"100%"}
+								width={"100%"}
+								alignItems={"center"}
+								padding={1}
+								zIndex={1}
+								key={snap.subItem?.tensorId}
+								position={"absolute"}
+							>
+								<DetailsImage
+									pixelated={snap.subItem?.tensorId?.startsWith("color")}
+									width={"100%"}
+									flex={"1 1 auto"}
+									src={snap.subItem?.url}
+									// srcHalf={subItem?.thumbUrl}
+									sourceRect={() => snap.subItemSourceRect}
+									sourceElement={snap.subItem.sourceElement as HTMLElement}
+									naturalSize={{
+										width: snap.subItem?.width ?? 1,
+										height: snap.subItem?.height ?? 1,
+									}}
+									zIndex={1}
+									imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
+									// position={"absolute"}
+								/>
+								<DarkMode>
+									<DetailsButtonBar
+										show={snap.subItem && !snap.subItem.isLoading}
+										item={item}
+										tensorId={snap.subItem.tensorId}
 									/>
-								)}
-								{subItem && (
-									<VStack
-										height={"100%"}
-										width={"100%"}
-										alignItems={"center"}
-										padding={1}
-										zIndex={1}
-										key={subItem?.tensorId}
-										position={"absolute"}
-									>
-										<DetailsImage
-											pixelated={subItem?.tensorId?.startsWith("color")}
-											width={"100%"}
-											flex={"1 1 auto"}
-											src={subItem?.url}
-											// srcHalf={subItem?.thumbUrl}
-											sourceRect={() => dtp.state.detailsOverlay.subItemSourceRect}
-											sourceElement={subItem.sourceElement as HTMLElement}
-											naturalSize={{ width: subItem?.width ?? 1, height: subItem?.height ?? 1 }}
-											zIndex={1}
-											imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
-											// position={"absolute"}
-										/>
-										<DetailsButtonBar
-											show={subItem && !subItem.isLoading}
-											item={snap.item}
-											tensorId={subItem.tensorId}
-										/>
-									</VStack>
-								)}
-							</AnimatePresence>
-						</Box>
-						<DetailsButtonBar
-							show={!subItem}
-							item={snap.item}
-							addMetadata={true}
-							tensorId={details?.tensor_id}
-						/>
-						<TensorsList
-							flex={"0 0 4rem"}
-							margin={"1rem"}
-							item={snap.item ?? snap.lastItem}
-							details={details}
-							candidates={snap.candidates}
-							variants={{
-								open: { y: "0%", opacity: 1 },
-								closed: { y: "100%", opacity: 0 },
-							}}
-							transition={{ duration: transition.duration, delay: 0 }}
-							initial={"closed"}
-							animate={"open"}
-							exit={"closed"}
-						/>
-					</VStack>
+								</DarkMode>
+							</VStack>
+						)}
+					</AnimatePresence>
+				</Box>
+				<DarkMode>
+					<DetailsButtonBar
+						show={!snap.subItem}
+						item={item}
+						addMetadata={true}
+						tensorId={itemDetails?.tensor_id}
+					/>
+				</DarkMode>
+				<TensorsList
+					flex={"0 0 60px"}
+					zIndex={1}
+					margin={"1rem"}
+					// marginBottom={"-1rem"}
+					item={item}
+					details={itemDetails}
+					candidates={snap.candidates}
+					// variants={{
+					// 	open: { y: "0%", opacity: 1 },
+					// 	closed: { y: "100%", opacity: 0 },
+					// }}
+					transition={{ duration: transition.duration, delay: 0 }}
+					// initial={"closed"}
+					// animate={"open"}
+					// exit={"closed"}
+				/>
+			</VStack>
 
-					<VStack height={"100%"} overflow={"clip"} padding={1} zIndex={2} asChild>
-						<motion.div>
-							{/* <Button
+			<VStack height={"100%"} overflow={"clip"} padding={1} zIndex={2} asChild>
+				<motion.div>
+					{/* <Button
 								onClick={() =>
 									AppState.setViewRequest("metadata", {
 										open: {
 											nodeId: snap.item?.node_id,
 											projectId: snap.item?.project_id,
-											tensorId: details?.tensor_id,
+											tensorId: snap.item?.tensor_id,
 										},
 									})
 								}
 							>
 								Hello
 							</Button> */}
-							<DetailsContent item={snap.item} details={details} />
-						</motion.div>
-					</VStack>
-				</Container>
-			)}
-		</AnimatePresence>
+					<DetailsContent item={item} details={itemDetails} />
+				</motion.div>
+			</VStack>
+		</Container>
 	)
 }
 
@@ -224,7 +232,7 @@ interface DetailsButtonBarProps extends ChakraProps {
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
 	const { item, tensorId, show, addMetadata, ...restProps } = props
-	const { store } = useDTProjects()
+	const { projects } = useDTP()
 
 	const projectId = item?.project_id
 	const nodeId = addMetadata ? item?.node_id : undefined
@@ -240,7 +248,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 			borderRadius={"lg"}
 			paddingX={2}
 			boxShadow={"pane1"}
-			border={"1px solid gray"}
+			border={"1px solid {colors.gray.500/50}"}
 			onClick={(e) => e.stopPropagation()}
 			asChild
 			{...restProps}
@@ -261,7 +269,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 					size={"sm"}
 					disabled={disabled}
 					onClick={async () => {
-						const projectFile = store.projects.getProjectFile(projectId)
+						const projectFile = projects.getProjectFile(projectId)
 						if (!projectFile || !tensorId) return
 						const imgData = await dtProject.decodeTensor(projectFile, tensorId, true, nodeId)
 						if (!imgData) return

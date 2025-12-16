@@ -3,25 +3,25 @@ import { AnimatePresence } from "motion/react"
 import type { ComponentProps } from 'react'
 import { type Snapshot, useSnapshot } from "valtio"
 import { MotionBox } from "./components"
-import { usePDB } from './dtProjects/state/context'
-import { useDTProjects } from "./dtProjects/state/projectStore"
+import { useDTP } from './dtProjects/state/context'
+import type { UIControllerState } from './dtProjects/state/uiState'
+import type { WatchFoldersControllerState } from './dtProjects/state/watchFolders'
 import AppStore from "./hooks/appState"
-import type { UIStateType } from './metadata/state/uiState'
 
 interface OnboardComponentProps extends ComponentProps<typeof MotionBox> {}
 
 function Onboard(props: OnboardComponentProps) {
 	const { ...boxProps } = props
 	const appSnap = useSnapshot(AppStore.store)
-	const { snap: dtpSnap } = useDTProjects()
 	
-	const { uiState } = usePDB()
+	const { uiState, watchFolders } = useDTP()
 	const uiSnap = uiState.useSnap()
+	const watchFoldersSnap = watchFolders.useSnap()
 
 	const combinedSnap: CombinedSnap = {
 		appSnap,
 		uiSnap,
-		dtpSnap,
+		watchFoldersSnap,
 	}
 
 	const stage = stages[combinedSnap.appSnap.onboardPhase as keyof typeof stages]
@@ -84,8 +84,8 @@ function Onboard(props: OnboardComponentProps) {
 
 type CombinedSnap = {
 	appSnap: Snapshot<typeof AppStore.store>
-	uiSnap: Snapshot<UIStateType>
-	dtpSnap: ReturnType<typeof useDTProjects>["snap"]
+	uiSnap: Snapshot<UIControllerState>
+	watchFoldersSnap: Snapshot<WatchFoldersControllerState>
 }
 
 const stages = {
@@ -126,7 +126,7 @@ const stages = {
 		bottom: "unset",
 		next: "A5",
 		check: (snap: CombinedSnap) => {
-			return snap.dtpSnap.watchFolders.projectFolders.length > 0
+			return snap.watchFoldersSnap.projectFolders.length > 0
 		},
 	},
 	A5: {

@@ -81,7 +81,6 @@ function DetailsImage(props: DetailsImageProps) {
 					width: [null, imgOrigin.current?.width],
 					height: [null, imgOrigin.current?.height],
 				}
-
 		return {
 			...box,
 			borderRadius: ["4px", "1px"],

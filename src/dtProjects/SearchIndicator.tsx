@@ -3,7 +3,7 @@ import { AnimatePresence } from "motion/react"
 import type { ComponentProps } from "react"
 import { FiX } from "react-icons/fi"
 import { IconButton, MotionBox } from "@/components"
-import { useDTProjects } from "@/dtProjects/state/projectStore"
+import { useDTP } from "./state/context"
 
 const dur = 0.2
 
@@ -12,7 +12,8 @@ interface SearchIndicatorProps extends ComponentProps<typeof MotionBox> {}
 function SearchIndicator(props: SearchIndicatorProps) {
 	const { ...boxProps } = props
 
-	const { snap, store } = useDTProjects()
+	const { images } = useDTP()
+	const snap = images.useSnap()
 
 	const hasSearch = !!snap.imageSource.search
 	const hasFilters = !!snap.imageSource.filters?.length
@@ -120,7 +121,7 @@ function SearchIndicator(props: SearchIndicatorProps) {
 							opacity={hasFilters ? 0 : 1}
 							_groupHover={{ opacity: 1 }}
 							onClick={() => {
-								store.setSearchFilter()
+								images.setSearchFilter()
 							}}
 						>
 							<FiX />

@@ -3,12 +3,12 @@ import { type ComponentProps, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { FiX } from "react-icons/fi"
 import { TbSortAscendingLetters, TbSortDescendingNumbers } from "react-icons/tb"
-import { useSnapshot } from "valtio"
 import type { Model } from "@/commands"
 import { IconButton, PaneListContainer, PanelListItem } from "@/components"
 import { PaneListScrollContainer, PanelListScrollContent } from "@/components/common"
 import PanelList from "@/components/PanelList"
-import { type DTProjectsStateType, useDTProjects } from "@/dtProjects/state/projectStore"
+import { useDTP } from "@/dtProjects/state/context"
+import type { ModelsControllerState } from "@/dtProjects/state/models"
 import { isVersionModel, type VersionModel } from "@/dtProjects/types"
 import { makeSelectableList, type Selectable, useSelectable } from "@/hooks/useSelectableV"
 import { useProxyRef, useSubscribeValue } from "@/hooks/valtioHooks"
@@ -21,9 +21,8 @@ function ModelValueSelectorComponent(
 ) {
 	const { value, onValueChange, modelType = "models", ...boxProps } = props
 
-	const { state: dtpState } = useDTProjects()
-	const models = dtpState.models
-	const modelsSnap = useSnapshot(models)
+	const { models } = useDTP()
+	const modelsSnap = models.useSnap()
 
 	const [inputValue, setInputValue] = useState("")
 	const { state, snap } = useProxyRef(() => ({
@@ -38,12 +37,12 @@ function ModelValueSelectorComponent(
 
 	useEffect(() => {
 		if (!modelsSnap[modelType]) return
-		state.sorted = getSorted(models[modelType], state.sortType)
-		state.versions = getVersions(models, modelType)
-	}, [models[modelType], state, modelType, modelsSnap[modelType]])
+		state.sorted = getSorted(models.state[modelType], state.sortType)
+		state.versions = getVersions(models.state, modelType)
+	}, [models.state, state, modelType, modelsSnap[modelType], models])
 
 	useSubscribeValue(state, "sortType", () => {
-		state.sorted = getSorted(models[modelType], state.sortType)
+		state.sorted = getSorted(models.state[modelType], state.sortType)
 	})
 
 	useEffect(() => {
@@ -280,10 +279,7 @@ function getSorted(items: MaybeReadonly<Model[]>, sortType: "name" | "count") {
 	return makeSelectableList(items.toSorted(sortByCount))
 }
 
-function getVersions(
-	models: DTProjectsStateType["models"],
-	modelType: "models" | "loras" | "controls",
-) {
+function getVersions(models: ModelsControllerState, modelType: "models" | "loras" | "controls") {
 	const versions = filterObject(models.versions, (_, counts) => counts[modelType] > 0)
 	return Object.entries(versions).sort((b, a) => {
 		if (a[0] === "") return -1

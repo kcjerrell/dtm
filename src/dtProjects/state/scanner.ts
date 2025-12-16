@@ -1,21 +1,38 @@
 import { stat } from "@tauri-apps/plugin-fs"
 import { pdb } from "@/commands"
-import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
+import { DTPStateService } from "@/hooks/StateController"
+import type ModelsController from "./models"
+import type ProjectsController from "./projects"
 import type { ProjectState } from "./projects"
+import type WatchFoldersController from "./watchFolders"
 
-export class ScannerService {
-	#dtp: IDTProjectsStore
-	#state: DTProjectsStateType
+class ScannerService extends DTPStateService {
+	projects: ProjectsController
+	watchFolders: WatchFoldersController
+	models: ModelsController
 
-	constructor(dtp: IDTProjectsStore) {
-		this.#dtp = dtp
-		this.#state = dtp.state
+	constructor(
+		projects: ProjectsController,
+		watchFolders: WatchFoldersController,
+		models: ModelsController,
+	) {
+		super()
+		this.projects = projects
+		this.projects.onSyncRequired = () => {
+			this.syncProjects()
+		}
+
+		this.watchFolders = watchFolders
+		this.watchFolders.onScanRequired = () => {
+			this.scanAndWatch()
+		}
+
+		this.models = models
 	}
 
 	async scanAndWatch() {
-		const { watchFolders: WatchFolders, projects: Projects } = this.#dtp
-		await WatchFolders.loadWatchFolders()
-		await Projects.loadProjects()
+		await this.watchFolders.loadWatchFolders()
+		await this.projects.loadProjects()
 
 		// load list of projects mapped to {project, action}
 		await this.syncProjects()
@@ -24,20 +41,20 @@ export class ScannerService {
 
 	// updated scan projects method
 	async syncProjects() {
-		await this.#dtp.projects.loadProjects()
-		await this.#dtp.watchFolders.loadWatchFolders()
+		await this.projects.loadProjects()
+		await this.watchFolders.loadWatchFolders()
 		await this.syncProjectFiles()
-		for (const project of this.#state.projects) {
+		for (const project of this.projects.state.projects) {
 			await this.syncProject(project)
 		}
 		await pdb.rebuildIndex()
 
-		this.#dtp.watchFolders.startWatch(async (projectFiles) => {
+		this.watchFolders.startWatch(async (projectFiles) => {
 			for (const projectFile of projectFiles) {
-				let project = this.#state.projects.find((p) => p.path === projectFile)
+				let project = this.projects.state.projects.find((p) => p.path === projectFile)
 				if (!project) {
-					await this.#dtp.projects.addProjects([projectFile])
-					project = this.#state.projects.find((p) => p.path === projectFile)
+					await this.projects.addProjects([projectFile])
+					project = this.projects.state.projects.find((p) => p.path === projectFile)
 				}
 				if (project) {
 					await this.syncProject(project)
@@ -48,18 +65,17 @@ export class ScannerService {
 
 	// ensure every project in the watch folders is in the db
 	async syncProjectFiles() {
-		const { watchFolders: WatchFolders, projects: Projects } = this.#dtp
 		const newProjects = [] as string[]
 
-		for (const folder of this.#state.watchFolders.projectFolders) {
-			const folderProjects = await WatchFolders.listProjects(folder)
+		for (const folder of this.watchFolders.state.projectFolders) {
+			const folderProjects = await this.watchFolders.listProjects(folder)
 			for (const projectPath of folderProjects) {
-				const project = this.#state.projects.find((p) => p.path === projectPath)
+				const project = this.projects.state.projects.find((p) => p.path === projectPath)
 				if (!project) newProjects.push(projectPath)
 			}
 		}
 
-		if (newProjects.length > 0) await Projects.addProjects(newProjects)
+		if (newProjects.length > 0) await this.projects.addProjects(newProjects)
 	}
 
 	/** @param skipCheck if true, will check even if filesize and modified are the same */
@@ -79,10 +95,8 @@ export class ScannerService {
 	}
 
 	private async scanModelFiles() {
-		const { watchFolders: WatchFolders } = this.#dtp
-
-		for (const folder of this.#state.watchFolders.modelInfoFolders) {
-			const modelFiles = await WatchFolders.listModelInfoFiles(folder)
+		for (const folder of this.watchFolders.state.modelInfoFolders) {
+			const modelFiles = await this.watchFolders.listModelInfoFiles(folder)
 
 			for (const file of modelFiles) {
 				await pdb.scanModelInfo(file.path, file.modelType)
@@ -90,6 +104,8 @@ export class ScannerService {
 		}
 	}
 }
+
+export default ScannerService
 
 async function checkProject(project: ProjectState): Promise<CheckProjectResult> {
 	if (project.excluded)

@@ -2,10 +2,11 @@ import { path } from "@tauri-apps/api"
 import { exists, readDir, type UnwatchFn, watch, writeTextFile } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import { pdb, type WatchFolder } from "@/commands"
+import { DTPStateController } from "@/hooks/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
-import { arrayIfOnly, clearArray } from "@/utils/helpers"
+import va from "@/utils/array"
+import { arrayIfOnly } from "@/utils/helpers"
 import { compileOfficialModels } from "@/utils/models"
-import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 const home = await path.homeDir()
 const _defaultProjectPath = await path.join(
@@ -29,7 +30,7 @@ const modelInfoFilenames = {
 	"controlnets.json": "Cnet",
 } as Record<string, "Model" | "Cnet" | "Lora">
 
-export type WatchFolderServiceState = {
+export type WatchFoldersControllerState = {
 	projectFolders: WatchFolderState[]
 	modelInfoFolders: WatchFolderState[]
 	hasProjectDefault: boolean
@@ -43,47 +44,43 @@ export type WatchFolderState = Selectable<
 	}
 >
 
-type ListProjectsResult = {
-	path: string
-	filesize: number
-	modified: number
-}
-
 type ListModelInfoFilesResult = {
 	path: string
 	modelType: "Model" | "Cnet" | "Lora"
 }
 
-class WatchFolderService {
-	#dtp: IDTProjectsStore
-	rootState: DTProjectsStateType
-	state: WatchFolderServiceState
+/**
+ * Manages watch folders for projects and model info.
+ * Takes a handler for when a full scan is required.
+ * useDTP() will be responsible for assigning the handler
+ */
+export class WatchFoldersController extends DTPStateController<WatchFoldersControllerState> {
+	state = proxy<WatchFoldersControllerState>({
+		modelInfoFolders: [] as WatchFolderState[],
+		hasModelInfoDefault: false,
+		projectFolders: [] as WatchFolderState[],
+		hasProjectDefault: false,
+	})
 
-	watchDisposers: UnwatchFn[] = []
-
-	constructor(dtp: IDTProjectsStore) {
-		this.#dtp = dtp
-		this.rootState = dtp.state
-
-		this.state = proxy({
-			modelInfoFolders: [] as WatchFolderState[],
-			hasModelInfoDefault: false,
-			projectFolders: [] as WatchFolderState[],
-			hasProjectDefault: false,
-		})
+	onScanRequired: () => void = () => {
+		console.warn("Watch folders may be out of sync, handler not assigned")
 	}
+	watchDisposers: UnwatchFn[] = []
 
 	async loadWatchFolders() {
 		const res = (await pdb.watchFolders.listAll()) as WatchFolder[]
 		const folders = res.map((f) => makeSelectable(f as WatchFolderState))
 
-		clearArray(
+		va.set(
 			this.state.projectFolders,
 			folders.filter((f) => f.item_type === "Projects"),
 		)
 		this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
 
-		this.state.modelInfoFolders = folders.filter((f) => f.item_type === "ModelInfo")
+		va.set(
+			this.state.modelInfoFolders,
+			folders.filter((f) => f.item_type === "ModelInfo"),
+		)
 		this.state.hasModelInfoDefault = _defaultModelInfoPaths.every((f) =>
 			this.state.modelInfoFolders.some((mif) => mif.path === f),
 		)
@@ -92,10 +89,10 @@ class WatchFolderService {
 	async addWatchFolder(folderPath: string, type: "Projects" | "ModelInfo") {
 		if (folderPath.startsWith("remote")) {
 			await pdb.watchFolders.add(folderPath, type, false)
-			await this.#dtp.scanner.scanAndWatch()
+			this.onScanRequired()
 		} else if (await exists(folderPath)) {
 			await pdb.watchFolders.add(folderPath, type, false)
-			await this.#dtp.scanner.scanAndWatch()
+			this.onScanRequired()
 		} else {
 			throw new Error("DNE")
 		}
@@ -228,7 +225,7 @@ class WatchFolderService {
 	}
 }
 
-export default WatchFolderService
+export default WatchFoldersController
 
 async function findFiles(
 	directory: string,

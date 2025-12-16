@@ -3,14 +3,15 @@ import { motion, useSpring } from "motion/react"
 import { type ComponentType, useEffect, useMemo, useRef } from "react"
 import type { IconType } from "react-icons/lib"
 import { PiInfo } from "react-icons/pi"
-import { proxy, useSnapshot, type Snapshot } from "valtio"
+import { proxy, type Snapshot, useSnapshot } from "valtio"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import { PaneListScrollContainer, PanelListScrollContent } from "./common"
 
-interface PanelListComponentProps<T> extends ChakraProps {
+interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
 	emptyListText?: string | boolean
-	commands?: PanelListCommand<T>[]
+	commands?: PanelListCommand<T, C>[]
+	commandContext?: C
 	header?: string
 	headerInfo?: string
 	keyFn?: (item: T | Snapshot<T>) => string | number
@@ -21,26 +22,27 @@ interface PanelListComponentProps<T> extends ChakraProps {
 	selectionMode?: "multipleModifier" | "multipleToggle" | "single"
 }
 
-export interface PanelListCommand<T> {
+export interface PanelListCommand<T, C = undefined> {
 	id: string
 	icon?: IconType | ComponentType
-	getIcon?: (selected: Snapshot<T[]>) => IconType | ComponentType
+	getIcon?: (selected: Snapshot<T[]>, context?: C) => IconType | ComponentType
 	requiresSelection?: boolean
 	requiresSingleSelection?: boolean
-	getEnabled?: (selected: Snapshot<T[]>) => boolean
+	getEnabled?: (selected: Snapshot<T[]>, context?: C) => boolean
 	/** if present, tipTitle and tipText will be ignored */
 	tip?: React.ReactNode
 	tipTitle?: string
 	tipText?: string
-	getTip?: (selected: Snapshot<T[]>) => React.ReactNode
-	onClick: (selected: Snapshot<T[]>) => void
+	getTip?: (selected: Snapshot<T[]>, context?: C) => React.ReactNode
+	onClick: (selected: Snapshot<T[]>, context?: C) => void
 }
 
-function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
+function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
 	const {
 		children,
 		emptyListText: emptyListTextProp,
 		commands,
+		commandContext,
 		header,
 		headerInfo,
 		keyFn,
@@ -131,16 +133,16 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 						let enabled = true
 						if (command.requiresSelection && !areItemsSelected) enabled = false
 						if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
-						if (command.getEnabled) enabled = command.getEnabled(selectedItems)
+						if (command.getEnabled) enabled = command.getEnabled(selectedItems, commandContext)
 
-						const Icon = command.getIcon ? command.getIcon(selectedItems) : command.icon
-						const tip = command.getTip ? command.getTip(selectedItems) : command.tip
+						const Icon = command.getIcon ? command.getIcon(selectedItems, commandContext) : command.icon
+						const tip = command.getTip ? command.getTip(selectedItems, commandContext) : command.tip
 
 						const CommandButton = (
 							<IconButton
 								key={command.id}
 								size={"sm"}
-								onClick={() => command.onClick(selectedItems)}
+								onClick={() => command.onClick(selectedItems, commandContext)}
 								disabled={!enabled}
 							>
 								{Icon && <Icon />}

@@ -9,12 +9,12 @@ import { useInitRef } from "@/hooks/useInitRef"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
-import { type IDTProjectsStore, useDTProjects } from "../state/projectStore"
-import type { WatchFolderState } from "../state/watchFolders"
+import { useDTP } from "../state/context"
+import type { WatchFolderState, WatchFoldersController } from "../state/watchFolders"
 
 function getCommands(
 	folderType: "Projects" | "ModelInfo",
-	store: IDTProjectsStore,
+	watchFolders: WatchFoldersController,
 ): PanelListCommand<WatchFolderState>[] {
 	const ft = folderType === "Projects" ? "proj" : "modinfo"
 	return [
@@ -23,7 +23,7 @@ function getCommands(
 			getIcon: (selected) => (selected[0]?.recursive ? FiList : LuFolderTree),
 			requiresSelection: true,
 			onClick: (selected) => {
-				store.watchFolders.setRecursive(selected, !selected[0]?.recursive)
+				watchFolders.setRecursive(selected, !selected[0]?.recursive)
 			},
 			getTip: (selected) => (selected[0]?.recursive ? "Disable recursive" : "Enable recursive"),
 		},
@@ -32,7 +32,7 @@ function getCommands(
 			icon: FaMinus,
 			requiresSelection: true,
 			onClick: (selected) => {
-				store.watchFolders.removeWatchFolders(selected)
+				watchFolders.removeWatchFolders(selected)
 			},
 			tip: "Remove selected folders",
 		},
@@ -40,7 +40,7 @@ function getCommands(
 			id: `${ft}-add-folder`,
 			icon: FaPlus,
 			onClick: () =>
-				openAnd((f) => store.watchFolders.addWatchFolder(f, folderType), {
+				openAnd((f) => watchFolders.addWatchFolder(f, folderType), {
 					directory: true,
 					multiple: false,
 					title: `Select ${folderType.toLowerCase()} folder`,
@@ -54,20 +54,23 @@ interface SettingsPanelComponentProps extends ChakraProps {}
 
 function SettingsPanel(props: SettingsPanelComponentProps) {
 	const { ...restProps } = props
-	const { snap, store } = useDTProjects()
+	const { images, watchFolders } = useDTP()
+	const imagesSnap = images.useSnap()
 
 	const { hasModelInfoDefault, hasProjectDefault, modelInfoFolders, projectFolders } =
-		snap.watchFolders
+		watchFolders.useSnap()
 
-	const projectFolderCommands = useInitRef(() => getCommands("Projects", store))
-	const modelInfoFolderCommands = useInitRef(() => getCommands("ModelInfo", store))
+	const projectFolderCommands = useInitRef(() => getCommands("Projects", watchFolders))
+	const modelInfoFolderCommands = useInitRef(() => getCommands("ModelInfo", watchFolders))
 
 	return (
 		<TabContent value={"settings"} {...restProps}>
 			<PanelList
-				itemsState={() => store.watchFolders.state.projectFolders}
+				itemsState={() => watchFolders.state.projectFolders}
 				header={"Project locations"}
-				headerInfo={"Draw Things projects in these folders will be indexed and listed in the projects tab. \n\nFor most users, only the default folder will be needed. If you move your projects to external storage, you can include the locations here."}
+				headerInfo={
+					"Draw Things projects in these folders will be indexed and listed in the projects tab. \n\nFor most users, only the default folder will be needed. If you move your projects to external storage, you can include the locations here."
+				}
 				commands={projectFolderCommands}
 				keyFn={(item) => item.id}
 				clearSelection={modelInfoFolders.some((f) => f.selected)}
@@ -84,19 +87,18 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			</PanelList>
 
 			{!hasProjectDefault && (
-				<PanelButton
-					margin={2}
-					onClick={() => store.watchFolders.addDefaultWatchFolder("Projects")}
-				>
+				<PanelButton margin={2} onClick={() => watchFolders.addDefaultWatchFolder("Projects")}>
 					Add default location
 				</PanelButton>
 			)}
 
 			<PanelList
 				marginTop={4}
-				itemsState={() => store.watchFolders.state.modelInfoFolders}
+				itemsState={() => watchFolders.state.modelInfoFolders}
 				header={"Model info"}
-				headerInfo={"Model info files in these folders will be indexed to improve search and provide more useful context. \n\nIf you use the External Model Folder setting in Draw Things, add that folder here."}
+				headerInfo={
+					"Model info files in these folders will be indexed to improve search and provide more useful context. \n\nIf you use the External Model Folder setting in Draw Things, add that folder here."
+				}
 				commands={modelInfoFolderCommands}
 				keyFn={(item) => item.id}
 				clearSelection={projectFolders.some((f) => f.selected)}
@@ -112,10 +114,7 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			</PanelList>
 
 			{!hasModelInfoDefault && (
-				<PanelButton
-					margin={2}
-					onClick={() => store.watchFolders.addDefaultWatchFolder("ModelInfo")}
-				>
+				<PanelButton margin={2} onClick={() => watchFolders.addDefaultWatchFolder("ModelInfo")}>
 					Add default locations
 				</PanelButton>
 			)}
@@ -124,8 +123,8 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			<Slider
 				min={100}
 				max={500}
-				value={[snap.itemSize]}
-				onValueChange={(value) => store.setItemSize(value.value[0])}
+				value={[imagesSnap.imageSize ?? 200]}
+				onValueChange={(value) => {images.state.imageSize = value.value[0]}}
 			/>
 		</TabContent>
 	)

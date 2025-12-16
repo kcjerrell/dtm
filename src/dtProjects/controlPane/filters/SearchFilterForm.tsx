@@ -2,7 +2,8 @@ import { Grid } from "@chakra-ui/react"
 import { useRef } from "react"
 import { FiX } from "react-icons/fi"
 import { IconButton } from "@/components"
-import { type FilterOperator, useSearchServiceFilter } from "@/dtProjects/state/search"
+import { useDTP } from "@/dtProjects/state/context"
+import type { FilterOperator } from "@/dtProjects/state/search"
 import FilterSelect from "./FilterSelect"
 
 interface SearchFilterFormComponentProps extends Omit<ChakraProps, "filter"> {
@@ -21,7 +22,7 @@ const selectStyle = {
 
 function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
 	const { onRemove, index, ...boxProps } = props
-
+	const { search } = useDTP()
 	const {
 		target,
 		operator,
@@ -32,7 +33,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
 		setTarget,
 		targetCollection,
 		operatorCollection,
-	} = useSearchServiceFilter<T>(index)
+	} = search.useSearchFilter<T>(index)
 	const { valueColumn, valueRow, removeColumn, templateColumns } = getLayout(target)
 
 	const targetRef = useRef<HTMLDivElement>(null)
@@ -96,7 +97,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
 				gridColumn={valueColumn}
 				gridRow={valueRow}
 				{...selectStyle}
-				onValueChange={(v) => {
+				onValueChange={(v: T | undefined) => {
 					setValue(v)
 				}}
 			/>

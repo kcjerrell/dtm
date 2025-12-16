@@ -1,7 +1,10 @@
+import { proxy } from "valtio"
 import { type ProjectExtra, pdb } from "@/commands"
+import { DTPStateController } from "@/hooks/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
+import va from "@/utils/array"
+import { eventCallback } from '@/utils/handler'
 import { arrayIfOnly } from "@/utils/helpers"
-import type { DTProjectsStateType, IDTProjectsStore } from "./projectStore"
 
 export interface ProjectState extends Selectable<ProjectExtra> {
 	name: string
@@ -9,20 +12,30 @@ export interface ProjectState extends Selectable<ProjectExtra> {
 	isMissing?: boolean
 }
 
-class ProjectsService {
-	#dtp: IDTProjectsStore
-	#state: DTProjectsStateType
+export type ProjectsControllerState = {
+	projects: ProjectState[]
+	selectedProjects: ProjectState[]
+}
 
-	constructor(dtp: IDTProjectsStore) {
-		this.#dtp = dtp
-		this.#state = dtp.state
+class ProjectsController extends DTPStateController<ProjectsControllerState> {
+	state = proxy<ProjectsControllerState>({
+		projects: [],
+		selectedProjects: [],
+	})
+	onSyncRequired: () => void = () => {
+		console.warn("Projects may be out of sync, handler not assigned")
 	}
+
+	onSelectedProjectsChanged = eventCallback<ProjectState[]>()
 
 	async loadProjects() {
 		const projects = await pdb.listProjects()
-		this.#state.projects = projects
-			.map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
-			.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+		va.set(
+			this.state.projects,
+			projects
+				.map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
+				.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
+		)
 	}
 
 	async removeProjects(projectFiles: string[]) {
@@ -44,13 +57,37 @@ class ProjectsService {
 		for (const project of toUpdate) {
 			await pdb.updateExclude(project.id, exclude)
 		}
-		await this.#dtp.scanner.syncProjects()
+		this.onSyncRequired()
 	}
 
 	getProjectFile(projectId?: number | null) {
 		if (Number.isNaN(projectId)) return undefined
-		return this.#state.projects.find((p) => p.id === projectId)?.path
+		return this.state.projects.find((p) => p.id === projectId)?.path
+	}
+
+	/**
+	 * Updates the image count for each project
+	 * @param counts Record of project id to image count
+	 */
+	updateImageCounts(counts: Record<number, number>) {
+		for (const project of this.state.projects) {
+			project.image_count = counts[project.id] ?? 0
+		}
+	}
+
+	setSelectedProjects(projects: ProjectState[]) {
+		va.set(this.state.selectedProjects, projects)
+		this.onSelectedProjectsChanged(projects)
+	}
+
+	useProjectsSummary() {
+		const snap = this.useSnap()
+		return {
+			totalProjects: snap.projects.length,
+			totalImages: snap.projects.reduce((acc, p) => acc + p.image_count, 0),
+			totalSize: snap.projects.reduce((acc, p) => acc + p.filesize, 0),
+		}
 	}
 }
 
-export default ProjectsService
+export default ProjectsController

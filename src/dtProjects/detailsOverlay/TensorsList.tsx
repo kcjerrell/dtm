@@ -1,4 +1,3 @@
-import { Box } from "@chakra-ui/react/box"
 import { Spacer } from "@chakra-ui/react/spacer"
 import { VStack } from "@chakra-ui/react/stack"
 import { chakra } from "@chakra-ui/react/styled-system"
@@ -6,8 +5,8 @@ import { Text } from "@chakra-ui/react/text"
 import { motion } from "motion/react"
 import { type ComponentProps, useCallback } from "react"
 import type { ImageExtra, TensorHistoryExtra } from "@/commands"
-import { Tooltip } from "@/components"
-import { useDTProjects } from "../state/projectStore"
+import { MotionBox, Tooltip } from "@/components"
+import { useDTP } from "../state/context"
 import TensorThumbnail from "./TensorThumbnail"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
@@ -18,18 +17,19 @@ interface TensorsListComponentProps extends ComponentProps<typeof Container> {
 
 function TensorsList(props: TensorsListComponentProps) {
 	const { candidates, details, item, ...restProps } = props
-	const { store } = useDTProjects()
+
+	const { uiState } = useDTP()
 
 	const showSubitem = useCallback(
 		(e: React.MouseEvent<HTMLElement>, tensorId?: string) => {
 			e.stopPropagation()
 			if (!item || !tensorId) return
-			store.showSubItem(item.project_id, tensorId, e.currentTarget)
+			uiState.showSubItem(item.project_id, tensorId, e.currentTarget)
 		},
-		[item, store],
+		[item, uiState.showSubItem],
 	)
 
-	if (!item || !details) return <Box height={"6rem"} />
+	if (!item || !details) return <MotionBox height={"60px"} {...restProps} />
 
 	const {
 		depth_map_id,
@@ -120,18 +120,15 @@ function TensorsList(props: TensorsListComponentProps) {
 	)
 }
 
-const Container = chakra(
-	motion.div,
-	{
-		base: {
-			display: "flex",
-			flexDirection: "row",
-			padding: 0,
-			height: "6rem",
-		},
+const Container = chakra(motion.div, {
+	base: {
+		display: "flex",
+		flexDirection: "row",
+		padding: 0,
+		height: "60px",
+		// transform: "translateY(15px)",
 	},
-	{ forwardProps: ["transition"] },
-)
+})
 
 const Group = chakra(
 	motion.div,

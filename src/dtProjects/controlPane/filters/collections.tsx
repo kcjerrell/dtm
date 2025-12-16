@@ -15,9 +15,7 @@ export function createValueLabelCollection(values: Record<string, string>) {
 	})
 }
 
-export type FilterValueSelector<T = unknown> = ((props: ValueSelectorProps<T>) => JSX.Element) & {
-	getValueLabel: T extends Array<infer _U> ? (value?: T) => string[] : (value: T) => string
-}
+export type FilterValueSelector<T = unknown> = (props: ValueSelectorProps<T>) => JSX.Element
 
 export function getValueSelector(target?: string) {
 	if (!target) return filterTargets.none.ValueComponent
@@ -124,17 +122,12 @@ export const filterTargets = {
 	shift: { collection: numberOpsCollection, ValueComponent: FloatValueInput, initialValue: 3.12 },
 	none: {
 		collection: createListCollection<CollectionItem>({ items: [] }),
-		ValueComponent: Object.assign(
-			(props: ValueSelectorProps<unknown>) => (
-				<Box cursor={"default"} alignContent={"center"} {...props}>
-					{/* <Text>
+		ValueComponent: (props: ValueSelectorProps<unknown>) => (
+			<Box cursor={"default"} alignContent={"center"} {...props}>
+				{/* <Text>
 						...
 					</Text> */}
-				</Box>
-			),
-			{
-				getValueLabel: () => "Unknown target",
-			},
+			</Box>
 		),
 	} as FilterImplementation<unknown>,
 } as unknown as Record<string, FilterImplementation>

@@ -1,9 +1,11 @@
-import { ImageExtra, TensorHistoryExtra } from "@/commands"
-import { Panel, DataItem } from "@/components"
-import { extractConfigFromTensorHistoryNode, samplerLabels } from "@/utils/config"
-import { Box, chakra } from "@chakra-ui/react"
+import { chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { Snapshot } from "valtio"
+import { Fragment } from "react/jsx-runtime"
+import type { Snapshot } from "valtio"
+import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import { DataItem, Panel } from "@/components"
+import { extractConfigFromTensorHistoryNode } from "@/utils/config"
+import { useDTP } from "../state/context"
 
 interface DetailsContentProps extends ChakraProps {
 	item?: Snapshot<ImageExtra> | null
@@ -11,11 +13,12 @@ interface DetailsContentProps extends ChakraProps {
 }
 
 function DetailsContent(props: DetailsContentProps) {
-	const { item, details, ...boxProps } = props
+	const { ...boxProps } = props
+	const { uiState } = useDTP()
+	const { detailsView: snap } = uiState.useSnap()
+	const config = extractConfigFromTensorHistoryNode(snap.itemDetails?.history)
 
-	const config = extractConfigFromTensorHistoryNode(details?.history)
-
-	if (!item) return null
+	if (!snap.item) return null
 
 	return (
 		<Panel
@@ -45,29 +48,31 @@ function DetailsContent(props: DetailsContentProps) {
 				animate={"open"}
 				exit={"closed"}
 			>
-				<Row>
-					<DataItem.Size width={config?.width} height={config?.height} />
-					<DataItem.Seed seed={config?.seed} seedMode={config?.seedMode} />
-				</Row>
-				<Row>
-					<DataItem label={"Model"} data={config?.model} />
-					<DataItem.Strength strength={config?.strength} />
-				</Row>
-				<Row>
-					<DataItem.Sampler sampler={config?.sampler} />
-					<DataItem label={"Steps"} data={config?.steps} />
-					<DataItem label={"Text Guidance"} data={config?.guidanceScale} />
-					<DataItem label={"Shift"} data={config?.shift} />
-				</Row>
-				<DataItem label={"Prompt"} data={item.prompt} maxLines={6} />
-				<DataItem label={"Negative Prompt"} data={item.negative_prompt} maxLines={6} />
-				<DataItem label={"Tensor ID"} data={details?.tensor_id} />
-				<DataItem label={"Depth Map ID"} data={details?.depth_map_id} />
-				<DataItem label={"Pose ID"} data={details?.pose_id} />
-				<DataItem label={"Scribble ID"} data={details?.scribble_id} />
-				<DataItem label={"Color Palette ID"} data={details?.color_palette_id} />
-				<DataItem label={"Custom ID"} data={details?.custom_id} />
-				<DataItem label={"Raw"} data={JSON.stringify(details, null, 2)} />
+				<Fragment key={snap.itemDetails?.tensor_id || "details_content"}>
+					<Row>
+						<DataItem.Size width={config?.width} height={config?.height} />
+						<DataItem.Seed seed={config?.seed} seedMode={config?.seedMode} />
+					</Row>
+					<Row>
+						<DataItem label={"Model"} data={config?.model} />
+						<DataItem.Strength strength={config?.strength} />
+					</Row>
+					<Row>
+						<DataItem.Sampler sampler={config?.sampler} />
+						<DataItem label={"Steps"} data={config?.steps} />
+						<DataItem label={"Text Guidance"} data={config?.guidanceScale} />
+						<DataItem label={"Shift"} data={config?.shift} />
+					</Row>
+					<DataItem label={"Prompt"} data={snap.item.prompt} maxLines={6} />
+					<DataItem label={"Negative Prompt"} data={snap.item.negative_prompt} maxLines={6} />
+					<DataItem label={"Tensor ID"} data={snap.itemDetails?.tensor_id} />
+					<DataItem label={"Depth Map ID"} data={snap.itemDetails?.depth_map_id} />
+					<DataItem label={"Pose ID"} data={snap.itemDetails?.pose_id} />
+					<DataItem label={"Scribble ID"} data={snap.itemDetails?.scribble_id} />
+					<DataItem label={"Color Palette ID"} data={snap.itemDetails?.color_palette_id} />
+					<DataItem label={"Custom ID"} data={snap.itemDetails?.custom_id} />
+					<DataItem label={"Raw"} data={JSON.stringify(snap.itemDetails, null, 2)} />
+				</Fragment>
 			</motion.div>
 		</Panel>
 	)

@@ -1,11 +1,11 @@
 import DTProjects from "./DTProjects"
-import { PDBProvider } from "./state/context"
+import { DTPProvider } from "./state/context"
 
 function DTProjectsContainer(props: ChakraProps) {
 	return (
-		<PDBProvider>
+		<DTPProvider>
 			<DTProjects {...props} />
-		</PDBProvider>
+		</DTPProvider>
 	)
 }
 
