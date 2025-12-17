@@ -1,3 +1,4 @@
+import { MotionBox } from "@/components"
 import { Box } from "@chakra-ui/react"
 import { motion, type TargetAndTransition, useAnimate } from "motion/react"
 import { type CSSProperties, useCallback, useRef } from "react"
@@ -7,6 +8,7 @@ const transition = { duration: 0.25, ease: "easeInOut" }
 interface DetailsImageProps extends ChakraProps {
 	src?: string
 	srcHalf?: string
+	maskSrc?: string
 	sourceRect: ValueOrGetter<Nullable<DOMRectReadOnly>>
 	naturalSize: { width: number; height: number }
 	imgStyle?: CSSProperties
@@ -20,6 +22,7 @@ function DetailsImage(props: DetailsImageProps) {
 	const {
 		src,
 		srcHalf,
+		maskSrc,
 		sourceRect: sourceRectProp,
 		naturalSize,
 		imgStyle,
@@ -36,6 +39,10 @@ function DetailsImage(props: DetailsImageProps) {
 	const imgOrigin = useRef<LRect | null>(null)
 	const imgTarget = useRef<LRect | null>(null)
 	const resized = useRef(false)
+
+	const maskProps = maskSrc
+		? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
+		: {}
 
 	const getImageAnimOpen = useCallback(() => {
 		if (sourceRect && imgContainerRef.current) {
@@ -134,18 +141,15 @@ function DetailsImage(props: DetailsImageProps) {
 			position={"relative"}
 			{...restProps}
 		>
-			<motion.img
+			<motion.div
 				ref={scope}
-				src={src}
+				key={src}
 				style={{
-					imageRendering: pixelated ? "pixelated" : "auto",
-					backgroundImage: `url(${srcHalf})`,
-					backgroundSize: "cover",
-					backgroundPosition: "center",
-					backgroundRepeat: "no-repeat",
+					backgroundImage: "url(check_dark.png)",
+					backgroundSize: `${naturalSize.width / 128}% ${naturalSize.height / 128}%`,
+					backgroundRepeat: "repeat",
 					position: "absolute",
 					zIndex: 20,
-					objectFit: "cover",
 					...imgStyle,
 				}}
 				variants={{
@@ -165,7 +169,22 @@ function DetailsImage(props: DetailsImageProps) {
 						sourceElement.style.visibility = "visible"
 					}
 				}}
-			/>
+			>
+				<img
+					src={src}
+					alt={src}
+					style={{
+						imageRendering: pixelated ? "pixelated" : "auto",
+						backgroundImage: `url(${srcHalf})`,
+						backgroundSize: "cover",
+						backgroundPosition: "center",
+						backgroundRepeat: "no-repeat",
+						objectFit: "cover",
+					...maskProps,
+
+					}}
+				/>
+			</motion.div>
 		</Box>
 	)
 }

@@ -1,5 +1,5 @@
 import { Button, HStack, Input, VStack } from "@chakra-ui/react"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PanelButton } from "@/components"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../state/context"
@@ -9,13 +9,23 @@ interface SearchPanelComponentProps extends ChakraProps {}
 
 function SearchPanel(props: SearchPanelComponentProps) {
 	const { ...restProps } = props
-	const { models, search } = useDTP()
+	const { models, search, uiState } = useDTP()
 
 	const searchSnap = search.useSnap()
+	const { shouldFocus } = uiState.useSnap()
+
+	const [searchInput, setSearchInput] = useState("")
+	const searchInputRef = useRef<HTMLInputElement>(null)
 
 	useEffect(() => {
 		models.refreshModels()
 	}, [models.refreshModels])
+
+	useEffect(() => {
+		if (searchInputRef.current && shouldFocus === "searchInput") {
+			searchInputRef.current.focus()
+		}
+	}, [shouldFocus])
 
 	// useEffect(() => {
 	// searchService.incLayoutId()
@@ -24,10 +34,17 @@ function SearchPanel(props: SearchPanelComponentProps) {
 	return (
 		<TabContent value={"search"} overflowX={"clip"} {...restProps}>
 			<Input
+				ref={searchInputRef}
 				bgColor={"bg.3"}
-				value={searchSnap.searchInput}
+				value={searchInput}
 				onChange={(e) => {
+					setSearchInput(e.target.value)
 					search.state.searchInput = e.target.value
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						search.applySearch()
+					}
 				}}
 				border={"2px solid gray"}
 				borderRadius={"lg"}

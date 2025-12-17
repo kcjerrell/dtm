@@ -45,21 +45,22 @@ async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>
     let project_id: i64 = path[2]
         .parse()
         .map_err(|_| "Invalid project ID".to_string())?;
-    
+
     let project_path = get_project_path(project_id)
         .await
         .map_err(|e| format!("Failed to get project path: {}", e))?;
-    
+
     let item_id = path[3];
 
     let query = request.uri().query();
     let node: Option<i64> = get_node(query).and_then(|n| n.parse().ok());
     let scale: Option<u32> = get_scale(query).and_then(|s| s.parse().ok());
+    let invert: Option<bool> = get_invert(query);
 
     match item_type {
         "thumb" => thumb(&project_path, item_id, false).await,
         "thumbhalf" => thumb(&project_path, item_id, true).await,
-        "tensor" => tensor(&project_path, item_id, node, scale).await,
+        "tensor" => tensor(&project_path, item_id, node, scale, invert).await,
         _ => Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body("Not Found".as_bytes().to_vec())
@@ -67,29 +68,27 @@ async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>
     }
 }
 
-async fn thumb(
-    path: &str,
-    item_id: &str,
-    half: bool,
-) -> Result<Response<Vec<u8>>, String> {
+async fn thumb(path: &str, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
     let id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
-    
+
     let dtp = DTProject::get(path)
         .await
         .map_err(|e| format!("Failed to open project: {}", e))?;
-        
+
     let thumb = match half {
         true => dtp.get_thumb_half(id).await,
         false => dtp.get_thumb(id).await,
     };
 
     let thumb = thumb.map_err(|e| format!("Failed to get thumb: {}", e))?;
-    
+
     let thumb = extract_jpeg_slice(&thumb).ok_or("Failed to extract JPEG slice".to_string())?;
 
     Response::builder()
         .status(StatusCode::OK)
-        .header(http::header::CONTENT_TYPE, mime::IMAGE_JPEG.essence_str())
+        .header("Content-Type", "image/jpeg")
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Methods", "GET")
         .body(thumb)
         .map_err(|e| e.to_string())
 }
@@ -99,12 +98,14 @@ async fn tensor(
     name: &str,
     node: Option<i64>,
     scale: Option<u32>,
+    invert: Option<bool>,
 ) -> Result<Response<Vec<u8>>, String> {
     let dtp = DTProject::get(project_file)
         .await
         .map_err(|e| format!("Failed to open project: {}", e))?;
-        
-    let tensor = dtp.get_tensor_raw(name)
+
+    let tensor = dtp
+        .get_tensor_raw(name)
         .await
         .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
 
@@ -126,7 +127,7 @@ async fn tensor(
             Some(png)
         }
         "scribble" | "binary_mask" => {
-            let png = scribble_mask_to_png(tensor)
+            let png = scribble_mask_to_png(tensor, scale, invert)
                 .map_err(|e| format!("Failed to convert mask to png: {}", e))?;
             Some(png)
         }
@@ -136,12 +137,18 @@ async fn tensor(
     match body {
         Some(body) => Response::builder()
             .status(StatusCode::OK)
-            .header(http::header::CONTENT_TYPE, mime::IMAGE_PNG.essence_str())
+            .header("Content-Type", "image/png")
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Methods", "GET")
             .body(body)
             .map_err(|e| e.to_string()),
         None => Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body("Unsupported tensor type or decoding failed".as_bytes().to_vec())
+            .body(
+                "Unsupported tensor type or decoding failed"
+                    .as_bytes()
+                    .to_vec(),
+            )
             .map_err(|e| e.to_string()),
     }
 }
@@ -200,6 +207,16 @@ fn get_scale(query: Option<&str>) -> Option<&str> {
     }
 }
 
+fn get_invert(query: Option<&str>) -> Option<bool> {
+    match query {
+        Some(query) => query.split('&').find_map(|pair| {
+            let (k, v) = pair.split_once('=')?;
+            (k == "mask" && v == "invert").then_some(true)
+        }),
+        None => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,7 +251,7 @@ mod tests {
             0xFF, 0xD8, // SOI
             0x01, 0x02, // Content
             0xFF, 0xD9, // EOI
-            0x00, 0x00  // Garbage
+            0x00, 0x00, // Garbage
         ];
         let extracted = extract_jpeg_slice(&data).unwrap();
         assert_eq!(extracted, vec![0xFF, 0xD8, 0x01, 0x02, 0xFF, 0xD9]);

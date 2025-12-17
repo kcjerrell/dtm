@@ -135,7 +135,7 @@ pub async fn projects_db_image_list(
         count,
     };
 
-    Ok(projects_db.list_images(opts).await.unwrap())
+    Ok(projects_db.list_images(opts).await.                      unwrap())
 }
 
 #[tauri::command]

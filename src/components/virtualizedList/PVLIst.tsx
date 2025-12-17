@@ -1,9 +1,7 @@
 import { Box, chakra, VStack } from "@chakra-ui/react"
-import { type JSX, useCallback, useEffect, useRef } from "react"
-import { createPortal } from "react-dom"
+import { useCallback, useEffect, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 import { proxyMap } from "valtio/utils"
-import { Mutex } from "async-mutex"
 import { usePagedItemSource } from "./PagedItemSource"
 
 export interface PVListProps<T, P = unknown> extends ChakraProps {

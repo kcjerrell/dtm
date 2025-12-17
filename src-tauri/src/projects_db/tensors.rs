@@ -156,18 +156,43 @@ pub fn decompress_fzip(data: Vec<u8>) -> Result<Vec<f32>> {
     Ok(out)
 }
 
-pub fn scribble_mask_to_png(tensor: TensorRaw) -> Result<Vec<u8>> {
-    let data = inflate_deflate(&tensor.data).unwrap();
-    let bw = data.iter().map(|&x| if x > 0 { 255 } else { 0 }).collect();
+pub fn scribble_mask_to_png(
+    tensor: TensorRaw,
+    scale: Option<u32>,
+    invert: Option<bool>,
+) -> Result<Vec<u8>> {
+    let data = inflate_deflate(&tensor.data)?;
+    let should_invert = invert.unwrap_or(false);
+    let bw: Vec<u8> = data
+        .iter()
+        .map(|&x| if (x > 0) ^ should_invert { 255 } else { 0 })
+        .collect();
 
-    let height = i32::from_le_bytes(tensor.dim[0..4].try_into().ok().unwrap());
-    let width = i32::from_le_bytes(tensor.dim[4..8].try_into().ok().unwrap());
+    let height = i32::from_le_bytes(tensor.dim[0..4].try_into().ok().unwrap()) as u32;
+    let width = i32::from_le_bytes(tensor.dim[4..8].try_into().ok().unwrap()) as u32;
+
+    let mut img = GrayImage::from_raw(width, height, bw)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw"))?;
 
     let mut out = Vec::new();
 
-    GrayImage::from_raw(width as u32, height as u32, bw)
-        .unwrap()
-        .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+    if let Some(target_size) = scale {
+        let crop_size = width.min(height);
+        let start_x = (width - crop_size) / 2;
+        let start_y = (height - crop_size) / 2;
+
+        let cropped = image::imageops::crop(&mut img, start_x, start_y, crop_size, crop_size).to_image();
+        let resized = image::imageops::resize(
+            &cropped,
+            target_size,
+            target_size,
+            image::imageops::FilterType::Nearest,
+        );
+
+        resized.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+    } else {
+        img.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+    }
 
     Ok(out)
 }

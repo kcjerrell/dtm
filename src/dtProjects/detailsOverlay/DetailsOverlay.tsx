@@ -12,6 +12,8 @@ import { useDTP } from "../state/context"
 import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
 import TensorsList from "./TensorsList"
+import { UIControllerState } from "../state/uiState"
+import { Snapshot } from 'valtio'
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
@@ -21,7 +23,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 	const { ...rest } = props
 
 	const { uiState } = useDTP()
-	const snap = uiState.useDetailsOveralay()
+	const snap = uiState.useDetailsOverlay()
 
 	const { item, itemDetails } = snap
 
@@ -44,8 +46,8 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 					backgroundColor: "#00000099",
 					backdropFilter: "blur(5px)",
 					// display: "flex",
-					visibility: 'visible',
-					pointerEvents: 'auto',
+					visibility: "visible",
+					pointerEvents: "auto",
 					transition: {
 						visibility: {
 							duration: 0,
@@ -60,8 +62,8 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 					backgroundColor: "#00000000",
 					backdropFilter: "blur(0px)",
 					// visibility: "hidden",
-					visibility: 'hidden',
-					pointerEvents: 'none',
+					visibility: "hidden",
+					pointerEvents: "none",
 					transition: {
 						visibility: {
 							duration: 0,
@@ -132,6 +134,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 									width={"100%"}
 									flex={"1 1 auto"}
 									src={snap.subItem?.url}
+									maskSrc={snap.subItem?.applyMask ? snap.subItem?.maskUrl : undefined}
 									// srcHalf={subItem?.thumbUrl}
 									sourceRect={() => snap.subItemSourceRect}
 									sourceElement={snap.subItem.sourceElement as HTMLElement}
@@ -143,25 +146,24 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 									imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
 									// position={"absolute"}
 								/>
-								<DarkMode>
-									<DetailsButtonBar
-										show={snap.subItem && !snap.subItem.isLoading}
-										item={item}
-										tensorId={snap.subItem.tensorId}
-									/>
-								</DarkMode>
+								<DetailsButtonBar
+									show={snap.subItem && !snap.subItem.isLoading}
+									subItem={snap.subItem}
+									item={item}
+									tensorId={snap.subItem.tensorId}
+								/>
 							</VStack>
 						)}
 					</AnimatePresence>
 				</Box>
-				<DarkMode>
+				<AnimatePresence>
 					<DetailsButtonBar
 						show={!snap.subItem}
 						item={item}
 						addMetadata={true}
 						tensorId={itemDetails?.tensor_id}
 					/>
-				</DarkMode>
+				</AnimatePresence>
 				<TensorsList
 					flex={"0 0 60px"}
 					zIndex={1}
@@ -229,10 +231,11 @@ interface DetailsButtonBarProps extends ChakraProps {
 	tensorId?: string
 	show?: boolean
 	addMetadata?: boolean
+	subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-	const { item, tensorId, show, addMetadata, ...restProps } = props
-	const { projects } = useDTP()
+	const { item, tensorId, show, addMetadata, subItem, ...restProps } = props
+	const { projects, uiState } = useDTP()
 
 	const projectId = item?.project_id
 	const nodeId = addMetadata ? item?.node_id : undefined
@@ -256,9 +259,14 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 			<motion.div
 				initial={{ opacity: 0 }}
 				animate={{ opacity: show ? 1 : 0 }}
-				exit={{ opacity: 0, transition: { delay: 0, duration: 0.1 } }}
+				// exit={{ opacity: 0, transition: { delay: 0, duration: 0.5 } }}
 				transition={{ duration: 0.2, delay: 0.2 }}
 			>
+				{subItem?.maskUrl && (
+					<IconButton size={"sm"} disabled={disabled} onClick={() => uiState.toggleSubItemMask()}>
+						<FiCopy />
+					</IconButton>
+				)}
 				<IconButton size={"sm"} disabled={disabled} onClick={() => {}}>
 					<FiCopy />
 				</IconButton>

@@ -14,6 +14,8 @@ export type UIControllerState = {
 		subItem?: {
 			projectId: number
 			tensorId: string
+			maskUrl?: string
+			applyMask?: boolean
 			thumbUrl: string
 			url?: string
 			width?: number
@@ -86,7 +88,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 		this.raise("onItemChanged", { item })
 	}
 
-	useDetailsOveralay() {
+	useDetailsOverlay() {
 		return useSnapshot(this.state.detailsView)
 	}
 
@@ -102,19 +104,32 @@ export class UIController extends DTPStateController<UIControllerState> {
 		detailsOverlay.height = undefined
 	}
 
-	async showSubItem(projectId: number, tensorId: string, sourceElement: HTMLElement) {
+	async showSubItem(
+		projectId: number,
+		tensorId: string,
+		sourceElement: HTMLElement,
+		maskId?: string,
+	) {
 		const details = this.state.detailsView
 		if (!details.item) return
 		details.subItem = {
 			projectId,
 			tensorId,
-			thumbUrl: urls.tensor(projectId, tensorId, null, 100),
+			maskUrl: maskId ? urls.tensor(projectId, maskId, { invert: true }) : undefined,
+			applyMask: !!maskId,
+			thumbUrl: urls.tensor(projectId, tensorId, { size: 100 }),
 			isLoading: true,
 			sourceElement: ref(sourceElement),
 		}
 		details.subItemSourceRect = toJSON(sourceElement.getBoundingClientRect())
 		if (tensorId?.startsWith("pose")) await this.showSubItemPose(projectId, tensorId)
 		else await this.showSubItemImage(projectId, tensorId)
+	}
+
+	toggleSubItemMask() {
+		const details = this.state.detailsView
+		if (!details.subItem || !details.subItem.maskUrl) return
+		details.subItem.applyMask = !details.subItem.applyMask
 	}
 
 	async showSubItemPose(projectId: number, tensorId: string) {

@@ -7,9 +7,10 @@ const _thumbnailSize = "60px"
 interface ThumbnailProps extends ChakraProps {
 	projectId: number
 	tensorId: string
+	maskId?: string
 }
 function TensorThumbnail(props: ThumbnailProps) {
-	const { projectId, tensorId, ...restProps } = props
+	const { projectId, tensorId, maskId, ...restProps } = props
 
 	if (tensorId?.startsWith("pose")) {
 		return (
@@ -19,8 +20,18 @@ function TensorThumbnail(props: ThumbnailProps) {
 		)
 	}
 
-	const src = urls.tensor(projectId, tensorId, null, 100)
-	return <ThumbnailBase src={src} {...restProps} />
+	const src = urls.tensor(projectId, tensorId, { size: 100 })
+	return <ThumbnailBase src={src} {...getMask(projectId, maskId)} {...restProps} />
+}
+
+function getMask(projectId?: number, maskId?: string) {
+	if (!projectId || !maskId) return {}
+	const maskSrc = urls.tensor(projectId, maskId, { size: 100, invert: true })
+	return {
+		maskImage: `url(${maskSrc})`,
+		maskMode: "luminance",
+		maskSize: "contain",
+	}
 }
 
 const ThumbnailBase = chakra("img", {

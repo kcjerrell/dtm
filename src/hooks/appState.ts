@@ -49,8 +49,17 @@ const appStore = store(
 		clearPinsOnExit: false,
 	} as AppStateType,
 	{
-		filterKeys: ["updateSize", "updateProgress", "updateStatus", "updateAttempts", "viewRequests"],
-		filterKeysStrategy: "omit",
+		filterKeys: [
+			"currentView",
+			"isSidebarVisible",
+			"onboardPhase",
+			"clearHistoryOnExit",
+			"clearPinsOnExit",
+		],
+		filterKeysStrategy: "pick",
+		saveStrategy: "debounce",
+		saveInterval: 1000,
+		saveOnChange: true,
 	},
 )
 appStore.start()

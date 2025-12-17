@@ -12,7 +12,7 @@ interface SearchIndicatorProps extends ComponentProps<typeof MotionBox> {}
 function SearchIndicator(props: SearchIndicatorProps) {
 	const { ...boxProps } = props
 
-	const { images } = useDTP()
+	const { images, uiState } = useDTP()
 	const snap = images.useSnap()
 
 	const hasSearch = !!snap.imageSource.search
@@ -45,6 +45,11 @@ function SearchIndicator(props: SearchIndicatorProps) {
 						zIndex={1}
 						boxShadow={"pane1"}
 						layout={true}
+						cursor={"pointer"}
+						onClick={() => {
+							uiState.setSelectedTab("search")
+							uiState.state.shouldFocus = "searchInput"
+						}}
 						initial={{
 							borderRadius: "0.5rem 0.5rem 0.5rem 0.5rem",
 							border: "1px solid #77777700",

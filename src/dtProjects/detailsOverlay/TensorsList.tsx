@@ -21,10 +21,10 @@ function TensorsList(props: TensorsListComponentProps) {
 	const { uiState } = useDTP()
 
 	const showSubitem = useCallback(
-		(e: React.MouseEvent<HTMLElement>, tensorId?: string) => {
+		(e: React.MouseEvent<HTMLElement>, tensorId?: string, maskId?: string) => {
 			e.stopPropagation()
 			if (!item || !tensorId) return
-			uiState.showSubItem(item.project_id, tensorId, e.currentTarget)
+			uiState.showSubItem(item.project_id, tensorId, e.currentTarget, maskId)
 		},
 		[item, uiState.showSubItem],
 	)
@@ -108,7 +108,8 @@ function TensorsList(props: TensorsListComponentProps) {
 									<TensorThumbnail
 										projectId={item?.project_id}
 										tensorId={prev.tensor_id}
-										onClick={(e) => showSubitem(e, prev.tensor_id)}
+										maskId={prev.mask_id}
+										onClick={(e) => showSubitem(e, prev.tensor_id, prev.mask_id)}
 									/>
 								</Tooltip>
 							)
@@ -161,6 +162,7 @@ const Group = chakra(
 const Images = chakra("div", {
 	base: {
 		display: "flex",
+		bgColor: "white",
 		flexDirection: "row",
 		// height: _thumbnailSize,
 		gap: 0,
