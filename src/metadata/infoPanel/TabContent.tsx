@@ -1,4 +1,4 @@
-import { Box, Flex, useTabsContext } from "@chakra-ui/react"
+import { Flex, useTabsContext } from "@chakra-ui/react"
 import { useEffect, useRef } from "react"
 import Tabs from "./tabs"
 
@@ -43,9 +43,10 @@ const TabContent = (props: TabContentProps) => {
 			overscrollBehavior={"contain"}
 			onScroll={(e) => updateScroll?.(value, e.currentTarget.scrollTop)}
 			width={"100%"}
+			height={"auto"}
 			{...rest}
 		>
-			<Flex flexDir={"column"} ref={scrollContentRef} {...contentProps}>{children}</Flex>
+			<Flex flex={"1 1 auto"} width={"full"} flexDir={"column"} ref={scrollContentRef} {...contentProps}>{children}</Flex>
 		</Tabs.Content>
 	)
 }

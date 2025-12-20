@@ -127,6 +127,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::TiledDiffusion).boolean().not_null())
                     .col(ColumnDef::new(Images::TeaCache).boolean().not_null())
                     .col(ColumnDef::new(Images::CfgZeroStar).boolean().not_null())
+                    .col(ColumnDef::new(Images::HasMask).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Images::HasDepth).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Images::HasPose).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Images::HasColor).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Images::HasCustom).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Images::HasScribble).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Images::HasShuffle).boolean().not_null().default(false))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_images_project")
@@ -421,6 +428,13 @@ enum Images {
     TiledDiffusion,
     TeaCache,
     CfgZeroStar,
+    HasMask,
+    HasDepth,
+    HasPose,
+    HasColor,
+    HasCustom,
+    HasScribble,
+    HasShuffle,
 }
 
 #[derive(Iden)]

@@ -1,15 +1,14 @@
 import { Box } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { useCallback, useRef } from "react"
+import { useRef } from "react"
 import type { Snapshot } from "valtio"
-import { type ImageExtra, pdb } from "@/commands"
+import type { ImageExtra } from "@/commands"
 import { Panel } from "@/components"
 import PVGrid, { type PVGridItemProps } from "@/components/virtualizedList/PVGrid2"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
-import SearchIndicator from "../SearchIndicator"
 import { useDTP } from "../state/context"
-import type { ImagesControllerState } from "../state/images"
-import { UIControllerState } from "../state/uiState"
+import type { UIControllerState } from "../state/uiState"
+import StatusBar from "./StatusBar"
 
 interface ImagesList extends ChakraProps {}
 
@@ -52,21 +51,24 @@ function ImagesList(props: ImagesList) {
 			bgColor={"bg.2"}
 			{...rest}
 		>
+			<StatusBar width={"100%"} />
 			<PVGrid<ImageExtra>
+				bgColor={"transparent"}
+				minHeight={"100%"}
 				key={imagesSnap.searchId}
 				itemComponent={GridItem as PVListItemComponent<ImageExtra>}
 				itemSource={itemSource}
 				maxItemSize={imagesSnap.imageSize ?? 200}
+				gap={2}
 				itemProps={{
 					snap: uiSnap,
 					showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => {
 						uiState.showDetailsOverlay(item, elem)
 					},
-					// dtp.showDetailsOverlay(item, elem),
 				}}
 				keyFn={(item) => `${item.project_id}_${item.node_id}`}
 			/>
-			<SearchIndicator position={"absolute"} top={2} left={2} />
+			{/* <SearchIndicators position={"absolute"} top={0} left={2} right={2}/> */}
 		</Panel>
 	)
 }

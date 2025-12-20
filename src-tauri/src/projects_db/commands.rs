@@ -1,7 +1,11 @@
 use tauri::Emitter;
 
 use crate::projects_db::{
-    DTProject, ProjectsDb, TensorHistoryImport, dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw}, filters::ListImagesFilter, projects_db::{ImageExtra, ListImagesResult, ModelExtra, Paged, ProjectExtra, ScanProgress}, tensors::decode_tensor
+    dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
+    filters::ListImagesFilter,
+    projects_db::{ImageExtra, ListImagesResult, ModelExtra, Paged, ProjectExtra, ScanProgress},
+    tensors::decode_tensor,
+    DTProject, ProjectsDb, TensorHistoryImport,
 };
 
 #[tauri::command]
@@ -59,56 +63,51 @@ pub async fn projects_db_project_scan(
     full_scan: Option<bool>,
     filesize: Option<i64>,
     modified: Option<i64>,
-) -> Result<(), String> {
+) -> Result<i32, String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
-    let update = |images_scanned: i32, images_total: i32| {
-        app.emit(
-            "projects_db_scan_progress",
-            ScanProgress {
-                projects_scanned: 0,
-                projects_total: 1,
-                project_final: -1,
-                project_path: path.clone(),
-                images_scanned,
-                images_total,
-            },
-        )
-        .unwrap();
-    };
-    match pdb
-        .scan_project(&path, update, full_scan.unwrap_or(false))
+    // let update = |images_scanned: i32, images_total: i32| {
+    //     app.emit(
+    //         "projects_db_scan_progress",
+    //         ScanProgress {
+    //             projects_scanned: 0,
+    //             projects_total: 1,
+    //             project_final: -1,
+    //             project_path: path.clone(),
+    //             images_scanned,
+    //             images_total,
+    //         },
+    //     )
+    //     .unwrap();
+    // };
+    let result: Result<u64, String> = pdb
+        .scan_project(&path, full_scan.unwrap_or(false))
         .await
-    {
+        .map_err(|e| e.to_string());
+
+    match result {
         Ok(total) => {
             pdb.update_project(&path, filesize, modified)
                 .await
                 .map_err(|e| e.to_string())?;
-            app.emit(
-                "projects_db_scan_progress",
-                ScanProgress {
-                    projects_scanned: 1,
-                    projects_total: 1,
-                    project_final: total as i32,
-                    project_path: path.clone(),
-                    images_scanned: -1,
-                    images_total: -1,
-                },
-            )
-            .unwrap();
+            // app.emit(
+            //     "projects_db_scan_progress",
+            //     ScanProgress {
+            //         projects_scanned: 1,
+            //         projects_total: 1,
+            //         project_final: total as i32,
+            //         project_path: path.clone(),
+            //         images_scanned: -1,
+            //         images_total: -1,
+            //     },
+            // )
+            // .unwrap();
+            Ok(total as i32)
         }
         Err(err) => {
             eprintln!("Error scanning project {}: {}", path, err);
+            Err(err.to_string())
         }
     }
-
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn projects_db_project_scan_all(app_handle: tauri::AppHandle) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    pdb.scan_all_projects(&app_handle).await?;
-    Ok(())
 }
 
 #[tauri::command]
@@ -135,7 +134,7 @@ pub async fn projects_db_image_list(
         count,
     };
 
-    Ok(projects_db.list_images(opts).await.                      unwrap())
+    Ok(projects_db.list_images(opts).await.unwrap())
 }
 
 #[tauri::command]
@@ -223,7 +222,7 @@ pub async fn dt_project_get_tensor_history(
     count: u32,
 ) -> Result<Vec<TensorHistoryImport>, String> {
     let project = DTProject::get(&project_file).await.unwrap();
-    match project.get_tensor_history(index as i64, count as i64).await {
+    match project.get_histories(index as i64, count as i64).await {
         Ok(history) => Ok(history),
         Err(e) => Ok(Vec::new()),
     }

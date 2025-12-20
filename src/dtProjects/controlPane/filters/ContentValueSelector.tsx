@@ -7,6 +7,7 @@ import {
 import FilterSelect from "./FilterSelect"
 
 const contentValues = {
+	mask: "Mask",
 	depth: "Depth map",
 	pose: "Pose",
 	color: "Color palette",

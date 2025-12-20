@@ -1,10 +1,10 @@
-import { proxy, Snapshot, subscribe, useSnapshot } from "valtio"
+import { proxy, type Snapshot, subscribe, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import { DTPStateController } from "@/hooks/StateController"
+import { type PagedItemSource, pagedItemSource } from "@/utils/pagedItemSourceF"
 import type { ImagesSource } from "../types"
 import type { ProjectState } from "./projects"
 import type { BackendFilter } from "./search"
-import { PagedItem, pagedItemSource, PagedItemSource } from "@/utils/pagedItemSourceF"
 
 export type ImagesControllerState = {
 	imageSource: ImagesSource
@@ -18,7 +18,7 @@ export type ImagesControllerState = {
 
 class ImagesController extends DTPStateController<ImagesControllerState> {
 	state = proxy<ImagesControllerState>({
-		imageSource: { projectIds: [] },
+		imageSource: { projectIds: [], direction: "desc", sort: "wall_clock" },
 		totalImageCount: undefined,
 		selectedProjectsCount: undefined,
 		projectImageCounts: undefined,
@@ -31,19 +31,30 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 		super()
 
 		subscribe(this.state.imageSource, async () => {
-			console.log("imagesource changed")
-			this.state.searchId++
-			await this.refreshImageCounts()
-
-			this.state.itemSource = pagedItemSource<ImageExtra>(
-				async (skip, take) => {
-					const res = await pdb.listImages(this.state.imageSource, skip, take)
-					return res.items
-				},
-				this.state.selectedProjectsCount ?? 0,
-				250,
-			)
+			await this.updateItemSource()
 		})
+
+		this.updateItemSource()
+	}
+
+	async updateItemSource() {
+		await this.refreshImageCounts()
+
+		this.state.itemSource = pagedItemSource<ImageExtra>(
+			async (skip, take) => {
+				const res = await pdb.listImages(this.state.imageSource, skip, take)
+				return res.items
+			},
+			this.state.selectedProjectsCount ?? 0,
+			250,
+		)
+		this.state.searchId++
+	}
+
+	toggleSortDirection() {
+		if (!this.state.imageSource) return
+		if (this.state.imageSource?.direction === "asc") this.state.imageSource.direction = "desc"
+		else this.state.imageSource.direction = "asc"
 	}
 
 	useItemSource(): Snapshot<PagedItemSource<ImageExtra>> | undefined {
@@ -56,7 +67,11 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
 	async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
 		this.state.imageSource.search = searchText
-		this.state.imageSource.filters = filter
+		this.state.imageSource.filters = filter?.map(f => ({
+			target: f.target.toLowerCase(),
+			operator: f.operator,
+			value: f.value,
+		}))
 	}
 
 	async setSelectedProjects(projects: ProjectState[]) {

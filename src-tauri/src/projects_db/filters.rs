@@ -12,8 +12,7 @@ impl ListImagesFilterTarget {
         match self {
             ListImagesFilterTarget::Model => apply_model_filter(op, value, q),
             ListImagesFilterTarget::Sampler => apply_sampler_filter(op, value, q),
-            // ListImagesFilterTarget::Content => apply_content_filter(op, value, q),
-            ListImagesFilterTarget::Content => q,
+            ListImagesFilterTarget::Content => apply_content_filter(op, value, q),
 
             // numeric fallthrough
             ListImagesFilterTarget::Seed
@@ -212,6 +211,7 @@ pub enum ListImagesFilterOperator {
     Is,
     IsNot,
     Has,
+    HasAll,
     DoesNotHave,
 }
 
@@ -220,4 +220,72 @@ pub enum ListImagesFilterOperator {
 pub enum ListImagesFilterValue {
     String(Vec<String>),
     Number(Vec<f64>),
+}
+
+fn apply_content_filter(
+    op: ListImagesFilterOperator,
+    value: &ListImagesFilterValue,
+    mut q: sea_orm::Select<images::Entity>,
+) -> sea_orm::Select<images::Entity> {
+    use sea_orm::QueryFilter;
+    use ListImagesFilterOperator::*;
+
+    let strings = match value {
+        ListImagesFilterValue::String(v) => v,
+        _ => return q,
+    };
+
+    if strings.is_empty() {
+        return q;
+    }
+
+    match op {
+        HasAll => {
+            for s in strings {
+                match s.as_str() {
+                    "mask" => q = q.filter(images::Column::HasMask.eq(true)),
+                    "depth" => q = q.filter(images::Column::HasDepth.eq(true)),
+                    "pose" => q = q.filter(images::Column::HasPose.eq(true)),
+                    "color" => q = q.filter(images::Column::HasColor.eq(true)),
+                    "custom" => q = q.filter(images::Column::HasCustom.eq(true)),
+                    "scribble" => q = q.filter(images::Column::HasScribble.eq(true)),
+                    "shuffle" | "moodboard" => q = q.filter(images::Column::HasShuffle.eq(true)),
+                    _ => {}
+                }
+            }
+            q
+        }
+        Has => {
+            let mut cond = sea_orm::Condition::any();
+            for s in strings {
+                match s.as_str() {
+                    "mask" => cond = cond.add(images::Column::HasMask.eq(true)),
+                    "depth" => cond = cond.add(images::Column::HasDepth.eq(true)),
+                    "pose" => cond = cond.add(images::Column::HasPose.eq(true)),
+                    "color" => cond = cond.add(images::Column::HasColor.eq(true)),
+                    "custom" => cond = cond.add(images::Column::HasCustom.eq(true)),
+                    "scribble" => cond = cond.add(images::Column::HasScribble.eq(true)),
+                    "shuffle" | "moodboard" => cond = cond.add(images::Column::HasShuffle.eq(true)),
+                    _ => {}
+                }
+            }
+            q.filter(cond)
+        }
+        DoesNotHave => {
+            for s in strings {
+                match s.as_str() {
+                    "mask" => q = q.filter(images::Column::HasMask.eq(false)),
+                    "depth" => q = q.filter(images::Column::HasDepth.eq(false)),
+                    "pose" => q = q.filter(images::Column::HasPose.eq(false)),
+                    "color" => q = q.filter(images::Column::HasColor.eq(false)),
+                    "custom" => q = q.filter(images::Column::HasCustom.eq(false)),
+                    "scribble" => q = q.filter(images::Column::HasScribble.eq(false)),
+                    "shuffle" | "moodboard" => q = q.filter(images::Column::HasShuffle.eq(false)),
+                    _ => {}
+                }
+            }
+            q
+        }
+        _ => q,
+    }
 }

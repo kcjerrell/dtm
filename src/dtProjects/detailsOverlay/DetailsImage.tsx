@@ -1,9 +1,9 @@
-import { MotionBox } from "@/components"
 import { Box } from "@chakra-ui/react"
 import { motion, type TargetAndTransition, useAnimate } from "motion/react"
 import { type CSSProperties, useCallback, useRef } from "react"
+import { showPreview } from "@/components/preview"
 
-const transition = { duration: 0.25, ease: "easeInOut" }
+const transition = { duration: 0.25, ease: "circInOut" }
 
 interface DetailsImageProps extends ChakraProps {
 	src?: string
@@ -34,6 +34,7 @@ function DetailsImage(props: DetailsImageProps) {
 	const sourceRect = typeof sourceRectProp === "function" ? sourceRectProp() : sourceRectProp
 
 	const imgContainerRef = useRef<HTMLDivElement>(null)
+	const imgRef = useRef<HTMLImageElement>(null)
 	const [scope, anim] = useAnimate()
 
 	const imgOrigin = useRef<LRect | null>(null)
@@ -65,7 +66,7 @@ function DetailsImage(props: DetailsImageProps) {
 				transition: {
 					times: [0, 1],
 					duration: transition.duration,
-					ease: "easeOut",
+					// ease: "easeInOut",
 				},
 			} as TargetAndTransition
 		}
@@ -94,7 +95,7 @@ function DetailsImage(props: DetailsImageProps) {
 			transition: {
 				times: [0, 1],
 				duration: transition.duration,
-				ease: "easeOut",
+				// ease: "easeInOut",
 			},
 		} as TargetAndTransition
 	}, [])
@@ -169,8 +170,13 @@ function DetailsImage(props: DetailsImageProps) {
 						sourceElement.style.visibility = "visible"
 					}
 				}}
+				onClick={(e) => {
+					e.stopPropagation()
+					showPreview(imgRef.current, src)
+				}}
 			>
 				<img
+					ref={imgRef}
 					src={src}
 					alt={src}
 					style={{
@@ -180,8 +186,9 @@ function DetailsImage(props: DetailsImageProps) {
 						backgroundPosition: "center",
 						backgroundRepeat: "no-repeat",
 						objectFit: "cover",
-					...maskProps,
-
+						width: "100%",
+						height: "100%",
+						...maskProps,
 					}}
 				/>
 			</motion.div>

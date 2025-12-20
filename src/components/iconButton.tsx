@@ -1,11 +1,11 @@
 import { chakra } from "@chakra-ui/react"
 
-// from the chakra ui button recipe 
+// from the chakra ui button recipe
 // https://github.com/chakra-ui/chakra-ui/blob/main/packages/react/src/theme/recipes/button.ts
 
 const IconButton = chakra("button", {
 	base: {
-		color: 'fg.3',
+		color: "fg.3",
 		backgroundColor: "transparent",
 		aspectRatio: "1",
 		bgColor: "transparent",
@@ -44,6 +44,17 @@ const IconButton = chakra("button", {
 
 	variants: {
 		size: {
+			min: {
+				h: "min-content",
+				minH: 0,
+				w: "min-content",
+				minW: 0,
+				textStyle: "xs",
+				_icon: {
+					width: "5",
+					height: "5",
+				},
+			},
 			"2xs": {
 				h: "6",
 				minW: "6",
@@ -121,74 +132,6 @@ const IconButton = chakra("button", {
 					height: "6",
 				},
 			},
-		},
-
-		variant: {
-			// solid: {
-			// 	bg: "colorPalette.solid",
-			// 	color: "colorPalette.contrast",
-			// 	borderColor: "transparent",
-			// 	_hover: {
-			// 		bg: "colorPalette.solid/90",
-			// 	},
-			// 	_expanded: {
-			// 		bg: "colorPalette.solid/90",
-			// 	},
-			// },
-
-			// subtle: {
-			// 	bg: "colorPalette.subtle",
-			// 	color: "colorPalette.fg",
-			// 	borderColor: "transparent",
-			// 	_hover: {
-			// 		bg: "colorPalette.muted",
-			// 	},
-			// 	_expanded: {
-			// 		bg: "colorPalette.muted",
-			// 	},
-			// },
-
-			// surface: {
-			// 	bg: "colorPalette.subtle",
-			// 	color: "colorPalette.fg",
-			// 	shadow: "0 0 0px 1px var(--shadow-color)",
-			// 	shadowColor: "colorPalette.muted",
-			// 	_hover: {
-			// 		bg: "colorPalette.muted",
-			// 	},
-			// 	_expanded: {
-			// 		bg: "colorPalette.muted",
-			// 	},
-			// },
-
-			// outline: {
-			// 	borderWidth: "1px",
-			// 	"--outline-color-legacy": "colors.colorPalette.muted",
-			// 	"--outline-color": "colors.colorPalette.border",
-			// 	borderColor: "var(--outline-color, var(--outline-color-legacy))",
-			// 	color: "colorPalette.fg",
-			// 	_hover: {
-			// 		bg: "colorPalette.subtle",
-			// 	},
-			// 	_expanded: {
-			// 		bg: "colorPalette.subtle",
-			// 	},
-			// },
-
-			// ghost: {
-			// 	bg: "transparent",
-			// 	color: "colorPalette.fg",
-			// 	_hover: {
-			// 		bg: "colorPalette.subtle",
-			// 	},
-			// 	_expanded: {
-			// 		bg: "colorPalette.subtle",
-			// 	},
-			// },
-
-			// plain: {
-			// 	color: "colorPalette.fg",
-			// },
 		},
 	},
 

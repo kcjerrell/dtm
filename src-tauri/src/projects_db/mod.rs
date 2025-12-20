@@ -2,7 +2,7 @@ mod dt_project;
 pub use dt_project::DTProject;
 
 mod projects_db;
-pub use projects_db::{MixedError, ProjectsDb};
+pub use projects_db::{MixedError, ProjectsDb, ListImagesOptions, ListImagesResult};
 
 mod tensor_history;
 pub use tensor_history::TensorHistoryImport;

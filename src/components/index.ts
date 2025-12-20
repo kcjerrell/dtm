@@ -8,8 +8,18 @@ import SliderWithInput from "./SliderWithInput"
 import Sidebar from "./sidebar/Sidebar"
 import Tooltip from "./Tooltip"
 import VirtualizedList from "./virtualizedList/VirtualizedList"
+import Root from './FloatIndicator'
+export {Root as FloatIndicator}
 
-export const { CheckRoot, MotionBox, Panel, PaneListContainer, PanelListItem, PanelSectionHeader, PanelButton } = Common
+export const {
+	CheckRoot,
+	MotionBox,
+	Panel,
+	PaneListContainer,
+	PanelListItem,
+	PanelSectionHeader,
+	PanelButton,
+} = Common
 
 export {
 	Tooltip,
@@ -20,7 +30,7 @@ export {
 	Preview,
 	MeasureGrid,
 	useMeasureGrid,
-	DataItem
+	DataItem,
 }
 
 // doesn't exporting like this prevent code spiltting? Hmmm

@@ -46,6 +46,7 @@ const isIsNotOpsCollection: CollectionType = createListCollection({
 
 const hasOps: CollectionItem[] = [
 	{ value: "has", label: "has" },
+	{ value: "hasall", label: "has all"},
 	{ value: "doesnothave", label: "doesn't have" },
 ]
 const hasOpsCollection: CollectionType = createListCollection({

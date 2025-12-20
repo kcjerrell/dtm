@@ -3,7 +3,7 @@ import { type ProjectExtra, pdb } from "@/commands"
 import { DTPStateController } from "@/hooks/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
-import { eventCallback } from '@/utils/handler'
+import { eventCallback } from "@/utils/handler"
 import { arrayIfOnly } from "@/utils/helpers"
 
 export interface ProjectState extends Selectable<ProjectExtra> {
@@ -15,14 +15,16 @@ export interface ProjectState extends Selectable<ProjectExtra> {
 export type ProjectsControllerState = {
 	projects: ProjectState[]
 	selectedProjects: ProjectState[]
+	showEmptyProjects: boolean
 }
 
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
 	state = proxy<ProjectsControllerState>({
 		projects: [],
 		selectedProjects: [],
+		showEmptyProjects: false,
 	})
-	onSyncRequired: () => void = () => {
+	onSyncRequired: (projects?: ProjectState[]) => void = () => {
 		console.warn("Projects may be out of sync, handler not assigned")
 	}
 
@@ -52,12 +54,22 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 		await this.loadProjects()
 	}
 
+	/**
+	 * this function can be called with a project or an array of projects
+	 * state or snapshot
+	 */
 	async setExclude(projects: ProjectState | readonly ProjectState[], exclude: boolean) {
 		const toUpdate = arrayIfOnly(projects)
+		const stateUpdate: ProjectState[] = []
 		for (const project of toUpdate) {
+			const projectState = this.state.projects.find((p) => p.id === project.id)
+			if (!projectState) continue
 			await pdb.updateExclude(project.id, exclude)
+			projectState.excluded = exclude
+			stateUpdate.push(projectState)
 		}
-		this.onSyncRequired()
+		await this.onSyncRequired(stateUpdate)
+		await this.loadProjects()
 	}
 
 	getProjectFile(projectId?: number | null) {
@@ -87,6 +99,11 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 			totalImages: snap.projects.reduce((acc, p) => acc + p.image_count, 0),
 			totalSize: snap.projects.reduce((acc, p) => acc + p.filesize, 0),
 		}
+	}
+
+	toggleShowEmptyProjects() {
+		this.state.showEmptyProjects = !this.state.showEmptyProjects
+		console.log("show empty", this.state.showEmptyProjects)
 	}
 }
 

@@ -147,3 +147,15 @@ export function getUnknown<T>(obj: unknown, key: string): T | undefined {
 	if (key in obj) return obj[key as keyof typeof obj]
 	return undefined
 }
+
+/**
+ * Returns the singular form or plural form based on n
+ * if only a number is provided, an "s" is returned
+ * @param n The number to check
+ * @param singular The singular form of the word. If not given, will return ""
+ * @param plural The plural form of the word. If not given, will return "s"
+ */
+export function plural(n?: number, singular?: string, plural?: string) {
+	if (!Number.isNaN(n) && n === 1) return singular ?? ""
+	return plural ?? "s"
+}

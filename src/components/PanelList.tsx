@@ -1,4 +1,4 @@
-import { HStack, VStack } from "@chakra-ui/react"
+import { HStack, Spacer, VStack } from "@chakra-ui/react"
 import { motion, useSpring } from "motion/react"
 import { type ComponentType, useEffect, useMemo, useRef } from "react"
 import type { IconType } from "react-icons/lib"
@@ -10,7 +10,7 @@ import { PaneListScrollContainer, PanelListScrollContent } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
 	emptyListText?: string | boolean
-	commands?: PanelListCommand<T, C>[]
+	commands?: PanelListCommandItem<T, C>[]
 	commandContext?: C
 	header?: string
 	headerInfo?: string
@@ -21,6 +21,8 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
 	clearSelection?: unknown
 	selectionMode?: "multipleModifier" | "multipleToggle" | "single"
 }
+
+export type PanelListCommandItem<T, C = undefined> = PanelListCommand<T, C> | "spacer"
 
 export interface PanelListCommand<T, C = undefined> {
 	id: string
@@ -34,6 +36,8 @@ export interface PanelListCommand<T, C = undefined> {
 	tipTitle?: string
 	tipText?: string
 	getTip?: (selected: Snapshot<T[]>, context?: C) => React.ReactNode
+	getTipTitle?: (selected: Snapshot<T[]>, context?: C) => string
+	getTipText?: (selected: Snapshot<T[]>, context?: C) => string
 	onClick: (selected: Snapshot<T[]>, context?: C) => void
 }
 
@@ -93,7 +97,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 				: "(No items)"
 
 	return (
-		<VStack overflowY={"clip"} overflowX={"clip"} {...boxProps} alignItems={"stretch"} gap={0}>
+		<VStack overflowY={"clip"} overflowX={"clip"} {...boxProps} alignItems={"stretch"} justifyContent={"stretch"} gap={0}>
 			{header && (
 				<PanelSectionHeader margin={0}>
 					{header}
@@ -128,15 +132,21 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 					</PanelListItem>
 				)}
 
-				<HStack justifyContent={"flex-end"} bottom={0}>
-					{commands?.map((command) => {
+				<HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
+					{commands?.map((command, i) => {
+						if (command === "spacer") return <Spacer key={`spacer-${i.toString()}`} />
+
 						let enabled = true
 						if (command.requiresSelection && !areItemsSelected) enabled = false
 						if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
 						if (command.getEnabled) enabled = command.getEnabled(selectedItems, commandContext)
 
-						const Icon = command.getIcon ? command.getIcon(selectedItems, commandContext) : command.icon
+						const Icon = command.getIcon
+							? command.getIcon(selectedItems, commandContext)
+							: command.icon
 						const tip = command.getTip ? command.getTip(selectedItems, commandContext) : command.tip
+						const tipTitle = command.getTipTitle ? command.getTipTitle(selectedItems, commandContext) : command.tipTitle
+						const tipText = command.getTipText ? command.getTipText(selectedItems, commandContext) : command.tipText
 
 						const CommandButton = (
 							<IconButton
@@ -149,13 +159,13 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 							</IconButton>
 						)
 
-						if (tip || command.tipTitle || command.tipText)
+						if (tip || tipTitle || tipText)
 							return (
 								<Tooltip
 									key={command.id}
 									tip={tip}
-									tipTitle={command.tipTitle}
-									tipText={command.tipText}
+									tipTitle={tipTitle}
+									tipText={tipText}
 								>
 									{CommandButton}
 								</Tooltip>

@@ -86,7 +86,8 @@ class ScannerService extends DTPStateService {
 			project.isMissing = result.isMissing
 
 			if (result.action === "update") {
-				await pdb.scanProject(project.path, false, result.filesize, result.modified)
+				const totalImages = await pdb.scanProject(project.path, false, result.filesize, result.modified)
+				project.image_count = totalImages ?? 0
 				project.filesize = result.filesize
 				project.modified = result.modified
 			}

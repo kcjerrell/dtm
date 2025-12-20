@@ -43,10 +43,16 @@ pub struct TensorHistoryImport {
     pub clip_id: i64,
     pub index_in_a_clip: i32,
     pub cfg_zero_star: bool,
-    pub image_id: i64,
+    // pub image_id: i64,
     pub row_id: i64,
+    pub has_depth: bool,
+    pub has_pose: bool,
+    pub has_color: bool,
+    pub has_custom: bool,
+    pub has_scribble: bool,
+    pub has_shuffle: bool,
+    pub has_mask: bool,
     // pub tensor_id: i64,
-    // pub mask_id: i64,
     // pub text_edits: i64,
     // pub text_lineage: i64,
     // pub batch_size: u32,
@@ -54,15 +60,10 @@ pub struct TensorHistoryImport {
     // pub hires_fix_start_height: u16,
     // pub hires_fix_strength: f32,
     // pub scale_factor: u16,
-    // pub depth_map_id: i64,
     // pub image_guidance_scale: f32,
     // pub seed_mode: String,
     // pub clip_skip: u32,
-    // pub scribble_id: i64,
-    // pub pose_id: i64,
-    // pub color_palette_id: i64,
     // pub mask_blur: f32,
-    // pub custom_id: i64,
     // pub face_restoration: Option<String>,
     // pub decode_with_attention: bool,
     // pub hires_fix_decode_with_attention: bool,
@@ -128,7 +129,17 @@ pub struct TensorHistoryImport {
 }
 
 impl TensorHistoryImport {
-    pub fn new(blob: &[u8], row_id: i64, image_id: i64) -> Result<Self, String> {
+    pub fn new(
+        blob: &[u8],
+        row_id: i64,
+        has_depth: bool,
+        has_pose: bool,
+        has_color: bool,
+        has_custom: bool,
+        has_scribble: bool,
+        has_shuffle: bool,
+        has_mask: bool,
+    ) -> Result<Self, String> {
         // root_as_tensor_history_node returns a table accessor borrowed from blob
         let node = root_as_tensor_history_node(blob)
             .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
@@ -161,7 +172,6 @@ impl TensorHistoryImport {
             prompt: node.text_prompt().unwrap_or("").to_string(),
             negative_prompt: node.negative_text_prompt().unwrap_or("").to_string(),
             model: node.model().unwrap_or("").to_string(),
-            image_id,
             lineage: node.lineage(),
             preview_id: node.preview_id(),
             row_id,
@@ -189,6 +199,13 @@ impl TensorHistoryImport {
             width: node.start_width(),
             tea_cache: node.tea_cache(),
             upscaler: node.upscaler().and_then(|v| Some(v.to_string())),
+            has_depth,
+            has_pose,
+            has_color,
+            has_custom,
+            has_scribble,
+            has_shuffle,
+            has_mask,
         })
     }
 }

@@ -42,6 +42,13 @@ pub struct Model {
     pub tiled_diffusion: bool,
     pub tea_cache: bool,
     pub cfg_zero_star: bool,
+    pub has_mask: bool,
+    pub has_depth: bool,
+    pub has_pose: bool,
+    pub has_color: bool,
+    pub has_custom: bool,
+    pub has_scribble: bool,
+    pub has_shuffle: bool,
     
     #[sea_orm(has_many)]
     pub image_controls: HasMany<super::image_controls::Entity>,

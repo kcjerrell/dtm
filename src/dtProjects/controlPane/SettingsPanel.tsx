@@ -80,7 +80,15 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 				))}
 
 				{projectFolders.length === 0 && (
-					<Box margin={"auto"} padding={2} opacity={0.7} color={"fg.2"} fontStyle={"italic"}>
+					<Box
+						alignSelf={"center"}
+						margin={"auto"}
+						paddingY={"1rem"}
+						justifySelf={"center"}
+						opacity={0.7}
+						color={"fg.2"}
+						fontStyle={"italic"}
+					>
 						(no folders added)
 					</Box>
 				)}
@@ -107,7 +115,15 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 					<WatchFolderItem key={folder.id} folder={folder} />
 				))}
 				{modelInfoFolders.length === 0 && (
-					<Box margin={"auto"} padding={2} opacity={0.7} fontStyle={"italic"} color={"fg.2"}>
+					<Box
+						alignSelf={"center"}
+						margin={"auto"}
+						paddingY={"1rem"}
+						justifySelf={"center"}
+						opacity={0.7}
+						color={"fg.2"}
+						fontStyle={"italic"}
+					>
 						(no folders added)
 					</Box>
 				)}
@@ -124,7 +140,9 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 				min={100}
 				max={500}
 				value={[imagesSnap.imageSize ?? 200]}
-				onValueChange={(value) => {images.state.imageSize = value.value[0]}}
+				onValueChange={(value) => {
+					images.state.imageSize = value.value[0]
+				}}
 			/>
 		</TabContent>
 	)

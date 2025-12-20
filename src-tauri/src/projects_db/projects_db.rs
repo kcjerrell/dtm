@@ -161,15 +161,7 @@ impl ProjectsDb {
         Ok(()) // or Ok(updated) depending on your typedef
     }
 
-    pub async fn scan_project<F>(
-        &self,
-        path: &str,
-        mut on_progress: F,
-        full_scan: bool,
-    ) -> Result<u64, MixedError>
-    where
-        F: FnMut(i32, i32),
-    {
+    pub async fn scan_project(&self, path: &str, full_scan: bool) -> Result<u64, MixedError> {
         let dt_project = DTProject::get(path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
@@ -185,17 +177,17 @@ impl ProjectsDb {
         };
 
         for batch_start in (start..end).step_by(250) {
-            let histories = dt_project.get_tensor_history(batch_start, 250).await?;
+            let histories = dt_project.get_histories(batch_start, 250).await?;
 
             let histories_filtered: Vec<TensorHistoryImport> = histories
                 .into_iter()
                 .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                 .collect();
 
-            if histories_filtered.is_empty() {
-                on_progress((batch_start + 250) as i32, end as i32);
-                continue;
-            }
+            // if histories_filtered.is_empty() {
+            //     on_progress((batch_start + 250) as i32, end as i32);
+            //     continue;
+            // }
 
             let models_lookup = self.process_models(&histories_filtered).await?;
 
@@ -230,7 +222,7 @@ impl ProjectsDb {
             )
             .await?;
 
-            on_progress((batch_start + 250) as i32, end as i32);
+            // on_progress((batch_start + 250) as i32, end as i32);
         }
 
         let total = self
@@ -314,13 +306,20 @@ impl ProjectsDb {
                     steps: Set(h.steps as i16),
                     guidance_scale: Set(h.guidance_scale),
                     shift: Set(h.shift),
-                    sampler: Set(Sampler::try_from(h.sampler).unwrap_or(Sampler::EulerA)), // Fallback instead of panic
                     hires_fix: Set(h.hires_fix),
                     tiled_decoding: Set(h.tiled_decoding),
                     tiled_diffusion: Set(h.tiled_diffusion),
                     tea_cache: Set(h.tea_cache),
                     cfg_zero_star: Set(h.cfg_zero_star),
                     wall_clock: Set(h.wall_clock.unwrap_or_default().and_utc()), // Handle missing wall_clock
+                    has_mask: Set(h.has_mask),
+                    has_depth: Set(h.has_depth),
+                    has_pose: Set(h.has_pose),
+                    has_color: Set(h.has_color),
+                    has_custom: Set(h.has_custom),
+                    has_scribble: Set(h.has_scribble),
+                    has_shuffle: Set(h.has_shuffle),
+                    sampler: Set(Sampler::try_from(h.sampler).unwrap_or(Sampler::EulerA)), // Fallback instead of panic
                     ..Default::default()
                 };
 
@@ -446,53 +445,6 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn scan_all_projects(&self, app: &tauri::AppHandle) -> Result<(), MixedError> {
-        let projs = self.list_projects().await?;
-        let projects_total = projs.len() as i32;
-
-        let mut projects_scanned = 0;
-        for proj in projs {
-            let update = |images_scanned: i32, images_total: i32| {
-                app.emit(
-                    "projects_db_scan_progress",
-                    ScanProgress {
-                        projects_scanned,
-                        projects_total,
-                        project_final: -1,
-                        project_path: proj.path.clone(),
-                        images_scanned,
-                        images_total,
-                    },
-                )
-                .unwrap();
-            };
-            //
-
-            match self.scan_project(&proj.path, update, false).await {
-                Ok(total) => {
-                    app.emit(
-                        "projects_db_scan_progress",
-                        ScanProgress {
-                            projects_scanned,
-                            projects_total,
-                            project_final: total as i32,
-                            project_path: proj.path.clone(),
-                            images_scanned: -1,
-                            images_total: -1,
-                        },
-                    )
-                    .unwrap();
-                }
-                Err(err) => {
-                    eprintln!("Error scanning project {}: {}", proj.path, err);
-                }
-            }
-            projects_scanned += 1;
-        }
-
-        Ok(())
-    }
-
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<ListImagesResult, DbErr> {
         // print!("ListImagesOptions: {:#?}\n", opts);
 
@@ -588,7 +540,7 @@ impl ProjectsDb {
         }
 
         let stmt = query.clone().build(self.db.get_database_backend());
-        println!("Query: {:#?}", stmt);
+        // println!("Query: {:#?}", stmt);
 
         let count = query.clone().count(&self.db).await?;
 
@@ -970,6 +922,12 @@ pub struct ImageExtra {
     pub negative_prompt: Option<String>,
     pub preview_id: i64,
     pub node_id: i64,
+    pub has_depth: bool,
+    pub has_pose: bool,
+    pub has_color: bool,
+    pub has_custom: bool,
+    pub has_scribble: bool,
+    pub has_shuffle: bool,
 }
 
 #[derive(Debug, Serialize)]

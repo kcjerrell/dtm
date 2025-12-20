@@ -116,6 +116,7 @@ export const PaneListScrollContainer = chakra(
 export const PanelListScrollContent = chakra("div", {
 	base: {
 		height: "auto",
+		// minHeight: "100%",
 		display: "flex",
 		flexDirection: "column",
 		justifyContent: "flex-start",

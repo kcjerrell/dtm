@@ -24,6 +24,12 @@ export type ImageExtra = {
 	negative_prompt?: string
 	preview_id: number
 	node_id: number
+	has_depth: boolean
+	has_pose: boolean
+	has_color: boolean
+	has_custom: boolean
+	has_scribble: boolean
+	has_shuffle: boolean
 }
 
 export type Control = {
@@ -230,7 +236,8 @@ export const pdb = {
 		fullScan = false,
 		filesize?: number,
 		modified?: number,
-	): Promise<void> => invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
+	): Promise<number> =>
+		invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
 
 	updateExclude: async (id: number, exclude: boolean): Promise<void> =>
 		invoke("projects_db_project_update_exclude", { id, exclude }),

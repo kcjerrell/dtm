@@ -32,7 +32,17 @@ function SearchPanel(props: SearchPanelComponentProps) {
 	// }, [searchService.incLayoutId])
 
 	return (
-		<TabContent value={"search"} overflowX={"clip"} {...restProps}>
+		<TabContent
+			value={"search"}
+			overflowX={"clip"}
+			height={"auto"}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") {
+					search.applySearch()
+				}
+			}}
+			{...restProps}
+		>
 			<Input
 				ref={searchInputRef}
 				bgColor={"bg.3"}
@@ -40,11 +50,6 @@ function SearchPanel(props: SearchPanelComponentProps) {
 				onChange={(e) => {
 					setSearchInput(e.target.value)
 					search.state.searchInput = e.target.value
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter") {
-						search.applySearch()
-					}
 				}}
 				border={"2px solid gray"}
 				borderRadius={"lg"}

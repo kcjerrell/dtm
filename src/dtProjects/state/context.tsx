@@ -38,6 +38,15 @@ export function DTPProvider(props: PropsWithChildren) {
 			projects.onSelectedProjectsChanged.addHandler((projects) => images.setSelectedProjects(projects))
 
 			const scanner = new ScannerService(projects, watchFolders, models)
+			projects.onSyncRequired = async (projects) => {
+				if (projects) {
+					for (const project of projects) {
+						await scanner.syncProject(project)
+					}
+				} else {
+					await scanner.syncProjects()
+				}
+			}
 
 			const search = new SearchController()
 			search.onSearch = (text, filters) => {

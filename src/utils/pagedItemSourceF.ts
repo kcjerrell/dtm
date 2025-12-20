@@ -86,6 +86,7 @@ export function pagedItemSource<T>(
 	}
 
 	const ensurePages = () => {
+		if (!totalCount) return
 		loadersWaiting++
 
 		pageLoader.runExclusive(async () => {

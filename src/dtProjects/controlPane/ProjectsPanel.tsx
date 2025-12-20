@@ -1,25 +1,26 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
-import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { derive } from "derive-valtio"
 import { useEffect, useRef, useState } from "react"
-import { FiFolder, FiRefreshCw } from "react-icons/fi"
+import { FiRefreshCw } from "react-icons/fi"
 import { MdBlock } from "react-icons/md"
 import { useSnapshot } from "valtio"
 import { pdb } from "@/commands"
 import { PanelListItem } from "@/components"
-import PanelList, { type PanelListCommand } from "@/components/PanelList"
+import PanelList from "@/components/PanelList"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../state/context"
-import type ProjectsController from "../state/projects"
 import type { ProjectState } from "../state/projects"
+import { useProjectsCommands } from "./useProjectsCommands"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
 function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
 	// const { snap, state, store } = useDTProjects()
-	const { projects } = useDTP()
+	const { projects, images } = useDTP()
+	const snap = projects.useSnap()
+	const imageSource = images.useSnap().imageSource
 	const [showExcluded, setShowExcluded] = useState(false)
 	const toggleRef = useRef<HTMLDivElement>(null)
 
@@ -35,6 +36,9 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const activeProjectsSnap = useSnapshot(groups.activeProjects)
 	const excludedProjectsSnap = useSnapshot(groups.excludedProjects)
 
+	const isFiltering = !!imageSource?.filters?.length || !!imageSource?.search
+	const showEmpty = snap.showEmptyProjects || !isFiltering
+
 	useEffect(() => {
 		if (showExcluded && toggleRef.current) {
 			setTimeout(() => {
@@ -43,15 +47,17 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 		}
 	}, [showExcluded])
 
+	const toolbarCommands = useProjectsCommands()
+
 	return (
 		<TabContent
-			height={"100%"}
 			value={"projects"}
-			contentProps={{ maxHeight: "100%", overflowY: "clip" }}
+			contentProps={{ height: "full", maxHeight: "100%", overflowY: "clip" }}
+			height={"full"}
 			{...restProps}
 		>
 			<PanelList
-				maxHeight={"100%"}
+			height={"full"}
 				itemsState={showExcluded ? groups.allProjects : groups.activeProjects}
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
@@ -59,9 +65,10 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 					projects.setSelectedProjects(e)
 				}}
 			>
-				{activeProjectsSnap.map((p) => (
-					<ProjectListItem key={p.path} project={p} />
-				))}
+				{activeProjectsSnap.map((p) => {
+					if (!showEmpty && p.image_count === 0) return null
+					return <ProjectListItem key={p.path} project={p} />
+				})}
 				{excludedProjectsSnap.length > 0 && (
 					<PanelListItem
 						ref={toggleRef}
@@ -96,29 +103,6 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	)
 }
 
-const toolbarCommands: PanelListCommand<ProjectState, ProjectsController>[] = [
-	{
-		id: "exclude",
-		getTip: (selected) => (selected[0]?.excluded ? "Include project" : "Exclude project"),
-		tipText: "Excluded projects will not be scanned and their images won't be listed.",
-		getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
-		onClick: (selected, context?: ProjectsController) => {
-			context?.setExclude(selected, !selected[0]?.excluded)
-		},
-		requiresSelection: true,
-	},
-	{
-		id: "openFolder",
-		tipTitle: "Open folder",
-		tipText: "Open project folder in file manager.",
-		icon: FiFolder,
-		onClick: async (selected) => {
-			await revealItemInDir(selected.map((f) => f.path))
-		},
-		requiresSelection: true,
-	},
-]
-
 export default ProjectsPanel
 
 interface ProjectListItemProps extends ChakraProps {
@@ -152,7 +136,7 @@ function ProjectListItem(props: ProjectListItemProps) {
 				{project.isScanning ? (
 					<Box color={"fg.3"}>-</Box>
 				) : (
-					<Box color={"fg.3"} fontStyle={countStyle}>
+					<Box color={"fg.3"} fontStyle={countStyle} fontVariantNumeric={"tabular-nums"}>
 						{count}
 					</Box>
 				)}
