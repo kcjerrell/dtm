@@ -137,9 +137,9 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 
 			<PanelSectionHeader marginTop={4}>Thumbnail size</PanelSectionHeader>
 			<Slider
-				min={100}
-				max={500}
-				value={[imagesSnap.imageSize ?? 200]}
+				min={2}
+				max={12}
+				value={[imagesSnap.imageSize ?? 5]}
 				onValueChange={(value) => {
 					images.state.imageSize = value.value[0]
 				}}

@@ -180,7 +180,7 @@ const Images = chakra("div", {
 const Label = chakra("span", {
 	base: {
 		position: "absolute",
-		fontSize: "xs",
+		fontSize: "sm",
 		fontWeight: 700,
 		color: "gray.300",
 		top: "50%",

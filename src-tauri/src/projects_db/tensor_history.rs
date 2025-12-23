@@ -1,9 +1,11 @@
 use chrono::{DateTime, NaiveDateTime};
-use entity::enums::Sampler;
+// use entity::enums::Sampler; // Unused import
 
+// use tauri::Emitter; // Unused import
 use super::tensor_history_mod::{Control, LoRA};
+// use crate::projects_db::{ListImagesResult, ModelExtra, ProjectExtra}; // Unused import
 use crate::projects_db::tensor_history_generated::{
-    root_as_tensor_history_node, Reason, SamplerType, SeedMode,
+    root_as_tensor_history_node,
 };
 
 #[derive(serde::Serialize, Debug, Clone)]
@@ -210,6 +212,11 @@ impl TensorHistoryImport {
     }
 }
 
+/**
+ * TensorHistoryNode is the flatbuffer struct for the tensorhistorynode table.
+ * values are exactly as they are when stored in the project files,
+ * with the exception of profile data which is not implemented
+ */
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct TensorHistoryNode {
     pub lineage: i64,

@@ -168,8 +168,7 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 
 		return () => ro.disconnect()
 	}, [state, recalculate])
-	console.log("renderItems", renderItems)
-	console.log(itemSource.totalCount)
+
 	return (
 		<Container
 			ref={scrollContainerRef}
@@ -255,7 +254,8 @@ export default PVGridWrapper
 function measure(grid: HTMLDivElement, maxItemSize: number) {
 	if (!grid || grid.children.length === 0) return { columns: 1, rowHeight: 1 }
 
-	const columns = Math.ceil(grid.offsetWidth / maxItemSize)
+	// const columns = Math.ceil(grid.offsetWidth / maxItemSize)
+	const columns = Math.ceil(maxItemSize)
 	const itemSize = grid.offsetWidth / columns
 
 	return {

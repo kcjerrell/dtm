@@ -3,11 +3,14 @@ import { motion } from "motion/react"
 import { useLayoutEffect, useRef, useState } from "react"
 import { prepData } from "@/metadata/infoPanel/DataItem"
 import { getSampler, getSeedMode } from "@/utils/config"
+import type { DrawThingsGroupedConfig } from "@/types"
+import { useTensorHistory } from "@/dtProjects/detailsOverlay/TensorHistoryContext"
 
-interface DataItemProps extends ChakraProps {
+interface DataItemProps {
 	label?: string
 	maxLines?: number
 	data?: unknown
+	[key: string]: any
 }
 
 function DataItem(props: DataItemProps) {
@@ -40,7 +43,7 @@ function DataItem(props: DataItemProps) {
 		}
 	}, [maxLines])
 
-	if (!data) return null
+	if (data === undefined || data === null) return null
 
 	return (
 		<Root {...rest}>
@@ -51,7 +54,7 @@ function DataItem(props: DataItemProps) {
 				collapse={getVariant(collapsible, collapsed)}
 				maxHeight={maxHeight}
 			>
-				<motion.div layout>{display}</motion.div>
+				<motion.div>{display}</motion.div>
 			</Content>
 			{collapsible && (
 				<ExpandButton onClick={() => setCollapsed(!collapsed)}>
@@ -190,250 +193,318 @@ const Content = chakra("div", {
 	},
 })
 
+interface DataItemTemplateProps<T extends keyof DrawThingsGroupedConfig>
+	extends Omit<ChakraProps, "maxLines"> {
+	value?: MaybeReadonly<DrawThingsGroupedConfig[T]>
+}
+
+export function DataItemTemplate<T extends keyof DrawThingsGroupedConfig>(
+	props: DataItemTemplateProps<T> & { property: T },
+) {
+	const { value, property, ...rest } = props
+	if (value === undefined || value === null || !property || !templatesReverse[property]) return null
+	const Template = templatesReverse[property] as
+		| ((props: DataItemTemplateProps<T>) => React.ReactNode)
+		| undefined
+	if (!Template) return null
+	return <Template value={value} {...rest} />
+}
+
 const templates = {
-	Size: (props: { width?: number; height?: number }) => {
-		const { width, height, ...rest } = props
-		if (!width || !height) return null
+	Size: (props: DataItemTemplateProps<"size">) => {
+		const { value, ...rest } = props
+		if (!value?.width || !value?.height) return null
+		return <DataItem label={"Size"} data={`${value.width} x ${value.height}`} {...rest} />
+	},
+	OriginalSize: (props: DataItemTemplateProps<"originalSize">) => {
+		const { value, ...rest } = props
+		const { model } = useTensorHistory()
 
-		return <DataItem label={"Size"} data={`${width} x ${height}`} {...rest} />
-	},
-	NumFrames: (props: { numFrames?: number }) => {
-		const { numFrames, ...rest } = props
-		if (!numFrames) return null
-		return <DataItem label={"Num Frames"} data={numFrames} {...rest} />
-	},
-	Seed: (props: { seed?: number; seedMode?: number | string }) => {
-		const { seed, seedMode, ...rest } = props
-		if (!seed) return null
+		if (model?.version && !model.version?.startsWith("sdxl")) return null
+		if (!value?.width || !value?.height) return null
 
-		return <DataItem label={"Seed"} data={`${seed} (${getSeedMode(seedMode)})`} {...rest} />
+		return <DataItem label={"Original Size"} data={`${value.width} x ${value.height}`} {...rest} />
 	},
-	Model: (props: { model?: string }) => {
-		const { model, ...rest } = props
-		if (!model) return null
-		return <DataItem label={"Model"} data={model} {...rest} />
+	TargetImageSize: (props: DataItemTemplateProps<"targetImageSize">) => {
+		const { value, ...rest } = props
+		const { model } = useTensorHistory()
+
+		if (model?.version && !model.version?.startsWith("sdxl")) return null
+		if (!value?.width || !value?.height) return null
+
+		return (
+			<DataItem label={"Target Image Size"} data={`${value.width} x ${value.height}`} {...rest} />
+		)
 	},
-	Steps: (props: { steps?: number }) => {
-		const { steps, ...rest } = props
-		if (!steps) return null
-		return <DataItem label={"Steps"} data={steps} {...rest} />
+	NegativeOriginalSize: (props: DataItemTemplateProps<"negativeOriginalSize">) => {
+		const { value, ...rest } = props
+		const { model } = useTensorHistory()
+
+		if (model?.version && !model.version?.startsWith("sdxl")) return null
+		if (!value?.width || !value?.height) return null
+
+		return (
+			<DataItem
+				label={"Negative Original Size"}
+				data={`${value.width} x ${value.height}`}
+				{...rest}
+			/>
+		)
 	},
-	Sampler: (props: { sampler?: number | string; stochasticSamplingGamma?: number }) => {
-		const { sampler, stochasticSamplingGamma, ...rest } = props
-		if (!sampler) return null
-		const samplerName = getSampler(sampler)
+	Crop: (props: DataItemTemplateProps<"crop">) => {
+		const { value, ...rest } = props
+		const { model } = useTensorHistory()
+
+		if (model?.version && !model.version?.startsWith("sdxl")) return null
+		if (!value?.left || !value?.top) return null
+
+		return <DataItem label={"Crop"} data={`${value.left}, ${value.top}`} {...rest} />
+	},
+	NumFrames: (props: DataItemTemplateProps<"numFrames">) => {
+		const { value, ...rest } = props
+		if (!value) return null
+		return <DataItem label={"Num Frames"} data={value} {...rest} />
+	},
+	Seed: (props: DataItemTemplateProps<"seed">) => {
+		const { value, ...rest } = props
+		if (value === undefined || value.value === undefined) return null
+
+		return (
+			<DataItem label={"Seed"} data={`${value.value} (${getSeedMode(value.seedMode)})`} {...rest} />
+		)
+	},
+	Model: (props: DataItemTemplateProps<"model">) => {
+		const { value, ...rest } = props
+		const { model } = useTensorHistory()
+
+		if (!value) return null
+
+		let displayValue = value
+		if (model?.name && model?.version) displayValue = `${model.name} (${model.version})`
+		return <DataItem label={"Model"} data={displayValue} {...rest} />
+	},
+	Steps: (props: DataItemTemplateProps<"steps">) => {
+		const { value, ...rest } = props
+		if (!value) return null
+		return <DataItem label={"Steps"} data={value} {...rest} />
+	},
+	Sampler: (props: DataItemTemplateProps<"sampler">) => {
+		const { value, ...rest } = props
+		if (!value || value.value === undefined) return null
+		const samplerName = getSampler(value.value)
 		let data = samplerName
-		if (samplerName === "TCD" && stochasticSamplingGamma !== undefined) {
-			data += ` (${(stochasticSamplingGamma * 100).toFixed(0)}%)`
+		if (samplerName === "TCD" && value.stochasticSamplingGamma !== undefined) {
+			data += ` (${(value.stochasticSamplingGamma * 100).toFixed(0)}%)`
 		}
 
 		return <DataItem label={"Sampler"} data={data} {...rest} />
 	},
-	Refiner: (props: { refinerModel?: string; refinerStart?: number }) => {
-		const { refinerModel, refinerStart, ...rest } = props
-		if (!refinerModel) return null
-		const start =
-			refinerStart !== undefined ? ` (${(refinerStart * 100).toFixed(1)}%)` : ""
-		return (
-			<DataItem label={"Refiner"} data={`${refinerModel}${start}`} {...rest} />
-		)
+	Refiner: (props: DataItemTemplateProps<"refiner">) => {
+		const { value, ...rest } = props
+		if (!value?.model) return null
+		const start = value.start !== undefined ? ` (${(value.start * 100).toFixed(1)}%)` : ""
+		return <DataItem label={"Refiner"} data={`${value.model}${start}`} {...rest} />
 	},
-	Shift: (props: { shift?: number; resolutionDependentShift?: boolean }) => {
-		const { shift, resolutionDependentShift, ...rest } = props
-		if (shift === undefined) return null
-		let data = shift.toFixed(2)
-		if (resolutionDependentShift) {
+	Shift: (props: DataItemTemplateProps<"shift">) => {
+		const { value, ...rest } = props
+		if (value?.value === undefined) return null
+		let data = value.value.toFixed(2)
+		if (value.resDependentShift) {
 			data += " (Res. Dependent)"
 		}
 		return <DataItem label={"Shift"} data={data} {...rest} />
 	},
-	GuidanceEmbed: (props: {
-		guidanceEmbed?: number
-		speedUpWithGuidanceEmbed?: boolean
-	}) => {
-		const { guidanceEmbed, speedUpWithGuidanceEmbed, ...rest } = props
-		if (speedUpWithGuidanceEmbed !== false || guidanceEmbed === undefined)
-			return null
-		return <DataItem label={"Guidance Embed"} data={guidanceEmbed} {...rest} />
+	GuidanceEmbed: (props: DataItemTemplateProps<"guidanceEmbed">) => {
+		const { value, ...rest } = props
+		if (value?.speedUp !== false || value?.value === undefined) return null
+		return <DataItem label={"Guidance Embed"} data={value.value} {...rest} />
 	},
-	CausalInference: (props: {
-		causalInferenceEnabled?: boolean
-		causalInference?: number
-		causalInferencePad?: number
-	}) => {
-		const {
-			causalInferenceEnabled,
-			causalInference,
-			causalInferencePad,
-			...rest
-		} = props
-		if (!causalInferenceEnabled) return null
+	CausalInference: (props: DataItemTemplateProps<"causalInference">) => {
+		const { value, ...rest } = props
+		if (!value || value.value === 0) return null
 		return (
-			<DataItem
-				label={"Causal Inference"}
-				data={`True (${causalInference}-${causalInferencePad})`}
-				{...rest}
-			/>
+			<DataItem label={"Causal Inference"} data={`True (${value.value}-${value.pad})`} {...rest} />
 		)
 	},
-	CfgZeroStar: (props: { cfgZeroStar?: boolean; cfgZeroInitSteps?: number }) => {
-		const { cfgZeroStar, cfgZeroInitSteps, ...rest } = props
-		if (!cfgZeroStar) return null
-		return (
-			<DataItem
-				label={"CFG Zero Star"}
-				data={`True (${cfgZeroInitSteps} steps)`}
-				{...rest}
-			/>
-		)
+	CfgZero: (props: DataItemTemplateProps<"cfgZero">) => {
+		const { value, ...rest } = props
+		if (!value?.star) return null
+		return <DataItem label={"CFG Zero Star"} data={`True (${value.initSteps} steps)`} {...rest} />
 	},
-	Strength: (props: { strength?: number }) => {
-		const { strength, ...rest } = props
-		if (!strength) return null
-		const percent = strength <= 1 ? strength * 100 : strength
+	Strength: (props: DataItemTemplateProps<"strength">) => {
+		const { value, ...rest } = props
+		if (!value) return null
+		const percent = value <= 1 ? value * 100 : value
 		const displayValue = percent.toFixed(1)
 
 		return <DataItem label={"Strength"} data={`${displayValue}%`} {...rest} />
 	},
-	GuidanceScale: (props: { guidanceScale?: number }) => {
-		const { guidanceScale, ...rest } = props
-		if (!guidanceScale) return null
-		return <DataItem label={"Guidance Scale"} data={guidanceScale.toFixed(1)} {...rest} />
+	GuidanceScale: (props: DataItemTemplateProps<"guidanceScale">) => {
+		const { value, ...rest } = props
+		if (!value) return null
+		return <DataItem label={"Guidance Scale"} data={value.toFixed(1)} {...rest} />
 	},
-	MaskBlur: (props: { maskBlur?: number }) => {
-		const { maskBlur, ...rest } = props
-		if (!maskBlur) return null
-		return <DataItem label={"Mask Blur"} data={maskBlur.toFixed(1)} {...rest} />
+	AestheticScore: (props: DataItemTemplateProps<"aestheticScore">) => {
+		const { value, ...rest } = props
+		if (!value || (value.positive === 0 && value.negative === 0)) return null
+		return (
+			<DataItem
+				label={"Aesthetic Score"}
+				data={`${value.positive} / ${value.negative}`}
+				{...rest}
+			/>
+		)
 	},
-	MaskBlurOutset: (props: { maskBlurOutset?: number }) => {
-		const { maskBlurOutset, ...rest } = props
-		if (!maskBlurOutset) return null
-		return <DataItem label={"Mask Blur Outset"} data={maskBlurOutset} {...rest} />
+	MaskBlur: (props: DataItemTemplateProps<"maskBlur">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
+		let data = value.value.toFixed(1)
+		if (value.outset) {
+			data += ` (${value.outset} outset)`
+		}
+		return <DataItem label={"Mask Blur"} data={data} {...rest} />
 	},
-	Sharpness: (props: { sharpness?: number }) => {
-		const { sharpness, ...rest } = props
-		if (!sharpness) return null
-		return <DataItem label={"Sharpness"} data={sharpness.toFixed(1)} {...rest} />
+	Sharpness: (props: DataItemTemplateProps<"sharpness">) => {
+		const { value, ...rest } = props
+		if (!value) return null
+		return <DataItem label={"Sharpness"} data={value.toFixed(1)} {...rest} />
 	},
-	TiledDecoding: (props: {
-		tiledDecoding?: boolean
-		decodingTileHeight?: number
-		decodingTileOverlap?: number
-		decodingTileWidth?: number
-	}) => {
-		const {
-			tiledDecoding,
-			decodingTileHeight,
-			decodingTileOverlap,
-			decodingTileWidth,
-			...rest
-		} = props
-		if (!tiledDecoding) return null
+	TiledDecoding: (props: DataItemTemplateProps<"tiledDecoding">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
 		return (
 			<DataItem
 				label={"Tiled Decoding"}
-				data={`${decodingTileWidth} x ${decodingTileHeight} (${decodingTileOverlap} overlap)`}
+				data={`${value.width} x ${value.height} (${value.overlap} overlap)`}
 				{...rest}
 			/>
 		)
 	},
-	TiledDiffusion: (props: {
-		tiledDiffusion?: boolean
-		diffusionTileHeight?: number
-		diffusionTileOverlap?: number
-		diffusionTileWidth?: number
-	}) => {
-		const {
-			tiledDiffusion,
-			diffusionTileHeight,
-			diffusionTileOverlap,
-			diffusionTileWidth,
-			...rest
-		} = props
-		if (!tiledDiffusion) return null
+	TiledDiffusion: (props: DataItemTemplateProps<"tiledDiffusion">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
 		return (
 			<DataItem
 				label={"Tiled Diffusion"}
-				data={`${diffusionTileWidth} x ${diffusionTileHeight} (${diffusionTileOverlap} overlap)`}
+				data={`${value.width} x ${value.height} (${value.overlap} overlap)`}
 				{...rest}
 			/>
 		)
 	},
-	HiresFix: (props: {
-		hiresFix?: boolean
-		hiresFixHeight?: number
-		hiresFixStrength?: number
-		hiresFixWidth?: number
-	}) => {
-		const {
-			hiresFix,
-			hiresFixHeight,
-			hiresFixStrength,
-			hiresFixWidth,
-			...rest
-		} = props
-		if (!hiresFix) return null
+	HiresFix: (props: DataItemTemplateProps<"hiresFix">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
 		return (
 			<DataItem
 				label={"Hires Fix"}
-				data={`${hiresFixWidth} x ${hiresFixHeight} at ${((hiresFixStrength ?? 0) * 100).toFixed(0)}%`}
+				data={`${value.width} x ${value.height} at ${((value.strength ?? 0) * 100).toFixed(0)}%`}
 				{...rest}
 			/>
 		)
 	},
-	ClipL: (props: { separateClipL?: boolean; clipLText?: string }) => {
-		const { separateClipL, clipLText, ...rest } = props
-		if (!separateClipL) return null
-		return <DataItem label={"Clip L"} data={clipLText} {...rest} />
+	ClipL: (props: DataItemTemplateProps<"separateClipL">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
+		return <DataItem label={"Clip L"} data={value.text} {...rest} />
 	},
-	OpenClipG: (props: { separateOpenClipG?: boolean; openClipGText?: string }) => {
-		const { separateOpenClipG, openClipGText, ...rest } = props
-		if (!separateOpenClipG) return null
-		return <DataItem label={"Open Clip G"} data={openClipGText} {...rest} />
+	OpenClipG: (props: DataItemTemplateProps<"separateOpenClipG">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
+		return <DataItem label={"Open Clip G"} data={value.text} {...rest} />
 	},
-	T5: (props: { separateT5?: boolean; t5Text?: string }) => {
-		const { separateT5, t5Text, ...rest } = props
-		if (!separateT5) return null
-		return <DataItem label={"T5"} data={t5Text} {...rest} />
+	T5: (props: DataItemTemplateProps<"separateT5">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
+		return <DataItem label={"T5"} data={value.text} {...rest} />
 	},
-	TeaCache: (props: {
-		teaCache?: boolean
-		teaCacheEnd?: number
-		teaCacheMaxSkipSteps?: number
-		teaCacheStart?: number
-		teaCacheThreshold?: number
-	}) => {
-		const {
-			teaCache,
-			teaCacheEnd,
-			teaCacheMaxSkipSteps,
-			teaCacheStart,
-			teaCacheThreshold,
-			...rest
-		} = props
-		if (!teaCache) return null
+	TeaCache: (props: DataItemTemplateProps<"teaCache">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
 		return (
 			<DataItem
 				label={"Tea Cache"}
 				data={{
-					Threshold: teaCacheThreshold,
-					Start: teaCacheStart,
-					End: teaCacheEnd,
-					"Max Skip": teaCacheMaxSkipSteps,
+					Threshold: value.threshold,
+					Start: value.start,
+					End: value.end,
+					"Max Skip": value.maxSkipSteps,
 				}}
 				{...rest}
 			/>
 		)
 	},
-	Upscaler: (props: { upscaler?: string; upscalerScaleFactor?: number }) => {
-		const { upscaler, upscalerScaleFactor, ...rest } = props
-		if (!upscaler) return null
-		let data = upscaler
-		if (upscalerScaleFactor) {
-			data += ` (${upscalerScaleFactor.toFixed(1)}x)`
+	Upscaler: (props: DataItemTemplateProps<"upscaler">) => {
+		const { value, ...rest } = props
+		if (!value?.value) return null
+		let data = value.value
+		if (value.scaleFactor) {
+			data += ` (${value.scaleFactor.toFixed(1)}x)`
 		}
 		return <DataItem label={"Upscaler"} data={data} {...rest} />
 	},
+	Batch: (props: DataItemTemplateProps<"batch">) => {
+		const { value, ...rest } = props
+		if (!value || (value.size === 1 && value.count === 1)) return null
+		return <DataItem label={"Batch"} data={`${value.size} x ${value.count}`} {...rest} />
+	},
+	Stage2: (props: DataItemTemplateProps<"stage2">) => {
+		const { value, ...rest } = props
+		if (!value || (value.guidance === 0 && value.steps === 0)) return null
+		return (
+			<DataItem
+				label={"Stage 2"}
+				data={`${value.steps} steps at ${value.guidance.toFixed(1)} guidance (${value.shift.toFixed(2)} shift)`}
+				{...rest}
+			/>
+		)
+	},
+	ImagePrior: (props: DataItemTemplateProps<"imagePrior">) => {
+		const { value, ...rest } = props
+		if (!value || value.steps === 0) return null
+		return (
+			<DataItem
+				label={"Image Prior"}
+				data={`${value.steps} steps${value.negativePrompt ? " (Negative Prompt)" : ""}`}
+				{...rest}
+			/>
+		)
+	},
+}
+
+const templatesReverse: {
+	[K in keyof DrawThingsGroupedConfig]?: (props: DataItemTemplateProps<K>) => React.ReactNode
+} = {
+	size: templates.Size,
+	originalSize: templates.OriginalSize,
+	targetImageSize: templates.TargetSize,
+	negativeOriginalSize: templates.NegativeOriginalSize,
+	crop: templates.Crop,
+	numFrames: templates.NumFrames,
+	seed: templates.Seed,
+	model: templates.Model,
+	steps: templates.Steps,
+	sampler: templates.Sampler,
+	refiner: templates.Refiner,
+	shift: templates.Shift,
+	guidanceEmbed: templates.GuidanceEmbed,
+	causalInference: templates.CausalInference,
+	cfgZero: templates.CfgZero,
+	strength: templates.Strength,
+	guidanceScale: templates.GuidanceScale,
+	aestheticScore: templates.AestheticScore,
+	maskBlur: templates.MaskBlur,
+	sharpness: templates.Sharpness,
+	tiledDecoding: templates.TiledDecoding,
+	tiledDiffusion: templates.TiledDiffusion,
+	hiresFix: templates.HiresFix,
+	separateClipL: templates.ClipL,
+	separateOpenClipG: templates.OpenClipG,
+	separateT5: templates.T5,
+	teaCache: templates.TeaCache,
+	upscaler: templates.Upscaler,
+	batch: templates.Batch,
+	stage2: templates.Stage2,
+	imagePrior: templates.ImagePrior,
 }
 
 const ex = DataItem as typeof DataItem & typeof templates

@@ -1,19 +1,19 @@
-import { Box, chakra, HStack, Spinner, VStack } from "@chakra-ui/react"
+import { chakra, HStack, Spinner } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import type { ComponentProps } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
+import type { Snapshot } from "valtio"
 import { dtProject, type ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { IconButton } from "@/components"
-import { DarkMode } from "@/components/ui/color-mode"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
+import type { UIControllerState } from "../state/uiState"
 import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
+import { TensorHistoryProvider } from "./TensorHistoryContext"
 import TensorsList from "./TensorsList"
-import { UIControllerState } from "../state/uiState"
-import { Snapshot } from 'valtio'
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
@@ -35,173 +35,141 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 		item || snap.lastItem ? urls.thumb(item ?? (snap.lastItem as ImageExtra)) : undefined
 
 	return (
-		<Container
-			onClick={() => {
-				if (snap.subItem) uiState.hideSubItem()
-				else uiState.hideDetailsOverlay()
-			}}
-			variants={{
-				open: {
-					opacity: 1,
-					backgroundColor: "#00000099",
-					backdropFilter: "blur(5px)",
-					// display: "flex",
-					visibility: "visible",
-					pointerEvents: "auto",
-					transition: {
-						visibility: {
-							duration: 0,
-							delay: 0,
+		<TensorHistoryProvider history={snap.itemDetails} groupedConfig={snap.config}>
+			<Container
+				pointerEvents={isVisible ? "auto" : "none"}
+				onClick={() => {
+					if (snap.subItem) uiState.hideSubItem()
+					else uiState.hideDetailsOverlay()
+				}}
+				variants={{
+					open: {
+						backgroundColor: "#00000099",
+						backdropFilter: "blur(5px)",
+						visibility: "visible",
+						transition: {
+							visibility: {
+								duration: 0,
+								delay: 0,
+							},
+							duration: transition.duration,
+							ease: "easeInOut",
 						},
-						duration: transition.duration,
-						ease: "easeOut",
 					},
-				},
-				closed: {
-					opacity: 1,
-					backgroundColor: "#00000000",
-					backdropFilter: "blur(0px)",
-					// visibility: "hidden",
-					visibility: "hidden",
-					pointerEvents: "none",
-					transition: {
-						visibility: {
-							duration: 0,
-							delay: transition.duration,
+					closed: {
+						backgroundColor: "#00000000",
+						backdropFilter: "blur(0px)",
+						visibility: "hidden",
+						transition: {
+							visibility: {
+								duration: 0,
+								delay: transition.duration,
+							},
+							duration: transition.duration,
+							ease: "easeInOut",
 						},
-						duration: transition.duration,
-						ease: "easeOut",
 					},
-				},
-			}}
-			initial={"closed"}
-			exit={"closed"}
-			animate={isVisible ? "open" : "closed"}
-			transition={{ duration: transition.duration }}
-			{...rest}
-		>
-			<VStack
-				padding={4}
-				paddingBottom={0}
-				gap={0}
-				minHeight={0}
-				width={"100%"}
-				height={"100%"}
-				overflowY={"clip"}
-				alignItems={"stretch"}
+				}}
+				initial={"closed"}
+				exit={"closed"}
+				animate={isVisible ? "open" : "closed"}
+				transition={{ duration: transition.duration }}
+				{...rest}
 			>
-				<Box width={"100%"} minHeight={0} flex={"1 1 auto"} position={"relative"}>
-					<DetailsImage
-						inset={0}
-						src={srcFull}
-						srcHalf={srcHalf}
-						sourceRect={snap.sourceRect ?? null}
-						naturalSize={{ width: snap.width ?? 1, height: snap.height ?? 1 }}
-						position={"absolute"}
-						zIndex={0}
-						// filter={subItem ? "blur(2px)" : "none"}
-						imgStyle={{
-							filter: snap.subItem ? "brightness(0.5)" : "none",
-							transition: "filter 0.3s ease",
-						}}
-						transition={"filter 0.3s ease"}
-					/>
-					<AnimatePresence initial={false} mode={"sync"}>
-						{snap.subItem?.isLoading && (
-							<Spinner
-								color={"white"}
-								bgColor={"black"}
-								padding={1}
-								left="50%"
-								top="50%"
-								position="absolute"
-								transform="translate(-50%, -50%)"
-								zIndex={30}
-							/>
-						)}
-						{snap.subItem && (
-							<VStack
-								height={"100%"}
-								width={"100%"}
-								alignItems={"center"}
-								padding={1}
-								zIndex={1}
-								key={snap.subItem?.tensorId}
-								position={"absolute"}
-							>
-								<DetailsImage
-									pixelated={snap.subItem?.tensorId?.startsWith("color")}
-									width={"100%"}
-									flex={"1 1 auto"}
-									src={snap.subItem?.url}
-									maskSrc={snap.subItem?.applyMask ? snap.subItem?.maskUrl : undefined}
-									// srcHalf={subItem?.thumbUrl}
-									sourceRect={() => snap.subItemSourceRect}
-									sourceElement={snap.subItem.sourceElement as HTMLElement}
-									naturalSize={{
-										width: snap.subItem?.width ?? 1,
-										height: snap.subItem?.height ?? 1,
-									}}
-									zIndex={1}
-									imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
-									// position={"absolute"}
-								/>
-								<DetailsButtonBar
-									show={snap.subItem && !snap.subItem.isLoading}
-									subItem={snap.subItem}
-									item={item}
-									tensorId={snap.subItem.tensorId}
-								/>
-							</VStack>
-						)}
-					</AnimatePresence>
-				</Box>
 				<AnimatePresence>
+					{isVisible && (
+						<DetailsImage
+							key={"details_image"}
+							width={"100%"}
+							height={"100%"}
+							padding={0}
+							paddingTop={0}
+							gridArea={"image"}
+							zIndex={0}
+							id={`${item.project_id}_${item.node_id}`}
+							src={srcFull}
+							srcHalf={srcHalf}
+							naturalSize={{ width: snap.width ?? 1, height: snap.height ?? 1 }}
+							imgStyle={{
+								filter: snap.subItem ? "brightness(0.5)" : "none",
+								transition: "filter 0.3s ease",
+							}}
+						/>
+					)}
+					{snap.subItem?.isLoading && (
+						<Spinner
+							key={"subitem_spinner"}
+							gridArea={"image"}
+							color={"white"}
+							bgColor={"black"}
+							padding={1}
+							left="50%"
+							top="50%"
+							position="absolute"
+							transform="translate(-50%, -50%)"
+							zIndex={30}
+						/>
+					)}
+					{snap.subItem && (
+						<DetailsImage
+							key={"subitem_image"}
+							padding={10}
+							width={"100%"}
+							height={"100%"}
+							paddingTop={0}
+							gridArea={"image"}
+							zIndex={0}
+							id={`${item?.project_id}_${item?.node_id}_${snap.subItem.tensorId}`}
+							pixelated={snap.subItem?.tensorId?.startsWith("color")}
+							src={snap.subItem?.url}
+							maskSrc={snap.subItem?.applyMask ? snap.subItem?.maskUrl : undefined}
+							// sourceRect={() => snap.subItemSourceRect}
+							// sourceElement={snap.subItem.sourceElement as HTMLElement}
+							naturalSize={{
+								width: snap.subItem?.width ?? 1,
+								height: snap.subItem?.height ?? 1,
+							}}
+							imgStyle={{ boxShadow: "pane1", border: "1px solid gray" }}
+						/>
+					)}
 					<DetailsButtonBar
-						show={!snap.subItem}
+						key={"details_button_bar"}
+						transform={snap.subItem ? "translateY(-2rem)" : "unset"}
+						marginY={-3}
+						zIndex={5}
+						alignSelf={"center"}
+						justifySelf={"center"}
+						gridArea={"commandBar"}
 						item={item}
-						addMetadata={true}
-						tensorId={itemDetails?.tensor_id}
+						show={true}
+						subItem={snap.subItem}
+						addMetadata={!snap.subItem}
+						tensorId={snap.subItem?.tensorId ?? itemDetails?.tensor_id}
+					/>
+					<TensorsList
+						key={"tensors_list"}
+						gridArea={"tensors"}
+						zIndex={1}
+						item={item}
+						details={itemDetails}
+						candidates={snap.candidates}
+						transition={{ duration: transition.duration }}
 					/>
 				</AnimatePresence>
-				<TensorsList
-					flex={"0 0 60px"}
-					zIndex={1}
-					margin={"1rem"}
-					// marginBottom={"-1rem"}
-					item={item}
-					details={itemDetails}
-					candidates={snap.candidates}
-					// variants={{
-					// 	open: { y: "0%", opacity: 1 },
-					// 	closed: { y: "100%", opacity: 0 },
-					// }}
-					transition={{ duration: transition.duration, delay: 0 }}
-					// initial={"closed"}
-					// animate={"open"}
-					// exit={"closed"}
-				/>
-			</VStack>
-
-			<VStack height={"100%"} overflow={"clip"} padding={1} zIndex={2} asChild>
-				<motion.div>
-					{/* <Button
-								onClick={() =>
-									AppState.setViewRequest("metadata", {
-										open: {
-											nodeId: snap.item?.node_id,
-											projectId: snap.item?.project_id,
-											tensorId: snap.item?.tensor_id,
-										},
-									})
-								}
-							>
-								Hello
-							</Button> */}
-					<DetailsContent item={item} details={itemDetails} />
-				</motion.div>
-			</VStack>
-		</Container>
+				{isVisible && (
+					<DetailsContent
+						key={`details_content`}
+						gridArea={"content"}
+						height={"100%"}
+						overflow={"clip"}
+						padding={1}
+						zIndex={2}
+						item={item}
+						details={itemDetails}
+					/>
+				)}
+			</Container>
+		</TensorHistoryProvider>
 	)
 }
 
@@ -212,15 +180,17 @@ const Container = chakra(
 			position: "absolute",
 			display: "grid",
 			gridTemplateColumns: "1fr max(18rem, min(40%, 30rem))",
-			gap: 0,
+			gridTemplateRows: "1fr auto auto",
+			gridTemplateAreas: '"image content" "commandBar content" "tensors content"',
+			width: "100%",
+			height: "100%",
+			gap: 6,
+			padding: 6,
 			justifyContent: "stretch",
 			alignItems: "center",
-			inset: 0,
+			// inset: 0,
 			// overflow: "clip",
 			// zIndex: "5",
-			padding: 2,
-			height: "100%",
-			width: "100%",
 		},
 	},
 	{ forwardProps: ["transition"] },
@@ -281,7 +251,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 						if (!projectFile || !tensorId) return
 						const imgData = await dtProject.decodeTensor(projectFile, tensorId, true, nodeId)
 						if (!imgData) return
-
+						console.log(projectFile, tensorId, nodeId)
 						await sendToMetadata(imgData, "png", {
 							source: "project",
 							projectFile,

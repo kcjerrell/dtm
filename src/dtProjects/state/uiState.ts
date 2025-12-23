@@ -2,35 +2,38 @@ import { proxy, ref, useSnapshot } from "valtio"
 import { dtProject, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { DTPStateController } from "@/hooks/StateController"
+import type { DrawThingsGroupedConfig } from "@/types"
+import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 
 export type UIControllerState = {
-	selectedTab: "projects" | "search" | "settings"
-	shouldFocus?: string
-	detailsView: {
-		item?: ImageExtra
-		itemDetails?: TensorHistoryExtra
-		subItem?: {
-			projectId: number
-			tensorId: string
-			maskUrl?: string
-			applyMask?: boolean
-			thumbUrl: string
-			url?: string
+		selectedTab: "projects" | "search" | "settings"
+		shouldFocus?: string
+		detailsView: {
+			item?: ImageExtra
+			itemDetails?: TensorHistoryExtra
+			config?: DrawThingsGroupedConfig | null
+			subItem?: {
+				projectId: number
+				tensorId: string
+				maskUrl?: string
+				applyMask?: boolean
+				thumbUrl: string
+				url?: string
+				width?: number
+				height?: number
+				isLoading: boolean
+				sourceElement?: HTMLElement
+			}
+			subItemSourceRect?: DOMRect | null
+			lastItem?: ImageExtra | null
+			candidates?: TensorHistoryExtra[]
+			sourceRect?: DOMRect | null
 			width?: number
 			height?: number
-			isLoading: boolean
-			sourceElement?: HTMLElement
 		}
-		subItemSourceRect?: DOMRect | null
-		lastItem?: ImageExtra | null
-		candidates?: TensorHistoryExtra[]
-		sourceRect?: DOMRect | null
-		width?: number
-		height?: number
 	}
-}
 type Handler<T> = (payload: T) => void
 export class UIController extends DTPStateController<UIControllerState> {
 	state = proxy<UIControllerState>({
@@ -80,7 +83,10 @@ export class UIController extends DTPStateController<UIControllerState> {
 		}
 
 		const itemDetails = await this.getService("details")?.getDetails(item)
+		const rawConfig = extractConfigFromTensorHistoryNode(itemDetails?.history)
+		const config = groupConfigProperties(rawConfig)
 		detailsOverlay.itemDetails = itemDetails
+		detailsOverlay.config = config
 
 		const candidates = await this.getService("details")?.getPredecessorCandidates(item)
 		detailsOverlay.candidates = candidates ?? []

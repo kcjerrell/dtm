@@ -1,191 +1,73 @@
 import { Box } from "@chakra-ui/react"
-import { motion, type TargetAndTransition, useAnimate } from "motion/react"
-import { type CSSProperties, useCallback, useRef } from "react"
+import { motion } from "motion/react"
+import { type CSSProperties, useRef } from "react"
 import { showPreview } from "@/components/preview"
 
 const transition = { duration: 0.25, ease: "circInOut" }
 
 interface DetailsImageProps extends ChakraProps {
+	id?: string
 	src?: string
 	srcHalf?: string
 	maskSrc?: string
-	sourceRect: ValueOrGetter<Nullable<DOMRectReadOnly>>
 	naturalSize: { width: number; height: number }
 	imgStyle?: CSSProperties
 	pixelated?: boolean
-	sourceElement?: HTMLElement
 }
 
-type LRect = { left: number; top: number; width: number; height: number }
 
 function DetailsImage(props: DetailsImageProps) {
-	const {
-		src,
-		srcHalf,
-		maskSrc,
-		sourceRect: sourceRectProp,
-		naturalSize,
-		imgStyle,
-		pixelated,
-		sourceElement,
-		...restProps
-	} = props
-
-	const sourceRect = typeof sourceRectProp === "function" ? sourceRectProp() : sourceRectProp
+	const { id, src, srcHalf, maskSrc, naturalSize, imgStyle, pixelated, ...restProps } = props
 
 	const imgContainerRef = useRef<HTMLDivElement>(null)
 	const imgRef = useRef<HTMLImageElement>(null)
-	const [scope, anim] = useAnimate()
-
-	const imgOrigin = useRef<LRect | null>(null)
-	const imgTarget = useRef<LRect | null>(null)
-	const resized = useRef(false)
 
 	const maskProps = maskSrc
 		? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
 		: {}
 
-	const getImageAnimOpen = useCallback(() => {
-		if (sourceRect && imgContainerRef.current) {
-			const imgContainerRect = imgContainerRef.current.getBoundingClientRect()
-			const posA = offsetRect(sourceRect, imgContainerRect)
-			imgOrigin.current = posA
-
-			const posB = offsetRect(
-				contain(naturalSize, imgContainerRef.current.getBoundingClientRect()),
-				imgContainerRef.current.getBoundingClientRect(),
-			)
-			imgTarget.current = posB
-
-			return {
-				top: [posA.top, posB.top],
-				left: [posA.left, posB.left],
-				width: [posA.width, posB.width],
-				height: [posA.height, posB.height],
-				borderRadius: ["1px", "4px"],
-				transition: {
-					times: [0, 1],
-					duration: transition.duration,
-					// ease: "easeInOut",
-				},
-			} as TargetAndTransition
-		}
-		return {}
-	}, [sourceRect, naturalSize])
-
-	const getImageAnimClose = useCallback(() => {
-		const box = resized.current
-			? {
-					top: undefined, // [imgTarget.current?.top, null],
-					left: undefined, // [imgTarget.current?.left, null],
-					width: undefined, // [imgTarget.current?.width, null],
-					height: undefined, // [imgTarget.current?.height, null],
-					scale: [1, 0.5],
-					opacity: [1, 0],
-				}
-			: {
-					top: [null, imgOrigin.current?.top],
-					left: [null, imgOrigin.current?.left],
-					width: [null, imgOrigin.current?.width],
-					height: [null, imgOrigin.current?.height],
-				}
-		return {
-			...box,
-			borderRadius: ["4px", "1px"],
-			transition: {
-				times: [0, 1],
-				duration: transition.duration,
-				// ease: "easeInOut",
-			},
-		} as TargetAndTransition
-	}, [])
-
-	const attachResizeObserver = useCallback(
-		(elem: HTMLElement) => {
-			let firstResize = true
-			resized.current = false
-			const ro = new ResizeObserver((entries) => {
-				for (const entry of entries) {
-					if (entry.target === elem) {
-						if (firstResize) {
-							firstResize = false
-							continue
-						}
-						resized.current = true
-						const imgContainerRect = elem.getBoundingClientRect()
-						const pos = offsetRect(contain(naturalSize, imgContainerRect), imgContainerRect)
-						anim(
-							scope.current,
-							{ top: pos.top, left: pos.left, width: pos.width, height: pos.height },
-							{ duration: 0 },
-						)
-					}
-				}
-			})
-			ro.observe(elem)
-			return ro
-		},
-		[anim, naturalSize, scope],
-	)
+	const coverScale =
+		Math.max(naturalSize.width, naturalSize.height) /
+		Math.min(naturalSize.width, naturalSize.height)
 
 	if (!srcHalf && !src) return null
 
 	return (
-		<Box
-			ref={(elem: HTMLDivElement | null) => {
-				imgContainerRef.current = elem
-				if (elem) {
-					const ro = attachResizeObserver(elem)
-					return () => ro.disconnect()
-				}
-			}}
-			position={"relative"}
-			{...restProps}
-		>
+		<Box borderRadius={"md"} asChild {...restProps}>
 			<motion.div
-				ref={scope}
+				ref={imgContainerRef}
 				key={src}
 				style={{
-					backgroundImage: "url(check_dark.png)",
-					backgroundSize: `${naturalSize.width / 128}% ${naturalSize.height / 128}%`,
-					backgroundRepeat: "repeat",
-					position: "absolute",
-					zIndex: 20,
+					display: "block",
+					minHeight: "0",
+					minWidth: "0",
+					overflow: "clip",
 					...imgStyle,
 				}}
-				variants={{
-					open: () => getImageAnimOpen(),
-					closed: () => getImageAnimClose(),
-				}}
-				initial={"closed"}
-				animate={"open"}
-				exit={"closed"}
-				onAnimationStart={(variant) => {
-					if (sourceElement && variant === "open") {
-						sourceElement.style.visibility = "hidden"
-					}
-				}}
-				onAnimationComplete={(variant) => {
-					if (sourceElement && variant === "closed") {
-						sourceElement.style.visibility = "visible"
-					}
-				}}
+				transition={{ duration: transition.duration }}
+				layout
+				layoutId={id}
 				onClick={(e) => {
 					e.stopPropagation()
 					showPreview(imgRef.current, src)
 				}}
 			>
-				<img
+				<motion.img
+					width={naturalSize.width}
+					height={naturalSize.height}
 					ref={imgRef}
 					src={src}
 					alt={src}
+					initial={{ scale: coverScale }}
+					animate={{ scale: 1 }}
+					exit={{ scale: coverScale }}
+					transition={{ duration: transition.duration }}
 					style={{
+						opacity: 1,
+						display: "block",
 						imageRendering: pixelated ? "pixelated" : "auto",
-						backgroundImage: `url(${srcHalf})`,
-						backgroundSize: "cover",
-						backgroundPosition: "center",
-						backgroundRepeat: "no-repeat",
-						objectFit: "cover",
+						transformOrigin: "center center",
+						objectFit: "contain",
 						width: "100%",
 						height: "100%",
 						...maskProps,
@@ -197,22 +79,3 @@ function DetailsImage(props: DetailsImageProps) {
 }
 
 export default DetailsImage
-
-function offsetRect(rect: DOMRectReadOnly, offset: DOMRectReadOnly) {
-	return {
-		top: rect.top - offset.top,
-		left: rect.left - offset.left,
-		width: rect.width,
-		height: rect.height,
-	}
-}
-
-function contain(object: { width: number; height: number }, container: DOMRectReadOnly) {
-	const scale = Math.min(container.width / object.width, container.height / object.height)
-	return new DOMRectReadOnly(
-		container.left + (container.width - object.width * scale) / 2,
-		container.top + (container.height - object.height * scale) / 2,
-		object.width * scale,
-		object.height * scale,
-	)
-}

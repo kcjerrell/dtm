@@ -1,9 +1,9 @@
-import { Box, chakra, GridItem, HStack } from "@chakra-ui/react"
+import { Box, chakra, HStack } from "@chakra-ui/react"
 import { useCallback } from "react"
 import { useMeasureGrid } from "@/components/measureGrid/useMeasureGrid"
 import { useTimedState } from "@/hooks/useTimedState"
 
-interface DataItemProps<T> extends ChakraProps {
+interface DataItemProps<T> extends Omit<ChakraProps, "onClick"> {
 	label: string
 	data: T
 	cols?: number

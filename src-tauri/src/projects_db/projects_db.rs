@@ -12,7 +12,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tokio::sync::OnceCell;
 
 use crate::projects_db::{
@@ -156,7 +156,7 @@ impl ProjectsDb {
         }
 
         // Save changes
-        let updated: projects::Model = project.update(&self.db).await?;
+        let _updated: projects::Model = project.update(&self.db).await?;
 
         Ok(()) // or Ok(updated) depending on your typedef
     }
@@ -184,6 +184,13 @@ impl ProjectsDb {
                 .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                 .collect();
 
+            let _preview_ids = histories_filtered.iter().map(|h| h.preview_id).collect::<Vec<_>>();
+            // let preview_thumbs: HashMap<i64, Vec<u8>> = match preview_ids.len() {
+            //     0 => HashMap::new(),
+            //     _ => dt_project.batch_thumbs(&preview_ids).await?,
+            // };
+            let preview_thumbs = HashMap::new();
+
             // if histories_filtered.is_empty() {
             //     on_progress((batch_start + 250) as i32, end as i32);
             //     continue;
@@ -192,7 +199,7 @@ impl ProjectsDb {
             let models_lookup = self.process_models(&histories_filtered).await?;
 
             let (images, batch_image_loras, batch_image_controls) =
-                self.prepare_image_data(project.id, &histories_filtered, &models_lookup);
+                self.prepare_image_data(project.id, &histories_filtered, &models_lookup, preview_thumbs);
 
             let inserted_images = if !images.is_empty() {
                 entity::images::Entity::insert_many(images)
@@ -280,6 +287,7 @@ impl ProjectsDb {
         project_id: i64,
         histories: &[TensorHistoryImport],
         models_lookup: &HashMap<ModelTypeAndFile, i64>,
+        preview_thumbs: HashMap<i64, Vec<u8>>,
     ) -> (
         Vec<images::ActiveModel>,
         Vec<NodeModelWeight>,
@@ -291,10 +299,12 @@ impl ProjectsDb {
         let images: Vec<images::ActiveModel> = histories
             .iter()
             .map(|h: &TensorHistoryImport| {
+                let preview_thumb = preview_thumbs.get(&h.preview_id).cloned();
                 let mut image = images::ActiveModel {
                     project_id: Set(project_id),
                     node_id: Set(h.row_id),
                     preview_id: Set(h.preview_id),
+                    thumbnail_half: Set(preview_thumb),
                     clip_id: Set(h.clip_id),
                     prompt: Set(Some(h.prompt.clone())),
                     negative_prompt: Set(Some(h.negative_prompt.clone())),
@@ -539,7 +549,7 @@ impl ProjectsDb {
             query = query.limit(take as u64);
         }
 
-        let stmt = query.clone().build(self.db.get_database_backend());
+        let _stmt = query.clone().build(self.db.get_database_backend());
         // println!("Query: {:#?}", stmt);
 
         let count = query.clone().count(&self.db).await?;
@@ -603,13 +613,19 @@ impl ProjectsDb {
     pub async fn update_watch_folder(
         &self,
         id: i32,
-        recursive: bool,
+        recursive: Option<bool>,
+        last_updated: Option<i64>,
     ) -> Result<entity::watch_folders::Model, DbErr> {
         let folder = entity::watch_folders::Entity::find_by_id(id)
             .one(&self.db)
             .await?;
         let mut folder: entity::watch_folders::ActiveModel = folder.unwrap().into();
-        folder.recursive = Set(Some(recursive));
+        if let Some(recursive) = recursive {
+            folder.recursive = Set(Some(recursive));
+        }
+        if let Some(last_updated) = last_updated {
+            folder.last_updated = Set(Some(last_updated));
+        }
 
         let folder: entity::watch_folders::Model = folder.update(&self.db).await?;
         Ok(folder)
@@ -841,15 +857,15 @@ pub struct ProjectExtra {
     pub excluded: bool,
 }
 
-#[derive(Serialize, Clone)]
-pub struct ScanProgress {
-    pub projects_scanned: i32,
-    pub projects_total: i32,
-    pub project_final: i32,
-    pub project_path: String,
-    pub images_scanned: i32,
-    pub images_total: i32,
-}
+// #[derive(Serialize, Clone)]
+// pub struct ScanProgress {
+//     pub projects_scanned: i32,
+//     pub projects_total: i32,
+//     pub project_final: i32,
+//     pub project_path: String,
+//     pub images_scanned: i32,
+//     pub images_total: i32,
+// }
 
 #[derive(Debug)]
 pub enum MixedError {

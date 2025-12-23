@@ -1,4 +1,4 @@
-import { proxy, type Snapshot, subscribe, useSnapshot } from "valtio"
+import { proxy, subscribe, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import { DTPStateController } from "@/hooks/StateController"
 import { type PagedItemSource, pagedItemSource } from "@/utils/pagedItemSourceF"
@@ -57,8 +57,8 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 		else this.state.imageSource.direction = "asc"
 	}
 
-	useItemSource(): Snapshot<PagedItemSource<ImageExtra>> | undefined {
-		return useSnapshot(this.state).itemSource
+	useItemSource(): PagedItemSource<ImageExtra> {
+		return useSnapshot(this.state).itemSource as PagedItemSource<ImageExtra>
 	}
 
 	onImageCountsChanged: (counts: Record<number, number>) => void = () => {
@@ -67,7 +67,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
 	async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
 		this.state.imageSource.search = searchText
-		this.state.imageSource.filters = filter?.map(f => ({
+		this.state.imageSource.filters = filter?.map((f) => ({
 			target: f.target.toLowerCase(),
 			operator: f.operator,
 			value: f.value,

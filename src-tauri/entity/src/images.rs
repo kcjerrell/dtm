@@ -14,6 +14,7 @@ pub struct Model {
     pub project_id: i64,
     pub node_id: i64,
     pub preview_id: i64,
+    pub thumbnail_half: Option<Vec<u8>>,
     pub clip_id: i64,
     pub wall_clock: DateTimeUtc,
     pub model_id: Option<i64>,

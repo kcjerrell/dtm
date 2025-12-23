@@ -171,7 +171,7 @@ fn classify_type(s: &str) -> Option<&str> {
     s.rsplit_once('_').map(|(prefix, _)| prefix)
 }
 
-fn extract_jpeg_slice(data: &[u8]) -> Option<Vec<u8>> {
+pub fn extract_jpeg_slice(data: &[u8]) -> Option<Vec<u8>> {
     // JPEG markers
     const SOI: [u8; 2] = [0xFF, 0xD8]; // Start of Image
     const EOI: [u8; 2] = [0xFF, 0xD9]; // End of Image

@@ -91,6 +91,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::ProjectId).integer().not_null())
                     .col(ColumnDef::new(Images::NodeId).big_integer().not_null())
                     .col(ColumnDef::new(Images::PreviewId).big_integer().not_null())
+                    .col(ColumnDef::new(Images::ThumbnailHalf).blob().null())
                     .col(ColumnDef::new(Images::ClipId).big_integer().not_null())
                     .col(ColumnDef::new(Images::WallClock).timestamp().not_null())
                     .col(ColumnDef::new(Images::ModelId).integer().null())
@@ -127,13 +128,48 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::TiledDiffusion).boolean().not_null())
                     .col(ColumnDef::new(Images::TeaCache).boolean().not_null())
                     .col(ColumnDef::new(Images::CfgZeroStar).boolean().not_null())
-                    .col(ColumnDef::new(Images::HasMask).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Images::HasDepth).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Images::HasPose).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Images::HasColor).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Images::HasCustom).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Images::HasScribble).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Images::HasShuffle).boolean().not_null().default(false))
+                    .col(
+                        ColumnDef::new(Images::HasMask)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Images::HasDepth)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Images::HasPose)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Images::HasColor)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Images::HasCustom)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Images::HasScribble)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Images::HasShuffle)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_images_project")
@@ -322,6 +358,7 @@ impl MigrationTrait for Migration {
                             .tiny_integer()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(WatchFolders::LastUpdated).integer().null())
                     .index(
                         Index::create()
                             .name("idx_watch_folders_path_item_type")
@@ -407,6 +444,7 @@ enum Images {
     ProjectId,
     NodeId,
     PreviewId,
+    ThumbnailHalf,
     ClipId,
     WallClock,
     ModelId,
@@ -460,4 +498,5 @@ enum WatchFolders {
     Path,
     Recursive,
     ItemType,
+    LastUpdated,
 }

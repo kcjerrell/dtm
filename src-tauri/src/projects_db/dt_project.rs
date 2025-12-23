@@ -6,8 +6,7 @@ use sqlx::{query, sqlite::SqliteRow, Error, Row, SqlitePool};
 use std::{
     collections::HashSet,
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, atomic::{AtomicBool, Ordering}
     },
 };
 
@@ -244,8 +243,8 @@ impl DTProject {
             Ok(_) => {}
             Err(_) => {
                 return Ok(DTProjectInfo {
-                    path: self.path.clone(),
-                    history_count: 0,
+                    _path: self.path.clone(),
+                    _history_count: 0,
                     history_max_id: 0,
                 })
             }
@@ -257,11 +256,48 @@ impl DTProject {
         .await?;
 
         Ok(DTProjectInfo {
-            path: self.path.clone(),
-            history_count: result.get(0),
+            _path: self.path.clone(),
+            _history_count: result.get(0),
             history_max_id: result.get(1),
         })
     }
+
+    /*
+    pub async fn batch_thumbs(&self, thumb_ids: &[i64]) -> Result<HashMap<i64, Vec<u8>>, Error> {
+        self.check_table(&DTProjectTable::Thumbs).await?;
+
+        if thumb_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        // Build (?, ?, ?, ...)
+        let placeholders = std::iter::repeat("?")
+            .take(thumb_ids.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let sql = format!(
+            "SELECT __pk0, p FROM thumbnailhistoryhalfnode WHERE __pk0 IN ({})",
+            placeholders
+        );
+
+        let mut q = query(&sql);
+        for id in thumb_ids {
+            q = q.bind(id);
+        }
+
+        let rows = q.fetch_all(&self.pool).await?;
+
+        let mut out = HashMap::with_capacity(rows.len());
+        for row in rows {
+            let id: i64 = row.get(0);
+            let data: Vec<u8> = row.get(1);
+            out.insert(id, extract_jpeg_slice(&data).unwrap());
+        }
+
+        Ok(out)
+    }
+    */
 
     pub async fn get_thumb_half(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
         self.check_table(&DTProjectTable::Thumbs).await?;
@@ -445,56 +481,56 @@ fn import_query(has_moodboard: bool) -> String {
 
     format!(
         "
+        SELECT
+            thn.rowid,
+            thn.p AS data_blob,
+
+            MAX(td.f22) > 0 AS has_mask,
+            MAX(td.f24) > 0 AS has_depth,
+            MAX(td.f26) > 0 AS has_scribble,
+            MAX(td.f28) > 0 AS has_pose,
+            MAX(td.f30) > 0 AS has_color,
+            MAX(td.f32) > 0 AS has_custom,
+
+            {}
+
+        FROM tensorhistorynode AS thn
+
+        LEFT JOIN (
             SELECT
-                thn.rowid,
-                thn.p AS data_blob,
+                td.rowid,
+                td.__pk0,
+                td.__pk1,
+                f22.f22 AS f22,
+                f24.f24 AS f24,
+                f26.f26 AS f26,
+                f28.f28 AS f28,
+                f30.f30 AS f30,
+                f32.f32 AS f32
+            FROM tensordata AS td
+            LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
+            LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
+            LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
+            LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
+            LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
+            LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
+        ) AS td
+        ON thn.__pk0 = td.__pk0
+        AND thn.__pk1 = td.__pk1
 
-                MAX(td.f22) > 0 AS has_mask,
-                MAX(td.f24) > 0 AS has_depth,
-                MAX(td.f26) > 0 AS has_scribble,
-                MAX(td.f28) > 0 AS has_pose,
-                MAX(td.f30) > 0 AS has_color,
-                MAX(td.f32) > 0 AS has_custom,
+        WHERE thn.rowid >= ?1
+        AND thn.rowid < ?2
 
-                {}
-
-            FROM tensorhistorynode AS thn
-
-            LEFT JOIN (
-                SELECT
-                    td.rowid,
-                    td.__pk0,
-                    td.__pk1,
-                    f22.f22 AS f22,
-                    f24.f24 AS f24,
-                    f26.f26 AS f26,
-                    f28.f28 AS f28,
-                    f30.f30 AS f30,
-                    f32.f32 AS f32
-                FROM tensordata AS td
-                LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
-                LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
-                LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
-                LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
-                LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
-                LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
-            ) AS td
-            ON thn.__pk0 = td.__pk0
-            AND thn.__pk1 = td.__pk1
-
-            WHERE thn.rowid >= ?1
-            AND thn.rowid < ?2
-
-            GROUP BY thn.rowid
-            ORDER BY thn.rowid;
-            ",
+        GROUP BY thn.rowid
+        ORDER BY thn.rowid;
+        ",
         moodboard
     )
 }
 
 pub struct DTProjectInfo {
-    pub path: String,
-    pub history_count: i64,
+    pub _path: String,
+    pub _history_count: i64,
     pub history_max_id: i64,
 }
 
@@ -537,51 +573,51 @@ pub struct TensorSize {
 fn full_query_where(where_expr: &str) -> String {
     format!(
         "
+        SELECT
+            thn.rowid,
+            thn.__pk0 AS lineage,
+            thn.__pk1 AS logical_time,
+            thn.p      AS data_blob,
+
+            -- Indexed fields from tensordata with prefix & 0 → NULL
+            MAX('tensor_history_'   || NULLIF(td.f20, 0)) AS tensor_id,
+            MAX('binary_mask_'      || NULLIF(td.f22, 0)) AS mask_id,
+            MAX('depth_map_'        || NULLIF(td.f24, 0)) AS depth_map_id,
+            MAX('scribble_'         || NULLIF(td.f26, 0)) AS scribble_id,
+            MAX('pose_'             || NULLIF(td.f28, 0)) AS_pose_id,
+            MAX('color_palette_'    || NULLIF(td.f30, 0)) AS color_palette_id,
+            MAX('custom_'           || NULLIF(td.f32, 0)) AS custom_id
+
+        FROM tensorhistorynode AS thn
+
+        -- Join tensordata on the two primary keys
+        LEFT JOIN (
             SELECT
-                thn.rowid,
-                thn.__pk0 AS lineage,
-                thn.__pk1 AS logical_time,
-                thn.p      AS data_blob,
+                td.rowid,
+                td.__pk0,
+                td.__pk1,
+                f20.f20 AS f20,
+                f22.f22 AS f22,
+                f24.f24 AS f24,
+                f26.f26 AS f26,
+                f28.f28 AS f28,
+                f30.f30 AS f30,
+                f32.f32 AS f32
+            FROM tensordata AS td
+            LEFT JOIN tensordata__f20 AS f20 ON f20.rowid = td.rowid
+            LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
+            LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
+            LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
+            LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
+            LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
+            LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
+        ) AS td
+        ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
 
-                -- Indexed fields from tensordata with prefix & 0 → NULL
-                MAX('tensor_history_'   || NULLIF(td.f20, 0)) AS tensor_id,
-                MAX('binary_mask_'      || NULLIF(td.f22, 0)) AS mask_id,
-                MAX('depth_map_'        || NULLIF(td.f24, 0)) AS depth_map_id,
-                MAX('scribble_'         || NULLIF(td.f26, 0)) AS scribble_id,
-                MAX('pose_'             || NULLIF(td.f28, 0)) AS pose_id,
-                MAX('color_palette_'    || NULLIF(td.f30, 0)) AS color_palette_id,
-                MAX('custom_'           || NULLIF(td.f32, 0)) AS custom_id
-
-            FROM tensorhistorynode AS thn
-
-            -- Join tensordata on the two primary keys
-            LEFT JOIN (
-                SELECT
-                    td.rowid,
-                    td.__pk0,
-                    td.__pk1,
-                    f20.f20 AS f20,
-                    f22.f22 AS f22,
-                    f24.f24 AS f24,
-                    f26.f26 AS f26,
-                    f28.f28 AS f28,
-                    f30.f30 AS f30,
-                    f32.f32 AS f32
-                FROM tensordata AS td
-                LEFT JOIN tensordata__f20 AS f20 ON f20.rowid = td.rowid
-                LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
-                LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
-                LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
-                LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
-                LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
-                LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
-            ) AS td
-            ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
-
-            WHERE {}
-            GROUP BY thn.rowid, thn.__pk0, thn.__pk1
-            ORDER BY thn.rowid
-		    ",
+        WHERE {}
+        GROUP BY thn.rowid, thn.__pk0, thn.__pk1
+        ORDER BY thn.rowid
+        ",
         where_expr
     )
 }

@@ -1,6 +1,6 @@
 import { Box } from "@chakra-ui/react"
-import { motion } from "motion/react"
-import { useRef } from "react"
+import { AnimatePresence, motion } from "motion/react"
+import { useEffect, useRef, useState } from "react"
 import type { Snapshot } from "valtio"
 import type { ImageExtra } from "@/commands"
 import { Panel } from "@/components"
@@ -58,7 +58,7 @@ function ImagesList(props: ImagesList) {
 				key={imagesSnap.searchId}
 				itemComponent={GridItem as PVListItemComponent<ImageExtra>}
 				itemSource={itemSource}
-				maxItemSize={imagesSnap.imageSize ?? 200}
+				maxItemSize={imagesSnap.imageSize ?? 5}
 				gap={2}
 				itemProps={{
 					snap: uiSnap,
@@ -82,48 +82,126 @@ function GridItem(
 		}
 	>,
 ) {
-	const { value: item, itemProps } = props
-	const { showDetailsOverlay, snap } = itemProps
+	const { value: item } = props
 
-	const imgRef = useRef<HTMLImageElement>(null)
-	// const [isLoaded, setIsLoaded] = useState(false)
+	const [isPreviewing, setIsPreviewing] = useState(false)
 
 	if (item === undefined) return null
 	if (item === null) return <Box bgColor={"fg.1/20"} width={"100%"} height={"100%"} />
 
-	const isPreviewing =
-		item.project_id === snap.detailsView?.item?.project_id &&
-		item.node_id === snap.detailsView?.item?.node_id
+	if (isPreviewing) return <GridItemAnim setIsPreviewing={setIsPreviewing} {...props} />
+
+	const url = `dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`
 
 	return (
-		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(item, imgRef.current ?? undefined)}>
-			{/* {!isPreviewing && ( */}
-			<motion.img
-				// visibility={imgRef.current === snap?.detailsOverlay?.sourceElement ? "hidden" : "visible"}
-				animate={{ visibility: isPreviewing ? "hidden" : "visible" }}
-				transition={{ duration: 0, delay: isPreviewing ? 0 : 0.2 }}
-				ref={(e) => {
-					imgRef.current = e
-					// if (e) e.addEventListener("load", () => setIsLoaded(true))
-				}}
+		<Box bgColor={"fg.1/20"} onClick={() => setIsPreviewing(true)}>
+			<div
+				key={url}
 				style={{
 					width: "100%",
 					height: "100%",
-					objectFit: "cover",
-					border: "1px solid #0000ff00",
-					backgroundColor: "#77777777",
 				}}
-				src={`dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`}
-				alt={item.prompt}
-				// initial={{ opacity: 0 }}
-				// animate={{
-				// opacity: isLoaded ? 1 : 0,
-				// }}
-				// transition={{
-				// duration: 0.1,
-				// }}
-			/>
-			{/* )} */}
+			>
+				<img
+					key={url}
+					style={{
+						width: "100%",
+						height: "100%",
+						objectFit: "cover",
+						border: "1px solid #0000ff00",
+						backgroundSize: "cover",
+						backgroundPosition: "center",
+					}}
+					src={url}
+					alt={item.prompt}
+				/>
+			</div>
+		</Box>
+	)
+}
+
+function GridItemAnim(
+	props: PVGridItemProps<
+		ImageExtra,
+		{
+			showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => void
+			snap: Snapshot<UIControllerState>
+		}
+	> & {
+		setIsPreviewing: (value: boolean) => void
+	},
+) {
+	const { value: item, itemProps } = props
+	const { showDetailsOverlay, snap } = itemProps
+	const { setIsPreviewing } = props
+
+	const imgRef = useRef<HTMLImageElement>(null)
+	const box = useRef<[number, number]>([0, 0])
+
+	const url = `dtm://dtproject/thumbhalf/${item?.project_id}/${item?.preview_id}`
+
+	const isPreviewing =
+		item?.project_id === snap.detailsView?.item?.project_id &&
+		item?.node_id === snap.detailsView?.item?.node_id
+
+	function downScale() {
+		const w = box.current[0]
+		const h = box.current[1]
+		const scale = Math.min(w, h) / Math.max(w, h)
+		return {
+			scale: scale,
+		}
+	}
+
+	const onceRef = useRef(false)
+	useEffect(() => {
+		if (onceRef.current) return
+		if (!item) return
+		showDetailsOverlay(item, imgRef.current ?? undefined)
+		onceRef.current = true
+	}, [item, showDetailsOverlay])
+
+	return (
+		<Box bgColor={"fg.1/20"}>
+			<AnimatePresence>
+				{!isPreviewing && (
+					<motion.div
+						key={url}
+						layout
+						layoutId={`${item?.project_id}_${item?.node_id}`}
+						style={{
+							width: "100%",
+							height: "100%",
+						}}
+						transition={{ duration: 0.25 }}
+						onLayoutAnimationComplete={() => {
+							setIsPreviewing(false)
+						}}
+					>
+						<motion.img
+							key={url}
+							ref={imgRef}
+							style={{
+								width: "100%",
+								height: "100%",
+								objectFit: "cover",
+								border: "1px solid #0000ff00",
+								backgroundSize: "cover",
+								backgroundPosition: "center",
+							}}
+							variants={{
+								downscale: () => downScale(),
+							}}
+							initial="downscale"
+							animate={{ scale: 1 }}
+							exit="downscale"
+							src={url}
+							alt={item?.prompt}
+							transition={{ duration: 0.25 }}
+						/>
+					</motion.div>
+				)}
+			</AnimatePresence>
 		</Box>
 	)
 }

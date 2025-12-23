@@ -14,6 +14,7 @@ pub struct Model {
     pub recursive: Option<bool>,
     #[sea_orm(num_enum)]
     pub item_type: ItemType,
+    pub last_updated: Option<i64>
 }
 
 impl ActiveModelBehavior for ActiveModel {}
