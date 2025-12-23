@@ -98,6 +98,20 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
 		this.state.controls = controls
 		this.state.versions = versions
 	}
+
+	getModel(modelType?: "Model" | "Lora" | "Cnet", filename?: string) {
+		if (!filename) return
+		const models = this.getByType(modelType)
+		return models.find((it) => it.filename === filename)
+	}
+
+	getByType(modelType?: "Model" | "Lora" | "Cnet"): ModelsList {
+		let property = "models"
+		if (modelType === "Lora") property = "loras"
+		else if (modelType === "Cnet") property = "controls"
+
+		return this.state[property as keyof ModelsControllerState] as ModelsList
+	}
 }
 
 export default ModelsController

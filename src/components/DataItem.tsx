@@ -1,16 +1,15 @@
-import { chakra, HStack } from "@chakra-ui/react"
+import { chakra, HStack, defineKeyframes } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { useLayoutEffect, useRef, useState } from "react"
+import { type ComponentProps, useLayoutEffect, useRef, useState } from "react"
+import { useDTImage } from "@/dtProjects/detailsOverlay/DTImageContext"
 import { prepData } from "@/metadata/infoPanel/DataItem"
+import type { DrawThingsConfigGrouped } from "@/types"
 import { getSampler, getSeedMode } from "@/utils/config"
-import type { DrawThingsGroupedConfig } from "@/types"
-import { useTensorHistory } from "@/dtProjects/detailsOverlay/TensorHistoryContext"
 
-interface DataItemProps {
+interface DataItemProps extends ComponentProps<typeof Root> {
 	label?: string
 	maxLines?: number
 	data?: unknown
-	[key: string]: any
 }
 
 function DataItem(props: DataItemProps) {
@@ -22,7 +21,7 @@ function DataItem(props: DataItemProps) {
 
 	const contentRef = useRef<HTMLDivElement>(null)
 
-	const [display, isObject, dataType] = prepData(data)
+	const [display, _isObject, dataType] = prepData(data)
 
 	useLayoutEffect(() => {
 		if (!contentRef.current || !maxLines) return
@@ -35,7 +34,6 @@ function DataItem(props: DataItemProps) {
 		}
 
 		const height = contentRef.current.clientHeight
-		const lines = height / lineHeight
 		if (height > lineHeight * maxLines) {
 			setCollapsible(true)
 			setCollapsed(true)
@@ -44,7 +42,7 @@ function DataItem(props: DataItemProps) {
 	}, [maxLines])
 
 	if (data === undefined || data === null) return null
-
+	console.log(label, collapsible, collapsed)
 	return (
 		<Root {...rest}>
 			<HStack>{label && <Label>{label}</Label>}</HStack>
@@ -52,9 +50,9 @@ function DataItem(props: DataItemProps) {
 				type={dataType}
 				ref={contentRef}
 				collapse={getVariant(collapsible, collapsed)}
-				maxHeight={maxHeight}
+				maxHeight={collapsed ? maxHeight : "auto"}
 			>
-				<motion.div>{display}</motion.div>
+				<div>{display}</div>
 			</Content>
 			{collapsible && (
 				<ExpandButton onClick={() => setCollapsed(!collapsed)}>
@@ -80,8 +78,36 @@ const Root = chakra(
 			flexDirection: "column",
 			alignItems: "stretch",
 		},
+		variants: {
+			size: {
+				sm: {
+					fontSize: "sm",
+					"& .dataitem_content": {
+						fontSize: "sm",
+					},
+					"& .dataitem_label": {
+						fontSize: "xs",
+					},
+					"& .dataitem_expandbutton": {
+						fontSize: "xs",
+					},
+				},
+				md: {
+					fontSize: "md",
+					"& .dataitem_content": {
+						fontSize: "md",
+					},
+					"& .dataitem_label": {
+						fontSize: "sm",
+					},
+					"& .dataitem_expandbutton": {
+						fontSize: "sm",
+					},
+				},
+			},
+		},
 	},
-	{ defaultProps: { layout: true } },
+	{ defaultProps: { layout: "position" } },
 )
 
 const Label = chakra(
@@ -96,7 +122,7 @@ const Label = chakra(
 			textOverflow: "ellipsis",
 		},
 	},
-	{ defaultProps: { layout: true } },
+	{ defaultProps: { layout: true, className: "dataitem_label" } },
 )
 
 const ExpandButton = chakra(
@@ -122,83 +148,99 @@ const ExpandButton = chakra(
 			},
 		},
 	},
-	{ defaultProps: { layout: true } },
+	{ defaultProps: { layout: true, className: "dataitem_expandbutton" } },
 )
 
-const Content = chakra("div", {
-	base: {
-		outline: "1px solid transparent",
-		padding: "2px",
-		border: "1px solid transparent",
-		color: "fg.2",
-		overflowX: "clip",
-		overflowY: "clip",
-		minWidth: 0,
-		whiteSpace: "pre-wrap",
-		wordBreak: "break-word",
-		borderRadius: "sm",
-		_dark: {
-			_hover: {
-				bgColor: "bg.3",
-			},
-		},
-		fontSize: "sm",
-		_hover: {
-			// boxShadow: "0px 1px 2px -1px #00000055, 0px 2px 6px -2px #00000022",
-			boxShadow: "2px 2px 4px -2px #00000055, -2px 2px 4px -2px #00000055",
-			// transform: "translateY(-1px)",
-			bgColor: "bg.2",
-			transition:
-				"box-shadow 0.1s ease-in-out, transform 0.1s ease-in-out, background-color 0.1s ease-in-out",
-		},
-		transition:
-			"box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out, background-color 0.3s ease-in-out",
-		_selection: {
-			bgColor: "info/50",
-		},
-	},
-	variants: {
-		collapse: {
-			collapsed: {
-				marginBottom: 0.5,
-				_after: {
-					content: '""',
-					position: "absolute",
-					height: "2rem",
-					backgroundImage: "linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
-					bottom: "2px",
-					right: 0,
-					left: 0,
+const Content = chakra(
+	"div",
+	{
+		base: {
+			outline: "1px solid transparent",
+			padding: "2px",
+			border: "1px solid transparent",
+			color: "fg.2",
+			overflowX: "clip",
+			overflowY: "clip",
+			minWidth: 0,
+			whiteSpace: "pre-wrap",
+			wordBreak: "break-word",
+			borderRadius: "sm",
+			_dark: {
+				_hover: {
+					bgColor: "bg.3",
 				},
 			},
-			expanded: {
-				maxHeight: "min-content !important",
-				paddingBattom: "1rem",
+			fontSize: "sm",
+			_hover: {
+				// boxShadow: "0px 1px 2px -1px #00000055, 0px 2px 6px -2px #00000022",
+				boxShadow: "2px 2px 4px -2px #00000055, -2px 2px 4px -2px #00000055",
+				// transform: "translateY(-1px)",
+				bgColor: "bg.2",
+				transition:
+					"box-shadow 0.1s ease-in-out, transform 0.1s ease-in-out, background-color 0.1s ease-in-out",
 			},
-			normal: {},
+			transition:
+				"box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out, background-color 0.3s ease-in-out",
+			transitionDelay: "0.25s",
+			_selection: {
+				bgColor: "info/50",
+			},
 		},
-		type: {
-			object: {
-				textIndent: "hanging each-line 2.5	rem",
-				fontFamily: "monospace",
-				fontSize: "0.8rem",
+		variants: {
+			collapse: {
+				collapsed: {
+					marginBottom: 0.5,
+					_after: {
+						content: '""',
+						position: "absolute",
+						top: "calc(100% - 2rem)",
+						backgroundImage: "linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
+						bottom: "2px",
+						right: 0,
+						left: 0,
+						transition: "all 0.5s ease-in-out",
+					},
+				},
+				expanded: {
+					_after: {
+						content: '""',
+						position: "absolute",
+						top: "calc(100% - 2px)",
+						backgroundImage: "linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
+						bottom: "2px",
+						right: 0,
+						left: 0,
+						transition: "all 0.5s ease-in-out",
+					},
+					// height: "auto",
+					// maxHeight: "unset !important",
+					paddingBottom: "1rem",
+				},
+				normal: {},
 			},
-			string: {},
-			number: {},
-			boolean: {},
-			array: {},
-			null: {},
-			undefined: {},
+			type: {
+				object: {
+					textIndent: "hanging each-line 2.5	rem",
+					fontFamily: "monospace",
+					fontSize: "0.8rem",
+				},
+				string: {},
+				number: {},
+				boolean: {},
+				array: {},
+				null: {},
+				undefined: {},
+			},
 		},
 	},
-})
+	{ defaultProps: { className: "dataitem_content" } },
+)
 
-interface DataItemTemplateProps<T extends keyof DrawThingsGroupedConfig>
-	extends Omit<ChakraProps, "maxLines"> {
-	value?: MaybeReadonly<DrawThingsGroupedConfig[T]>
+interface DataItemTemplateProps<T extends keyof DrawThingsConfigGrouped> extends DataItemProps {
+	value?: MaybeReadonly<DrawThingsConfigGrouped[T]>
 }
 
-export function DataItemTemplate<T extends keyof DrawThingsGroupedConfig>(
+export function DataItemTemplate<T extends keyof DrawThingsConfigGrouped>(
 	props: DataItemTemplateProps<T> & { property: T },
 ) {
 	const { value, property, ...rest } = props
@@ -218,7 +260,7 @@ const templates = {
 	},
 	OriginalSize: (props: DataItemTemplateProps<"originalSize">) => {
 		const { value, ...rest } = props
-		const { model } = useTensorHistory()
+		const { model } = useDTImage()
 
 		if (model?.version && !model.version?.startsWith("sdxl")) return null
 		if (!value?.width || !value?.height) return null
@@ -227,7 +269,7 @@ const templates = {
 	},
 	TargetImageSize: (props: DataItemTemplateProps<"targetImageSize">) => {
 		const { value, ...rest } = props
-		const { model } = useTensorHistory()
+		const { model } = useDTImage()
 
 		if (model?.version && !model.version?.startsWith("sdxl")) return null
 		if (!value?.width || !value?.height) return null
@@ -238,7 +280,7 @@ const templates = {
 	},
 	NegativeOriginalSize: (props: DataItemTemplateProps<"negativeOriginalSize">) => {
 		const { value, ...rest } = props
-		const { model } = useTensorHistory()
+		const { model } = useDTImage()
 
 		if (model?.version && !model.version?.startsWith("sdxl")) return null
 		if (!value?.width || !value?.height) return null
@@ -253,7 +295,7 @@ const templates = {
 	},
 	Crop: (props: DataItemTemplateProps<"crop">) => {
 		const { value, ...rest } = props
-		const { model } = useTensorHistory()
+		const { model } = useDTImage()
 
 		if (model?.version && !model.version?.startsWith("sdxl")) return null
 		if (!value?.left || !value?.top) return null
@@ -275,7 +317,7 @@ const templates = {
 	},
 	Model: (props: DataItemTemplateProps<"model">) => {
 		const { value, ...rest } = props
-		const { model } = useTensorHistory()
+		const { model } = useDTImage()
 
 		if (!value) return null
 
@@ -472,11 +514,11 @@ const templates = {
 }
 
 const templatesReverse: {
-	[K in keyof DrawThingsGroupedConfig]?: (props: DataItemTemplateProps<K>) => React.ReactNode
+	[K in keyof DrawThingsConfigGrouped]?: (props: DataItemTemplateProps<K>) => React.ReactNode
 } = {
 	size: templates.Size,
 	originalSize: templates.OriginalSize,
-	targetImageSize: templates.TargetSize,
+	targetImageSize: templates.TargetImageSize,
 	negativeOriginalSize: templates.NegativeOriginalSize,
 	crop: templates.Crop,
 	numFrames: templates.NumFrames,

@@ -1,4 +1,4 @@
-import { createContext, type PropsWithChildren, useContext } from "react"
+import { createContext, type PropsWithChildren, use, useContext, useEffect, useRef } from "react"
 import { snapshot } from "valtio"
 import { watch } from "valtio/utils"
 import { UIController } from "@/dtProjects/state/uiState"
@@ -24,10 +24,11 @@ export type DTPContextType = {
 }
 
 export const DTPContext = createContext<DTPContextType | undefined>(undefined)
-
 export function DTPProvider(props: PropsWithChildren) {
-	const stateControllers = useInitRef(() => {
-		const controllers = DTPStateService.containerize(() => {
+	const { children } = props
+
+	const container = useInitRef(() => {
+		const result = DTPStateService.containerize(() => {
 			const uiState = new UIController()
 			const projects = new ProjectsController()
 			const watchFolders = new WatchFoldersController()
@@ -35,7 +36,9 @@ export function DTPProvider(props: PropsWithChildren) {
 
 			const images = new ImagesController()
 			images.onImageCountsChanged = (counts) => projects.updateImageCounts(counts)
-			projects.onSelectedProjectsChanged.addHandler((projects) => images.setSelectedProjects(projects))
+			projects.onSelectedProjectsChanged.addHandler((projects) =>
+				images.setSelectedProjects(projects),
+			)
 
 			const scanner = new ScannerService(projects, watchFolders, models)
 			projects.onSyncRequired = async (projects) => {
@@ -58,15 +61,25 @@ export function DTPProvider(props: PropsWithChildren) {
 			return { projects, uiState, models, watchFolders, scanner, search, images, details }
 		})
 
+		const { services: controllers } = result
+
 		connectDevMode(controllers)
+
 		controllers.watchFolders.loadWatchFolders().then(async () => {
 			await controllers.projects.loadProjects()
 			await controllers.scanner.scanAndWatch()
 		})
-		return controllers
+
+		return result
 	})
 
-	return <DTPContext value={stateControllers}>{props.children}</DTPContext>
+	useEffect(() => {
+		return () => {
+			container.dispose()
+		}
+	}, [container])
+
+	return <DTPContext value={container.services}>{children}</DTPContext>
 }
 
 export function useDTP() {

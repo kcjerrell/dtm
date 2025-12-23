@@ -147,7 +147,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
 	async listModelInfoFiles(folder: WatchFolderState) {
 		if (folder.item_type !== "ModelInfo") return []
-		if (folder.path.startsWith("remote")) return this.getRemoteModelInfoFiles()
+		if (folder.path.startsWith("remote")) return this.getRemoteCombinedModels(folder)
 
 		try {
 			if (!(await exists(folder.path))) {
@@ -170,6 +170,51 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 			console.error(e)
 			return []
 		}
+	}
+
+	async getRemoteCombinedModels(folder: WatchFolderState) {
+		const res = await fetch("https://kcjerrell.github.io/dt-models/combined_models.json")
+		const data = await res.json()
+		console.log(folder, data.lastUpdate)
+		if (folder.last_updated && folder.last_updated >= data.lastUpdate) {
+			console.log("models up to date")
+			return []
+		}
+		const check = (key: string) => key in data && Array.isArray(data[key])
+
+		const modelInfoFiles = [] as ListModelInfoFilesResult[]
+
+		const models = []
+		if (check("officialModels")) models.push(...data.officialModels)
+		if (check("communityModels")) models.push(...data.communityModels)
+		if (check("uncuratedModels")) models.push(...data.uncuratedModels)
+		if (models.length) {
+			const filePath = await path.join(await path.appDataDir(), "combined_models.json")
+			await writeTextFile(filePath, JSON.stringify(models, null, 2))
+			modelInfoFiles.push({ path: filePath, modelType: "Model" })
+		}
+
+		const cnets = []
+		if (check("officialCnets")) cnets.push(...data.officialCnets)
+		if (check("communityCnets")) cnets.push(...data.communityCnets)
+		if (cnets.length) {
+			const filePath = await path.join(await path.appDataDir(), "combined_cnets.json")
+			await writeTextFile(filePath, JSON.stringify(cnets, null, 2))
+			modelInfoFiles.push({ path: filePath, modelType: "Cnet" })
+		}
+
+		const loras = []
+		if (check("officialLoras")) loras.push(...data.officialLoras)
+		if (check("communityLoras")) loras.push(...data.communityLoras)
+		if (loras.length) {
+			const filePath = await path.join(await path.appDataDir(), "combined_loras.json")
+			await writeTextFile(filePath, JSON.stringify(loras, null, 2))
+			modelInfoFiles.push({ path: filePath, modelType: "Lora" })
+		}
+
+		await pdb.watchFolders.update(folder.id, undefined, data.lastUpdate)
+
+		return modelInfoFiles
 	}
 
 	async getRemoteModelInfoFiles() {

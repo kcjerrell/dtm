@@ -7,7 +7,6 @@ import { createRoot } from "react-dom/client"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import "./index.css"
-import { DTPProvider } from "./dtProjects/state/context"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 
@@ -44,12 +43,9 @@ if (root)
 		<StrictMode>
 			<ChakraProvider value={system}>
 				<ColorModeProvider>
-					<DTPProvider>
-						<RootComponent />
-					</DTPProvider>
+					<RootComponent />
 				</ColorModeProvider>
 			</ChakraProvider>
-			,
 		</StrictMode>,
 	)
 
@@ -59,9 +55,11 @@ export function Loading() {
 			initial={{ opacity: 1 }}
 			exit={{ opacity: 0 }}
 			className={"loading-container"}
-			transition={{ duration: 0.5 }}
+			transition={{ duration: 2 }}
 		>
-			<div className={"loading-text"}>Loading...</div>
+			<div className={"loading-text"} style={{ fontSize: "3rem", color: "white" }}>
+				Loading...
+			</div>
 		</motion.div>
 	)
 }

@@ -12,7 +12,7 @@ import { useDTP } from "../state/context"
 import type { UIControllerState } from "../state/uiState"
 import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
-import { TensorHistoryProvider } from "./TensorHistoryContext"
+import { DTImageProvider } from "./DTImageContext"
 import TensorsList from "./TensorsList"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
@@ -35,7 +35,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 		item || snap.lastItem ? urls.thumb(item ?? (snap.lastItem as ImageExtra)) : undefined
 
 	return (
-		<TensorHistoryProvider history={snap.itemDetails} groupedConfig={snap.config}>
+		<DTImageProvider image={snap.itemDetails}>
 			<Container
 				pointerEvents={isVisible ? "auto" : "none"}
 				onClick={() => {
@@ -144,7 +144,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 						show={true}
 						subItem={snap.subItem}
 						addMetadata={!snap.subItem}
-						tensorId={snap.subItem?.tensorId ?? itemDetails?.tensor_id}
+						tensorId={snap.subItem?.tensorId ?? itemDetails?.images?.tensorId}
 					/>
 					<TensorsList
 						key={"tensors_list"}
@@ -162,14 +162,13 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 						gridArea={"content"}
 						height={"100%"}
 						overflow={"clip"}
-						padding={1}
 						zIndex={2}
 						item={item}
 						details={itemDetails}
 					/>
 				)}
 			</Container>
-		</TensorHistoryProvider>
+		</DTImageProvider>
 	)
 }
 

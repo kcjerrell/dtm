@@ -4,14 +4,14 @@ import { chakra } from "@chakra-ui/react/styled-system"
 import { Text } from "@chakra-ui/react/text"
 import { motion } from "motion/react"
 import { type ComponentProps, useCallback } from "react"
-import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import { MotionBox, Tooltip } from "@/components"
 import { useDTP } from "../state/context"
 import TensorThumbnail from "./TensorThumbnail"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
 	item?: ImageExtra
-	details?: MaybeReadonly<TensorHistoryExtra>
+	details?: MaybeReadonly<DTImageFull>
 	candidates?: MaybeReadonly<TensorHistoryExtra[]>
 }
 
@@ -31,22 +31,15 @@ function TensorsList(props: TensorsListComponentProps) {
 
 	if (!item || !details) return <MotionBox height={"60px"} {...restProps} />
 
-	const {
-		depth_map_id,
-		moodboard_ids,
-		custom_id,
-		scribble_id,
-		pose_id,
-		color_palette_id,
-		mask_id,
-	} = details
+	const { depthMapId, moodboardIds, customId, scribbleId, poseId, colorPaletteId, maskId } =
+		details.images ?? {}
 	const tensors = {
-		Depth: depth_map_id,
-		Custom: custom_id,
-		Scribble: scribble_id,
-		Pose: pose_id,
-		Color: color_palette_id,
-		Mask: mask_id,
+		Depth: depthMapId,
+		Custom: customId,
+		Scribble: scribbleId,
+		Pose: poseId,
+		Color: colorPaletteId,
+		Mask: maskId,
 	}
 
 	const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
@@ -70,11 +63,11 @@ function TensorsList(props: TensorsListComponentProps) {
 				)
 			})}
 			<Spacer />
-			{moodboard_ids.length > 0 && (
+			{moodboardIds?.length && (
 				<Group>
 					<Label>Moodboard</Label>
 					<Images>
-						{moodboard_ids.map((id) => (
+						{moodboardIds?.map((id) => (
 							<TensorThumbnail
 								key={id}
 								projectId={item?.project_id}
@@ -85,7 +78,7 @@ function TensorsList(props: TensorsListComponentProps) {
 					</Images>
 				</Group>
 			)}
-			{previous.length > 0 && (
+			{previous?.length && (
 				<Group>
 					<Label>Canvas</Label>
 					<Images>

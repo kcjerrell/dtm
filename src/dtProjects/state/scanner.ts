@@ -38,6 +38,22 @@ class ScannerService extends DTPStateService {
 		await this.scanModelFiles()
 	}
 
+	async syncProjects2() {
+		//  scan all watch folders for all projects, with sizes + dates, Map<string, {size, date}>
+		//* if a watch folder is missing, add to missing list
+		//  missing folder should display notice
+		//  iterate over projects from db
+		//  match against watch folder map, removing the entry
+		//  compare size and date. if different, add work item
+		//  if no matching entry, check if folder is missing
+		//* if missing, mark project as missing
+		//*  if folder is present, add work item to remove project - add this to the front
+		//  iterate over remaining watch folder entries
+		//* add work item to add each project
+		// items with * should update state. try to avoid relisting the projects every time.
+		//
+	}
+
 	// updated scan projects method
 	async syncProjects() {
 		await this.projects.loadProjects()
@@ -86,7 +102,12 @@ class ScannerService extends DTPStateService {
 			project.isMissing = result.isMissing
 
 			if (result.action === "update") {
-				const totalImages = await pdb.scanProject(project.path, false, result.filesize, result.modified)
+				const totalImages = await pdb.scanProject(
+					project.path,
+					false,
+					result.filesize,
+					result.modified,
+				)
 				project.image_count = totalImages ?? 0
 				project.filesize = result.filesize
 				project.modified = result.modified

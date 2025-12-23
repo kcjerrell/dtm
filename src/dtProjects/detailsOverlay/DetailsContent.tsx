@@ -1,28 +1,29 @@
 import { chakra, Grid } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import type { Snapshot } from "valtio"
-import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import { Panel } from "@/components"
-import { DataItemTemplate } from "@/components/DataItem"
+import DataItem, { DataItemTemplate } from "@/components/DataItem"
 import { useDTP } from "../state/context"
 
 interface DetailsContentProps extends ChakraProps {
 	item?: Snapshot<ImageExtra> | null
-	details?: Snapshot<TensorHistoryExtra> | null
+	details?: Snapshot<DTImageFull> | null
 }
 
 function DetailsContent(props: DetailsContentProps) {
 	const { ...boxProps } = props
 	const { uiState } = useDTP()
 	const { detailsView: snap } = uiState.useSnap()
-
-	if (!snap.config) return null
+	const config = snap?.itemDetails?.config
+	console.log(snap)
+	if (!snap.itemDetails || !config) return null
 
 	return (
 		<Panel
 			flex={"1 1 auto"}
-			overflowY={"scroll"}
-			overflowX={"clip"}
+			overflow={"clip"}
+			padding={0}
 			onClick={(e) => e.stopPropagation()}
 			{...boxProps}
 			asChild
@@ -45,17 +46,31 @@ function DetailsContent(props: DetailsContentProps) {
 				animate={"open"}
 				exit={"closed"}
 			>
-				Config
-				<Grid gridTemplateColumns={"1fr 1fr"} key={snap?.item?.id} gap={1} paddingX={4}>
-					{Object.keys(snap.config).map((key) => {
-						const value = snap.config?.[key as keyof typeof snap.config]
+				<Grid
+					overflowY={"auto"}
+					gridTemplateColumns={"1fr 1fr"}
+					key={snap?.item?.id}
+					gap={4}
+					padding={4}
+				>
+					<DataItem
+						size={"md"}
+						label={"Prompt"}
+						data={snap.itemDetails.prompt}
+						gridColumn={"span 2"}
+						maxLines={4}
+					/>
+					<DataItem
+						size={"md"}
+						label={"Negative Prompt"}
+						data={snap.itemDetails?.negativePrompt || "(none)"}
+						gridColumn={"span 2"}
+					/>
+					{Object.keys(config).map((key) => {
+						const value = config?.[key as keyof typeof config]
 
 						return (
-							<DataItemTemplate
-								key={key}
-								property={key as keyof typeof snap.config}
-								value={value}
-							/>
+							<DataItemTemplate key={key} property={key as keyof typeof config} value={value} />
 						)
 					})}
 					{/* <Fragment key={snap.itemDetails?.tensor_id || "details_content"}>

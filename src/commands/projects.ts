@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
+import type { ProjectState } from "@/dtProjects/state/projects"
+import type { DrawThingsConfigGrouped } from "@/types"
 import type { ImagesSource as ListImagesOpts } from "../dtProjects/types"
 
 // --------------------
@@ -176,6 +178,27 @@ export type TensorHistoryExtra = {
 	project_path: string
 }
 
+export type DTImageFull = {
+	id: number
+	prompt?: string
+	negativePrompt?: string
+	model?: Model
+	project: ProjectState
+	config: DrawThingsConfigGrouped
+	node: TensorHistoryNode
+	images?: {
+		tensorId?: string
+		previewId?: number
+		maskId?: string
+		depthMapId?: string
+		scribbleId?: string
+		poseId?: string
+		colorPaletteId?: string
+		customId?: string
+		moodboardIds?: string[]
+	}
+}
+
 export type ScanProgress = {
 	projects_scanned: number
 	projects_total: number
@@ -209,11 +232,12 @@ export type ListImagesOptions = {
 }
 
 export type WatchFolder = {
-	id: number
-	path: string
-	recursive: boolean
-	item_type: "Projects" | "ModelInfo"
-}
+		id: number
+		path: string
+		recursive: boolean
+		item_type: "Projects" | "ModelInfo"
+		last_updated?: number | null
+	}
 
 // --------------------
 // Command wrappers
@@ -236,8 +260,7 @@ export const pdb = {
 		fullScan = false,
 		filesize?: number,
 		modified?: number,
-	): Promise<number> =>
-		invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
+	): Promise<number> => invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
 
 	updateExclude: async (id: number, exclude: boolean): Promise<void> =>
 		invoke("projects_db_project_update_exclude", { id, exclude }),
@@ -287,8 +310,8 @@ export const pdb = {
 		remove: async (ids: number[] | number): Promise<void> =>
 			invoke("projects_db_watch_folder_remove", { ids: Array.isArray(ids) ? ids : [ids] }),
 
-		update: async (id: number, recursive: boolean): Promise<WatchFolder> =>
-			invoke("projects_db_watch_folder_update", { id, recursive }),
+		update: async (id: number, recursive?: boolean, lastUpdated?: number): Promise<WatchFolder> =>
+			invoke("projects_db_watch_folder_update", { id, recursive, lastUpdated }),
 	},
 
 	scanModelInfo: async (filePath: string, modelType: ModelType): Promise<void> =>

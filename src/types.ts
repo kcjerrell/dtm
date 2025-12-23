@@ -108,7 +108,7 @@ export type DrawThingsMetaData = {
 	}
 }
 
-export type DrawThingsGroupedConfig = {
+export type DrawThingsConfigGrouped = {
 	aestheticScore: { positive: number; negative: number }
 	batch: { size: number; count: number }
 	causalInference: { value: number; pad: number }
