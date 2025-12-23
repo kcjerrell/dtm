@@ -2,30 +2,24 @@ use anyhow::Result;
 use flate2::read::DeflateDecoder;
 use fpzip_sys::*;
 
-use image::{GrayAlphaImage, GrayImage, RgbImage, RgbaImage};
-use little_exif::exif_tag::ExifTag;
-use little_exif::filetype::FileExtension;
-use little_exif::metadata::Metadata;
-use little_exif::u8conversion::U8conversion;
-
-use png::chunk::eXIf;
+use image::GrayImage;
 use png::{BitDepth, ColorType, Encoder};
 
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
 
-use crate::projects_db::build_drawthings_json;
 use crate::projects_db::dt_project::TensorRaw;
+use crate::projects_db::metadata::DrawThingsMetadata;
 use crate::projects_db::tensor_history::TensorHistoryNode;
 
-const HEADER_SIZE: usize = 68;
-const FPZIP_MAGIC: u32 = 1012247;
+// const HEADER_SIZE: usize = 68;
+// const FPZIP_MAGIC: u32 = 1012247;
 
 pub fn decode_tensor(
     tensor: TensorRaw,
     as_png: bool,
-    metadata: Option<TensorHistoryNode>,
+    history_node: Option<TensorHistoryNode>,
     scale: Option<u32>,
 ) -> Result<Vec<u8>> {
     if tensor.data_type == 16384 {
@@ -65,7 +59,7 @@ pub fn decode_tensor(
                         pixels.push(((f * 0.5 + 0.5) * 255.0).round() as u8);
                     }
                 } else {
-                     // Should not happen with correct math, but safe fallback
+                    // Should not happen with correct math, but safe fallback
                     for _ in 0..channels {
                         pixels.push(0);
                     }
@@ -95,7 +89,7 @@ pub fn decode_tensor(
             width,
             height,
             tensor.channels as usize,
-            metadata,
+            history_node,
         )
         .unwrap()),
         false => Ok(pixels),
@@ -181,7 +175,8 @@ pub fn scribble_mask_to_png(
         let start_x = (width - crop_size) / 2;
         let start_y = (height - crop_size) / 2;
 
-        let cropped = image::imageops::crop(&mut img, start_x, start_y, crop_size, crop_size).to_image();
+        let cropped =
+            image::imageops::crop(&mut img, start_x, start_y, crop_size, crop_size).to_image();
         let resized = image::imageops::resize(
             &cropped,
             target_size,
@@ -204,27 +199,27 @@ fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(out)
 }
 
-fn data_to_png(pixels: Vec<u8>, width: i32, height: i32, channels: i32) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-
-    match channels {
-        4 => RgbaImage::from_raw(width as u32, height as u32, pixels)
-            .unwrap()
-            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-        3 => RgbImage::from_raw(width as u32, height as u32, pixels)
-            .unwrap()
-            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-        2 => GrayAlphaImage::from_raw(width as u32, height as u32, pixels)
-            .unwrap()
-            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-        1 => GrayImage::from_raw(width as u32, height as u32, pixels)
-            .unwrap()
-            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-        _ => panic!("Unsupported number of channels: {}", channels),
-    }
-
-    Ok(out)
-}
+// fn data_to_png(pixels: Vec<u8>, width: i32, height: i32, channels: i32) -> Result<Vec<u8>> {
+//     let mut out = Vec::new();
+//
+//     match channels {
+//         4 => RgbaImage::from_raw(width as u32, height as u32, pixels)
+//             .unwrap()
+//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
+//         3 => RgbImage::from_raw(width as u32, height as u32, pixels)
+//             .unwrap()
+//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
+//         2 => GrayAlphaImage::from_raw(width as u32, height as u32, pixels)
+//             .unwrap()
+//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
+//         1 => GrayImage::from_raw(width as u32, height as u32, pixels)
+//             .unwrap()
+//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
+//         _ => panic!("Unsupported number of channels: {}", channels),
+//     }
+//
+//     Ok(out)
+// }
 
 fn f32_to_u8(vec: Vec<f32>) -> Vec<u8> {
     let len = vec.len() * std::mem::size_of::<f32>();
@@ -242,7 +237,7 @@ pub fn write_png_with_usercomment(
     width: u32,
     height: u32,
     channels: usize,
-    metadata: Option<TensorHistoryNode>,
+    history_node: Option<TensorHistoryNode>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut out = Vec::new();
     let cursor = Cursor::new(&mut out);
@@ -259,9 +254,20 @@ pub fn write_png_with_usercomment(
 
     let mut writer = encoder.write_header()?;
 
-    if let Some(metadata) = metadata {
-        let json_string = serde_json::to_string_pretty(&build_drawthings_json(&metadata))?;
-        let xmp = build_drawthings_xmp(&json_string);
+    // Draw Things writes an explicit sRGB intent. DT seems to expect it.
+    writer.write_chunk(
+        png::chunk::sRGB,
+        &[0], // Per spec: 0 = perceptual rendering intent
+    )?;
+
+    if let Some(history) = history_node {
+        let metadata = DrawThingsMetadata::try_from(&history)?;
+        let json_string = serde_json::to_string(&metadata)?;
+
+        let exif = build_exif_user_comment(&json_string, width, height);
+        writer.write_chunk(png::chunk::eXIf, &exif)?;
+
+        let xmp = build_drawthings_xmp(&json_string, &build_description(&metadata));
         let itxt_chunk = build_itxt_chunk("XML:com.adobe.xmp", &xmp);
 
         writer.write_chunk(png::chunk::iTXt, &itxt_chunk)?;
@@ -288,21 +294,121 @@ fn build_itxt_chunk(keyword: &str, text: &str) -> Vec<u8> {
     out
 }
 
-fn build_drawthings_xmp(json: &str) -> String {
+fn build_exif_user_comment(_json: &str, width: u32, height: u32) -> Vec<u8> {
+    use byteorder::{BigEndian, WriteBytesExt};
+
+    let mut exif = Vec::new();
+
+    // PNG eXIf chunk does NOT have the "Exif\0\0" prefix.
+    // It starts directly with the TIFF header.
+
+    // TIFF header (big endian)
+    exif.extend_from_slice(b"MM"); // big endian
+    exif.write_u16::<BigEndian>(42).unwrap(); // magic
+    exif.write_u32::<BigEndian>(8).unwrap(); // IFD0 offset
+
+    // IFD0 with 1 entry
+    exif.write_u16::<BigEndian>(1).unwrap(); // entry count
+
+    // Tag: ExifOffset (0x8769) - Points to Exif SubIFD
+    exif.write_u16::<BigEndian>(0x8769).unwrap();
+    exif.write_u16::<BigEndian>(4).unwrap(); // LONG
+    exif.write_u32::<BigEndian>(1).unwrap(); // count
+    exif.write_u32::<BigEndian>(26).unwrap(); // offset to SubIFD (8+2+12+4)
+
+    // Next IFD = none
+    exif.write_u32::<BigEndian>(0).unwrap();
+
+    // Exif SubIFD at offset 26
+    exif.write_u16::<BigEndian>(2).unwrap(); // entry count in SubIFD (Width, Height, UserComment)
+
+    // Tag: ExifImageWidth (0xa002)
+    exif.write_u16::<BigEndian>(0xa002).unwrap();
+    exif.write_u16::<BigEndian>(4).unwrap(); // LONG
+    exif.write_u32::<BigEndian>(1).unwrap(); // count
+    exif.write_u32::<BigEndian>(width).unwrap(); // value
+
+    // Tag: ExifImageHeight (0xa003)
+    exif.write_u16::<BigEndian>(0xa003).unwrap();
+    exif.write_u16::<BigEndian>(4).unwrap(); // LONG
+    exif.write_u32::<BigEndian>(1).unwrap(); // count
+    exif.write_u32::<BigEndian>(height).unwrap(); // value
+
+    // // Tag: UserComment (0x9286)
+    // exif.write_u16::<BigEndian>(0x9286).unwrap();
+    // exif.write_u16::<BigEndian>(7).unwrap(); // UNDEFINED
+    // exif.write_u32::<BigEndian>((json.len() + 8) as u32).unwrap();
+    // exif.write_u32::<BigEndian>(68).unwrap(); // offset to value (26 + 2 + 12*3 + 4)
+
+    // Next SubIFD = none
+    exif.write_u32::<BigEndian>(0).unwrap();
+
+    // // UserComment encoding prefix at offset 68
+    // exif.extend_from_slice(b"ASCII\0\0\0");
+    // exif.extend_from_slice(json.as_bytes());
+
+    exif
+}
+
+fn format_desc_float(f: f64) -> String {
+    // Draw Things seems to use f32-like stringification for the description,
+    // and always includes .0 for whole numbers.
+    let s = format!("{}", f as f32);
+    if !s.contains('.') {
+        format!("{}.0", s)
+    } else {
+        s
+    }
+}
+
+fn build_description(metadata: &DrawThingsMetadata) -> String {
+    /*
+        this image has awesome metadata. it is a picture of a cool sexy dude
+    -and a negative prompt
+    Steps: 8, Sampler: UniPC Trailing, Guidance Scale: 1.0, Seed: 3665757974, Size: 1024x1024, Model: z_image_turbo_1.0_q6p.ckpt, Strength: 1.0, Seed Mode: Scale Alike, Shift: 3.0
+         */
+
     format!(
-        r#"<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
-<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">
-  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-           xmlns:exif="http://ns.adobe.com/exif/1.0/">
-    <rdf:Description rdf:about="">
-      <exif:UserComment>
-        <rdf:Alt>
-          <rdf:li xml:lang="x-default">{json}</rdf:li>
-        </rdf:Alt>
-      </exif:UserComment>
-    </rdf:Description>
-  </rdf:RDF>
+"{}
+-{}
+Steps: {}, Sampler: {}, Guidance Scale: {}, Seed: {}, Size: {}, Model: {}, Strength: {}, Seed Mode: {}, Shift: {}",
+            metadata.c,
+            metadata.uc,
+            metadata.steps,
+            metadata.sampler,
+            format_desc_float(metadata.v2.guidance_scale as f64),
+            metadata.seed,
+            metadata.size,
+            metadata.model,
+            format_desc_float(metadata.strength),
+            metadata.seed_mode,
+            format_desc_float(metadata.shift),
+        )
+}
+
+fn build_drawthings_xmp(json: &str, description: &str) -> String {
+    let escaped_description = description.replace("\n", "&#xA;");
+    format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">
+   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about=""
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+            xmlns:exif="http://ns.adobe.com/exif/1.0/">
+         <dc:description>
+            <rdf:Alt>
+               <rdf:li xml:lang="x-default">{escaped_description}</rdf:li>
+            </rdf:Alt>
+         </dc:description>
+         <xmp:CreatorTool>Draw Things</xmp:CreatorTool>
+         <exif:UserComment>
+            <rdf:Alt>
+               <rdf:li xml:lang="x-default">{json}</rdf:li>
+            </rdf:Alt>
+         </exif:UserComment>
+      </rdf:Description>
+   </rdf:RDF>
 </x:xmpmeta>
-<?xpacket end="w"?>"#
+"#
     )
 }

@@ -1,8 +1,7 @@
 mod dt_project;
 pub use dt_project::DTProject;
-
 mod projects_db;
-pub use projects_db::{MixedError, ProjectsDb, ListImagesOptions, ListImagesResult};
+pub use projects_db::ProjectsDb;
 
 mod tensor_history;
 pub use tensor_history::TensorHistoryImport;
@@ -19,6 +18,5 @@ mod tensor_history_mod;
 mod tensors;
 
 mod metadata;
-pub use metadata::build_drawthings_json;
 
 mod filters;

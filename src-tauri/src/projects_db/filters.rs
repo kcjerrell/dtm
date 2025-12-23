@@ -94,7 +94,7 @@ trait NumericFilter {
         &self,
         op: ListImagesFilterOperator,
         value: &ListImagesFilterValue,
-        mut q: sea_orm::Select<images::Entity>,
+        q: sea_orm::Select<images::Entity>,
     ) -> sea_orm::Select<images::Entity> {
         let nums = match value {
             ListImagesFilterValue::Number(n) => n,

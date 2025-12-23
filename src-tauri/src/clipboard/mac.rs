@@ -20,12 +20,10 @@ pub fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
     let binding = NSData::from_vec(data);
     let ns_data = binding.as_ref();
 
-    unsafe {
-        pb.clearContents();
-        let ok = pb.setData_forType(Some(ns_data), &ns_type);
-        if !ok {
-            return Err(format!("Failed to write binary data for {}", ty));
-        }
+    pb.clearContents();
+    let ok = pb.setData_forType(Some(ns_data), &ns_type);
+    if !ok {
+        return Err(format!("Failed to write binary data for {}", ty));
     }
 
     Ok(())
@@ -36,11 +34,11 @@ pub fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<V
     let ns_type = NSString::from_str(&ty);
     let type_array = NSArray::from_slice(&[&*ns_type]);
 
-    if unsafe { pb.availableTypeFromArray(&*type_array) }.is_none() {
+    if pb.availableTypeFromArray(&*type_array).is_none() {
         return Err(format!("Type {} not available", ty));
     }
 
-    let data: Option<Retained<NSData>> = unsafe { pb.dataForType(&*ns_type) };
+    let data: Option<Retained<NSData>> = pb.dataForType(&*ns_type);
     let data = data.ok_or_else(|| format!("Failed to read binary data for {}", ty))?;
     let bytes = unsafe { data.as_bytes_unchecked() };
 
@@ -59,12 +57,12 @@ pub fn read_clipboard_strings(
         let type_array = NSArray::from_slice(&[&*ns_type]);
 
         // Only proceed if available
-        if unsafe { pb.availableTypeFromArray(&*type_array) }.is_none() {
+        if pb.availableTypeFromArray(&*type_array).is_none() {
             continue;
         }
 
         // Try to read as NSString
-        if let Some(s) = unsafe { pb.stringForType(&*ns_type) } {
+        if let Some(s) = pb.stringForType(&*ns_type) {
             results.insert(ty, s.to_string());
         }
     }
@@ -77,7 +75,7 @@ pub fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, S
     let pb: Retained<NSPasteboard> = get_clipboard(pasteboard)?;
 
     // Get available types (NSArray<NSString>)
-    let available = unsafe { pb.types() }.ok_or("Failed to get available types")?;
+    let available = pb.types().ok_or("Failed to get available types")?;
 
     // Convert NSArray<NSString> → Vec<String>
     let mut result = Vec::with_capacity(available.len());

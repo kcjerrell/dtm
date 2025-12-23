@@ -1,9 +1,9 @@
-use tauri::Emitter;
+// use tauri::Emitter; // Unused import
 
 use crate::projects_db::{
     dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
     filters::ListImagesFilter,
-    projects_db::{ImageExtra, ListImagesResult, ModelExtra, Paged, ProjectExtra, ScanProgress},
+    projects_db::{ListImagesResult, ModelExtra, ProjectExtra},
     tensors::decode_tensor,
     DTProject, ProjectsDb, TensorHistoryImport,
 };
@@ -180,11 +180,12 @@ pub async fn projects_db_watch_folder_remove(
 pub async fn projects_db_watch_folder_update(
     app: tauri::AppHandle,
     id: i32,
-    recursive: bool,
+    recursive: Option<bool>,
+    last_updated: Option<i64>,
 ) -> Result<entity::watch_folders::Model, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     Ok(projects_db
-        .update_watch_folder(id, recursive)
+        .update_watch_folder(id, recursive, last_updated)
         .await
         .unwrap())
 }
@@ -224,7 +225,7 @@ pub async fn dt_project_get_tensor_history(
     let project = DTProject::get(&project_file).await.unwrap();
     match project.get_histories(index as i64, count as i64).await {
         Ok(history) => Ok(history),
-        Err(e) => Ok(Vec::new()),
+        Err(_e) => Ok(Vec::new()),
     }
 }
 
