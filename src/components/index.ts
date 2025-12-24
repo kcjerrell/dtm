@@ -8,8 +8,8 @@ import SliderWithInput from "./SliderWithInput"
 import Sidebar from "./sidebar/Sidebar"
 import Tooltip from "./Tooltip"
 import VirtualizedList from "./virtualizedList/VirtualizedList"
-import Root from './FloatIndicator'
-export {Root as FloatIndicator}
+// import Root from './FloatIndicator'
+// export {Root as FloatIndicator}
 
 export const {
 	CheckRoot,
