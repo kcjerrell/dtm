@@ -23,12 +23,19 @@ const RootComponent = lazy(() => {
 
 themeHelpers.applySize()
 
-if (import.meta.env.DEV)
-	window.addEventListener("keypress", async (e) => {
+if (import.meta.env.DEV) {
+	const _global = globalThis as unknown as { _devKeyPressHandler?: (e: KeyboardEvent) => void }
+	if (_global._devKeyPressHandler) {
+		window.removeEventListener("keypress", _global._devKeyPressHandler)
+	}
+	_global._devKeyPressHandler = async (e: KeyboardEvent) => {
 		if (e.key === "`") {
 			invoke("show_dev_window")
 		}
-	})
+	}
+	window.addEventListener("keypress", _global._devKeyPressHandler)
+}
+
 
 // this ensures that the window appears even if an error is thrown in the initial render
 if (hash !== "dev") {

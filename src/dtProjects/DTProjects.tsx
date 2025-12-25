@@ -5,6 +5,7 @@ import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
 import ImagesList from "./imagesList/ImagesList"
 import { useDTP } from "./state/context"
+import { motion } from "motion/react"
 
 function ProjectData(props: ChakraProps) {
 	const { ...restProps } = props
@@ -15,15 +16,15 @@ function ProjectData(props: ChakraProps) {
 	const imagesSnap = images.useSnap()
 
 	// useEffect(() => {
-		// store.init()
-		// return () => store.removeListeners()
+	// store.init()
+	// return () => store.removeListeners()
 	// }, [])
 
 	return (
 		<LayoutRoot position={"relative"} {...restProps}>
 			<ControlPane margin={2} />
 
-			{uiSnap.selectedTab !== "settings" && imagesSnap.imageSource ? (
+			{uiSnap?.selectedTab !== "settings" && imagesSnap?.imageSource ? (
 				<ImagesList margin={2} marginLeft={0} />
 			) : (
 				<Panel

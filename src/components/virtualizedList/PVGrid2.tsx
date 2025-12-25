@@ -1,27 +1,23 @@
-import { PagedItemSource } from "@/utils/pagedItemSourceF"
 import { Box, chakra, Grid } from "@chakra-ui/react"
 import { useCallback, useEffect, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
+import type { ContainerEvent } from "@/dtProjects/state/StateController"
+import { usePagedItemSource } from "./PagedItemSource"
 
 export interface PVGridProps<T, P = unknown> extends ChakraProps {
-	itemComponent: PVGridItemComponent<T, P>
-	/** number of screens */
-	overscan?: number
-	keyFn?: (item: T, index: number) => string | number
-	initialRowCount?: number
-	itemProps?: P
-	itemSource: PagedItemSource<T>
-	maxItemSize: number
-}
+		itemComponent: PVGridItemComponent<T, P>
+		/** number of screens */
+		overscan?: number
+		keyFn?: (item: T, index: number) => string | number
+		initialRowCount?: number
+		itemProps?: P
+		maxItemSize: number
+		getItems: (skip: number, take: number) => Promise<T[]>
+		getCount: () => Promise<number>
+		onImagesChanged?: ContainerEvent<"imagesChanged">
+	}
 
 export type PVGridItemComponent<T, P = unknown> = React.ComponentType<PVGridItemProps<T, P>>
-
-export interface PVGridItemProps<T, P = unknown> {
-	value: T | Readonly<T> | null
-	index: number
-	itemProps: P
-	onSizeChanged?: (index: number, isBaseSize: boolean) => void
-}
 
 type StateProxy<T> = {
 	minThreshold: number
@@ -35,18 +31,9 @@ type StateProxy<T> = {
 }
 
 function PVGridWrapper<T, P = unknown>(props: Partial<PVGridProps<T, P>>) {
-	const {
-		itemSource,
-		itemComponent,
-		keyFn,
-		initialRowCount,
-		overscan,
-		itemProps,
-		maxItemSize,
-		...restProps
-	} = props
+	const { itemComponent, getItems, getCount, maxItemSize, ...restProps } = props
 
-	if (!itemSource || !itemComponent || !maxItemSize) {
+	if (!getItems || !getCount || !maxItemSize || !itemComponent) {
 		return <Box {...restProps} />
 	}
 
@@ -56,17 +43,22 @@ function PVGridWrapper<T, P = unknown>(props: Partial<PVGridProps<T, P>>) {
 function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 	const {
 		itemComponent,
+		getItems,
+		getCount,
 		keyFn,
 		initialRowCount = 10,
 		overscan = 2,
 		itemProps,
-		itemSource,
 		maxItemSize,
+		onImagesChanged,
 		...restProps
 	} = props
 	const Item = itemComponent
-
-	const renderItems = itemSource?.state?.renderItems ?? []
+	const { renderItems, totalCount, setRenderWindow, clearItems } = usePagedItemSource({
+		getItems,
+		getCount,
+		pageSize: 250,
+	})
 
 	const stateRef = useRef<StateProxy<T>>(null)
 	if (stateRef.current === null) {
@@ -87,9 +79,9 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 	const scrollContainerRef = useRef<HTMLDivElement>(null)
 	const scrollContentRef = useRef<HTMLDivElement>(null)
 	const topSpaceRef = useRef<HTMLDivElement>(null)
-	const bottomSpaceRef = useRef<HTMLDivElement>(null)
 
 	const recalculate = useCallback(() => {
+		if (!totalCount) return
 		const scrollContent = scrollContentRef.current
 		const scrollContainer = scrollContainerRef.current
 		if (!scrollContent || !scrollContainer) return
@@ -104,37 +96,13 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 		state.firstRow = Math.max(0, Math.floor(firstRow))
 
 		const lastRow = firstVisibleRow + rowsOnScreen + rowsOnScreen * overscan
-		state.lastRow = Math.min(Math.ceil(lastRow), Math.ceil(itemSource.totalCount / columns))
+		state.lastRow = Math.min(Math.ceil(lastRow), Math.ceil(totalCount / columns))
 
 		state.minThreshold = (state.firstRow * rowHeight + scrollContainer.scrollTop) / 2
 		state.maxThreshold = (state.lastRow * rowHeight + scrollContainer.scrollTop) / 2
 
-		itemSource.setRenderWindow(state.firstRow * columns, state.lastRow * columns)
-		// const { first, last } = calcFirstAndLastIndex()
-		// if (first === -1 || last === -1) return
-		// const visibleItemsCount = last - first + 1
-
-		// const itemHeight = getItemHeight(scrollContent, state.expanded, state.firstIndex)
-
-		// state.firstIndex = Math.max(0, first - visibleItemsCount * overscan)
-		// state.lastIndex = Math.min(totalCount, last + visibleItemsCount * overscan)
-		// setRenderWindow(state.firstIndex, state.lastIndex)
-
-		// const [pre, mid, post] = calcRangeHeights(
-		// 	state.firstIndex,
-		// 	state.lastIndex,
-		// 	totalCount,
-		// 	itemHeight,
-		// 	state.expanded,
-		// )
-
-		// state.preSpacerHeight = pre
-		// state.postSpacerHeight = post
-
-		// state.minThreshold = (scrollContainer.scrollTop + pre) / 2
-		// const scrollBottom = scrollContainer.scrollTop + scrollContainer.clientHeight
-		// state.maxThreshold = (scrollBottom + pre + mid) / 2 - scrollContainer.clientHeight
-	}, [state, overscan, maxItemSize, itemSource])
+		setRenderWindow(state.firstRow * columns, state.lastRow * columns)
+	}, [state, overscan, maxItemSize, totalCount, setRenderWindow])
 
 	const handleScroll = useCallback(
 		(e: React.UIEvent<HTMLDivElement, UIEvent>) => {
@@ -155,6 +123,16 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 	}, [recalculate])
 
 	useEffect(() => {
+		const handler = () => {
+			clearItems()
+		}
+		onImagesChanged?.on(handler)
+		return () => {
+			onImagesChanged?.off(handler)
+		}
+	}, [onImagesChanged, clearItems])
+
+	useEffect(() => {
 		if (!scrollContainerRef.current) return
 		const ro = new ResizeObserver(() => {
 			if (!scrollContainerRef.current) return
@@ -162,7 +140,10 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 			const itemPos = state.rowPos * state.columns
 			recalculate()
 			const rowPos = itemPos / state.columns
-			scrollContainerRef.current.scrollTo({ top: rowPos * state.rowHeight, behavior: "instant" })
+			scrollContainerRef.current.scrollTo({
+				top: rowPos * state.rowHeight,
+				behavior: "instant",
+			})
 		})
 		ro.observe(scrollContainerRef.current)
 
@@ -180,7 +161,7 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 				gap={0}
 				ref={scrollContentRef}
 				gridTemplateColumns={`repeat(${snap.columns}, 1fr)`}
-				gridTemplateRows={`repeat(${Math.ceil(itemSource.totalCount / snap.columns)}, ${snap.rowHeight}px)`}
+				gridTemplateRows={`repeat(${Math.ceil(totalCount / snap.columns)}, ${snap.rowHeight}px)`}
 			>
 				<Box
 					ref={topSpaceRef}

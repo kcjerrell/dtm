@@ -2,7 +2,7 @@ import type { SamplerType } from "dt-grpc-ts/web"
 import { useMemo } from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { Model } from "@/commands"
-import { DTPStateController } from "@/hooks/StateController"
+import { DTPStateController } from "@/dtProjects/state/StateController"
 import { arrayIfOnly } from "@/utils/helpers"
 import {
 	type FilterValueSelector,
@@ -55,6 +55,10 @@ class SearchController extends DTPStateController<SearchControllerState> {
 		filters: [],
 	})
 
+	constructor() {
+		super("search")
+	}
+
 	onSearch: (searchText?: string, searchFilters?: BackendFilter[]) => void = () => {
 		console.warn("must assign onSearch callback")
 	}
@@ -82,7 +86,12 @@ class SearchController extends DTPStateController<SearchControllerState> {
 
 		const filters: BackendFilter[] = []
 		for (const filter of this.state.filters) {
-			if (!filter.target || !filter.operator || filter.value === undefined || filter.value === null)
+			if (
+				!filter.target ||
+				!filter.operator ||
+				filter.value === undefined ||
+				filter.value === null
+			)
 				continue
 			const filterTarget = filterTargets[filter.target as keyof typeof filterTargets]
 
@@ -107,7 +116,8 @@ class SearchController extends DTPStateController<SearchControllerState> {
 		const { target, operator, value, isEditing } = snap
 
 		const operatorCollection = filterTargets[target ?? "none"]?.collection
-		const ValueSelector = filterTargets[target ?? "none"]?.ValueComponent as FilterValueSelector<T>
+		const ValueSelector = filterTargets[target ?? "none"]
+			?.ValueComponent as FilterValueSelector<T>
 
 		const callbacks = useMemo(
 			() => ({
@@ -123,8 +133,12 @@ class SearchController extends DTPStateController<SearchControllerState> {
 					}
 					filterState.value = filterTargets[target].initialValue as T
 
-					if (filterTargets[target].collection !== filterTargets[prev ?? "none"].collection) {
-						filterState.operator = filterTargets[target].collection.firstValue as FilterOperator
+					if (
+						filterTargets[target].collection !==
+						filterTargets[prev ?? "none"].collection
+					) {
+						filterState.operator = filterTargets[target].collection
+							.firstValue as FilterOperator
 					}
 				},
 				setOperator: (operator?: FilterOperator) => {

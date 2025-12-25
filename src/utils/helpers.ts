@@ -1,8 +1,9 @@
 import { open } from "@tauri-apps/plugin-dialog"
 
-export function areEquivalent(a: unknown[], b: unknown[]) {
-	if (a.length !== b.length) return false
-	for (let i = 0; i < a.length; i++) {
+export function areEquivalent(a?: unknown[] | null, b?: unknown[] | null) {
+	if (!a || !b) return false
+	if (a?.length !== b?.length) return false
+	for (let i = 0; i < a?.length; i++) {
 		if (a[i] !== b[i]) return false
 	}
 	return true

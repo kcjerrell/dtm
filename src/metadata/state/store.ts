@@ -39,6 +39,12 @@ const metadataStore = store(
 	{
 		filterKeys: ["currentImage", "currentIndex", "zoomPreview", "showHistory"],
 		filterKeysStrategy: "omit",
+		saveOnChange: true,
+		saveOnExit: true,
+		saveStrategy: "debounce",
+		syncStrategy: "throttle",
+		saveInterval: 60000,
+		syncInterval: 1000,
 
 		hooks: {
 			beforeFrontendSync(state) {
@@ -245,6 +251,7 @@ export async function getExif(arg: ArrayBuffer | string): Promise<ExifType | nul
 			iptc: true,
 			mergeOutput: false,
 		})
+		console.log(exif)
 		return exif
 	} catch (e) {
 		console.warn(e)

@@ -17,10 +17,9 @@ interface ProjectsPanelComponentProps extends ChakraProps {}
 
 function ProjectsPanel(props: ProjectsPanelComponentProps) {
 	const { ...restProps } = props
-	// const { snap, state, store } = useDTProjects()
 	const { projects, images } = useDTP()
 	const snap = projects.useSnap()
-	const imageSource = images.useSnap().imageSource
+	const { imageSource, projectImageCounts } = images.useSnap()
 	const [showExcluded, setShowExcluded] = useState(false)
 	const toggleRef = useRef<HTMLDivElement>(null)
 
@@ -57,7 +56,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 			{...restProps}
 		>
 			<PanelList
-			height={"full"}
+				height={"full"}
 				itemsState={showExcluded ? groups.allProjects : groups.activeProjects}
 				keyFn={(p) => p.path}
 				commands={toolbarCommands}
@@ -67,7 +66,13 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 			>
 				{activeProjectsSnap.map((p) => {
 					if (!showEmpty && p.image_count === 0) return null
-					return <ProjectListItem key={p.path} project={p} />
+					return (
+						<ProjectListItem
+							key={p.path}
+							project={p}
+							altCount={projectImageCounts?.[p.id] ?? 0}
+						/>
+					)
 				})}
 				{excludedProjectsSnap.length > 0 && (
 					<PanelListItem
@@ -116,10 +121,10 @@ function ProjectListItem(props: ProjectListItemProps) {
 	let count: number | string = project.image_count
 	let countStyle: string | undefined
 
-	if (altCount !== undefined) {
+	if (altCount !== count) {
 		count = altCount || ""
 		countStyle = "italic"
-	}
+	} // what if every image in the project matches a search?	then it won't be italic
 
 	return (
 		<PanelListItem

@@ -1,93 +1,46 @@
-import { createContext, type PropsWithChildren, use, useContext, useEffect, useRef } from "react"
+import { createContext, type PropsWithChildren } from "react"
 import { snapshot } from "valtio"
 import { watch } from "valtio/utils"
 import { UIController } from "@/dtProjects/state/uiState"
-import { DTPStateService } from "@/hooks/StateController"
-import { useInitRef } from "@/hooks/useInitRef"
+import { Container } from "./container"
 import DetailsService from "./details"
 import ImagesController from "./images"
+import JobsService from "./jobs"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
 import ScannerService from "./scanner"
 import SearchController from "./search"
 import WatchFoldersController from "./watchFolders"
 
-export type DTPContextType = {
-	uiState: UIController
-	projects: ProjectsController
-	models: ModelsController
-	watchFolders: WatchFoldersController
-	scanner: ScannerService
-	search: SearchController
-	images: ImagesController
-	details: DetailsService
+let _container = createContainer()
+function getContainer() {
+	if (!_container || _container.isDisposed) {
+		_container = createContainer()
+	}
+	return _container
 }
+
+export type DTPContextType = {
+		uiState: UIController
+		projects: ProjectsController
+		models: ModelsController
+		watchFolders: WatchFoldersController
+		scanner: ScannerService
+		search: SearchController
+		images: ImagesController
+		details: DetailsService
+		jobs: JobsService
+	}
 
 export const DTPContext = createContext<DTPContextType | undefined>(undefined)
 export function DTPProvider(props: PropsWithChildren) {
 	const { children } = props
-
-	const container = useInitRef(() => {
-		const result = DTPStateService.containerize(() => {
-			const uiState = new UIController()
-			const projects = new ProjectsController()
-			const watchFolders = new WatchFoldersController()
-			const models = new ModelsController()
-
-			const images = new ImagesController()
-			images.onImageCountsChanged = (counts) => projects.updateImageCounts(counts)
-			projects.onSelectedProjectsChanged.addHandler((projects) =>
-				images.setSelectedProjects(projects),
-			)
-
-			const scanner = new ScannerService(projects, watchFolders, models)
-			projects.onSyncRequired = async (projects) => {
-				if (projects) {
-					for (const project of projects) {
-						await scanner.syncProject(project)
-					}
-				} else {
-					await scanner.syncProjects()
-				}
-			}
-
-			const search = new SearchController()
-			search.onSearch = (text, filters) => {
-				images.setSearchFilter(text, filters)
-			}
-
-			const details = new DetailsService(projects)
-
-			return { projects, uiState, models, watchFolders, scanner, search, images, details }
-		})
-
-		const { services: controllers } = result
-
-		connectDevMode(controllers)
-
-		controllers.watchFolders.loadWatchFolders().then(async () => {
-			await controllers.projects.loadProjects()
-			await controllers.scanner.scanAndWatch()
-		})
-
-		return result
-	})
-
-	useEffect(() => {
-		return () => {
-			container.dispose()
-		}
-	}, [container])
-
-	return <DTPContext value={container.services}>{children}</DTPContext>
+	return children
 }
 
 export function useDTP() {
-	const ctx = useContext(DTPContext)
-	if (!ctx) {
-		throw new Error("useDTP must be used within a DTPProvider")
-	}
-	return ctx
+	const container = getContainer()
+	return container.services
 }
 
 let _unwatch: () => void
@@ -105,18 +58,54 @@ async function connectDevMode(controllers: DTPContextType) {
 			}
 
 			_devUpdate = setTimeout(() => {
+				console.log("it's happening")
 				const update = {} as Record<string, unknown>
-
+				update.jobs = controllers.jobs?.jobs
 				for (const [key, value] of Object.entries(controllers)) {
 					if ("state" in value) update[key] = snapshot(value.state)
 				}
-				// this is a work around since elements can't be serialized
-				// if (update.detailsOverlay.subItem?.sourceElement)
-				// 	// @ts-expect-error
-				// 	delete update.detailsOverlay.subItem.sourceElement
 				devStore.updateDevState("projects", update)
 				_devUpdate = null
 			}, 200)
 		})
 	}
+}
+
+function createContainer() {
+	return new Container<DTPContextType>(() => {
+		const jobs = new JobsService()
+		const uiState = new UIController()
+		const projects = new ProjectsController()
+		const watchFolders = new WatchFoldersController()
+		const models = new ModelsController()
+
+		const images = new ImagesController()
+
+		const scanner = new ScannerService()
+
+		const search = new SearchController()
+		search.onSearch = (text, filters) => {
+			images.setSearchFilter(text, filters)
+		}
+
+		const details = new DetailsService(projects)
+
+		scanner.scanAndWatch()
+
+		const controllers = {
+			projects,
+			uiState,
+			models,
+			watchFolders,
+			scanner,
+			search,
+			images,
+			details,
+			jobs,
+		} as DTPContextType
+
+		// connectDevMode(controllers)
+
+		return controllers
+	})
 }

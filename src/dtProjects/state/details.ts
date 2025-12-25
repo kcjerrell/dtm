@@ -1,5 +1,5 @@
 import { type DTImageFull, dtProject, type ImageExtra } from "@/commands"
-import { DTPStateService } from "@/hooks/StateController"
+import { DTPStateService } from "@/dtProjects/state/StateController"
 import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
 import type ProjectsController from "./projects"
 
@@ -8,7 +8,7 @@ class DetailsService extends DTPStateService {
 	itemDetails: Record<string, DTImageFull> = {}
 
 	constructor(projects: ProjectsController) {
-		super()
+		super("details")
 		this.projects = projects
 	}
 

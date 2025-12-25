@@ -1,7 +1,4 @@
-import { Spacer } from "@chakra-ui/react/spacer"
-import { VStack } from "@chakra-ui/react/stack"
-import { chakra } from "@chakra-ui/react/styled-system"
-import { Text } from "@chakra-ui/react/text"
+import { chakra, Spacer, Text, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ComponentProps, useCallback } from "react"
 import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
@@ -17,7 +14,6 @@ interface TensorsListComponentProps extends ComponentProps<typeof Container> {
 
 function TensorsList(props: TensorsListComponentProps) {
 	const { candidates, details, item, ...restProps } = props
-
 	const { uiState } = useDTP()
 
 	const showSubitem = useCallback(
@@ -63,7 +59,7 @@ function TensorsList(props: TensorsListComponentProps) {
 				)
 			})}
 			<Spacer />
-			{moodboardIds?.length && (
+			{moodboardIds?.length && false && (
 				<Group>
 					<Label>Moodboard</Label>
 					<Images>
@@ -92,8 +88,9 @@ function TensorsList(props: TensorsListComponentProps) {
 										<VStack alignItems={"flex-start"}>
 											<Text>{`(${prev.row_id}) lineage: ${prev.lineage}, logical time: ${prev.logical_time}`}</Text>
 											<Text>
-												Note: It is not alway possible to identify the canvas image, or determine if
-												it was used in the generation.
+												Note: It is not alway possible to identify the
+												canvas image, or determine if it was used in the
+												generation.
 											</Text>
 										</VStack>
 									}
@@ -102,7 +99,9 @@ function TensorsList(props: TensorsListComponentProps) {
 										projectId={item?.project_id}
 										tensorId={prev.tensor_id}
 										maskId={prev.mask_id}
-										onClick={(e) => showSubitem(e, prev.tensor_id, prev.mask_id)}
+										onClick={(e) =>
+											showSubitem(e, prev.tensor_id, prev.mask_id)
+										}
 									/>
 								</Tooltip>
 							)

@@ -161,14 +161,14 @@ impl ProjectsDb {
         Ok(()) // or Ok(updated) depending on your typedef
     }
 
-    pub async fn scan_project(&self, path: &str, full_scan: bool) -> Result<u64, MixedError> {
+    pub async fn scan_project(&self, path: &str, full_scan: bool) -> Result<(i64, u64), MixedError> {
         let dt_project = DTProject::get(path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
         let project = self.add_project(path).await?;
 
         if project.excluded {
-            return Ok(0);
+            return Ok((project.id, 0));
         }
 
         let start = match full_scan {
@@ -242,7 +242,7 @@ impl ProjectsDb {
 
         match total {
             ListImagesResult::Counts(_) => panic!("Unexpected result"),
-            ListImagesResult::Images(images) => Ok(images.total),
+            ListImagesResult::Images(images) => Ok((project.id, images.total)),
         }
     }
 
@@ -684,7 +684,8 @@ impl ProjectsDb {
         Ok(dt_project::DTProject::get(&project_path).await.unwrap())
     }
 
-    pub async fn update_models(&self, models: Vec<ModelInfo>) -> Result<(), DbErr> {
+    pub async fn update_models(&self, models: Vec<ModelInfo>) -> Result<usize, DbErr> {
+        let model_count = models.len();
         let models: Vec<entity::models::ActiveModel> = models
             .iter()
             .map(|m| entity::models::ActiveModel {
@@ -711,14 +712,14 @@ impl ProjectsDb {
             .exec(&self.db)
             .await?;
 
-        Ok(())
+        Ok(model_count)
     }
 
     pub async fn scan_model_info(
         &self,
         path: &str,
         model_type: ModelType,
-    ) -> Result<(), MixedError> {
+    ) -> Result<usize, MixedError> {
         #[derive(Deserialize)]
         struct ModelInfoImport {
             file: String,
@@ -741,9 +742,9 @@ impl ProjectsDb {
             })
             .collect();
 
-        self.update_models(models).await?;
+        let count = self.update_models(models).await?;
 
-        Ok(())
+        Ok(count)
     }
 
     pub async fn list_models(

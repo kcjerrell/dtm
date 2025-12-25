@@ -1,10 +1,10 @@
 import { Box } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { Snapshot } from "valtio"
-import type { ImageExtra } from "@/commands"
+import { type ImageExtra, pdb } from "@/commands"
 import { Panel } from "@/components"
-import PVGrid, { type PVGridItemProps } from "@/components/virtualizedList/PVGrid2"
+import PVGrid from "@/components/virtualizedList/PVGrid2"
 import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
 import { useDTP } from "../state/context"
 import type { UIControllerState } from "../state/uiState"
@@ -18,7 +18,6 @@ function ImagesList(props: ImagesList) {
 	const { images, uiState } = useDTP()
 	const uiSnap = uiState.useSnap()
 	const imagesSnap = images.useSnap()
-	const itemSource = images.useItemSource()
 
 	// useEffect(() => {
 	// 	if (!images.state.imageSource) return
@@ -41,12 +40,31 @@ function ImagesList(props: ImagesList) {
 	// 	return () => unsubscribe()
 	// }, [state])
 
+	const query = JSON.stringify(imagesSnap.imageSource)
+
+	const getItems = useCallback(
+		async (skip: number, take: number) => {
+			const res = await pdb.listImages(JSON.parse(query), skip, take)
+			return res.items
+		},
+		[query],
+	)
+
+	const getCount = useCallback(async () => {
+		const res = await pdb.listImages(JSON.parse(query), 0, 0)
+		return res.total
+	}, [query])
+
+	useEffect(() => {
+		console.log(query, "Changed")
+	}, [query])
+
 	return (
 		<Panel
 			position="relative"
 			margin={2}
 			p={0.5}
-			// overflow={"clip"}
+			overflow={"clip"}
 			flex={"1 1 auto"}
 			bgColor={"bg.2"}
 			{...rest}
@@ -57,8 +75,10 @@ function ImagesList(props: ImagesList) {
 				minHeight={"100%"}
 				key={imagesSnap.searchId}
 				itemComponent={GridItem as PVListItemComponent<ImageExtra>}
-				itemSource={itemSource}
+				getItems={getItems}
+				getCount={getCount}
 				maxItemSize={imagesSnap.imageSize ?? 5}
+				onImagesChanged={images.onImagesChanged}
 				gap={2}
 				itemProps={{
 					snap: uiSnap,

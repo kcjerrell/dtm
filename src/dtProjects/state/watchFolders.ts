@@ -2,7 +2,7 @@ import { path } from "@tauri-apps/api"
 import { exists, readDir, type UnwatchFn, watch, writeTextFile } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import { pdb, type WatchFolder } from "@/commands"
-import { DTPStateController } from "@/hooks/StateController"
+import { DTPStateController } from "@/dtProjects/state/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
 import { arrayIfOnly } from "@/utils/helpers"
@@ -21,7 +21,6 @@ const _defaultModelInfoPaths = [
 
 const modelInfoFilenames = {
 	"custom.json": "Model",
-	// "custom_prompt_style.json": "",
 	"custom_controlnet.json": "Cnet",
 	"custom_lora.json": "Lora",
 	"uncurated_models.json": "Model",
@@ -55,220 +54,264 @@ type ListModelInfoFilesResult = {
  * useDTP() will be responsible for assigning the handler
  */
 export class WatchFoldersController extends DTPStateController<WatchFoldersControllerState> {
-	state = proxy<WatchFoldersControllerState>({
-		modelInfoFolders: [] as WatchFolderState[],
-		hasModelInfoDefault: false,
-		projectFolders: [] as WatchFolderState[],
-		hasProjectDefault: false,
-	})
+		state = proxy<WatchFoldersControllerState>({
+			modelInfoFolders: [] as WatchFolderState[],
+			hasModelInfoDefault: false,
+			projectFolders: [] as WatchFolderState[],
+			hasProjectDefault: false,
+		})
 
-	onScanRequired: () => void = () => {
-		console.warn("Watch folders may be out of sync, handler not assigned")
-	}
-	watchDisposers: UnwatchFn[] = []
-
-	async loadWatchFolders() {
-		const res = (await pdb.watchFolders.listAll()) as WatchFolder[]
-		const folders = res.map((f) => makeSelectable(f as WatchFolderState))
-
-		va.set(
-			this.state.projectFolders,
-			folders.filter((f) => f.item_type === "Projects"),
-		)
-		this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
-
-		va.set(
-			this.state.modelInfoFolders,
-			folders.filter((f) => f.item_type === "ModelInfo"),
-		)
-		this.state.hasModelInfoDefault = _defaultModelInfoPaths.every((f) =>
-			this.state.modelInfoFolders.some((mif) => mif.path === f),
-		)
-	}
-
-	async addWatchFolder(folderPath: string, type: "Projects" | "ModelInfo") {
-		if (folderPath.startsWith("remote")) {
-			await pdb.watchFolders.add(folderPath, type, false)
-			this.onScanRequired()
-		} else if (await exists(folderPath)) {
-			await pdb.watchFolders.add(folderPath, type, false)
-			this.onScanRequired()
-		} else {
-			throw new Error("DNE")
+		constructor() {
+			super("watchFolders", ["watchfolders"])
 		}
-	}
 
-	async removeWatchFolders(folders: WatchFolderState | readonly WatchFolderState[]) {
-		await pdb.watchFolders.remove(arrayIfOnly(folders).map((f) => f.id))
-		await this.loadWatchFolders()
-	}
+		override handleTags(_tags: string, _desc: string) {
+			console.log("WATCHFOLDERS TAGS", _tags, _desc)
+			this.loadWatchFolders()
+		}
 
-	async setRecursive(folder: WatchFolderState | readonly WatchFolderState[], value: boolean) {
-		const toUpdate = arrayIfOnly(folder)
-		for (const folder of toUpdate) {
-			const updFolder = await pdb.watchFolders.update(folder.id, value)
+		watchDisposers: UnwatchFn[] = []
 
-			const folders =
-				folder.item_type === "Projects" ? this.state.projectFolders : this.state.modelInfoFolders
+		async loadWatchFolders() {
+			const res = (await pdb.watchFolders.listAll()) as WatchFolder[]
+			const folders = res.map((f) => makeSelectable(f as WatchFolderState))
 
-			const idx = folders.findIndex((f) => f.id === folder.id)
-			if (idx !== -1) {
-				folders[idx].recursive = updFolder.recursive
+			for (const folder of folders) {
+				if (folder.path.startsWith("remote:")) continue
+				folder.isMissing = !(await exists(folder.path))
+			}
+
+			va.set(
+				this.state.projectFolders,
+				folders.filter((f) => f.item_type === "Projects"),
+			)
+			this.state.hasProjectDefault = folders.some((f) => f.path === _defaultProjectPath)
+
+			va.set(
+				this.state.modelInfoFolders,
+				folders.filter((f) => f.item_type === "ModelInfo"),
+			)
+			this.state.hasModelInfoDefault = _defaultModelInfoPaths.every((f) =>
+				this.state.modelInfoFolders.some((mif) => mif.path === f),
+			)
+		}
+
+		async addWatchFolder(folderPath: string, type: "Projects" | "ModelInfo") {
+			if (folderPath.startsWith("remote")) {
+				await pdb.watchFolders.add(folderPath, type, false)
+			} else if (await exists(folderPath)) {
+				await pdb.watchFolders.add(folderPath, type, false)
+			} else {
+				throw new Error("DNE")
+			}
+
+			if (type === "Projects") {
+				this.getService("scanner").syncProjectFolders(folderPath)
 			}
 		}
-	}
 
-	async addDefaultWatchFolder(type: "Projects" | "ModelInfo") {
-		if (type === "Projects") await this.addWatchFolder(_defaultProjectPath, type)
-		else if (type === "ModelInfo") {
-			for (const f of _defaultModelInfoPaths) {
-				await this.addWatchFolder(f, type)
-			}
+		async removeWatchFolders(folders: WatchFolderState | readonly WatchFolderState[]) {
+			await pdb.watchFolders.remove(arrayIfOnly(folders).map((f) => f.id))
 		}
-	}
 
-	async listProjects(folder: WatchFolderState): Promise<string[]> {
-		if (folder.item_type !== "Projects") return []
+		async setRecursive(folder: WatchFolderState | readonly WatchFolderState[], value: boolean) {
+			const toUpdate = arrayIfOnly(folder)
+			for (const folder of toUpdate) {
+				const updFolder = await pdb.watchFolders.update(folder.id, value)
 
-		try {
-			if (!(await exists(folder.path))) {
-				folder.isMissing = true
-				return []
-			}
-			folder.isMissing = false
-			const projects = await findFiles(folder.path, folder.recursive, (f) => f.endsWith(".sqlite3"))
+				const folders =
+					folder.item_type === "Projects"
+						? this.state.projectFolders
+						: this.state.modelInfoFolders
 
-			return projects
-		} catch (e) {
-			console.error(e)
-			return []
-		}
-	}
-
-	async listModelInfoFiles(folder: WatchFolderState) {
-		if (folder.item_type !== "ModelInfo") return []
-		if (folder.path.startsWith("remote")) return this.getRemoteCombinedModels(folder)
-
-		try {
-			if (!(await exists(folder.path))) {
-				folder.isMissing = true
-				return []
-			}
-			folder.isMissing = false
-
-			const dirFiles = await readDir(folder.path)
-			const modelInfoFiles = [] as ListModelInfoFilesResult[]
-			for (const file of dirFiles) {
-				if (!file.isFile || !file.name.endsWith(".json")) continue
-				if (file.name in modelInfoFilenames) {
-					const infoPath = await path.join(folder.path, file.name)
-					modelInfoFiles.push({ path: infoPath, modelType: modelInfoFilenames[file.name] })
+				const idx = folders.findIndex((f) => f.id === folder.id)
+				if (idx !== -1) {
+					folders[idx].recursive = updFolder.recursive
 				}
 			}
-			return modelInfoFiles
-		} catch (e) {
-			console.error(e)
-			return []
-		}
-	}
-
-	async getRemoteCombinedModels(folder: WatchFolderState) {
-		const res = await fetch("https://kcjerrell.github.io/dt-models/combined_models.json")
-		const data = await res.json()
-		console.log(folder, data.lastUpdate)
-		if (folder.last_updated && folder.last_updated >= data.lastUpdate) {
-			console.log("models up to date")
-			return []
-		}
-		const check = (key: string) => key in data && Array.isArray(data[key])
-
-		const modelInfoFiles = [] as ListModelInfoFilesResult[]
-
-		const models = []
-		if (check("officialModels")) models.push(...data.officialModels)
-		if (check("communityModels")) models.push(...data.communityModels)
-		if (check("uncuratedModels")) models.push(...data.uncuratedModels)
-		if (models.length) {
-			const filePath = await path.join(await path.appDataDir(), "combined_models.json")
-			await writeTextFile(filePath, JSON.stringify(models, null, 2))
-			modelInfoFiles.push({ path: filePath, modelType: "Model" })
 		}
 
-		const cnets = []
-		if (check("officialCnets")) cnets.push(...data.officialCnets)
-		if (check("communityCnets")) cnets.push(...data.communityCnets)
-		if (cnets.length) {
-			const filePath = await path.join(await path.appDataDir(), "combined_cnets.json")
-			await writeTextFile(filePath, JSON.stringify(cnets, null, 2))
-			modelInfoFiles.push({ path: filePath, modelType: "Cnet" })
-		}
-
-		const loras = []
-		if (check("officialLoras")) loras.push(...data.officialLoras)
-		if (check("communityLoras")) loras.push(...data.communityLoras)
-		if (loras.length) {
-			const filePath = await path.join(await path.appDataDir(), "combined_loras.json")
-			await writeTextFile(filePath, JSON.stringify(loras, null, 2))
-			modelInfoFiles.push({ path: filePath, modelType: "Lora" })
-		}
-
-		await pdb.watchFolders.update(folder.id, undefined, data.lastUpdate)
-
-		return modelInfoFiles
-	}
-
-	async getRemoteModelInfoFiles() {
-		console.log("fetching official models...")
-		const filenames = ["Model", "ControlNet", "LoRA"] as const
-		const modelFiles = [] as ListModelInfoFilesResult[]
-		for (const filename of filenames) {
-			console.log("fetching", filename)
-			try {
-				const modelInfo = await compileOfficialModels(filename)
-				const modelInfoJson = JSON.stringify(modelInfo, null, 2)
-				const filePath = await path.join(
-					await path.appDataDir(),
-					`official_${filename.toLowerCase()}.json`,
-				)
-				await writeTextFile(filePath, modelInfoJson)
-				modelFiles.push({
-					path: filePath,
-					modelType: filename.replace("LoRA", "Lora").replace("ControlNet", "Cnet") as
-						| "Model"
-						| "Cnet"
-						| "Lora",
-				})
-			} catch (e) {
-				console.error(e)
+		async addDefaultWatchFolder(type: "Projects" | "ModelInfo") {
+			console.log(this)
+			if (type === "Projects") await this.addWatchFolder(_defaultProjectPath, type)
+			else if (type === "ModelInfo") {
+				for (const f of _defaultModelInfoPaths) {
+					await this.addWatchFolder(f, type)
+				}
 			}
 		}
-		return modelFiles
-	}
 
-	async startWatch(callback: (projectFiles: string[]) => Promise<void>) {
-		this.stopWatch()
+		async listProjects(folder: WatchFolderState): Promise<string[]> {
+			if (folder.item_type !== "Projects") return []
 
-		for (const projectFolder of this.state.projectFolders) {
-			const unwatch = await watch(
-				projectFolder.path,
-				async (e) => {
-					const projectFiles = e.paths.filter((p) => p.endsWith(".sqlite3"))
-					if (projectFiles.length === 0) return
-					console.log(projectFiles, e.attrs, e.type)
-					await callback(projectFiles)
-				},
-				{ delayMs: 2000, recursive: projectFolder.recursive },
-			)
-			this.watchDisposers.push(unwatch)
+			try {
+				if (!(await exists(folder.path))) {
+					folder.isMissing = true
+					return []
+				}
+				folder.isMissing = false
+				const projects = await findFiles(folder.path, folder.recursive, (f) =>
+					f.endsWith(".sqlite3"),
+				)
+
+				return projects
+			} catch (e) {
+				console.error(e)
+				return []
+			}
+		}
+
+		async getFolderForProject(project: string) {
+			const folders = [] as WatchFolderState[]
+			for (const folder of this.state.projectFolders) {
+				if (folder.path.startsWith(project)) {
+					if ((await path.dirname(project)) === folder.path || folder.recursive) {
+						folders.push(folder)
+					}
+				}
+			}
+
+			folders.sort((a, b) => b.path.length - a.path.length)
+			return folders[0]
+		}
+
+		async listModelInfoFiles(folder: WatchFolderState) {
+			if (folder.item_type !== "ModelInfo") return []
+			if (folder.path.startsWith("remote")) return this.getRemoteCombinedModels(folder)
+
+			try {
+				if (!(await exists(folder.path))) {
+					folder.isMissing = true
+					return []
+				}
+				folder.isMissing = false
+
+				const dirFiles = await readDir(folder.path)
+				const modelInfoFiles = [] as ListModelInfoFilesResult[]
+				for (const file of dirFiles) {
+					if (!file.isFile || !file.name.endsWith(".json")) continue
+					if (file.name in modelInfoFilenames) {
+						const infoPath = await path.join(folder.path, file.name)
+						modelInfoFiles.push({
+							path: infoPath,
+							modelType: modelInfoFilenames[file.name],
+						})
+					}
+				}
+				return modelInfoFiles
+			} catch (e) {
+				console.error(e)
+				return []
+			}
+		}
+
+		async getRemoteCombinedModels(folder: WatchFolderState) {
+			const res = await fetch("https://kcjerrell.github.io/dt-models/combined_models.json")
+			const data = await res.json()
+			console.log(folder, data.lastUpdate)
+			if (folder.last_updated && folder.last_updated >= data.lastUpdate) {
+				console.log("models up to date")
+				return []
+			}
+			const check = (key: string) => key in data && Array.isArray(data[key])
+
+			const modelInfoFiles = [] as ListModelInfoFilesResult[]
+
+			const models = []
+			if (check("officialModels")) models.push(...data.officialModels)
+			if (check("communityModels")) models.push(...data.communityModels)
+			if (check("uncuratedModels")) models.push(...data.uncuratedModels)
+			if (models.length) {
+				const filePath = await path.join(await path.appDataDir(), "combined_models.json")
+				await writeTextFile(filePath, JSON.stringify(models, null, 2))
+				modelInfoFiles.push({ path: filePath, modelType: "Model" })
+			}
+
+			const cnets = []
+			if (check("officialCnets")) cnets.push(...data.officialCnets)
+			if (check("communityCnets")) cnets.push(...data.communityCnets)
+			if (cnets.length) {
+				const filePath = await path.join(await path.appDataDir(), "combined_cnets.json")
+				await writeTextFile(filePath, JSON.stringify(cnets, null, 2))
+				modelInfoFiles.push({ path: filePath, modelType: "Cnet" })
+			}
+
+			const loras = []
+			if (check("officialLoras")) loras.push(...data.officialLoras)
+			if (check("communityLoras")) loras.push(...data.communityLoras)
+			if (loras.length) {
+				const filePath = await path.join(await path.appDataDir(), "combined_loras.json")
+				await writeTextFile(filePath, JSON.stringify(loras, null, 2))
+				modelInfoFiles.push({ path: filePath, modelType: "Lora" })
+			}
+
+			await pdb.watchFolders.update(folder.id, undefined, data.lastUpdate)
+
+			return modelInfoFiles
+		}
+
+		async getRemoteModelInfoFiles() {
+			console.log("fetching official models...")
+			const filenames = ["Model", "ControlNet", "LoRA"] as const
+			const modelFiles = [] as ListModelInfoFilesResult[]
+			for (const filename of filenames) {
+				console.log("fetching", filename)
+				try {
+					const modelInfo = await compileOfficialModels(filename)
+					const modelInfoJson = JSON.stringify(modelInfo, null, 2)
+					const filePath = await path.join(
+						await path.appDataDir(),
+						`official_${filename.toLowerCase()}.json`,
+					)
+					await writeTextFile(filePath, modelInfoJson)
+					modelFiles.push({
+						path: filePath,
+						modelType: filename.replace("LoRA", "Lora").replace("ControlNet", "Cnet") as
+							| "Model"
+							| "Cnet"
+							| "Lora",
+					})
+				} catch (e) {
+					console.error(e)
+				}
+			}
+			return modelFiles
+		}
+
+		async startWatch(callback: (projectFiles: string[]) => void) {
+			this.stopWatch()
+			for (const projectFolder of this.state.projectFolders) {
+				console.log("watching", projectFolder.path)
+				const unwatch = await watch(
+					projectFolder.path,
+					async (e) => {
+						const projectFiles = e.paths
+							.filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
+							.map((p) => p.replace(/-wal$/g, ""))
+						if (projectFiles.length === 0) return
+						const uniqueFiles = Array.from(new Set(projectFiles))
+						console.log("watch detected a change", uniqueFiles, e.attrs, e.type)
+						await callback(uniqueFiles)
+					},
+					{ delayMs: 2000, recursive: projectFolder.recursive },
+				)
+				this.watchDisposers.push(unwatch)
+			}
+		}
+
+		stopWatch() {
+			console.log("stopping watch")
+			this.watchDisposers.forEach((u) => {
+				u()
+			})
+			this.watchDisposers = []
+		}
+
+		override dispose() {
+			super.dispose()
+			this.stopWatch()
 		}
 	}
-
-	stopWatch() {
-		this.watchDisposers.forEach((u) => {
-			u()
-		})
-	}
-}
 
 export default WatchFoldersController
 
@@ -281,7 +324,9 @@ async function findFiles(
 	const dirFiles = await readDir(directory)
 	for (const file of dirFiles) {
 		if (file.isDirectory && recursive) {
-			files.push(...(await findFiles(await path.join(directory, file.name), recursive, filterFn)))
+			files.push(
+				...(await findFiles(await path.join(directory, file.name), recursive, filterFn)),
+			)
 		}
 
 		if (!file.isFile) continue

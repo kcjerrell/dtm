@@ -9,6 +9,8 @@ import { visualizer } from 'rollup-plugin-visualizer'
 const host = process.env.TAURI_DEV_HOST;
 const isMock = process.env.MOCK_TAURI === "true";
 
+const hmr = true
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [
@@ -66,7 +68,7 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host: host || false,
-    hmr: host
+    hmr: host && hmr
       ? {
         protocol: "ws",
         host,

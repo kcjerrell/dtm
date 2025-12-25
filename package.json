@@ -36,6 +36,7 @@
     "async-mutex": "^0.5.0",
     "derive-valtio": "^0.2.0",
     "dt-grpc-ts": "/Users/kcjer/Projects/dt-grpc-ts",
+    "eventemitter3": "^5.0.1",
     "exifr": "github:m-hayabusa/exifr#2cf6c14fcd8eab52a7a7de53af7fdb01a4a9f90f",
     "exifreader": "^4.31.2",
     "motion": "^12.23.25",
@@ -46,7 +47,7 @@
     "react-dom": "^19.2.1",
     "react-error-boundary": "^6.0.0",
     "react-icons": "^5.5.0",
-    "tauri-plugin-clipboard-api": "^2.1.11",
+    "tauri-plugin-clipboard-api": "^2.1.1",
     "tauri-plugin-fs-watch-api": "https://github.com/tauri-apps/tauri-plugin-fs-watch#v1",
     "tauri-plugin-nspopover": "git+https://github.com/freethinkel/tauri-nspopover-plugin",
     "valtio": "^2.2.0"

@@ -23,35 +23,32 @@ function DataItem(props: DataItemProps) {
 
 	const [display, _isObject, dataType] = prepData(data)
 
-	useLayoutEffect(() => {
-		if (!contentRef.current || !maxLines) return
-		const style = getComputedStyle(contentRef.current)
-		let lineHeight = parseFloat(style.lineHeight)
-		if (Number.isNaN(lineHeight)) {
-			// fallback: compute from font size if "normal"
-			const fontSize = parseFloat(style.fontSize)
-			lineHeight = fontSize * 1.2 // approximate
-		}
+	// useLayoutEffect(() => {
+	// 	if (!contentRef.current || !maxLines) return
+	// 	const style = getComputedStyle(contentRef.current)
+	// 	let lineHeight = parseFloat(style.lineHeight)
+	// 	if (Number.isNaN(lineHeight)) {
+	// 		// fallback: compute from font size if "normal"
+	// 		const fontSize = parseFloat(style.fontSize)
+	// 		lineHeight = fontSize * 1.2 // approximate
+	// 	}
 
-		const height = contentRef.current.clientHeight
-		if (height > lineHeight * maxLines) {
-			setCollapsible(true)
-			setCollapsed(true)
-			setMaxHeight(`${lineHeight * maxLines}px`)
-		}
-	}, [maxLines])
+	// 	const height = contentRef.current.clientHeight
+	// 	if (height > lineHeight * maxLines) {
+	// 		setCollapsible(true)
+	// 		setCollapsed(true)
+	// 		setMaxHeight(`${lineHeight * maxLines}px`)
+	// 	}
+	// }, [maxLines])
 
-	if (data === undefined || data === null) return null
-	console.log(label, collapsible, collapsed)
+	if (data === undefined || data === null) { 
+    return null
+  }
+  
 	return (
 		<Root {...rest}>
 			<HStack>{label && <Label>{label}</Label>}</HStack>
-			<Content
-				type={dataType}
-				ref={contentRef}
-				collapse={getVariant(collapsible, collapsed)}
-				maxHeight={collapsed ? maxHeight : "auto"}
-			>
+			<Content type={dataType} ref={contentRef}>
 				<div>{display}</div>
 			</Content>
 			{collapsible && (

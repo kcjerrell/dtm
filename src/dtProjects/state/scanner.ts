@@ -1,168 +1,350 @@
-import { stat } from "@tauri-apps/plugin-fs"
+import { exists, stat } from "@tauri-apps/plugin-fs"
 import { pdb } from "@/commands"
-import { DTPStateService } from "@/hooks/StateController"
-import type ModelsController from "./models"
-import type ProjectsController from "./projects"
+import { DTPStateService } from "@/dtProjects/state/StateController"
+import type { JobCallback, JobDef, JobPayload, JobResult } from "./jobs"
 import type { ProjectState } from "./projects"
-import type WatchFoldersController from "./watchFolders"
 
 class ScannerService extends DTPStateService {
-	projects: ProjectsController
-	watchFolders: WatchFoldersController
-	models: ModelsController
-
-	constructor(
-		projects: ProjectsController,
-		watchFolders: WatchFoldersController,
-		models: ModelsController,
-	) {
-		super()
-		this.projects = projects
-		this.projects.onSyncRequired = () => {
-			this.syncProjects()
-		}
-
-		this.watchFolders = watchFolders
-		this.watchFolders.onScanRequired = () => {
-			this.scanAndWatch()
-		}
-
-		this.models = models
+	constructor() {
+		super("scanner")
 	}
 
-	async scanAndWatch() {
-		await this.watchFolders.loadWatchFolders()
-		await this.projects.loadProjects()
+	getControllers() {
+		const wf = this.getService("watchFolders")
+		const projects = this.getService("projects")
 
-		await this.syncProjects()
-		await this.scanModelFiles()
+		return { wf, projects }
 	}
 
-	async syncProjects2() {
-		//  scan all watch folders for all projects, with sizes + dates, Map<string, {size, date}>
-		//* if a watch folder is missing, add to missing list
-		//  missing folder should display notice
-		//  iterate over projects from db
-		//  match against watch folder map, removing the entry
-		//  compare size and date. if different, add work item
-		//  if no matching entry, check if folder is missing
-		//* if missing, mark project as missing
-		//*  if folder is present, add work item to remove project - add this to the front
-		//  iterate over remaining watch folder entries
-		//* add work item to add each project
-		// items with * should update state. try to avoid relisting the projects every time.
-		//
-	}
-
-	// updated scan projects method
-	async syncProjects() {
-		await this.projects.loadProjects()
-		await this.watchFolders.loadWatchFolders()
-		await this.syncProjectFiles()
-		for (const project of this.projects.state.projects) {
-			await this.syncProject(project)
-		}
-		await pdb.rebuildIndex()
-
-		this.watchFolders.startWatch(async (projectFiles) => {
-			for (const projectFile of projectFiles) {
-				let project = this.projects.state.projects.find((p) => p.path === projectFile)
-				if (!project) {
-					await this.projects.addProjects([projectFile])
-					project = this.projects.state.projects.find((p) => p.path === projectFile)
-				}
-				if (project) {
-					await this.syncProject(project)
-				}
-			}
+	scanAndWatch() {
+		console.log("scan and watch")
+		this.syncProjectFolders(undefined, () => {
+			console.log("sync finished")
+			this.syncModelInfo()
+			this.getService("watchFolders").startWatch((files) => {
+				this.syncProjects(files)
+			})
 		})
 	}
 
-	// ensure every project in the watch folders is in the db
-	async syncProjectFiles() {
-		const newProjects = [] as string[]
-
-		for (const folder of this.watchFolders.state.projectFolders) {
-			const folderProjects = await this.watchFolders.listProjects(folder)
-			for (const projectPath of folderProjects) {
-				const project = this.projects.state.projects.find((p) => p.path === projectPath)
-				if (!project) newProjects.push(projectPath)
-			}
-		}
-
-		if (newProjects.length > 0) await this.projects.addProjects(newProjects)
-	}
-
-	/** @param skipCheck if true, will check even if filesize and modified are the same */
-	async syncProject(project: ProjectState, skipCheck?: boolean) {
-		if (skipCheck) {
-			await pdb.scanProject(project.path, false, project.filesize, project.modified)
+	/**
+	 * if watchfolder provided, the projects in that folder will be add/updated to the db. This won't
+	 * remove any projects.
+	 * If not provided, every project in the db and every project in the watchfolders will be checked.
+	 * This may remove projects, if the project file is missing and thw watchfolder is still present
+	 */
+	syncProjectFolders(watchFolder?: string, callback?: JobCallback<null>) {
+		if (watchFolder) {
+			const job = syncProjectFolderJob(watchFolder, () => {
+				callback?.()
+			})
+			this.getService("jobs").addJob(job)
 		} else {
-			const result = await checkProject(project)
-			project.isMissing = result.isMissing
-
-			if (result.action === "update") {
-				const totalImages = await pdb.scanProject(
-					project.path,
-					false,
-					result.filesize,
-					result.modified,
-				)
-				project.image_count = totalImages ?? 0
-				project.filesize = result.filesize
-				project.modified = result.modified
-			}
+			const job = syncProjectsJob(() => {
+				callback?.()
+			})
+			this.getService("jobs").addJob(job)
 		}
 	}
 
-	private async scanModelFiles() {
-		for (const folder of this.watchFolders.state.modelInfoFolders) {
-			const modelFiles = await this.watchFolders.listModelInfoFiles(folder)
+	async syncProjects(projectPaths: string[], callback?: JobCallback<null>) {
+		const result: JobPayload[] = []
+		const projects = this.getService("projects")
 
-			for (const file of modelFiles) {
-				await pdb.scanModelInfo(file.path, file.modelType)
+		for (const path of projectPaths) {
+			const stats = await getProjectStats(path)
+			const project = projects.state.projects.find((p) => p.path === path)
+
+			if (!stats) {
+				if (project) {
+					result.push(getProjectJob(path, { action: "remove", size: 0, mtime: 0 }))
+				}
+				continue
+			}
+
+			if (!project) {
+				result.push(getProjectJob(path, { action: "add", ...stats }))
+			} else if (project.filesize !== stats.size || project.modified !== stats.mtime) {
+				result.push(getProjectJob(path, { action: "update", ...stats }))
 			}
 		}
+
+		if (result.length > 0) {
+			this.getService("jobs").addJobs(result)
+		}
+
+		callback?.()
+	}
+
+	async syncModelInfo() {
+		const { wf } = this.getControllers()
+
+		await wf.loadWatchFolders()
+
+		for (const folder of wf.state.modelInfoFolders) {
+			const job = getModelInfoJob(folder.path)
+			this.getService("jobs").addJob(job)
+		}
+	}
+
+	override dispose() {
+		super.dispose()
 	}
 }
 
 export default ScannerService
 
-async function checkProject(project: ProjectState): Promise<CheckProjectResult> {
-	if (project.excluded)
-		return {
-			action: "none",
-			isMissing: false,
-			filesize: 0,
-			modified: 0,
-		}
+async function getProjectStats(projectPath: string) {
+	if (!projectPath.endsWith(".sqlite3")) return null
+	if (!(await exists(projectPath))) return null
 
-	const stats = await stat(project.path)
-	if (!stats) {
-		return {
-			action: "none",
-			isMissing: true,
-			filesize: 0,
-			modified: 0,
-		}
+	const stats = await stat(projectPath)
+
+	let walStats: Pick<Awaited<ReturnType<typeof stat>>, "size" | "mtime"> = {
+		size: 0,
+		mtime: new Date(0),
+	}
+	if (await exists(`${projectPath}-wal`)) {
+		walStats = await stat(`${projectPath}-wal`)
 	}
 
-	const result = {
-		action: "none",
-		isMissing: false,
-		filesize: stats.size,
-		modified: stats.mtime?.getTime() || 0,
+	return {
+		size: stats.size + walStats.size,
+		mtime: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
 	}
-
-	if (project.filesize !== stats.size) result.action = "update"
-	if (project.modified !== stats.mtime?.getTime()) result.action = "update"
-
-	return result as CheckProjectResult
 }
 
-type CheckProjectResult = {
-	action: "none" | "update"
-	isMissing: boolean
-	filesize: number
-	modified: number
+export type ProjectJobPayload = {
+	action: "add" | "update" | "remove" | "none"
+	project: string
+	size: number
+	mtime: number
+}
+
+/** this job syncs all projects in the db with all watch folders */
+function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncProjectFolders" } {
+	return {
+		type: "syncProjectFolders",
+		callback,
+		execute: async (_, container) => {
+			const wf = container.services.watchFolders
+			const p = container.services.projects
+
+			type ProjectDesc = {
+				projectFile: string
+				size: number
+				mtime: number
+				status: "unknown" | "new" | "changed" | "missing" | "unchanged"
+				action: "none" | "remove" | "add" | "update"
+			}
+			let allProjects: Map<string, ProjectDesc>
+			const cpd = (projectFile: string) =>
+				({
+					projectFile,
+					size: -1,
+					mtime: -1,
+					status: "unknown",
+					action: "none",
+				}) as ProjectDesc
+			const getPd = (projectFile: string) => {
+				if (!allProjects.has(projectFile)) allProjects.set(projectFile, cpd(projectFile))
+				const pd = allProjects.get(projectFile)
+				if (!pd) throw new Error("Project not found")
+				return pd
+			}
+
+			await p.loadProjects()
+			allProjects = new Map(p.state.projects.map((p) => [p.path, cpd(p.path)]))
+
+			// iterate over known projects (in the db already)
+			for (const project of p.state.projects) {
+				const projectStats = await getProjectStats(project.path)
+				const pd = getPd(project.path)
+				pd.size = projectStats?.size ?? 0
+				pd.mtime = projectStats?.mtime ?? 0
+
+				if (projectStats === null) {
+					pd.status = "missing"
+					continue
+				}
+
+				if (project.filesize !== pd.size || project.modified !== pd.mtime) {
+					pd.status = "changed"
+				} else {
+					pd.status = "unchanged"
+				}
+			}
+
+			await wf.loadWatchFolders()
+
+			for (const folder of wf.state.projectFolders) {
+				const folderProjects = await wf.listProjects(folder)
+				for (const project of folderProjects) {
+					const pd = getPd(project)
+					if (pd.status !== "unknown") continue
+
+					const projectStats = await getProjectStats(project)
+					if (projectStats) {
+						pd.status = "new"
+						pd.size = projectStats.size
+						pd.mtime = projectStats.mtime
+					}
+				}
+			}
+
+			// assign actions
+			for (const pd of allProjects.values()) {
+				if (pd.status === "new") pd.action = "add"
+				else if (pd.status === "changed") pd.action = "update"
+
+				// if project is missing, do nothing if folder is also missing
+				// keep this project in db to support removable storage
+				if (pd.status === "missing") {
+					const folder = await wf.getFolderForProject(pd.projectFile)
+					if (!folder.isMissing) pd.action = "remove"
+				}
+			}
+
+			const jobs = [] as JobDef<ProjectJobPayload>[]
+
+			for (const pd of allProjects.values()) {
+				if (pd.action === "none") continue
+
+				const job = getProjectJob(pd.projectFile, pd, callback)
+
+				if (job?.action === "add") {
+					jobs.unshift(job)
+				} else if (job?.action === "update") {
+					jobs.push(job)
+				} else if (job?.action === "remove") {
+					console.log("remove project", pd.projectFile)
+					jobs.unshift(job)
+				}
+			}
+
+			return { jobs } as JobResult
+		},
+	}
+}
+
+function syncProjectFolderJob(
+	watchFolder: string,
+	callback?: () => void,
+): JobDef<null> & { type: "syncProjectFolders" } {
+	return {
+		type: "syncProjectFolders",
+		callback,
+		execute: async (_, container) => {
+			const wf = container.services.watchFolders
+			const p = container.services.projects
+
+			await wf.loadWatchFolders()
+			const folder = wf.state.projectFolders.find((f) => f.path === watchFolder)
+
+			if (!folder) return { jobs: [] } as JobResult<null>
+
+			await p.loadProjects()
+
+			const folderProjects = await wf.listProjects(folder)
+			const updProjects = {} as Record<
+				string,
+				{ size: number; mtime: number; action: "add" | "update" }
+			>
+
+			for (const path of folderProjects) {
+				const existingProject = p.state.projects.find((pj) => pj.path === path)
+				const stats = await getProjectStats(path)
+
+				if (!stats) continue
+
+				if (existingProject) {
+					if (
+						existingProject.filesize !== stats.size ||
+						existingProject.modified !== stats.mtime
+					) {
+						updProjects[path] = { ...stats, action: "update" }
+					}
+				} else {
+					updProjects[path] = { ...stats, action: "add" }
+				}
+			}
+
+			const jobs = [] as JobPayload[]
+			for (const [project, data] of Object.entries(updProjects)) {
+				const job = getProjectJob(project, data as Omit<ProjectJobPayload, "project">)
+				if (job?.action === "update") jobs.push(job)
+				else if (job?.action === "add") jobs.unshift(job)
+			}
+
+			return { jobs } as JobResult<null>
+		},
+	}
+}
+
+function getProjectJob(
+	project: string,
+	data: Omit<ProjectJobPayload, "project">,
+	callback?: JobCallback,
+): (JobDef<ProjectJobPayload> & { type: "project" }) | undefined {
+	switch (data.action) {
+		case "add":
+			return {
+				type: "project",
+				action: "add",
+				data: { project, ...data },
+				callback,
+				execute: async (data: ProjectJobPayload, _container) => {
+					console.log("add project", project.split("/").pop())
+					await pdb.addProject(data.project)
+					return {
+						jobs: [getProjectJob(project, { ...data, action: "update" })],
+					} as JobResult
+				},
+			}
+		case "update":
+			return {
+				type: "project",
+				action: "update",
+				data: { project, ...data },
+				callback,
+				execute: async (data: ProjectJobPayload, _container) => {
+					console.log("update project", project.split("/").pop())
+					await pdb.scanProject(project, false, data.size, data.mtime)
+				},
+			}
+		case "remove":
+			return {
+				type: "project",
+				action: "remove",
+				data: { project, ...data },
+				callback,
+				execute: async (_data: ProjectJobPayload, _container) => {
+					console.log("remove project", project.split("/").pop())
+					await pdb.removeProject(project)
+				},
+			}
+	}
+}
+
+function getModelInfoJob(
+	folder: string,
+	callback?: JobCallback,
+): JobDef<null> & { type: "modelInfo" } {
+	return {
+		type: "modelInfo",
+		callback,
+		execute: async (_, container) => {
+			const wf = container.services.watchFolders
+			const folderState = wf.state.modelInfoFolders.find((f) => f.path === folder)
+
+			if (!folderState) return
+
+			const files = await wf.listModelInfoFiles(folderState)
+
+			for (const file of files) {
+				console.log("scanning model info", file.path)
+				await pdb.scanModelInfo(file.path, file.modelType)
+			}
+		},
+	}
 }

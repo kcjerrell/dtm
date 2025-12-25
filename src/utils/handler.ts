@@ -1,17 +1,23 @@
 export function eventCallback<T>() {
-  const handlers = []
+	let handlers: ((payload: T) => void)[] = []
 
-  function raise(payload: T) {
-    for (const handler of handlers) {
-      handler(payload)
-    }
-  }
+	function raise(payload: T) {
+		for (const handler of handlers) {
+			handler(payload)
+		}
+	}
 
-  function addHandler(handler: (payload: T) => void) {
-    handlers.push(handler)
-  }
+	function addHandler(handler: (payload: T) => void) {
+		handlers.push(handler)
+		return () => removeHandler(handler)
+	}
 
-  raise.addHandler = addHandler
+	function removeHandler(handler: (payload: T) => void) {
+		handlers = handlers.filter((h) => h !== handler)
+	}
 
-  return raise
+	raise.addHandler = addHandler
+	raise.removeHandler = removeHandler
+
+	return raise
 }

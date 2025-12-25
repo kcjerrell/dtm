@@ -7,7 +7,7 @@ import {
 	useMemo
 } from "react"
 import { proxy, useSnapshot } from "valtio"
-import { useInitRef } from "./useInitRef"
+import { useInit } from "./useInitRef"
 
 type Selectable<T> = {
 	selected: boolean
@@ -101,7 +101,7 @@ const defaultSelectableGroupOptions = {
 } as const
 export function useSelectableGroup<T>(opts: SelectableGroupOptions<T> = {}) {
 	const options = { ...defaultSelectableGroupOptions, ...opts }
-	const cv = useInitRef(
+	const cv = useInit(
 		() =>
 			proxy({
 				items: {} as Record<string, Selectable<T>>,

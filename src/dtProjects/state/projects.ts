@@ -1,6 +1,6 @@
 import { proxy } from "valtio"
 import { type ProjectExtra, pdb } from "@/commands"
-import { DTPStateController } from "@/hooks/StateController"
+import { DTPStateController } from "@/dtProjects/state/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
 import { eventCallback } from "@/utils/handler"
@@ -24,8 +24,14 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 		selectedProjects: [],
 		showEmptyProjects: false,
 	})
-	onSyncRequired: (projects?: ProjectState[]) => void = () => {
-		console.warn("Projects may be out of sync, handler not assigned")
+
+	constructor() {
+		super("projects", ["projects"])
+	}
+
+	protected handleTags(_tags: string, _desc: string) {
+		console.log("PROJECTS TAGS", _tags, _desc)
+		this.loadProjects()
 	}
 
 	onSelectedProjectsChanged = eventCallback<ProjectState[]>()
@@ -68,7 +74,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 			projectState.excluded = exclude
 			stateUpdate.push(projectState)
 		}
-		await this.onSyncRequired(stateUpdate)
+		await this.getService("scanner").syncProjects(stateUpdate.map((p) => p.path))
 		await this.loadProjects()
 	}
 
@@ -89,7 +95,11 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
 	setSelectedProjects(projects: ProjectState[]) {
 		va.set(this.state.selectedProjects, projects)
-		this.onSelectedProjectsChanged(projects)
+	}
+
+	useSelectedProjects() {
+		const snap = this.useSnap()
+		return snap.selectedProjects.map((p) => p.id)
 	}
 
 	useProjectsSummary() {

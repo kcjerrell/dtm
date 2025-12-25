@@ -1,6 +1,6 @@
 import { proxy } from "valtio"
 import { type Model, pdb } from "@/commands"
-import { DTPStateController } from "@/hooks/StateController"
+import { DTPStateController } from "@/dtProjects/state/StateController"
 import { getVersionLabel } from "@/utils/models"
 import type { ModelVersionInfo, VersionModel } from "../types"
 
@@ -21,6 +21,15 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
 		versions: {},
 	})
 
+	constructor() {
+		super("models", ["models"])
+	}
+
+	protected handleTags(_tags: string, _desc: string) {
+		console.log("MODELS TAGS", _tags, _desc)
+		this.refreshModels()
+	}
+
 	async refreshModels() {
 		const dbModels = await pdb.listModels()
 
@@ -31,7 +40,12 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
 		for (const model of dbModels) {
 			const version = model.version ?? ""
 			if (!versions[version])
-				versions[version] = { models: 0, controls: 0, loras: 0, label: getVersionLabel(version) }
+				versions[version] = {
+					models: 0,
+					controls: 0,
+					loras: 0,
+					label: getVersionLabel(version),
+				}
 			if (model.model_type === "Model") versions[version].models++
 			else if (model.model_type === "Lora") versions[version].loras++
 			else if (model.model_type === "Cnet") versions[version].controls++

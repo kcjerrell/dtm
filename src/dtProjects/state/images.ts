@@ -1,9 +1,11 @@
-import { proxy, subscribe, useSnapshot } from "valtio"
+import { EventEmitter } from "eventemitter3"
+import { proxy } from "valtio"
+import { watch } from "valtio/utils"
 import { type ImageExtra, pdb } from "@/commands"
-import { DTPStateController } from "@/hooks/StateController"
-import { type PagedItemSource, pagedItemSource } from "@/utils/pagedItemSourceF"
+import { DTPStateController } from "@/dtProjects/state/StateController"
+import type { PagedItemSource } from "@/utils/pagedItemSourceF"
 import type { ImagesSource } from "../types"
-import type { ProjectState } from "./projects"
+import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
 
 export type ImagesControllerState = {
@@ -27,42 +29,61 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 		searchId: 0,
 	})
 
-	constructor() {
-		super()
+	private emitter = new EventEmitter<"imagesChanged">()
+	get onImagesChanged() {
+		return {
+			on: (fn: () => void) => this.emitter.on("imagesChanged", fn),
+			off: (fn: () => void) => this.emitter.off("imagesChanged", fn),
+		}
+	}
 
-		subscribe(this.state.imageSource, async () => {
-			await this.updateItemSource()
+	constructor() {
+		super("images")
+
+		this.getFutureService("projects").then((projectsService) => {
+			watch((get) => {
+				const p = get(projectsService.state.selectedProjects)
+				this.setSelectedProjects(p)
+			})
+			watch((get) => {
+				const p = get(projectsService.state.projects)
+				const changed = updateProjectsCache(p, this.projectsCache)
+				if (changed.length > 0) this.emitter.emit("imagesChanged")
+			})
 		})
 
-		this.updateItemSource()
-	}
-
-	async updateItemSource() {
-		await this.refreshImageCounts()
-
-		this.state.itemSource = pagedItemSource<ImageExtra>(
-			async (skip, take) => {
-				const res = await pdb.listImages(this.state.imageSource, skip, take)
-				return res.items
+		watch(
+			(get) => {
+				const source = get(this.state.imageSource)
+				this.refreshImageCounts()
 			},
-			this.state.selectedProjectsCount ?? 0,
-			250,
+			{ sync: false },
 		)
-		this.state.searchId++
 	}
+
+	projectsCache: Record<number, number> = {}
+	unwatch?: () => void
+
+	// async updateItemSource(incrementSearchId = true, reason?: string) {
+	// 	console.log("updateItemSource", reason)
+	// 	await this.refreshImageCounts()
+
+	// 	this.state.itemSource = pagedItemSource<ImageExtra>(
+	// 		async (skip, take) => {
+	// 			const res = await pdb.listImages(this.state.imageSource, skip, take)
+	// 			return res.items
+	// 		},
+	// 		this.state.selectedProjectsCount ?? 0,
+	// 		250,
+	// 	)
+	// 	// if (incrementSearchId)
+	// 	this.state.searchId++
+	// }
 
 	toggleSortDirection() {
 		if (!this.state.imageSource) return
 		if (this.state.imageSource?.direction === "asc") this.state.imageSource.direction = "desc"
 		else this.state.imageSource.direction = "asc"
-	}
-
-	useItemSource(): PagedItemSource<ImageExtra> {
-		return useSnapshot(this.state).itemSource as PagedItemSource<ImageExtra>
-	}
-
-	onImageCountsChanged: (counts: Record<number, number>) => void = () => {
-		console.warn("Images may be out of sync, handler not assigned")
 	}
 
 	async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
@@ -87,11 +108,44 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
 		this.state.projectImageCounts = projectCounts
 		this.state.selectedProjectsCount = this.state.imageSource.projectIds?.length
-			? this.state.imageSource.projectIds?.reduce((acc, p) => acc + (projectCounts[p] ?? 0), 0)
+			? this.state.imageSource.projectIds?.reduce(
+					(acc, p) => acc + (projectCounts[p] ?? 0),
+					0,
+				)
 			: total
 		this.state.totalImageCount = total
-		this.onImageCountsChanged(projectCounts)
+	}
+
+	override dispose() {
+		super.dispose()
+		this.unwatch?.()
 	}
 }
 
 export default ImagesController
+
+/** updates a projects cache in place and returns a list of project ids where the count has changed */
+function updateProjectsCache(
+	projects: ProjectsControllerState["projects"],
+	cache: Record<number, number>,
+) {
+	const projectsChanged: number[] = []
+
+	const visited: Record<number, number | null> = { ...cache }
+	for (const project of projects) {
+		visited[project.id] = null
+		if (cache[project.id] !== project.image_count) {
+			projectsChanged.push(project.id)
+			cache[project.id] = project.image_count
+		}
+	}
+
+	for (const key in visited) {
+		if (visited[key] !== null) {
+			delete cache[key]
+			projectsChanged.push(Number(key))
+		}
+	}
+
+	return projectsChanged
+}

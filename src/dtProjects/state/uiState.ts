@@ -1,36 +1,36 @@
 import { proxy, ref, useSnapshot } from "valtio"
 import { type DTImageFull, dtProject, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
-import { DTPStateController } from "@/hooks/StateController"
+import { DTPStateController } from "@/dtProjects/state/StateController"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 
 export type UIControllerState = {
-		selectedTab: "projects" | "search" | "settings"
-		shouldFocus?: string
-		detailsView: {
-			item?: ImageExtra
-			itemDetails?: DTImageFull
-			subItem?: {
-				projectId: number
-				tensorId: string
-				maskUrl?: string
-				applyMask?: boolean
-				thumbUrl: string
-				url?: string
-				width?: number
-				height?: number
-				isLoading: boolean
-				sourceElement?: HTMLElement
-			}
-			subItemSourceRect?: DOMRect | null
-			lastItem?: ImageExtra | null
-			candidates?: TensorHistoryExtra[]
-			sourceRect?: DOMRect | null
+	selectedTab: "projects" | "search" | "settings"
+	shouldFocus?: string
+	detailsView: {
+		item?: ImageExtra
+		itemDetails?: DTImageFull
+		subItem?: {
+			projectId: number
+			tensorId: string
+			maskUrl?: string
+			applyMask?: boolean
+			thumbUrl: string
+			url?: string
 			width?: number
 			height?: number
+			isLoading: boolean
+			sourceElement?: HTMLElement
 		}
+		subItemSourceRect?: DOMRect | null
+		lastItem?: ImageExtra | null
+		candidates?: TensorHistoryExtra[]
+		sourceRect?: DOMRect | null
+		width?: number
+		height?: number
 	}
+}
 
 type Handler<T> = (payload: T) => void
 
@@ -50,6 +50,10 @@ export class UIController extends DTPStateController<UIControllerState> {
 			height: 0,
 		},
 	})
+
+	constructor() {
+		super("uiState")
+	}
 
 	onItemChanged: Handler<{ item: ImageExtra | null }>[] = []
 	onSubItemChanged: Handler<{ projectId: number; tensorId: string }>[] = []

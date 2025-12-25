@@ -260,7 +260,8 @@ export const pdb = {
 		fullScan = false,
 		filesize?: number,
 		modified?: number,
-	): Promise<number> => invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
+	): Promise<number> =>
+		invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
 
 	updateExclude: async (id: number, exclude: boolean): Promise<void> =>
 		invoke("projects_db_project_update_exclude", { id, exclude }),
@@ -269,7 +270,7 @@ export const pdb = {
 	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
 
 	listImages: async (
-		source: ListImagesOpts,
+		source: MaybeReadonly<ListImagesOpts>,
 		skip: number,
 		take: number,
 	): Promise<{ items: ImageExtra[]; total: number }> => {
@@ -285,7 +286,7 @@ export const pdb = {
 	/**
 	 * ignores projectIds, returns count of image matches in each project.
 	 */
-	listImagesCount: async (source: ListImagesOpts) => {
+	listImagesCount: async (source: MaybeReadonly<ListImagesOpts>) => {
 		const opts = { ...source, projectIds: undefined, count: true }
 		const result: Record<string, unknown> = await invoke("projects_db_image_list", opts)
 		if ("Counts" in result) {
@@ -310,11 +311,15 @@ export const pdb = {
 		remove: async (ids: number[] | number): Promise<void> =>
 			invoke("projects_db_watch_folder_remove", { ids: Array.isArray(ids) ? ids : [ids] }),
 
-		update: async (id: number, recursive?: boolean, lastUpdated?: number): Promise<WatchFolder> =>
+		update: async (
+			id: number,
+			recursive?: boolean,
+			lastUpdated?: number,
+		): Promise<WatchFolder> =>
 			invoke("projects_db_watch_folder_update", { id, recursive, lastUpdated }),
 	},
 
-	scanModelInfo: async (filePath: string, modelType: ModelType): Promise<void> =>
+	scanModelInfo: async (filePath: string, modelType: ModelType): Promise<number> =>
 		invoke("projects_db_scan_model_info", { filePath, modelType }),
 
 	listModels: async (modelType?: ModelType): Promise<Model[]> =>
@@ -400,5 +405,10 @@ export const dtProject = {
 		lineage: number,
 		logicalTime: number,
 	): Promise<TensorHistoryExtra[]> =>
-		invoke("dt_project_find_predecessor_candidates", { projectFile, rowId, lineage, logicalTime }),
+		invoke("dt_project_find_predecessor_candidates", {
+			projectFile,
+			rowId,
+			lineage,
+			logicalTime,
+		}),
 }

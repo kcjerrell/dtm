@@ -1,4 +1,4 @@
-// use tauri::Emitter; // Unused import
+use tauri::Emitter;
 
 use crate::projects_db::{
     dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
@@ -7,6 +7,22 @@ use crate::projects_db::{
     tensors::decode_tensor,
     DTProject, ProjectsDb, TensorHistoryImport,
 };
+
+#[derive(serde::Serialize, Clone)]
+struct InvalidateTagsPayload {
+    tag: String,
+    desc: String,
+}
+
+fn invalidate_tags(app_handle: &tauri::AppHandle, tag: &str, desc: &str) {
+    let _ = app_handle.emit(
+        "invalidate-tags",
+        InvalidateTagsPayload {
+            tag: tag.to_string(),
+            desc: desc.to_string(),
+        },
+    );
+}
 
 #[tauri::command]
 pub async fn projects_db_image_count(app_handle: tauri::AppHandle) -> Result<u32, String> {
@@ -21,6 +37,7 @@ pub async fn projects_db_project_add(
 ) -> Result<ProjectExtra, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
     let project = pdb.add_project(&path).await.unwrap();
+    invalidate_tags(&app_handle, "projects", "add");
     Ok(project)
 }
 
@@ -31,6 +48,7 @@ pub async fn projects_db_project_remove(
 ) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
     pdb.remove_project(&path).await.unwrap();
+    invalidate_tags(&app_handle, "projects", "remove");
     Ok(())
 }
 
@@ -53,6 +71,8 @@ pub async fn projects_db_project_update_exclude(
     pdb.update_exclude(id, exclude)
         .await
         .map_err(|e| e.to_string())?;
+    invalidate_tags(&app_handle, "projects", "update");
+    invalidate_tags(&app_handle, &format!("projects:{id}"), "update");
     Ok(())
 }
 
@@ -79,16 +99,20 @@ pub async fn projects_db_project_scan(
     //     )
     //     .unwrap();
     // };
-    let result: Result<u64, String> = pdb
+    let result: Result<(i64, u64), String> = pdb
         .scan_project(&path, full_scan.unwrap_or(false))
         .await
         .map_err(|e| e.to_string());
 
     match result {
-        Ok(total) => {
-            pdb.update_project(&path, filesize, modified)
-                .await
-                .map_err(|e| e.to_string())?;
+        Ok((id, total)) => {
+            if total > 0 {
+                pdb.update_project(&path, filesize, modified)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                invalidate_tags(&app, &format!("projects:{}", id), "update");
+            }
             // app.emit(
             //     "projects_db_scan_progress",
             //     ScanProgress {
@@ -160,10 +184,14 @@ pub async fn projects_db_watch_folder_add(
     recursive: bool,
 ) -> Result<entity::watch_folders::Model, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-    Ok(projects_db
+    let result = projects_db
         .add_watch_folder(&path, item_type, recursive)
         .await
-        .unwrap())
+        .unwrap();
+
+    invalidate_tags(&app, "watchfolders", "add");
+
+    Ok(result)
 }
 
 #[tauri::command]
@@ -173,6 +201,7 @@ pub async fn projects_db_watch_folder_remove(
 ) -> Result<(), String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     projects_db.remove_watch_folders(ids).await.unwrap();
+    invalidate_tags(&app, "watchfolders", "remove");
     Ok(())
 }
 
@@ -184,10 +213,12 @@ pub async fn projects_db_watch_folder_update(
     last_updated: Option<i64>,
 ) -> Result<entity::watch_folders::Model, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-    Ok(projects_db
+    let result = projects_db
         .update_watch_folder(id, recursive, last_updated)
         .await
-        .unwrap())
+        .unwrap();
+    invalidate_tags(&app, &format!("watchfolders:{}", id), "update");
+    Ok(result)
 }
 
 #[tauri::command]
@@ -195,13 +226,18 @@ pub async fn projects_db_scan_model_info(
     app: tauri::AppHandle,
     file_path: String,
     model_type: entity::enums::ModelType,
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-    projects_db
+    let count = projects_db
         .scan_model_info(&file_path, model_type)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(())
+    
+    if count > 0 {
+        invalidate_tags(&app, "models", "scan");
+    }
+    
+    Ok(count)
 }
 
 #[tauri::command]

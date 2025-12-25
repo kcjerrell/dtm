@@ -38,7 +38,8 @@ function SearchTextWidget(props: SearchTextWidgetProps) {
 			)}
 			<IconButton
 				size="min"
-				onClick={() => {
+				onClick={(e) => {
+					e.stopPropagation()
 					images.setSearchFilter()
 				}}
 				visibility="hidden"

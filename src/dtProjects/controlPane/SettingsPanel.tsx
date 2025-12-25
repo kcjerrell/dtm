@@ -1,53 +1,59 @@
 import { Box } from "@chakra-ui/react"
+import { useMemo } from "react"
 import { FaMinus, FaPlus } from "react-icons/fa6"
 import { FiList } from "react-icons/fi"
 import { LuFolderTree } from "react-icons/lu"
 import { PanelButton, PanelListItem, PanelSectionHeader } from "@/components"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
-import { useInitRef } from "@/hooks/useInitRef"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { openAnd } from "@/utils/helpers"
 import { useDTP } from "../state/context"
 import type { WatchFolderState, WatchFoldersController } from "../state/watchFolders"
 
-function getCommands(
+function useCommands(
 	folderType: "Projects" | "ModelInfo",
 	watchFolders: WatchFoldersController,
 ): PanelListCommand<WatchFolderState>[] {
 	const ft = folderType === "Projects" ? "proj" : "modinfo"
-	return [
-		{
-			id: `${ft}-toggle-recursive`,
-			getIcon: (selected) => (selected[0]?.recursive ? FiList : LuFolderTree),
-			requiresSelection: true,
-			onClick: (selected) => {
-				watchFolders.setRecursive(selected, !selected[0]?.recursive)
+	const commands = useMemo(
+		() => [
+			{
+				id: `${ft}-toggle-recursive`,
+				getIcon: (selected) => (selected[0]?.recursive ? FiList : LuFolderTree),
+				requiresSelection: true,
+				onClick: (selected) => {
+					watchFolders.setRecursive(selected, !selected[0]?.recursive)
+				},
+				getTip: (selected) =>
+					selected[0]?.recursive ? "Disable recursive" : "Enable recursive",
 			},
-			getTip: (selected) => (selected[0]?.recursive ? "Disable recursive" : "Enable recursive"),
-		},
-		{
-			id: `${ft}-remove-folders`,
-			icon: FaMinus,
-			requiresSelection: true,
-			onClick: (selected) => {
-				watchFolders.removeWatchFolders(selected)
+			{
+				id: `${ft}-remove-folders`,
+				icon: FaMinus,
+				requiresSelection: true,
+				onClick: (selected) => {
+					watchFolders.removeWatchFolders(selected)
+				},
+				tip: "Remove selected folders",
 			},
-			tip: "Remove selected folders",
-		},
-		{
-			id: `${ft}-add-folder`,
-			icon: FaPlus,
-			onClick: () =>
-				openAnd((f) => watchFolders.addWatchFolder(f, folderType), {
-					directory: true,
-					multiple: false,
-					title: `Select ${folderType.toLowerCase()} folder`,
-				}),
-			tip: "Add folder",
-		},
-	]
+			{
+				id: `${ft}-add-folder`,
+				icon: FaPlus,
+				onClick: () =>
+					openAnd((f) => watchFolders.addWatchFolder(f, folderType), {
+						directory: true,
+						multiple: false,
+						title: `Select ${folderType.toLowerCase()} folder`,
+					}),
+				tip: "Add folder",
+			},
+		],
+		[folderType, watchFolders, ft],
+	)
+
+	return commands
 }
 
 interface SettingsPanelComponentProps extends ChakraProps {}
@@ -60,8 +66,8 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 	const { hasModelInfoDefault, hasProjectDefault, modelInfoFolders, projectFolders } =
 		watchFolders.useSnap()
 
-	const projectFolderCommands = useInitRef(() => getCommands("Projects", watchFolders))
-	const modelInfoFolderCommands = useInitRef(() => getCommands("ModelInfo", watchFolders))
+	const projectFolderCommands = useCommands("Projects", watchFolders)
+	const modelInfoFolderCommands = useCommands("ModelInfo", watchFolders)
 
 	return (
 		<TabContent value={"settings"} {...restProps}>
@@ -95,7 +101,10 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			</PanelList>
 
 			{!hasProjectDefault && (
-				<PanelButton margin={2} onClick={() => watchFolders.addDefaultWatchFolder("Projects")}>
+				<PanelButton
+					margin={2}
+					onClick={() => watchFolders.addDefaultWatchFolder("Projects")}
+				>
 					Add default location
 				</PanelButton>
 			)}
@@ -130,7 +139,10 @@ function SettingsPanel(props: SettingsPanelComponentProps) {
 			</PanelList>
 
 			{!hasModelInfoDefault && (
-				<PanelButton margin={2} onClick={() => watchFolders.addDefaultWatchFolder("ModelInfo")}>
+				<PanelButton
+					margin={2}
+					onClick={() => watchFolders.addDefaultWatchFolder("ModelInfo")}
+				>
 					Add default locations
 				</PanelButton>
 			)}
@@ -153,10 +165,18 @@ function WatchFolderItem(props: { folder: WatchFolderState }) {
 	const { isSelected, handlers } = useSelectable(folder)
 
 	return (
-		<PanelListItem key={folder.id} selectable selected={isSelected} {...restProps} {...handlers}>
+		<PanelListItem
+			key={folder.id}
+			selectable
+			selected={isSelected}
+			{...restProps}
+			{...handlers}
+		>
 			<span>
 				{folder.path}
-				{folder.recursive && <LuFolderTree style={{ display: "inline", marginLeft: "0.5rem" }} />}
+				{folder.recursive && (
+					<LuFolderTree style={{ display: "inline", marginLeft: "0.5rem" }} />
+				)}
 			</span>
 		</PanelListItem>
 	)

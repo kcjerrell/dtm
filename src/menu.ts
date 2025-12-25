@@ -106,10 +106,14 @@ const fileSubmenu = await Submenu.new({
 				if (imagePath == null) return
 				const image = await getLocalImage(imagePath)
 				if (image)
-					await (await getMetadataStore()).createImageItem(image, await pathLib.extname(imagePath), {
-						source: "open",
-						file: imagePath,
-					})
+					await (await getMetadataStore()).createImageItem(
+						image,
+						await pathLib.extname(imagePath),
+						{
+							source: "open",
+							file: imagePath,
+						},
+					)
 			},
 		}),
 		await MenuItem.new({
@@ -247,7 +251,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
 let lastOpts: CreateOptionMenuOpts | null = null
 
 async function updateMenu(opts?: CreateOptionMenuOpts) {
-	lastOpts = opts ?? await createOpts()
+	lastOpts = opts ?? (await createOpts())
 	const menus = [aboutSubmenu, fileSubmenu, editSubmenu, await createOptionsMenu(lastOpts)]
 	if (import.meta.env.DEV) menus.push(viewSubmenu)
 	const menu = await Menu.new({
@@ -266,7 +270,10 @@ async function createOpts(): Promise<CreateOptionMenuOpts> {
 
 await updateMenu()
 
-subscribe(AppStore.store, async () => {
+const _global = globalThis as unknown as { _menuUnsubscribe?: () => void }
+if (_global._menuUnsubscribe) _global._menuUnsubscribe()
+
+_global._menuUnsubscribe = subscribe(AppStore.store, async () => {
 	if (
 		lastOpts?.clearHistoryOnExit !== AppStore.store.clearHistoryOnExit ||
 		lastOpts?.clearPinsOnExit !== AppStore.store.clearPinsOnExit
@@ -274,3 +281,4 @@ subscribe(AppStore.store, async () => {
 		await updateMenu()
 	}
 })
+
