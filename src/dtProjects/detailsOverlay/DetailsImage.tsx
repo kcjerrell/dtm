@@ -2,6 +2,7 @@ import { Box } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type CSSProperties, useRef } from "react"
 import { showPreview } from "@/components/preview"
+import { contain, withinRect } from "@/utils/rect"
 
 const transition = { duration: 0.25, ease: "circInOut" }
 
@@ -48,6 +49,12 @@ function DetailsImage(props: DetailsImageProps) {
 				layout
 				layoutId={id}
 				onClick={(e) => {
+					const rect = contain(
+						e.currentTarget.getBoundingClientRect(),
+						naturalSize.width,
+						naturalSize.height,
+					)
+					if (!withinRect(rect, e.clientX, e.clientY)) return
 					e.stopPropagation()
 					showPreview(imgRef.current, src)
 				}}

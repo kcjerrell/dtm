@@ -1,4 +1,3 @@
-import { createContext, type PropsWithChildren } from "react"
 import { snapshot } from "valtio"
 import { watch } from "valtio/utils"
 import { UIController } from "@/dtProjects/state/uiState"
@@ -21,21 +20,15 @@ function getContainer() {
 }
 
 export type DTPContextType = {
-		uiState: UIController
-		projects: ProjectsController
-		models: ModelsController
-		watchFolders: WatchFoldersController
-		scanner: ScannerService
-		search: SearchController
-		images: ImagesController
-		details: DetailsService
-		jobs: JobsService
-	}
-
-export const DTPContext = createContext<DTPContextType | undefined>(undefined)
-export function DTPProvider(props: PropsWithChildren) {
-	const { children } = props
-	return children
+	uiState: UIController
+	projects: ProjectsController
+	models: ModelsController
+	watchFolders: WatchFoldersController
+	scanner: ScannerService
+	search: SearchController
+	images: ImagesController
+	details: DetailsService
+	jobs: JobsService
 }
 
 export function useDTP() {
@@ -78,17 +71,14 @@ function createContainer() {
 		const projects = new ProjectsController()
 		const watchFolders = new WatchFoldersController()
 		const models = new ModelsController()
-
 		const images = new ImagesController()
-
 		const scanner = new ScannerService()
-
 		const search = new SearchController()
+		const details = new DetailsService(projects)
+
 		search.onSearch = (text, filters) => {
 			images.setSearchFilter(text, filters)
 		}
-
-		const details = new DetailsService(projects)
 
 		scanner.scanAndWatch()
 

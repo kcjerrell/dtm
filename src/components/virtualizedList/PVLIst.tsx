@@ -2,7 +2,7 @@ import { Box, chakra, VStack } from "@chakra-ui/react"
 import { useCallback, useEffect, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 import { proxyMap } from "valtio/utils"
-import { usePagedItemSource } from "./PagedItemSource"
+import { usePagedItemSource } from "./usePagedItemSource"
 
 export interface PVListProps<T, P = unknown> extends ChakraProps {
 	itemComponent: PVListItemComponent<T, P>

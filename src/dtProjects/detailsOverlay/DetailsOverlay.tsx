@@ -1,12 +1,13 @@
 import { chakra, HStack, Spinner } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
-import type { ComponentProps } from "react"
+import { type ComponentProps, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
 import { dtProject, type ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
 import { IconButton } from "@/components"
+import { Hotkey } from "@/hooks/keyboard"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
 import type { UIControllerState } from "../state/uiState"
@@ -33,6 +34,11 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 		item || snap.lastItem ? urls.thumbHalf(item ?? (snap.lastItem as ImageExtra)) : undefined
 	const srcFull =
 		item || snap.lastItem ? urls.thumb(item ?? (snap.lastItem as ImageExtra)) : undefined
+
+	const hotkeys = useMemo(
+		() => ({ escape: () => uiState.hideDetailsOverlay(), left: () => {} }),
+		[uiState],
+	)
 
 	return (
 		<DTImageProvider image={snap.itemDetails}>
@@ -76,6 +82,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 				transition={{ duration: transition.duration }}
 				{...rest}
 			>
+				{isVisible && <Hotkey scope="details-overlay" handlers={hotkeys} />}
 				<AnimatePresence>
 					{isVisible && (
 						<DetailsImage
@@ -232,7 +239,11 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 				transition={{ duration: 0.2, delay: 0.2 }}
 			>
 				{subItem?.maskUrl && (
-					<IconButton size={"sm"} disabled={disabled} onClick={() => uiState.toggleSubItemMask()}>
+					<IconButton
+						size={"sm"}
+						disabled={disabled}
+						onClick={() => uiState.toggleSubItemMask()}
+					>
 						<FiCopy />
 					</IconButton>
 				)}
@@ -248,7 +259,12 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 					onClick={async () => {
 						const projectFile = projects.getProjectFile(projectId)
 						if (!projectFile || !tensorId) return
-						const imgData = await dtProject.decodeTensor(projectFile, tensorId, true, nodeId)
+						const imgData = await dtProject.decodeTensor(
+							projectFile,
+							tensorId,
+							true,
+							nodeId,
+						)
 						if (!imgData) return
 						console.log(projectFile, tensorId, nodeId)
 						await sendToMetadata(imgData, "png", {

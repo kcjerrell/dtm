@@ -1,9 +1,12 @@
 import { EventEmitter } from "eventemitter3"
-import { proxy } from "valtio"
-import { watch } from "valtio/utils"
+import { proxy, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
-import { DTPStateController } from "@/dtProjects/state/StateController"
-import type { PagedItemSource } from "@/utils/pagedItemSourceF"
+import {
+	EmptyItemSource,
+	type IItemSource,
+	PagedItemSource,
+} from "@/components/virtualizedList/PagedItemSource"
+import { type ContainerEvent, DTPStateController } from "@/dtProjects/state/StateController"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
@@ -14,7 +17,6 @@ export type ImagesControllerState = {
 	selectedProjectsCount?: number
 	projectImageCounts?: Record<number, number>
 	imageSize?: number
-	itemSource?: PagedItemSource<ImageExtra>
 	searchId: number
 }
 
@@ -25,60 +27,61 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 		selectedProjectsCount: undefined,
 		projectImageCounts: undefined,
 		imageSize: undefined,
-		itemSource: undefined,
 		searchId: 0,
 	})
 
+	itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
+
 	private emitter = new EventEmitter<"imagesChanged">()
+
+	private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
+		on: (fn: (_: undefined) => void) => this.emitter.on("imagesChanged", fn),
+		off: (fn: (_: undefined) => void) => this.emitter.off("imagesChanged", fn),
+	}
 	get onImagesChanged() {
-		return {
-			on: (fn: () => void) => this.emitter.on("imagesChanged", fn),
-			off: (fn: () => void) => this.emitter.off("imagesChanged", fn),
-		}
+		return this._onImagesChanged
 	}
 
 	constructor() {
 		super("images")
 
 		this.getFutureService("projects").then((projectsService) => {
-			watch((get) => {
+			this.watchProxy((get) => {
 				const p = get(projectsService.state.selectedProjects)
 				this.setSelectedProjects(p)
 			})
-			watch((get) => {
+			this.watchProxy((get) => {
 				const p = get(projectsService.state.projects)
 				const changed = updateProjectsCache(p, this.projectsCache)
 				if (changed.length > 0) this.emitter.emit("imagesChanged")
 			})
 		})
 
-		watch(
-			(get) => {
-				const source = get(this.state.imageSource)
-				this.refreshImageCounts()
-			},
-			{ sync: false },
-		)
+		this.watchProxy((get) => {
+			const source = get(this.state.imageSource)
+
+			const getItems = async (skip: number, take: number) => {
+				const res = await pdb.listImages(source, skip, take)
+				return res.items
+			}
+			const getCount = async () => {
+				await this.refreshImageCounts()
+				return this.state.selectedProjectsCount ?? 0
+			}
+			const itemSource = new PagedItemSource({
+				getItems,
+				getCount,
+				pageSize: 250,
+			})
+			itemSource.renderWindow = [0, 20]
+			this.itemSource = itemSource
+			this.state.searchId++
+
+			this.refreshImageCounts()
+		})
 	}
 
 	projectsCache: Record<number, number> = {}
-	unwatch?: () => void
-
-	// async updateItemSource(incrementSearchId = true, reason?: string) {
-	// 	console.log("updateItemSource", reason)
-	// 	await this.refreshImageCounts()
-
-	// 	this.state.itemSource = pagedItemSource<ImageExtra>(
-	// 		async (skip, take) => {
-	// 			const res = await pdb.listImages(this.state.imageSource, skip, take)
-	// 			return res.items
-	// 		},
-	// 		this.state.selectedProjectsCount ?? 0,
-	// 		250,
-	// 	)
-	// 	// if (incrementSearchId)
-	// 	this.state.searchId++
-	// }
 
 	toggleSortDirection() {
 		if (!this.state.imageSource) return
@@ -116,9 +119,14 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 		this.state.totalImageCount = total
 	}
 
+	useItemSource() {
+		const id = useSnapshot(this.state).searchId
+		console.log("this thing ran")
+		return this.itemSource
+	}
+
 	override dispose() {
 		super.dispose()
-		this.unwatch?.()
 	}
 }
 

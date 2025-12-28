@@ -9,6 +9,7 @@ import AppStore from "./hooks/appState"
 import "./index.css"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
+import { HotkeysProvider } from "react-hotkeys-hook"
 
 window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
@@ -36,7 +37,6 @@ if (import.meta.env.DEV) {
 	window.addEventListener("keypress", _global._devKeyPressHandler)
 }
 
-
 // this ensures that the window appears even if an error is thrown in the initial render
 if (hash !== "dev") {
 	setTimeout(() => {
@@ -50,7 +50,9 @@ if (root)
 		<StrictMode>
 			<ChakraProvider value={system}>
 				<ColorModeProvider>
-					<RootComponent />
+					<HotkeysProvider>
+						<RootComponent />
+					</HotkeysProvider>
 				</ColorModeProvider>
 			</ChakraProvider>
 		</StrictMode>,

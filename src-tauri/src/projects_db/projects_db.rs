@@ -161,7 +161,11 @@ impl ProjectsDb {
         Ok(()) // or Ok(updated) depending on your typedef
     }
 
-    pub async fn scan_project(&self, path: &str, full_scan: bool) -> Result<(i64, u64), MixedError> {
+    pub async fn scan_project(
+        &self,
+        path: &str,
+        full_scan: bool,
+    ) -> Result<(i64, u64), MixedError> {
         let dt_project = DTProject::get(path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
@@ -184,7 +188,10 @@ impl ProjectsDb {
                 .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                 .collect();
 
-            let _preview_ids = histories_filtered.iter().map(|h| h.preview_id).collect::<Vec<_>>();
+            let _preview_ids = histories_filtered
+                .iter()
+                .map(|h| h.preview_id)
+                .collect::<Vec<_>>();
             // let preview_thumbs: HashMap<i64, Vec<u8>> = match preview_ids.len() {
             //     0 => HashMap::new(),
             //     _ => dt_project.batch_thumbs(&preview_ids).await?,
@@ -198,8 +205,12 @@ impl ProjectsDb {
 
             let models_lookup = self.process_models(&histories_filtered).await?;
 
-            let (images, batch_image_loras, batch_image_controls) =
-                self.prepare_image_data(project.id, &histories_filtered, &models_lookup, preview_thumbs);
+            let (images, batch_image_loras, batch_image_controls) = self.prepare_image_data(
+                project.id,
+                &histories_filtered,
+                &models_lookup,
+                preview_thumbs,
+            );
 
             let inserted_images = if !images.is_empty() {
                 entity::images::Entity::insert_many(images)
@@ -684,20 +695,51 @@ impl ProjectsDb {
         Ok(dt_project::DTProject::get(&project_path).await.unwrap())
     }
 
-    pub async fn update_models(&self, models: Vec<ModelInfo>) -> Result<usize, DbErr> {
-        let model_count = models.len();
-        let models: Vec<entity::models::ActiveModel> = models
-            .iter()
-            .map(|m| entity::models::ActiveModel {
-                filename: Set(m.file.clone()),
-                name: Set(Some(m.name.clone())),
-                version: Set(Some(m.version.clone())),
-                model_type: Set(m.model_type),
-                ..Default::default()
+    pub async fn update_models(
+        &self,
+        mut models: HashMap<String, ModelInfoImport>,
+        model_type: ModelType,
+    ) -> Result<usize, DbErr> {
+        if models.is_empty() {
+            return Ok(0);
+        }
+
+        let existing_models = entity::models::Entity::find()
+            .filter(entity::models::Column::ModelType.eq(model_type))
+            .all(&self.db)
+            .await?;
+
+        for model in existing_models {
+            if let Some(import_model) = models.get_mut(&model.filename) {
+                if model.name.unwrap_or_default() == import_model.name
+                    && model.version.unwrap_or_default() == import_model.version
+                {
+                    import_model.is_new = false;
+                }
+            }
+        }
+
+        let active_models: Vec<entity::models::ActiveModel> = models
+            .into_values()
+            .filter_map(|m| match m.is_new {
+                true => Some(entity::models::ActiveModel {
+                    filename: Set(m.file.clone()),
+                    name: Set(Some(m.name.clone())),
+                    version: Set(Some(m.version.clone())),
+                    model_type: Set(model_type),
+                    ..Default::default()
+                }),
+                false => None,
             })
             .collect();
 
-        entity::models::Entity::insert_many(models)
+        let count = active_models.len();
+				println!("Updating {} models", count);
+				for model in &active_models {
+					println!("{:?} {:?} {:?}", model.filename, model.name, model.version);
+				}
+
+        entity::models::Entity::insert_many(active_models)
             .on_conflict(
                 OnConflict::columns([
                     entity::models::Column::Filename,
@@ -712,7 +754,7 @@ impl ProjectsDb {
             .exec(&self.db)
             .await?;
 
-        Ok(model_count)
+        Ok(count)
     }
 
     pub async fn scan_model_info(
@@ -720,29 +762,15 @@ impl ProjectsDb {
         path: &str,
         model_type: ModelType,
     ) -> Result<usize, MixedError> {
-        #[derive(Deserialize)]
-        struct ModelInfoImport {
-            file: String,
-            name: String,
-            version: String,
-        }
-
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
         let models: Vec<ModelInfoImport> =
             serde_json::from_reader(reader).map_err(|e| e.to_string())?;
+        let kvs = models.into_iter().map(|m| (m.file.clone(), m));
 
-        let models: Vec<ModelInfo> = models
-            .into_iter()
-            .map(|m| ModelInfo {
-                file: m.file,
-                name: m.name,
-                version: m.version,
-                model_type,
-            })
-            .collect();
+        let models: HashMap<String, ModelInfoImport> = HashMap::from_iter(kvs);
 
-        let count = self.update_models(models).await?;
+        let count = self.update_models(models, model_type).await?;
 
         Ok(count)
     }
@@ -953,13 +981,7 @@ pub struct Paged<T> {
     pub total: u64,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelInfo {
-    pub file: String,
-    pub name: String,
-    pub version: String,
-    pub model_type: ModelType,
-}
+
 
 type ModelTypeAndFile = (String, ModelType);
 struct NodeModelWeight {
@@ -984,4 +1006,16 @@ fn get_all_models_from_tensor_history(h: &TensorHistoryImport) -> Vec<ModelTypeA
         all_image_models.push((control.model.clone(), ModelType::Cnet));
     }
     all_image_models
+}
+
+fn default_true() -> bool {
+    true
+}
+#[derive(Deserialize)]
+pub struct ModelInfoImport {
+    pub file: String,
+    pub name: String,
+    pub version: String,
+    #[serde(default = "default_true")]
+    pub is_new: bool,
 }

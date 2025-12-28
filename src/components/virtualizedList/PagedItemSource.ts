@@ -1,10 +1,20 @@
 import { Mutex } from "async-mutex"
-import { useCallback, useEffect, useRef } from "react"
-import { proxy, useSnapshot } from "valtio"
-import { useInit } from "@/hooks/useInitRef"
+import { proxy, type Snapshot, useSnapshot } from "valtio"
+
+export interface IItemSource<T> {
+	get renderItems(): T[]
+	getTotalCount(): number
+	clearItems(): Promise<void>
+	get renderWindow(): [number, number]
+	set renderWindow(value: [number, number])
+	get activeItemIndex(): number | undefined
+	set activeItemIndex(value: number | undefined)
+	// selectItem(item: T): T | undefined
+	// selectIndex: (index: number) => T | undefined
+	useItemSource: () => Snapshot<PagedItemSourceState<T>>
+}
 
 type PagedItem<T> = T | null | undefined
-
 type Page<T> = {
 	/** inclusive */
 	from: number
@@ -15,7 +25,7 @@ type Page<T> = {
 	items: PagedItem<T>[]
 }
 
-type UsePagedItemSourceOpts<T> = {
+type PagedItemSourceOpts<T> = {
 	getItems: (skip: number, take: number) => Promise<T[] | undefined>
 	/** use a fixed page size */
 	pageSize: number
@@ -23,144 +33,156 @@ type UsePagedItemSourceOpts<T> = {
 	getCount: () => Promise<number>
 }
 
-export function usePagedItemSource<T>(opts: UsePagedItemSourceOpts<T>) {
-	const { getItems, pageSize, getCount } = opts
+type PagedItemSourceState<T> = {
+	renderItems: PagedItem<T>[]
+	firstIndex: number
+	lastIndex: number
+	totalCount: number
+	activeItemIndex?: number
+	activeItem?: T
+}
 
-	const state = useInit(() =>
-		proxy({
-			pages: [] as Page<T>[],
-			renderItems: [] as PagedItem<T>[],
-			firstIndex: 0,
-			lastIndex: 0,
-			pageSize,
-			totalCount: 0,
-		}),
-	)
+export class PagedItemSource<T> implements IItemSource<T> {
+		state: PagedItemSourceState<T>
+		pages = proxy([]) as Page<T>[]
+		readonly getItems: PagedItemSourceOpts<T>["getItems"]
+		readonly getCount: PagedItemSourceOpts<T>["getCount"]
+		readonly pageSize: number
 
-	const getterRef = useRef({ getItems, getCount })
+		pageLoader = new Mutex()
+		loadersWaiting = 0
 
-	useEffect(() => {
-		const getters = getterRef.current
-		if (getters.getItems !== getItems || getters.getCount !== getCount) {
-			getterRef.current = { getItems, getCount }
-			state.pages = []
-			state.renderItems = []
-			state.firstIndex = 0
-			state.lastIndex = 0
-			state.totalCount = 0
+		constructor(opts: PagedItemSourceOpts<T>) {
+			console.log("PagedItemSource", opts)
+			this.state = proxy({
+				renderItems: [] as PagedItem<T>[],
+				firstIndex: 0,
+				lastIndex: 0,
+				totalCount: 0,
+				activeItemIndex: undefined,
+				activeItem: undefined,
+			})
+
+			this.getItems = opts.getItems
+			this.getCount = opts.getCount
+			this.pageSize = opts.pageSize
 		}
-		getterRef.current = { getItems, getCount }
-	}, [getItems, getCount, state])
 
-	useEffect(() => {
-		getCount().then((count) => {
-			state.totalCount = count
-		})
-	}, [getCount, state])
-
-	const pageLoader = useRef(new Mutex())
-	const loadersWaiting = useRef(0)
-
-	/** returns true if a new page was loaded */
-	const loadPage = useCallback(
-		async (index: number, refresh = false) => {
-			if (state.pages[index] && !refresh) return false
-			const page = await getItems(index * pageSize, pageSize)
+		async loadPage(index: number, refresh = false) {
+			if (this.pages[index] && !refresh) return false
+			const page = await this.getItems(index * this.pageSize, this.pageSize)
 			if (!page || page.length === 0) return false
-			state.pages[index] = {
-				from: index * pageSize,
-				to: (index + 1) * pageSize - 1,
+			this.pages[index] = {
+				from: index * this.pageSize,
+				to: (index + 1) * this.pageSize - 1,
 				items: [...page],
 			}
 			return true
-		},
-		[getItems, pageSize, state],
-	)
+		}
 
-	const updateRenderItems = useCallback(() => {
-		state.renderItems = getRenderItems(
-			state.firstIndex,
-			Math.min(state.lastIndex, state.totalCount - 1),
-			state.pages,
-		)
-	}, [state])
+		updateRenderItems() {
+			this.state.renderItems = getRenderItems(
+				this.state.firstIndex,
+				Math.min(this.state.lastIndex, this.state.totalCount - 1),
+				this.pages,
+			)
+		}
 
-	const ensurePages = useCallback(
-		async (refresh = false, clearOthers = false) => {
-			if (!state.totalCount) return
-			loadersWaiting.current++
+		async ensurePages(refresh = false, clearOthers = false) {
+			if (!this.state.totalCount) {
+				this.state.totalCount = await this.getCount()
+				if (this.state.totalCount === 0) return
+			}
+			this.loadersWaiting++
 			// mutex is used to prevent spamming multiple requests for the same page
 			// if this turns out to be slow, we mark individual pages as loading
 			// allowing for simultaneous requests for different pages
-			await pageLoader.current.runExclusive(async () => {
-				loadersWaiting.current--
-				const { firstIndex, lastIndex } = state
+			await this.pageLoader.runExclusive(async () => {
+				this.loadersWaiting--
+				const { firstIndex, lastIndex } = this.state
 
-				const firstPage = Math.floor(firstIndex / pageSize)
-				const lastPage = Math.floor(lastIndex / pageSize)
+				const firstPage = Math.floor(firstIndex / this.pageSize)
+				const lastPage = Math.floor(lastIndex / this.pageSize)
 
 				if (clearOthers) {
-					state.pages = state.pages.filter(
-						(p) => p.from >= firstPage * pageSize && p.to <= lastPage * pageSize,
+					this.pages = this.pages.filter(
+						(p) =>
+							p.from >= firstPage * this.pageSize && p.to <= lastPage * this.pageSize,
 					)
 				}
 
 				let pagesLoaded = 0
 
 				for (let i = firstPage; i <= lastPage; i++) {
-					if (await loadPage(i, refresh)) pagesLoaded++
+					if (await this.loadPage(i, refresh)) pagesLoaded++
 				}
 
-				if (pagesLoaded) updateRenderItems()
+				if (pagesLoaded) this.updateRenderItems()
 
-				if (loadersWaiting.current) return
+				if (this.loadersWaiting) return
 
 				// if not, let's check for the neighboring pages
-				const nextPage = Math.min(lastPage + 1, Math.ceil(state.totalCount / pageSize) - 1)
-				await loadPage(nextPage)
+				const nextPage = Math.min(
+					lastPage + 1,
+					Math.ceil(this.state.totalCount / this.pageSize) - 1,
+				)
+				await this.loadPage(nextPage)
 
-				if (loadersWaiting.current) return
+				if (this.loadersWaiting) return
 
 				const prevPage = Math.max(firstPage - 1, 0)
-				await loadPage(prevPage)
+				await this.loadPage(prevPage)
 			})
-		},
-		[pageSize, state, loadPage, updateRenderItems],
-	)
+		}
 
-	const setRenderWindow = useCallback(
-		(first: number, last: number) => {
-			state.firstIndex = first
-			state.lastIndex = last
+		get renderItems(): T[] {
+			return this.state.renderItems as T[]
+		}
+		getTotalCount(): number {
+			return this.state.totalCount
+		}
+		clearItems(): Promise<void> {
+			throw new Error("Method not implemented.")
+		}
+		get renderWindow(): [number, number] {
+			return [this.state.firstIndex, this.state.lastIndex]
+		}
+		set renderWindow(value: [number, number]) {
+			this.state.firstIndex = value[0]
+			this.state.lastIndex = value[1]
 
-			updateRenderItems()
-			ensurePages()
-		},
-		[state, ensurePages, updateRenderItems],
-	)
+			this.updateRenderItems()
+			this.ensurePages()
+		}
+		get activeItemIndex(): number | undefined {
+			return this.state.activeItemIndex
+		}
+		set activeItemIndex(value: number | null | undefined) {
+			// TODO check
+			if (value === null || value === undefined) {
+				this.state.activeItemIndex = undefined
+				return
+			}
+			if (value < 0 || value >= this.state.totalCount) return
 
-	// refresh items when the source may have changed (e.g. items were added/removed)
-	// if the source has changed significantly, use a new item source
-	// this attempts to keep the UI stable when the source changes
-	const refreshItems = useCallback(async () => {
-		state.totalCount = await getCount()
+			this.state.activeItemIndex = value
+			this.loadPage(this.getItemPage(value)).then(() => {
+				const item =
+					this.pages[this.getItemPage(value)].items[
+						value - this.pages[this.getItemPage(value)].from
+					]
+				if (item) this.state.activeItem = item
+			})
+		}
 
-		const windowSize = state.lastIndex - state.firstIndex + 1
-		state.lastIndex = Math.min(state.totalCount - 1, state.lastIndex)
-		state.firstIndex = Math.max(0, state.lastIndex - windowSize + 1)
+		useItemSource() {
+			return useSnapshot(this.state)
+		}
 
-		ensurePages(true, true)
-	}, [state, getCount, ensurePages])
-
-	const { renderItems, totalCount } = useSnapshot(state)
-
-	return {
-		renderItems,
-		totalCount,
-		clearItems: refreshItems,
-		setRenderWindow,
+		getItemPage(itemIndex: number) {
+			return Math.floor(itemIndex / this.pageSize)
+		}
 	}
-}
 
 function getRenderItems<T>(firstIndex: number, lastIndex: number, pages: Page<T>[]) {
 	function* getItems(): Generator<T | null | undefined> {
@@ -180,4 +202,51 @@ function getRenderItems<T>(firstIndex: number, lastIndex: number, pages: Page<T>
 	}
 
 	return [...getItems()]
+}
+
+export class EmptyItemSource<T> implements IItemSource<T> {
+	private state: PagedItemSourceState<T>
+
+	constructor() {
+		this.state = proxy({
+			renderItems: [] as PagedItem<T>[],
+			firstIndex: 0,
+			lastIndex: 0,
+			totalCount: 0,
+			activeItemIndex: undefined,
+			activeItem: undefined,
+		})
+	}
+
+	get renderItems(): T[] {
+		return []
+	}
+
+	getTotalCount(): number {
+		return 0
+	}
+
+	async clearItems(): Promise<void> {
+		// Nothing to clear
+	}
+
+	get renderWindow(): [number, number] {
+		return [0, 0]
+	}
+
+	set renderWindow(_value: [number, number]) {
+		// No-op for empty source
+	}
+
+	get activeItemIndex(): number | undefined {
+		return undefined
+	}
+
+	set activeItemIndex(_value: number | undefined) {
+		// No-op for empty source
+	}
+
+	useItemSource() {
+		return useSnapshot(this.state)
+	}
 }

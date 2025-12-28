@@ -1,8 +1,9 @@
 import { Box, chakra, Grid } from "@chakra-ui/react"
-import { useCallback, useEffect, useRef } from "react"
+import { ReactNode, useCallback, useEffect, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { ContainerEvent } from "@/dtProjects/state/StateController"
-import { usePagedItemSource } from "./PagedItemSource"
+import { usePagedItemSource } from "./usePagedItemSource"
+import { IItemSource } from "./PagedItemSource"
 
 export interface PVGridProps<T, P = unknown> extends ChakraProps {
 		itemComponent: PVGridItemComponent<T, P>
@@ -12,12 +13,21 @@ export interface PVGridProps<T, P = unknown> extends ChakraProps {
 		initialRowCount?: number
 		itemProps?: P
 		maxItemSize: number
-		getItems: (skip: number, take: number) => Promise<T[]>
-		getCount: () => Promise<number>
+		// getItems: (skip: number, take: number) => Promise<T[]>
+		// getCount: () => Promise<number>
 		onImagesChanged?: ContainerEvent<"imagesChanged">
+		freeze?: boolean
+		itemSource: IItemSource<T>
 	}
 
 export type PVGridItemComponent<T, P = unknown> = React.ComponentType<PVGridItemProps<T, P>>
+
+interface PVGridItemPropsBase<T> extends ChakraProps {
+	value: T
+	index: number
+}
+
+export type PVGridItemProps<T, P = unknown> = PVGridItemPropsBase<T> & P
 
 type StateProxy<T> = {
 	minThreshold: number
@@ -31,9 +41,9 @@ type StateProxy<T> = {
 }
 
 function PVGridWrapper<T, P = unknown>(props: Partial<PVGridProps<T, P>>) {
-	const { itemComponent, getItems, getCount, maxItemSize, ...restProps } = props
+	const { itemComponent, itemSource, maxItemSize, freeze, ...restProps } = props
 
-	if (!getItems || !getCount || !maxItemSize || !itemComponent) {
+	if (!itemSource || !maxItemSize || !itemComponent) {
 		return <Box {...restProps} />
 	}
 
@@ -43,8 +53,7 @@ function PVGridWrapper<T, P = unknown>(props: Partial<PVGridProps<T, P>>) {
 function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 	const {
 		itemComponent,
-		getItems,
-		getCount,
+		itemSource,
 		keyFn,
 		initialRowCount = 10,
 		overscan = 2,
@@ -54,12 +63,8 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 		...restProps
 	} = props
 	const Item = itemComponent
-	const { renderItems, totalCount, setRenderWindow, clearItems } = usePagedItemSource({
-		getItems,
-		getCount,
-		pageSize: 250,
-	})
-
+	const { renderItems, totalCount } = itemSource.useItemSource()
+	console.log(totalCount)
 	const stateRef = useRef<StateProxy<T>>(null)
 	if (stateRef.current === null) {
 		stateRef.current = proxy({
@@ -101,8 +106,8 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 		state.minThreshold = (state.firstRow * rowHeight + scrollContainer.scrollTop) / 2
 		state.maxThreshold = (state.lastRow * rowHeight + scrollContainer.scrollTop) / 2
 
-		setRenderWindow(state.firstRow * columns, state.lastRow * columns)
-	}, [state, overscan, maxItemSize, totalCount, setRenderWindow])
+		itemSource.renderWindow = [state.firstRow * columns, state.lastRow * columns]
+	}, [state, overscan, maxItemSize, totalCount, itemSource])
 
 	const handleScroll = useCallback(
 		(e: React.UIEvent<HTMLDivElement, UIEvent>) => {
@@ -124,13 +129,13 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 
 	useEffect(() => {
 		const handler = () => {
-			clearItems()
+			itemSource.clearItems()
 		}
 		onImagesChanged?.on(handler)
 		return () => {
 			onImagesChanged?.off(handler)
 		}
-	}, [onImagesChanged, clearItems])
+	}, [onImagesChanged, itemSource])
 
 	useEffect(() => {
 		if (!scrollContainerRef.current) return
@@ -178,7 +183,7 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 							index={index}
 							value={item}
 							key={item ? keyFn?.(item, index) : index}
-							itemProps={itemProps}
+							{...itemProps}
 						/>
 					)
 				})}

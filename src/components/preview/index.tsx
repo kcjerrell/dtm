@@ -1,13 +1,14 @@
 import { Box, type BoxProps } from "@chakra-ui/react"
 import {
+	type MotionProps,
 	motion,
-	MotionProps,
 	useAnimate,
 	useMotionValue,
 	type ValueAnimationTransition,
 } from "motion/react"
-import { createRef, useCallback, useEffect, useRef } from "react"
+import { createRef, useEffect, useRef } from "react"
 import { proxy, ref, useSnapshot } from "valtio"
+import { Hotkey } from "@/hooks/keyboard"
 
 const store = proxy({
 	showPreview: false,
@@ -148,24 +149,9 @@ function PreviewZoom(props: PreviewProps) {
 	const transRef = useRef<HTMLImageElement>(null)
 	const finalRef = useRef<HTMLImageElement>(null)
 
-	const keyHandler = useCallback((e: KeyboardEvent) => {
-		if (e.key === "Escape" || e.key === " ") {
-			e.stopImmediatePropagation()
-			hidePreview()
-		}
-		if (e.key === "Tab") {
-			e.stopImmediatePropagation()
-			e.preventDefault()
-		}
-	}, [])
-
 	useEffect(() => {
 		const sourceElement = store.sourceElement.current
 		if (!sourceElement || !transRef.current || !finalRef.current) return
-
-		if (show) {
-			document.addEventListener("keydown", keyHandler, { capture: true })
-		}
 
 		const originalRect = sourceElement.getBoundingClientRect()
 		const previewRect = contain(
@@ -207,72 +193,80 @@ function PreviewZoom(props: PreviewProps) {
 			{ visibility: ["hidden", "hidden", show ? "hidden" : "visible"] },
 			{ duration: posTransition.duration, times: [0, 1, 1] },
 		)
-
-		return () => {
-			document.removeEventListener("keydown", keyHandler, { capture: true })
-		}
-	}, [animate, heightMv, leftMv, widthMv, topMv, show, keyHandler])
+	}, [animate, heightMv, leftMv, widthMv, topMv, show])
 
 	return (
-		<Box
-			ref={scope}
-			width={"100vw"}
-			height={"100vh"}
-			overflow={"clip"}
-			position={"absolute"}
-			zIndex={20}
-			bgColor={"black/90"}
-			onClick={() => hidePreview()}
-			pointerEvents={show ? "all" : "none"}
-			{...restProps}
-			asChild
-		>
-			<motion.div
-				initial={{
-					opacity: 0,
-					backgroundColor: "#00000000",
-				}}
-				animate={{
-					backgroundColor: show ? "#000000dd" : "#00000000",
-					opacity: show ? 1 : 0,
-				}}
-				transition={{
-					...posTransition,
-					duration: show ? (posTransition.duration ?? 0) * 1.5 : posTransition.duration,
-					opacity: {
-						duration: 0,
-						delay: show ? 0 : posTransition.duration,
-					},
-				}}
+		<>
+			{show && (
+				<Hotkey
+					scope="preview"
+					handlers={{
+						escape: () => hidePreview(),
+					}}
+				/>
+			)}
+			<Box
+				ref={scope}
+				width={"100vw"}
+				height={"100vh"}
+				overflow={"clip"}
+				position={"absolute"}
+				zIndex={20}
+				bgColor={"black/90"}
+				onClick={() => hidePreview()}
+				pointerEvents={show ? "all" : "none"}
+				{...restProps}
+				asChild
 			>
-				<motion.img
-					ref={transRef}
-					style={{
-						position: "absolute",
-						objectFit: "contain",
-						left: leftMv,
-						top: topMv,
-						width: widthMv,
-						height: heightMv,
+				<motion.div
+					initial={{
+						opacity: 0,
+						backgroundColor: "#00000000",
 					}}
-					src={src ?? undefined}
-					transition={posTransition}
-				/>
-				<motion.img
-					ref={finalRef}
-					style={{
-						position: "absolute",
-						objectFit: "contain",
-						left: 0,
-						top: 0,
-						width: "100%",
-						height: "100%",
+					animate={{
+						backgroundColor: show ? "#000000dd" : "#00000000",
+						opacity: show ? 1 : 0,
 					}}
-					src={src ?? undefined}
-					transition={posTransition}
-				/>
-			</motion.div>
-		</Box>
+					transition={{
+						...posTransition,
+						duration: show
+							? (posTransition.duration ?? 0) * 1.5
+							: posTransition.duration,
+						opacity: {
+							duration: 0,
+							delay: show ? 0 : posTransition.duration,
+						},
+					}}
+				>
+					<motion.img
+						ref={transRef}
+						style={{
+							position: "absolute",
+							objectFit: "contain",
+							left: leftMv,
+							top: topMv,
+							width: widthMv,
+							height: heightMv,
+						}}
+						src={src ?? undefined}
+						transition={posTransition}
+					/>
+					<motion.img
+						ref={finalRef}
+						style={{
+							position: "absolute",
+							objectFit: "contain",
+							left: 0,
+							top: 0,
+							width: "100%",
+							height: "100%",
+						}}
+						src={src ?? undefined}
+						transition={posTransition}
+					/>
+				</motion.div>
+			</Box>
+		</>
 	)
 }
 

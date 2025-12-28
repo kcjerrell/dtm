@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event"
-import { DTPStateController, DTPStateService } from "./StateController"
+import { DTPStateController } from "./StateController"
 
 type FutureServices<T extends object> = Partial<{
 	[K in keyof T]: PromiseWithResolvers<T[K]>
@@ -13,7 +13,7 @@ export class Container<T extends object> {
 	constructor(servicesInit: () => T) {
 		Container.constructorStack.push(this)
 
-		const result = servicesInit()
+		servicesInit()
 
 		this.unlistenPromise = listen("invalidate-tags", (event) => {
 			const payload = event.payload as { tag: string; desc: string } | string

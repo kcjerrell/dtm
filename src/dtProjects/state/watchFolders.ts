@@ -14,7 +14,7 @@ const _defaultProjectPath = await path.join(
 	"/Library/Containers/com.liuliu.draw-things/Data/Documents",
 )
 const _defaultModelInfoPaths = [
-	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Library/Caches/net"),
+	// await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Library/Caches/net"),
 	await path.join(home, "/Library/Containers/com.liuliu.draw-things/Data/Documents/Models"),
 	"remote:official",
 ]

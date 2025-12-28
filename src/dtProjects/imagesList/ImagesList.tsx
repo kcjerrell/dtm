@@ -1,16 +1,18 @@
 import { Box } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { Snapshot } from "valtio"
-import { type ImageExtra, pdb } from "@/commands"
+import type { ImageExtra } from "@/commands"
 import { Panel } from "@/components"
-import PVGrid from "@/components/virtualizedList/PVGrid2"
-import type { PVListItemComponent } from "@/components/virtualizedList/PVLIst"
+import PVGrid, {
+	type PVGridItemComponent,
+	type PVGridItemProps,
+} from "@/components/virtualizedList/PVGrid2"
 import { useDTP } from "../state/context"
-import type { UIControllerState } from "../state/uiState"
 import StatusBar from "./StatusBar"
 
 interface ImagesList extends ChakraProps {}
+
+const keyFn = (item: ImageExtra) => `${item.project_id}_${item.node_id}`
 
 function ImagesList(props: ImagesList) {
 	const { ...rest } = props
@@ -19,45 +21,14 @@ function ImagesList(props: ImagesList) {
 	const uiSnap = uiState.useSnap()
 	const imagesSnap = images.useSnap()
 
-	// useEffect(() => {
-	// 	if (!images.state.imageSource) return
-	// 	pdb.listImages({ ...images.state.imageSource }, 0, 0).then((res) => {
-	// 		setTotalCount(res.total)
-	// 	})
-	// }, [images.state.imageSource])
+	const itemSource = images.useItemSource()
 
-	// useEffect(() => {
-	// 	const unsubscribe = subscribe(images.state.selectedProjects, () => {
-	// 		console.log(
-	// 			"sub",
-	// 			state.selectedProjects,
-	// 			va.sum(state.selectedProjects, (p) => state.imageSourceCounts?.[p.id] ?? 0),
-	// 		)
-	// 		if (state.selectedProjects.length)
-	// 			setTotalCount(va.sum(state.selectedProjects, (p) => state.imageSourceCounts?.[p.id] ?? 0))
-	// 		else setTotalCount(0)
-	// 	})
-	// 	return () => unsubscribe()
-	// }, [state])
-
-	const query = JSON.stringify(imagesSnap.imageSource)
-
-	const getItems = useCallback(
-		async (skip: number, take: number) => {
-			const res = await pdb.listImages(JSON.parse(query), skip, take)
-			return res.items
+	const showDetailsOverlay = useCallback(
+		(item: ImageExtra, elem?: HTMLImageElement) => {
+			uiState.showDetailsOverlay(item, elem)
 		},
-		[query],
+		[uiState],
 	)
-
-	const getCount = useCallback(async () => {
-		const res = await pdb.listImages(JSON.parse(query), 0, 0)
-		return res.total
-	}, [query])
-
-	useEffect(() => {
-		console.log(query, "Changed")
-	}, [query])
 
 	return (
 		<Panel
@@ -71,24 +42,18 @@ function ImagesList(props: ImagesList) {
 		>
 			<StatusBar width={"100%"} />
 			<PVGrid<ImageExtra>
+				freeze={!!uiSnap.detailsView?.item}
 				bgColor={"transparent"}
 				minHeight={"100%"}
 				key={imagesSnap.searchId}
-				itemComponent={GridItem as PVListItemComponent<ImageExtra>}
-				getItems={getItems}
-				getCount={getCount}
+				itemComponent={GridItem as PVGridItemComponent<ImageExtra>}
+				itemSource={itemSource}
 				maxItemSize={imagesSnap.imageSize ?? 5}
 				onImagesChanged={images.onImagesChanged}
 				gap={2}
-				itemProps={{
-					snap: uiSnap,
-					showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => {
-						uiState.showDetailsOverlay(item, elem)
-					},
-				}}
-				keyFn={(item) => `${item.project_id}_${item.node_id}`}
+				itemProps={{ showDetailsOverlay }}
+				keyFn={keyFn}
 			/>
-			{/* <SearchIndicators position={"absolute"} top={0} left={2} right={2}/> */}
 		</Panel>
 	)
 }
@@ -98,7 +63,6 @@ function GridItem(
 		ImageExtra,
 		{
 			showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => void
-			snap: Snapshot<UIControllerState>
 		}
 	>,
 ) {
@@ -145,24 +109,19 @@ function GridItemAnim(
 		ImageExtra,
 		{
 			showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => void
-			snap: Snapshot<UIControllerState>
 		}
 	> & {
 		setIsPreviewing: (value: boolean) => void
 	},
 ) {
-	const { value: item, itemProps } = props
-	const { showDetailsOverlay, snap } = itemProps
+	const { value: item, showDetailsOverlay } = props
 	const { setIsPreviewing } = props
 
 	const imgRef = useRef<HTMLImageElement>(null)
 	const box = useRef<[number, number]>([0, 0])
 
-	const url = `dtm://dtproject/thumbhalf/${item?.project_id}/${item?.preview_id}`
-
-	const isPreviewing =
-		item?.project_id === snap.detailsView?.item?.project_id &&
-		item?.node_id === snap.detailsView?.item?.node_id
+	const previewId = `${item?.project_id}/${item?.preview_id}`
+	const url = `dtm://dtproject/thumbhalf/${previewId}`
 
 	function downScale() {
 		const w = box.current[0]
@@ -184,43 +143,41 @@ function GridItemAnim(
 	return (
 		<Box bgColor={"fg.1/20"}>
 			<AnimatePresence>
-				{!isPreviewing && (
-					<motion.div
+				<motion.div
+					key={url}
+					layout
+					layoutId={`${item?.project_id}_${item?.node_id}`}
+					style={{
+						width: "100%",
+						height: "100%",
+					}}
+					transition={{ duration: 0.25 }}
+					onLayoutAnimationComplete={() => {
+						setIsPreviewing(false)
+					}}
+				>
+					<motion.img
 						key={url}
-						layout
-						layoutId={`${item?.project_id}_${item?.node_id}`}
+						ref={imgRef}
 						style={{
 							width: "100%",
 							height: "100%",
+							objectFit: "cover",
+							border: "1px solid #0000ff00",
+							backgroundSize: "cover",
+							backgroundPosition: "center",
 						}}
+						variants={{
+							downscale: () => downScale(),
+						}}
+						initial="downscale"
+						animate={{ scale: 1 }}
+						exit="downscale"
+						src={url}
+						alt={item?.prompt}
 						transition={{ duration: 0.25 }}
-						onLayoutAnimationComplete={() => {
-							setIsPreviewing(false)
-						}}
-					>
-						<motion.img
-							key={url}
-							ref={imgRef}
-							style={{
-								width: "100%",
-								height: "100%",
-								objectFit: "cover",
-								border: "1px solid #0000ff00",
-								backgroundSize: "cover",
-								backgroundPosition: "center",
-							}}
-							variants={{
-								downscale: () => downScale(),
-							}}
-							initial="downscale"
-							animate={{ scale: 1 }}
-							exit="downscale"
-							src={url}
-							alt={item?.prompt}
-							transition={{ duration: 0.25 }}
-						/>
-					</motion.div>
-				)}
+					/>
+				</motion.div>
 			</AnimatePresence>
 		</Box>
 	)
