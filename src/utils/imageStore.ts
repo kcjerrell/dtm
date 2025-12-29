@@ -44,6 +44,8 @@ const imagesStore = createStore(
 		},
 	},
 )
+window.addEventListener("unload", () => imagesStore.stop())
+
 const store = imagesStore.state
 const _validTypes = ["png", "tiff", "jpg", "webp"]
 

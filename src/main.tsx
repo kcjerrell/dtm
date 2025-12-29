@@ -50,7 +50,7 @@ if (root)
 		<StrictMode>
 			<ChakraProvider value={system}>
 				<ColorModeProvider>
-					<HotkeysProvider>
+					<HotkeysProvider initiallyActiveScopes={["*"]}>
 						<RootComponent />
 					</HotkeysProvider>
 				</ColorModeProvider>

@@ -129,10 +129,10 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 					{snap.subItem && (
 						<DetailsImage
 							key={"subitem_image"}
-							padding={10}
+							padding={8}
+							paddingTop={2}
 							width={"100%"}
 							height={"100%"}
-							paddingTop={0}
 							gridArea={"image"}
 							zIndex={0}
 							id={`${item?.project_id}_${item?.node_id}_${snap.subItem.tensorId}`}

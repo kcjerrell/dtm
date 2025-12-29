@@ -63,6 +63,7 @@ const appStore = store(
 	},
 )
 appStore.start()
+window.addEventListener("unload", () => appStore.stop())
 const appState: AppStateType = appStore.state
 
 async function checkForUpdate() {

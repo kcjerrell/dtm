@@ -67,6 +67,10 @@ const metadataStore = store(
 )
 export const MetadataStore = metadataStore.state
 await metadataStore.start()
+window.addEventListener("unload", () => {
+	cleanUp()
+	metadataStore.stop()
+})
 
 export type ImageItemParam = ReadonlyState<ImageItem> | ImageItem | number | null
 
@@ -152,7 +156,7 @@ export async function clearAll(keepTabs = false) {
 	await syncImageStore()
 }
 
- async function clearImage(images: Pick<ImageItem, "id">[]) {
+async function clearImage(images: Pick<ImageItem, "id">[]) {
 	const ids = images.map((image) => image.id)
 	MetadataStore.images = MetadataStore.images.filter((image) => !ids.includes(image.id))
 	await syncImageStore()

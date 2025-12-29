@@ -2,7 +2,6 @@ import { Box } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type CSSProperties, useRef } from "react"
 import { showPreview } from "@/components/preview"
-import { contain, withinRect } from "@/utils/rect"
 
 const transition = { duration: 0.25, ease: "circInOut" }
 
@@ -15,7 +14,6 @@ interface DetailsImageProps extends ChakraProps {
 	imgStyle?: CSSProperties
 	pixelated?: boolean
 }
-
 
 function DetailsImage(props: DetailsImageProps) {
 	const { id, src, srcHalf, maskSrc, naturalSize, imgStyle, pixelated, ...restProps } = props
@@ -39,25 +37,16 @@ function DetailsImage(props: DetailsImageProps) {
 				ref={imgContainerRef}
 				key={src}
 				style={{
-					display: "block",
+					display: "flex",
+					justifyContent: "center",
+					alignItems: "center",
 					minHeight: "0",
 					minWidth: "0",
 					overflow: "clip",
-					...imgStyle,
 				}}
 				transition={{ duration: transition.duration }}
 				layout
 				layoutId={id}
-				onClick={(e) => {
-					const rect = contain(
-						e.currentTarget.getBoundingClientRect(),
-						naturalSize.width,
-						naturalSize.height,
-					)
-					if (!withinRect(rect, e.clientX, e.clientY)) return
-					e.stopPropagation()
-					showPreview(imgRef.current, src)
-				}}
 			>
 				<motion.img
 					width={naturalSize.width}
@@ -70,14 +59,23 @@ function DetailsImage(props: DetailsImageProps) {
 					exit={{ scale: coverScale }}
 					transition={{ duration: transition.duration }}
 					style={{
+						maxWidth: "100%",
+						maxHeight: "100%",
+						width: "auto",
+						height: "auto",
+						boxShadow: "pane1",
+						borderRadius: "1rem",
 						opacity: 1,
 						display: "block",
 						imageRendering: pixelated ? "pixelated" : "auto",
 						transformOrigin: "center center",
 						objectFit: "contain",
-						width: "100%",
-						height: "100%",
+						...imgStyle,
 						...maskProps,
+					}}
+					onClick={(e) => {
+						e.stopPropagation()
+						showPreview(imgRef.current, src)
 					}}
 				/>
 			</motion.div>
