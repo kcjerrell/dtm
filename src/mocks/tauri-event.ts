@@ -8,3 +8,7 @@ export const listen = async (event: string, handler: (event: any) => void) => {
 export const emit = async (event: string, payload?: any) => {
   console.log(`[Mock] emit: ${event}`, payload);
 };
+
+export const emitTo = async (target: EventTarget | string, event: string, payload?: any) => {
+	console.log(`[Mock] emitTo: ${event}`, payload)
+}

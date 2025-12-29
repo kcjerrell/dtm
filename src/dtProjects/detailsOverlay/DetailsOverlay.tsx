@@ -1,6 +1,9 @@
-import { chakra, HStack, Spinner } from "@chakra-ui/react"
+import { Box, chakra, HStack, Spinner } from "@chakra-ui/react"
+import { invoke } from "@tauri-apps/api/core"
+import { save } from "@tauri-apps/plugin-dialog"
+import * as fs from "@tauri-apps/plugin-fs"
 import { AnimatePresence, motion } from "motion/react"
-import { type ComponentProps, useMemo } from "react"
+import { type ComponentProps, useMemo, useState } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
@@ -10,10 +13,11 @@ import { IconButton } from "@/components"
 import { Hotkey } from "@/hooks/keyboard"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
+import type { ProjectState } from "../state/projects"
 import type { UIControllerState } from "../state/uiState"
 import DetailsContent from "./DetailsContent"
 import DetailsImage from "./DetailsImage"
-import { DTImageProvider } from "./DTImageContext"
+import { DTImageProvider } from "./DTImageProvider"
 import TensorsList from "./TensorsList"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
@@ -29,6 +33,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 	const { item, itemDetails } = snap
 
 	const isVisible = !!item
+	const showSpinner = snap.showSpinner || snap.subItem?.isLoading
 
 	const srcHalf =
 		item || snap.lastItem ? urls.thumbHalf(item ?? (snap.lastItem as ImageExtra)) : undefined
@@ -103,19 +108,23 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 							}}
 						/>
 					)}
-					{snap.subItem?.isLoading && (
-						<Spinner
+					{showSpinner && (
+						<Box
+							width={"5rem"}
+							height={"5rem"}
+							bgColor={"#000000aa"}
 							key={"subitem_spinner"}
 							gridArea={"image"}
-							color={"white"}
-							bgColor={"black"}
-							padding={1}
+							padding={4}
+							borderRadius={"50%"}
 							left="50%"
 							top="50%"
 							position="absolute"
 							transform="translate(-50%, -50%)"
 							zIndex={30}
-						/>
+						>
+							<Spinner width={"100%"} height={"100%"} color={"white"} />
+						</Box>
 					)}
 					{snap.subItem && (
 						<DetailsImage
@@ -148,6 +157,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 						justifySelf={"center"}
 						gridArea={"commandBar"}
 						item={item}
+						project={snap.project}
 						show={true}
 						subItem={snap.subItem}
 						addMetadata={!snap.subItem}
@@ -208,15 +218,22 @@ interface DetailsButtonBarProps extends ChakraProps {
 	show?: boolean
 	addMetadata?: boolean
 	subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
+	project?: ProjectState
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-	const { item, tensorId, show, addMetadata, subItem, ...restProps } = props
+	const { item, tensorId, show, addMetadata, subItem, project, ...restProps } = props
 	const { projects, uiState } = useDTP()
+	const [lockButtons, setLockButtons] = useState(false)
 
 	const projectId = item?.project_id
 	const nodeId = addMetadata ? item?.node_id : undefined
 
-	const disabled = !projectId || !tensorId || !show
+	const getImage = async () => {
+		if (!project?.path || !tensorId) return
+		return await dtProject.decodeTensor(project.path, tensorId, true, nodeId)
+	}
+
+	const disabled = !projectId || !tensorId || !show || lockButtons
 	return (
 		<HStack
 			alignSelf={"center"}
@@ -247,33 +264,69 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 						<FiCopy />
 					</IconButton>
 				)}
-				<IconButton size={"sm"} disabled={disabled} onClick={() => {}}>
+				<IconButton
+					size={"sm"}
+					disabled={disabled}
+					onClick={() => {
+						setLockButtons(true)
+						uiState
+							.callWithSpinner(async () => {
+								const imgData = await getImage()
+								if (!imgData) return
+								await invoke("write_clipboard_binary", {
+									ty: `public.png`,
+									data: imgData,
+								})
+							})
+							.finally(() => setLockButtons(false))
+					}}
+					tip="Copy image"
+				>
 					<FiCopy />
 				</IconButton>
-				<IconButton size={"sm"} disabled={disabled} onClick={() => {}}>
+				<IconButton
+					size={"sm"}
+					disabled={disabled}
+					onClick={() => {
+						setLockButtons(true)
+						uiState
+							.callWithSpinner(async () => {
+								const imgData = await getImage()
+								if (!imgData) return
+								const savePath = await save({
+									canCreateDirectories: true,
+									title: "Save image",
+									filters: [{ name: "Image", extensions: ["png"] }],
+								})
+								if (savePath) {
+									await fs.writeFile(savePath, imgData)
+								}
+							})
+							.finally(() => setLockButtons(false))
+					}}
+					tip="Save image"
+				>
 					<FiSave />
 				</IconButton>
 				<IconButton
 					size={"sm"}
 					disabled={disabled}
-					onClick={async () => {
-						const projectFile = projects.getProjectFile(projectId)
-						if (!projectFile || !tensorId) return
-						const imgData = await dtProject.decodeTensor(
-							projectFile,
-							tensorId,
-							true,
-							nodeId,
-						)
-						if (!imgData) return
-						console.log(projectFile, tensorId, nodeId)
-						await sendToMetadata(imgData, "png", {
-							source: "project",
-							projectFile,
-							tensorId,
-							nodeId,
-						})
+					onClick={() => {
+						setLockButtons(true)
+						uiState
+							.callWithSpinner(async () => {
+								const imgData = await getImage()
+								if (!imgData) return
+								await sendToMetadata(imgData, "png", {
+									source: "project",
+									projectFile: project?.path,
+									tensorId,
+									nodeId,
+								})
+							})
+							.finally(() => setLockButtons(false))
 					}}
+					tip="Open in Metadata Viewer"
 				>
 					<PiListMagnifyingGlassBold />
 				</IconButton>

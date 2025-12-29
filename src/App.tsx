@@ -15,7 +15,7 @@ import AppStore from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
 import UpgradeButton from "./metadata/toolbar/UpgradeButton"
-import Onboard from "./Onboard"
+// import Onboard from "./Onboard"
 
 function App() {
 	const firstRender = useRef(true)
@@ -118,7 +118,7 @@ function App() {
 							</AnimatePresence>
 						</Suspense>
 					</ErrorBoundary>
-					{snap.onboardPhase?.startsWith("A") && <Onboard />}
+					{/* {snap.onboardPhase?.startsWith("A") && <Onboard />} */}
 				</CheckRoot>
 			</LayoutGroup>
 			<Preview />

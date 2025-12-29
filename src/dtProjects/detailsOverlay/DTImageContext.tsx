@@ -1,9 +1,7 @@
-import { createContext, type PropsWithChildren, useContext } from "react"
-import type { Snapshot } from "valtio"
+import { createContext, useContext } from "react"
 import type { DTImageFull, Model } from "@/commands"
-import { useDTP } from "../state/context"
 
-const DTImageContext = createContext<
+export const DTImageContext = createContext<
 	MaybeReadonly<{
 		image?: DTImageFull
 		model?: Model
@@ -13,17 +11,7 @@ const DTImageContext = createContext<
 	model: undefined,
 })
 
-type DTImageProviderProps = PropsWithChildren<{
-	image?: Snapshot<DTImageFull>
-}>
 
-export function DTImageProvider(props: DTImageProviderProps) {
-	const { children, image } = props
-	const { models } = useDTP()
-	const model = models.getModel("Model", image?.config?.model)
-
-	return <DTImageContext value={{ image, model }}>{children}</DTImageContext>
-}
 
 export function useDTImage() {
 	return useContext(DTImageContext)

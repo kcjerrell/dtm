@@ -18,16 +18,16 @@ export interface ContainerEvent<T extends string, E = undefined> {
 export type EventHandler<E = undefined> = (e: E) => void
 
 export interface DTPContainer extends Record<string, DTPStateService> {
-	projects: ProjectsController
-	ui: UIController
-	models: ModelsController
-	watchFolders: WatchFoldersController
-	scanner: ScannerService
-	search: SearchController
-	images: ImagesController
-	details: DetailsService
-	jobs: JobsService
-}
+		projects: ProjectsController
+		uiState: UIController
+		models: ModelsController
+		watchFolders: WatchFoldersController
+		scanner: ScannerService
+		search: SearchController
+		images: ImagesController
+		details: DetailsService
+		jobs: JobsService
+	}
 
 /**
  * Abstract base class for controllers using valtio state proxies

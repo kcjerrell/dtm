@@ -44,6 +44,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 				.map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
 				.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
 		)
+
+		this.getService("uiState").setProjectsCount(projects.length)
 	}
 
 	async removeProjects(projectFiles: string[]) {
@@ -78,9 +80,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 		await this.loadProjects()
 	}
 
-	getProjectFile(projectId?: number | null) {
+	getProject(projectId?: number | null) {
 		if (Number.isNaN(projectId)) return undefined
-		return this.state.projects.find((p) => p.id === projectId)?.path
+		return this.state.projects.find((p) => p.id === projectId)
 	}
 
 	/**

@@ -4,13 +4,17 @@ import urls from "@/commands/urls"
 import { DTPStateController } from "@/dtProjects/state/StateController"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import type { ProjectState } from "./projects"
 
 export type UIControllerState = {
 	selectedTab: "projects" | "search" | "settings"
 	shouldFocus?: string
+	projectsCount: number
 	detailsView: {
+		project?: ProjectState
 		item?: ImageExtra
 		itemDetails?: DTImageFull
+		showSpinner: boolean
 		subItem?: {
 			projectId: number
 			tensorId: string
@@ -38,7 +42,9 @@ export class UIController extends DTPStateController<UIControllerState> {
 	state = proxy<UIControllerState>({
 		selectedTab: "projects",
 		shouldFocus: undefined,
+		projectsCount: 0,
 		detailsView: {
+			showSpinner: false,
 			item: undefined,
 			itemDetails: undefined,
 			subItem: undefined,
@@ -78,6 +84,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 		const detailsOverlay = this.state.detailsView
 		detailsOverlay.item = item
 		detailsOverlay.lastItem = item
+		detailsOverlay.project = await this.getService("projects")?.getProject(item.project_id)
 
 		if (sourceElement) {
 			detailsOverlay.sourceRect = toJSON(sourceElement.getBoundingClientRect())
@@ -171,5 +178,17 @@ export class UIController extends DTPStateController<UIControllerState> {
 
 	hideSubItem() {
 		this.state.detailsView.subItem = undefined
+	}
+
+	callWithSpinner<T>(fn: () => Promise<T>) {
+		this.state.detailsView.showSpinner = true
+		return fn().finally(() => {
+			this.state.detailsView.showSpinner = false
+		})
+	}
+
+	setProjectsCount(count: number) {
+		this.state.projectsCount = count
+		if (count === 0) this.setSelectedTab("settings")
 	}
 }

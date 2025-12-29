@@ -148,29 +148,19 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 						const tipTitle = command.getTipTitle ? command.getTipTitle(selectedItems, commandContext) : command.tipTitle
 						const tipText = command.getTipText ? command.getTipText(selectedItems, commandContext) : command.tipText
 
-						const CommandButton = (
+						return (
 							<IconButton
 								key={command.id}
 								size={"sm"}
 								onClick={() => command.onClick(selectedItems, commandContext)}
 								disabled={!enabled}
+								tip={tip}
+								tipTitle={tipTitle}
+								tipText={tipText}
 							>
 								{Icon && <Icon />}
 							</IconButton>
 						)
-
-						if (tip || tipTitle || tipText)
-							return (
-								<Tooltip
-									key={command.id}
-									tip={tip}
-									tipTitle={tipTitle}
-									tipText={tipText}
-								>
-									{CommandButton}
-								</Tooltip>
-							)
-						return CommandButton
 					})}
 				</HStack>
 			</PaneListContainer>

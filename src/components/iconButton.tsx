@@ -1,9 +1,11 @@
-import { chakra } from "@chakra-ui/react"
+import { chakra, type HTMLChakraProps, type RecipeProps } from "@chakra-ui/react"
+import type { ReactNode } from "react"
+import { Tooltip } from "."
 
 // from the chakra ui button recipe
 // https://github.com/chakra-ui/chakra-ui/blob/main/packages/react/src/theme/recipes/button.ts
 
-const IconButton = chakra("button", {
+const Base = chakra("button", {
 	base: {
 		color: "fg.3",
 		backgroundColor: "transparent",
@@ -64,6 +66,7 @@ const IconButton = chakra("button", {
 				_icon: {
 					width: "3.5",
 					height: "3.5",
+					gap: "1.5",
 				},
 			},
 			xs: {
@@ -139,5 +142,27 @@ const IconButton = chakra("button", {
 		size: "sm",
 	},
 })
+
+export interface IconButtonProps extends HTMLChakraProps<"button", RecipeProps<"button">> {
+	tip?: ReactNode
+	tipTitle?: string
+	tipText?: string
+}
+
+const IconButton = (props: IconButtonProps) => {
+	const { tip, tipTitle, tipText, children, ...rest } = props
+
+	const button = <Base {...rest}>{children}</Base>
+
+	if (tip || tipTitle || tipText) {
+		return (
+			<Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText}>
+				{button}
+			</Tooltip>
+		)
+	}
+
+	return button
+}
 
 export default IconButton
