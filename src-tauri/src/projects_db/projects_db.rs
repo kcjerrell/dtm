@@ -137,7 +137,7 @@ impl ProjectsDb {
         path: &str,
         filesize: Option<i64>,
         modified: Option<i64>,
-    ) -> Result<(), DbErr> {
+    ) -> Result<projects::Model, DbErr> {
         // Fetch existing project
         let mut project: projects::ActiveModel = projects::Entity::find()
             .filter(projects::Column::Path.eq(path))
@@ -156,9 +156,9 @@ impl ProjectsDb {
         }
 
         // Save changes
-        let _updated: projects::Model = project.update(&self.db).await?;
+        let updated: projects::Model = project.update(&self.db).await?;
 
-        Ok(()) // or Ok(updated) depending on your typedef
+        Ok(updated)
     }
 
     pub async fn scan_project(
@@ -734,10 +734,6 @@ impl ProjectsDb {
             .collect();
 
         let count = active_models.len();
-				println!("Updating {} models", count);
-				for model in &active_models {
-					println!("{:?} {:?} {:?}", model.filename, model.name, model.version);
-				}
 
         entity::models::Entity::insert_many(active_models)
             .on_conflict(
@@ -973,6 +969,8 @@ pub struct ImageExtra {
     pub has_custom: bool,
     pub has_scribble: bool,
     pub has_shuffle: bool,
+    pub start_width: i32,
+    pub start_height: i32,
 }
 
 #[derive(Debug, Serialize)]
@@ -980,8 +978,6 @@ pub struct Paged<T> {
     pub items: Vec<T>,
     pub total: u64,
 }
-
-
 
 type ModelTypeAndFile = (String, ModelType);
 struct NodeModelWeight {

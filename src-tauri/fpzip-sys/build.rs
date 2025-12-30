@@ -6,13 +6,24 @@ use std::path::PathBuf;
 
 fn main() {
     // Build fpzip with cmake
-    let fpzip = cmake::Config::new("fpzip")
-        // ensure proper architecture on macOS
+    let mut config = cmake::Config::new("fpzip");
+    
+    config
         .define("CMAKE_POLICY_VERSION_MINIMUM", "3.5")
-        .define("CMAKE_OSX_ARCHITECTURES", "arm64")
         // build static library
-        .define("BUILD_SHARED_LIBS", "OFF")
-        .build();
+        .define("BUILD_SHARED_LIBS", "OFF");
+
+    if let Ok(target) = env::var("TARGET") {
+        if target.contains("apple") {
+            if target.contains("x86_64") {
+                config.define("CMAKE_OSX_ARCHITECTURES", "x86_64");
+            } else if target.contains("aarch64") {
+                config.define("CMAKE_OSX_ARCHITECTURES", "arm64");
+            }
+        }
+    }
+
+    let fpzip = config.build();
 
     // Link search path
     println!("cargo:rustc-link-search=native={}/lib", fpzip.display());

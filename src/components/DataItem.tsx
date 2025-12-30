@@ -1,4 +1,4 @@
-import { chakra, HStack, defineKeyframes } from "@chakra-ui/react"
+import { chakra, HStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ComponentProps, useLayoutEffect, useRef, useState } from "react"
 import { useDTImage } from "@/dtProjects/detailsOverlay/DTImageContext"
@@ -19,37 +19,61 @@ function DataItem(props: DataItemProps) {
 	const [collapsed, setCollapsed] = useState(false)
 	const [maxHeight, setMaxHeight] = useState("unset")
 
+	const hasMeasured = useRef(false)
+	const hasRendered = useRef(false)
+
+	if (hasMeasured.current && !hasRendered.current) {
+		hasRendered.current = true
+	}
+
 	const contentRef = useRef<HTMLDivElement>(null)
 
 	const [display, _isObject, dataType] = prepData(data)
 
-	// useLayoutEffect(() => {
-	// 	if (!contentRef.current || !maxLines) return
-	// 	const style = getComputedStyle(contentRef.current)
-	// 	let lineHeight = parseFloat(style.lineHeight)
-	// 	if (Number.isNaN(lineHeight)) {
-	// 		// fallback: compute from font size if "normal"
-	// 		const fontSize = parseFloat(style.fontSize)
-	// 		lineHeight = fontSize * 1.2 // approximate
-	// 	}
+	useLayoutEffect(() => {
+		hasMeasured.current = true
+		if (!contentRef.current || !maxLines) return
+		const style = getComputedStyle(contentRef.current)
+		let lineHeight = parseFloat(style.lineHeight)
+		if (Number.isNaN(lineHeight)) {
+			// fallback: compute from font size if "normal"
+			const fontSize = parseFloat(style.fontSize)
+			lineHeight = fontSize * 1.2 // approximate
+		}
 
-	// 	const height = contentRef.current.clientHeight
-	// 	if (height > lineHeight * maxLines) {
-	// 		setCollapsible(true)
-	// 		setCollapsed(true)
-	// 		setMaxHeight(`${lineHeight * maxLines}px`)
-	// 	}
-	// }, [maxLines])
+		const height = contentRef.current.clientHeight
+		if (height > lineHeight * maxLines) {
+			setCollapsible(true)
+			setCollapsed(true)
+			setMaxHeight(`${lineHeight * maxLines}px`)
+		}
+	}, [maxLines])
 
-	if (data === undefined || data === null) { 
-    return null
-  }
-  
+	if (data === undefined || data === null) {
+		return null
+	}
+
 	return (
 		<Root {...rest}>
 			<HStack>{label && <Label>{label}</Label>}</HStack>
-			<Content type={dataType} ref={contentRef}>
-				<div>{display}</div>
+			<Content
+				key={`${collapsible}`}
+				type={dataType}
+				ref={contentRef}
+				collapse={getVariant(collapsible, collapsed)}
+			>
+				<motion.div
+					// layout
+					initial={{
+						height: maxHeight,
+					}}
+					animate={{
+						height: hasMeasured.current ? (collapsed ? maxHeight : "auto") : maxHeight,
+					}}
+					transition={{ duration: hasRendered.current ? 0.25 : 0 }}
+				>
+					{display}
+				</motion.div>
 			</Content>
 			{collapsible && (
 				<ExpandButton onClick={() => setCollapsed(!collapsed)}>
@@ -104,7 +128,7 @@ const Root = chakra(
 			},
 		},
 	},
-	{ defaultProps: { layout: "position" } },
+	// { defaultProps: { layout: "position" } },
 )
 
 const Label = chakra(
@@ -119,7 +143,12 @@ const Label = chakra(
 			textOverflow: "ellipsis",
 		},
 	},
-	{ defaultProps: { layout: true, className: "dataitem_label" } },
+	{
+		defaultProps: {
+			//  layout: true,
+			className: "dataitem_label",
+		},
+	},
 )
 
 const ExpandButton = chakra(
@@ -191,7 +220,8 @@ const Content = chakra(
 						content: '""',
 						position: "absolute",
 						top: "calc(100% - 2rem)",
-						backgroundImage: "linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
+						backgroundImage:
+							"linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
 						bottom: "2px",
 						right: 0,
 						left: 0,
@@ -203,7 +233,8 @@ const Content = chakra(
 						content: '""',
 						position: "absolute",
 						top: "calc(100% - 2px)",
-						backgroundImage: "linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
+						backgroundImage:
+							"linear-gradient(0deg, var(--chakra-colors-bg-1) 0%, #00000000 100%)",
 						bottom: "2px",
 						right: 0,
 						left: 0,
@@ -241,7 +272,8 @@ export function DataItemTemplate<T extends keyof DrawThingsConfigGrouped>(
 	props: DataItemTemplateProps<T> & { property: T },
 ) {
 	const { value, property, ...rest } = props
-	if (value === undefined || value === null || !property || !templatesReverse[property]) return null
+	if (value === undefined || value === null || !property || !templatesReverse[property])
+		return null
 	const Template = templatesReverse[property] as
 		| ((props: DataItemTemplateProps<T>) => React.ReactNode)
 		| undefined
@@ -262,7 +294,9 @@ const templates = {
 		if (model?.version && !model.version?.startsWith("sdxl")) return null
 		if (!value?.width || !value?.height) return null
 
-		return <DataItem label={"Original Size"} data={`${value.width} x ${value.height}`} {...rest} />
+		return (
+			<DataItem label={"Original Size"} data={`${value.width} x ${value.height}`} {...rest} />
+		)
 	},
 	TargetImageSize: (props: DataItemTemplateProps<"targetImageSize">) => {
 		const { value, ...rest } = props
@@ -272,7 +306,11 @@ const templates = {
 		if (!value?.width || !value?.height) return null
 
 		return (
-			<DataItem label={"Target Image Size"} data={`${value.width} x ${value.height}`} {...rest} />
+			<DataItem
+				label={"Target Image Size"}
+				data={`${value.width} x ${value.height}`}
+				{...rest}
+			/>
 		)
 	},
 	NegativeOriginalSize: (props: DataItemTemplateProps<"negativeOriginalSize">) => {
@@ -309,7 +347,11 @@ const templates = {
 		if (value === undefined || value.value === undefined) return null
 
 		return (
-			<DataItem label={"Seed"} data={`${value.value} (${getSeedMode(value.seedMode)})`} {...rest} />
+			<DataItem
+				label={"Seed"}
+				data={`${value.value} (${getSeedMode(value.seedMode)})`}
+				{...rest}
+			/>
 		)
 	},
 	Model: (props: DataItemTemplateProps<"model">) => {
@@ -362,13 +404,19 @@ const templates = {
 		const { value, ...rest } = props
 		if (!value || value.value === 0) return null
 		return (
-			<DataItem label={"Causal Inference"} data={`True (${value.value}-${value.pad})`} {...rest} />
+			<DataItem
+				label={"Causal Inference"}
+				data={`True (${value.value}-${value.pad})`}
+				{...rest}
+			/>
 		)
 	},
 	CfgZero: (props: DataItemTemplateProps<"cfgZero">) => {
 		const { value, ...rest } = props
 		if (!value?.star) return null
-		return <DataItem label={"CFG Zero Star"} data={`True (${value.initSteps} steps)`} {...rest} />
+		return (
+			<DataItem label={"CFG Zero Star"} data={`True (${value.initSteps} steps)`} {...rest} />
+		)
 	},
 	Strength: (props: DataItemTemplateProps<"strength">) => {
 		const { value, ...rest } = props

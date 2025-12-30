@@ -1,35 +1,40 @@
-import { Box, chakra, Grid } from "@chakra-ui/react"
-import { ReactNode, useCallback, useEffect, useRef } from "react"
+/// <reference path="../../global.d.ts" />
+import { Box, type BoxProps, chakra, Grid } from "@chakra-ui/react"
+import {
+	type ComponentType,
+	type ReactNode,
+	type UIEvent,
+	useCallback,
+	useEffect,
+	useRef,
+} from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { ContainerEvent } from "@/dtProjects/state/StateController"
-import { usePagedItemSource } from "./usePagedItemSource"
-import { IItemSource } from "./PagedItemSource"
+import type { IItemSource } from "./PagedItemSource"
 
-export interface PVGridProps<T, P = unknown> extends ChakraProps {
+export interface PVGridProps<T = unknown, P = unknown> extends ChakraProps {
 		itemComponent: PVGridItemComponent<T, P>
 		/** number of screens */
 		overscan?: number
-		keyFn?: (item: T, index: number) => string | number
+		keyFn?: (item: T | null | undefined, index: number | null | undefined) => string | number
 		initialRowCount?: number
 		itemProps?: P
 		maxItemSize: number
-		// getItems: (skip: number, take: number) => Promise<T[]>
-		// getCount: () => Promise<number>
 		onImagesChanged?: ContainerEvent<"imagesChanged">
 		freeze?: boolean
 		itemSource: IItemSource<T>
 	}
 
-export type PVGridItemComponent<T, P = unknown> = React.ComponentType<PVGridItemProps<T, P>>
+export type PVGridItemComponent<T = unknown, P = unknown> = ComponentType<PVGridItemProps<T, P>>
 
-interface PVGridItemPropsBase<T> extends ChakraProps {
-	value: T
+interface PVGridItemPropsBase<T = unknown> extends ChakraProps {
+	value: T | null | undefined
 	index: number
 }
 
-export type PVGridItemProps<T, P = unknown> = PVGridItemPropsBase<T> & P
+export type PVGridItemProps<T = unknown, P = unknown> = PVGridItemPropsBase<T> & P
 
-type StateProxy<T> = {
+type StateProxy = {
 	minThreshold: number
 	maxThreshold: number
 	firstRow: number
@@ -40,17 +45,32 @@ type StateProxy<T> = {
 	rowPos: number
 }
 
-function PVGridWrapper<T, P = unknown>(props: Partial<PVGridProps<T, P>>) {
+function PVGridWrapper<T = unknown, P = unknown>(props: Partial<PVGridProps<T, P>>) {
 	const { itemComponent, itemSource, maxItemSize, freeze, ...restProps } = props
 
+	const lastRenderRef = useRef<ReactNode>(null)
+
 	if (!itemSource || !maxItemSize || !itemComponent) {
-		return <Box {...restProps} />
+		return <Box {...(restProps as BoxProps)} />
 	}
 
-	return <PVGrid<T, P> {...props} />
+	if (freeze) {
+		return lastRenderRef.current
+	}
+
+	lastRenderRef.current = (
+		<PVGrid<T, P>
+			itemComponent={itemComponent}
+			maxItemSize={maxItemSize}
+			itemSource={itemSource}
+			{...restProps}
+		/>
+	)
+
+	return lastRenderRef.current
 }
 
-function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
+function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
 	const {
 		itemComponent,
 		itemSource,
@@ -64,8 +84,8 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 	} = props
 	const Item = itemComponent
 	const { renderItems, totalCount } = itemSource.useItemSource()
-	console.log(totalCount)
-	const stateRef = useRef<StateProxy<T>>(null)
+
+	const stateRef = useRef<StateProxy>(null)
 	if (stateRef.current === null) {
 		stateRef.current = proxy({
 			minThreshold: 0,
@@ -78,7 +98,7 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 			rowPos: 0,
 		})
 	}
-	const state = stateRef.current as StateProxy<T>
+	const state = stateRef.current as StateProxy
 	const snap = useSnapshot(state)
 
 	const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -110,7 +130,7 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 	}, [state, overscan, maxItemSize, totalCount, itemSource])
 
 	const handleScroll = useCallback(
-		(e: React.UIEvent<HTMLDivElement, UIEvent>) => {
+		(e: UIEvent<HTMLDivElement>) => {
 			if (!scrollContainerRef.current) return
 			state.rowPos = scrollContainerRef.current.scrollTop / state.rowHeight
 			if (
@@ -181,31 +201,13 @@ function PVGrid<T, P = unknown>(props: PVGridProps<T, P>) {
 							gridRow={`${Math.floor(index / snap.columns) + 1}`}
 							gridColumn={`${(index % snap.columns) + 1}`}
 							index={index}
-							value={item}
-							key={item ? keyFn?.(item, index) : index}
-							{...itemProps}
+							value={item as T}
+							key={item ? keyFn?.(item as T, index) : index}
+							{...(itemProps as P)}
 						/>
 					)
 				})}
-				{/* <Box
-					ref={bottomSpaceRef}
-					gridRow={`${snap.lastRow + 2} / ${Math.ceil(totalCount / snap.columns) + 2}`}
-					gridColumn={`1 / span ${snap.columns}`}
-					>
-					{totalCount}
-					</Box> */}
 			</Grid>
-
-			{/* {createPortal(
-				<Box position={"absolute"} bottom={2} right={2} whiteSpace={"pre-"}>
-					Items: {items.length} <br />
-					Current Item: {snap.currentItem} <br />
-					Updates: {snap.updates} <br />
-					Rendered: {snap.firstIndex} to {snap.lastIndex} <br />
-					Height: {snap.visibleHeight}
-				</Box>,
-				document.getElementById("root"),
-			)} */}
 		</Container>
 	)
 }
@@ -222,19 +224,6 @@ const Container = chakra("div", {
 	},
 })
 
-const Content = chakra("div", {
-	base: {
-		width: "100%",
-		minHeight: "100%",
-		overflowY: "visible",
-		display: "grid",
-		gridTemplateColumns: "1fr",
-		justifyContent: "flex-start",
-		alignItems: "stretch",
-		gap: 0,
-	},
-})
-
 export default PVGridWrapper
 
 function measure(grid: HTMLDivElement, maxItemSize: number) {
@@ -248,19 +237,4 @@ function measure(grid: HTMLDivElement, maxItemSize: number) {
 		columns,
 		rowHeight: itemSize,
 	}
-
-	// let columns = 0
-	// for (let i = 1; i < grid.children.length; i++) {
-	// 	columns++
-	// 	if (
-	// 		(grid.children[i - 1] as HTMLElement).offsetLeft >
-	// 		(grid.children[i] as HTMLElement).offsetLeft
-	// 	)
-	// 		break
-	// }
-
-	// return {
-	// 	columns,
-	// 	rowHeight: (grid.children[0] as HTMLElement).offsetWidth,
-	// }
 }

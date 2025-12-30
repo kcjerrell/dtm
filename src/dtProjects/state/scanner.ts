@@ -2,18 +2,27 @@ import { exists, stat } from "@tauri-apps/plugin-fs"
 import { pdb } from "@/commands"
 import { DTPStateService } from "@/dtProjects/state/StateController"
 import type { JobCallback, JobDef, JobPayload, JobResult } from "./jobs"
-import type { ProjectState } from "./projects"
 
 class ScannerService extends DTPStateService {
 	constructor() {
 		super("scanner")
-	}
 
-	getControllers() {
-		const wf = this.getService("watchFolders")
-		const projects = this.getService("projects")
-
-		return { wf, projects }
+		this.container.on("watchFoldersChanged", (e) => {
+			const syncFolders = [e.added, e.changed].flat()
+			for (const folder of syncFolders) {
+				if (folder.item_type === "ModelInfo") {
+					const job = getModelInfoJob(folder.path)
+					this.container.getService("jobs").addJob(job)
+				} else if (folder.item_type === "Projects") {
+					const job = syncProjectFolderJob(folder.path)
+					this.container.getService("jobs").addJob(job)
+				} else throw new Error("Invalid item type")
+			}
+			for (const folder of e.removed) {
+				if (folder.item_type === "Projects") {
+				}
+			}
+		})
 	}
 
 	scanAndWatch() {
@@ -21,7 +30,7 @@ class ScannerService extends DTPStateService {
 		this.syncProjectFolders(undefined, () => {
 			console.log("sync finished")
 			this.syncModelInfo()
-			this.getService("watchFolders").startWatch((files) => {
+			this.container.getService("watchFolders").startWatch((files) => {
 				this.syncProjects(files)
 			})
 		})
@@ -38,18 +47,18 @@ class ScannerService extends DTPStateService {
 			const job = syncProjectFolderJob(watchFolder, () => {
 				callback?.()
 			})
-			this.getService("jobs").addJob(job)
+			this.container.getService("jobs").addJob(job)
 		} else {
 			const job = syncProjectsJob(() => {
 				callback?.()
 			})
-			this.getService("jobs").addJob(job)
+			this.container.getService("jobs").addJob(job)
 		}
 	}
 
 	async syncProjects(projectPaths: string[], callback?: JobCallback<null>) {
 		const result: JobPayload[] = []
-		const projects = this.getService("projects")
+		const projects = this.container.getService("projects")
 
 		for (const path of projectPaths) {
 			const stats = await getProjectStats(path)
@@ -70,20 +79,20 @@ class ScannerService extends DTPStateService {
 		}
 
 		if (result.length > 0) {
-			this.getService("jobs").addJobs(result)
+			this.container.getService("jobs").addJobs(result)
 		}
 
 		callback?.()
 	}
 
 	async syncModelInfo() {
-		const { wf } = this.getControllers()
+		const wf = this.container.getService("watchFolders")
 
 		await wf.loadWatchFolders()
 
 		for (const folder of wf.state.modelInfoFolders) {
 			const job = getModelInfoJob(folder.path)
-			this.getService("jobs").addJob(job)
+			this.container.getService("jobs").addJob(job)
 		}
 	}
 

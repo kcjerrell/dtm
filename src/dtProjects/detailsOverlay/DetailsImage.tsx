@@ -25,10 +25,6 @@ function DetailsImage(props: DetailsImageProps) {
 		? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
 		: {}
 
-	const coverScale =
-		Math.max(naturalSize.width, naturalSize.height) /
-		Math.min(naturalSize.width, naturalSize.height)
-
 	if (!srcHalf && !src) return null
 
 	return (
@@ -36,6 +32,9 @@ function DetailsImage(props: DetailsImageProps) {
 			<motion.div
 				ref={imgContainerRef}
 				key={src}
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				exit={{ opacity: 0 }}
 				style={{
 					display: "flex",
 					justifyContent: "center",
@@ -44,9 +43,7 @@ function DetailsImage(props: DetailsImageProps) {
 					minWidth: "0",
 					overflow: "clip",
 				}}
-				transition={{ duration: transition.duration }}
-				layout
-				layoutId={id}
+				transition={{ duration: transition.duration, ease: "linear" }}
 			>
 				<motion.img
 					width={naturalSize.width}
@@ -54,17 +51,17 @@ function DetailsImage(props: DetailsImageProps) {
 					ref={imgRef}
 					src={src}
 					alt={src}
-					initial={{ scale: coverScale }}
-					animate={{ scale: 1 }}
-					exit={{ scale: coverScale }}
-					transition={{ duration: transition.duration }}
+					transition={{
+						duration: transition.duration,
+						ease: "linear",
+					}}
 					style={{
 						maxWidth: "100%",
 						maxHeight: "100%",
 						width: "auto",
 						height: "auto",
 						boxShadow: "pane1",
-						borderRadius: "1rem",
+						borderRadius: "0.5rem",
 						opacity: 1,
 						display: "block",
 						imageRendering: pixelated ? "pixelated" : "auto",

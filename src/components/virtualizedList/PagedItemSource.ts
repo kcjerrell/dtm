@@ -31,6 +31,7 @@ type PagedItemSourceOpts<T> = {
 	pageSize: number
 	/** any items beyond this number will be ignored */
 	getCount: () => Promise<number>
+	onActiveItemChanged?: (item: PagedItem<T>, index: number | undefined) => void
 }
 
 type PagedItemSourceState<T> = {
@@ -51,6 +52,7 @@ export class PagedItemSource<T> implements IItemSource<T> {
 
 		pageLoader = new Mutex()
 		loadersWaiting = 0
+		onActiveItemChanged: ((item: PagedItem<T>, index: number | undefined) => void) | undefined
 
 		constructor(opts: PagedItemSourceOpts<T>) {
 			console.log("PagedItemSource", opts)
@@ -66,6 +68,7 @@ export class PagedItemSource<T> implements IItemSource<T> {
 			this.getItems = opts.getItems
 			this.getCount = opts.getCount
 			this.pageSize = opts.pageSize
+			this.onActiveItemChanged = opts.onActiveItemChanged
 		}
 
 		async loadPage(index: number, refresh = false) {
@@ -172,6 +175,7 @@ export class PagedItemSource<T> implements IItemSource<T> {
 						value - this.pages[this.getItemPage(value)].from
 					]
 				if (item) this.state.activeItem = item
+				this.onActiveItemChanged?.(item, value)
 			})
 		}
 

@@ -1,4 +1,3 @@
-import { EventEmitter } from "eventemitter3"
 import { proxy, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import {
@@ -32,11 +31,9 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
 	itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
 
-	private emitter = new EventEmitter<"imagesChanged">()
-
 	private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
-		on: (fn: (_: undefined) => void) => this.emitter.on("imagesChanged", fn),
-		off: (fn: (_: undefined) => void) => this.emitter.off("imagesChanged", fn),
+		on: (fn: (_: undefined) => void) => this.container.on("imagesChanged", fn),
+		off: (fn: (_: undefined) => void) => this.container.off("imagesChanged", fn),
 	}
 	get onImagesChanged() {
 		return this._onImagesChanged
@@ -45,7 +42,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 	constructor() {
 		super("images")
 
-		this.getFutureService("projects").then((projectsService) => {
+		this.container.getFutureService("projects").then((projectsService) => {
 			this.watchProxy((get) => {
 				const p = get(projectsService.state.selectedProjects)
 				this.setSelectedProjects(p)
@@ -53,7 +50,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 			this.watchProxy((get) => {
 				const p = get(projectsService.state.projects)
 				const changed = updateProjectsCache(p, this.projectsCache)
-				if (changed.length > 0) this.emitter.emit("imagesChanged")
+				if (changed.length > 0) this.container.emit("imagesChanged")
 			})
 		})
 
@@ -72,6 +69,9 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 				getItems,
 				getCount,
 				pageSize: 250,
+				onActiveItemChanged: (item) => {
+					if (item) this.container.getService("uiState")?.showDetailsOverlay(item)
+				},
 			})
 			itemSource.renderWindow = [0, 20]
 			this.itemSource = itemSource
@@ -100,6 +100,16 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
 	async setSelectedProjects(projects: ProjectState[]) {
 		this.state.imageSource.projectIds = projects.map((p) => p.id)
+	}
+
+	selectNextItem() {
+		if (this.itemSource.activeItemIndex === undefined) return
+		this.itemSource.activeItemIndex++
+	}
+
+	selectPrevItem() {
+		if (this.itemSource.activeItemIndex === undefined) return
+		this.itemSource.activeItemIndex--
 	}
 
 	async refreshImageCounts() {

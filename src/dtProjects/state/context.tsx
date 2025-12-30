@@ -9,6 +9,7 @@ import ModelsController from "./models"
 import ProjectsController from "./projects"
 import ScannerService from "./scanner"
 import SearchController from "./search"
+import type { DTPEvents } from "./types"
 import WatchFoldersController from "./watchFolders"
 
 let _container = createContainer()
@@ -37,7 +38,7 @@ export function useDTP() {
 }
 
 let _unwatch: () => void
-async function connectDevMode(controllers: DTPContextType) {
+async function _connectDevMode(controllers: DTPContextType) {
 	if (_unwatch) _unwatch()
 
 	let _devUpdate: ReturnType<typeof setTimeout> | null = null
@@ -65,7 +66,7 @@ async function connectDevMode(controllers: DTPContextType) {
 }
 
 function createContainer() {
-	return new Container<DTPContextType>(() => {
+	return new Container<DTPContextType, DTPEvents>(() => {
 		const jobs = new JobsService()
 		const uiState = new UIController()
 		const projects = new ProjectsController()

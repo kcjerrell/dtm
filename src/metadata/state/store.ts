@@ -67,19 +67,21 @@ const metadataStore = store(
 )
 export const MetadataStore = metadataStore.state
 await metadataStore.start()
-window.addEventListener("unload", () => {
-	cleanUp()
-	metadataStore.stop()
-})
 
 export type ImageItemParam = ReadonlyState<ImageItem> | ImageItem | number | null
 
-getCurrentWindow().onCloseRequested(async (e) => {
+const unlisten = getCurrentWindow().onCloseRequested(async (e) => {
 	e.preventDefault()
 	const window = getCurrentWindow()
 	await window.hide()
 	await cleanUp()
 	await window.destroy()
+})
+
+window.addEventListener("unload", () => {
+	unlisten.then((u) => u())
+	cleanUp()
+	metadataStore.stop()
 })
 
 async function cleanUp() {

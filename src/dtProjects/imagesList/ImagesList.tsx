@@ -24,10 +24,10 @@ function ImagesList(props: ImagesList) {
 	const itemSource = images.useItemSource()
 
 	const showDetailsOverlay = useCallback(
-		(item: ImageExtra, elem?: HTMLImageElement) => {
-			uiState.showDetailsOverlay(item, elem)
+		(index: number) => {
+			images.itemSource.activeItemIndex = index
 		},
-		[uiState],
+		[images],
 	)
 
 	return (
@@ -46,7 +46,7 @@ function ImagesList(props: ImagesList) {
 				bgColor={"transparent"}
 				minHeight={"100%"}
 				key={imagesSnap.searchId}
-				itemComponent={GridItem as PVGridItemComponent<ImageExtra>}
+				itemComponent={GridItemAnim as PVGridItemComponent<ImageExtra>}
 				itemSource={itemSource}
 				maxItemSize={imagesSnap.imageSize ?? 5}
 				onImagesChanged={images.onImagesChanged}
@@ -58,35 +58,30 @@ function ImagesList(props: ImagesList) {
 	)
 }
 
-function GridItem(
+function GridItemAnim(
 	props: PVGridItemProps<
 		ImageExtra,
 		{
-			showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => void
+			showDetailsOverlay: (index: number) => void
 		}
 	>,
 ) {
-	const { value: item } = props
+	const { value: item, showDetailsOverlay, index } = props
 
-	const [isPreviewing, setIsPreviewing] = useState(false)
-
-	if (item === undefined) return null
-	if (item === null) return <Box bgColor={"fg.1/20"} width={"100%"} height={"100%"} />
-
-	if (isPreviewing) return <GridItemAnim setIsPreviewing={setIsPreviewing} {...props} />
-
-	const url = `dtm://dtproject/thumbhalf/${item.project_id}/${item.preview_id}`
+	const previewId = `${item?.project_id}/${item?.preview_id}`
+	const url = `dtm://dtproject/thumbhalf/${previewId}`
 
 	return (
-		<Box bgColor={"fg.1/20"} onClick={() => setIsPreviewing(true)}>
-			<div
+		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(index)}>
+			<motion.div
 				key={url}
 				style={{
 					width: "100%",
 					height: "100%",
 				}}
+				// transition={{ duration: 0.25 }}
 			>
-				<img
+				<motion.img
 					key={url}
 					style={{
 						width: "100%",
@@ -96,89 +91,17 @@ function GridItem(
 						backgroundSize: "cover",
 						backgroundPosition: "center",
 					}}
+					// variants={{
+					// 	downscale: () => downScale(),
+					// }}
+					// initial="downscale"
+					// animate={{ scale: 1 }}
+					// exit="downscale"
 					src={url}
-					alt={item.prompt}
+					alt={item?.prompt}
+					// transition={{ duration: 0.25 }}
 				/>
-			</div>
-		</Box>
-	)
-}
-
-function GridItemAnim(
-	props: PVGridItemProps<
-		ImageExtra,
-		{
-			showDetailsOverlay: (item: ImageExtra, elem?: HTMLImageElement) => void
-		}
-	> & {
-		setIsPreviewing: (value: boolean) => void
-	},
-) {
-	const { value: item, showDetailsOverlay } = props
-	const { setIsPreviewing } = props
-
-	const imgRef = useRef<HTMLImageElement>(null)
-	const box = useRef<[number, number]>([0, 0])
-
-	const previewId = `${item?.project_id}/${item?.preview_id}`
-	const url = `dtm://dtproject/thumbhalf/${previewId}`
-
-	function downScale() {
-		const w = box.current[0]
-		const h = box.current[1]
-		const scale = Math.min(w, h) / Math.max(w, h)
-		return {
-			scale: scale,
-		}
-	}
-
-	const onceRef = useRef(false)
-	useEffect(() => {
-		if (onceRef.current) return
-		if (!item) return
-		showDetailsOverlay(item, imgRef.current ?? undefined)
-		onceRef.current = true
-	}, [item, showDetailsOverlay])
-
-	return (
-		<Box bgColor={"fg.1/20"}>
-			<AnimatePresence>
-				<motion.div
-					key={url}
-					layout
-					layoutId={`${item?.project_id}_${item?.node_id}`}
-					style={{
-						width: "100%",
-						height: "100%",
-					}}
-					transition={{ duration: 0.25 }}
-					onLayoutAnimationComplete={() => {
-						setIsPreviewing(false)
-					}}
-				>
-					<motion.img
-						key={url}
-						ref={imgRef}
-						style={{
-							width: "100%",
-							height: "100%",
-							objectFit: "cover",
-							border: "1px solid #0000ff00",
-							backgroundSize: "cover",
-							backgroundPosition: "center",
-						}}
-						variants={{
-							downscale: () => downScale(),
-						}}
-						initial="downscale"
-						animate={{ scale: 1 }}
-						exit="downscale"
-						src={url}
-						alt={item?.prompt}
-						transition={{ duration: 0.25 }}
-					/>
-				</motion.div>
-			</AnimatePresence>
+			</motion.div>
 		</Box>
 	)
 }

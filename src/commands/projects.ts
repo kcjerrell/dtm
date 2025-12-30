@@ -18,21 +18,23 @@ export type ProjectExtra = {
 }
 
 export type ImageExtra = {
-	id: number
-	project_id: number
-	model_id?: number
-	model_file?: string
-	prompt?: string
-	negative_prompt?: string
-	preview_id: number
-	node_id: number
-	has_depth: boolean
-	has_pose: boolean
-	has_color: boolean
-	has_custom: boolean
-	has_scribble: boolean
-	has_shuffle: boolean
-}
+		id: number
+		project_id: number
+		model_id?: number
+		model_file?: string
+		prompt?: string
+		negative_prompt?: string
+		preview_id: number
+		node_id: number
+		has_depth: boolean
+		has_pose: boolean
+		has_color: boolean
+		has_custom: boolean
+		has_scribble: boolean
+		has_shuffle: boolean
+		start_width: number
+		start_height: number
+	}
 
 export type Control = {
 	file?: string

@@ -160,3 +160,78 @@ export function plural(n?: number, singular?: string, plural?: string) {
 	if (!Number.isNaN(n) && n === 1) return singular ?? ""
 	return plural ?? "s"
 }
+
+export interface CompareOptions {
+	ignoreObjects?: boolean
+	ignoreFunctions?: boolean
+}
+
+/**
+ * Compares two arrays of objects, and returns a list of added, removed, and changed.
+ * Items are only compared shallowly. For example:
+ *
+ * { id: 5, name: "test" }
+ * { id: 5, name: "test2" }
+ *
+ * These would be considered changed
+ *
+ * { id: 5, data: { name: "test" }}
+ * { id: 5, data: { name: "test" }}
+ *
+ * The name property will not be checked. These items will be considered the same only if
+ * data is the same object reference - unless the ignore objects param is true
+ *
+ * @param a The original array. Items in a that are not in b will be considered removed
+ * @param b The new array. Items in b that are not in a will be considered added
+ * @param keyFn A function that returns a unique key for each item
+ * @param opts Options for comparison
+ * @returns An object containing the added, removed, and changed items
+ */
+export function compareItems<T extends Record<string, unknown>>(
+	a: T[],
+	b: T[],
+	keyFn: (item: T) => string | number,
+	opts: CompareOptions = {},
+) {
+	const aMap = new Map(a.map((item) => [keyFn(item), item]))
+	const bMap = new Map(b.map((item) => [keyFn(item), item]))
+
+	const added = []
+	const removed = []
+	const changed = []
+	const same = []
+
+	for (const [key, value] of bMap) {
+		const aItem = aMap.get(key)
+		if (aItem === undefined) {
+			added.push(value)
+			continue
+		}
+		if (shallowCompare(aItem, value, opts)) same.push(value)
+		else changed.push(value)
+		aMap.delete(key)
+	}
+
+	for (const [_key, value] of aMap) {
+		removed.push(value)
+	}
+
+	return {
+		added,
+		removed,
+		changed,
+		same,
+		itemsChanged: added.length > 0 || removed.length > 0 || changed.length > 0,
+	}
+}
+
+function shallowCompare<T extends Record<string, unknown>>(a: T, b: T, opts: CompareOptions = {}) {
+	const { ignoreObjects = false, ignoreFunctions = false } = opts
+	for (const key of Object.keys(a)) {
+		const valA = a[key]
+		if (ignoreObjects && typeof valA === "object" && valA !== null) continue
+		if (ignoreFunctions && typeof valA === "function") continue
+		if (valA !== b[key]) return false
+	}
+	return true
+}

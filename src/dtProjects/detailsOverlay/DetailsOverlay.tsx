@@ -27,7 +27,7 @@ interface DetailsOverlayProps extends ComponentProps<typeof Container> {}
 function DetailsOverlay(props: DetailsOverlayProps) {
 	const { ...rest } = props
 
-	const { uiState } = useDTP()
+	const { uiState, images } = useDTP()
 	const snap = uiState.useDetailsOverlay()
 
 	const { item, itemDetails } = snap
@@ -41,8 +41,22 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 		item || snap.lastItem ? urls.thumb(item ?? (snap.lastItem as ImageExtra)) : undefined
 
 	const hotkeys = useMemo(
-		() => ({ escape: () => uiState.hideDetailsOverlay(), left: () => {} }),
-		[uiState],
+		() => ({
+			escape: () => {
+				if (uiState.state.detailsView.subItem) {
+					uiState.hideSubItem()
+				} else {
+					uiState.hideDetailsOverlay()
+				}
+			},
+			left: () => {
+				images.selectPrevItem()
+			},
+			right: () => {
+				images.selectNextItem()
+			},
+		}),
+		[uiState, images],
 	)
 
 	return (
@@ -91,7 +105,6 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 				<AnimatePresence>
 					{isVisible && (
 						<DetailsImage
-							key={"details_image"}
 							width={"100%"}
 							height={"100%"}
 							padding={0}
@@ -139,8 +152,6 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 							pixelated={snap.subItem?.tensorId?.startsWith("color")}
 							src={snap.subItem?.url}
 							maskSrc={snap.subItem?.applyMask ? snap.subItem?.maskUrl : undefined}
-							// sourceRect={() => snap.subItemSourceRect}
-							// sourceElement={snap.subItem.sourceElement as HTMLElement}
 							naturalSize={{
 								width: snap.subItem?.width ?? 1,
 								height: snap.subItem?.height ?? 1,
@@ -175,7 +186,6 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 				</AnimatePresence>
 				{isVisible && (
 					<DetailsContent
-						key={`details_content`}
 						gridArea={"content"}
 						height={"100%"}
 						overflow={"clip"}
@@ -222,7 +232,7 @@ interface DetailsButtonBarProps extends ChakraProps {
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
 	const { item, tensorId, show, addMetadata, subItem, project, ...restProps } = props
-	const { projects, uiState } = useDTP()
+	const { uiState } = useDTP()
 	const [lockButtons, setLockButtons] = useState(false)
 
 	const projectId = item?.project_id

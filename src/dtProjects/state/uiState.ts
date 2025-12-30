@@ -80,22 +80,23 @@ export class UIController extends DTPStateController<UIControllerState> {
 		this.state.shouldFocus = focusElement
 	}
 
-	async showDetailsOverlay(item: ImageExtra, sourceElement?: HTMLImageElement) {
+	async showDetailsOverlay(item: ImageExtra) {
 		const detailsOverlay = this.state.detailsView
 		detailsOverlay.item = item
 		detailsOverlay.lastItem = item
-		detailsOverlay.project = await this.getService("projects")?.getProject(item.project_id)
+		detailsOverlay.project = await this.container
+			.getService("projects")
+			?.getProject(item.project_id)
 
-		if (sourceElement) {
-			detailsOverlay.sourceRect = toJSON(sourceElement.getBoundingClientRect())
-			detailsOverlay.width = sourceElement.naturalWidth
-			detailsOverlay.height = sourceElement.naturalHeight
-		}
+		detailsOverlay.width = item.start_width
+		detailsOverlay.height = item.start_height
 
-		const itemDetails = await this.getService("details")?.getDetails(item)
+		const itemDetails = await this.container.getService("details")?.getDetails(item)
 		detailsOverlay.itemDetails = itemDetails
 
-		const candidates = await this.getService("details")?.getPredecessorCandidates(item)
+		const candidates = await this.container
+			.getService("details")
+			?.getPredecessorCandidates(item)
 		detailsOverlay.candidates = candidates ?? []
 
 		this.raise("onItemChanged", { item })

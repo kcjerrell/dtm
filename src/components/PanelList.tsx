@@ -74,8 +74,8 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 	const wrapperRef = useRef<HTMLDivElement>(null)
 	const contentRef = useRef<HTMLDivElement>(null)
 
-	const scrollY = useRef(0)
-	const scrollYMv = useSpring(0, { mass: 1, stiffness: 210, damping: 25, visualDuration: 0.5 })
+	// const scrollY = useRef(0)
+	// const scrollYMv = useSpring(0, { mass: 1, stiffness: 210, damping: 25, visualDuration: 0.5 })
 
 	useEffect(() => {
 		if (clearSelection) {
@@ -97,7 +97,14 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 				: "(No items)"
 
 	return (
-		<VStack overflowY={"clip"} overflowX={"clip"} {...boxProps} alignItems={"stretch"} justifyContent={"stretch"} gap={0}>
+		<VStack
+			overflowY={"clip"}
+			overflowX={"clip"}
+			{...boxProps}
+			alignItems={"stretch"}
+			justifyContent={"stretch"}
+			gap={0}
+		>
 			{header && (
 				<PanelSectionHeader margin={0}>
 					{header}
@@ -111,23 +118,26 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 			<PaneListContainer>
 				<PaneListScrollContainer
 					ref={wrapperRef}
-					overflowY="clip"
-					onWheel={(e) => {
-						if (!wrapperRef.current || !contentRef.current) return
-						const max = contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
-						scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
-						scrollYMv.set(-scrollY.current)
-					}}
+					// overflowY="clip"
+					// onWheel={(e) => {
+					// 	if (!wrapperRef.current || !contentRef.current) return
+					// 	const max =
+					// 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
+					// 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
+					// 	scrollYMv.set(-scrollY.current)
+					// }}
 				>
 					<PanelListScrollContent ref={contentRef} asChild>
-						<motion.div style={{ y: scrollYMv }}>
-							<SelectableGroup>{children}</SelectableGroup>
-						</motion.div>
+						<SelectableGroup>{children}</SelectableGroup>
 					</PanelListScrollContent>
 				</PaneListScrollContainer>
 
 				{!emptyListText && areItemsSelected && (
-					<PanelListItem bgColor={"transparent"} fontStyle={"italic"} textAlign={"center"}>
+					<PanelListItem
+						bgColor={"transparent"}
+						fontStyle={"italic"}
+						textAlign={"center"}
+					>
 						{emptyListText}
 					</PanelListItem>
 				)}
@@ -138,15 +148,23 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 
 						let enabled = true
 						if (command.requiresSelection && !areItemsSelected) enabled = false
-						if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
-						if (command.getEnabled) enabled = command.getEnabled(selectedItems, commandContext)
+						if (command.requiresSingleSelection && selectedItems.length !== 1)
+							enabled = false
+						if (command.getEnabled)
+							enabled = command.getEnabled(selectedItems, commandContext)
 
 						const Icon = command.getIcon
 							? command.getIcon(selectedItems, commandContext)
 							: command.icon
-						const tip = command.getTip ? command.getTip(selectedItems, commandContext) : command.tip
-						const tipTitle = command.getTipTitle ? command.getTipTitle(selectedItems, commandContext) : command.tipTitle
-						const tipText = command.getTipText ? command.getTipText(selectedItems, commandContext) : command.tipText
+						const tip = command.getTip
+							? command.getTip(selectedItems, commandContext)
+							: command.tip
+						const tipTitle = command.getTipTitle
+							? command.getTipTitle(selectedItems, commandContext)
+							: command.tipTitle
+						const tipText = command.getTipText
+							? command.getTipText(selectedItems, commandContext)
+							: command.tipText
 
 						return (
 							<IconButton

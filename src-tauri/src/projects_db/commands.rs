@@ -1,3 +1,4 @@
+use serde_json::Value;
 use tauri::Emitter;
 
 use crate::projects_db::{
@@ -14,12 +15,28 @@ struct InvalidateTagsPayload {
     desc: String,
 }
 
+#[derive(serde::Serialize, Clone)]
+struct UpdateTagsPayload {
+    tag: String,
+    data: Value,
+}
+
 fn invalidate_tags(app_handle: &tauri::AppHandle, tag: &str, desc: &str) {
     let _ = app_handle.emit(
         "invalidate-tags",
         InvalidateTagsPayload {
             tag: tag.to_string(),
             desc: desc.to_string(),
+        },
+    );
+}
+
+fn update_tags(app_handle: &tauri::AppHandle, tag: &str, data: Value) {
+    let _ = app_handle.emit(
+        "update-tags",
+        UpdateTagsPayload {
+            tag: tag.to_string(),
+            data,
         },
     );
 }
@@ -107,11 +124,15 @@ pub async fn projects_db_project_scan(
     match result {
         Ok((id, total)) => {
             if total > 0 {
-                pdb.update_project(&path, filesize, modified)
+                let project = pdb.update_project(&path, filesize, modified)
                     .await
                     .map_err(|e| e.to_string())?;
 
-                invalidate_tags(&app, &format!("projects:{}", id), "update");
+									let project = pdb.get_project(project.id).await.map_err(|e| e.to_string())?;
+
+									let project_json = serde_json::to_value(project).unwrap();
+
+									update_tags(&app, &format!("projects:{}", id), project_json);
             }
             // app.emit(
             //     "projects_db_scan_progress",

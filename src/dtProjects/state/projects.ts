@@ -45,7 +45,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 				.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
 		)
 
-		this.getService("uiState").setProjectsCount(projects.length)
+		this.container.getService("uiState").setProjectsCount(projects.length)
 	}
 
 	async removeProjects(projectFiles: string[]) {
@@ -76,7 +76,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 			projectState.excluded = exclude
 			stateUpdate.push(projectState)
 		}
-		await this.getService("scanner").syncProjects(stateUpdate.map((p) => p.path))
+		await this.container.getService("scanner").syncProjects(stateUpdate.map((p) => p.path))
 		await this.loadProjects()
 	}
 

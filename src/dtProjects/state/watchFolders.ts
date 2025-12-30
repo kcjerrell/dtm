@@ -5,7 +5,7 @@ import { pdb, type WatchFolder } from "@/commands"
 import { DTPStateController } from "@/dtProjects/state/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
-import { arrayIfOnly } from "@/utils/helpers"
+import { arrayIfOnly, compareItems } from "@/utils/helpers"
 import { compileOfficialModels } from "@/utils/models"
 
 const home = await path.homeDir()
@@ -65,12 +65,21 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 			super("watchFolders", ["watchfolders"])
 		}
 
-		override handleTags(_tags: string, _desc: string) {
+		override async handleTags(_tags: string, _desc: string) {
 			console.log("WATCHFOLDERS TAGS", _tags, _desc)
-			this.loadWatchFolders()
+			const previous = [...this.state.modelInfoFolders, ...this.state.projectFolders]
+
+			await this.loadWatchFolders()
+
+			const next = [...this.state.modelInfoFolders, ...this.state.projectFolders]
+			const diff = compareItems(previous, next, (f) => f.id, { ignoreFunctions: true })
+
+			if (diff.itemsChanged) {
+				this.container.emit("watchFoldersChanged", { ...diff })
+			}
 		}
 
-		watchDisposers: UnwatchFn[] = []
+		watchDisposers: Promise<UnwatchFn>[] = []
 
 		async loadWatchFolders() {
 			const res = (await pdb.watchFolders.listAll()) as WatchFolder[]
@@ -103,10 +112,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 				await pdb.watchFolders.add(folderPath, type, false)
 			} else {
 				throw new Error("DNE")
-			}
-
-			if (type === "Projects") {
-				this.getService("scanner").syncProjectFolders(folderPath)
 			}
 		}
 
@@ -282,7 +287,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 			this.stopWatch()
 			for (const projectFolder of this.state.projectFolders) {
 				console.log("watching", projectFolder.path)
-				const unwatch = await watch(
+				const unwatch = watch(
 					projectFolder.path,
 					async (e) => {
 						const projectFiles = e.paths
@@ -301,9 +306,11 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
 		stopWatch() {
 			console.log("stopping watch")
-			this.watchDisposers.forEach((u) => {
-				u()
-			})
+			Promise.all(this.watchDisposers).then((us) =>
+				us.forEach((u) => {
+					u()
+				}),
+			)
 			this.watchDisposers = []
 		}
 

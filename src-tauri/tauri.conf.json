@@ -37,7 +37,8 @@
           "dtm:",
           "https://cdn.discordapp.com",
           "https://api.github.com",
-          "http://api.github.com"
+					"http://api.github.com",
+					"https://kcjerrell.github.io/"
         ],
         "img-src": [
           "'self'",

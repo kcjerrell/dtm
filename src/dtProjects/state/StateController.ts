@@ -10,6 +10,7 @@ import type { UIController } from "@/dtProjects/state/uiState"
 import type WatchFoldersController from "@/dtProjects/state/watchFolders"
 import { Container } from "./container"
 import type JobsService from "./jobs"
+import type { DTPEvents } from "./types"
 
 export interface ContainerEvent<T extends string, E = undefined> {
 	on: (fn: EventHandler<E>) => void
@@ -46,26 +47,13 @@ interface StateController<T extends object = object> {
 }
 
 export abstract class DTPStateService {
-	protected container: Container<DTPContainer>
+	protected container: Container<DTPContainer, DTPEvents>
 
 	constructor(registerName: string) {
-		this.container = Container.register(
+		this.container = Container.register<DTPContainer, DTPEvents>(
 			registerName as keyof DTPContainer,
 			this as DTPContainer[keyof DTPContainer],
 		)
-	}
-
-	protected getService<T extends keyof DTPContainer>(name: T): DTPContainer[T] {
-		return this.container?.getService(name)
-	}
-
-	protected getFutureService<T extends keyof DTPContainer>(name: T): Promise<DTPContainer[T]> {
-		return this.container?.getFutureService(name)
-	}
-
-	/** identify one or more tags as being in need of refreshing. this will not be overriden by subclasses */
-	protected invalidate(tags: string, desc?: string) {
-		this.container?.invalidate(tags, desc)
 	}
 
 	protected _isDisposed = false
