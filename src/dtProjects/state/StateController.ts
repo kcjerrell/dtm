@@ -19,16 +19,16 @@ export interface ContainerEvent<T extends string, E = undefined> {
 export type EventHandler<E = undefined> = (e: E) => void
 
 export interface DTPContainer extends Record<string, DTPStateService> {
-		projects: ProjectsController
-		uiState: UIController
-		models: ModelsController
-		watchFolders: WatchFoldersController
-		scanner: ScannerService
-		search: SearchController
-		images: ImagesController
-		details: DetailsService
-		jobs: JobsService
-	}
+	projects: ProjectsController
+	uiState: UIController
+	models: ModelsController
+	watchFolders: WatchFoldersController
+	scanner: ScannerService
+	search: SearchController
+	images: ImagesController
+	details: DetailsService
+	jobs: JobsService
+}
 
 /**
  * Abstract base class for controllers using valtio state proxies
@@ -90,29 +90,14 @@ export abstract class DTPStateController<T extends object = object>
 	/** the tags this controller is interested in. e.g. "project" or "project:34" */
 	protected tags?: string[]
 
-	constructor(registerName: string, tags?: string[]) {
+	constructor(registerName: string, tagRoot?: string) {
 		super(registerName)
-		if (tags) this.tags = tags
+		
+		if (tagRoot) this.container.addTagHandler(tagRoot, this.handleTags.bind(this))
 	}
 
 	/** state controllers can override this to handle their registered tag type */
-	protected handleTags(_tags: string, _desc: string) {}
-
-	/** @internal should only be called by DTPStateService.invalidate */
-	_internalHandleTags(tags: string, desc: string) {
-		if (!this.tags) return
-
-		const match = this.tags.some((t) => {
-			if (t === tags) return true
-			if (tags.startsWith(`${t}:`)) return true
-			if (t.startsWith(`${tags}:`)) return true
-			return false
-		})
-
-		if (match) {
-			this.handleTags(tags, desc)
-		}
-	}
+	protected handleTags(_tags: string, _desc?: Record<string, unknown>) {}
 
 	useSnap(): Snapshot<T> {
 		return useSnapshot(this.state)

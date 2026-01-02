@@ -1,9 +1,9 @@
 import { proxy, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import {
-	EmptyItemSource,
-	type IItemSource,
-	PagedItemSource,
+    EmptyItemSource,
+    type IItemSource,
+    PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
 import { type ContainerEvent, DTPStateController } from "@/dtProjects/state/StateController"
 import type { ImagesSource } from "../types"
@@ -11,159 +11,167 @@ import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
 
 export type ImagesControllerState = {
-	imageSource: ImagesSource
-	totalImageCount?: number
-	selectedProjectsCount?: number
-	projectImageCounts?: Record<number, number>
-	imageSize?: number
-	searchId: number
+    imageSource: ImagesSource
+    totalImageCount?: number
+    selectedProjectsCount?: number
+    projectImageCounts?: Record<number, number>
+    imageSize?: number
+    searchId: number
 }
 
 class ImagesController extends DTPStateController<ImagesControllerState> {
-	state = proxy<ImagesControllerState>({
-		imageSource: { projectIds: [], direction: "desc", sort: "wall_clock" },
-		totalImageCount: undefined,
-		selectedProjectsCount: undefined,
-		projectImageCounts: undefined,
-		imageSize: undefined,
-		searchId: 0,
-	})
+    state = proxy<ImagesControllerState>({
+        imageSource: { projectIds: [], direction: "desc", sort: "wall_clock" },
+        totalImageCount: undefined,
+        selectedProjectsCount: undefined,
+        projectImageCounts: undefined,
+        imageSize: undefined,
+        searchId: 0,
+    })
 
-	itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
+    itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
+    eventTimer: NodeJS.Timeout | undefined
 
-	private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
-		on: (fn: (_: undefined) => void) => this.container.on("imagesChanged", fn),
-		off: (fn: (_: undefined) => void) => this.container.off("imagesChanged", fn),
-	}
-	get onImagesChanged() {
-		return this._onImagesChanged
-	}
+    private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
+        on: (fn: (_: undefined) => void) => this.container.on("imagesChanged", fn),
+        off: (fn: (_: undefined) => void) => this.container.off("imagesChanged", fn),
+    }
+    get onImagesChanged() {
+        return this._onImagesChanged
+    }
 
-	constructor() {
-		super("images")
+    constructor() {
+        super("images")
 
-		this.container.getFutureService("projects").then((projectsService) => {
-			this.watchProxy((get) => {
-				const p = get(projectsService.state.selectedProjects)
-				this.setSelectedProjects(p)
-			})
-			this.watchProxy((get) => {
-				const p = get(projectsService.state.projects)
-				const changed = updateProjectsCache(p, this.projectsCache)
-				if (changed.length > 0) this.container.emit("imagesChanged")
-			})
-		})
+        this.container.getFutureService("projects").then((projectsService) => {
+            this.watchProxy((get) => {
+                const p = get(projectsService.state.selectedProjects)
+                this.setSelectedProjects(p)
+            })
+            this.watchProxy((get) => {
+                const p = get(projectsService.state.projects)
+                const changed = updateProjectsCache(p, this.projectsCache)
+                if (changed.length > 0) {
+                    if (this.eventTimer) return
+                    clearTimeout(this.eventTimer)
+                    this.eventTimer = setTimeout(async () => {
+                        await this.refreshImageCounts()
+                        this.container.emit("imagesChanged")
+                        this.eventTimer = undefined
+                    }, 1000)
+                }
+            })
+        })
 
-		this.watchProxy((get) => {
-			const source = get(this.state.imageSource)
+        this.watchProxy((get) => {
+            const source = get(this.state.imageSource)
 
-			const getItems = async (skip: number, take: number) => {
-				const res = await pdb.listImages(source, skip, take)
-				return res.items
-			}
-			const getCount = async () => {
-				await this.refreshImageCounts()
-				return this.state.selectedProjectsCount ?? 0
-			}
-			const itemSource = new PagedItemSource({
-				getItems,
-				getCount,
-				pageSize: 250,
-				onActiveItemChanged: (item) => {
-					if (item) this.container.getService("uiState")?.showDetailsOverlay(item)
-				},
-			})
-			itemSource.renderWindow = [0, 20]
-			this.itemSource = itemSource
-			this.state.searchId++
+            const getItems = async (skip: number, take: number) => {
+                const res = await pdb.listImages(source, skip, take)
+                return res.items
+            }
+            const getCount = async () => {
+                await this.refreshImageCounts()
+                return this.state.selectedProjectsCount ?? 0
+            }
+            const itemSource = new PagedItemSource({
+                getItems,
+                getCount,
+                pageSize: 250,
+                onActiveItemChanged: (item) => {
+                    if (item) this.container.getService("uiState")?.showDetailsOverlay(item)
+                },
+            })
+            itemSource.renderWindow = [0, 20]
+            this.itemSource = itemSource
+            this.state.searchId++
 
-			this.refreshImageCounts()
-		})
-	}
+            this.refreshImageCounts()
+        })
+    }
 
-	projectsCache: Record<number, number> = {}
+    projectsCache: Record<number, number> = {}
 
-	toggleSortDirection() {
-		if (!this.state.imageSource) return
-		if (this.state.imageSource?.direction === "asc") this.state.imageSource.direction = "desc"
-		else this.state.imageSource.direction = "asc"
-	}
+    toggleSortDirection() {
+        if (!this.state.imageSource) return
+        if (this.state.imageSource?.direction === "asc") this.state.imageSource.direction = "desc"
+        else this.state.imageSource.direction = "asc"
+    }
 
-	async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
-		this.state.imageSource.search = searchText
-		this.state.imageSource.filters = filter?.map((f) => ({
-			target: f.target.toLowerCase(),
-			operator: f.operator,
-			value: f.value,
-		}))
-	}
+    async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
+        this.state.imageSource.search = searchText
+        this.state.imageSource.filters = filter?.map((f) => ({
+            target: f.target.toLowerCase(),
+            operator: f.operator,
+            value: f.value,
+        }))
+    }
 
-	async setSelectedProjects(projects: ProjectState[]) {
-		this.state.imageSource.projectIds = projects.map((p) => p.id)
-	}
+    async setSelectedProjects(projects: ProjectState[]) {
+        this.state.imageSource.projectIds = projects.map((p) => p.id)
+    }
 
-	selectNextItem() {
-		if (this.itemSource.activeItemIndex === undefined) return
-		this.itemSource.activeItemIndex++
-	}
+    selectNextItem() {
+        if (this.itemSource.activeItemIndex === undefined) return
+        this.itemSource.activeItemIndex++
+    }
 
-	selectPrevItem() {
-		if (this.itemSource.activeItemIndex === undefined) return
-		this.itemSource.activeItemIndex--
-	}
+    selectPrevItem() {
+        if (this.itemSource.activeItemIndex === undefined) return
+        this.itemSource.activeItemIndex--
+    }
 
-	async refreshImageCounts() {
-		const { total, counts } = await pdb.listImagesCount(this.state.imageSource)
-		const projectCounts = {} as Record<string, number>
-		for (const count of counts) {
-			projectCounts[count.project_id] = count.count
-		}
+    async refreshImageCounts() {
+        const { total, counts } = await pdb.listImagesCount(this.state.imageSource)
+        const projectCounts = {} as Record<string, number>
+        for (const count of counts) {
+            projectCounts[count.project_id] = count.count
+        }
 
-		this.state.projectImageCounts = projectCounts
-		this.state.selectedProjectsCount = this.state.imageSource.projectIds?.length
-			? this.state.imageSource.projectIds?.reduce(
-					(acc, p) => acc + (projectCounts[p] ?? 0),
-					0,
-				)
-			: total
-		this.state.totalImageCount = total
-	}
+        this.state.projectImageCounts = projectCounts
+        this.state.selectedProjectsCount = this.state.imageSource.projectIds?.length
+            ? this.state.imageSource.projectIds?.reduce(
+                  (acc, p) => acc + (projectCounts[p] ?? 0),
+                  0,
+              )
+            : total
+        this.state.totalImageCount = total
+    }
 
-	useItemSource() {
-		const id = useSnapshot(this.state).searchId
-		console.log("this thing ran")
-		return this.itemSource
-	}
+    useItemSource() {
+        const _id = useSnapshot(this.state).searchId
+        return this.itemSource
+    }
 
-	override dispose() {
-		super.dispose()
-	}
+    override dispose() {
+        super.dispose()
+    }
 }
 
 export default ImagesController
 
 /** updates a projects cache in place and returns a list of project ids where the count has changed */
 function updateProjectsCache(
-	projects: ProjectsControllerState["projects"],
-	cache: Record<number, number>,
+    projects: ProjectsControllerState["projects"],
+    cache: Record<number, number>,
 ) {
-	const projectsChanged: number[] = []
+    const projectsChanged: number[] = []
 
-	const visited: Record<number, number | null> = { ...cache }
-	for (const project of projects) {
-		visited[project.id] = null
-		if (cache[project.id] !== project.image_count) {
-			projectsChanged.push(project.id)
-			cache[project.id] = project.image_count
-		}
-	}
+    const visited: Record<number, number | null> = { ...cache }
+    for (const project of projects) {
+        visited[project.id] = null
+        if (cache[project.id] !== project.image_count) {
+            projectsChanged.push(project.id)
+            cache[project.id] = project.image_count
+        }
+    }
 
-	for (const key in visited) {
-		if (visited[key] !== null) {
-			delete cache[key]
-			projectsChanged.push(Number(key))
-		}
-	}
+    for (const key in visited) {
+        if (visited[key] !== null) {
+            delete cache[key]
+            projectsChanged.push(Number(key))
+        }
+    }
 
-	return projectsChanged
+    return projectsChanged
 }

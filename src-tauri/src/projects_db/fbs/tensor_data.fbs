@@ -1,0 +1,20 @@
+
+table TensorData {
+  lineage: long;
+  logical_time: long;
+  index: long;
+  x: int;
+  y: int;
+  width: int;
+  height: int;
+  scale_factor_by_120: int;
+  tensor_id: long;
+  mask_id: long;
+  depth_map_id: long;
+  scribble_id: long;
+  pose_id: long;
+  color_palette_id: long;
+  custom_id: long;
+}
+
+root_type TensorData;

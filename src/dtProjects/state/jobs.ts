@@ -1,118 +1,140 @@
 import { Mutex } from "async-mutex"
+import type { Model } from "@/commands"
 import { type DTPContainer, DTPStateService } from "@/dtProjects/state/StateController"
 import type { Container } from "./container"
 import type { ProjectJobPayload } from "./scanner"
 
-interface JobMap {
-	syncProjectFolders: { payload: null; result: null }
-	project: { payload: ProjectJobPayload; result: null }
-	modelInfo: { payload: null; result: null }
+
+export interface JobDef {
+    type: string
+    action?: string
+    data?: unknown
+    execute: (
+        data: unknown,
+        container: Container<DTPContainer>,
+    ) => Promise<JobResult<unknown>> | Promise<void>
+    callback?: JobCallback<unknown>
+    merge?: "first" | "last"
 }
 
-export interface JobDef<T = null, R = null> {
-	type: string
-	action?: string
-	data?: T
-	execute: (data: T, container: Container<DTPContainer>) => Promise<JobResult<R>> | Promise<void>
-	callback?: JobCallback<R>
+export interface Job extends JobDef {
+    id: number
+    status: "pending" | "active" | "completed" | "failed" | "canceled"
+    error?: string
+    retries?: number
 }
-
-export interface Job<T, R> extends JobDef<T, R> {
-	id: number
-	status: "pending" | "active" | "completed" | "failed"
-	error?: string
-	retries?: number
-}
-
-export type AnyJob = {
-	[K in keyof JobMap]: Job<JobMap[K]["payload"], JobMap[K]["result"]> & { type: K }
-}[keyof JobMap]
-
-export type JobPayload = Omit<AnyJob, "id" | "status" | "error" | "retries">
 
 export type JobCallback<R = null> = (result?: R, error?: unknown) => void
 
 export type JobResult<R = null> = {
-	jobs?: JobPayload[]
-	follow?: JobPayload
-	data?: R
+    jobs?: Job[]
+    follow?: Job
+    data?: R
 }
 
 let id = 0
 class JobsService extends DTPStateService {
-	jobs: AnyJob[] = []
-	isActive = false
-	mutex = new Mutex()
+    jobs: Job[] = []
+    isActive = false
+    mutex = new Mutex()
 
-	constructor() {
-		super("jobs")
-	}
+    constructor() {
+        super("jobs")
+    }
 
-	addJob(job: JobPayload, addToFront = false) {
-		if (this._isDisposed) throw new Error("JobsService is disposed")
+    addJob(job: JobDef, addToFront = false) {
+        if (this._isDisposed) throw new Error("JobsService is disposed")
 
-		const item = {
-			...job,
-			id: id++,
-			status: "pending",
-		} as AnyJob
+        const item = {
+            ...job,
+            id: id++,
+            status: "pending",
+        } as Job
 
-		if (addToFront) this.jobs.unshift(item)
-		else this.jobs.push(item)
+        // replace first job with this one, and cancel all others
+        if (item.merge === "first") {
+            const index = this.jobs.findIndex(
+                (j) => j.type === item.type && j.action === item.action,
+            )
+            if (index !== -1) {
+                this.jobs.splice(index, 1, item)
+                return
+            }
+            this.jobs.forEach((j) => {
+                if (j.type === item.type && j.action === item.action) {
+                    j.status = "canceled"
+                }
+            })
+            return
+        }
+        // cancel all jobs before this one
+        if (item.merge === "last") {
+            if (addToFront) throw new Error("Cannot add job to front with merge last")
+            this.jobs.forEach((j) => {
+                if (j.type === item.type && j.action === item.action) {
+                    j.status = "canceled"
+                }
+            })
+        }
 
-		if (!this.isActive) this.start()
-	}
+        if (addToFront) this.jobs.unshift(item)
+        else this.jobs.push(item)
 
-	addJobs(jobs: JobPayload[], addToFront = false) {
-		for (const job of jobs) {
-			this.addJob(job, addToFront)
-		}
-	}
+        if (!this.isActive) this.start()
+    }
 
-	async start() {
-		if (this.isActive) return
-		this.isActive = true
-		await this.mutex.runExclusive(async () => {
-			while (this.jobs.length > 0) {
-				if (this._isDisposed) throw new Error("JobsService is disposed")
+    addJobs(jobs: Job[], addToFront = false) {
+        for (const job of jobs) {
+            this.addJob(job, addToFront)
+        }
+    }
 
-				const job = this.jobs.shift()
-				if (!job) break
+    async start() {
+        if (this.isActive) return
+        this.isActive = true
+        await this.mutex.runExclusive(async () => {
+            while (this.jobs.length > 0) {
+                if (this._isDisposed) throw new Error("JobsService is disposed")
 
-				job.status = "active"
+                const job = this.jobs.shift()
+                if (!job) break
 
-				try {
-					const result = await job.execute(job.data, this.container)
+                if (job.status === "canceled") continue
 
-					if (Array.isArray(result?.jobs) && result.jobs.length > 0) {
-						this.addJobs(result.jobs)
-					}
+                job.status = "active"
+ 
+                try {
+                    const result = await job.execute(job.data, this.container)
 
-					if (result?.follow) {
-						this.addJob(result.follow, true)
-					}
+                    if (Array.isArray(result?.jobs) && result.jobs.length > 0) {
+                        this.addJobs(result.jobs)
+                    }
 
-					job.status = "completed"
+                    if (result?.follow) {
+                        this.addJob(result.follow, true)
+                    }
 
-					job.callback?.(result?.data)
-				} catch (error) {
-					job.status = "failed"
-					job.error = error instanceof Error ? error.message : String(error)
-					job.retries = (job.retries ?? 0) + 1
+                    job.status = "completed"
 
-					job.callback?.(undefined, error)
+                    job.callback?.(result?.data)
+                } catch (error) {
+                    job.status = "failed"
+                    job.error = error instanceof Error ? error.message : String(error)
+                    job.retries = (job.retries ?? 0) + 1
 
-					if (job.retries < 3) {
-						this.addJob(job, false)
-					} else {
-						job.status = "failed"
-						console.error("a job failed", job)
-					}
-				}
-			}
-		})
-		this.isActive = false
-	}
+                    job.callback?.(undefined, error)
+
+                    if (job.retries < 3) {
+                        this.addJob(job, false)
+                    } else {
+                        job.status = "failed"
+                        console.error("a job failed", job)
+                    }
+                }
+            }
+        })
+        this.isActive = false
+    }
 }
 
 export default JobsService

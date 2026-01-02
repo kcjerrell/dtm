@@ -174,7 +174,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk_images_project")
                             .from(Images::Table, Images::ProjectId)
-                            .to(Projects::Table, Projects::Id),
+                            .to(Projects::Table, Projects::Id)
+														.on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()

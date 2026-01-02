@@ -16,9 +16,7 @@ use tauri::Manager;
 use tokio::sync::OnceCell;
 
 use crate::projects_db::{
-    dt_project::{self, ProjectRef},
-    filters::ListImagesFilter,
-    DTProject, TensorHistoryImport,
+    DTProject, TensorHistoryImport, dt_project::{self, ProjectRef}, filters::ListImagesFilter, search
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
@@ -80,18 +78,24 @@ impl ProjectsDb {
         Ok(project)
     }
 
-    pub async fn remove_project(&self, path: &str) -> Result<(), DbErr> {
-        let delete_result = projects::Entity::delete_many()
-            .filter(projects::Column::Path.eq(path))
+    pub async fn remove_project(&self, path: &str) -> Result<Option<i64>, DbErr> {
+        let project = projects::Entity::find_by_path(path).one(&self.db).await?;
+
+        if project.is_none() {
+            println!("No project found for path: {}", path);
+            return Ok(None);
+        }
+        let project = project.unwrap();
+
+        let delete_result = projects::Entity::delete_by_id(project.id)
             .exec(&self.db)
             .await?;
 
         if delete_result.rows_affected == 0 {
-            // optional: handle if nothing was deleted
-            println!("No project found for path: {}", path);
+            println!("project couldn't be deleted: {}", path);
         }
 
-        Ok(())
+        Ok(Some(project.id))
     }
 
     pub async fn get_project(&self, id: i64) -> Result<ProjectExtra, DbErr> {
@@ -110,6 +114,27 @@ impl ProjectsDb {
             .await?;
 
         Ok(result.unwrap())
+    }
+
+    pub async fn get_project_by_path(&self, path: &str) -> Result<ProjectExtra, DbErr> {
+        use images::Entity as Images;
+        use projects::Entity as Projects;
+
+        let result = Projects::find_by_path(path)
+            .join(JoinType::LeftJoin, projects::Relation::Images.def())
+            .column_as(
+                Expr::col((Images, images::Column::ProjectId)).count(),
+                "image_count",
+            )
+            .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
+            .into_model::<ProjectExtra>()
+            .one(&self.db)
+            .await?;
+
+        match result {
+            Some(result) => Ok(result),
+            None => Err(DbErr::RecordNotFound(format!("Project {path} not found"))),
+        }
     }
 
     /// List all projects, newest first
@@ -169,11 +194,7 @@ impl ProjectsDb {
         let dt_project = DTProject::get(path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
-        let project = self.add_project(path).await?;
-
-        if project.excluded {
-            return Ok((project.id, 0));
-        }
+        let project = self.get_project_by_path(path).await?;
 
         let start = match full_scan {
             true => 0,
@@ -197,11 +218,6 @@ impl ProjectsDb {
             //     _ => dt_project.batch_thumbs(&preview_ids).await?,
             // };
             let preview_thumbs = HashMap::new();
-
-            // if histories_filtered.is_empty() {
-            //     on_progress((batch_start + 250) as i32, end as i32);
-            //     continue;
-            // }
 
             let models_lookup = self.process_models(&histories_filtered).await?;
 
@@ -481,6 +497,8 @@ impl ProjectsDb {
         }
 
         if let Some(search) = &opts.search {
+            query = search::add_search(query, search);
+        }
             // Join the FTS table
             // query = query.join(
             //     sea_orm::JoinType::InnerJoin,
@@ -518,12 +536,12 @@ impl ProjectsDb {
             //     "images_fts MATCH ?",
             //     [sea_orm::Value::from(search.clone())],
             // ));
-            let mut cond = Condition::any();
-            for term in search.split_whitespace() {
-                cond = cond.add(images::Column::Prompt.contains(term));
-            }
-            query = query.filter(cond);
-        }
+        //     let mut cond = Condition::any();
+        //     for term in search.split_whitespace() {
+        //         cond = cond.add(images::Column::Prompt.contains(term));
+        //     }
+        //     query = query.filter(cond);
+        // }
 
         if let Some(filters) = opts.filters {
             for f in filters {

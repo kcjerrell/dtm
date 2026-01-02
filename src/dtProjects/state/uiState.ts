@@ -9,7 +9,6 @@ import type { ProjectState } from "./projects"
 export type UIControllerState = {
 	selectedTab: "projects" | "search" | "settings"
 	shouldFocus?: string
-	projectsCount: number
 	detailsView: {
 		project?: ProjectState
 		item?: ImageExtra
@@ -42,7 +41,6 @@ export class UIController extends DTPStateController<UIControllerState> {
 	state = proxy<UIControllerState>({
 		selectedTab: "projects",
 		shouldFocus: undefined,
-		projectsCount: 0,
 		detailsView: {
 			showSpinner: false,
 			item: undefined,
@@ -129,7 +127,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 		details.subItem = {
 			projectId,
 			tensorId,
-			maskUrl: maskId ? urls.tensor(projectId, maskId, { invert: true }) : undefined,
+			maskUrl: maskId ? urls.tensor(projectId, maskId, { invert: false }) : undefined,
 			applyMask: !!maskId,
 			thumbUrl: urls.tensor(projectId, tensorId, { size: 100 }),
 			isLoading: true,
@@ -186,10 +184,5 @@ export class UIController extends DTPStateController<UIControllerState> {
 		return fn().finally(() => {
 			this.state.detailsView.showSpinner = false
 		})
-	}
-
-	setProjectsCount(count: number) {
-		this.state.projectsCount = count
-		if (count === 0) this.setSelectedTab("settings")
 	}
 }

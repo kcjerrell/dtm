@@ -54,7 +54,13 @@ pub async fn projects_db_project_add(
 ) -> Result<ProjectExtra, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
     let project = pdb.add_project(&path).await.unwrap();
-    invalidate_tags(&app_handle, "projects", "add");
+    update_tags(
+        &app_handle,
+        "projects",
+        serde_json::json!({
+            "added": project
+        }),
+    );
     Ok(project)
 }
 
@@ -64,8 +70,20 @@ pub async fn projects_db_project_remove(
     path: String,
 ) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    pdb.remove_project(&path).await.unwrap();
-    invalidate_tags(&app_handle, "projects", "remove");
+    let result = pdb.remove_project(&path).await.map_err(|e| e.to_string())?;
+
+    match result {
+        Some(id) => {
+            update_tags(
+                &app_handle,
+                "projects",
+                serde_json::json!({
+                    "removed": id
+                }),
+            );
+        }
+        None => {}
+    }
     Ok(())
 }
 
@@ -122,17 +140,23 @@ pub async fn projects_db_project_scan(
         .map_err(|e| e.to_string());
 
     match result {
-        Ok((id, total)) => {
+        Ok((_id, total)) => {
             if total > 0 {
-                let project = pdb.update_project(&path, filesize, modified)
+                let project = pdb
+                    .update_project(&path, filesize, modified)
                     .await
                     .map_err(|e| e.to_string())?;
 
-									let project = pdb.get_project(project.id).await.map_err(|e| e.to_string())?;
+                let project = pdb
+                    .get_project(project.id)
+                    .await
+                    .map_err(|e| e.to_string())?;
 
-									let project_json = serde_json::to_value(project).unwrap();
+                let project_json = serde_json::json!({
+                    "updated": project
+                });
 
-									update_tags(&app, &format!("projects:{}", id), project_json);
+                update_tags(&app, "projects", project_json);
             }
             // app.emit(
             //     "projects_db_scan_progress",
@@ -253,11 +277,11 @@ pub async fn projects_db_scan_model_info(
         .scan_model_info(&file_path, model_type)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     if count > 0 {
         invalidate_tags(&app, "models", "scan");
     }
-    
+
     Ok(count)
 }
 
@@ -284,6 +308,14 @@ pub async fn dt_project_get_tensor_history(
         Ok(history) => Ok(history),
         Err(_e) => Ok(Vec::new()),
     }
+}
+
+#[tauri::command]
+pub async fn dt_project_get_text_history(
+    project_file: String,
+) -> Result<Vec<crate::projects_db::TextHistoryNode>, String> {
+    let project = DTProject::get(&project_file).await.unwrap();
+    Ok(project.get_text_history().await.unwrap())
 }
 
 #[tauri::command]

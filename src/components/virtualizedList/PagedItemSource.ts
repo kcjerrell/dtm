@@ -55,7 +55,6 @@ export class PagedItemSource<T> implements IItemSource<T> {
 		onActiveItemChanged: ((item: PagedItem<T>, index: number | undefined) => void) | undefined
 
 		constructor(opts: PagedItemSourceOpts<T>) {
-			console.log("PagedItemSource", opts)
 			this.state = proxy({
 				renderItems: [] as PagedItem<T>[],
 				firstIndex: 0,
@@ -144,8 +143,14 @@ export class PagedItemSource<T> implements IItemSource<T> {
 		getTotalCount(): number {
 			return this.state.totalCount
 		}
-		clearItems(): Promise<void> {
-			throw new Error("Method not implemented.")
+		async clearItems(): Promise<void> {
+			this.state.totalCount = await this.getCount()
+
+			const windowSize = this.state.lastIndex - this.state.firstIndex + 1
+			this.state.lastIndex = Math.min(this.state.totalCount - 1, this.state.lastIndex)
+			this.state.firstIndex = Math.max(0, this.state.lastIndex - windowSize + 1)
+
+			this.ensurePages(true, true)
 		}
 		get renderWindow(): [number, number] {
 			return [this.state.firstIndex, this.state.lastIndex]

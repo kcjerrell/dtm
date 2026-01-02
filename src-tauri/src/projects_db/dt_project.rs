@@ -1,4 +1,5 @@
-use crate::projects_db::{tensor_history::TensorHistoryNode, TensorHistoryImport};
+use crate::projects_db::{tensor_history::TensorHistoryNode, TensorHistoryImport, TextHistory, TextHistoryNode};
+use tokio::sync::OnceCell;
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use serde::Serialize;
@@ -20,15 +21,19 @@ static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
 pub struct DTProject {
     pool: SqlitePool,
     path: String,
-    has_history: AtomicBool,
+    has_tensor_history: AtomicBool,
+    has_text_history: AtomicBool,
     has_moodboard: AtomicBool,
     has_tensors: AtomicBool,
+
     has_thumbs: AtomicBool,
+    pub text_history: OnceCell<TextHistory>,
 }
 
 #[derive(Debug, Serialize)]
 enum DTProjectTable {
-    History,
+    TensorHistory,
+    TextHistory,
     Moodboard,
     Tensors,
     Thumbs,
@@ -42,10 +47,13 @@ impl DTProject {
         let dtp = Self {
             pool,
             path: db_path.to_string(),
-            has_history: AtomicBool::new(false),
+            has_tensor_history: AtomicBool::new(false),
+            has_text_history: AtomicBool::new(false),
             has_moodboard: AtomicBool::new(false),
             has_tensors: AtomicBool::new(false),
+
             has_thumbs: AtomicBool::new(false),
+            text_history: OnceCell::new(),
         };
 
         dtp.check_tables().await?;
@@ -73,10 +81,11 @@ impl DTProject {
 
         for table in tables {
             match table.0.as_str() {
-                "tensorhistorynode" => self.has_history.store(true, Ordering::Relaxed),
+                "tensorhistorynode" => self.has_tensor_history.store(true, Ordering::Relaxed),
                 "tensormoodboarddata" => self.has_moodboard.store(true, Ordering::Relaxed),
                 "tensors" => self.has_tensors.store(true, Ordering::Relaxed),
                 "thumbnailhistorynode" => self.has_thumbs.store(true, Ordering::Relaxed),
+                "texthistorynode" => self.has_text_history.store(true, Ordering::Relaxed),
                 _ => {}
             }
         }
@@ -86,7 +95,8 @@ impl DTProject {
 
     fn has_table(&self, table: &DTProjectTable) -> bool {
         match table {
-            DTProjectTable::History => self.has_history.load(Ordering::Relaxed),
+            DTProjectTable::TensorHistory => self.has_tensor_history.load(Ordering::Relaxed),
+            DTProjectTable::TextHistory => self.has_text_history.load(Ordering::Relaxed),
             DTProjectTable::Moodboard => self.has_moodboard.load(Ordering::Relaxed),
             DTProjectTable::Tensors => self.has_tensors.load(Ordering::Relaxed),
             DTProjectTable::Thumbs => self.has_thumbs.load(Ordering::Relaxed),
@@ -113,7 +123,7 @@ impl DTProject {
         first_id: i64,
         count: i64,
     ) -> Result<Vec<TensorHistoryImport>, Error> {
-        match self.check_table(&DTProjectTable::History).await {
+        match self.check_table(&DTProjectTable::TensorHistory).await {
             Ok(_) => {}
             Err(_) => return Ok(Vec::new()),
         }
@@ -133,6 +143,23 @@ impl DTProject {
             .map(|row: SqliteRow| self.map_import(row))
             .fetch_all(&self.pool)
             .await?;
+
+
+
+        let mut items = items;
+        for item in items.iter_mut() {
+            if item.prompt.is_empty() && item.negative_prompt.is_empty() {
+                let history = self.text_history.get_or_try_init(|| async {
+                   let nodes = self.get_text_history().await?;
+                   Ok::<TextHistory, Error>(TextHistory::new(nodes))
+                }).await?;
+                
+                if let Some(prompts) = history.get_edit(item.text_lineage, item.text_edits) {
+                    item.prompt = prompts.positive;
+                    item.negative_prompt = prompts.negative;
+                }
+            }
+        }
 
         Ok(items)
     }
@@ -239,7 +266,7 @@ impl DTProject {
     }
 
     pub async fn get_info(&self) -> Result<DTProjectInfo, Error> {
-        match self.check_table(&DTProjectTable::History).await {
+        match self.check_table(&DTProjectTable::TensorHistory).await {
             Ok(_) => {}
             Err(_) => {
                 return Ok(DTProjectInfo {
@@ -320,7 +347,7 @@ impl DTProject {
     }
 
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
-        self.check_table(&DTProjectTable::History).await?;
+        self.check_table(&DTProjectTable::TensorHistory).await?;
         let mut item: TensorHistoryExtra = query(&full_query_where("thn.rowid == ?1"))
             .bind(row_id)
             .map(|row: SqliteRow| self.map_full(row))
@@ -331,6 +358,21 @@ impl DTProject {
             .get_shuffle_ids(item.lineage, item.logical_time)
             .await?;
         // item.moodboard_ids = Some(moodboard_ids);
+
+        let prompt_empty = item.history.text_prompt.as_ref().map_or(true, |s| s.is_empty());
+        let neg_prompt_empty = item.history.negative_text_prompt.as_ref().map_or(true, |s| s.is_empty());
+
+        if prompt_empty && neg_prompt_empty {
+             let history = self.text_history.get_or_try_init(|| async {
+                let nodes = self.get_text_history().await?;
+                Ok::<TextHistory, Error>(TextHistory::new(nodes))
+            }).await?;
+            
+            if let Some(prompts) = history.get_edit(item.history.text_lineage, item.history.text_edits) {
+                item.history.text_prompt = Some(prompts.positive);
+                item.history.negative_text_prompt = Some(prompts.negative);
+            }
+        }
 
         Ok(item)
     }
@@ -401,7 +443,7 @@ impl DTProject {
         lineage: i64,
         logical_time: i64,
     ) -> Result<Vec<TensorHistoryExtra>, Error> {
-        self.check_table(&DTProjectTable::History).await?;
+        self.check_table(&DTProjectTable::TensorHistory).await?;
         let q = &full_query_where("thn.__pk1 == ?1 AND thn.rowid < ?2");
         let candidates = query(q)
             .bind(logical_time - 1)
@@ -462,6 +504,23 @@ impl DTProject {
         }
 
         Ok(result)
+    }
+
+    pub async fn get_text_history(&self) -> Result<Vec<TextHistoryNode>, Error> {
+        match self.check_table(&DTProjectTable::TextHistory).await {
+            Ok(_) => {}
+            Err(_) => return Ok(Vec::new()),
+        }
+
+        let items: Vec<TextHistoryNode> = query("SELECT p FROM texthistorynode ORDER BY rowid")
+            .map(|row: SqliteRow| {
+                let p: Vec<u8> = row.get(0);
+                TextHistoryNode::try_from(p.as_slice()).unwrap()
+            })
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(items)
     }
 }
 

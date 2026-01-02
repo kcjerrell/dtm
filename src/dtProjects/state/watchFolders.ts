@@ -62,11 +62,10 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 		})
 
 		constructor() {
-			super("watchFolders", ["watchfolders"])
+			super("watchFolders", "watchfolders")
 		}
 
-		override async handleTags(_tags: string, _desc: string) {
-			console.log("WATCHFOLDERS TAGS", _tags, _desc)
+		override async handleTags(_tags: string, _desc: Record<string, unknown>) {
 			const previous = [...this.state.modelInfoFolders, ...this.state.projectFolders]
 
 			await this.loadWatchFolders()
@@ -169,8 +168,11 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 		async getFolderForProject(project: string) {
 			const folders = [] as WatchFolderState[]
 			for (const folder of this.state.projectFolders) {
-				if (folder.path.startsWith(project)) {
-					if ((await path.dirname(project)) === folder.path || folder.recursive) {
+				const sep = await path.sep()
+				const folderWithSep = folder.path.endsWith(sep) ? folder.path : folder.path + sep
+				if (project.startsWith(folderWithSep)) {
+					const projectDir = await path.dirname(project)
+					if (projectDir === folder.path || folder.recursive) {
 						folders.push(folder)
 					}
 				}
@@ -283,7 +285,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 			return modelFiles
 		}
 
-		async startWatch(callback: (projectFiles: string[]) => void) {
+		async startWatch() {
 			this.stopWatch()
 			for (const projectFolder of this.state.projectFolders) {
 				console.log("watching", projectFolder.path)
@@ -296,7 +298,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 						if (projectFiles.length === 0) return
 						const uniqueFiles = Array.from(new Set(projectFiles))
 						console.log("watch detected a change", uniqueFiles, e.attrs, e.type)
-						await callback(uniqueFiles)
 					},
 					{ delayMs: 2000, recursive: projectFolder.recursive },
 				)

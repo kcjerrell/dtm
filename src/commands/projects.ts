@@ -268,9 +268,6 @@ export const pdb = {
 	updateExclude: async (id: number, exclude: boolean): Promise<void> =>
 		invoke("projects_db_project_update_exclude", { id, exclude }),
 
-	// #unused
-	scanAllProjects: async (): Promise<void> => invoke("projects_db_project_scan_all"),
-
 	listImages: async (
 		source: MaybeReadonly<ListImagesOpts>,
 		skip: number,

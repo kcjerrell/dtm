@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use sea_orm::DbErr;
 use std::{collections::HashMap, sync::RwLock};
 use tauri::{
-    http::{self, Response, StatusCode},
+    http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
 };
 
@@ -16,6 +16,46 @@ use crate::projects_db::{
 
 static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<i64, String>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
+
+#[derive(Default)]
+struct DTPRequest {
+    item_type: String,
+    project_id: i64,
+    item_id: String,
+    node: Option<i64>,
+    scale: Option<u32>,
+    invert: Option<bool>,
+    mask: Option<String>,
+}
+
+fn parse_request(uri: &Uri) -> Option<DTPRequest> {
+    let path: Vec<&str> = uri.path().split('/').collect();
+    if path.len() < 4 {
+        return None;
+    }
+
+    let mut req = DTPRequest {
+        item_type: path[1].to_string(),
+        project_id: path[2].parse().unwrap(),
+        item_id: path[3].to_string(),
+        ..Default::default()
+    };
+
+    if let Some(query) = uri.query() {
+        for q in query.split('&') {
+            let (key, value) = q.split_once('=').unwrap();
+            match key {
+                "node" => req.node = Some(value.parse().unwrap()),
+                "s" => req.scale = Some(value.parse().unwrap()),
+                "invert" => req.invert = Some(value.parse().unwrap()),
+                "mask" => req.mask = Some(value.to_string()),
+                _ => (),
+            }
+        }
+    }
+
+    Some(req)
+}
 
 pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: UriSchemeResponder) {
     let response = match handle_request(request).await {
@@ -33,34 +73,35 @@ pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: Uri
 }
 
 async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>>, String> {
-    let path: Vec<&str> = request.uri().path().split('/').collect();
-    if path.len() < 4 {
+    let req = parse_request(request.uri());
+
+    if req.is_none() {
         return Ok(Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Invalid path format".as_bytes().to_vec())
             .map_err(|e| e.to_string())?);
     }
 
-    let item_type = path[1];
-    let project_id: i64 = path[2]
-        .parse()
-        .map_err(|_| "Invalid project ID".to_string())?;
+    let req = req.unwrap();
+
+    let item_type = req.item_type;
+    let project_id: i64 = req.project_id;
 
     let project_path = get_project_path(project_id)
         .await
         .map_err(|e| format!("Failed to get project path: {}", e))?;
 
-    let item_id = path[3];
+    let item_id = req.item_id;
 
-    let query = request.uri().query();
-    let node: Option<i64> = get_node(query).and_then(|n| n.parse().ok());
-    let scale: Option<u32> = get_scale(query).and_then(|s| s.parse().ok());
-    let invert: Option<bool> = get_invert(query);
+    let node = req.node;
+    let scale = req.scale;  
+    let invert = req.invert;
+    let mask = req.mask;
 
-    match item_type {
-        "thumb" => thumb(&project_path, item_id, false).await,
-        "thumbhalf" => thumb(&project_path, item_id, true).await,
-        "tensor" => tensor(&project_path, item_id, node, scale, invert).await,
+    match item_type.as_str() {
+        "thumb" => thumb(&project_path, &item_id, false).await,
+        "thumbhalf" => thumb(&project_path, &item_id, true).await,
+        "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
         _ => Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body("Not Found".as_bytes().to_vec())
@@ -99,6 +140,7 @@ async fn tensor(
     node: Option<i64>,
     scale: Option<u32>,
     invert: Option<bool>,
+    mask: Option<String>,
 ) -> Result<Response<Vec<u8>>, String> {
     let dtp = DTProject::get(project_file)
         .await
@@ -185,36 +227,6 @@ pub fn extract_jpeg_slice(data: &[u8]) -> Option<Vec<u8>> {
     let end = start + 2 + end + 2; // include EOI marker
 
     Some(data[start..end].to_vec())
-}
-
-fn get_node(query: Option<&str>) -> Option<&str> {
-    match query {
-        Some(query) => query.split('&').find_map(|pair| {
-            let (k, v) = pair.split_once('=')?;
-            (k == "node").then_some(v)
-        }),
-        None => None,
-    }
-}
-
-fn get_scale(query: Option<&str>) -> Option<&str> {
-    match query {
-        Some(query) => query.split('&').find_map(|pair| {
-            let (k, v) = pair.split_once('=')?;
-            (k == "s").then_some(v)
-        }),
-        None => None,
-    }
-}
-
-fn get_invert(query: Option<&str>) -> Option<bool> {
-    match query {
-        Some(query) => query.split('&').find_map(|pair| {
-            let (k, v) = pair.split_once('=')?;
-            (k == "mask" && v == "invert").then_some(true)
-        }),
-        None => None,
-    }
 }
 
 #[cfg(test)]

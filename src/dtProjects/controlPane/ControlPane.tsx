@@ -72,10 +72,10 @@ function ControlPane(props: ControlPane) {
 }
 
 function TabList(props: ChakraProps) {
-	const { uiState } = useDTP()
-	const uiSnap = uiState.useSnap()
+	const { projects } = useDTP()
+	const snap = projects.useSnap()
 
-	const hasProjects = uiSnap.projectsCount > 0
+	const hasProjects = snap.projects.length > 0
 
 	return (
 		<Tabs.List {...props}>

@@ -3,88 +3,101 @@ import EventEmitter from "eventemitter3"
 import { DTPStateController } from "./StateController"
 
 type FutureServices<T extends object> = Partial<{
-	[K in keyof T]: PromiseWithResolvers<T[K]>
+    [K in keyof T]: PromiseWithResolvers<T[K]>
 }>
 
-export class Container<T extends object = object, E extends object = object> extends EventEmitter<E> {
-		services: T = {} as T
-		private futureServices: FutureServices<T> = {}
-		unlistenPromise: Promise<() => void>
+type TagHandler = (tag: string, data?: Record<string, unknown>) => void
 
-		constructor(servicesInit: () => T) {
-			super()
+export class Container<
+    T extends object = object,
+    E extends object = object,
+> extends EventEmitter<E> {
+    services: T = {} as T
+    private futureServices: FutureServices<T> = {}
+    private invalidateUnlistenPromise: Promise<() => void>
+    private updateUnlistenPromise: Promise<() => void>
+    private tagHandlers: Map<string, TagHandler> = new Map()
 
-			Container.constructorStack.push(this as Container)
+    constructor(servicesInit: () => T) {
+        super()
 
-			servicesInit()
+        Container.constructorStack.push(this as Container)
 
-			this.unlistenPromise = listen("invalidate-tags", (event) => {
-				const payload = event.payload as { tag: string; desc: string } | string
-				console.log("INVALIDATE TAGS", payload)
-				if (typeof payload === "string") {
-					this.invalidate(payload)
-				} else {
-					this.invalidate(payload.tag, payload.desc)
-				}
-			})
-		}
+        servicesInit()
 
-		getService<K extends keyof T>(name: K): T[K] {
-			return this.services[name]
-		}
+        this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
+            const payload = event.payload as { tag: string; desc: string }
+            this.handleTags(payload.tag, { desc: payload.desc })
+        })
+        this.updateUnlistenPromise = listen("update-tags", (event) => {
+            const payload = event.payload as { tag: string; data: Record<string, unknown> }
+            this.handleTags(payload.tag, payload.data)
+        })
+    }
 
-		getFutureService<K extends keyof T>(name: K): Promise<T[K]> {
-			const existing = this.services[name]
-			if (existing !== undefined) return Promise.resolve(existing)
+    getService<K extends keyof T>(name: K): T[K] {
+        return this.services[name]
+    }
 
-			let future = this.futureServices[name]
-			if (future === undefined) {
-				future = Promise.withResolvers<T[K]>()
-				this.futureServices[name] = future
-			}
+    getFutureService<K extends keyof T>(name: K): Promise<T[K]> {
+        const existing = this.services[name]
+        if (existing !== undefined) return Promise.resolve(existing)
 
-			return future.promise
-		}
+        let future = this.futureServices[name]
+        if (future === undefined) {
+            future = Promise.withResolvers<T[K]>()
+            this.futureServices[name] = future
+        }
 
-		async invalidate(tags: string, desc: string = "update") {
-			for (const service of Object.values(this.services)) {
-				if (service instanceof DTPStateController) {
-					await service._internalHandleTags(tags, desc)
-				}
-			}
-		}
+        return future.promise
+    }
 
-		private _isDisposed = false
-		get isDisposed() {
-			return this._isDisposed
-		}
-		dispose() {
-			for (const service of Object.values(this.services)) {
-				if (service instanceof DTPStateController) {
-					service.dispose()
-				}
-			}
-			this.unlistenPromise.then((u) => u())
-			this.removeAllListeners()
-			this._isDisposed = true
-		}
+    addTagHandler(tagRoot: string, handler: TagHandler) {
+        if (this.tagHandlers.has(tagRoot)) {
+            throw new Error(`Tag handler for ${tagRoot} already exists`)
+        }
+        this.tagHandlers.set(tagRoot, handler)
+    }
 
-		private static constructorStack: Container[] = []
+    async handleTags(tag: string, data?: Record<string, unknown>) {
+        const root = tag.split(":")[0]
+        const handler = this.tagHandlers.get(root)
+        if (handler) {
+            handler(tag, data)
+        } else {
+            console.warn("no handler for tag", tag)
+        }
+    }
 
-		static register<T extends object, E extends object>(
-			name: keyof T,
-			service: T[typeof name],
-		) {
-			const container = Container.constructorStack.at(-1) as Container<T, E>
-			if (!container) throw new Error("must call register within a container constructor")
-			container.services[name] = service
+    private _isDisposed = false
+    get isDisposed() {
+        return this._isDisposed
+    }
+    dispose() {
+        for (const service of Object.values(this.services)) {
+            if (service instanceof DTPStateController) {
+                service.dispose()
+            }
+        }
+        this.invalidateUnlistenPromise.then((u) => u())
+        this.updateUnlistenPromise.then((u) => u())
+        this.removeAllListeners()
+        this._isDisposed = true
+    }
 
-			const future = container.futureServices[name]
-			if (future) {
-				future.resolve(service)
-				delete container.futureServices[name]
-			}
+    private static constructorStack: Container[] = []
 
-			return container
-		}
-	}
+    static register<T extends object, E extends object>(name: keyof T, service: T[typeof name]) {
+        const container = Container.constructorStack.at(-1) as Container<T, E>
+        if (!container) throw new Error("must call register within a container constructor")
+        container.services[name] = service
+
+        const future = container.futureServices[name]
+        if (future) {
+            future.resolve(service)
+            delete container.futureServices[name]
+        }
+
+        return container
+    }
+}

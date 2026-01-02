@@ -142,6 +142,7 @@ pub fn run() {
             dt_project_get_tensor_history, // #unused
             dt_project_get_thumb_half,     // #unused
             dt_project_get_history_full,
+            dt_project_get_text_history,
             dt_project_find_predecessor_candidates,
             dt_project_get_tensor_raw, // #unused
             dt_project_get_tensor_size,

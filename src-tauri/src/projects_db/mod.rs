@@ -19,4 +19,10 @@ mod tensors;
 
 mod metadata;
 
+mod text_history;
+pub use text_history::{TextHistory, TextHistoryNode, TextModification, TextRange, TextType};
+
+pub mod fbs;
+
 mod filters;
+mod search;

@@ -1,6 +1,6 @@
 import { Box } from "@chakra-ui/react"
-import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { motion } from "motion/react"
+import { useCallback } from "react"
 import type { ImageExtra } from "@/commands"
 import { Panel } from "@/components"
 import PVGrid, {
@@ -73,35 +73,37 @@ function GridItemAnim(
 
 	return (
 		<Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(index)}>
-			<motion.div
-				key={url}
-				style={{
-					width: "100%",
-					height: "100%",
-				}}
-				// transition={{ duration: 0.25 }}
-			>
-				<motion.img
+			{item && (
+				<motion.div
 					key={url}
 					style={{
 						width: "100%",
 						height: "100%",
-						objectFit: "cover",
-						border: "1px solid #0000ff00",
-						backgroundSize: "cover",
-						backgroundPosition: "center",
 					}}
-					// variants={{
-					// 	downscale: () => downScale(),
-					// }}
-					// initial="downscale"
-					// animate={{ scale: 1 }}
-					// exit="downscale"
-					src={url}
-					alt={item?.prompt}
 					// transition={{ duration: 0.25 }}
-				/>
-			</motion.div>
+				>
+					<motion.img
+						key={url}
+						style={{
+							width: "100%",
+							height: "100%",
+							objectFit: "cover",
+							border: "1px solid #0000ff00",
+							backgroundSize: "cover",
+							backgroundPosition: "center",
+						}}
+						// variants={{
+						// 	downscale: () => downScale(),
+						// }}
+						// initial="downscale"
+						// animate={{ scale: 1 }}
+						// exit="downscale"
+						src={url}
+						alt={item?.prompt}
+						// transition={{ duration: 0.25 }}
+					/>
+				</motion.div>
+			)}
 		</Box>
 	)
 }

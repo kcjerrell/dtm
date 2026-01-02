@@ -1,0 +1,10 @@
+
+table TensorMoodboardData {
+  lineage: long;
+  logical_time: long;
+  index: long;
+  shuffle_id: long;
+  weight: float;
+}
+
+root_type TensorMoodboardData;

@@ -55,8 +55,8 @@ pub struct TensorHistoryImport {
     pub has_shuffle: bool,
     pub has_mask: bool,
     // pub tensor_id: i64,
-    // pub text_edits: i64,
-    // pub text_lineage: i64,
+    pub text_edits: i64,
+    pub text_lineage: i64,
     // pub batch_size: u32,
     // pub hires_fix_start_width: u16,
     // pub hires_fix_start_height: u16,
@@ -208,6 +208,8 @@ impl TensorHistoryImport {
             has_scribble,
             has_shuffle,
             has_mask,
+            text_edits: node.text_edits(),
+            text_lineage: node.text_lineage(),
         })
     }
 }
