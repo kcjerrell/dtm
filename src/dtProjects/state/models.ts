@@ -83,28 +83,28 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
                 const versionModels = loras.filter((m) => m.version === version)
                 const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
                 const modelIds = versionModels.map((m) => m.id)
-                loras.push({
-                    ...baseVersionModel,
-                    id: versionModelId--,
-                    model_type: "Lora",
-                    modelCount: info.loras,
-                    count: imageCount,
-                    modelIds,
-                })
+                // loras.push({
+                //     ...baseVersionModel,
+                //     id: versionModelId--,
+                //     model_type: "Lora",
+                //     modelCount: info.loras,
+                //     count: imageCount,
+                //     modelIds,
+                // })
             }
 
             if (info.controls > 0) {
                 const versionModels = controls.filter((m) => m.version === version)
                 const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
                 const modelIds = versionModels.map((m) => m.id)
-                controls.push({
-                    ...baseVersionModel,
-                    id: versionModelId--,
-                    model_type: "Cnet",
-                    modelCount: info.controls,
-                    count: imageCount,
-                    modelIds,
-                })
+                // controls.push({
+                //     ...baseVersionModel,
+                //     id: versionModelId--,
+                //     model_type: "Cnet",
+                //     modelCount: info.controls,
+                //     count: imageCount,
+                //     modelIds,
+                // })
             }
         }
 
