@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { ProjectState } from "@/dtProjects/state/projects"
-import type { DrawThingsConfigGrouped } from "@/types"
+import type { DrawThingsConfig, DrawThingsConfigGrouped } from "@/types"
 import type { ImagesSource as ListImagesOpts } from "../dtProjects/types"
 
 // --------------------
@@ -186,7 +186,8 @@ export type DTImageFull = {
 	negativePrompt?: string
 	model?: Model
 	project: ProjectState
-	config: DrawThingsConfigGrouped
+	config: DrawThingsConfig
+	groupedConfig: DrawThingsConfigGrouped
 	node: TensorHistoryNode
 	images?: {
 		tensorId?: string

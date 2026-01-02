@@ -90,7 +90,7 @@ export function extractConfigFromTensorHistoryNode(
 	}
 
 export function groupConfigProperties(
-		config?: DrawThingsMetaData["config"] | null,
+		config?: Partial<DrawThingsMetaData["config"]> | null,
 	): DrawThingsConfigGrouped | undefined {
 		if (!config) return
 

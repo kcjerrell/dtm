@@ -20,7 +20,7 @@ class DetailsService extends DTPStateService {
 		if (!project) return
 
 		const { history, ...extra } = await dtProject.getHistoryFull(project.path, item.node_id)
-		const rawConfig = extractConfigFromTensorHistoryNode(history)
+		const rawConfig = extractConfigFromTensorHistoryNode(history) ?? {}
 		const config = groupConfigProperties(rawConfig)
 
 		const full: Partial<DTImageFull> = {
@@ -28,7 +28,8 @@ class DetailsService extends DTPStateService {
 			prompt: history.text_prompt,
 			negativePrompt: history.negative_text_prompt,
 			project,
-			config,
+			config: rawConfig,
+			groupedConfig: config,
 			node: history,
 			images: {
 				tensorId: extra.tensor_id,
