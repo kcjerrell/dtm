@@ -100,6 +100,13 @@ function DetailsContent(props: DetailsContentProps) {
                             })} */}
                         <Fragment key={snap.itemDetails?.tensor_id || "details_content"}>
                             <Row>
+                                <DataItem label={"Project"} data={snap.itemDetails.project.name.replace(/\.sqlite3$/, "")} />
+                                <DataItem
+                                    label={"Created"}
+                                    data={new Date(snap.itemDetails.node.wall_clock).toLocaleString()}
+                                />
+                            </Row>
+                            <Row>
                                 <DataItem.Size value={config.size} />
                                 <DataItem.Seed value={config.seed} />
                             </Row>
@@ -137,18 +144,27 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.AestheticScore value={config.aestheticScore} />
                                 <DataItem.TeaCache value={config.teaCache} />
                             </Grid>
-                            <DataItem label={"Tensor ID"} data={snap.itemDetails.images?.tensorId} />
+                            <DataItem
+                                label={"Tensor ID"}
+                                data={snap.itemDetails.images?.tensorId}
+                            />
                             <DataItem
                                 label={"Depth Map ID"}
                                 data={snap.itemDetails.images?.depthMapId}
                             />
                             <DataItem label={"Pose ID"} data={snap.itemDetails.images?.poseId} />
-                            <DataItem label={"Scribble ID"} data={snap.itemDetails.images?.scribbleId} />
+                            <DataItem
+                                label={"Scribble ID"}
+                                data={snap.itemDetails.images?.scribbleId}
+                            />
                             <DataItem
                                 label={"Color Palette ID"}
                                 data={snap.itemDetails.images?.colorPaletteId}
                             />
-                            <DataItem label={"Custom ID"} data={snap.itemDetails.images?.customId} />
+                            <DataItem
+                                label={"Custom ID"}
+                                data={snap.itemDetails.images?.customId}
+                            />
                         </Fragment>
                         {/* </Grid> */}
                     </Tabs.Content>

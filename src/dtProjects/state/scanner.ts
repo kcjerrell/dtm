@@ -26,13 +26,15 @@ class ScannerService extends DTPStateService {
                 })
             }
         })
-    }
 
-    scanAndWatch() {
-        console.log("s and w")
-        this.syncProjectFolders(undefined, () => {
-            console.log("after sync")
-            this.syncModelInfo()
+        this.container.on("projectFilesChanged", async (e) => {
+            const jobs = []
+            for (const project of e.files) {
+                const stats = await getProjectStats(project)
+                if (!stats) continue
+                jobs.push(getProjectJob(project, { action: "update", ...stats }))
+            }
+            this.container.getService("jobs").addJobs(jobs)
         })
     }
 
@@ -228,7 +230,7 @@ function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncPro
             const finishedCallback = () => {
                 jobsDone++
                 if (jobsDone === jobsCreated) {
-					console.log('jobs done')
+                    console.log("jobs done")
                     callback?.()
                 }
             }

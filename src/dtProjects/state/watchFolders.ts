@@ -308,7 +308,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
                     .map((p) => p.replace(/-wal$/g, ""))
                 if (projectFiles.length === 0) return
                 const uniqueFiles = Array.from(new Set(projectFiles))
-                console.log("watch detected a change", uniqueFiles, e.attrs, e.type)
+                this.container.emit("projectFilesChanged", { files: uniqueFiles })
             },
             { delayMs: 2000, recursive: folder.recursive },
         )
@@ -322,15 +322,15 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         this.watchDisposers.delete(folder)
 
         const unwatch = await unwatchPromise
-		unwatch?.()
+        unwatch?.()
     }
 
     override dispose() {
         super.dispose()
-        
-		for (const folder of this.watchDisposers.keys()) {
-			this.stopWatch(folder)
-		}
+
+        for (const folder of this.watchDisposers.keys()) {
+            this.stopWatch(folder)
+        }
     }
 }
 

@@ -69,6 +69,11 @@ export class Container<
         }
     }
 
+    override emit(...args: Parameters<EventEmitter<E>["emit"]>): boolean {
+        console.debug("emit", args)
+        return super.emit(...args)
+    }
+
     private _isDisposed = false
     get isDisposed() {
         return this._isDisposed

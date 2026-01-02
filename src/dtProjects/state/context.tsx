@@ -82,7 +82,7 @@ function createContainer() {
             images.setSearchFilter(text, filters)
         }
 
-        scanner.scanAndWatch()
+        watchFolders.loadWatchFolders()
 
         const controllers = {
             projects,
