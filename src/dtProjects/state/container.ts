@@ -22,8 +22,8 @@ export class Container<
         super()
 
         Container.constructorStack.push(this as Container)
-
         servicesInit()
+        Container.constructorStack.pop()
 
         this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
             const payload = event.payload as { tag: string; desc: string }

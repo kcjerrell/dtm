@@ -1,5 +1,5 @@
 import type { ComponentProps, ComponentType, PropsWithChildren, SVGProps } from "react"
-import type { IconType } from "react-icons/lib"
+import type { IconType } from "@/components/icons"
 import { IconButton } from "@/components"
 import Tooltip from "@/components/Tooltip"
 

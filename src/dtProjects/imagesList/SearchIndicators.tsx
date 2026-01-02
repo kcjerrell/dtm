@@ -1,9 +1,9 @@
 import { Grid, HStack } from "@chakra-ui/react"
 import { FloatIndicator, IconButton } from "@/components"
 import { useDTP } from "../state/context"
-import { FiX } from "react-icons/fi"
+import { FiX } from "@/components/icons"
 import { AnimatePresence } from "motion/react"
-import { TbSortAscending, TbSortAscending2, TbSortDescending2 } from "react-icons/tb"
+import { TbSortAscending, TbSortAscending2, TbSortDescending2 } from "@/components/icons"
 
 interface SearchIndicatorProps extends ChakraProps {}
 

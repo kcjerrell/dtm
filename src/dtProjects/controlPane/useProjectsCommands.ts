@@ -1,6 +1,6 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
-import { FiEye, FiEyeOff, FiFolder, FiRefreshCw } from "react-icons/fi"
-import { MdBlock } from "react-icons/md"
+import { FiEye, FiEyeOff, FiFolder, FiRefreshCw } from "@/components/icons"
+import { MdBlock } from "@/components/icons"
 import type { PanelListCommandItem } from "@/components/PanelList"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"

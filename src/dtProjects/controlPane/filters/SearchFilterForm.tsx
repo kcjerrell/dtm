@@ -1,6 +1,6 @@
 import { Grid } from "@chakra-ui/react"
 import { useRef } from "react"
-import { FiX } from "react-icons/fi"
+import { FiX } from "@/components/icons"
 import { IconButton } from "@/components"
 import { useDTP } from "@/dtProjects/state/context"
 import type { FilterOperator } from "@/dtProjects/state/search"
