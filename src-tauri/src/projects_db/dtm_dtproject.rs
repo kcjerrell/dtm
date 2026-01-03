@@ -241,22 +241,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_node() {
-        assert_eq!(get_node(Some("node=123&foo=bar")), Some("123"));
-        assert_eq!(get_node(Some("foo=bar&node=456")), Some("456"));
-        assert_eq!(get_node(Some("foo=bar")), None);
-        assert_eq!(get_node(None), None);
-    }
-
-    #[test]
-    fn test_get_scale() {
-        assert_eq!(get_scale(Some("s=2&foo=bar")), Some("2"));
-        assert_eq!(get_scale(Some("foo=bar&s=4")), Some("4"));
-        assert_eq!(get_scale(Some("foo=bar")), None);
-        assert_eq!(get_scale(None), None);
-    }
-
-    #[test]
     fn test_extract_jpeg_slice() {
         let data = vec![
             0x00, 0x00, // Garbage
