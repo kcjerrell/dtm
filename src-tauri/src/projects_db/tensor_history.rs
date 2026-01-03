@@ -171,9 +171,9 @@ impl TensorHistoryImport {
             .unwrap_or_default();
 
         Ok(Self {
-            prompt: node.text_prompt().unwrap_or("").to_string(),
-            negative_prompt: node.negative_text_prompt().unwrap_or("").to_string(),
-            model: node.model().unwrap_or("").to_string(),
+            prompt: node.text_prompt().unwrap_or("").trim().to_string(),
+            negative_prompt: node.negative_text_prompt().unwrap_or("").trim().to_string(),
+            model: node.model().unwrap_or("").trim().to_string(),
             lineage: node.lineage(),
             preview_id: node.preview_id(),
             row_id,
@@ -188,7 +188,7 @@ impl TensorHistoryImport {
             guidance_scale: node.guidance_scale(),
             hires_fix: node.hires_fix(),
             height: node.start_height(),
-            refiner_model: node.refiner_model().and_then(|v| Some(v.to_string())),
+            refiner_model: node.refiner_model().and_then(|v| Some(v.trim().to_string())),
             refiner_start: node.refiner_start(),
             resolution_dependent_shift: node.resolution_dependent_shift(),
             sampler: node.sampler().0,
@@ -200,7 +200,7 @@ impl TensorHistoryImport {
             tiled_diffusion: node.tiled_diffusion(),
             width: node.start_width(),
             tea_cache: node.tea_cache(),
-            upscaler: node.upscaler().and_then(|v| Some(v.to_string())),
+            upscaler: node.upscaler().and_then(|v| Some(v.trim().to_string())),
             has_depth,
             has_pose,
             has_color,
