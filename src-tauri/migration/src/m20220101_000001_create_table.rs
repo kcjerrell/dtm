@@ -75,6 +75,59 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // style templates
+        manager
+            .create_table(
+                Table::create()
+                    .table(Templates::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Templates::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(
+                        ColumnDef::new(Templates::Name)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Templates::Prefix)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Templates::Suffix)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Templates::NegativePrompt)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Templates::PromptSearch)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Templates::NegativePromptSearch)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
         // images
         manager
             .create_table(
@@ -98,8 +151,26 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Images::RefinerId).integer().null())
                     .col(ColumnDef::new(Images::RefinerStart).float().null())
                     .col(ColumnDef::new(Images::UpscalerId).integer().null())
-                    .col(ColumnDef::new(Images::Prompt).text().null())
-                    .col(ColumnDef::new(Images::NegativePrompt).text().null())
+                    .col(ColumnDef::new(Images::Prompt).text().not_null().default(""))
+                    .col(
+                        ColumnDef::new(Images::NegativePrompt)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(Images::TemplateId).integer().null())
+                    .col(
+                        ColumnDef::new(Images::PromptSearch)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Images::NegativePromptSearch)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
                     .col(
                         ColumnDef::new(Images::StartWidth)
                             .unsigned()
@@ -175,25 +246,35 @@ impl MigrationTrait for Migration {
                             .name("fk_images_project")
                             .from(Images::Table, Images::ProjectId)
                             .to(Projects::Table, Projects::Id)
-														.on_delete(ForeignKeyAction::Cascade),
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_images_model")
                             .from(Images::Table, Images::ModelId)
-                            .to(Models::Table, Models::Id),
+                            .to(Models::Table, Models::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_images_template")
+                            .from(Images::Table, Images::TemplateId)
+                            .to(Templates::Table, Templates::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_images_refiner")
                             .from(Images::Table, Images::RefinerId)
-                            .to(Models::Table, Models::Id),
+                            .to(Models::Table, Models::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_images_upscaler")
                             .from(Images::Table, Images::UpscalerId)
-                            .to(Models::Table, Models::Id),
+                            .to(Models::Table, Models::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .index(
                         Index::create()
@@ -223,48 +304,6 @@ impl MigrationTrait for Migration {
                     .name("idx_images_wall_clock")
                     .table(Images::Table)
                     .col(Images::WallClock)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_images_model_ids")
-                    .table(Images::Table)
-                    .col(Images::ModelId)
-                    .col(Images::RefinerId)
-                    .col(Images::UpscalerId)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_images_strength")
-                    .table(Images::Table)
-                    .col(Images::Strength)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_images_guidance_scale")
-                    .table(Images::Table)
-                    .col(Images::GuidanceScale)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_images_seed")
-                    .table(Images::Table)
-                    .col(Images::Seed)
                     .to_owned(),
             )
             .await?;
@@ -377,8 +416,8 @@ impl MigrationTrait for Migration {
                 r#"
                     CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
                     USING fts5(
-                        prompt,
-                        negative_prompt,
+                        prompt_search,
+                        negative_prompt_search,
                         content='images',
                         content_rowid='id',
                         tokenize='porter',
@@ -404,6 +443,9 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(Images::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Templates::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Models::Table).to_owned())
@@ -439,6 +481,18 @@ enum Models {
 }
 
 #[derive(Iden)]
+enum Templates {
+    Table,
+    Id,
+    Name,
+    Prefix,
+    Suffix,
+    NegativePrompt,
+    PromptSearch,
+    NegativePromptSearch,
+}
+
+#[derive(Iden)]
 enum Images {
     Table,
     Id,
@@ -454,6 +508,9 @@ enum Images {
     UpscalerId,
     Prompt,
     NegativePrompt,
+    TemplateId,
+    PromptSearch,
+    NegativePromptSearch,
     StartWidth,
     StartHeight,
     Seed,
