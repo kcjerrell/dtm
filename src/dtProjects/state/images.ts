@@ -100,6 +100,8 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
         this.state.imageSource.search = searchText
+            ?.replace(/\u201C|\u201D/g, '"')
+            .replace(/\u2018|\u2019/g, "'")
         this.state.imageSource.filters = filter?.map((f) => ({
             target: f.target.toLowerCase(),
             operator: f.operator,

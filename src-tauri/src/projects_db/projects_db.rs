@@ -16,7 +16,10 @@ use tauri::Manager;
 use tokio::sync::OnceCell;
 
 use crate::projects_db::{
-    DTProject, TensorHistoryImport, dt_project::{self, ProjectRef}, filters::ListImagesFilter, search
+    dt_project::{self, ProjectRef},
+    filters::ListImagesFilter,
+    search::{self, process_prompt},
+    DTProject, TensorHistoryImport,
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
@@ -267,6 +270,8 @@ impl ProjectsDb {
             })
             .await?;
 
+        self.rebuild_images_fts().await?;
+
         match total {
             ListImagesResult::Counts(_) => panic!("Unexpected result"),
             ListImagesResult::Images(images) => Ok((project.id, images.total)),
@@ -335,6 +340,8 @@ impl ProjectsDb {
                     clip_id: Set(h.clip_id),
                     prompt: Set(h.prompt.trim().to_string()),
                     negative_prompt: Set(h.negative_prompt.trim().to_string()),
+                    prompt_search: Set(process_prompt(&h.prompt)),
+                    negative_prompt_search: Set(process_prompt(&h.negative_prompt)),
                     refiner_start: Set(Some(h.refiner_start)),
                     start_width: Set(h.width as i16),
                     start_height: Set(h.height as i16),
@@ -499,43 +506,43 @@ impl ProjectsDb {
         if let Some(search) = &opts.search {
             query = search::add_search(query, search);
         }
-            // Join the FTS table
-            // query = query.join(
-            //     sea_orm::JoinType::InnerJoin,
-            //     sea_orm::RelationDef {
-            //         // FROM images
-            //         from_tbl: sea_query::TableRef::Table(
-            //             sea_query::TableName::from(images::Entity.into_iden()),
-            //             None,
-            //         ),
-            //         from_col: sea_orm::Identity::Unary(sea_query::Alias::new("id").into_iden()),
+        // Join the FTS table
+        // query = query.join(
+        //     sea_orm::JoinType::InnerJoin,
+        //     sea_orm::RelationDef {
+        //         // FROM images
+        //         from_tbl: sea_query::TableRef::Table(
+        //             sea_query::TableName::from(images::Entity.into_iden()),
+        //             None,
+        //         ),
+        //         from_col: sea_orm::Identity::Unary(sea_query::Alias::new("id").into_iden()),
 
-            //         // TO images_fts
-            //         to_tbl: sea_query::TableRef::Table(
-            //             sea_query::TableName::from(sea_query::Alias::new("images_fts").into_iden()),
-            //             None,
-            //         ),
-            //         to_col: sea_orm::Identity::Unary(sea_query::Alias::new("rowid").into_iden()),
-            //         // this only matches equal column names, but we override using on_condition below
-            //         rel_type: sea_orm::RelationType::HasOne,
-            //         is_owner: false,
-            //         skip_fk: false,
-            //         on_delete: None,
-            //         on_update: None,
-            //         on_condition: Some(std::sync::Arc::new(|_l, _r| {
-            //             sea_orm::Condition::all()
-            //                 .add(sea_query::Expr::cust("images_fts.rowid = images.id"))
-            //         })),
-            //         fk_name: None,
-            //         condition_type: sea_query::ConditionType::Any,
-            //     },
-            // );k
+        //         // TO images_fts
+        //         to_tbl: sea_query::TableRef::Table(
+        //             sea_query::TableName::from(sea_query::Alias::new("images_fts").into_iden()),
+        //             None,
+        //         ),
+        //         to_col: sea_orm::Identity::Unary(sea_query::Alias::new("rowid").into_iden()),
+        //         // this only matches equal column names, but we override using on_condition below
+        //         rel_type: sea_orm::RelationType::HasOne,
+        //         is_owner: false,
+        //         skip_fk: false,
+        //         on_delete: None,
+        //         on_update: None,
+        //         on_condition: Some(std::sync::Arc::new(|_l, _r| {
+        //             sea_orm::Condition::all()
+        //                 .add(sea_query::Expr::cust("images_fts.rowid = images.id"))
+        //         })),
+        //         fk_name: None,
+        //         condition_type: sea_query::ConditionType::Any,
+        //     },
+        // );k
 
-            // // MATCH query
-            // query = query.filter(sea_query::Expr::cust_with_values(
-            //     "images_fts MATCH ?",
-            //     [sea_orm::Value::from(search.clone())],
-            // ));
+        // // MATCH query
+        // query = query.filter(sea_query::Expr::cust_with_values(
+        //     "images_fts MATCH ?",
+        //     [sea_orm::Value::from(search.clone())],
+        // ));
         //     let mut cond = Condition::any();
         //     for term in search.split_whitespace() {
         //         cond = cond.add(images::Column::Prompt.contains(term));
@@ -678,10 +685,11 @@ impl ProjectsDb {
             println!("Excluding project {}", project_id);
             // Remove all images associated with this project
             // Cascade delete will handle image_controls and image_loras
-            images::Entity::delete_many()
+            let result = images::Entity::delete_many()
                 .filter(images::Column::ProjectId.eq(project_id))
                 .exec(&self.db)
                 .await?;
+            println!("Deleted {} images", result.rows_affected);
         }
 
         Ok(())

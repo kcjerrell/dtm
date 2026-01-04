@@ -70,6 +70,7 @@ png = "0.18.0"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 sea-query = "1.0.0-rc.20"
+unicode-normalization = "0.1.25"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]
