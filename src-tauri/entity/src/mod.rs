@@ -8,5 +8,6 @@ pub mod images;
 pub mod models;
 pub mod projects;
 pub mod seaql_migrations;
+pub mod templates;
 pub mod watch_folders;
 pub mod enums;

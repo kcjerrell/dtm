@@ -6,4 +6,5 @@ pub use super::images::Entity as Images;
 pub use super::models::Entity as Models;
 pub use super::projects::Entity as Projects;
 pub use super::seaql_migrations::Entity as SeaqlMigrations;
+pub use super::templates::Entity as Templates;
 pub use super::watch_folders::Entity as WatchFolders;

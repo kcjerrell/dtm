@@ -13,7 +13,6 @@ pub struct Model {
     pub lora_id: i64,
     #[sea_orm(column_type = "Float")]
     pub weight: f32,
-
     #[sea_orm(
         belongs_to,
         from = "image_id",
@@ -22,7 +21,6 @@ pub struct Model {
         on_delete = "Cascade"
     )]
     pub images: HasOne<super::images::Entity>,
-    
     #[sea_orm(
         belongs_to,
         from = "lora_id",
