@@ -29,10 +29,29 @@ class ScannerService extends DTPStateService {
 
         this.container.on("projectFilesChanged", async (e) => {
             const jobs = []
-            for (const project of e.files) {
-                const stats = await getProjectStats(project)
-                if (!stats) continue
-                jobs.push(getProjectJob(project, { action: "update", ...stats }))
+            for (const projectFile of e.files) {
+                const stats = await getProjectStats(projectFile)
+                const project = this.container
+                    .getService("projects")
+                    .state.projects.find((p) => p.path === projectFile)
+
+                if (!project?.excluded) continue
+
+                if (!stats || stats === "dne") {
+                    if (project) {
+                        jobs.push(
+                            getProjectJob(projectFile, { action: "remove", size: 0, mtime: 0 }),
+                        )
+                    }
+                    continue
+                }
+
+                if (!project) {
+                    jobs.push(getProjectJob(projectFile, { action: "add", ...stats }))
+                    continue
+                }
+
+                jobs.push(getProjectJob(projectFile, { action: "update", ...stats }))
             }
             this.container.getService("jobs").addJobs(jobs)
         })
@@ -66,7 +85,7 @@ class ScannerService extends DTPStateService {
             const stats = await getProjectStats(path)
             const project = projects.state.projects.find((p) => p.path === path)
 
-            if (!stats) {
+            if (!stats || stats === "dne") {
                 if (project) {
                     result.push(getProjectJob(path, { action: "remove", size: 0, mtime: 0 }))
                 }
@@ -75,7 +94,11 @@ class ScannerService extends DTPStateService {
 
             if (!project) {
                 result.push(getProjectJob(path, { action: "add", ...stats }))
-            } else if (project.filesize !== stats.size || project.modified !== stats.mtime) {
+            }
+
+            if (project?.excluded) continue
+
+            if (project?.filesize !== stats.size || project?.modified !== stats.mtime) {
                 result.push(getProjectJob(path, { action: "update", ...stats }))
             }
         }
@@ -107,7 +130,7 @@ export default ScannerService
 
 async function getProjectStats(projectPath: string) {
     if (!projectPath.endsWith(".sqlite3")) return null
-    if (!(await exists(projectPath))) return null
+    if (!(await exists(projectPath))) return "dne"
 
     const stats = await stat(projectPath)
 
@@ -171,13 +194,16 @@ function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncPro
             for (const project of p.state.projects) {
                 const projectStats = await getProjectStats(project.path)
                 const pd = getPd(project.path)
-                pd.size = projectStats?.size ?? 0
-                pd.mtime = projectStats?.mtime ?? 0
 
-                if (projectStats === null) {
+                if (!projectStats || projectStats === "dne") {
                     pd.status = "missing"
+                    pd.size = 0
+                    pd.mtime = 0
                     continue
                 }
+
+                pd.size = projectStats.size
+                pd.mtime = projectStats.mtime
 
                 if (project.filesize !== pd.size || project.modified !== pd.mtime) {
                     pd.status = "changed"
@@ -196,7 +222,7 @@ function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncPro
                     if (pd.status !== "unknown") continue
 
                     const projectStats = await getProjectStats(project)
-                    if (projectStats) {
+                    if (projectStats && projectStats !== "dne") {
                         pd.status = "new"
                         pd.size = projectStats.size
                         pd.mtime = projectStats.mtime
@@ -284,7 +310,7 @@ function syncProjectFolderJob(
                 const existingProject = p.state.projects.find((pj) => pj.path === path)
                 const stats = await getProjectStats(path)
 
-                if (!stats) continue
+                if (!stats || stats === "dne") continue
 
                 if (existingProject) {
                     if (

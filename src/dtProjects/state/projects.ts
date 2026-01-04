@@ -102,6 +102,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             projectState.excluded = exclude
             stateUpdate.push(projectState)
         }
+        this.setSelectedProjects([])
         await this.container.getService("scanner").syncProjects(stateUpdate.map((p) => p.path))
         await this.loadProjects()
     }

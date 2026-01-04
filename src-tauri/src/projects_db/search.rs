@@ -51,7 +51,7 @@ pub fn add_search(mut query: Select<images::Entity>, search_text: &str) -> Selec
         let fts_query = terms.join(" OR ");
 
         query = query.filter(Expr::cust_with_expr(
-            "images.id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)",
+            "images.id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH 'prompt_search:' || ?)",
             SimpleExpr::value(fts_query),
         ));
     }

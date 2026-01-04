@@ -25,7 +25,7 @@ function DetailsContent(props: DetailsContentProps) {
         <Panel
             flex={"1 1 auto"}
             overflow={"clip"}
-            padding={0}
+            padding={2}
             onClick={(e) => e.stopPropagation()}
             {...boxProps}
             asChild
@@ -100,10 +100,15 @@ function DetailsContent(props: DetailsContentProps) {
                             })} */}
                         <Fragment key={snap.itemDetails?.tensor_id || "details_content"}>
                             <Row>
-                                <DataItem label={"Project"} data={snap.itemDetails.project.name.replace(/\.sqlite3$/, "")} />
+                                <DataItem
+                                    label={"Project"}
+                                    data={snap.itemDetails.project.name.replace(/\.sqlite3$/, "")}
+                                />
                                 <DataItem
                                     label={"Created"}
-                                    data={new Date(snap.itemDetails.node.wall_clock).toLocaleString()}
+                                    data={new Date(
+                                        snap.itemDetails.node.wall_clock,
+                                    ).toLocaleString()}
                                 />
                             </Row>
                             <Row>
@@ -165,6 +170,10 @@ function DetailsContent(props: DetailsContentProps) {
                                 label={"Custom ID"}
                                 data={snap.itemDetails.images?.customId}
                             />
+                            <DataItem
+                                label={"Moodboard IDs"}
+                                data={snap.itemDetails.images?.moodboardIds?.join("\n")}
+                            />
                         </Fragment>
                         {/* </Grid> */}
                     </Tabs.Content>
@@ -181,6 +190,7 @@ const Row = chakra("div", {
         justifyContent: "flex-start",
         alignItems: "center",
         mb: 2,
+        gap: 2,
         "&>*": {
             flex: "1 1 auto",
         },
