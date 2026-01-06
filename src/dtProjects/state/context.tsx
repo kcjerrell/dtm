@@ -1,7 +1,7 @@
 import { snapshot } from "valtio"
 import { watch } from "valtio/utils"
 import { UIController } from "@/dtProjects/state/uiState"
-import { Container } from "./container"
+import { Container } from "../../utils/container/container"
 import DetailsService from "./details"
 import ImagesController from "./images"
 import JobsService from "./jobs"
@@ -9,7 +9,7 @@ import ModelsController from "./models"
 import ProjectsController from "./projects"
 import ScannerService from "./scanner"
 import SearchController from "./search"
-import type { DTPEvents } from "./types"
+import type { DTPEvents, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
 let _container = createContainer()
@@ -20,17 +20,9 @@ function getContainer() {
     return _container
 }
 
-export type DTPContextType = {
-    uiState: UIController
-    projects: ProjectsController
-    models: ModelsController
-    watchFolders: WatchFoldersController
-    scanner: ScannerService
-    search: SearchController
-    images: ImagesController
-    details: DetailsService
-    jobs: JobsService
-}
+window.addEventListener("unload", () => {
+    if (document.hidden && _container && !_container.isDisposed) _container.dispose()
+})
 
 export function useDTP() {
     const container = getContainer()
@@ -38,7 +30,7 @@ export function useDTP() {
 }
 
 let _unwatch: () => void
-async function _connectDevMode(controllers: DTPContextType) {
+async function _connectDevMode(controllers: DTPServices) {
     if (_unwatch) _unwatch()
 
     let _devUpdate: ReturnType<typeof setTimeout> | null = null
@@ -67,7 +59,7 @@ async function _connectDevMode(controllers: DTPContextType) {
 
 function createContainer() {
     console.log("creating container")
-    return new Container<DTPContextType, DTPEvents>(() => {
+    return new Container<DTPServices, DTPEvents>(() => {
         const jobs = new JobsService()
         const uiState = new UIController()
         const projects = new ProjectsController()
@@ -94,7 +86,7 @@ function createContainer() {
             images,
             details,
             jobs,
-        } as DTPContextType
+        } as DTPServices
 
         // connectDevMode(controllers)
 

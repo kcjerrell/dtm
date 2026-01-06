@@ -1,7 +1,7 @@
 import { exists, stat } from "@tauri-apps/plugin-fs"
 import { pdb } from "@/commands"
-import { DTPStateService } from "@/dtProjects/state/StateController"
-import type { JobCallback, JobDef, JobPayload, JobResult } from "./jobs"
+import type { JobCallback, JobDef, JobResult } from "./jobs"
+import { DTPStateService } from './types'
 
 class ScannerService extends DTPStateService {
     constructor() {

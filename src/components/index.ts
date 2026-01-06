@@ -12,25 +12,26 @@ import VirtualizedList from "./virtualizedList/VirtualizedList"
 // export {Root as FloatIndicator}
 
 export const {
-	CheckRoot,
-	MotionBox,
-	Panel,
-	PaneListContainer,
-	PanelListItem,
-	PanelSectionHeader,
-	PanelButton,
+    CheckRoot,
+    MotionBox,
+    Panel,
+    PaneListContainer,
+    PanelListItem,
+    PanelSectionHeader,
+    PanelButton,
+    PanelSection,
 } = Common
 
 export {
-	Tooltip,
-	SliderWithInput,
-	IconButton,
-	VirtualizedList,
-	Sidebar,
-	Preview,
-	MeasureGrid,
-	useMeasureGrid,
-	DataItem,
+    Tooltip,
+    SliderWithInput,
+    IconButton,
+    VirtualizedList,
+    Sidebar,
+    Preview,
+    MeasureGrid,
+    useMeasureGrid,
+    DataItem,
 }
 
 // doesn't exporting like this prevent code spiltting? Hmmm

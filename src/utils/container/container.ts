@@ -1,17 +1,25 @@
 import { listen } from "@tauri-apps/api/event"
 import EventEmitter from "eventemitter3"
-import { DTPStateController } from "./StateController"
+import {
+    type IContainer,
+    type IStateService,
+    isDisposable,
+    type UnwrapContainer,
+} from "./interfaces"
 
-type FutureServices<T extends object> = Partial<{
+type FutureServices<T extends Record<string, object> = Record<string, object>> = Partial<{
     [K in keyof T]: PromiseWithResolvers<T[K]>
 }>
 
 type TagHandler = (tag: string, data?: Record<string, unknown>) => void
 
 export class Container<
-    T extends object = object,
-    E extends object = object,
-> extends EventEmitter<E> {
+        T extends { [K in keyof T]: IStateService<IContainer<T>> },
+        E extends Record<string, unknown> = Record<string, unknown>,
+    >
+    extends EventEmitter<E>
+    implements IContainer<T, E>
+{
     services: T = {} as T
     private futureServices: FutureServices<T> = {}
     private invalidateUnlistenPromise: Promise<() => void>
@@ -21,9 +29,15 @@ export class Container<
     constructor(servicesInit: () => T) {
         super()
 
-        Container.constructorStack.push(this as Container)
-        servicesInit()
-        Container.constructorStack.pop()
+        buildContainer(this, servicesInit, (name: keyof T, service: T[keyof T]) => {
+            this.services[name] = service
+
+            const future = this.futureServices[name]
+            if (future) {
+                future.resolve(service)
+                delete this.futureServices[name]
+            }
+        })
 
         this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
             const payload = event.payload as { tag: string; desc: string }
@@ -80,7 +94,7 @@ export class Container<
     }
     dispose() {
         for (const service of Object.values(this.services)) {
-            if (service instanceof DTPStateController) {
+            if (isDisposable(service)) {
                 service.dispose()
             }
         }
@@ -89,20 +103,26 @@ export class Container<
         this.removeAllListeners()
         this._isDisposed = true
     }
+}
 
-    private static constructorStack: Container[] = []
+const _containerStack: {
+    container: IContainer
+    register: (name: string, service: object) => void
+}[] = []
+export function registerContainerService<C extends IContainer>(name: string, service: object) {
+    const container = _containerStack.at(-1)
+    if (!container) throw new Error("must call register within a container constructor")
+    container.register(name, service)
+    return container.container as C
+}
 
-    static register<T extends object, E extends object>(name: keyof T, service: T[typeof name]) {
-        const container = Container.constructorStack.at(-1) as Container<T, E>
-        if (!container) throw new Error("must call register within a container constructor")
-        container.services[name] = service
-
-        const future = container.futureServices[name]
-        if (future) {
-            future.resolve(service)
-            delete container.futureServices[name]
-        }
-
-        return container
-    }
+function buildContainer<C extends IContainer>(
+    container: C,
+    servicesInit: () => UnwrapContainer<C>,
+    register: (name: string, service: object) => void,
+) {
+    _containerStack.push({ container, register })
+    const services = servicesInit()
+    _containerStack.pop()
+    return services
 }

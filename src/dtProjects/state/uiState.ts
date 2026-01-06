@@ -1,13 +1,13 @@
 import { proxy, ref, useSnapshot } from "valtio"
 import { type DTImageFull, dtProject, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
-import { DTPStateController } from "@/dtProjects/state/StateController"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ProjectState } from "./projects"
+import { DTPStateController } from './types'
 
 export type UIControllerState = {
-	selectedTab: "projects" | "search" | "settings"
+	selectedTab: "projects" | "search"
 	shouldFocus?: string
 	detailsView: {
 		project?: ProjectState
@@ -33,6 +33,8 @@ export type UIControllerState = {
 		width?: number
 		height?: number
 	}
+	isSettingsOpen: boolean
+	isGridInert: boolean
 }
 
 type Handler<T> = (payload: T) => void
@@ -53,6 +55,8 @@ export class UIController extends DTPStateController<UIControllerState> {
 			width: 0,
 			height: 0,
 		},
+		isSettingsOpen: false,
+		isGridInert: false,
 	})
 
 	constructor() {
@@ -73,9 +77,19 @@ export class UIController extends DTPStateController<UIControllerState> {
 		}
 	}
 
-	setSelectedTab(tab: "projects" | "search" | "settings", focusElement?: string) {
+	setSelectedTab(tab: "projects" | "search", focusElement?: string) {
 		this.state.selectedTab = tab
-		this.state.shouldFocus = focusElement
+		this.state.shouldFocus = focusElement	
+	}
+
+	/** show/hide the settings panel. If no value is provided, the state will toggle */
+	showSettings(show?: boolean) {
+		this.state.isSettingsOpen = show ?? !this.state.isSettingsOpen
+	}
+
+	/** show/hide the grid inert state */
+	setGridInert(inert?: boolean) {
+		this.state.isGridInert = inert ?? !this.state.isGridInert
 	}
 
 	async showDetailsOverlay(item: ImageExtra) {

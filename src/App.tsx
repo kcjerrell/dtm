@@ -3,9 +3,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react"
 import { ErrorBoundary } from "react-error-boundary"
-import { BiDetail, FaMinus, FaMoon, FaPlus } from "@/components/icons"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
+import { BiDetail, FaMinus, FaMoon, FaPlus } from "@/components/icons"
 import { Preview, useIsPreviewActive } from "@/components/preview"
 import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
@@ -14,7 +14,7 @@ import AppStore from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
 import UpgradeButton from "./metadata/toolbar/UpgradeButton"
-import Onboard from "./Onboard"
+// import Onboard from "./Onboard"
 
 function App() {
 	const firstRender = useRef(true)
@@ -117,7 +117,7 @@ function App() {
 							</AnimatePresence>
 						</Suspense>
 					</ErrorBoundary>
-					{snap.onboardPhase?.startsWith("A") && <Onboard />}
+					{/* {snap.onboardPhase?.startsWith("A") && <Onboard />} */}
 				</CheckRoot>
 			</LayoutGroup>
 			<Preview />

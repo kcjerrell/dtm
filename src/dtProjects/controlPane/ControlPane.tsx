@@ -1,15 +1,12 @@
 import { Box } from "@chakra-ui/react"
-import { GoGear } from "@/components/icons"
-import { MdImageSearch } from "@/components/icons"
-import { PiCoffee } from "@/components/icons"
 import { useSnapshot } from "valtio"
-import { Panel } from "@/components"
+import { IconButton, Panel } from "@/components"
+import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons"
 import { useDTP } from "@/dtProjects/state/context"
 import AppStore from "@/hooks/appState"
 import Tabs from "@/metadata/infoPanel/tabs"
 import ProjectsPanel from "./ProjectsPanel"
 import SearchPanel from "./SearchPanel"
-import SettingsPanel from "./SettingsPanel"
 
 const tabs = [
     {
@@ -26,12 +23,6 @@ const tabs = [
         component: ProjectsPanel,
         requiresProjects: true,
     },
-    {
-        label: "Settings",
-        value: "settings",
-        Icon: GoGear,
-        component: SettingsPanel,
-    },
 ]
 
 interface ControlPane extends ChakraProps {}
@@ -40,7 +31,6 @@ function ControlPane(props: ControlPane) {
     const { ...restProps } = props
     const { uiState } = useDTP()
     const uiSnap = uiState.useSnap()
-    const { isSidebarVisible } = useSnapshot(AppStore.store)
 
     return (
         <Panel
@@ -62,17 +52,16 @@ function ControlPane(props: ControlPane) {
                     uiState.setSelectedTab(e.value as typeof uiSnap.selectedTab)
                 }}
             >
-                <TabList />
+                <TabList justifyContent={"flex-end"}/>
                 <SearchPanel />
                 <ProjectsPanel />
-                <SettingsPanel />
             </Tabs.Root>
         </Panel>
     )
 }
 
 function TabList(props: ChakraProps) {
-    const { projects } = useDTP()
+    const { projects, uiState } = useDTP()
     const snap = projects.useSnap()
 
     const hasProjects = snap.projects.length > 0
@@ -89,6 +78,9 @@ function TabList(props: ChakraProps) {
                 )
             })}
             <Tabs.Indicator />
+            <IconButton onClick={() => uiState.showSettings()}>
+                <GoGear />
+            </IconButton>
         </Tabs.List>
     )
 }

@@ -1,14 +1,15 @@
-import { proxy, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import {
     EmptyItemSource,
     type IItemSource,
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
-import { type ContainerEvent, DTPStateController } from "@/dtProjects/state/StateController"
+import type { ContainerEvent } from "@/utils/container/StateController"
+import { proxy, useSnapshot } from "valtio"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
+import { DTPStateController } from "./types"
 
 export type ImagesControllerState = {
     imageSource: ImagesSource
@@ -35,6 +36,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
     private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
         on: (fn: (_: undefined) => void) => this.container.on("imagesChanged", fn),
         off: (fn: (_: undefined) => void) => this.container.off("imagesChanged", fn),
+        once: (fn: (_: undefined) => void) => this.container.once("imagesChanged", fn),
     }
     get onImagesChanged() {
         return this._onImagesChanged

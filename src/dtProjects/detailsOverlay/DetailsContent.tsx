@@ -1,12 +1,12 @@
 import { chakra, Grid } from "@chakra-ui/react"
 import { motion } from "motion/react"
+import { Fragment } from "react/jsx-runtime"
 import type { Snapshot } from "valtio"
 import type { DTImageFull, ImageExtra } from "@/commands"
 import { Panel } from "@/components"
-import DataItem, { DataItemTemplate } from "@/components/DataItem"
+import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
-import { Fragment } from "react/jsx-runtime"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -170,10 +170,12 @@ function DetailsContent(props: DetailsContentProps) {
                                 label={"Custom ID"}
                                 data={snap.itemDetails.images?.customId}
                             />
-                            <DataItem
-                                label={"Moodboard IDs"}
-                                data={snap.itemDetails.images?.moodboardIds?.join("\n")}
-                            />
+                            {(snap.itemDetails?.images?.moodboardIds?.length ?? 0) > 0 && (
+                                <DataItem
+                                    label={"Moodboard IDs"}
+                                    data={snap.itemDetails.images?.moodboardIds?.join("\n")}
+                                />
+                            )}
                         </Fragment>
                         {/* </Grid> */}
                     </Tabs.Content>

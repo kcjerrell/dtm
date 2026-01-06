@@ -1,10 +1,10 @@
 import { proxy } from "valtio"
 import { type ProjectExtra, pdb } from "@/commands"
-import { DTPStateController } from "@/dtProjects/state/StateController"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
-import { eventCallback } from "@/utils/handler"
+import type { ContainerEvent } from "@/utils/container/StateController"
 import { arrayIfOnly } from "@/utils/helpers"
+import { DTPStateController } from "./types"
 
 export interface ProjectState extends Selectable<ProjectExtra> {
     name: string
@@ -25,6 +25,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         showEmptyProjects: false,
     })
 
+    hasLoaded = false
+
     constructor() {
         super("projects", "projects")
     }
@@ -33,22 +35,6 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         _tags: string,
         data: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra },
     ) {
-        // console.log("projects handle", _tags, data)
-
-        // if (data.removed) {
-        //     const index = this.state.projects.findIndex((p) => p.id === data.removed)
-        //     if (index !== -1) {
-        //         this.state.projects.splice(index, 1)
-        //     }
-        // }
-        // if (data.added) {
-        //     this.state.projects.push(
-        //         makeSelectable({ ...data.added, name: data.added.path.split("/").pop() as string }),
-        //     )
-        //     this.state.projects.sort((a, b) =>
-        //         a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-        //     )
-        // }
         if (data.updated) {
             const index = this.state.projects.findIndex((p) => p.id === data.updated?.id)
             if (index !== -1) {
@@ -62,7 +48,14 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
     }
 
-    onSelectedProjectsChanged = eventCallback<ProjectState[]>()
+    private _onProjectsLoaded: ContainerEvent<"projectsLoaded"> = {
+        on: (fn: (_: undefined) => void) => this.container.on("projectsLoaded", fn),
+        once: (fn: (_: undefined) => void) => this.container.once("projectsLoaded", fn),
+        off: (fn: (_: undefined) => void) => this.container.off("projectsLoaded", fn),
+    }
+    get onProjectsLoaded() {
+        return this._onProjectsLoaded
+    }
 
     async loadProjects() {
         const projects = await pdb.listProjects()
@@ -72,6 +65,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 .map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
                 .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
         )
+        this.hasLoaded = true
+        this.container.emit("projectsLoaded")
     }
 
     async removeProjects(projectFiles: string[]) {

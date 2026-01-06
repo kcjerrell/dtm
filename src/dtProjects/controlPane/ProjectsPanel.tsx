@@ -2,10 +2,9 @@ import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import { invoke } from "@tauri-apps/api/core"
 import { derive } from "derive-valtio"
 import { useEffect, useRef, useState } from "react"
-import { FiRefreshCw } from "@/components/icons"
-import { MdBlock } from "@/components/icons"
 import { useSnapshot } from "valtio"
 import { PanelListItem } from "@/components"
+import { FiRefreshCw, MdBlock } from "@/components/icons"
 import PanelList from "@/components/PanelList"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
@@ -50,13 +49,15 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
 
     return (
         <TabContent
+            className={"tc"}
             value={"projects"}
             contentProps={{ height: "full", maxHeight: "100%", overflowY: "clip" }}
             height={"full"}
             {...restProps}
         >
             <PanelList
-                height={"full"}
+                className={"pl"}
+                // height={"full"}
                 itemsState={showExcluded ? groups.allProjects : groups.activeProjects}
                 keyFn={(p) => p.path}
                 commands={toolbarCommands}
@@ -134,13 +135,13 @@ function ProjectListItem(props: ProjectListItemProps) {
             asChild
             {...restProps}
             {...handlers}
-            onContextMenu={async () => {
-                const text = await invoke("dt_project_get_text_history", {
-                    projectFile: project.path,
-                })
-                console.log(text)
-                navigator.clipboard.writeText(text)
-            }}
+            // onContextMenu={async () => {
+            //     const text = await invoke("dt_project_get_text_history", {
+            //         projectFile: project.path,
+            //     })
+            //     console.log(text)
+            //     navigator.clipboard.writeText(text)
+            // }}
         >
             <HStack justifyContent={"space-between"}>
                 <Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>

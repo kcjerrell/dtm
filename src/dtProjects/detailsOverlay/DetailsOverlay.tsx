@@ -4,11 +4,10 @@ import { save } from "@tauri-apps/plugin-dialog"
 import * as fs from "@tauri-apps/plugin-fs"
 import { AnimatePresence, motion } from "motion/react"
 import { type ComponentProps, useMemo, useState } from "react"
-import { FiCopy, FiSave } from "@/components/icons"
-import { PiListMagnifyingGlassBold } from "@/components/icons"
 import type { Snapshot } from "valtio"
 import { dtProject, type ImageExtra } from "@/commands"
 import { IconButton } from "@/components"
+import { FiCopy, FiSave, PiListMagnifyingGlassBold } from "@/components/icons"
 import { Hotkey } from "@/hooks/keyboard"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
@@ -96,9 +95,10 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                 {...rest}
             >
                 {isVisible && <Hotkey scope="details-overlay" handlers={hotkeys} />}
-                <AnimatePresence>
+                <AnimatePresence mode={"sync"}>
                     {item && (
                         <DetailsImages
+                            key={item.id}
                             item={item}
                             itemDetails={itemDetails}
                             subItem={snap.subItem}

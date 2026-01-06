@@ -31,8 +31,8 @@ export const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           </HStack>
         )}
         <ChakraSlider.Control data-has-mark-label={hasMarkLabel || undefined}>
-          <ChakraSlider.Track>
-            <ChakraSlider.Range />
+          <ChakraSlider.Track bgColor={"bg.3"} height={1}>
+            <ChakraSlider.Range bgColor={"highlight"}/>
           </ChakraSlider.Track>
           <SliderThumbs value={value} />
           <SliderMarks marks={marks} />
@@ -47,8 +47,8 @@ function SliderThumbs(props: { value?: number[] }) {
   return (
     <For each={value}>
       {(_, index) => (
-        <ChakraSlider.Thumb key={index} index={index}>
-          <ChakraSlider.HiddenInput />
+        <ChakraSlider.Thumb width={4.5} height={4.5}  bgImage={"linear-gradient(to bottom, {colors.fg.3}, {colors.fg.1})"} borderColor={"fg.2"} key={index} index={index}>
+        <ChakraSlider.HiddenInput />
         </ChakraSlider.Thumb>
       )}
     </For>

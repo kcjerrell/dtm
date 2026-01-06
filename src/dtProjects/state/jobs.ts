@@ -1,18 +1,11 @@
 import { Mutex } from "async-mutex"
-import type { Model } from "@/commands"
-import { type DTPContainer, DTPStateService } from "@/dtProjects/state/StateController"
-import type { Container } from "./container"
-import type { ProjectJobPayload } from "./scanner"
-
+import { type DTPContainer, DTPStateService } from "./types"
 
 export interface JobDef {
     type: string
     action?: string
     data?: unknown
-    execute: (
-        data: unknown,
-        container: Container<DTPContainer>,
-    ) => Promise<JobResult<unknown>> | Promise<void>
+    execute: (data: unknown, container: DTPContainer) => Promise<JobResult<unknown>> | Promise<void>
     callback?: JobCallback<unknown>
     merge?: "first" | "last"
 }
@@ -102,7 +95,7 @@ class JobsService extends DTPStateService {
                 if (job.status === "canceled") continue
 
                 job.status = "active"
- 
+
                 try {
                     const result = await job.execute(job.data, this.container)
 

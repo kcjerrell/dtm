@@ -1,9 +1,9 @@
 import { proxy } from "valtio"
 import { type Model, pdb } from "@/commands"
-import { DTPStateController } from "@/dtProjects/state/StateController"
 import { getVersionLabel } from "@/utils/models"
 import type { ModelVersionInfo, VersionModel } from "../types"
-import { JobDef } from './jobs'
+import type { JobDef } from "./jobs"
+import { DTPStateController } from "./types"
 
 type ModelsList = (Model | VersionModel)[]
 
@@ -28,7 +28,7 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
 
     protected override handleTags(_tags: string, _desc: Record<string, unknown>) {
         const job = getRefreshModelsJob()
-		this.container.getService("jobs").addJob(job)
+        this.container.getService("jobs").addJob(job)
     }
 
     async refreshModels() {
@@ -130,14 +130,14 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
 }
 
 function getRefreshModelsJob(): JobDef {
-	return {
-		type: "models",
-		action: "fetch",
-		execute: async (_, container) => {
-			await container.getService("models").refreshModels()
-		},
-		merge: "last"
-	}
+    return {
+        type: "models",
+        action: "fetch",
+        execute: async (_, container) => {
+            await container.getService("models").refreshModels()
+        },
+        merge: "last",
+    }
 }
 
 export default ModelsController
