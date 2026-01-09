@@ -1,8 +1,7 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
-import { invoke } from "@tauri-apps/api/core"
-import { derive } from "derive-valtio"
 import { useEffect, useRef, useState } from "react"
 import { useSnapshot } from "valtio"
+import { computed } from "valtio-reactive"
 import { PanelListItem } from "@/components"
 import { FiRefreshCw, MdBlock } from "@/components/icons"
 import PanelList from "@/components/PanelList"
@@ -22,11 +21,11 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
     const [showExcluded, setShowExcluded] = useState(false)
     const toggleRef = useRef<HTMLDivElement>(null)
 
-    const groups = derive({
-        activeProjects: (get) => get(projects.state).projects.filter((p) => !p.excluded),
-        excludedProjects: (get) => get(projects.state).projects.filter((p) => p.excluded),
-        allProjects: (get) =>
-            get(projects.state).projects.toSorted(
+    const groups = computed({
+        activeProjects: () => projects.state.projects.filter((p) => !p.excluded),
+        excludedProjects: () => projects.state.projects.filter((p) => p.excluded),
+        allProjects: () =>
+            projects.state.projects.toSorted(
                 (a, b) => (a.excluded ? 1 : -1) - (b.excluded ? 1 : -1),
             ),
     })
@@ -56,6 +55,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             {...restProps}
         >
             <PanelList
+                flex={"1 1 auto"}
                 className={"pl"}
                 // height={"full"}
                 itemsState={showExcluded ? groups.allProjects : groups.activeProjects}

@@ -40,6 +40,7 @@ export type WatchFolderState = Selectable<
     WatchFolder & {
         isMissing?: boolean
         selected?: boolean
+        firstScan?: boolean
     }
 >
 
@@ -67,8 +68,10 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
     override async handleTags(_tags: string, _desc: Record<string, unknown>) {
         await this.loadWatchFolders()
+        return true
     }
 
+    loads = 0
     watchDisposers = new Map<string, Promise<UnwatchFn>>()
 
     async loadWatchFolders() {
@@ -97,7 +100,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         )
 
         const diff = compareItems(prevFolders, folders, (f) => f.id, { ignoreFunctions: true })
-
         if (!diff.itemsChanged) return
 
         for (const folder of [...diff.removed, ...diff.changed]) {
@@ -143,7 +145,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     }
 
     async addDefaultWatchFolder(type: "Projects" | "ModelInfo") {
-        console.log(this)
         if (type === "Projects") await this.addWatchFolder(_defaultProjectPath, type)
         else if (type === "ModelInfo") {
             for (const f of _defaultModelInfoPaths) {
@@ -222,9 +223,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     async getRemoteCombinedModels(folder: WatchFolderState) {
         const res = await fetch("https://kcjerrell.github.io/dt-models/combined_models.json")
         const data = await res.json()
-        console.log(folder, data.lastUpdate)
         if (folder.last_updated && folder.last_updated >= data.lastUpdate) {
-            console.log("models up to date")
             return []
         }
         const check = (key: string) => key in data && Array.isArray(data[key])
@@ -265,11 +264,9 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     }
 
     async getRemoteModelInfoFiles() {
-        console.log("fetching official models...")
         const filenames = ["Model", "ControlNet", "LoRA"] as const
         const modelFiles = [] as ListModelInfoFilesResult[]
         for (const filename of filenames) {
-            console.log("fetching", filename)
             try {
                 const modelInfo = await compileOfficialModels(filename)
                 const modelInfoJson = JSON.stringify(modelInfo, null, 2)
@@ -299,6 +296,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         // not currently watching for model info changes
         if (folder.item_type === "ModelInfo") return
 
+        // console.debug("starting watch", folder.path)
         const unwatch = watch(
             folder.path,
             async (e) => {

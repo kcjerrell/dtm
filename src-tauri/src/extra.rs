@@ -61,7 +61,10 @@ pub async fn stem_all(app: tauri::AppHandle) -> Result<(), String> {
         };
 
         for image in page.items {
-            let Some(prompt) = image.prompt else { continue };
+            let prompt = image.prompt;
+            if prompt.is_empty() {
+                continue;
+            }
 
             let prompt = prompt.to_lowercase();
 
@@ -85,8 +88,8 @@ pub async fn stem_all(app: tauri::AppHandle) -> Result<(), String> {
         updates += 1;
 
         if updates % 10 == 0 {
-          let word_entries = get_top_words(all_words.clone(), 40);
-          app.emit("stem_all_progress", word_entries).unwrap();
+            let word_entries = get_top_words(all_words.clone(), 40);
+            app.emit("stem_all_progress", word_entries).unwrap();
         }
 
         let progress = (batch_start as f64 / image_count as f64) * 100.0;
@@ -95,7 +98,6 @@ pub async fn stem_all(app: tauri::AppHandle) -> Result<(), String> {
 
     // ---- optional: stop-word removal here ----
     // all_words.retain(|stem, _| !STOP_WORDS.contains(stem.as_str()));
-    
 
     // CELL.set(word_entries.clone()).unwrap();
 

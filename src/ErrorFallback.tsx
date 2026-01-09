@@ -1,12 +1,7 @@
-import { ComponentType } from "react"
-import { ErrorBoundary, ErrorBoundaryProps } from "react-error-boundary"
+import type { ComponentType } from "react"
+import type { FallbackProps } from "react-error-boundary"
 
-type ErrorFallbackProps = {
-	error: unknown
-	resetErrorBoundary: (...args: unknown[]) => void
-}
-
-function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
+function ErrorFallback({ error }: FallbackProps) {
 	// Call resetErrorBoundary() to reset the error boundary and retry the render.
 
 	const message = {
@@ -66,4 +61,4 @@ function errorHasStack(error: unknown): error is { stack: unknown } {
 	return error != null && typeof error === "object" && "stack" in error
 }
 
-export default ErrorFallback as ComponentType<ErrorFallbackProps>
+export default ErrorFallback as ComponentType<FallbackProps>

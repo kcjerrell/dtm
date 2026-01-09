@@ -6,7 +6,7 @@ use entity::{
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, Database, DatabaseConnection, DbErr,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
     EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait, RelationTrait, Set,
 };
@@ -605,6 +605,21 @@ impl ProjectsDb {
 
         Ok(folder)
     }
+
+    // pub async fn get_project_folder(
+    //     &self,
+    //     project_path: &str,
+    // ) -> Result<entity::watch_folders::Model, DbErr> {
+    //     let folders = self.list_watch_folders().await?;
+    //     let project_folders = folders
+    //         .into_iter()
+    //         .filter(|f| f.item_type == entity::enums::ItemType::Projects)
+    //         .collect();
+
+    //     //finish this function
+    //     todo!();
+    //     // Ok(folder)
+    // }
 
     pub async fn add_watch_folder(
         &self,

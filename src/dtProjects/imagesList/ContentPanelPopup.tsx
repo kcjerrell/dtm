@@ -1,4 +1,4 @@
-import { Box, chakra, Portal, type StackProps } from "@chakra-ui/react"
+import { Box, type BoxProps, chakra, Portal, type StackProps } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ReactNode, type RefObject, useRef } from "react"
 import { useMotionRect } from "@/hooks/motion"
@@ -64,6 +64,7 @@ export interface ContentPanelPopupProps extends StackProps {
     shadeTransition?: number
     allowPointerEvents?: boolean
     shadeElem?: RefObject<HTMLDivElement>
+    shadeProps?: BoxProps
 }
 
 export function ContentPanelPopup(props: ContentPanelPopupProps) {
@@ -74,6 +75,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         shadeTransition = 0,
         allowPointerEvents = true,
         shadeElem,
+        shadeProps,
         ...restProps
     } = props
     const [mvX, mvY, mvWidth, mvHeight] = useMotionRect(0, 0, 0, 0)
@@ -96,6 +98,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
                     },
                 },
             }}
+            {...restProps}
         >
             <Positioner
                 data-filter-popup
@@ -134,10 +137,11 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
                         position="absolute"
                         width={"100%"}
                         height={"100%"}
-                        bgColor={shadeColor}
-                        onClick={onClose}
-                        pointerEvents={allowPointerEvents ? "none" : "auto"}
+                        // bgColor={shadeColor}
+                        // onClick={onClose}
+                        // pointerEvents={allowPointerEvents ? "none" : "auto"}
                         transition={`background-color ${shadeTransition}ms ease`}
+                        {...shadeProps}
                     >
                         <Panel
                             ref={containerRef}

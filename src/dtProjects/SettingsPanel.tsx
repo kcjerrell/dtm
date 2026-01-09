@@ -55,7 +55,7 @@ function useCommands(
     return commands
 }
 
-export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose">) {
+export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "children">) {
     const { ...restProps } = props
     const { images, watchFolders, uiState } = useDTP()
     const imagesSnap = images.useSnap()
@@ -71,8 +71,11 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose">) {
             onClose={() => uiState.showSettings(false)}
             flexDir={"column"}
             overflowY="auto"
-            shadeColor="#00000022"
-            allowPointerEvents={false}
+            shadeProps={{
+                pointerEvents: "auto",
+                bgColor: "#00000022",
+                backdropFilter: "blur(2px)",
+            }}
             {...restProps}
         >
             <VStack

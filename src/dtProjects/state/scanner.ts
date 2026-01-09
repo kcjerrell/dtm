@@ -1,41 +1,59 @@
 import { exists, stat } from "@tauri-apps/plugin-fs"
 import { pdb } from "@/commands"
-import type { JobCallback, JobDef, JobResult } from "./jobs"
-import { DTPStateService } from './types'
+import type { JobCallback } from "@/utils/container/queue"
+import {
+    type DTPJob,
+    type DTPJobSpec,
+    DTPStateService,
+    type ProjectFilesChangedPayload,
+    type WatchFoldersChangedPayload,
+} from "./types"
+import type { WatchFolderState } from "./watchFolders"
 
 class ScannerService extends DTPStateService {
     constructor() {
         super("scanner")
 
-        this.container.on("watchFoldersChanged", (e) => {
-            console.log("caught an event", e)
-            const syncFolders = [e.added, e.changed].flat()
-            for (const folder of syncFolders) {
-                if (folder.item_type === "ModelInfo") {
-                    const job = getModelInfoJob(folder.path)
-                    this.container.getService("jobs").addJob(job)
-                } else if (folder.item_type === "Projects") {
-                    const job = syncProjectFolderJob(folder.path)
-                    this.container.getService("jobs").addJob(job)
-                } else throw new Error("Invalid item type")
-            }
-            if (e.removed) {
-                this.syncProjectFolders(undefined, () => {
-                    console.log("sync finished")
-                    this.syncModelInfo()
-                })
-            }
-        })
+        this.container.on("watchFoldersChanged", (e) => this.onWatchFoldersChanged(e))
 
-        this.container.on("projectFilesChanged", async (e) => {
+        this.container.on("projectFilesChanged", async (e) => this.onProjectFilesChanged(e))
+    }
+
+    async onWatchFoldersChanged(e: WatchFoldersChangedPayload) {
+        const syncFolders = [e.added, e.changed].flat() as WatchFolderState[]
+        for (const folder of syncFolders) {
+            if (folder.item_type === "ModelInfo") {
+                const job = getModelInfoJob(folder.path)
+                this.container.getService("jobs").addJob(job)
+            } else if (folder.item_type === "Projects") {
+                let callback = () => {}
+                if (folder.firstScan) {
+                    this.container.getService("uiState").setImportLock(true)
+                    callback = () => {
+                        this.container.getService("uiState").setImportLock(false)
+                    }
+                }
+
+                const job = syncProjectFolderJob(folder.path, callback)
+                this.container.getService("jobs").addJob(job)
+            } else throw new Error("Invalid item type")
+        }
+        if (e.removed) {
+            this.syncProjectFolders(undefined, () => {
+                this.syncModelInfo()
+            })
+        }
+    }
+
+    async onProjectFilesChanged(e: ProjectFilesChangedPayload) {
+        {
             const jobs = []
             for (const projectFile of e.files) {
                 const stats = await getProjectStats(projectFile)
                 const project = this.container
                     .getService("projects")
                     .state.projects.find((p) => p.path === projectFile)
-
-                if (!project?.excluded) continue
+                if (project?.excluded) continue
 
                 if (!stats || stats === "dne") {
                     if (project) {
@@ -54,7 +72,7 @@ class ScannerService extends DTPStateService {
                 jobs.push(getProjectJob(projectFile, { action: "update", ...stats }))
             }
             this.container.getService("jobs").addJobs(jobs)
-        })
+        }
     }
 
     /**
@@ -78,7 +96,7 @@ class ScannerService extends DTPStateService {
     }
 
     async syncProjects(projectPaths: string[], callback?: JobCallback<null>) {
-        const result: JobPayload[] = []
+        const result: DTPJob[] = []
         const projects = this.container.getService("projects")
 
         for (const path of projectPaths) {
@@ -156,9 +174,10 @@ export type ProjectJobPayload = {
 }
 
 /** this job syncs all projects in the db with all watch folders */
-function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncProjectFolders" } {
+function syncProjectsJob(callback?: () => void): DTPJob {
     return {
-        type: "syncProjectFolders",
+        type: "projects-sync",
+        data: undefined,
         execute: async (_, container) => {
             const wf = container.services.watchFolders
             const p = container.services.projects
@@ -249,14 +268,13 @@ function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncPro
                 }
             }
 
-            const jobs = [] as JobDef<ProjectJobPayload>[]
+            const jobs = [] as DTPJob[]
 
             let jobsCreated = 0
             let jobsDone = 0
             const finishedCallback = () => {
                 jobsDone++
                 if (jobsDone === jobsCreated) {
-                    console.log("jobs done")
                     callback?.()
                 }
             }
@@ -266,28 +284,26 @@ function syncProjectsJob(callback?: () => void): JobDef<null> & { type: "syncPro
 
                 const job = getProjectJob(pd.projectFile, pd, finishedCallback)
 
-                if (job?.action === "add") {
+                if (job?.type === "project-add") {
                     jobs.unshift(job)
-                } else if (job?.action === "update") {
+                } else if (job?.type === "project-update") {
                     jobs.push(job)
-                } else if (job?.action === "remove") {
+                } else if (job?.type === "project-remove") {
                     jobs.unshift(job)
                 }
             }
 
             jobsCreated = jobs.length
 
-            return { jobs } as JobResult
+            return { jobs }
         },
     }
 }
 
-function syncProjectFolderJob(
-    watchFolder: string,
-    callback?: () => void,
-): JobDef<null> & { type: "syncProjectFolders" } {
+function syncProjectFolderJob(watchFolder: string, callback?: () => void): DTPJob {
     return {
-        type: "syncProjectFolders",
+        type: "project-folder-scan",
+        data: watchFolder,
         callback,
         execute: async (_, container) => {
             const wf = container.services.watchFolders
@@ -296,7 +312,7 @@ function syncProjectFolderJob(
             await wf.loadWatchFolders()
             const folder = wf.state.projectFolders.find((f) => f.path === watchFolder)
 
-            if (!folder) return { jobs: [] } as JobResult<null>
+            if (!folder) return { jobs: [] }
 
             await p.loadProjects()
 
@@ -324,14 +340,30 @@ function syncProjectFolderJob(
                 }
             }
 
-            const jobs = [] as JobPayload[]
-            for (const [project, data] of Object.entries(updProjects)) {
-                const job = getProjectJob(project, data as Omit<ProjectJobPayload, "project">)
-                if (job?.action === "update") jobs.push(job)
-                else if (job?.action === "add") jobs.unshift(job)
+            const jobs = [] as DTPJob[]
+
+            let jobsCreated = 0
+            let jobsDone = 0
+            const finishedCallback = () => {
+                jobsDone++
+                if (jobsDone === jobsCreated) {
+                    callback?.()
+                }
             }
 
-            return { jobs } as JobResult<null>
+            for (const [project, data] of Object.entries(updProjects)) {
+                const job = getProjectJob(
+                    project,
+                    data as Omit<ProjectJobPayload, "project">,
+                    finishedCallback,
+                )
+                if (job?.type === "project-update") jobs.push(job)
+                else if (job?.type === "project-add") jobs.unshift(job)
+            }
+
+            jobsCreated = jobs.length
+
+            return { jobs }
         },
     }
 }
@@ -340,25 +372,38 @@ function getProjectJob(
     project: string,
     data: Omit<ProjectJobPayload, "project">,
     callback?: JobCallback,
-): (JobDef<ProjectJobPayload> & { type: "project" }) | undefined {
+): DTPJob {
     switch (data.action) {
         case "add":
             return {
-                type: "project",
-                action: "add",
-                data: { project, ...data },
+                type: "project-add",
+                data: [project],
+                merge: "first",
                 callback,
-                execute: async (data: ProjectJobPayload, _container) => {
-                    await pdb.addProject(data.project)
-                    return {
-                        jobs: [getProjectJob(project, { ...data, action: "update" })],
-                    } as JobResult
+                execute: async (data: string[], container) => {
+                    container.services.uiState.setImportLock(true)
+                    for (const p of data) {
+                        try {
+                            await pdb.addProject(p)
+                        } catch (e) {
+                            console.error(e)
+                        }
+                    }
+                    for (const p of data) {
+                        try {
+                            const stats = await getProjectStats(p)
+                            if (!stats || stats === "dne") continue
+                            await pdb.scanProject(p, false, stats.size, stats.mtime)
+                        } catch (e) {
+                            console.error(e)
+                        }
+                    }
+                    container.services.uiState.setImportLock(false)
                 },
             }
         case "update":
             return {
-                type: "project",
-                action: "update",
+                type: "project-update",
                 data: { project, ...data },
                 callback,
                 execute: async (data: ProjectJobPayload, _container) => {
@@ -367,23 +412,24 @@ function getProjectJob(
             }
         case "remove":
             return {
-                type: "project",
-                action: "remove",
+                type: "project-remove",
                 data: { project, ...data },
                 callback,
                 execute: async (_data: ProjectJobPayload, _container) => {
                     await pdb.removeProject(project)
                 },
             }
+        default:
+            throw new Error()
     }
 }
 
-function getModelInfoJob(folder: string, callback?: JobCallback): JobDef {
+function getModelInfoJob(folder: string, callback?: JobCallback): DTPJobSpec<"models-scan"> {
     return {
-        type: "modelInfo",
+        type: "models-scan",
         callback,
         data: folder,
-        execute: async (folder: string, container) => {
+        execute: async (folder, container) => {
             const wf = container.services.watchFolders
             const folderState = wf.state.modelInfoFolders.find((f) => f.path === folder)
 
@@ -392,7 +438,6 @@ function getModelInfoJob(folder: string, callback?: JobCallback): JobDef {
             const files = await wf.listModelInfoFiles(folderState)
 
             for (const file of files) {
-                console.log("scanning model info", file.path)
                 await pdb.scanModelInfo(file.path, file.modelType)
             }
         },

@@ -2,8 +2,7 @@ import { proxy } from "valtio"
 import { type Model, pdb } from "@/commands"
 import { getVersionLabel } from "@/utils/models"
 import type { ModelVersionInfo, VersionModel } from "../types"
-import type { JobDef } from "./jobs"
-import { DTPStateController } from "./types"
+import { type DTPJob, DTPStateController } from "./types"
 
 type ModelsList = (Model | VersionModel)[]
 
@@ -29,6 +28,7 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
     protected override handleTags(_tags: string, _desc: Record<string, unknown>) {
         const job = getRefreshModelsJob()
         this.container.getService("jobs").addJob(job)
+        return true
     }
 
     async refreshModels() {
@@ -79,33 +79,33 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
                 })
             }
 
-            if (info.loras > 0) {
-                const versionModels = loras.filter((m) => m.version === version)
-                const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
-                const modelIds = versionModels.map((m) => m.id)
-                // loras.push({
-                //     ...baseVersionModel,
-                //     id: versionModelId--,
-                //     model_type: "Lora",
-                //     modelCount: info.loras,
-                //     count: imageCount,
-                //     modelIds,
-                // })
-            }
+            // if (info.loras > 0) {
+            // const versionModels = loras.filter((m) => m.version === version)
+            // const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
+            // const modelIds = versionModels.map((m) => m.id)
+            // loras.push({
+            //     ...baseVersionModel,
+            //     id: versionModelId--,
+            //     model_type: "Lora",
+            //     modelCount: info.loras,
+            //     count: imageCount,
+            //     modelIds,
+            // })
+            // }
 
-            if (info.controls > 0) {
-                const versionModels = controls.filter((m) => m.version === version)
-                const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
-                const modelIds = versionModels.map((m) => m.id)
-                // controls.push({
-                //     ...baseVersionModel,
-                //     id: versionModelId--,
-                //     model_type: "Cnet",
-                //     modelCount: info.controls,
-                //     count: imageCount,
-                //     modelIds,
-                // })
-            }
+            // if (info.controls > 0) {
+            // const versionModels = controls.filter((m) => m.version === version)
+            // const imageCount = versionModels.reduce((acc, m) => acc + (m.count ?? 0), 0)
+            // const modelIds = versionModels.map((m) => m.id)
+            // controls.push({
+            //     ...baseVersionModel,
+            //     id: versionModelId--,
+            //     model_type: "Cnet",
+            //     modelCount: info.controls,
+            //     count: imageCount,
+            //     modelIds,
+            // })
+            // }
         }
 
         this.state.models = models
@@ -129,10 +129,10 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
     }
 }
 
-function getRefreshModelsJob(): JobDef {
+function getRefreshModelsJob(): DTPJob {
     return {
-        type: "models",
-        action: "fetch",
+        type: "models-refresh",
+        data: undefined,
         execute: async (_, container) => {
             await container.getService("models").refreshModels()
         },

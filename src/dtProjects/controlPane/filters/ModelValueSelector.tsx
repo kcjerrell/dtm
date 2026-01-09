@@ -133,7 +133,9 @@ function ModelValueSelectorComponent(
                             showList(false)
                         }}
                         maxWidth={"30rem"}
-                        allowPointerEvents={true}
+                        shadeProps={{
+                            pointerEvents: "none"
+                        }}
                     >
                         <VStack
                             flex={"1 1 auto"}

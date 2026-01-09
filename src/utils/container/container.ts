@@ -1,10 +1,10 @@
 import { listen } from "@tauri-apps/api/event"
 import EventEmitter from "eventemitter3"
 import {
+    type EventMap,
     type IContainer,
-    type IStateService,
-    isDisposable,
-    type UnwrapContainer,
+    type IStateService, 
+    isDisposable
 } from "./interfaces"
 
 type FutureServices<T extends Record<string, object> = Record<string, object>> = Partial<{
@@ -14,10 +14,11 @@ type FutureServices<T extends Record<string, object> = Record<string, object>> =
 type TagHandler = (tag: string, data?: Record<string, unknown>) => void
 
 export class Container<
-        T extends { [K in keyof T]: IStateService<IContainer<T>> },
-        E extends Record<string, unknown> = Record<string, unknown>,
+        T extends { [K in keyof T]: IStateService<IContainer<T>> } = object,
+        E extends EventMap = EventMap,
     >
     extends EventEmitter<E>
+    // extends EventEmitter<{ [K in keyof E]: E[K] }>
     implements IContainer<T, E>
 {
     services: T = {} as T
@@ -29,7 +30,7 @@ export class Container<
     constructor(servicesInit: () => T) {
         super()
 
-        buildContainer(this, servicesInit, (name: keyof T, service: T[keyof T]) => {
+        buildContainer<Container<T, E>>(this, servicesInit, (name: keyof T, service: T[keyof T]) => {
             this.services[name] = service
 
             const future = this.futureServices[name]
@@ -40,10 +41,12 @@ export class Container<
         })
 
         this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
-            const payload = event.payload as { tag: string; desc: string }
+            // console.debug("invalidate-tags", event)
+            const payload = event.payload as { tag: string; desc: string }                                                                                                                                  
             this.handleTags(payload.tag, { desc: payload.desc })
         })
         this.updateUnlistenPromise = listen("update-tags", (event) => {
+            // console.debug("update-tags", event)
             const payload = event.payload as { tag: string; data: Record<string, unknown> }
             this.handleTags(payload.tag, payload.data)
         })
@@ -83,9 +86,9 @@ export class Container<
         }
     }
 
-    override emit(...args: Parameters<EventEmitter<E>["emit"]>): boolean {
-        console.debug("emit", args)
-        return super.emit(...args)
+    override emit<EN extends EventEmitter.EventNames<E>>(eventName: EN, ...args: EventEmitter.EventArgs<E, EN>): boolean {
+        // console.debug("emit", eventName, args)
+        return super.emit(eventName, ...args)
     }
 
     private _isDisposed = false
@@ -116,10 +119,10 @@ export function registerContainerService<C extends IContainer>(name: string, ser
     return container.container as C
 }
 
-function buildContainer<C extends IContainer>(
+function buildContainer<C extends Container = Container>(
     container: C,
-    servicesInit: () => UnwrapContainer<C>,
-    register: (name: string, service: object) => void,
+    servicesInit: () => C["services"],
+    register: (name: keyof C["services"], service: C["services"][keyof C["services"]] ) => void,
 ) {
     _containerStack.push({ container, register })
     const services = servicesInit()

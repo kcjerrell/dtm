@@ -16,6 +16,8 @@ export type ProjectsControllerState = {
     projects: ProjectState[]
     selectedProjects: ProjectState[]
     showEmptyProjects: boolean
+    projectsCount: number
+    projectsScanned: number
 }
 
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
@@ -23,6 +25,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         projects: [],
         selectedProjects: [],
         showEmptyProjects: false,
+        projectsCount: 0,
+        projectsScanned: 0,
     })
 
     hasLoaded = false
@@ -38,6 +42,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         if (data.updated) {
             const index = this.state.projects.findIndex((p) => p.id === data.updated?.id)
             if (index !== -1) {
+                if (this.state.projects[index].filesize === 0) {
+                    this.state.projectsScanned++
+                }
                 this.state.projects[index].filesize = data.updated.filesize
                 this.state.projects[index].image_count = data.updated.image_count
                 this.state.projects[index].excluded = data.updated.excluded
@@ -46,6 +53,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         } else {
             this.loadProjects()
         }
+        return true
     }
 
     private _onProjectsLoaded: ContainerEvent<"projectsLoaded"> = {
@@ -65,6 +73,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 .map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
                 .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
         )
+        this.state.projectsCount = projects.length
+        this.state.projectsScanned = projects.filter((p) => p.filesize > 0).length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
     }

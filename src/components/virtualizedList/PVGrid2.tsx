@@ -182,7 +182,7 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
 
         return () => ro.disconnect()
     }, [state, recalculate])
-    console.log("render")
+
     return (
         <Container
             ref={scrollContainerRef}

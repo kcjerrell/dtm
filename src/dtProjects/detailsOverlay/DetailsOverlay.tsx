@@ -29,7 +29,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
     const snap = uiState.useDetailsOverlay()
 
     const { item, itemDetails } = snap
-    console.log(item?.prompt)
+
     const isVisible = !!item
     const showSpinner = !!(snap.showSpinner || snap.subItem?.isLoading)
 

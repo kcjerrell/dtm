@@ -3,6 +3,7 @@ import { Panel } from "@/components"
 import { LayoutRoot } from "@/metadata/Containers"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
+import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
 import { SettingsPanel } from "./SettingsPanel"
@@ -29,6 +30,7 @@ function ProjectData(props: ChakraProps) {
 
     return (
         <LayoutRoot position={"relative"} {...restProps}>
+            <ImportProgress open={uiSnap.importLock} />
             <ControlPane margin={2} />
             <Panel
                 id={"project-content-pane"}

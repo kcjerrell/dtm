@@ -2,8 +2,10 @@ import type EventEmitter from "eventemitter3"
 import type { Snapshot } from "valtio"
 import type { Container } from "./container"
 
-export interface IContainer<T extends object = object, E extends object = object>
-    extends EventEmitter {
+export interface IContainer<
+    T extends { [K in keyof T]: IStateService } = object,
+    E extends EventMap = EventMap,
+> extends EventEmitter<{ [K in keyof E]: E[K] }> {
     //static register<T extends object, E extends object>(name: keyof T, service: T[typeof name]): IContainer<T, E>;
     services: T
     getService<K extends keyof T>(name: K): T[K]
@@ -14,14 +16,21 @@ export interface IContainer<T extends object = object, E extends object = object
     dispose(): void
 }
 
-export interface IStateService<C extends IContainer = IContainer> extends IDisposable {
+export type TagHandler<D = object> = (tag: string, data?: D) => boolean | Promise<boolean>
 
+export type EventMap = {
+    [eventName: string]: ContainerEventHandler
 }
+
+export type ContainerEventHandler<P extends object | never = never> = (payload: P) => void
+
+export interface IStateService<C extends IContainer = IContainer> extends IDisposable {}
 
 /**
  * Abstract base class for controllers using valtio state proxies
  */
-export interface IStateController<T extends object = object> extends IStateService<IContainer<T>> {
+export interface IStateController<C extends IContainer, T extends object = object>
+    extends IStateService<C> {
     /**
      * The state proxy - this must be a valtio proxy object
      */
