@@ -129,7 +129,7 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
     }
 }
 
-function getRefreshModelsJob(): DTPJob {
+export function getRefreshModelsJob(): DTPJob {
     return {
         type: "models-refresh",
         data: undefined,

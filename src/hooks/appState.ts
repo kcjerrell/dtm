@@ -42,7 +42,7 @@ const appStore = store(
         updateStatus: "unknown",
         updateAttempts: 0,
         currentView: "metadata",
-        isSidebarVisible: false,
+        isSidebarVisible: true,
         viewRequests: {},
         onboardPhase: "A1",
         clearHistoryOnExit: false,

@@ -89,6 +89,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
             if (firstIndex !== null) {
                 this.jobs.splice(firstIndex, 1, item)
                 if (Array.isArray(item.data)) item.data.unshift(...jobsData)
+                console.debug("merged job", formatJob(item))
                 return
             }
             // if no matching jobs were found, continue as if normal
@@ -105,11 +106,14 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
             })
             this.jobs.push(item)
             if (Array.isArray(item.data)) item.data.unshift(...jobsData)
+            console.debug("merged job", formatJob(item))
             return
         }
 
         if (addToFront) this.jobs.unshift(item)
         else this.jobs.push(item)
+
+        console.debug("added job", formatJob(item))
 
         if (!this.isActive) this.start()
     }
@@ -144,6 +148,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                     job.status = "completed"
 
                     job.callback?.(result?.data)
+                    console.debug("completed job", formatJob(job))
                 } catch (error) {
                     job.status = "failed"
                     job.error = error instanceof Error ? error.message : String(error)
@@ -163,4 +168,8 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
         })
         this.isActive = false
     }
+}
+
+function formatJob<C extends IContainer, JM extends JobTypeMap>(job: Job<C, JM>) {
+    return `${job.id}:${String(job.type)}:${job.tag}`
 }

@@ -66,7 +66,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 }}
             >
                 {activeProjectsSnap.map((p) => {
-                    if (!showEmpty && p.image_count === 0) return null
+                    if (!showEmpty && projectImageCounts?.[p.id] === undefined) return null
                     return (
                         <ProjectListItem
                             key={p.path}

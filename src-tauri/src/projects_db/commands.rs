@@ -141,12 +141,12 @@ pub async fn projects_db_project_scan(
 
     match result {
         Ok((_id, total)) => {
-            if total > 0 {
-                let project = pdb
-                    .update_project(&path, filesize, modified)
-                    .await
-                    .map_err(|e| e.to_string())?;
+            let project = pdb
+                .update_project(&path, filesize, modified)
+                .await
+                .map_err(|e| e.to_string())?;
 
+            if total > 0 {
                 let project = pdb
                     .get_project(project.id)
                     .await

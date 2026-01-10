@@ -1,11 +1,12 @@
-import { Box, Button, HStack, Input, VStack } from "@chakra-ui/react"
+import { Box, Button, chakra, Em, HStack, Input, VStack } from "@chakra-ui/react"
 import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
+import { PiInfo } from "@/components/icons"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../state/context"
 import SearchFilterForm from "./filters/SearchFilterForm"
-import { PiInfo } from "@/components/icons"
 
+    
 interface SearchPanelComponentProps extends ChakraProps {}
 
 function SearchPanel(props: SearchPanelComponentProps) {
@@ -120,11 +121,25 @@ function SearchPanel(props: SearchPanelComponentProps) {
 
 function SearchInfo() {
     return (
-        <VStack fontSize={"sm"}>
-            <div>Images will match if the prompt contains any of the search terms.</div>
-            <div>Wrap words or phrases in "quotes" to search for exact matches.</div>
+        <VStack fontSize={"sm"} alignItems={"flex-start"}>
+            <Box>Images will match if the prompt contains any of the search terms.</Box>
+            <Box>Search terms are stemmed, so <Em>shade</Em>, <Em>shades</Em>, <Em>shading</Em>, and <Em>shaded</Em> are all seen as the same word.</Box>
+            <Box>Wrap words or phrases in "quotes" to require an exact text match.</Box>
+            <B>cow boy</B>
+            <Box marginTop={-2}>Matches images that have the words <Em>cow</Em> or <Em>boy</Em> in the prompt - but not <Em>cowboy</Em> since that is a different word</Box>
+            <B>"cow" "boy"</B>
+            <Box marginTop={-2}>Matches images that have both <Em>cow</Em> and <Em>boy</Em> in the prompt - including <Em>cowboys</Em></Box>
+            <B>"cow boy"</B>
+            <Box marginTop={-2}>Matches images that have the exact phrase <Em>cow boy</Em> in the prompt</Box>
         </VStack>
     )
 }
+
+const B = chakra("span", {
+    base: {
+        fontWeight: "bold",
+        marginBottom: "0"
+    },
+})
 
 export default SearchPanel

@@ -7,8 +7,8 @@ use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
-    EntityTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait, Set,
+    EntityTrait, ExprTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Set,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -816,48 +816,107 @@ impl ProjectsDb {
         &self,
         model_type: Option<ModelType>,
     ) -> Result<Vec<ModelExtra>, DbErr> {
-        let mut query = entity::models::Entity::find();
+        // 1. Load models (optionally filtered)
+        let mut models_query = entity::models::Entity::find();
 
         if let Some(t) = model_type {
-            query = query.filter(entity::models::Column::ModelType.eq(t));
+            models_query = models_query.filter(entity::models::Column::ModelType.eq(t));
         }
 
-        let models = query.all(&self.db).await?;
+        let models = models_query.all(&self.db).await?;
+
+        // Early exit
+        if models.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut counts: HashMap<i64, i64> = HashMap::new();
+
+        // 2. Model + Refiner usage (images)
+        {
+            let rows = entity::images::Entity::find()
+                .select_only()
+                .column(entity::images::Column::ModelId)
+                .column_as(entity::images::Column::Id.count(), "cnt")
+                .filter(entity::images::Column::ModelId.is_not_null())
+                .group_by(entity::images::Column::ModelId)
+                .into_tuple::<(i64, i64)>()
+                .all(&self.db)
+                .await?;
+
+            for (model_id, cnt) in rows {
+                *counts.entry(model_id).or_default() += cnt;
+            }
+
+            let rows = entity::images::Entity::find()
+                .select_only()
+                .column(entity::images::Column::RefinerId)
+                .column_as(entity::images::Column::Id.count(), "cnt")
+                .filter(entity::images::Column::RefinerId.is_not_null())
+                .group_by(entity::images::Column::RefinerId)
+                .into_tuple::<(i64, i64)>()
+                .all(&self.db)
+                .await?;
+
+            for (model_id, cnt) in rows {
+                *counts.entry(model_id).or_default() += cnt;
+            }
+        }
+
+        // 3. Lora usage
+        {
+            let rows = entity::image_loras::Entity::find()
+                .select_only()
+                .column(entity::image_loras::Column::LoraId)
+                .column_as(entity::image_loras::Column::ImageId.count(), "cnt")
+                .group_by(entity::image_loras::Column::LoraId)
+                .into_tuple::<(i64, i64)>()
+                .all(&self.db)
+                .await?;
+
+            for (model_id, cnt) in rows {
+                *counts.entry(model_id).or_default() += cnt;
+            }
+        }
+
+        // 4. ControlNet usage
+        {
+            let rows = entity::image_controls::Entity::find()
+                .select_only()
+                .column(entity::image_controls::Column::ControlId)
+                .column_as(entity::image_controls::Column::ImageId.count(), "cnt")
+                .group_by(entity::image_controls::Column::ControlId)
+                .into_tuple::<(i64, i64)>()
+                .all(&self.db)
+                .await?;
+
+            for (model_id, cnt) in rows {
+                *counts.entry(model_id).or_default() += cnt;
+            }
+        }
+
+        // 5. Upscaler usage
+        {
+            let rows = entity::images::Entity::find()
+                .select_only()
+                .column(entity::images::Column::UpscalerId)
+                .column_as(entity::images::Column::Id.count(), "cnt")
+                .filter(entity::images::Column::UpscalerId.is_not_null())
+                .group_by(entity::images::Column::UpscalerId)
+                .into_tuple::<(i64, i64)>()
+                .all(&self.db)
+                .await?;
+
+            for (model_id, cnt) in rows {
+                *counts.entry(model_id).or_default() += cnt;
+            }
+        }
+
+        // 6. Build final result
         let mut results = Vec::new();
 
         for model in models {
-            let count = match model.model_type {
-                ModelType::Model => {
-                    let c1 = entity::images::Entity::find()
-                        .filter(entity::images::Column::ModelId.eq(model.id))
-                        .count(&self.db)
-                        .await?;
-                    let c2 = entity::images::Entity::find()
-                        .filter(entity::images::Column::RefinerId.eq(model.id))
-                        .count(&self.db)
-                        .await?;
-                    c1 + c2
-                }
-                ModelType::Lora => {
-                    entity::image_loras::Entity::find()
-                        .filter(entity::image_loras::Column::LoraId.eq(model.id))
-                        .count(&self.db)
-                        .await?
-                }
-                ModelType::Cnet => {
-                    entity::image_controls::Entity::find()
-                        .filter(entity::image_controls::Column::ControlId.eq(model.id))
-                        .count(&self.db)
-                        .await?
-                }
-                ModelType::Upscaler => {
-                    entity::images::Entity::find()
-                        .filter(entity::images::Column::UpscalerId.eq(model.id))
-                        .count(&self.db)
-                        .await?
-                }
-                _ => 0,
-            };
+            let count = counts.get(&model.id).copied().unwrap_or(0);
 
             if count > 0 {
                 results.push(ModelExtra {
@@ -866,12 +925,12 @@ impl ProjectsDb {
                     filename: model.filename,
                     name: model.name,
                     version: model.version,
-                    count: count as i64,
+                    count,
                 });
             }
         }
 
-        // Sort by count desc
+        // 7. Sort by usage desc
         results.sort_by(|a, b| b.count.cmp(&a.count));
 
         Ok(results)

@@ -9,6 +9,7 @@ import {
     type WatchFoldersChangedPayload,
 } from "./types"
 import type { WatchFolderState } from "./watchFolders"
+import { getRefreshModelsJob } from "./models"
 
 class ScannerService extends DTPStateService {
     constructor() {
@@ -26,19 +27,11 @@ class ScannerService extends DTPStateService {
                 const job = getModelInfoJob(folder.path)
                 this.container.getService("jobs").addJob(job)
             } else if (folder.item_type === "Projects") {
-                let callback = () => {}
-                if (folder.firstScan) {
-                    this.container.getService("uiState").setImportLock(true)
-                    callback = () => {
-                        this.container.getService("uiState").setImportLock(false)
-                    }
-                }
-
-                const job = syncProjectFolderJob(folder.path, callback)
+                const job = syncProjectFolderJob(folder.path)
                 this.container.getService("jobs").addJob(job)
             } else throw new Error("Invalid item type")
         }
-        if (e.removed) {
+        if (e.removed.length > 0) {
             this.syncProjectFolders(undefined, () => {
                 this.syncModelInfo()
             })
@@ -399,6 +392,7 @@ function getProjectJob(
                         }
                     }
                     container.services.uiState.setImportLock(false)
+                    return { jobs: [getRefreshModelsJob()] }
                 },
             }
         case "update":

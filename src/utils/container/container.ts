@@ -41,12 +41,12 @@ export class Container<
         })
 
         this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
-            // console.debug("invalidate-tags", event)
+            console.debug("invalidate-tags", event)
             const payload = event.payload as { tag: string; desc: string }                                                                                                                                  
             this.handleTags(payload.tag, { desc: payload.desc })
         })
         this.updateUnlistenPromise = listen("update-tags", (event) => {
-            // console.debug("update-tags", event)
+            console.debug("update-tags", event)
             const payload = event.payload as { tag: string; data: Record<string, unknown> }
             this.handleTags(payload.tag, payload.data)
         })
@@ -87,7 +87,7 @@ export class Container<
     }
 
     override emit<EN extends EventEmitter.EventNames<E>>(eventName: EN, ...args: EventEmitter.EventArgs<E, EN>): boolean {
-        // console.debug("emit", eventName, args)
+        console.debug("emit", eventName, args)
         return super.emit(eventName, ...args)
     }
 
