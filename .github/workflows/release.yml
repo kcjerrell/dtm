@@ -1,4 +1,4 @@
-name: 'publish'
+name: publish
 
 on:
   push:
@@ -9,45 +9,58 @@ jobs:
   publish-tauri:
     permissions:
       contents: write
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          # for Universal macOS builds (arm64 and x86_64)
-          - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
+          # Universal macOS build (arm64 + x86_64)
+          - platform: macos-latest
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin
 
     runs-on: ${{ matrix.platform }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup node
+      # Node.js + npm cache
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: npm
 
-      - name: install Rust stable
+      # Rust toolchain
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.rust-targets }}
 
-      - name: install dependencies
+      # Rust build cache (biggest speedup)
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install dependencies
         run: npm install
 
-      - name: generate icons
+      - name: Generate icons
         run: npm run gen-icons
 
-      - name: build and release
-        uses: tauri-apps/tauri-action@v1
+      - name: Build & publish (Tauri)
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # TAURI_SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: app-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
-          releaseName: 'App v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
+          tagName: app-v__VERSION__
+          releaseName: App v__VERSION__
+          releaseBody: See the assets to download this version and install.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-          uploadUpdaterJson: true
+          includeUpdaterJson: true
