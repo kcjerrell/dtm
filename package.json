@@ -36,7 +36,7 @@
     "@uiw/react-json-view": "^2.0.0-alpha.40",
     "async-mutex": "^0.5.0",
     "derive-valtio": "^0.2.0",
-    "dt-grpc-ts": "/Users/kcjer/Projects/dt-grpc-ts",
+    "dt-grpc-ts": "github:kcjerrell/dt-grpc-ts",
     "eventemitter3": "^5.0.1",
     "exifr": "github:m-hayabusa/exifr#2cf6c14fcd8eab52a7a7de53af7fdb01a4a9f90f",
     "exifreader": "^4.35.0",
