@@ -133,7 +133,7 @@ const themeConfig = defineConfig({
 				info: {
 					DEFAULT: {
 						value: {
-							_light: "#74b0ea",
+							_light: "#5098dbff",
 							_dark: "#689fd3",
 						},
 					},

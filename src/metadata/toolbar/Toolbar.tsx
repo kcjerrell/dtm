@@ -6,7 +6,6 @@ import { MetadataStore } from "../state/store"
 import { toolbarCommands } from "./commands"
 import { ContentHeaderContainer, ToolbarButtonGroup, ToolbarContainer, ToolbarRoot } from "./parts"
 import ToolbarItem from "./ToolbarItem"
-import UpgradeButton from "./UpgradeButton"
 
 function Toolbar(props: ChakraProps) {
 	const { ...restProps } = props

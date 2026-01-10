@@ -1,6 +1,6 @@
 import { Box, type BoxProps, chakra, Portal, type StackProps } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { type ReactNode, type RefObject, useRef } from "react"
+import { type ReactNode, type RefObject, useEffect, useRef } from "react"
 import { useMotionRect } from "@/hooks/motion"
 import { useRootElement } from "@/hooks/useRootElement"
 
@@ -79,11 +79,47 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         ...restProps
     } = props
     const [mvX, mvY, mvWidth, mvHeight] = useMotionRect(0, 0, 0, 0)
+
+    const panelRef = useRef<HTMLDivElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
+    const positionerRef = useRef<HTMLDivElement>(null)
+
     const root = useRootElement("view")
+
+    useEffect(() => {
+        if (!panelRef.current || !containerRef.current || !positionerRef.current) return
+        const handler = (e: MouseEvent) => {
+            if (panelRef.current === e.target || panelRef.current?.contains(e.target as Node)) return
+            const insidePopup = (e.target as HTMLElement).closest("[data-filter-popup]") !== null
+            if (insidePopup) return
+            onClose()
+        }
+        window.addEventListener("click", handler, { capture: true })
+        
+        const ro = new ResizeObserver((entries) => {
+            // for (const entry of entries) {
+            // if (entry.target !== elem) continue
+            if (!panelRef.current || !containerRef.current || !positionerRef.current) return
+
+            const { x, y, width, height } = positionerRef.current.getBoundingClientRect()
+            const { x: rootX, y: rootY } = root.getBoundingClientRect()
+            mvX.set(x - rootX)
+            mvY.set(y - rootY)
+            mvWidth.set(width)
+            mvHeight.set(height)
+            // }
+        })
+        ro.observe(positionerRef.current)
+        ro.observe(containerRef.current)
+        return () => {
+            window.removeEventListener("click", handler, { capture: true })
+            ro.disconnect()
+        }
+    }, [mvHeight, mvWidth, mvX, mvY, onClose, root])
 
     return (
         <Container
+            ref={containerRef}
             css={{
                 "@container (width < 25rem)": {
                     "& div": {
@@ -100,38 +136,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
             }}
             {...restProps}
         >
-            <Positioner
-                data-filter-popup
-                {...props}
-                ref={(elem: HTMLDivElement | null) => {
-                    if (!elem) return
-                    const handler = (e: MouseEvent) => {
-                        if (containerRef.current?.contains(e.target as Node)) return
-                        const insidePopup =
-                            (e.target as HTMLElement).closest("[data-filter-popup]") !== null
-                        if (insidePopup) return
-                        onClose()
-                    }
-                    window.addEventListener("click", handler, { capture: true })
-
-                    const ro = new ResizeObserver((entries) => {
-                        for (const entry of entries) {
-                            if (entry.target !== elem) continue
-                            const { x, y, width, height } = entry.target.getBoundingClientRect()
-                            const { x: rootX, y: rootY } = root.getBoundingClientRect()
-                            mvX.set(x - rootX)
-                            mvY.set(y - rootY)
-                            mvWidth.set(width)
-                            mvHeight.set(height)
-                        }
-                    })
-                    ro.observe(elem)
-                    return () => {
-                        window.removeEventListener("click", handler, { capture: true })
-                        ro.disconnect()
-                    }
-                }}
-            >
+            <Positioner data-filter-popup {...props} ref={positionerRef}>
                 <Portal container={{ current: shadeElem?.current || root }}>
                     <Box
                         position="absolute"
@@ -144,7 +149,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
                         {...shadeProps}
                     >
                         <Panel
-                            ref={containerRef}
+                            ref={panelRef}
                             style={{
                                 left: mvX,
                                 top: mvY,
