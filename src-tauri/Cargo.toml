@@ -3,7 +3,7 @@ members = ["migration", "entity", ".", "fpzip-sys"]
 
 [package]
 name = "dtm"
-version = "0.0.6"
+version = "0.1.0"
 description = "A little app for reading Draw Things Metadata"
 authors = ["kcjerrell"]
 edition = "2021"

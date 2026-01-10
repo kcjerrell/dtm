@@ -58,7 +58,7 @@ await fse.writeFile("src-tauri/Cargo.toml", cargoTomlLinesUpdated.join("\n"))
 
 // yarn tauri build
 // make sure exec is set up so you can enter your password when needed
-// await runTauriBuild()
+await runTauriBuild()
 
 // make sure we have everything
 const dmgPath = `./src-tauri/target/universal-apple-darwin/release/bundle/dmg/DTM_${version}_universal.dmg`
@@ -150,7 +150,7 @@ async function createRelease(tag: string) {
 
 async function runTauriBuild() {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn("npm", ["run", "build-universal"], {
+    const child = spawn("npm", ["run", "build:universal"], {
       stdio: "inherit", // inherit console output
       env: {
         ...process.env, // keep existing env vars
