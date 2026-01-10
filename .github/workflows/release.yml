@@ -34,6 +34,9 @@ jobs:
       - name: install dependencies
         run: npm install
 
+      - name: generate icons
+        run: npm run gen-icons
+
       - name: build and release
         uses: tauri-apps/tauri-action@v0
         env:
