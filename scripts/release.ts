@@ -58,7 +58,7 @@ await fse.writeFile("src-tauri/Cargo.toml", cargoTomlLinesUpdated.join("\n"))
 
 // yarn tauri build
 // make sure exec is set up so you can enter your password when needed
-// await runTauriBuild()
+await runTauriBuild()
 
 // make sure we have everything
 const dmgPath = `./src-tauri/target/universal-apple-darwin/release/bundle/dmg/DTM_${version}_universal.dmg`
