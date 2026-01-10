@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: universal-apple-darwin
+
+      - name: install dependencies
+        run: npm install
+
+      - name: build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PASSWORD: ${{ secrets.TAURI_SIGNING_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'v__VERSION__'
+          releaseBody: 'Release ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: --target universal-apple-darwin
+
+      - name: Update release.json
+        run: |
+          VERSION_TAG=${{ github.ref_name }}
+          VERSION=${VERSION_TAG#v}
+          SIG_PATH="src-tauri/target/universal-apple-darwin/release/bundle/macos/DTM.app.tar.gz.sig"
+          
+          if [ -f "$SIG_PATH" ]; then
+            SIGNATURE=$(cat "$SIG_PATH")
+            echo "Updating docs/release.json with version $VERSION and signature."
+            
+            # Create docs directory if it doesn't exist
+            mkdir -p docs
+            
+            cat <<EOF > docs/release.json
+          {
+            "version": "$VERSION",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/kcjerrell/dtm/releases/download/$VERSION_TAG/DTM.app.tar.gz"
+              },
+              "darwin-x86_64": {
+                "signature": "$SIGNATURE",
+                "url": "https://github.com/kcjerrell/dtm/releases/download/$VERSION_TAG/DTM.app.tar.gz"
+              }
+            }
+          }
+          EOF
+          else
+            echo "Signature file $SIG_PATH not found. Skipping release.json update."
+            exit 1
+          fi
+
+      - name: Commit and push release.json
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/release.json
+          git commit -m "chore: update release.json for ${{ github.ref_name }} [skip ci]" || echo "No changes to commit"
+          git push origin main
