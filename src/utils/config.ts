@@ -1,6 +1,5 @@
-import { SeedModeLabels } from "dt-grpc-ts/web"
 import type { TensorHistoryNode } from "@/commands"
-import type { DrawThingsConfigGrouped, DrawThingsMetaData } from "@/types"
+import { SeedModeLabels, type DrawThingsConfigGrouped, type DrawThingsMetaData } from "@/types"
 
 export function extractConfigFromTensorHistoryNode(
 		node: MaybeReadonly<TensorHistoryNode> | undefined | null,

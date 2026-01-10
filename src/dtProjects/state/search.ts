@@ -1,4 +1,3 @@
-import type { SamplerType } from "dt-grpc-ts/web"
 import { useMemo } from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { Model } from "@/commands"
@@ -9,6 +8,7 @@ import {
     targetCollection,
 } from "../controlPane/filters/collections"
 import { DTPStateController } from "./types"
+import { SamplerType } from '@/types'
 
 export type SearchControllerState = {
     searchInput: string
