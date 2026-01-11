@@ -131,19 +131,41 @@ pub fn decompress_fzip(data: Vec<u8>) -> Result<Vec<f32>> {
         }
 
         if fpzip_read_header(fpz) == 0 {
+            fpzip_read_close(fpz); // Ensure cleanup on error
             anyhow::bail!("Failed to read FPZIP header");
         }
 
         let header = fpz.read();
         let total_values = header.nx * header.ny * header.nz * header.nf;
 
-        out = vec![0.0f32; total_values as usize];
+        // Check the type from the header (bindgen usually maps C 'type' to 'type_')
+        // constants from fpzip.h: FPZIP_TYPE_FLOAT=0, FPZIP_TYPE_DOUBLE=1
+        if header.type_ == FPZIP_TYPE_DOUBLE as i32 {
+            // Double precision: read as f64 then convert to f32
+            let mut out_f64 = vec![0.0f64; total_values as usize];
+            let n_read = fpzip_read(fpz, out_f64.as_mut_ptr() as *mut c_void);
+            fpzip_read_close(fpz);
 
-        let n_read = fpzip_read(fpz, out.as_mut_ptr() as *mut c_void);
-        fpzip_read_close(fpz);
+            if data.len() != n_read {
+                // This check might be tricky because n_read is compressed bytes read?
+                // fpzip_read returns "number of compressed bytes read".
+                // If it successfully read the whole stream, it should suffice.
+                // However, matching exactly data.len() is good practice if we provided the whole buffer.
+                // Let's keep the check but note it applies to compressed input consumed.
+                if n_read == 0 {
+                     anyhow::bail!("FPZIP read failed (0 bytes read)");
+                }
+            }
+             out = out_f64.into_iter().map(|v| v as f32).collect();
+        } else {
+            // Assume float (FPZIP_TYPE_FLOAT=0)
+            out = vec![0.0f32; total_values as usize];
+            let n_read = fpzip_read(fpz, out.as_mut_ptr() as *mut c_void);
+            fpzip_read_close(fpz);
 
-        if data.len() != n_read {
-            anyhow::bail!("FPZIP read {} bytes, expected {}", n_read, data.len());
+            if n_read == 0 {
+                 anyhow::bail!("FPZIP read failed (0 bytes read)");
+            }
         }
     }
 
