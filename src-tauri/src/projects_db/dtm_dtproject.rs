@@ -94,7 +94,7 @@ async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>
     let item_id = req.item_id;
 
     let node = req.node;
-    let scale = req.scale;  
+    let scale = req.scale;
     let invert = req.invert;
     let mask = req.mask;
 
