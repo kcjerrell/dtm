@@ -75,12 +75,6 @@ async function checkForUpdate() {
         update = await check()
         if (update) {
             appState.updateStatus = "found"
-            postMessage({
-                channel: "toolbar",
-                message: "Update available! Click the update button to download",
-                duration: 5000,
-                uType: "update",
-            })
         } else appState.updateStatus = "none"
     } catch (e) {
         console.error(e)
