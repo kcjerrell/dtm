@@ -2,27 +2,37 @@
 trigger: always_on
 ---
 
-## Project description
-This project/app, called DTM, is intended as a companion app for the AI image generation app Draw Things. It contains a number of features that make working with Draw Things easier - enabling workflows and access to data where DT is lacking.  These features are divided into distinct tools, each with a corresponding view that is rendered in <App/> along with a a sidebar for switching between views. The following tools are currently available:
+## Project Overview
+**DTM** is a companion app for the AI image generation app **Draw Things (DT)**. It enhances DT workflows and provides access to data missing in DT. The app has multiple tools, each with a corresponding `<App/>` view accessible via the sidebar.
+
+### Tools
 
 #### Metadata
-It's an image viewer focusing on presenting the metadata in Draw Things generated images. Images can be added via clipboard or drag and drop. Draw Things specific data such as prompts and config are presented and can be easily copied for using in DT. Multiple images can be opened and pinned for quick access to frequently referenced image. A separate tab lists all available metadata in the image.
-- Root component is in src/metadata/Metadata.tsx
+- Displays Draw Things image metadata (prompts, configs, etc.) for easy copy and reference.
+- Details pane has two tabs: Config shows Draw Things metdata, and Details shows all image metadata.
+- Supports multiple images via clipboard or drag-and-drop.
+- Root component: `src/metadata/Metadata.tsx`.
 
 #### Projects
-The projects tool lets you browse and search accross many separate DT projects at once. Images from all included projects are indexed within 'projects_db', an sqlite database handled by the Rust backend. Currently the features in this tool are fairly basic.
-- Root component is in src/dtProjects/DTProjects.tsx
+- Browse and search across multiple DT projects.
+- Images indexed in `projects_db` (SQLite, managed by Rust backend).
+- Features are basic currently.
+- Root component: `src/dtProjects/DTProjects.tsx`.
 
+## Code Guidelines
 
-## Code guidelines
-This project makes extensive use of Valtio state proxies.
-- Genereally, proxies should be created and stored using a ref. src/hooks/valtioHooks.ts provides useProxyRef(). The proxy object should usually be called `state` or `somethingState`, indicating that it is a valtio proxy
-- In certain cases, state proxies are created in the module scope, allowing them to live outside of React lifecycles. These are sometimes named `store` especially if they are synced to the backend and persisted to disk.
-- Snapshots should always use the name `snap` or `somethingSnap`. 
-- It is imperative that when using valtio state proxies that...
--- Within the component's render function, data is only accessed through a snapshot provided by useSnapshot(). Any component consuming a snapshot via useSnapshot will be rerendered when the state is updated.
--- Any mutation or access outside of render (event callbacks, effects, etc) must use the actual state object.
--- Using state within render or snap outside of render WILL create problems. Don't do it!
+### Valtio State
+- Use `useProxyRef()` (from `src/hooks/valtioHooks.ts`) to create proxies in components.
+- Proxy naming:
+  - Component-level: `state` or `somethingState`.
+  - Module-level (persistent/synced): `store`.
+- Snapshots: always named `snap` or `somethingSnap`.
+- Rules:
+  1. Access state in render **only via snapshots** (`useSnapshot()`).
+  2. Mutate/access state **outside render** via the proxy object directly.
+  3. Never use `state` in render or `snap` outside render — this breaks reactivity.
 
-## Components
-This project makes extensive use of Chakra and Motion components. It is common to use style props directly while designing components/views. When layout and style is finalized, the base components should be extracted into separate components/recipes. See the chakra-component workflow for more information.
+### UI Components
+- Uses **Chakra UI** and **Framer Motion**.
+- Style props can be applied inline during design.
+- Once finalized, extract base components into reusable components/recipes.

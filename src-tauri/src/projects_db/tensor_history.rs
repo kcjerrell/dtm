@@ -4,9 +4,7 @@ use chrono::{DateTime, NaiveDateTime};
 // use tauri::Emitter; // Unused import
 use super::tensor_history_mod::{Control, LoRA};
 // use crate::projects_db::{ListImagesResult, ModelExtra, ProjectExtra}; // Unused import
-use crate::projects_db::tensor_history_generated::{
-    root_as_tensor_history_node,
-};
+use crate::projects_db::tensor_history_generated::root_as_tensor_history_node;
 
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct ModelAndWeight {
@@ -188,7 +186,9 @@ impl TensorHistoryImport {
             guidance_scale: node.guidance_scale(),
             hires_fix: node.hires_fix(),
             height: node.start_height(),
-            refiner_model: node.refiner_model().and_then(|v| Some(v.trim().to_string())),
+            refiner_model: node
+                .refiner_model()
+                .and_then(|v| Some(v.trim().to_string())),
             refiner_start: node.refiner_start(),
             resolution_dependent_shift: node.resolution_dependent_shift(),
             sampler: node.sampler().0,

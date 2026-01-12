@@ -7,6 +7,7 @@ import { Panel } from "@/components"
 import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
+import { useDTImage } from "./DTImageContext"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -17,6 +18,7 @@ function DetailsContent(props: DetailsContentProps) {
     const { ...boxProps } = props
     const { uiState } = useDTP()
     const { detailsView: snap } = uiState.useSnap()
+    const { loras, controls } = useDTImage()
     const config = snap?.itemDetails?.groupedConfig
     console.log(snap)
     if (!snap.itemDetails || !config) return null
@@ -118,6 +120,33 @@ function DetailsContent(props: DetailsContentProps) {
                             <Row>
                                 <DataItem.Model value={config.model} />
                             </Row>
+                            {/* LoRAs */}
+                            {(snap.itemDetails.node.loras?.length ?? 0) > 0 &&
+                                snap.itemDetails.node.loras?.map((lora, i) => {
+                                    const name = loras?.[i]?.name || lora.file
+                                    return (
+                                        <Row key={`lora-${i}`}>
+                                            <DataItem
+                                                label={"LoRA"}
+                                                data={`${name}, (Weight: ${Math.round(lora.weight * 100)}%)`}
+                                            />
+                                        </Row>
+                                    )
+                                })}
+
+                            {/* Controls */}
+                            {(snap.itemDetails.node.controls?.length ?? 0) > 0 &&
+                                snap.itemDetails.node.controls?.map((control, i) => {
+                                    const name = controls?.[i]?.name || control.file
+                                    return (
+                                        <Row key={`control-${i}`}>
+                                            <DataItem
+                                                label={"Control"}
+                                                data={`${name} (Weight: ${Math.round(control.weight * 100)}%, from ${Math.round(control.guidance_start * 100)}% to ${Math.round(control.guidance_end * 100)}%)`}
+                                            />
+                                        </Row>
+                                    )
+                                })}
                             <Row>
                                 <DataItem.Sampler value={config.sampler} />
                                 <DataItem.Steps value={config.steps} />

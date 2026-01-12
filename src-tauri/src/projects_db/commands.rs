@@ -372,7 +372,6 @@ pub async fn dt_project_decode_tensor(
 ) -> Result<tauri::ipc::Response, String> {
     let project = get_project(app, project_file, project_id).await.unwrap();
     let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
-
     let metadata = match node_id {
         Some(node) => Some(project.get_history_full(node).await.unwrap().history),
         None => None,

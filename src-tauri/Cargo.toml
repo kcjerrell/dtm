@@ -3,7 +3,7 @@ members = ["migration", "entity", ".", "fpzip-sys"]
 
 [package]
 name = "dtm"
-version = "0.1.1"
+version = "0.2.0"
 description = "A little app for reading Draw Things Metadata"
 authors = ["kcjerrell"]
 edition = "2021"
@@ -50,7 +50,7 @@ sea-orm = { version = "2.0.0-rc", features = [
   "runtime-async-std-native-tls",
   "macros",
   "sqlite-use-returning-for-3_35",
-  "debug-print"
+#  "debug-print"
 ] }
 futures = "0.3.28"
 tokio = "1.48.0"
@@ -71,6 +71,8 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 sea-query = "1.0.0-rc.20"
 unicode-normalization = "0.1.25"
+log = "0.4"
+tauri-plugin-log = "2"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

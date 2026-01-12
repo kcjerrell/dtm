@@ -3,6 +3,7 @@
 use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_http::reqwest;
+use tauri_plugin_log::log::LevelFilter;
 use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
@@ -115,6 +116,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_valtio::Builder::new().build())
         .plugin(tauri_plugin_nspopover::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .filter(|metadata| {
+                    !metadata.target().starts_with("sea_orm")
+                        && !metadata.target().starts_with("sqlx")
+                })
+                .level(LevelFilter::Debug)
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             read_clipboard_types,

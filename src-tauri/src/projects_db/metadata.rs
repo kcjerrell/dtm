@@ -1,4 +1,3 @@
-
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
@@ -35,7 +34,12 @@ impl TryFrom<&TensorHistoryNode> for DrawThingsMetadata {
     fn try_from(value: &TensorHistoryNode) -> Result<Self, Self::Error> {
         let v2 = V2::try_from(value)?;
         Ok(Self {
-            c: value.text_prompt.clone().unwrap_or_default().trim().to_string(),
+            c: value
+                .text_prompt
+                .clone()
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
             model: v2.model.clone(),
             profile: Some(json!({
                 "duration": 0,
@@ -49,7 +53,12 @@ impl TryFrom<&TensorHistoryNode> for DrawThingsMetadata {
             size: format!("{}x{}", v2.width, v2.height),
             steps: v2.steps,
             strength: v2.strength as f64,
-            uc: value.negative_text_prompt.clone().unwrap_or_default().trim().to_string(),
+            uc: value
+                .negative_text_prompt
+                .clone()
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
             v2,
         })
     }
@@ -105,11 +114,11 @@ pub struct V2 {
     #[serde(serialize_with = "serialize_float")]
     pub negative_aesthetic_score: f32,
     pub negative_original_image_height: u32,
-    pub negative_original_image_width: u32, 
+    pub negative_original_image_width: u32,
     pub negative_prompt_for_image_prior: bool,
     pub num_frames: u32,
     pub original_image_height: u32,
-    pub original_image_width: u32, 
+    pub original_image_width: u32,
     pub preserve_original_after_inpaint: bool,
     #[serde(serialize_with = "serialize_float")]
     pub refiner_start: f32,
@@ -139,7 +148,7 @@ pub struct V2 {
     pub strength: f32,
     pub t5_text_encoder: bool,
     pub target_image_height: u32,
-    pub target_image_width: u32, 
+    pub target_image_width: u32,
     pub tea_cache: bool,
     pub tea_cache_end: i32,
     pub tea_cache_max_skip_steps: i32,
@@ -194,25 +203,29 @@ impl TryFrom<&TensorHistoryNode> for V2 {
             clip_l_text: value.clip_l_text.clone(),
             clip_skip: value.clip_skip,
             clip_weight: value.clip_weight,
-            controls: value.controls.as_ref().map(|controls| {
-                controls
-                    .iter()
-                    .map(|c| {
-                        json!({
-                            "file": c.file,
-                            "weight": c.weight,
-                            "guidanceStart": c.guidance_start,
-                            "guidanceEnd": c.guidance_end,
-                            "downSamplingRate": 1,
-                            "globalAveragePooling": false,
-                            "inputOverride": "pose",
-                            "noPrompt": c.no_prompt,
-                            "controlImportance": "balanced",
-                            "targetBlocks": []
+            controls: value
+                .controls
+                .as_ref()
+                .map(|controls| {
+                    controls
+                        .iter()
+                        .map(|c| {
+                            json!({
+                                "file": c.file,
+                                "weight": c.weight,
+                                "guidanceStart": c.guidance_start,
+                                "guidanceEnd": c.guidance_end,
+                                "downSamplingRate": 1,
+                                "globalAveragePooling": false,
+                                "inputOverride": "pose",
+                                "noPrompt": c.no_prompt,
+                                "controlImportance": "balanced",
+                                "targetBlocks": []
+                            })
                         })
-                    })
-                    .collect()
-            }).unwrap_or(Vec::new()),
+                        .collect()
+                })
+                .unwrap_or(Vec::new()),
             crop_left: value.crop_left * 64,
             crop_top: value.crop_top * 64,
             decoding_tile_height: value.decoding_tile_height * 64,
@@ -233,17 +246,21 @@ impl TryFrom<&TensorHistoryNode> for V2 {
             id: 0,
             image_guidance_scale: value.image_guidance_scale,
             image_prior_steps: value.image_prior_steps,
-            loras: value.loras.as_ref().map(|l| {
-                l.iter()
-                    .map(|x| {
-                        json!({
-                            "file": x.file,
-                            "weight": x.weight,
-                            "mode": "all"
+            loras: value
+                .loras
+                .as_ref()
+                .map(|l| {
+                    l.iter()
+                        .map(|x| {
+                            json!({
+                                "file": x.file,
+                                "weight": x.weight,
+                                "mode": "all"
+                            })
                         })
-                    })
-                    .collect::<Vec<_>>()
-            }).unwrap_or(Vec::new()),
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or(Vec::new()),
             mask_blur: value.mask_blur,
             mask_blur_outset: value.mask_blur_outset,
             model: value.model.clone().unwrap_or("".to_string()),

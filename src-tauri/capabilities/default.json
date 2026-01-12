@@ -79,7 +79,8 @@
         }
       ],
       "identifier": "shell:allow-spawn"
-    }
+    },
+    "log:default"
   ],
   "windows": [
     "main",

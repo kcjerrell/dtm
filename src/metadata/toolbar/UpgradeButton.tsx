@@ -22,27 +22,27 @@ function getStatusTip(status: (typeof AppStore.store)["updateStatus"]) {
 }
 
 const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "label" | "icon">) => {
-    const appState = useSnapshot(AppStore.store)
+    const appSnap = useSnapshot(AppStore.store)
     const [showHiddenButton, setShowHiddenButton] = useState(false)
 
     useEffect(() => {
-        if (appState.updateStatus === "unknown") AppStore.checkForUpdate()
+        if (appSnap.updateStatus === "unknown") AppStore.checkForUpdate()
 
         if (
-            appState.updateStatus === "found" ||
-            appState.updateStatus === "installed" ||
-            appState.updateStatus === "error"
+            appSnap.updateStatus === "found" ||
+            appSnap.updateStatus === "installed" ||
+            appSnap.updateStatus === "error"
         ) {
             setShowHiddenButton(true)
             setTimeout(() => setShowHiddenButton(false), 5000)
         }
-    }, [appState.updateStatus])
+    }, [appSnap.updateStatus])
 
-    if (appState.updateAttempts >= 3) return null
+    if (appSnap.updateAttempts >= 3) return null
 
-    if (["checking", "unknown", "none"].includes(appState.updateStatus)) return null
+    if (["checking", "unknown", "none", "error"].includes(appSnap.updateStatus)) return null
 
-    if (["found", "installed", "error"].includes(appState.updateStatus)) {
+    if (["found", "installed"].includes(appSnap.updateStatus)) {
         return (
             <SidebarButton
                 label={"Update"}
@@ -51,16 +51,16 @@ const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "label"
                 onClick={async () => {
                     if (AppStore.store.updateStatus === "found") {
                         await AppStore.downloadAndInstallUpdate()
-                    } else if (appState.updateStatus === "installed") await relaunch()
-                    else if (appState.updateStatus === "error") await AppStore.retryUpdate()
+                    } else if (appSnap.updateStatus === "installed") await relaunch()
+                    else if (appSnap.updateStatus === "error") await AppStore.retryUpdate()
                 }}
                 {...props}
             />
         )
     }
 
-    if (appState.updateStatus === "downloading" || appState.updateStatus === "installing") {
-        return <ToolbarButton icon={Spinner} tip={statusTips[appState.updateStatus]} />
+    if (appSnap.updateStatus === "downloading" || appSnap.updateStatus === "installing") {
+        return <ToolbarButton icon={Spinner} tip={statusTips[appSnap.updateStatus]} />
     }
 }
 

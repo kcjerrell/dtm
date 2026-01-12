@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn main() {
     // Build fpzip with cmake
     let mut config = cmake::Config::new("fpzip");
-    
+
     config
         .define("CMAKE_POLICY_VERSION_MINIMUM", "3.5")
         // build static library

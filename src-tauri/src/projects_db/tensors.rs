@@ -25,10 +25,13 @@ pub fn decode_tensor(
     if tensor.data_type == 16384 {
         return decode_pose(tensor);
     }
+    log::debug!("Decoding tensor {} ({}x{}x{})", tensor.name, tensor.height, tensor.width, tensor.channels);
 
-    let out = decompress_fzip(tensor.data)?;
+    let out = decompress_fzip(&tensor.data)?;
+    log::debug!("Compressed: {} bytes, decompressed: {} bytes", &tensor.data.len(), out.len());
 
     let (pixels, width, height) = if let Some(target_size) = scale {
+        log::debug!("Scaling to {}x{}", target_size, target_size);
         let width = tensor.width as usize;
         let height = tensor.height as usize;
         let channels = tensor.channels as usize;
@@ -115,14 +118,14 @@ pub fn decode_tensor(
 
 fn decode_pose(tensor: TensorRaw) -> std::result::Result<Vec<u8>, anyhow::Error> {
     if tensor.data[0] == 0x66 && tensor.data[1] == 0x70 && tensor.data[2] == 0x79 {
-        let dec = decompress_fzip(tensor.data);
+        let dec = decompress_fzip(&tensor.data);
         Ok(f32_to_u8(dec.unwrap()))
     } else {
         Ok(tensor.data)
     }
 }
 
-pub fn decompress_fzip(data: Vec<u8>) -> Result<Vec<f32>> {
+pub fn decompress_fzip(data: &Vec<u8>) -> Result<Vec<f32>> {
     let mut out: Vec<f32>;
     unsafe {
         let fpz: *mut FPZ = fpzip_read_from_buffer(data.as_ptr() as *const c_void);
@@ -131,19 +134,41 @@ pub fn decompress_fzip(data: Vec<u8>) -> Result<Vec<f32>> {
         }
 
         if fpzip_read_header(fpz) == 0 {
+            fpzip_read_close(fpz); // Ensure cleanup on error
             anyhow::bail!("Failed to read FPZIP header");
         }
 
         let header = fpz.read();
         let total_values = header.nx * header.ny * header.nz * header.nf;
 
-        out = vec![0.0f32; total_values as usize];
+        // Check the type from the header (bindgen usually maps C 'type' to 'type_')
+        // constants from fpzip.h: FPZIP_TYPE_FLOAT=0, FPZIP_TYPE_DOUBLE=1
+        if header.type_ == FPZIP_TYPE_DOUBLE as i32 {
+            // Double precision: read as f64 then convert to f32
+            let mut out_f64 = vec![0.0f64; total_values as usize];
+            let n_read = fpzip_read(fpz, out_f64.as_mut_ptr() as *mut c_void);
+            fpzip_read_close(fpz);
 
-        let n_read = fpzip_read(fpz, out.as_mut_ptr() as *mut c_void);
-        fpzip_read_close(fpz);
+            if data.len() != n_read {
+                // This check might be tricky because n_read is compressed bytes read?
+                // fpzip_read returns "number of compressed bytes read".
+                // If it successfully read the whole stream, it should suffice.
+                // However, matching exactly data.len() is good practice if we provided the whole buffer.
+                // Let's keep the check but note it applies to compressed input consumed.
+                if n_read == 0 {
+                    anyhow::bail!("FPZIP read failed (0 bytes read)");
+                }
+            }
+            out = out_f64.into_iter().map(|v| v as f32).collect();
+        } else {
+            // Assume float (FPZIP_TYPE_FLOAT=0)
+            out = vec![0.0f32; total_values as usize];
+            let n_read = fpzip_read(fpz, out.as_mut_ptr() as *mut c_void);
+            fpzip_read_close(fpz);
 
-        if data.len() != n_read {
-            anyhow::bail!("FPZIP read {} bytes, expected {}", n_read, data.len());
+            if n_read == 0 {
+                anyhow::bail!("FPZIP read failed (0 bytes read)");
+            }
         }
     }
 

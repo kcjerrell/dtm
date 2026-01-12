@@ -1,5 +1,6 @@
-use crate::projects_db::{tensor_history::TensorHistoryNode, TensorHistoryImport, TextHistory, TextHistoryNode};
-use tokio::sync::OnceCell;
+use crate::projects_db::{
+    tensor_history::TensorHistoryNode, TensorHistoryImport, TextHistory, TextHistoryNode,
+};
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use serde::Serialize;
@@ -7,9 +8,11 @@ use sqlx::{query, sqlite::SqliteRow, Error, Row, SqlitePool};
 use std::{
     collections::HashSet,
     sync::{
-        Arc, atomic::{AtomicBool, Ordering}
+        atomic::{AtomicBool, Ordering},
+        Arc,
     },
 };
+use tokio::sync::OnceCell;
 
 static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
     Cache::builder()
@@ -144,16 +147,17 @@ impl DTProject {
             .fetch_all(&self.pool)
             .await?;
 
-
-
         let mut items = items;
         for item in items.iter_mut() {
             if item.prompt.is_empty() && item.negative_prompt.is_empty() {
-                let history = self.text_history.get_or_try_init(|| async {
-                   let nodes = self.get_text_history().await?;
-                   Ok::<TextHistory, Error>(TextHistory::new(nodes))
-                }).await?;
-                
+                let history = self
+                    .text_history
+                    .get_or_try_init(|| async {
+                        let nodes = self.get_text_history().await?;
+                        Ok::<TextHistory, Error>(TextHistory::new(nodes))
+                    })
+                    .await?;
+
                 if let Some(prompts) = history.get_edit(item.text_lineage, item.text_edits) {
                     item.prompt = prompts.positive;
                     item.negative_prompt = prompts.negative;
@@ -214,6 +218,7 @@ impl DTProject {
         let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
 
         Ok(TensorRaw {
+            name: name.to_string(),
             tensor_type,
             format,
             data_type,
@@ -359,16 +364,29 @@ impl DTProject {
             .await?;
         // item.moodboard_ids = Some(moodboard_ids);
 
-        let prompt_empty = item.history.text_prompt.as_ref().map_or(true, |s| s.is_empty());
-        let neg_prompt_empty = item.history.negative_text_prompt.as_ref().map_or(true, |s| s.is_empty());
+        let prompt_empty = item
+            .history
+            .text_prompt
+            .as_ref()
+            .map_or(true, |s| s.is_empty());
+        let neg_prompt_empty = item
+            .history
+            .negative_text_prompt
+            .as_ref()
+            .map_or(true, |s| s.is_empty());
 
         if prompt_empty && neg_prompt_empty {
-             let history = self.text_history.get_or_try_init(|| async {
-                let nodes = self.get_text_history().await?;
-                Ok::<TextHistory, Error>(TextHistory::new(nodes))
-            }).await?;
-            
-            if let Some(prompts) = history.get_edit(item.history.text_lineage, item.history.text_edits) {
+            let history = self
+                .text_history
+                .get_or_try_init(|| async {
+                    let nodes = self.get_text_history().await?;
+                    Ok::<TextHistory, Error>(TextHistory::new(nodes))
+                })
+                .await?;
+
+            if let Some(prompts) =
+                history.get_edit(item.history.text_lineage, item.history.text_edits)
+            {
                 item.history.text_prompt = Some(prompts.positive);
                 item.history.negative_text_prompt = Some(prompts.negative);
             }
@@ -612,6 +630,7 @@ pub struct TensorHistoryExtra {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct TensorRaw {
+    pub name: String,
     pub tensor_type: i64,
     pub data_type: i32,
     pub format: i32,

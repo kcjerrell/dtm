@@ -12,6 +12,8 @@ export function DTImageProvider(props: DTImageProviderProps) {
 	const { children, image } = props
 	const { models } = useDTP()
 	const model = models.getModel("Model", image?.config?.model)
+	const loras = image?.node?.loras?.map((l) => models.getModel("Lora", l.file))
+	const controls = image?.node?.controls?.map((c) => models.getModel("Cnet", c.file))
 
-	return <DTImageContext value={{ image, model }}>{children}</DTImageContext>
+	return <DTImageContext value={{ image, model, loras, controls }}>{children}</DTImageContext>
 }
