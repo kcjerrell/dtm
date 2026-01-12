@@ -2,7 +2,7 @@
   "name": "dtm",
   "author": "kcjerrell",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -14,9 +14,9 @@
     "clean:vite": "rm --recursive node_modules/.vite & rm --recursive  node_modules/.vite-temp",
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",
-    "release": "tsx scripts/release.ts",
     "gen-icons": "tauri icon ./app-icon.png",
-    "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'"
+    "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'",
+    "version": "tsx ./scripts/version.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.30.0",
@@ -26,6 +26,7 @@
     "@tauri-apps/plugin-dialog": "~2",
     "@tauri-apps/plugin-fs": "~2",
     "@tauri-apps/plugin-http": "~2",
+    "@tauri-apps/plugin-log": "^2.8.0",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "~2",
     "@tauri-apps/plugin-shell": "~2",
