@@ -16,6 +16,7 @@ pub struct ModelAndWeight {
 pub struct TensorHistoryImport {
     pub lineage: i64,
     pub logical_time: i64,
+    pub tensor_id: String,
     pub width: u16,
     pub height: u16,
     pub seed: u32,
@@ -52,7 +53,6 @@ pub struct TensorHistoryImport {
     pub has_scribble: bool,
     pub has_shuffle: bool,
     pub has_mask: bool,
-    // pub tensor_id: i64,
     pub text_edits: i64,
     pub text_lineage: i64,
     // pub batch_size: u32,
@@ -132,6 +132,7 @@ impl TensorHistoryImport {
     pub fn new(
         blob: &[u8],
         row_id: i64,
+        tensor_id: String,
         has_depth: bool,
         has_pose: bool,
         has_color: bool,
@@ -174,6 +175,7 @@ impl TensorHistoryImport {
             model: node.model().unwrap_or("").trim().to_string(),
             lineage: node.lineage(),
             preview_id: node.preview_id(),
+            tensor_id,
             row_id,
             controls,
             loras,

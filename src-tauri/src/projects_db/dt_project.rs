@@ -17,7 +17,10 @@ use tokio::sync::OnceCell;
 static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
     Cache::builder()
         .max_capacity(16)
-        .time_to_idle(std::time::Duration::from_secs(300)) // 10 min idle timeout
+        // caching database connections for 3 seconds, so images can be loaded in bulk
+        // from separate requests. Closing them early to avoid locks, in case project
+        // is renamed in DT
+        .time_to_idle(std::time::Duration::from_secs(3))
         .build()
 });
 
@@ -171,24 +174,21 @@ impl DTProject {
     fn map_import(&self, row: SqliteRow) -> TensorHistoryImport {
         let row_id: i64 = row.get(0);
         let p: &[u8] = row.get(1);
-        // let image_id: i64 = row.get(2);
+        let tensor_id: String = row.get(2);
 
         // These are booleans from the query (MAX(val) > 0)
-        let has_mask: bool = row.get(2);
-        let has_depth: bool = row.get(3);
-        let has_scribble: bool = row.get(4);
-        let has_pose: bool = row.get(5);
-        let has_color: bool = row.get(6);
-        let has_custom: bool = row.get(7);
+        let has_mask: bool = row.get(3);
+        let has_depth: bool = row.get(4);
+        let has_scribble: bool = row.get(5);
+        let has_pose: bool = row.get(6);
+        let has_color: bool = row.get(7);
+        let has_custom: bool = row.get(8);
         let has_shuffle: bool = row.get(8);
-
-        // We aren't using has_mask in TensorHistoryImport yet, but it's part of the query.
-        // TensorHistoryImport::new expects the boolean flags.
 
         TensorHistoryImport::new(
             p,
             row_id,
-            // image_id,
+            tensor_id,
             has_depth,
             has_pose,
             has_color,
@@ -349,6 +349,22 @@ impl DTProject {
             .await?;
         let thumbnail: Vec<u8> = result.get(0);
         Ok(thumbnail)
+    }
+
+    pub async fn get_histories_from_clip(
+        &self,
+        node_id: i64,
+    ) -> Result<Vec<TensorHistoryImport>, Error> {
+        self.check_table(&DTProjectTable::TensorHistory).await?;
+
+        // get_history_full
+        let history = self.get_history_full(node_id).await?;
+        // find out num_frames and clip_id from the history,
+        // let clip_id = history.history.clip_id;
+        let num_frames = history.history.num_frames;
+        println!("num_frames: {}, {}", num_frames, self.path);
+        // and return get_histories(node_id, num_frames)
+        self.get_histories(node_id, num_frames as i64).await
     }
 
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
@@ -562,6 +578,7 @@ fn import_query(has_moodboard: bool) -> String {
             thn.rowid,
             thn.p AS data_blob,
 
+            MAX('tensor_history_'   || NULLIF(td.f20, 0)) AS tensor_id,
             MAX(td.f22) > 0 AS has_mask,
             MAX(td.f24) > 0 AS has_depth,
             MAX(td.f26) > 0 AS has_scribble,
@@ -578,6 +595,7 @@ fn import_query(has_moodboard: bool) -> String {
                 td.rowid,
                 td.__pk0,
                 td.__pk1,
+                f20.f20 AS f20,
                 f22.f22 AS f22,
                 f24.f24 AS f24,
                 f26.f26 AS f26,
@@ -585,6 +603,7 @@ fn import_query(has_moodboard: bool) -> String {
                 f30.f30 AS f30,
                 f32.f32 AS f32
             FROM tensordata AS td
+            LEFT JOIN tensordata__f20 AS f20 ON f20.rowid = td.rowid
             LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
             LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
             LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid

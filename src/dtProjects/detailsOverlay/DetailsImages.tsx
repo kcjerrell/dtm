@@ -5,6 +5,7 @@ import urls from "@/commands/urls"
 import type { UIControllerState } from "../state/uiState"
 import DetailsImage from "./DetailsImage"
 import { DetailsSpinnerRoot } from "./common"
+import VideoFrames from '@/components/VideoFrames'
 
 interface DetailsImagesProps {
     item: ImageExtra
@@ -25,19 +26,23 @@ function DetailsImages(props: DetailsImagesProps) {
 
     return (
         <>
-            <DetailsImage
-                width={"100%"}
-                height={"100%"}
-                padding={0}
-                paddingTop={0}
-                gridArea={"image"}
-                zIndex={0}
-                id={`${item.project_id}_${item.node_id}`}
-                src={srcFull}
-                srcHalf={srcHalf}
-                naturalSize={{ width, height }}
-                dimmed={!!subItem}
-            />
+            {(itemDetails?.node.clip_id ?? -1) >= 0 ? (
+                <VideoFrames image={item} />
+            ) : (
+                <DetailsImage
+                    width={"100%"}
+                    height={"100%"}
+                    padding={0}
+                    paddingTop={0}
+                    gridArea={"image"}
+                    zIndex={0}
+                    id={`${item.project_id}_${item.node_id}`}
+                    src={srcFull}
+                    srcHalf={srcHalf}
+                    naturalSize={{ width, height }}
+                    dimmed={!!subItem}
+                />
+            )}
             {(showSpinner || subItem?.isLoading) && (
                 <DetailsSpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
                     <Spinner width={"100%"} height={"100%"} color={"white"} />

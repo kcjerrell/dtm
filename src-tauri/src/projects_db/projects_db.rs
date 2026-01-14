@@ -26,7 +26,7 @@ static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
 
 #[derive(Clone, Debug)]
 pub struct ProjectsDb {
-    db: DatabaseConnection,
+    pub db: DatabaseConnection,
 }
 
 fn get_path(app_handle: &tauri::AppHandle) -> String {
@@ -734,6 +734,28 @@ impl ProjectsDb {
             }
         };
         Ok(dt_project::DTProject::get(&project_path).await.unwrap())
+    }
+
+    pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryImport>, String> {
+        let result: Option<(String, i64)> = images::Entity::find_by_id(image_id)
+            .join(JoinType::InnerJoin, images::Relation::Projects.def())
+            .select_only()
+            .column(entity::projects::Column::Path)
+            .column(images::Column::NodeId)
+            .into_tuple()
+            .one(&self.db)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let (project_path, node_id) = result.ok_or("Image or Project not found")?;
+
+        let dt_project = DTProject::get(&project_path)
+            .await
+            .map_err(|e| e.to_string())?;
+        dt_project
+            .get_histories_from_clip(node_id)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn update_models(

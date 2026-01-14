@@ -7,12 +7,14 @@ export const DTImageContext = createContext<
 		model?: Model
 		loras?: (Model | undefined)[]
 		controls?: (Model | undefined)[]
+		refiner?: Model
 	}>
 >({
 	image: undefined,
 	model: undefined,
 	loras: undefined,
 	controls: undefined,
+	refiner: undefined,
 })
 
 

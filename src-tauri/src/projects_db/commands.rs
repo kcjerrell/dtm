@@ -207,6 +207,15 @@ pub async fn projects_db_image_list(
 }
 
 #[tauri::command]
+pub async fn projects_db_get_clip(
+    app_handle: tauri::AppHandle,
+    image_id: i64,
+) -> Result<Vec<TensorHistoryImport>, String> {
+    let projects_db = ProjectsDb::get_or_init(&app_handle).await?;
+    projects_db.get_clip(image_id).await
+}
+
+#[tauri::command]
 pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     projects_db.rebuild_images_fts().await.unwrap();

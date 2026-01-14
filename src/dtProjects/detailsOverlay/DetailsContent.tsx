@@ -8,6 +8,7 @@ import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
 import { useDTImage } from "./DTImageContext"
+import Clip from "./Clip"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -58,6 +59,11 @@ function DetailsContent(props: DetailsContentProps) {
                         <Tabs.Trigger height={"2rem"} value="raw">
                             Raw
                         </Tabs.Trigger>
+                        {snap.itemDetails.node.clip_id > 0 && (
+                            <Tabs.Trigger height={"2rem"} value="clip">
+                                Clip
+                            </Tabs.Trigger>
+                        )}
                     </Tabs.List>
                     <Tabs.Content value={"raw"}>
                         <DataItem
@@ -65,6 +71,9 @@ function DetailsContent(props: DetailsContentProps) {
                             label={"Raw"}
                             data={JSON.stringify(snap.itemDetails, null, 2)}
                         />
+                    </Tabs.Content>
+                    <Tabs.Content value="clip">
+                        <Clip itemDetails={snap.itemDetails} item={snap.item} />
                     </Tabs.Content>
 
                     <Tabs.Content value="details">
@@ -178,6 +187,9 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.AestheticScore value={config.aestheticScore} />
                                 <DataItem.TeaCache value={config.teaCache} />
                             </Grid>
+                            <DataItem label={"Node ID"} data={snap.item?.node_id} />
+                            <DataItem label={"Lineage"} data={snap.itemDetails?.node.lineage} />
+                            <DataItem label={"Logical Time"} data={snap.itemDetails?.node.logical_time} />
                             <DataItem
                                 label={"Tensor ID"}
                                 data={snap.itemDetails.images?.tensorId}

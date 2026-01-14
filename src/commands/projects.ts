@@ -283,6 +283,9 @@ export const pdb = {
 		else return { items: [], total: 0 }
 	},
 
+	getClip: async (imageId: number): Promise<TensorHistoryNode[]> =>
+		invoke("projects_db_get_clip", { imageId }),
+
 	/**
 	 * ignores projectIds, returns count of image matches in each project.
 	 */

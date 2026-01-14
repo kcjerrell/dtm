@@ -9,6 +9,7 @@ use tauri_plugin_window_state::StateFlags;
 mod clipboard;
 
 mod projects_db;
+mod vid;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -142,6 +143,7 @@ pub fn run() {
             projects_db_project_update_exclude,
             projects_db_image_count, // #unused
             projects_db_image_list,
+            projects_db_get_clip,
             projects_db_image_rebuild_fts,
             projects_db_watch_folder_list,
             projects_db_watch_folder_add,
@@ -156,7 +158,8 @@ pub fn run() {
             dt_project_find_predecessor_candidates,
             dt_project_get_tensor_raw, // #unused
             dt_project_get_tensor_size,
-            dt_project_decode_tensor
+            dt_project_decode_tensor,
+            vid::create_video_from_frames
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {
