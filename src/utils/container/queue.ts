@@ -15,7 +15,8 @@ export interface JobSpec<
     K extends keyof JM = keyof JM,
 > {
     type: K
-    tag?: string
+    subtype?: string
+    label?: string
     data: JM[K]["data"]
     execute: (data: JM[K]["data"], container: C) => Promise<JobResult<JM, K, C>> | Promise<void>
     callback?: JobCallback<JM[K]["result"]>
@@ -80,7 +81,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
             let firstIndex: number | null = null
             const jobsData = []
             this.jobs.forEach((j, i) => {
-                if (j.type === item.type && j.tag === item.tag) {
+                if (j.type === item.type && j.subtype === item.subtype) {
                     firstIndex = firstIndex === null ? i : Math.min(firstIndex, i)
                     j.status = "canceled"
                     if (Array.isArray(j.data)) jobsData.push(...j.data)
@@ -99,7 +100,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
             if (addToFront) throw new Error("Cannot add job to front with merge=last")
             const jobsData = []
             this.jobs.forEach((j) => {
-                if (j.type === item.type && j.tag === item.tag) {
+                if (j.type === item.type && j.subtype === item.subtype) {
                     j.status = "canceled"
                     if (Array.isArray(j.data)) jobsData.push(...j.data)
                 }
@@ -171,5 +172,9 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
 }
 
 function formatJob<C extends IContainer, JM extends JobTypeMap>(job: Job<C, JM>) {
-    return `${job.id}:${String(job.type)}:${job.tag}`
+    let formatted = `${job.id}:${String(job.type)}`
+
+    if (job.subtype) formatted += `:${job.subtype}`
+    if (job.label) formatted += `:${job.label}`
+    return formatted
 }

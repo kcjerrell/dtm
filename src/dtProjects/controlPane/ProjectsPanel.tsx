@@ -144,7 +144,10 @@ function ProjectListItem(props: ProjectListItemProps) {
             // }}
         >
             <HStack justifyContent={"space-between"}>
-                <Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>
+                <Box flex={"1 1 auto"}>
+                    {project.path.split("/").pop()?.slice(0, -8)}
+                    {project.isMissing && " (missing)"}
+                </Box>
                 {project.isScanning ? (
                     <Box color={"fg.3"}>-</Box>
                 ) : (

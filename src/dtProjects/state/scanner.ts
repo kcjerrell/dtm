@@ -296,6 +296,7 @@ function syncProjectsJob(callback?: () => void): DTPJob {
 function syncProjectFolderJob(watchFolder: string, callback?: () => void): DTPJob {
     return {
         type: "project-folder-scan",
+        label: watchFolder,
         data: watchFolder,
         callback,
         execute: async (_, container) => {
@@ -319,7 +320,11 @@ function syncProjectFolderJob(watchFolder: string, callback?: () => void): DTPJo
                 const existingProject = p.state.projects.find((pj) => pj.path === path)
                 const stats = await getProjectStats(path)
 
-                if (!stats || stats === "dne") continue
+                if (!stats || stats === "dne") {
+                    if (existingProject) existingProject.isMissing = true
+                    console.log("project is missing")
+                    continue
+                }
 
                 if (existingProject) {
                     if (
