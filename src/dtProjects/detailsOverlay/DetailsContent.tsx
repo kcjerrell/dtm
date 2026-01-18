@@ -178,9 +178,11 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.TiledDiffusion value={config.tiledDiffusion} />
                                 <DataItem.Upscaler value={config.upscaler} />
                                 {/* <DataItem.Batch value={config.batch} /> */}
+                                <DataItem.NumFrames value={snap.item?.num_frames} />
                                 <DataItem.CausalInference value={config.causalInference} />
                                 <DataItem.CfgZero value={config.cfgZero} />
                                 <DataItem.MaskBlur value={config.maskBlur} />
+                                <DataItem label={"Mask Outset"} data={snap.itemDetails?.groupedConfig?.maskBlur?.outset} />
                                 <DataItem.Sharpness value={config.sharpness} />
                                 <DataItem.Stage2 value={config.stage2} />
                                 <DataItem.ImagePrior value={config.imagePrior} />

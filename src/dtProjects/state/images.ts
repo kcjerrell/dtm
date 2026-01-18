@@ -1,3 +1,4 @@
+import { proxy, subscribe, useSnapshot } from "valtio"
 import { type ImageExtra, pdb } from "@/commands"
 import {
     EmptyItemSource,
@@ -5,7 +6,6 @@ import {
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
 import type { ContainerEvent } from "@/utils/container/StateController"
-import { proxy, useSnapshot } from "valtio"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
@@ -30,6 +30,9 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         searchId: 0,
     })
 
+    showImages = true
+    showVideos = true
+
     itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
     eventTimer: NodeJS.Timeout | undefined
 
@@ -50,10 +53,12 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
                 const p = get(projectsService.state.selectedProjects)
                 this.setSelectedProjects(p)
             })
-            this.watchProxy((get) => {
+            this.watchProxy(async (get) => {
                 const p = get(projectsService.state.projects)
                 const changed = updateProjectsCache(p, this.projectsCache)
+
                 if (changed.length > 0) {
+                    await this.container.services.uiState.importLockPromise
                     if (this.eventTimer) return
                     clearTimeout(this.eventTimer)
                     this.eventTimer = setTimeout(async () => {
@@ -63,6 +68,44 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
                     }, 1000)
                 }
             })
+        })
+
+        this.container.getFutureService("uiState").then((uiState) => {
+            const unsub = subscribe(uiState.state, () => {
+                const { showVideos, showImages } = uiState.state
+                if (this.showImages === showImages && this.showVideos === showVideos) return
+
+                const imageSource = this.state.imageSource
+
+                const isFilterNeeded = !(showImages === showVideos)
+                const filterIndex =
+                    this.state.imageSource.filters?.findIndex((f) => f.target === "type") ?? -1
+                let filter = filterIndex >= 0 ? imageSource.filters?.[filterIndex] : undefined
+
+                if (!isFilterNeeded) {
+                    if (filter) imageSource.filters?.splice(filterIndex, 1)
+                    return
+                }
+
+                if (!imageSource.filters) imageSource.filters = []
+
+                if (!filter) {
+                    filter = {
+                        target: "type",
+                        operator: "is",
+                        value: [] as string[],
+                    }
+                    imageSource.filters.push(filter)
+                }
+                filter.value = [] as string[]
+
+                if (showImages) filter.value.push("image")
+                if (showVideos) filter.value.push("video")
+
+                this.showImages = showImages
+                this.showVideos = showVideos
+            })
+            this.unwatchFns.push(unsub)
         })
 
         this.watchProxy((get) => {

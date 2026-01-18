@@ -1,6 +1,8 @@
 import { Box } from "@chakra-ui/react"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import type { ImageExtra } from "@/commands"
+import { PiFilmStrip } from "@/components/icons"
+import VideoFrames from "@/components/VideoFrames"
 import PVGrid, {
     type PVGridItemComponent,
     type PVGridItemProps,
@@ -13,6 +15,7 @@ function ImagesList(props: ChakraProps) {
     const { images, uiState } = useDTP()
     const uiSnap = uiState.useSnap()
     const imagesSnap = images.useSnap()
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
     const itemSource = images.useItemSource()
 
@@ -23,8 +26,19 @@ function ImagesList(props: ChakraProps) {
         [images],
     )
 
+    const onPointerEnter = useCallback((index: number) => {
+        setHoveredIndex((value) => {
+            return index
+        })
+    }, [])
+
+    const onPointerLeave = useCallback((index: number) => {
+        setHoveredIndex(null)
+    }, [])
+
     return (
         <PVGrid<ImageExtra>
+            onScroll={() => setHoveredIndex(null)}
             freeze={!!uiSnap.detailsView?.item}
             inert={uiSnap.isGridInert}
             bgColor={"transparent"}
@@ -33,11 +47,28 @@ function ImagesList(props: ChakraProps) {
             itemSource={itemSource}
             maxItemSize={imagesSnap.imageSize ?? 5}
             onImagesChanged={images.onImagesChanged}
-            itemProps={{ showDetailsOverlay }}
+            itemProps={{ showDetailsOverlay, onPointerEnter, onPointerLeave, hoveredIndex }}
             keyFn={keyFn}
             {...props}
         />
     )
+}
+
+function GridItemWrapper(
+    props: PVGridItemProps<ImageExtra, { showDetailsOverlay: (index: number) => void }>,
+) {
+    const { value: item } = props
+    if (!item) return null
+
+    if (
+        item.clip_id !== null &&
+        item.clip_id !== undefined &&
+        item.clip_id >= 0 &&
+        item.num_frames
+    ) {
+        return <VideoFrames image={item} half />
+    }
+    return <GridItemAnim {...props} />
 }
 
 function GridItemAnim(
@@ -45,17 +76,40 @@ function GridItemAnim(
         ImageExtra,
         {
             showDetailsOverlay: (index: number) => void
+            onPointerEnter?: (index: number) => void
+            onPointerLeave?: (index: number) => void
+            hoveredIndex?: number
         }
     >,
 ) {
-    const { value: item, showDetailsOverlay, index } = props
+    const {
+        value: item,
+        showDetailsOverlay,
+        index,
+        hoveredIndex,
+        onPointerEnter,
+        onPointerLeave,
+    } = props
+
+    if (!item) return <Box />
 
     const previewId = `${item?.project_id}/${item?.preview_id}`
     const url = `dtm://dtproject/thumbhalf/${previewId}`
 
+    const isVideo = item.num_frames > 0
+    const showVideo = isVideo && hoveredIndex === index
+    if (showVideo) console.log("show vidoeo", index)
     return (
-        <Box bgColor={"fg.1/20"} onClick={() => showDetailsOverlay(index)}>
-            {item && (
+        <Box
+            position={"relative"}
+            bgColor={"fg.1/20"}
+            onPointerEnter={() => onPointerEnter?.(index)}
+            onPointerLeave={() => onPointerLeave?.(index)}
+            onClick={() => showDetailsOverlay(index)}
+        >
+            {showVideo ? (
+                <VideoFrames width={"100%"} height={"100%"} image={item} half objectFit={"cover"} />
+            ) : (
                 <div
                     key={url}
                     style={{
@@ -85,6 +139,19 @@ function GridItemAnim(
                         // transition={{ duration: 0.25 }}
                     />
                 </div>
+            )}
+            {isVideo && (
+                <PiFilmStrip
+                    style={{
+                        position: "absolute",
+                        bottom: 4,
+                        left: 4,
+                        width: 20,
+                        height: 20,
+                        color: "white",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                    }}
+                />
             )}
         </Box>
     )

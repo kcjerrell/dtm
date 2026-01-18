@@ -1,6 +1,7 @@
 import { exists, stat } from "@tauri-apps/plugin-fs"
-import { pdb } from "@/commands"
+import { type ProjectExtra, pdb } from "@/commands"
 import type { JobCallback } from "@/utils/container/queue"
+import { getRefreshModelsJob } from "./models"
 import {
     type DTPJob,
     type DTPJobSpec,
@@ -9,7 +10,6 @@ import {
     type WatchFoldersChangedPayload,
 } from "./types"
 import type { WatchFolderState } from "./watchFolders"
-import { getRefreshModelsJob } from "./models"
 
 class ScannerService extends DTPStateService {
     constructor() {
@@ -380,18 +380,20 @@ function getProjectJob(
                 callback,
                 execute: async (data: string[], container) => {
                     container.services.uiState.setImportLock(true)
+                    const projects = [] as ProjectExtra[]
                     for (const p of data) {
                         try {
-                            await pdb.addProject(p)
+                            const project = await pdb.addProject(p)
+                            projects.push(project)
                         } catch (e) {
                             console.error(e)
                         }
                     }
-                    for (const p of data) {
+                    for (const p of projects) {
                         try {
-                            const stats = await getProjectStats(p)
+                            const stats = await getProjectStats(p.path)
                             if (!stats || stats === "dne") continue
-                            await pdb.scanProject(p, false, stats.size, stats.mtime)
+                            await pdb.scanProject(p.path, false, stats.size, stats.mtime)
                         } catch (e) {
                             console.error(e)
                         }

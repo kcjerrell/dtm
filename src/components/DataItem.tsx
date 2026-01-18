@@ -346,6 +346,7 @@ const templates = {
     },
     NumFrames: (props: DataItemTemplateProps<"numFrames">) => {
         const { value, ...rest } = props
+
         if (!value) return null
         return <DataItem label={"Num Frames"} data={value} {...rest} />
     },

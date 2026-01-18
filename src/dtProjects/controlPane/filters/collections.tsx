@@ -8,6 +8,7 @@ import FloatValueInput from "./FloatValueInput"
 import IntValueInput from "./IntValueInput"
 import { ControlValueSelector, LoraValueSelector, ModelValueSelector } from "./ModelValueSelector"
 import SamplerValueSelector from "./SamplerValueSelector"
+import TypeValueSelector from "./TypeValueSelector"
 
 export function createValueLabelCollection(values: Record<string, string>) {
     return createListCollection({
@@ -74,6 +75,11 @@ const prepareModelFilterValue = (value: (Model | VersionModel)[]) => {
 const prepareSizeFilterValue = (value: number) => Math.round(value / 64)
 
 export const filterTargets = {
+    type: {
+        collection: isIsNotOpsCollection,
+        ValueComponent: TypeValueSelector,
+        initialValue: [],
+    },
     model: {
         collection: isIsNotOpsCollection,
         ValueComponent: ModelValueSelector,

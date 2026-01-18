@@ -36,6 +36,8 @@ export type UIControllerState = {
     isSettingsOpen: boolean
     isGridInert: boolean
     importLock: boolean
+    showVideos: boolean
+    showImages: boolean
 }
 
 type Handler<T> = (payload: T) => void
@@ -59,6 +61,8 @@ export class UIController extends DTPStateController<UIControllerState> {
         isSettingsOpen: false,
         isGridInert: false,
         importLock: false,
+        showVideos: false,
+        showImages: false,
     })
 
     constructor() {
@@ -79,6 +83,14 @@ export class UIController extends DTPStateController<UIControllerState> {
         }
     }
 
+    setShowVideos(show: boolean) {
+        this.state.showVideos = show
+    }
+
+    setShowImages(show: boolean) {
+        this.state.showImages = show
+    }
+
     setSelectedTab(tab: "projects" | "search", focusElement?: string) {
         this.state.selectedTab = tab
         this.state.shouldFocus = focusElement
@@ -94,8 +106,21 @@ export class UIController extends DTPStateController<UIControllerState> {
         this.state.isGridInert = inert ?? !this.state.isGridInert
     }
 
+    _importLockPromise = Promise.resolve()
+    _importLockResolver: (() => void) | null = null
+    get importLockPromise() {
+        return this._importLockPromise
+    }
+    /** show/hide the import lock */
     setImportLock(lock: boolean) {
         this.state.importLock = lock
+        if (lock) {
+            this._importLockPromise = new Promise((resolve) => {
+                this._importLockResolver = resolve
+            })
+        } else {
+            this._importLockResolver?.()
+        }
     }
 
     async showDetailsOverlay(item: ImageExtra) {

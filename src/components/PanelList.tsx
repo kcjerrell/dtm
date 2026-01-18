@@ -1,12 +1,11 @@
 import { HStack, Spacer } from "@chakra-ui/react"
-import { motion, useSpring } from "motion/react"
 import { type ComponentType, useEffect, useMemo, useRef } from "react"
+import { proxy, type Snapshot, useSnapshot } from "valtio"
 import type { IconType } from "@/components/icons"
 import { PiInfo } from "@/components/icons"
-import { proxy, type Snapshot, useSnapshot } from "valtio"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
-import { PanelListScrollContent, PanelSection, PaneListScrollContainer } from "./common"
+import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean

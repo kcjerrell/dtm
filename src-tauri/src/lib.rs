@@ -10,6 +10,7 @@ mod clipboard;
 
 mod projects_db;
 mod vid;
+mod ffmpeg;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -44,6 +45,21 @@ fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<Vec<u
 #[tauri::command]
 fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
     clipboard::write_clipboard_binary(ty, data)
+}
+
+#[tauri::command]
+async fn ffmpeg_check(app: tauri::AppHandle) -> Result<bool, String> {
+    ffmpeg::check_ffmpeg(&app).await
+}
+
+#[tauri::command]
+async fn ffmpeg_download(app: tauri::AppHandle) -> Result<(), String> {
+    ffmpeg::download_ffmpeg(app).await
+}
+
+#[tauri::command]
+async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String, String> {
+    ffmpeg::call_ffmpeg(&app, args).await
 }
 
 #[tauri::command]
@@ -159,7 +175,10 @@ pub fn run() {
             dt_project_get_tensor_raw, // #unused
             dt_project_get_tensor_size,
             dt_project_decode_tensor,
-            vid::create_video_from_frames
+            vid::create_video_from_frames,
+            ffmpeg_check,
+            ffmpeg_download,
+            ffmpeg_call
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {

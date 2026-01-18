@@ -31,6 +31,8 @@ class DetailsService extends DTPStateService {
             config: rawConfig,
             groupedConfig: config,
             node: history,
+            numFrames: item.num_frames,
+            clipId: item.clip_id,
             images: {
                 tensorId: extra.tensor_id,
                 previewId: history.preview_id,

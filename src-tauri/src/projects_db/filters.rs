@@ -10,6 +10,7 @@ impl ListImagesFilterTarget {
         q: sea_orm::Select<images::Entity>,
     ) -> sea_orm::Select<images::Entity> {
         match self {
+            ListImagesFilterTarget::Type => apply_type_filter(op, value, q),
             ListImagesFilterTarget::Model => apply_model_filter(op, value, q),
             ListImagesFilterTarget::Sampler => apply_sampler_filter(op, value, q),
             ListImagesFilterTarget::Content => apply_content_filter(op, value, q),
@@ -27,6 +28,53 @@ impl ListImagesFilterTarget {
             ListImagesFilterTarget::Control => apply_control_filter(op, value, q),
         }
     }
+}
+
+fn apply_type_filter(
+    op: ListImagesFilterOperator,
+    value: &ListImagesFilterValue,
+    q: sea_orm::Select<images::Entity>,
+) -> sea_orm::Select<images::Entity> {
+    use sea_orm::QueryFilter;
+    use ListImagesFilterOperator::*;
+
+    let types = match value {
+        ListImagesFilterValue::String(v) => v,
+        _ => return q,
+    };
+    println!("types: {:?}", types);
+    // types will have "Image" or "Video" or both
+    // op image video
+    // is true false        isnot false true         images only
+    // is false true        isnot true false         videos only
+    // is true true         isnot false false        both
+    // is false false       isnot true true          none
+    // so just boil it down to has images and has videos
+    let op_is_is = matches!(op, Is);
+    let mut has_images = !op_is_is;
+    let mut has_videos = !op_is_is;
+
+    for t in types {
+        match t.as_str() {
+            "image" => has_images = op_is_is,
+            "video" => has_videos = op_is_is,
+            _ => {}
+        }
+    }
+    println!("has_images: {}, has_videos: {}, is_is: {}", has_images, has_videos, op_is_is);
+
+    if has_images && has_videos {
+        return q;
+    }
+    if has_images {
+        return q.filter(images::Column::NumFrames.is_null());
+    }
+    if has_videos {
+        return q.filter(images::Column::NumFrames.is_not_null());
+    }
+
+    // this is pointless but accurate
+    q.filter(sea_query::Expr::val(false))
 }
 
 fn apply_model_filter(
@@ -197,6 +245,7 @@ pub enum ListImagesFilterTarget {
     Height,
     TextGuidance,
     Shift,
+    Type,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -83,6 +83,7 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         itemProps,
         maxItemSize,
         onImagesChanged,
+        onScroll,
         ...restProps
     } = props
     const Item = itemComponent
@@ -187,7 +188,10 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         <Container
             ref={scrollContainerRef}
             position={"relative"}
-            onScroll={(e) => handleScroll(e)}
+            onScroll={(e) => {
+                handleScroll(e)
+                onScroll?.(e)
+            }}
             {...restProps}
         >
             <Grid

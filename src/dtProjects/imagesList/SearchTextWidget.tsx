@@ -1,8 +1,8 @@
 import { Box, HStack } from "@chakra-ui/react"
-import { FiX } from "@/components/icons"
 import { IconButton } from "@/components"
-import { useDTP } from "../state/context"
+import { FiX } from "@/components/icons"
 import { plural } from "@/utils/helpers"
+import { useDTP } from "../state/context"
 
 interface SearchTextWidgetProps extends ChakraProps {}
 
@@ -12,7 +12,7 @@ function SearchTextWidget(props: SearchTextWidgetProps) {
     const snap = images.useSnap()
 
     const search = snap.imageSource.search
-    const filters = snap.imageSource.filters?.length
+    const filters = snap.imageSource.filters?.filter((f) => f.target !== "type").length
 
     if (!search && !filters) return null
 
