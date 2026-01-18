@@ -25,6 +25,8 @@ export type ImageExtra = {
 		prompt?: string
 		negative_prompt?: string
 		preview_id: number
+		clip_id: number
+		num_frames: number
 		node_id: number
 		has_depth: boolean
 		has_pose: boolean
@@ -188,6 +190,8 @@ export type DTImageFull = {
 	project: ProjectState
 	config: DrawThingsConfig
 	groupedConfig: DrawThingsConfigGrouped
+	clipId: number
+	numFrames: number
 	node: TensorHistoryNode
 	images?: {
 		tensorId?: string

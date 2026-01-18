@@ -53,7 +53,7 @@ pub async fn projects_db_project_add(
     path: String,
 ) -> Result<ProjectExtra, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let project = pdb.add_project(&path).await.unwrap();
+    let project = pdb.add_project(&path).await?;
     update_tags(
         &app_handle,
         "projects",

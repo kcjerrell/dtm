@@ -124,6 +124,26 @@ impl DTProject {
         }
     }
 
+    pub async fn get_fingerprint(&self) -> Result<String, Error> {
+        self.check_table(&DTProjectTable::Thumbs).await?;
+
+        let row = query(
+            "SELECT
+                        group_concat(rowid || \"-\" || __pk0, \":\") AS fingerprint
+                    FROM (
+                        SELECT rowid, __pk0
+                        FROM thumbnailhistorynode
+                        ORDER BY rowid ASC
+                        LIMIT 5
+                    )",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let fingerprint: String = row.get(0);
+        Ok(fingerprint.trim_end_matches(':').to_string())
+    }
+
     pub async fn get_histories(
         &self,
         first_id: i64,

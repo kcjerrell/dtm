@@ -60,9 +60,13 @@ impl ProjectsDb {
         Ok(count as u32)
     }
 
-    pub async fn add_project(&self, path: &str) -> Result<ProjectExtra, DbErr> {
+    pub async fn add_project(&self, path: &str) -> Result<ProjectExtra, MixedError> {
+        let dt_project = DTProject::get(path).await?;
+        let fingerprint = dt_project.get_fingerprint().await?;
+
         let project = projects::ActiveModel {
             path: Set(path.to_string()),
+            fingerprint: Set(fingerprint),
             ..Default::default()
         };
 
@@ -338,6 +342,7 @@ impl ProjectsDb {
                     preview_id: Set(h.preview_id),
                     thumbnail_half: Set(preview_thumb),
                     clip_id: Set(h.clip_id),
+                    num_frames: Set(h.num_frames.and_then(|n| Some(n as i16))),
                     prompt: Set(h.prompt.trim().to_string()),
                     negative_prompt: Set(h.negative_prompt.trim().to_string()),
                     prompt_search: Set(process_prompt(&h.prompt)),
@@ -996,23 +1001,15 @@ pub struct ListImagesOptions {
 #[derive(Debug, FromQueryResult, Serialize)]
 pub struct ProjectExtra {
     pub id: i64,
+    pub fingerprint: String,
     pub path: String,
     pub image_count: i64,
     pub last_id: Option<i64>,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
+    pub missing_on: Option<i64>,
     pub excluded: bool,
 }
-
-// #[derive(Serialize, Clone)]
-// pub struct ScanProgress {
-//     pub projects_scanned: i32,
-//     pub projects_total: i32,
-//     pub project_final: i32,
-//     pub project_path: String,
-//     pub images_scanned: i32,
-//     pub images_total: i32,
-// }
 
 #[derive(Debug)]
 pub enum MixedError {
@@ -1083,6 +1080,7 @@ pub struct ImageExtra {
     pub model_file: Option<String>,
     pub prompt: String,
     pub negative_prompt: String,
+    pub num_frames: Option<i16>,
     pub preview_id: i64,
     pub node_id: i64,
     pub has_depth: bool,

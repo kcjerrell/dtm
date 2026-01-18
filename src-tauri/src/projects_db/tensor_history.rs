@@ -43,6 +43,7 @@ pub struct TensorHistoryImport {
     pub negative_prompt: String,
     pub clip_id: i64,
     pub index_in_a_clip: i32,
+    pub num_frames: Option<u32>,
     pub cfg_zero_star: bool,
     // pub image_id: i64,
     pub row_id: i64,
@@ -185,6 +186,10 @@ impl TensorHistoryImport {
             wall_clock: wall_clock_to_datetime(node.wall_clock()),
             cfg_zero_star: node.cfg_zero_star(),
             clip_id: node.clip_id(),
+            num_frames: match node.clip_id() >= 0 {
+                true => Some(node.num_frames()),
+                false => None
+            },
             guidance_scale: node.guidance_scale(),
             hires_fix: node.hires_fix(),
             height: node.start_height(),

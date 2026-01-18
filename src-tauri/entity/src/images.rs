@@ -16,6 +16,7 @@ pub struct Model {
     #[sea_orm(column_type = "Blob", nullable)]
     pub thumbnail_half: Option<Vec<u8>>,
     pub clip_id: i64,
+    pub num_frames: Option<i16>,
     pub wall_clock: DateTimeUtc,
     pub model_id: Option<i64>,
     pub refiner_id: Option<i64>,
