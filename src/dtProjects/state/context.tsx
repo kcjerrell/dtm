@@ -71,7 +71,7 @@ function createContainer() {
         const details = new DetailsService(projects)
 
         search.onSearch = (text, filters) => {
-            images.setSearchFilter(text, filters)
+            images.buildImageSource({ text: text ?? "", filters: filters ?? [] })
         }
 
         Promise.all([

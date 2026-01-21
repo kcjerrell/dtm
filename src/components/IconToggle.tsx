@@ -1,19 +1,10 @@
-import { type Button, chakra, HStack } from "@chakra-ui/react"
-import {
-    type ComponentProps,
-    createContext,
-    type ReactNode,
-    use,
-    useCallback,
-    useEffect,
-} from "react"
-import { proxy, subscribe, useSnapshot } from "valtio"
-import { useProxyRef } from "@/hooks/valtioHooks"
+import { HStack } from "@chakra-ui/react"
+import { type ComponentProps, createContext, type ReactNode, use, useCallback } from "react"
 import { IconButton, Tooltip } from "."
 
 const IconToggleContext = createContext({
     value: {} as Record<string, boolean | undefined>,
-    onChange: (_value: Record<string, boolean | undefined>) => {},
+    onClick: (_option: string) => {},
 })
 
 interface IconToggleProps extends Omit<ChakraProps, "value" | "onChange"> {
@@ -25,15 +16,6 @@ interface IconToggleProps extends Omit<ChakraProps, "value" | "onChange"> {
 
 function IconToggle(props: IconToggleProps) {
     const { children, value, requireOne, onChange, ...restProps } = props
-
-    // const { snap, state } = useProxyRef(() => ({ entries: {} as Record<string, boolean> }))
-
-    // useEffect(() => {
-    //     const unsubscribe = subscribe(state, () => {
-    //         onChange(state.entries)
-    //     })
-    //     return unsubscribe
-    // }, [onChange, state])
 
     const onClick = useCallback(
         (option: string) => {
@@ -63,7 +45,7 @@ function IconToggle(props: IconToggleProps) {
         [value, onChange, requireOne],
     )
 
-    const cv = { value, onChange, onClick }
+    const cv = { value, onClick }
 
     return (
         <IconToggleContext value={cv}>
@@ -93,7 +75,7 @@ interface TriggerProps extends ComponentProps<typeof IconButton> {
 function Trigger(props: TriggerProps) {
     const { children, option, tip, tipText, tipTitle, ...restProps } = props
 
-    const { value, onChange, onClick } = use(IconToggleContext)
+    const { value, onClick } = use(IconToggleContext)
 
     // useEffect(() => {
     //     if (!(option in context.entries)) {
@@ -119,25 +101,6 @@ function Trigger(props: TriggerProps) {
         </Tooltip>
     )
 }
-
-const TButton = chakra("button", {
-    base: {
-        display: "inline-flex",
-        fontSize: "1.2rem",
-        paddingInline: 2,
-        paddingBlock: 1,
-    },
-    variants: {
-        selected: {
-            true: {
-                bgColor: "bg.3",
-            },
-            false: {
-                bgColor: "bg.deep",
-            },
-        },
-    },
-})
 
 IconToggle.Trigger = Trigger
 

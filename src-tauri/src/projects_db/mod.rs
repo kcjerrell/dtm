@@ -4,8 +4,6 @@ mod projects_db;
 pub use projects_db::ProjectsDb;
 
 mod tensor_history;
-pub use tensor_history::TensorHistoryImport;
-
 pub mod tensor_history_generated;
 
 pub mod commands;
@@ -20,9 +18,11 @@ mod tensors;
 mod metadata;
 
 mod text_history;
-pub use text_history::{TextHistory, TextHistoryNode, TextModification, TextRange, TextType};
+pub use text_history::TextHistory;
 
 pub mod fbs;
 
 mod filters;
 mod search;
+
+pub mod dtos;

@@ -1,5 +1,10 @@
 use crate::projects_db::{
-    tensor_history::TensorHistoryNode, TensorHistoryImport, TextHistory, TextHistoryNode,
+    TextHistory,
+    dtos::{
+        tensor::{TensorHistoryClip, TensorHistoryNode, TensorHistoryExtra, TensorRaw, TensorSize, TensorHistoryImport},
+        project::DTProjectInfo,
+        text::TextHistoryNode,
+    },
 };
 use moka::future::Cache;
 use once_cell::sync::Lazy;
@@ -374,7 +379,7 @@ impl DTProject {
     pub async fn get_histories_from_clip(
         &self,
         node_id: i64,
-    ) -> Result<Vec<TensorHistoryImport>, Error> {
+    ) -> Result<Vec<TensorHistoryClip>, Error> {
         self.check_table(&DTProjectTable::TensorHistory).await?;
 
         // get_history_full
@@ -384,7 +389,20 @@ impl DTProject {
         let num_frames = history.history.num_frames;
         println!("num_frames: {}, {}", num_frames, self.path);
         // and return get_histories(node_id, num_frames)
-        self.get_histories(node_id, num_frames as i64).await
+        // self.get_histories(node_id, num_frames as i64).await
+
+        let items: Vec<TensorHistoryClip> = query(CLIP_QUERY)
+            .bind(node_id)
+            .bind(node_id + num_frames as i64)
+            .map(|row: SqliteRow| self.map_clip(row))
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(items)
+    }
+
+    fn map_clip(self: &DTProject, row: SqliteRow) -> TensorHistoryClip {
+        TensorHistoryClip::new(row.get(0), row.get(1), row.get(2)).unwrap()
     }
 
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
@@ -644,48 +662,27 @@ fn import_query(has_moodboard: bool) -> String {
     )
 }
 
-pub struct DTProjectInfo {
-    pub _path: String,
-    pub _history_count: i64,
-    pub history_max_id: i64,
-}
+const CLIP_QUERY: &str = "
+        SELECT
+            thn.rowid,
+            thn.p AS data_blob,
+			'tensor_history_' || td_f20.f20 AS tensor_id
 
-#[derive(Debug, Serialize, Clone)]
-pub struct TensorHistoryExtra {
-    pub row_id: i64,
-    pub lineage: i64,
-    pub logical_time: i64,
-    pub tensor_id: Option<String>,
-    pub mask_id: Option<String>,
-    pub depth_map_id: Option<String>,
-    pub scribble_id: Option<String>,
-    pub pose_id: Option<String>,
-    pub color_palette_id: Option<String>,
-    pub custom_id: Option<String>,
-    pub moodboard_ids: Vec<String>,
-    pub history: TensorHistoryNode,
-    pub project_path: String,
-}
+        FROM tensorhistorynode AS thn
 
-#[derive(Debug, Serialize, Clone)]
-pub struct TensorRaw {
-    pub name: String,
-    pub tensor_type: i64,
-    pub data_type: i32,
-    pub format: i32,
-    pub width: i32,
-    pub height: i32,
-    pub channels: i32,
-    pub dim: Vec<u8>,
-    pub data: Vec<u8>,
-}
+        LEFT JOIN tensordata AS td
+        ON thn.__pk0 = td.__pk0
+        AND thn.__pk1 = td.__pk1
+		
+		LEFT JOIN tensordata__f20 as td_f20
+		ON td.rowid = td_f20.rowid
 
-#[derive(Debug, Serialize, Clone)]
-pub struct TensorSize {
-    pub width: i32,
-    pub height: i32,
-    pub channels: i32,
-}
+        WHERE thn.rowid >= ?1
+        AND thn.rowid < ?2
+	
+		GROUP BY thn.rowid, thn.__pk0, thn.__pk1
+        ORDER BY thn.rowid;
+        ";
 
 fn full_query_where(where_expr: &str) -> String {
     format!(

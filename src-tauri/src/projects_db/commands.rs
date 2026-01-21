@@ -2,11 +2,18 @@ use serde_json::Value;
 use tauri::Emitter;
 
 use crate::projects_db::{
-    dt_project::{ProjectRef, TensorHistoryExtra, TensorRaw},
+    DTProject, ProjectsDb,
+    dt_project::ProjectRef,
+    dtos::{
+        image::{ListImagesResult, ListImagesOptions},
+        project::ProjectExtra,
+        model::ModelExtra,
+        watch_folder::WatchFolderDTO,
+        tensor::{TensorHistoryClip, TensorHistoryExtra, TensorRaw, TensorSize, TensorHistoryImport},
+        text::TextHistoryNode as TextHistoryNodeDTO,
+    },
     filters::ListImagesFilter,
-    projects_db::{ListImagesResult, ModelExtra, ProjectExtra},
-    tensors::decode_tensor,
-    DTProject, ProjectsDb, TensorHistoryImport,
+    tensors::decode_tensor
 };
 
 #[derive(serde::Serialize, Clone)]
@@ -90,7 +97,7 @@ pub async fn projects_db_project_remove(
 #[tauri::command]
 pub async fn projects_db_project_list(
     app_handle: tauri::AppHandle,
-) -> Result<Vec<super::projects_db::ProjectExtra>, String> {
+) -> Result<Vec<ProjectExtra>, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
     let projects = pdb.list_projects().await.unwrap();
     Ok(projects)
@@ -116,8 +123,8 @@ pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
     path: String,
     full_scan: Option<bool>,
-    filesize: Option<i64>,
-    modified: Option<i64>,
+    _filesize: Option<i64>,
+    _modified: Option<i64>,
 ) -> Result<i32, String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
     // let update = |images_scanned: i32, images_total: i32| {
@@ -142,7 +149,7 @@ pub async fn projects_db_project_scan(
     match result {
         Ok((_id, total)) => {
             let project = pdb
-                .update_project(&path, filesize, modified)
+                .update_project(&path, _filesize, _modified)
                 .await
                 .map_err(|e| e.to_string())?;
 
@@ -190,9 +197,11 @@ pub async fn projects_db_image_list(
     take: Option<i32>,
     skip: Option<i32>,
     count: Option<bool>,
+    show_video: Option<bool>,
+    show_image: Option<bool>,
 ) -> Result<ListImagesResult, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
-    let opts = super::projects_db::ListImagesOptions {
+    let opts = ListImagesOptions {
         project_ids,
         search,
         filters,
@@ -201,6 +210,8 @@ pub async fn projects_db_image_list(
         take,
         skip,
         count,
+        show_video,
+        show_image,
     };
 
     Ok(projects_db.list_images(opts).await.unwrap())
@@ -210,7 +221,7 @@ pub async fn projects_db_image_list(
 pub async fn projects_db_get_clip(
     app_handle: tauri::AppHandle,
     image_id: i64,
-) -> Result<Vec<TensorHistoryImport>, String> {
+) -> Result<Vec<TensorHistoryClip>, String> {
     let projects_db = ProjectsDb::get_or_init(&app_handle).await?;
     projects_db.get_clip(image_id).await
 }
@@ -225,7 +236,7 @@ pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), 
 #[tauri::command]
 pub async fn projects_db_watch_folder_list(
     app: tauri::AppHandle,
-) -> Result<Vec<entity::watch_folders::Model>, String> {
+) -> Result<Vec<WatchFolderDTO>, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     Ok(projects_db.list_watch_folders().await.unwrap())
 }
@@ -236,7 +247,7 @@ pub async fn projects_db_watch_folder_add(
     path: String,
     item_type: entity::enums::ItemType,
     recursive: bool,
-) -> Result<entity::watch_folders::Model, String> {
+) -> Result<WatchFolderDTO, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let result = projects_db
         .add_watch_folder(&path, item_type, recursive)
@@ -262,10 +273,10 @@ pub async fn projects_db_watch_folder_remove(
 #[tauri::command]
 pub async fn projects_db_watch_folder_update(
     app: tauri::AppHandle,
-    id: i32,
+    id: i64,
     recursive: Option<bool>,
     last_updated: Option<i64>,
-) -> Result<entity::watch_folders::Model, String> {
+) -> Result<WatchFolderDTO, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let result = projects_db
         .update_watch_folder(id, recursive, last_updated)
@@ -322,7 +333,7 @@ pub async fn dt_project_get_tensor_history(
 #[tauri::command]
 pub async fn dt_project_get_text_history(
     project_file: String,
-) -> Result<Vec<crate::projects_db::TextHistoryNode>, String> {
+) -> Result<Vec<TextHistoryNodeDTO>, String> {
     let project = DTProject::get(&project_file).await.unwrap();
     Ok(project.get_text_history().await.unwrap())
 }
@@ -364,7 +375,7 @@ pub async fn dt_project_get_tensor_size(
     project_id: Option<i64>,
     project_path: Option<String>,
     tensor_id: String,
-) -> Result<crate::projects_db::dt_project::TensorSize, String> {
+) -> Result<TensorSize, String> {
     let project = get_project(app, project_path, project_id).await.unwrap();
     let tensor = project.get_tensor_size(&tensor_id).await.unwrap();
     Ok(tensor)

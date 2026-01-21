@@ -238,3 +238,7 @@ function shallowCompare<T extends Record<string, unknown>>(a: T, b: T, opts: Com
     }
     return true
 }
+
+export function everyNth<T>(arr: T[], n: number): T[] {
+    return arr.filter((_, i) => i % n === 0)
+}

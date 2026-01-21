@@ -1,4 +1,5 @@
-import { type DTImageFull, dtProject, type ImageExtra } from "@/commands"
+import { type DTImageFull, dtProject } from "@/commands"
+import type { ImageExtra } from '@/generated/types'
 import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
 import type ProjectsController from "./projects"
 import { DTPStateService } from "./types"
@@ -31,8 +32,8 @@ class DetailsService extends DTPStateService {
             config: rawConfig,
             groupedConfig: config,
             node: history,
-            numFrames: item.num_frames,
-            clipId: item.clip_id,
+            numFrames: item.num_frames ?? undefined,
+            clipId: history.clip_id,
             images: {
                 tensorId: extra.tensor_id,
                 previewId: history.preview_id,

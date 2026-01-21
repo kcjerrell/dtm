@@ -74,7 +74,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
         )
         this.state.projectsCount = projects.length
-        this.state.projectsScanned = projects.filter((p) => p.filesize > 0).length
+        this.state.projectsScanned = projects.filter((p) => (p.filesize ?? 0) > 0).length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
     }
@@ -140,8 +140,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         const snap = this.useSnap()
         return {
             totalProjects: snap.projects.length,
-            totalImages: snap.projects.reduce((acc, p) => acc + p.image_count, 0),
-            totalSize: snap.projects.reduce((acc, p) => acc + p.filesize, 0),
+            totalImages: snap.projects.reduce((acc, p) => acc + (p.image_count ?? 0), 0),
+            totalSize: snap.projects.reduce((acc, p) => acc + (p.filesize ?? 0), 0),
         }
     }
 

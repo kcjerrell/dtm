@@ -10,8 +10,8 @@ interface StatusBarProps extends ChakraProps {}
 function StatusBar(props: StatusBarProps) {
     const { ...restProps } = props
 
-    const { uiState } = useDTP()
-    const snap = uiState.useSnap()
+    const { images } = useDTP()
+    const imagesSnap = images.useSnap()
 
     return (
         <Grid
@@ -25,10 +25,13 @@ function StatusBar(props: StatusBarProps) {
             <SearchTextWidget />
             <ProjectsWidget />
             <IconToggle
-                value={{ image: snap.showImages, video: snap.showVideos }}
+                value={{
+                    image: imagesSnap.imageSource.showImage,
+                    video: imagesSnap.imageSource.showVideo,
+                }}
                 onChange={(value) => {
-                    uiState.setShowImages(value.image ?? false)
-                    uiState.setShowVideos(value.video ?? false)
+                    images.setShowImages(value.image ?? false)
+                    images.setShowVideos(value.video ?? false)
                 }}
             >
                 <IconToggle.Trigger option="image">

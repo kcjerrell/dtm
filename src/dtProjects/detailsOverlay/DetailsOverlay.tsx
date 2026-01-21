@@ -3,11 +3,12 @@ import { invoke } from "@tauri-apps/api/core"
 import { save } from "@tauri-apps/plugin-dialog"
 import * as fs from "@tauri-apps/plugin-fs"
 import { AnimatePresence, motion } from "motion/react"
-import { type ComponentProps, useMemo, useState } from "react"
+import { type ComponentProps, useMemo, useRef, useState } from "react"
 import type { Snapshot } from "valtio"
 import { dtProject, type ImageExtra } from "@/commands"
 import { IconButton } from "@/components"
 import { FiCopy, FiSave, PiListMagnifyingGlassBold } from "@/components/icons"
+import type { VideoContextType } from "@/components/video/context"
 import { Hotkey } from "@/hooks/keyboard"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
@@ -27,6 +28,9 @@ function DetailsOverlay(props: DetailsOverlayProps) {
 
     const { uiState, images } = useDTP()
     const snap = uiState.useDetailsOverlay()
+
+    const videoRef = useRef<VideoContextType>(null)
+    const isVideo = !!snap.item?.num_frames
 
     const { item, itemDetails } = snap
 
@@ -100,6 +104,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                         <DetailsImages
                             key={item.id}
                             item={item}
+                            videoRef={videoRef}
                             itemDetails={itemDetails}
                             subItem={snap.subItem}
                             showSpinner={showSpinner}
@@ -119,6 +124,8 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                         subItem={snap.subItem}
                         addMetadata={!snap.subItem}
                         tensorId={snap.subItem?.tensorId ?? itemDetails?.images?.tensorId}
+                        videoRef={videoRef}
+                        isVideo={isVideo}
                     />
                     <TensorsList
                         key={"tensors_list"}
@@ -175,9 +182,11 @@ interface DetailsButtonBarProps extends ChakraProps {
     addMetadata?: boolean
     subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
     project?: ProjectState
+    videoRef?: React.RefObject<VideoContextType | null>
+    isVideo?: boolean
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-    const { item, tensorId, show, addMetadata, subItem, project, ...restProps } = props
+    const { item, tensorId, show, addMetadata, subItem, project, videoRef, isVideo, ...restProps } = props
     const { uiState } = useDTP()
     const [lockButtons, setLockButtons] = useState(false)
 
@@ -285,6 +294,15 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                     tip="Open in Metadata Viewer"
                 >
                     <PiListMagnifyingGlassBold />
+                </IconButton>
+                <IconButton
+                    size={"sm"}
+                    onClick={() => {
+                        console.log(videoRef?.current?.controls?.frameMv?.get())
+                    }}
+                    tip="Get frame"
+                >
+                    <FiCopy />
                 </IconButton>
             </motion.div>
         </HStack>

@@ -179,7 +179,7 @@ const views = {
     vid: lazy(() => import("./vid/Vid")),
     library: lazy(() => import("./library/Library")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/Vid")),
+    scratch: lazy(() => import("./scratch/FilmStrip")),
 }
 
 function getView(view: string) {

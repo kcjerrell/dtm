@@ -140,7 +140,7 @@ async fn tensor(
     node: Option<i64>,
     scale: Option<u32>,
     invert: Option<bool>,
-    mask: Option<String>,
+    _mask: Option<String>,
 ) -> Result<Response<Vec<u8>>, String> {
     let dtp = DTProject::get(project_file)
         .await

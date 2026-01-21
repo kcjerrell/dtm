@@ -1,5 +1,5 @@
 use sea_orm::{
-    ColumnTrait, EntityTrait, JoinType, QuerySelect, RelationTrait,
+    EntityTrait, JoinType, QuerySelect, RelationTrait,
 };
 use std::fs;
 use std::process::Command;

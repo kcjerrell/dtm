@@ -1,8 +1,9 @@
 import { Box } from "@chakra-ui/react"
 import { useCallback, useState } from "react"
 import type { ImageExtra } from "@/commands"
-import { PiFilmStrip } from "@/components/icons"
-import VideoFrames from "@/components/VideoFrames"
+import FrameCountIndicator from "@/components/FrameCountIndicator"
+import Video from "@/components/video/Video"
+import { VideoImage } from "@/components/video/VideoImage"
 import PVGrid, {
     type PVGridItemComponent,
     type PVGridItemProps,
@@ -55,18 +56,21 @@ function ImagesList(props: ChakraProps) {
 }
 
 function GridItemWrapper(
-    props: PVGridItemProps<ImageExtra, { showDetailsOverlay: (index: number) => void }>,
+    props: PVGridItemProps<
+        ImageExtra,
+        {
+            showDetailsOverlay: (index: number) => void
+            onPointerEnter?: (index: number) => void
+            onPointerLeave?: (index: number) => void
+            hoveredIndex?: number
+        }
+    >,
 ) {
     const { value: item } = props
     if (!item) return null
 
-    if (
-        item.clip_id !== null &&
-        item.clip_id !== undefined &&
-        item.clip_id >= 0 &&
-        item.num_frames
-    ) {
-        return <VideoFrames image={item} half />
+    if ((item.num_frames ?? 0) > 0) {
+        return <Video image={item} half />
     }
     return <GridItemAnim {...props} />
 }
@@ -96,9 +100,9 @@ function GridItemAnim(
     const previewId = `${item?.project_id}/${item?.preview_id}`
     const url = `dtm://dtproject/thumbhalf/${previewId}`
 
-    const isVideo = item.num_frames > 0
+    const isVideo = (item.num_frames ?? 0) > 0
     const showVideo = isVideo && hoveredIndex === index
-    if (showVideo) console.log("show vidoeo", index)
+
     return (
         <Box
             position={"relative"}
@@ -108,7 +112,9 @@ function GridItemAnim(
             onClick={() => showDetailsOverlay(index)}
         >
             {showVideo ? (
-                <VideoFrames width={"100%"} height={"100%"} image={item} half objectFit={"cover"} />
+                <Video image={item} half autoStart>
+                    <VideoImage width={"100%"} height={"100%"} objectFit={"cover"} />
+                </Video>
             ) : (
                 <div
                     key={url}
@@ -141,16 +147,29 @@ function GridItemAnim(
                 </div>
             )}
             {isVideo && (
-                <PiFilmStrip
-                    style={{
-                        position: "absolute",
-                        bottom: 4,
-                        left: 4,
-                        width: 20,
-                        height: 20,
-                        color: "white",
-                        textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-                    }}
+                // <PiFilmStrip
+                //     style={{
+                //         position: "absolute",
+                //         bottom: 4,
+                //         left: 4,
+                //         width: 20,
+                //         height: 20,
+                //         color: "white",
+                //         textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                //     }}
+                // />
+                <FrameCountIndicator
+                    bgColor={"fg.1/70"}
+                    position={"absolute"}
+                    bottom={1}
+                    left={1}
+                    width={"1.5rem"}
+                    // height={"2rem"}
+                    color="bg.3"
+                    // filter={"drop-shadow(0 0 2px rgba(0,0,0,1))"}
+                    boxShadow={"0 0 2px rgba(0,0,0,1)"}
+                    borderRadius={1}
+                    count={item.num_frames ?? 0}
                 />
             )}
         </Box>

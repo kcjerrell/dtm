@@ -7,19 +7,25 @@ use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
-    EntityTrait, ExprTrait, FromQueryResult, JoinType, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Set,
+    EntityTrait, ExprTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait, RelationTrait, Set,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
 use crate::projects_db::{
     dt_project::{self, ProjectRef},
-    filters::ListImagesFilter,
+    dtos::{
+        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult, Paged},
+        model::ModelExtra,
+        project::ProjectExtra,
+        tensor::{TensorHistoryClip, TensorHistoryImport},
+        watch_folder::WatchFolderDTO,
+    },
     search::{self, process_prompt},
-    DTProject, TensorHistoryImport,
+    DTProject,
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
@@ -169,7 +175,7 @@ impl ProjectsDb {
         path: &str,
         filesize: Option<i64>,
         modified: Option<i64>,
-    ) -> Result<projects::Model, DbErr> {
+    ) -> Result<ProjectExtra, DbErr> {
         // Fetch existing project
         let mut project: projects::ActiveModel = projects::Entity::find()
             .filter(projects::Column::Path.eq(path))
@@ -188,7 +194,7 @@ impl ProjectsDb {
         }
 
         // Save changes
-        let updated: projects::Model = project.update(&self.db).await?;
+        let updated: ProjectExtra = project.update(&self.db).await?.into();
 
         Ok(updated)
     }
@@ -276,9 +282,9 @@ impl ProjectsDb {
 
         self.rebuild_images_fts().await?;
 
-        match total {
-            ListImagesResult::Counts(_) => panic!("Unexpected result"),
-            ListImagesResult::Images(images) => Ok((project.id, images.total)),
+        match total.images {
+            Some(_) => Ok((project.id, total.total)),
+            None => panic!("Unexpected result"),
         }
     }
 
@@ -561,6 +567,25 @@ impl ProjectsDb {
             }
         }
 
+        // Apply show_image / show_video filters
+        let show_image = opts.show_image.unwrap_or(true);
+        let show_video = opts.show_video.unwrap_or(true);
+
+        if !show_image && !show_video {
+            return Ok(ListImagesResult {
+                counts: None,
+                images: Some(vec![]),
+                total: 0,
+            });
+        }
+        
+        if show_image && !show_video {
+            query = query.filter(images::Column::NumFrames.is_null());
+        }
+        else if !show_image && show_video {
+            query = query.filter(images::Column::NumFrames.is_not_null());
+        }
+
         if Some(true) == opts.count {
             let project_counts = query
                 .select_only()
@@ -571,15 +596,22 @@ impl ProjectsDb {
                 .all(&self.db)
                 .await?;
 
-            return Ok(ListImagesResult::Counts(
-                project_counts
-                    .into_iter()
-                    .map(|p| ImageCount {
-                        project_id: p.project_id,
-                        count: p.count,
-                    })
-                    .collect(),
-            ));
+            let mut total: u64 = 0;
+            let counts = project_counts
+                .into_iter()
+                .map(|p| {
+                    total += p.count as u64;
+                    ImageCount {
+                    project_id: p.project_id,
+                    count: p.count,
+                }})
+                .collect();
+
+            return Ok(ListImagesResult {
+                counts: Some(counts),
+                images: None,
+                total,
+            });
         }
 
         if let Some(skip) = opts.skip {
@@ -596,19 +628,20 @@ impl ProjectsDb {
         let count = query.clone().count(&self.db).await?;
 
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
-        Ok(ListImagesResult::Images(Paged {
-            items: result,
+        Ok(ListImagesResult {
+            images: Some(result),
             total: count,
-        }))
+            counts: None,
+        })
     }
 
-    pub async fn list_watch_folders(&self) -> Result<Vec<entity::watch_folders::Model>, DbErr> {
-        let folder = entity::watch_folders::Entity::find()
-            .into_model()
+    pub async fn list_watch_folders(&self) -> Result<Vec<WatchFolderDTO>, DbErr> {
+        let folders = entity::watch_folders::Entity::find()
+            .order_by_asc(entity::watch_folders::Column::Path)
             .all(&self.db)
             .await?;
 
-        Ok(folder)
+        Ok(folders.into_iter().map(|f| f.into()).collect())
     }
 
     // pub async fn get_project_folder(
@@ -631,26 +664,17 @@ impl ProjectsDb {
         path: &str,
         item_type: entity::enums::ItemType,
         recursive: bool,
-    ) -> Result<entity::watch_folders::Model, DbErr> {
-        let folder = entity::watch_folders::ActiveModel {
+    ) -> Result<WatchFolderDTO, DbErr> {
+        let model = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
             item_type: Set(item_type),
             recursive: Set(Some(recursive)),
             ..Default::default()
-        };
-        let folder = entity::watch_folders::Entity::insert(folder)
-            .on_conflict(
-                OnConflict::columns([
-                    entity::watch_folders::Column::Path,
-                    entity::watch_folders::Column::ItemType,
-                ])
-                .value(entity::watch_folders::Column::Path, path)
-                .to_owned(),
-            )
-            .exec_with_returning(&self.db)
-            .await?;
+        }
+        .insert(&self.db)
+        .await?;
 
-        Ok(folder)
+        Ok(model.into())
     }
 
     pub async fn remove_watch_folders(&self, ids: Vec<i64>) -> Result<(), DbErr> {
@@ -668,23 +692,27 @@ impl ProjectsDb {
 
     pub async fn update_watch_folder(
         &self,
-        id: i32,
+        id: i64,
         recursive: Option<bool>,
         last_updated: Option<i64>,
-    ) -> Result<entity::watch_folders::Model, DbErr> {
-        let folder = entity::watch_folders::Entity::find_by_id(id)
-            .one(&self.db)
-            .await?;
-        let mut folder: entity::watch_folders::ActiveModel = folder.unwrap().into();
-        if let Some(recursive) = recursive {
-            folder.recursive = Set(Some(recursive));
-        }
-        if let Some(last_updated) = last_updated {
-            folder.last_updated = Set(Some(last_updated));
+    ) -> Result<WatchFolderDTO, DbErr> {
+        let mut model: entity::watch_folders::ActiveModel =
+            entity::watch_folders::Entity::find_by_id(id as i64)
+                .one(&self.db)
+                .await?
+                .unwrap()
+                .into();
+
+        if let Some(r) = recursive {
+            model.recursive = Set(Some(r));
         }
 
-        let folder: entity::watch_folders::Model = folder.update(&self.db).await?;
-        Ok(folder)
+        if let Some(lu) = last_updated {
+            model.last_updated = Set(Some(lu));
+        }
+
+        let model = model.update(&self.db).await?;
+        Ok(model.into())
     }
 
     pub async fn update_exclude(&self, project_id: i32, exclude: bool) -> Result<(), DbErr> {
@@ -741,7 +769,7 @@ impl ProjectsDb {
         Ok(dt_project::DTProject::get(&project_path).await.unwrap())
     }
 
-    pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryImport>, String> {
+    pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
         let result: Option<(String, i64)> = images::Entity::find_by_id(image_id)
             .join(JoinType::InnerJoin, images::Relation::Projects.def())
             .select_only()
@@ -964,53 +992,6 @@ impl ProjectsDb {
     }
 }
 
-#[derive(Debug, FromQueryResult, Serialize)]
-pub struct ImageCount {
-    pub project_id: i64,
-    pub count: i64,
-}
-
-#[derive(Debug, Serialize)]
-pub enum ListImagesResult {
-    Counts(Vec<ImageCount>),
-    Images(Paged<ImageExtra>),
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct ModelExtra {
-    pub id: i64,
-    pub model_type: ModelType,
-    pub filename: String,
-    pub name: Option<String>,
-    pub version: Option<String>,
-    pub count: i64,
-}
-
-#[derive(Debug, Serialize, Clone, Default)]
-pub struct ListImagesOptions {
-    pub project_ids: Option<Vec<i64>>,
-    pub search: Option<String>,
-    pub filters: Option<Vec<ListImagesFilter>>,
-    pub sort: Option<String>,
-    pub direction: Option<String>,
-    pub take: Option<i32>,
-    pub skip: Option<i32>,
-    pub count: Option<bool>,
-}
-
-#[derive(Debug, FromQueryResult, Serialize)]
-pub struct ProjectExtra {
-    pub id: i64,
-    pub fingerprint: String,
-    pub path: String,
-    pub image_count: i64,
-    pub last_id: Option<i64>,
-    pub filesize: Option<i64>,
-    pub modified: Option<i64>,
-    pub missing_on: Option<i64>,
-    pub excluded: bool,
-}
-
 #[derive(Debug)]
 pub enum MixedError {
     SeaOrm(DbErr),
@@ -1070,33 +1051,6 @@ impl From<MixedError> for String {
     fn from(err: MixedError) -> String {
         err.to_string()
     }
-}
-
-#[derive(Debug, FromQueryResult, Serialize)]
-pub struct ImageExtra {
-    pub id: i64,
-    pub project_id: i64,
-    pub model_id: Option<i32>,
-    pub model_file: Option<String>,
-    pub prompt: String,
-    pub negative_prompt: String,
-    pub num_frames: Option<i16>,
-    pub preview_id: i64,
-    pub node_id: i64,
-    pub has_depth: bool,
-    pub has_pose: bool,
-    pub has_color: bool,
-    pub has_custom: bool,
-    pub has_scribble: bool,
-    pub has_shuffle: bool,
-    pub start_width: i32,
-    pub start_height: i32,
-}
-
-#[derive(Debug, Serialize)]
-pub struct Paged<T> {
-    pub items: Vec<T>,
-    pub total: u64,
 }
 
 type ModelTypeAndFile = (String, ModelType);

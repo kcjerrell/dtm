@@ -1,12 +1,8 @@
 use super::fbs;
-use serde::{Deserialize, Serialize};
+use crate::projects_db::dtos::text::{TextType, TextRange, TextModification, TextHistoryNode};
+use serde::Serialize;
 use std::sync::Mutex;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub enum TextType {
-    PositiveText,
-    NegativeText,
-}
 
 impl From<fbs::TextType> for TextType {
     fn from(fb: fbs::TextType) -> Self {
@@ -18,11 +14,6 @@ impl From<fbs::TextType> for TextType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
-pub struct TextRange {
-    pub location: i32,
-    pub length: i32,
-}
 
 impl From<&fbs::TextRange> for TextRange {
     fn from(fb: &fbs::TextRange) -> Self {
@@ -33,12 +24,6 @@ impl From<&fbs::TextRange> for TextRange {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct TextModification {
-    pub modification_type: TextType,
-    pub range: TextRange,
-    pub text: String,
-}
 
 impl TryFrom<fbs::TextModification<'_>> for TextModification {
     type Error = flatbuffers::InvalidFlatbuffer;
@@ -52,15 +37,6 @@ impl TryFrom<fbs::TextModification<'_>> for TextModification {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct TextHistoryNode {
-    pub lineage: i64,
-    pub logical_time: i64,
-    pub start_edits: i64,
-    pub start_positive_text: String,
-    pub start_negative_text: String,
-    pub modifications: Vec<TextModification>,
-}
 
 impl TryFrom<&[u8]> for TextHistoryNode {
     type Error = flatbuffers::InvalidFlatbuffer;

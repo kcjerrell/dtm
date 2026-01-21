@@ -1,6 +1,7 @@
 import { proxy, ref, useSnapshot } from "valtio"
-import { type DTImageFull, dtProject, type ImageExtra, type TensorHistoryExtra } from "@/commands"
+import { type DTImageFull, dtProject, type TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
+import type { ImageExtra } from "@/generated/types"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ProjectState } from "./projects"
@@ -36,8 +37,6 @@ export type UIControllerState = {
     isSettingsOpen: boolean
     isGridInert: boolean
     importLock: boolean
-    showVideos: boolean
-    showImages: boolean
 }
 
 type Handler<T> = (payload: T) => void
@@ -61,8 +60,6 @@ export class UIController extends DTPStateController<UIControllerState> {
         isSettingsOpen: false,
         isGridInert: false,
         importLock: false,
-        showVideos: false,
-        showImages: false,
     })
 
     constructor() {
@@ -81,14 +78,6 @@ export class UIController extends DTPStateController<UIControllerState> {
         for (const handler of handlers) {
             handler(payload)
         }
-    }
-
-    setShowVideos(show: boolean) {
-        this.state.showVideos = show
-    }
-
-    setShowImages(show: boolean) {
-        this.state.showImages = show
     }
 
     setSelectedTab(tab: "projects" | "search", focusElement?: string) {

@@ -1,133 +1,10 @@
 use chrono::{DateTime, NaiveDateTime};
 // use entity::enums::Sampler; // Unused import
 
-// use tauri::Emitter; // Unused import
 use super::tensor_history_mod::{Control, LoRA};
-// use crate::projects_db::{ListImagesResult, ModelExtra, ProjectExtra}; // Unused import
+use crate::projects_db::dtos::tensor::{ModelAndWeight, TensorHistoryImport, TensorHistoryClip, TensorHistoryNode};
 use crate::projects_db::tensor_history_generated::root_as_tensor_history_node;
 
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct ModelAndWeight {
-    pub model: String,
-    pub weight: f32,
-}
-
-#[derive(serde::Serialize, Debug)]
-pub struct TensorHistoryImport {
-    pub lineage: i64,
-    pub logical_time: i64,
-    pub tensor_id: String,
-    pub width: u16,
-    pub height: u16,
-    pub seed: u32,
-    pub steps: u32,
-    pub guidance_scale: f32,
-    pub strength: f32,
-    pub model: String,
-    pub wall_clock: Option<NaiveDateTime>,
-    pub sampler: i8,
-    pub hires_fix: bool,
-    pub upscaler: Option<String>,
-    pub generated: bool,
-    pub controls: Vec<ModelAndWeight>,
-    pub loras: Vec<ModelAndWeight>,
-    pub preview_id: i64,
-    pub refiner_model: Option<String>,
-    pub refiner_start: f32,
-    pub shift: f32,
-    pub tiled_decoding: bool,
-    pub tiled_diffusion: bool,
-    pub resolution_dependent_shift: bool,
-    pub tea_cache: bool,
-    pub prompt: String,
-    pub negative_prompt: String,
-    pub clip_id: i64,
-    pub index_in_a_clip: i32,
-    pub num_frames: Option<u32>,
-    pub cfg_zero_star: bool,
-    // pub image_id: i64,
-    pub row_id: i64,
-    pub has_depth: bool,
-    pub has_pose: bool,
-    pub has_color: bool,
-    pub has_custom: bool,
-    pub has_scribble: bool,
-    pub has_shuffle: bool,
-    pub has_mask: bool,
-    pub text_edits: i64,
-    pub text_lineage: i64,
-    // pub batch_size: u32,
-    // pub hires_fix_start_width: u16,
-    // pub hires_fix_start_height: u16,
-    // pub hires_fix_strength: f32,
-    // pub scale_factor: u16,
-    // pub image_guidance_scale: f32,
-    // pub seed_mode: String,
-    // pub clip_skip: u32,
-    // pub mask_blur: f32,
-    // pub face_restoration: Option<String>,
-    // pub decode_with_attention: bool,
-    // pub hires_fix_decode_with_attention: bool,
-    // pub clip_weight: f32,
-    // pub negative_prompt_for_image_prior: bool,
-    // pub image_prior_steps: u32,
-    // pub data_stored: i32,
-    // pub content_offset_x: i32,
-    // pub content_offset_y: i32,
-    // pub scale_factor_by_120: i32,
-    // pub original_image_height: u32,
-    // pub original_image_width: u32,
-    // pub crop_top: i32,
-    // pub crop_left: i32,
-    // pub target_image_height: u32,
-    // pub target_image_width: u32,
-    // pub aesthetic_score: f32,
-    // pub negative_aesthetic_score: f32,
-    // pub zero_negative_prompt: bool,
-    // pub negative_original_image_height: u32,
-    // pub negative_original_image_width: u32,
-    // pub shuffle_data_stored: i32,
-    // pub fps_id: u32,
-    // pub motion_bucket_id: u32,
-    // pub cond_aug: f32,
-    // pub start_frame_cfg: f32,
-    // pub num_frames: u32,
-    // pub mask_blur_outset: i32,
-    // pub sharpness: f32,
-    // pub stage_2_steps: u32,
-    // pub stage_2_cfg: f32,
-    // pub stage_2_shift: f32,
-    // pub decoding_tile_width: u16,
-    // pub decoding_tile_height: u16,
-    // pub decoding_tile_overlap: u16,
-    // pub stochastic_sampling_gamma: f32,
-    // pub preserve_original_after_inpaint: bool,
-    // pub diffusion_tile_width: u16,
-    // pub diffusion_tile_height: u16,
-    // pub diffusion_tile_overlap: u16,
-    // pub upscaler_scale_factor: u8,
-    // pub script_session_id: u64,
-    // pub t5_text_encoder: bool,
-    // pub separate_clip_l: bool,
-    // pub clip_l_text: Option<String>,
-    // pub separate_open_clip_g: bool,
-    // pub open_clip_g_text: Option<String>,
-    // pub speed_up_with_guidance_embed: bool,
-    // pub guidance_embed: f32,
-    // pub profile_data: Vec<u8>,
-    // pub tea_cache_start: i32,
-    // pub tea_cache_end: i32,
-    // pub tea_cache_threshold: f32,
-    // pub separate_t5: bool,
-    // pub t5_text: Option<String>,
-    // pub tea_cache_max_skip_steps: i32,
-    // pub causal_inference_enabled: bool,
-    // pub causal_inference: i32,
-    // pub causal_inference_pad: i32,
-    // pub cfg_zero_init_steps: i32,
-    // pub generation_time: f64,
-    // pub reason: i32,
-}
 
 impl TensorHistoryImport {
     pub fn new(
@@ -188,7 +65,7 @@ impl TensorHistoryImport {
             clip_id: node.clip_id(),
             num_frames: match node.clip_id() >= 0 {
                 true => Some(node.num_frames()),
-                false => None
+                false => None,
             },
             guidance_scale: node.guidance_scale(),
             hires_fix: node.hires_fix(),
@@ -226,116 +103,6 @@ impl TensorHistoryImport {
  * values are exactly as they are when stored in the project files,
  * with the exception of profile data which is not implemented
  */
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct TensorHistoryNode {
-    pub lineage: i64,
-    pub logical_time: i64,
-    pub start_width: u16,    //
-    pub start_height: u16,   //
-    pub seed: u32,           //
-    pub steps: u32,          //
-    pub guidance_scale: f32, //
-    pub strength: f32,       //
-    pub model: Option<String>,
-    pub tensor_id: i64,
-    pub mask_id: i64,
-    pub wall_clock: Option<NaiveDateTime>,
-    pub text_edits: i64,
-    pub text_lineage: i64,
-    pub batch_size: u32,
-    pub sampler: i8,                 //
-    pub hires_fix: bool,             //
-    pub hires_fix_start_width: u16,  //
-    pub hires_fix_start_height: u16, //
-    pub hires_fix_strength: f32,     //
-    pub upscaler: Option<String>,    //
-    pub scale_factor: u16,
-    pub depth_map_id: i64,
-    pub generated: bool,
-    pub image_guidance_scale: f32, //
-    pub seed_mode: i8,
-    pub clip_skip: u32,
-    pub controls: Option<Vec<Control>>,
-    pub scribble_id: i64,
-    pub pose_id: i64,
-    pub loras: Option<Vec<LoRA>>,
-    pub color_palette_id: i64,
-    pub mask_blur: f32,
-    pub custom_id: i64,
-    pub face_restoration: Option<String>,
-    pub clip_weight: f32,
-    pub negative_prompt_for_image_prior: bool,
-    pub image_prior_steps: u32,
-    pub data_stored: i32,
-    pub preview_id: i64,
-    pub content_offset_x: i32,
-    pub content_offset_y: i32,
-    pub scale_factor_by_120: i32,
-    pub refiner_model: Option<String>,
-    pub original_image_height: u32,
-    pub original_image_width: u32,
-    pub crop_top: i32,
-    pub crop_left: i32,
-    pub target_image_height: u32,
-    pub target_image_width: u32,
-    pub aesthetic_score: f32,
-    pub negative_aesthetic_score: f32,
-    pub zero_negative_prompt: bool,
-    pub refiner_start: f32,
-    pub negative_original_image_height: u32,
-    pub negative_original_image_width: u32,
-    pub shuffle_data_stored: i32,
-    pub fps_id: u32,
-    pub motion_bucket_id: u32,
-    pub cond_aug: f32,
-    pub start_frame_cfg: f32,
-    pub num_frames: u32,
-    pub mask_blur_outset: i32,
-    pub sharpness: f32,
-    pub shift: f32, //
-    pub stage_2_steps: u32,
-    pub stage_2_cfg: f32,
-    pub stage_2_shift: f32,
-    pub tiled_decoding: bool, //
-    pub decoding_tile_width: u16,
-    pub decoding_tile_height: u16,
-    pub decoding_tile_overlap: u16,
-    pub stochastic_sampling_gamma: f32,
-    pub preserve_original_after_inpaint: bool,
-    pub tiled_diffusion: bool, //
-    pub diffusion_tile_width: u16,
-    pub diffusion_tile_height: u16,
-    pub diffusion_tile_overlap: u16,
-    pub upscaler_scale_factor: u8,
-    pub script_session_id: u64,
-    pub t5_text_encoder: bool,
-    pub separate_clip_l: bool,
-    pub clip_l_text: Option<String>,
-    pub separate_open_clip_g: bool,
-    pub open_clip_g_text: Option<String>,
-    pub speed_up_with_guidance_embed: bool,
-    pub guidance_embed: f32,              //
-    pub resolution_dependent_shift: bool, //
-    // pub profile_data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
-    pub tea_cache_start: i32,
-    pub tea_cache_end: i32,
-    pub tea_cache_threshold: f32,
-    pub tea_cache: bool, //
-    pub separate_t5: bool,
-    pub t5_text: Option<String>,
-    pub tea_cache_max_skip_steps: i32,
-    pub text_prompt: Option<String>,
-    pub negative_text_prompt: Option<String>,
-    pub clip_id: i64,
-    pub index_in_a_clip: i32,
-    pub causal_inference_enabled: bool,
-    pub causal_inference: i32,
-    pub causal_inference_pad: i32,
-    pub cfg_zero_star: bool,
-    pub cfg_zero_init_steps: i32,
-    pub generation_time: f64,
-    pub reason: i32,
-}
 
 impl TryFrom<&[u8]> for TensorHistoryNode {
     type Error = flatbuffers::InvalidFlatbuffer;
@@ -476,5 +243,20 @@ fn wall_clock_to_datetime(value: i64) -> Option<NaiveDateTime> {
         DateTime::from_timestamp(value, 0).map(|dt| dt.naive_local())
     } else {
         None
+    }
+}
+
+
+impl TensorHistoryClip {
+    pub fn new(row_id: i64, blob: &[u8], tensor_id: String) -> Result<Self, String> {
+        let node = root_as_tensor_history_node(blob)
+            .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
+        Ok(Self {
+            tensor_id,
+            preview_id: node.preview_id(),
+            clip_id: node.clip_id(),
+            index_in_a_clip: node.index_in_a_clip(),
+            row_id,
+        })
     }
 }

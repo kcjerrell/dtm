@@ -1,21 +1,30 @@
-import { Spinner } from "@chakra-ui/react"
+import { Spinner, VStack } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
-import type { DTImageFull, ImageExtra } from "@/commands"
+import type { DTImageFull } from "@/commands"
 import urls from "@/commands/urls"
+import { VideoContext, type VideoContextType } from "@/components/video/context"
+import Seekbar from "@/components/video/Seekbar"
+import Video from "@/components/video/Video"
+import { VideoImage } from "@/components/video/VideoImage"
+import type { ImageExtra } from "@/generated/types"
+import { useGetContext } from "@/hooks/useGetContext"
 import type { UIControllerState } from "../state/uiState"
-import DetailsImage from "./DetailsImage"
 import { DetailsSpinnerRoot } from "./common"
-import VideoFrames from '@/components/VideoFrames'
+import DetailsImage from "./DetailsImage"
 
 interface DetailsImagesProps {
     item: ImageExtra
     itemDetails?: Snapshot<DTImageFull>
     subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
     showSpinner: boolean
+    videoRef?: React.RefObject<VideoContextType | null>
 }
 
 function DetailsImages(props: DetailsImagesProps) {
-    const { item, itemDetails, subItem, showSpinner } = props
+    const { item, itemDetails, subItem, showSpinner, videoRef } = props
+
+    const { Extractor } = useGetContext(VideoContext, videoRef)
+
     if (!item) return null
 
     const srcHalf = urls.thumbHalf(item)
@@ -27,7 +36,13 @@ function DetailsImages(props: DetailsImagesProps) {
     return (
         <>
             {(itemDetails?.node.clip_id ?? -1) >= 0 ? (
-                <VideoFrames image={item} />
+                <VStack onClick={(e) => e.stopPropagation()}>
+                    <Video image={item} autoStart={false}>
+                        <Extractor />
+                        <VideoImage clickToPause />
+                        <Seekbar />
+                    </Video>
+                </VStack>
             ) : (
                 <DetailsImage
                     width={"100%"}

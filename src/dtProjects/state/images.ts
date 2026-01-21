@@ -1,10 +1,11 @@
 import { proxy, subscribe, useSnapshot } from "valtio"
-import { type ImageExtra, pdb } from "@/commands"
+import { pdb } from "@/commands"
 import {
     EmptyItemSource,
     type IItemSource,
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
+import type { ImageExtra } from "@/generated/types"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
@@ -30,9 +31,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         searchId: 0,
     })
 
-    showImages = true
-    showVideos = true
-
     itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
     eventTimer: NodeJS.Timeout | undefined
 
@@ -49,10 +47,11 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         super("images")
 
         this.container.getFutureService("projects").then((projectsService) => {
-            this.watchProxy((get) => {
-                const p = get(projectsService.state.selectedProjects)
-                this.setSelectedProjects(p)
+            const unsubProjects = subscribe(projectsService.state.selectedProjects, () => {
+                this.buildImageSource()
             })
+            this.unwatchFns.push(unsubProjects)
+
             this.watchProxy(async (get) => {
                 const p = get(projectsService.state.projects)
                 const changed = updateProjectsCache(p, this.projectsCache)
@@ -70,50 +69,17 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             })
         })
 
-        this.container.getFutureService("uiState").then((uiState) => {
-            const unsub = subscribe(uiState.state, () => {
-                const { showVideos, showImages } = uiState.state
-                if (this.showImages === showImages && this.showVideos === showVideos) return
-
-                const imageSource = this.state.imageSource
-
-                const isFilterNeeded = !(showImages === showVideos)
-                const filterIndex =
-                    this.state.imageSource.filters?.findIndex((f) => f.target === "type") ?? -1
-                let filter = filterIndex >= 0 ? imageSource.filters?.[filterIndex] : undefined
-
-                if (!isFilterNeeded) {
-                    if (filter) imageSource.filters?.splice(filterIndex, 1)
-                    return
-                }
-
-                if (!imageSource.filters) imageSource.filters = []
-
-                if (!filter) {
-                    filter = {
-                        target: "type",
-                        operator: "is",
-                        value: [] as string[],
-                    }
-                    imageSource.filters.push(filter)
-                }
-                filter.value = [] as string[]
-
-                if (showImages) filter.value.push("image")
-                if (showVideos) filter.value.push("video")
-
-                this.showImages = showImages
-                this.showVideos = showVideos
-            })
-            this.unwatchFns.push(unsub)
-        })
-
         this.watchProxy((get) => {
             const source = get(this.state.imageSource)
-
+            console.log("imageSource", source)
             const getItems = async (skip: number, take: number) => {
-                const res = await pdb.listImages(source, skip, take)
-                return res.items
+                const s = { ...source }
+                if (s.showImage === false && s.showVideo === false) {
+                    s.showImage = true
+                    s.showVideo = true
+                }
+                const res = await pdb.listImages(s, skip, take)
+                return res.images
             }
             const getCount = async () => {
                 await this.refreshImageCounts()
@@ -133,6 +99,18 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
             this.refreshImageCounts()
         })
+    }
+
+    buildImageSource(search?: { text?: string; filters?: BackendFilter<unknown>[] }) {
+        const source = this.state.imageSource
+        if (search) {
+            console.log(search.text)
+            source.search = search.text
+            source.filters = search.filters as BackendFilter[]
+        }
+
+        const selectedProjects = this.container.getService("projects")?.state.selectedProjects
+        if (selectedProjects) source.projectIds = selectedProjects.map((p) => p.id)
     }
 
     projectsCache: Record<number, number> = {}
@@ -169,7 +147,13 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
     }
 
     async refreshImageCounts() {
-        const { total, counts } = await pdb.listImagesCount(this.state.imageSource)
+        const source = { ...this.state.imageSource }
+        console.log("refreshImageCounts", source)
+        if (source.showImage === false && source.showVideo === false) {
+            source.showImage = true
+            source.showVideo = true
+        }
+        const { total, counts } = await pdb.listImagesCount(source)
         const projectCounts = {} as Record<string, number>
         for (const count of counts) {
             projectCounts[count.project_id] = count.count
@@ -183,6 +167,14 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
               )
             : total
         this.state.totalImageCount = total
+    }
+
+    setShowVideos(show: boolean) {
+        this.state.imageSource.showVideo = show
+    }
+
+    setShowImages(show: boolean) {
+        this.state.imageSource.showImage = show
     }
 
     useItemSource() {
@@ -209,7 +201,7 @@ function updateProjectsCache(
         visited[project.id] = null
         if (cache[project.id] !== project.image_count) {
             projectsChanged.push(project.id)
-            cache[project.id] = project.image_count
+            cache[project.id] = project.image_count ?? 0
         }
     }
 
