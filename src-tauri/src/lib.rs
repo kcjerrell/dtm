@@ -18,11 +18,6 @@ use tokio::runtime::Runtime;
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
-// #[tauri::command]
-// fn get_tensor(project_file: String, name: String) -> Result<dt_project::TensorResult, String> {
-//     let project = dt_project::DTProject::new(&project_file).unwrap();
-//     Ok(project.get_tensor(name).unwrap())
-// }
 
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
@@ -132,7 +127,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_valtio::Builder::new().build())
-        .plugin(tauri_plugin_nspopover::init())
+        // .plugin(tauri_plugin_nspopover::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .filter(|metadata| {
@@ -218,6 +213,12 @@ pub fn run() {
                 .title_bar_style(TitleBarStyle::Overlay);
 
             let _window = win_builder.build().unwrap();
+
+    #[cfg(debug_assertions)]
+    std::env::set_var(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        "--remote-debugging-port=9222 --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
+    );
 
             // let _panel_builder =
             //     WebviewWindowBuilder::new(app, "panel", WebviewUrl::App(PathBuf::from("#mini")))

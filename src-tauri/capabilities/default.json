@@ -56,9 +56,6 @@
       ]
     },
     "http:default",
-    "nspopover:allow-hide-popover",
-    "nspopover:allow-is-popover-shown",
-    "nspopover:allow-show-popover",
     "opener:allow-open-path",
     "opener:allow-open-url",
     "opener:allow-default-urls",

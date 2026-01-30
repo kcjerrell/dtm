@@ -32,7 +32,13 @@ fn main() {
     println!("cargo:rustc-link-lib=static=fpzip");
 
     // Link C++ standard library
-    println!("cargo:rustc-link-lib=c++");
+    // Link C++ standard library
+    let target = env::var("TARGET").unwrap();
+    if target.contains("apple") {
+        println!("cargo:rustc-link-lib=c++");
+    } else {
+        println!("cargo:rustc-link-lib=stdc++");
+    }
 
     // Generate bindings
     let bindings = bindgen::Builder::default()

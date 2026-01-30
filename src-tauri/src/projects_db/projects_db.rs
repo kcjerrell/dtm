@@ -37,6 +37,9 @@ pub struct ProjectsDb {
 
 fn get_path(app_handle: &tauri::AppHandle) -> String {
     let app_data_dir = app_handle.path().app_data_dir().unwrap();
+    if !app_data_dir.exists() {
+        std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
+    }
     let project_db_path = app_data_dir.join("projects2.db");
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
