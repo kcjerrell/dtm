@@ -8,7 +8,6 @@ import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
 import { useDTImage } from "./DTImageContext"
-import Clip from "./Clip"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -59,11 +58,6 @@ function DetailsContent(props: DetailsContentProps) {
                         <Tabs.Trigger height={"2rem"} value="raw">
                             Raw
                         </Tabs.Trigger>
-                        {snap.itemDetails.node.clip_id > 0 && (
-                            <Tabs.Trigger height={"2rem"} value="clip">
-                                Clip
-                            </Tabs.Trigger>
-                        )}
                     </Tabs.List>
                     <Tabs.Content value={"raw"}>
                         <DataItem
@@ -71,9 +65,6 @@ function DetailsContent(props: DetailsContentProps) {
                             label={"Raw"}
                             data={JSON.stringify(snap.itemDetails, null, 2)}
                         />
-                    </Tabs.Content>
-                    <Tabs.Content value="clip">
-                        <Clip itemDetails={snap.itemDetails} item={snap.item} />
                     </Tabs.Content>
 
                     <Tabs.Content value="details">
@@ -182,7 +173,10 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.CausalInference value={config.causalInference} />
                                 <DataItem.CfgZero value={config.cfgZero} />
                                 <DataItem.MaskBlur value={config.maskBlur} />
-                                <DataItem label={"Mask Outset"} data={snap.itemDetails?.groupedConfig?.maskBlur?.outset} />
+                                <DataItem
+                                    label={"Mask Outset"}
+                                    data={snap.itemDetails?.groupedConfig?.maskBlur?.outset}
+                                />
                                 <DataItem.Sharpness value={config.sharpness} />
                                 <DataItem.Stage2 value={config.stage2} />
                                 <DataItem.ImagePrior value={config.imagePrior} />
@@ -191,7 +185,10 @@ function DetailsContent(props: DetailsContentProps) {
                             </Grid>
                             <DataItem label={"Node ID"} data={snap.item?.node_id} />
                             <DataItem label={"Lineage"} data={snap.itemDetails?.node.lineage} />
-                            <DataItem label={"Logical Time"} data={snap.itemDetails?.node.logical_time} />
+                            <DataItem
+                                label={"Logical Time"}
+                                data={snap.itemDetails?.node.logical_time}
+                            />
                             <DataItem
                                 label={"Tensor ID"}
                                 data={snap.itemDetails.images?.tensorId}

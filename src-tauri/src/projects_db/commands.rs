@@ -2,18 +2,20 @@ use serde_json::Value;
 use tauri::Emitter;
 
 use crate::projects_db::{
-    DTProject, ProjectsDb,
     dt_project::ProjectRef,
     dtos::{
-        image::{ListImagesResult, ListImagesOptions},
-        project::ProjectExtra,
+        image::{ListImagesOptions, ListImagesResult},
         model::ModelExtra,
-        watch_folder::WatchFolderDTO,
-        tensor::{TensorHistoryClip, TensorHistoryExtra, TensorRaw, TensorSize, TensorHistoryImport},
+        project::ProjectExtra,
+        tensor::{
+            TensorHistoryClip, TensorHistoryExtra, TensorHistoryImport, TensorRaw, TensorSize,
+        },
         text::TextHistoryNode as TextHistoryNodeDTO,
+        watch_folder::WatchFolderDTO,
     },
     filters::ListImagesFilter,
-    tensors::decode_tensor
+    tensors::decode_tensor,
+    DTProject, ProjectsDb,
 };
 
 #[derive(serde::Serialize, Clone)]
@@ -115,6 +117,20 @@ pub async fn projects_db_project_update_exclude(
         .map_err(|e| e.to_string())?;
     invalidate_tags(&app_handle, "projects", "update");
     invalidate_tags(&app_handle, &format!("projects:{id}"), "update");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn projects_db_project_bulk_update_missing_on(
+    app_handle: tauri::AppHandle,
+    paths: Vec<String>,
+    missing_on: Option<i64>,
+) -> Result<(), String> {
+    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    pdb.bulk_update_missing_on(paths, missing_on)
+        .await
+        .map_err(|e| e.to_string())?;
+    invalidate_tags(&app_handle, "projects", "bulk_update");
     Ok(())
 }
 

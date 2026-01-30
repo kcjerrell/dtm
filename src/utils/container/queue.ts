@@ -140,6 +140,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                 job.status = "active"
 
                 try {
+                    console.log("starting job", formatJob(job))
                     const result = await job.execute(job.data, this.container)
 
                     if (Array.isArray(result?.jobs) && result.jobs.length > 0) {

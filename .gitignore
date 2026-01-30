@@ -28,3 +28,4 @@ notes.md
 *.mp4
 stats.html
 temp/
+src-tauri/test_data

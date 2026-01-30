@@ -146,6 +146,13 @@ const themeConfig = defineConfig({
                             _dark: "#d25542",
                         },
                     },
+                    "1": {
+                        value: {
+                            _light: "#d25741ff",
+                            // _light: "#e9624dff",
+                            _dark: "#d25542",
+                        },
+                    },
                 },
                 info: {
                     DEFAULT: {
@@ -197,8 +204,9 @@ const themeConfig = defineConfig({
                 },
             },
             fontSizes: {
-                // xs: { value: "0.75rem" },
-                // sm: { value: "1rem" },
+                // xs: { value: "0.6rem" },
+                // sm: { value: "0.75rem" },
+                // md: { value: "0.9rem" },
             },
         },
         keyframes: {

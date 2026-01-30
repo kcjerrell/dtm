@@ -2,9 +2,10 @@ use chrono::{DateTime, NaiveDateTime};
 // use entity::enums::Sampler; // Unused import
 
 use super::tensor_history_mod::{Control, LoRA};
-use crate::projects_db::dtos::tensor::{ModelAndWeight, TensorHistoryImport, TensorHistoryClip, TensorHistoryNode};
+use crate::projects_db::dtos::tensor::{
+    ModelAndWeight, TensorHistoryClip, TensorHistoryImport, TensorHistoryNode,
+};
 use crate::projects_db::tensor_history_generated::root_as_tensor_history_node;
-
 
 impl TensorHistoryImport {
     pub fn new(
@@ -85,6 +86,7 @@ impl TensorHistoryImport {
             width: node.start_width(),
             tea_cache: node.tea_cache(),
             upscaler: node.upscaler().and_then(|v| Some(v.trim().to_string())),
+            upscaler_scale_factor: node.upscaler_scale_factor(),
             has_depth,
             has_pose,
             has_color,
@@ -245,7 +247,6 @@ fn wall_clock_to_datetime(value: i64) -> Option<NaiveDateTime> {
         None
     }
 }
-
 
 impl TensorHistoryClip {
     pub fn new(row_id: i64, blob: &[u8], tensor_id: String) -> Result<Self, String> {

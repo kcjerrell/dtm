@@ -1,8 +1,9 @@
-import { Spinner, VStack } from "@chakra-ui/react"
+import { HStack, Spinner, VStack } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import type { DTImageFull } from "@/commands"
 import urls from "@/commands/urls"
 import { VideoContext, type VideoContextType } from "@/components/video/context"
+import PlayPauseButton from "@/components/video/PlayPauseButton"
 import Seekbar from "@/components/video/Seekbar"
 import Video from "@/components/video/Video"
 import { VideoImage } from "@/components/video/VideoImage"
@@ -37,10 +38,13 @@ function DetailsImages(props: DetailsImagesProps) {
         <>
             {(itemDetails?.node.clip_id ?? -1) >= 0 ? (
                 <VStack onClick={(e) => e.stopPropagation()}>
-                    <Video image={item} autoStart={false}>
+                    <Video image={item} autoStart={false} key={item.id}>
                         <Extractor />
-                        <VideoImage clickToPause />
-                        <Seekbar />
+                        <VideoImage data-solid="true" clickToPause />
+                        <HStack width={"100%"}>
+                            <PlayPauseButton data-solid="true" />
+                            <Seekbar data-solid="true" />
+                        </HStack>
                     </Video>
                 </VStack>
             ) : (

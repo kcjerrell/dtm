@@ -14,6 +14,7 @@ pub use dtm_dtproject::{dtm_dtproject_protocol, extract_jpeg_slice};
 mod tensor_history_mod;
 
 mod tensors;
+pub use tensors::decode_tensor;
 
 mod metadata;
 
@@ -26,3 +27,5 @@ mod filters;
 mod search;
 
 pub mod dtos;
+
+mod tensor_history_tensor_data;

@@ -151,23 +151,28 @@ const Group = chakra(
     },
 )
 
-const Images = chakra("div", {
-    base: {
-        display: "flex",
-        bgColor: "white",
-        flexDirection: "row",
-        // height: _thumbnailSize,
-        gap: 0,
-        // padding: 0.5,
-        borderRadius: "lg",
-        // boxShadow: "0px 2px 14px -5px #00000044, 0px 1px 8px -3px #00000044, 1px 0px 3px 0px #00000044",
-        opacity: 0,
-        _groupHover: {
-            opacity: 1,
+const Images = chakra(
+    "div",
+    {
+        base: {
+            display: "flex",
+            bgColor: "white",
+            flexDirection: "row",
+            gap: 0,
+            borderRadius: "lg",
+            opacity: 0,
+            _groupHover: {
+                opacity: 1,
+            },
+            transition: "opacity 0.2s ease",
         },
-        transition: "opacity 0.2s ease",
     },
-})
+    {
+        defaultProps: {
+            "data-solid": true,
+        },
+    },
+)
 
 const Label = chakra("span", {
     base: {

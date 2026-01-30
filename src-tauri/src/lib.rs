@@ -8,9 +8,9 @@ use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
+mod ffmpeg;
 mod projects_db;
 mod vid;
-mod ffmpeg;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -157,6 +157,7 @@ pub fn run() {
             projects_db_project_remove,
             projects_db_project_scan,
             projects_db_project_update_exclude,
+            projects_db_project_bulk_update_missing_on,
             projects_db_image_count, // #unused
             projects_db_image_list,
             projects_db_get_clip,
@@ -176,6 +177,8 @@ pub fn run() {
             dt_project_get_tensor_size,
             dt_project_decode_tensor,
             vid::create_video_from_frames,
+            vid::save_all_clip_frames,
+            vid::check_pattern,
             ffmpeg_check,
             ffmpeg_download,
             ffmpeg_call

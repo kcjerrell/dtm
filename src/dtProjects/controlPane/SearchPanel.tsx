@@ -1,7 +1,7 @@
 import { Box, Button, chakra, Em, HStack, Input, VStack } from "@chakra-ui/react"
 import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
-import { PiInfo } from "@/components/icons"
+import { PiInfo } from "@/components/icons/icons"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../state/context"
 import SearchFilterForm from "./filters/SearchFilterForm"

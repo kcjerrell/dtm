@@ -1,4 +1,4 @@
-import type { Model, TensorHistoryNode } from "@/commands"
+import type { Model, XTensorHistoryNode } from "@/commands"
 import type { BackendFilter } from "./state/search"
 
 export type ScanProgress = {
@@ -38,7 +38,7 @@ export interface TensorHistoryExtra {
     colorPaletteId?: string | null
     customId?: string | null
 
-    history: TensorHistoryNode
+    history: XTensorHistoryNode
     projectPath: string
 }
 

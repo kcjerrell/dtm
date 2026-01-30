@@ -72,8 +72,8 @@ export async function projectsDbProjectScan(path: string, fullScan: boolean | nu
   return invoke<number>("projects_db_project_scan", { path, fullScan, filesize, modified });
 }
 
-export async function projectsDbImageList(projectIds: number[] | null, search: string | null, filters: ListImagesFilter[] | null, sort: string | null, direction: string | null, take: number | null, skip: number | null, count: boolean | null): Promise<ListImagesResult> {
-  return invoke<ListImagesResult>("projects_db_image_list", { projectIds, search, filters, sort, direction, take, skip, count });
+export async function projectsDbImageList(projectIds: number[] | null, search: string | null, filters: ListImagesFilter[] | null, sort: string | null, direction: string | null, take: number | null, skip: number | null, count: boolean | null, showVideo: boolean | null, showImage: boolean | null): Promise<ListImagesResult> {
+  return invoke<ListImagesResult>("projects_db_image_list", { projectIds, search, filters, sort, direction, take, skip, count, showVideo, showImage });
 }
 
 export async function projectsDbGetClip(imageId: number): Promise<TensorHistoryClip[]> {

@@ -160,7 +160,7 @@ async function getProjectStats(projectPath: string) {
 }
 
 export type ProjectJobPayload = {
-    action: "add" | "update" | "remove" | "none"
+    action: "add" | "update" | "remove" | "none" | "mark-missing"
     project: string
     size: number
     mtime: number
@@ -180,7 +180,7 @@ function syncProjectsJob(callback?: () => void): DTPJob {
                 size: number
                 mtime: number
                 status: "unknown" | "new" | "changed" | "missing" | "unchanged"
-                action: "none" | "remove" | "add" | "update"
+                action: "none" | "remove" | "add" | "update" | "mark-missing"
                 isOrphaned?: boolean
             }
             let allProjects: Map<string, ProjectDesc>
@@ -209,6 +209,7 @@ function syncProjectsJob(callback?: () => void): DTPJob {
 
                 if (!projectStats || projectStats === "dne") {
                     pd.status = "missing"
+                    pd.action = "mark-missing"
                     pd.size = 0
                     pd.mtime = 0
                     continue
@@ -418,6 +419,17 @@ function getProjectJob(
                 callback,
                 execute: async (_data: ProjectJobPayload, _container) => {
                     await pdb.removeProject(project)
+                },
+            }
+        case "mark-missing":
+            return {
+                type: "project-mark-missing",
+                data: [project],
+                merge: "first",
+                callback,
+                execute: async (data: string[], _container) => {
+                    await pdb.updateMissingOn(data, null)
+                    console.log("missing", data)
                 },
             }
         default:

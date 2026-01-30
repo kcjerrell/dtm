@@ -25,6 +25,21 @@ impl MigrationTrait for Migration {
             .await?;
         println!("Added num_frames column");
 
+        // Add columns
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Images::Table)
+                    .add_column(
+                        ColumnDef::new(Images::UpscalerScaleFactor)
+                            .small_unsigned()
+                            .null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        println!("Added upscaler_scale_factor column");
+
         manager
             .alter_table(
                 Table::alter()
@@ -44,11 +59,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Projects::Table)
-                    .add_column(
-                        ColumnDef::new(Projects::MissingOn)
-                            .big_integer()
-                            .null()
-                    )
+                    .add_column(ColumnDef::new(Projects::MissingOn).big_integer().null())
                     .to_owned(),
             )
             .await?;
@@ -58,19 +69,29 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.alter_table(
-            Table::alter()
-                .table(Projects::Table)
-                .drop_column(Projects::MissingOn)
-                .to_owned(),
-        )
-        .await?;
-        
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Projects::Table)
+                    .drop_column(Projects::MissingOn)
+                    .to_owned(),
+            )
+            .await?;
+
         manager
             .alter_table(
                 Table::alter()
                     .table(Projects::Table)
                     .drop_column(Projects::Fingerprint)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Images::Table)
+                    .drop_column(Images::UpscalerScaleFactor)
                     .to_owned(),
             )
             .await?;
@@ -92,11 +113,12 @@ impl MigrationTrait for Migration {
 enum Projects {
     Table,
     Fingerprint,
-    MissingOn
+    MissingOn,
 }
 
 #[derive(Iden)]
 enum Images {
     Table,
     NumFrames,
+    UpscalerScaleFactor,
 }

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { useSnapshot } from "valtio"
 import { computed } from "valtio-reactive"
 import { PanelListItem } from "@/components"
-import { FiRefreshCw, MdBlock } from "@/components/icons"
+import { FiRefreshCw, MdBlock } from "@/components/icons/icons"
 import PanelList from "@/components/PanelList"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
@@ -100,9 +100,13 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
                 <Box>{groups.activeProjects.length} projects</Box>
 
-                <Box>{groups.activeProjects.reduce((p, c) => p + c.image_count, 0)} images</Box>
                 <Box>
-                    <FormatByte value={groups.activeProjects.reduce((p, c) => p + c.filesize, 0)} />
+                    {groups.activeProjects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images
+                </Box>
+                <Box>
+                    <FormatByte
+                        value={groups.activeProjects.reduce((p, c) => p + (c.filesize ?? 0), 0)}
+                    />
                 </Box>
             </HStack>
         </TabContent>
@@ -119,7 +123,7 @@ function ProjectListItem(props: ProjectListItemProps) {
     const { project, altCount, ...restProps } = props
     const { handlers, isSelected } = useSelectable(project)
 
-    let count: number | string = project.image_count
+    let count: number | string = project.image_count ?? 0
     let countStyle: string | undefined
 
     if (altCount !== count) {

@@ -1,21 +1,22 @@
 use crate::projects_db::{
-    TextHistory,
     dtos::{
-        tensor::{TensorHistoryClip, TensorHistoryNode, TensorHistoryExtra, TensorRaw, TensorSize, TensorHistoryImport},
         project::DTProjectInfo,
+        tensor::{
+            TensorHistoryClip, TensorHistoryExtra, TensorHistoryImport, TensorHistoryNode,
+            TensorNodeGrouper, TensorRaw, TensorSize,
+        },
         text::TextHistoryNode,
     },
+    tensor_history_tensor_data::TensorHistoryTensorData,
+    TextHistory,
 };
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use serde::Serialize;
-use sqlx::{query, sqlite::SqliteRow, Error, Row, SqlitePool};
-use std::{
-    collections::HashSet,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+use sqlx::{query, query_as, sqlite::SqliteRow, Error, Row, SqlitePool};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 use tokio::sync::OnceCell;
 
@@ -165,18 +166,21 @@ impl DTProject {
         // full_query_where selects: rowid, lineage, logical_time, p, and then the content IDs.
         // It does NOT select f86.
         // We need to add f86 to the selection.
+        println!("rowid: {}, count: {}", first_id, count);
+        let result: Vec<TensorHistoryTensorData> =
+            query_as(&full_query_where("thn.rowid >= ?1 AND thn.rowid < ?2"))
+                .bind(first_id)
+                .bind(first_id + count)
+                .fetch_all(&self.pool)
+                .await?;
 
-        let query_str = import_query(self.has_moodboard.load(Ordering::Relaxed));
+        println!("result: {}", result.len());
 
-        let items: Vec<TensorHistoryImport> = query(&query_str)
-            .bind(first_id)
-            .bind(first_id + count)
-            .map(|row: SqliteRow| self.map_import(row))
-            .fetch_all(&self.pool)
-            .await?;
+        let grouper = TensorNodeGrouper::new(&result);
 
-        let mut items = items;
-        for item in items.iter_mut() {
+        let mut items: Vec<TensorHistoryImport> = grouper.collect();
+
+        for item in &mut items {
             if item.prompt.is_empty() && item.negative_prompt.is_empty() {
                 let history = self
                     .text_history
@@ -184,11 +188,12 @@ impl DTProject {
                         let nodes = self.get_text_history().await?;
                         Ok::<TextHistory, Error>(TextHistory::new(nodes))
                     })
-                    .await?;
+                    .await
+                    .unwrap();
 
                 if let Some(prompts) = history.get_edit(item.text_lineage, item.text_edits) {
-                    item.prompt = prompts.positive;
-                    item.negative_prompt = prompts.negative;
+                    item.prompt = prompts.positive.clone();
+                    item.negative_prompt = prompts.negative.clone();
                 }
             }
         }
@@ -319,43 +324,6 @@ impl DTProject {
         })
     }
 
-    /*
-    pub async fn batch_thumbs(&self, thumb_ids: &[i64]) -> Result<HashMap<i64, Vec<u8>>, Error> {
-        self.check_table(&DTProjectTable::Thumbs).await?;
-
-        if thumb_ids.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        // Build (?, ?, ?, ...)
-        let placeholders = std::iter::repeat("?")
-            .take(thumb_ids.len())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let sql = format!(
-            "SELECT __pk0, p FROM thumbnailhistoryhalfnode WHERE __pk0 IN ({})",
-            placeholders
-        );
-
-        let mut q = query(&sql);
-        for id in thumb_ids {
-            q = q.bind(id);
-        }
-
-        let rows = q.fetch_all(&self.pool).await?;
-
-        let mut out = HashMap::with_capacity(rows.len());
-        for row in rows {
-            let id: i64 = row.get(0);
-            let data: Vec<u8> = row.get(1);
-            out.insert(id, extract_jpeg_slice(&data).unwrap());
-        }
-
-        Ok(out)
-    }
-    */
-
     pub async fn get_thumb_half(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
         self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistoryhalfnode WHERE __pk0 = ?1")
@@ -397,7 +365,7 @@ impl DTProject {
             .map(|row: SqliteRow| self.map_clip(row))
             .fetch_all(&self.pool)
             .await?;
-        
+
         Ok(items)
     }
 
@@ -407,11 +375,12 @@ impl DTProject {
 
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
         self.check_table(&DTProjectTable::TensorHistory).await?;
-        let mut item: TensorHistoryExtra = query(&full_query_where("thn.rowid == ?1"))
+        let result: Vec<TensorHistoryTensorData> = query_as(&full_query_where("thn.rowid == ?1"))
             .bind(row_id)
-            .map(|row: SqliteRow| self.map_full(row))
-            .fetch_one(&self.pool)
+            .fetch_all(&self.pool)
             .await?;
+
+        let mut item = TensorHistoryExtra::from((result, self.path.clone()));
 
         item.moodboard_ids = self
             .get_shuffle_ids(item.lineage, item.logical_time)
@@ -511,10 +480,12 @@ impl DTProject {
 
     pub async fn find_predecessor_candidates(
         &self,
-        row_id: i64,
-        lineage: i64,
-        logical_time: i64,
+        _row_id: i64,
+        _lineage: i64,
+        _logical_time: i64,
     ) -> Result<Vec<TensorHistoryExtra>, Error> {
+        Ok(Vec::new())
+        /*
         self.check_table(&DTProjectTable::TensorHistory).await?;
         let q = &full_query_where("thn.__pk1 == ?1 AND thn.rowid < ?2");
         let candidates = query(q)
@@ -576,6 +547,7 @@ impl DTProject {
         }
 
         Ok(result)
+        */
     }
 
     pub async fn get_text_history(&self) -> Result<Vec<TextHistoryNode>, Error> {
@@ -663,25 +635,29 @@ fn import_query(has_moodboard: bool) -> String {
 }
 
 const CLIP_QUERY: &str = "
+    WITH td_ranked AS (
         SELECT
-            thn.rowid,
-            thn.p AS data_blob,
-			'tensor_history_' || td_f20.f20 AS tensor_id
-
-        FROM tensorhistorynode AS thn
-
-        LEFT JOIN tensordata AS td
+            td.*,
+            ROW_NUMBER() OVER (
+                PARTITION BY td.__pk0, td.__pk1
+                ORDER BY td.__pk2 DESC  -- prefer pk2 = 1
+            ) AS rn
+        FROM tensordata AS td
+    )
+    SELECT
+        thn.rowid,
+        thn.p AS data_blob,
+        'tensor_history_' || td_f20.f20 AS tensor_id
+    FROM tensorhistorynode AS thn
+    LEFT JOIN td_ranked AS td
         ON thn.__pk0 = td.__pk0
-        AND thn.__pk1 = td.__pk1
-		
-		LEFT JOIN tensordata__f20 as td_f20
-		ON td.rowid = td_f20.rowid
-
-        WHERE thn.rowid >= ?1
-        AND thn.rowid < ?2
-	
-		GROUP BY thn.rowid, thn.__pk0, thn.__pk1
-        ORDER BY thn.rowid;
+    AND thn.__pk1 = td.__pk1
+    AND td.rn = 1  -- pick the preferred row per pk0/pk1
+    LEFT JOIN tensordata__f20 AS td_f20
+        ON td.rowid = td_f20.rowid
+    WHERE thn.rowid >= ?1
+    AND thn.rowid < ?2
+    ORDER BY thn.rowid;
         ";
 
 fn full_query_where(where_expr: &str) -> String {
@@ -689,48 +665,18 @@ fn full_query_where(where_expr: &str) -> String {
         "
         SELECT
             thn.rowid,
-            thn.__pk0 AS lineage,
-            thn.__pk1 AS logical_time,
-            thn.p      AS data_blob,
-
-            -- Indexed fields from tensordata with prefix & 0 → NULL
-            MAX('tensor_history_'   || NULLIF(td.f20, 0)) AS tensor_id,
-            MAX('binary_mask_'      || NULLIF(td.f22, 0)) AS mask_id,
-            MAX('depth_map_'        || NULLIF(td.f24, 0)) AS depth_map_id,
-            MAX('scribble_'         || NULLIF(td.f26, 0)) AS scribble_id,
-            MAX('pose_'             || NULLIF(td.f28, 0)) AS_pose_id,
-            MAX('color_palette_'    || NULLIF(td.f30, 0)) AS color_palette_id,
-            MAX('custom_'           || NULLIF(td.f32, 0)) AS custom_id
-
+            thn.__pk0 as lineage,
+            thn.__pk1 as logical_time,
+            td.__pk2 as td_index,
+            thn.p AS node_data,
+            td.p AS tensor_data
         FROM tensorhistorynode AS thn
-
-        -- Join tensordata on the two primary keys
-        LEFT JOIN (
-            SELECT
-                td.rowid,
-                td.__pk0,
-                td.__pk1,
-                f20.f20 AS f20,
-                f22.f22 AS f22,
-                f24.f24 AS f24,
-                f26.f26 AS f26,
-                f28.f28 AS f28,
-                f30.f30 AS f30,
-                f32.f32 AS f32
-            FROM tensordata AS td
-            LEFT JOIN tensordata__f20 AS f20 ON f20.rowid = td.rowid
-            LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
-            LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
-            LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
-            LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
-            LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
-            LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
-        ) AS td
-        ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
-
-        WHERE {}
-        GROUP BY thn.rowid, thn.__pk0, thn.__pk1
-        ORDER BY thn.rowid
+        LEFT JOIN tensordata AS td
+            ON td.__pk0 = thn.__pk0
+            AND td.__pk1 = thn.__pk1
+        WHERE td.__pk2 IS NOT NULL
+            AND {}
+        ORDER BY thn.rowid, td.__pk2 ASC;
         ",
         where_expr
     )
@@ -740,3 +686,21 @@ pub enum ProjectRef {
     Path(String),
     Id(i64),
 }
+
+/*
+SELECT
+    thn.rowid,
+    thn.__pk0 as lineage,
+    thn.__pk1 as logical_time,
+    td.__pk2 as td_index,
+    thn.p AS node_data,
+    td.p AS tensor_data
+FROM tensorhistorynode AS thn
+LEFT JOIN tensordata AS td
+    ON td.__pk0 = thn.__pk0
+   AND td.__pk1 = thn.__pk1
+-- WHERE thn.rowid >= ?1
+--   AND thn.rowid < ?2
+ORDER BY thn.rowid, td.__pk2 DESC;
+
+*/

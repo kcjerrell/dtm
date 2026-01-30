@@ -3,20 +3,13 @@ import type { ProjectState } from "@/dtProjects/state/projects"
 import type {
     ImageExtra,
     ListImagesResult,
-    ListImagesResultCounts,
-    ListImagesResultImages,
     ProjectExtra,
+    TensorHistoryClip,
 } from "@/generated/types"
 import type { DrawThingsConfig, DrawThingsConfigGrouped } from "@/types"
 import type { ImagesSource as ListImagesOpts } from "../dtProjects/types"
 
-export type {
-    ImageExtra,
-    ProjectExtra,
-    ListImagesResult,
-    ListImagesResultCounts,
-    ListImagesResultImages,
-}
+export type { ImageExtra, ListImagesResult, ProjectExtra }
 
 export type Control = {
     file?: string
@@ -37,7 +30,7 @@ export type LoRA = {
     mode: string
 }
 
-export type TensorHistoryNode = {
+export type XTensorHistoryNode = {
     lineage: number
     logical_time: number
     start_width: number
@@ -158,7 +151,7 @@ export type TensorHistoryExtra = {
     color_palette_id?: string
     custom_id?: string
     moodboard_ids: string[]
-    history: TensorHistoryNode
+    history: XTensorHistoryNode
     project_path: string
 }
 
@@ -172,7 +165,7 @@ export type DTImageFull = {
     groupedConfig: DrawThingsConfigGrouped
     clipId: number
     numFrames: number
-    node: TensorHistoryNode
+    node: XTensorHistoryNode
     images?: {
         tensorId?: string
         previewId?: number
@@ -253,12 +246,15 @@ export const pdb = {
     updateExclude: async (id: number, exclude: boolean): Promise<void> =>
         invoke("projects_db_project_update_exclude", { id, exclude }),
 
+    updateMissingOn: async (paths: string[], missingOn: number | null): Promise<void> =>
+        invoke("projects_db_project_bulk_update_missing_on", { paths, missingOn }),
+
     listImages: async (
         source: MaybeReadonly<ListImagesOpts>,
         skip: number,
         take: number,
-    ): Promise<ListImagesResultImages> => {
-        const result: ListImagesResultImages = await invoke("projects_db_image_list", {
+    ): Promise<ListImagesResult> => {
+        const result: ListImagesResult = await invoke("projects_db_image_list", {
             ...source,
             skip,
             take,
@@ -266,7 +262,7 @@ export const pdb = {
         return result
     },
 
-    getClip: async (imageId: number): Promise<TensorHistoryNode[]> =>
+    getClip: async (imageId: number): Promise<TensorHistoryClip[]> =>
         invoke("projects_db_get_clip", { imageId }),
 
     /**
@@ -274,7 +270,7 @@ export const pdb = {
      */
     listImagesCount: async (source: MaybeReadonly<ListImagesOpts>) => {
         const opts = { ...source, projectIds: undefined, count: true }
-        const result: ListImagesResultCounts = await invoke("projects_db_image_list", opts)
+        const result: ListImagesResult = await invoke("projects_db_image_list", opts)
         return result
     },
 

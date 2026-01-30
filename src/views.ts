@@ -1,4 +1,4 @@
-import { BiDetail, PiCoffee, PiListMagnifyingGlassBold } from "./components/icons"
+import { BiDetail, PiCoffee, PiListMagnifyingGlassBold } from "./components/icons/icons"
 
 export const viewDescription = [
     {

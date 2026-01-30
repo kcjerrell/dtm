@@ -23,6 +23,7 @@ pub struct Model {
     #[sea_orm(column_type = "Float", nullable)]
     pub refiner_start: Option<f32>,
     pub upscaler_id: Option<i64>,
+    pub upscaler_scale_factor: Option<u8>,
     #[sea_orm(column_type = "Text")]
     pub prompt: String,
     #[sea_orm(column_type = "Text")]

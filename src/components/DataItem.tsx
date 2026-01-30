@@ -287,7 +287,8 @@ const templates = {
         const { image } = useDTImage()
         const upscaler = image?.groupedConfig?.upscaler
 
-        const scale = upscaler?.value && upscaler?.scaleFactor ? `(x${upscaler.scaleFactor})` : ""
+        let scale = ""
+        if (upscaler?.value) scale = upscaler.scaleFactor === 2 ? "(x2)" : "(x4)"
 
         if (!value?.width || !value?.height) return null
         return (

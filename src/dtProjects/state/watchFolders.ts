@@ -1,5 +1,5 @@
 import { path } from "@tauri-apps/api"
-import { exists, readDir, type UnwatchFn, watch, writeTextFile } from "@tauri-apps/plugin-fs"
+import { exists, readDir, stat, type UnwatchFn, watch, writeTextFile } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import { pdb, type WatchFolder } from "@/commands"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
@@ -82,7 +82,8 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
         for (const folder of folders) {
             if (folder.path.startsWith("remote:")) continue
-            folder.isMissing = !(await exists(folder.path))
+            folder.isMissing = !(await stat(folder.path))
+            console.log("MISSING FOLDER?", folder.path, folder.isMissing)
         }
 
         va.set(

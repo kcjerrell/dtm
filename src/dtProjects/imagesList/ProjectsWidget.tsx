@@ -1,6 +1,6 @@
 import { Box, HStack } from "@chakra-ui/react"
-import { FiX } from "@/components/icons"
 import { IconButton } from "@/components"
+import { FiX } from "@/components/icons/icons"
 import { useDTP } from "../state/context"
 
 interface ProjectsWidgetProps extends ChakraProps {}

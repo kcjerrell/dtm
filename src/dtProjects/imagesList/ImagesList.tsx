@@ -28,12 +28,12 @@ function ImagesList(props: ChakraProps) {
     )
 
     const onPointerEnter = useCallback((index: number) => {
-        setHoveredIndex((value) => {
+        setHoveredIndex(() => {
             return index
         })
     }, [])
 
-    const onPointerLeave = useCallback((index: number) => {
+    const onPointerLeave = useCallback(() => {
         setHoveredIndex(null)
     }, [])
 
@@ -53,26 +53,6 @@ function ImagesList(props: ChakraProps) {
             {...props}
         />
     )
-}
-
-function GridItemWrapper(
-    props: PVGridItemProps<
-        ImageExtra,
-        {
-            showDetailsOverlay: (index: number) => void
-            onPointerEnter?: (index: number) => void
-            onPointerLeave?: (index: number) => void
-            hoveredIndex?: number
-        }
-    >,
-) {
-    const { value: item } = props
-    if (!item) return null
-
-    if ((item.num_frames ?? 0) > 0) {
-        return <Video image={item} half />
-    }
-    return <GridItemAnim {...props} />
 }
 
 function GridItemAnim(
@@ -113,7 +93,12 @@ function GridItemAnim(
         >
             {showVideo ? (
                 <Video image={item} half autoStart>
-                    <VideoImage width={"100%"} height={"100%"} objectFit={"cover"} />
+                    <VideoImage
+                        width={"100%"}
+                        height={"100%"}
+                        objectFit={"cover"}
+                        border={"1px solid transparent"}
+                    />
                 </Video>
             ) : (
                 <div
@@ -122,7 +107,6 @@ function GridItemAnim(
                         width: "100%",
                         height: "100%",
                     }}
-                    // transition={{ duration: 0.25 }}
                 >
                     <img
                         key={url}
@@ -134,39 +118,19 @@ function GridItemAnim(
                             backgroundSize: "cover",
                             backgroundPosition: "center",
                         }}
-                        // variants={{
-                        // 	downscale: () => downScale(),
-                        // }}
-                        // initial="downscale"
-                        // animate={{ scale: 1 }}
-                        // exit="downscale"
                         src={url}
                         alt={item?.prompt}
-                        // transition={{ duration: 0.25 }}
                     />
                 </div>
             )}
             {isVideo && (
-                // <PiFilmStrip
-                //     style={{
-                //         position: "absolute",
-                //         bottom: 4,
-                //         left: 4,
-                //         width: 20,
-                //         height: 20,
-                //         color: "white",
-                //         textShadow: "0 1px 2px rgba(0,0,0,0.5)",
-                //     }}
-                // />
                 <FrameCountIndicator
-                    bgColor={"fg.1/70"}
+                    bgColor={"grays.3/70"}
                     position={"absolute"}
                     bottom={1}
                     left={1}
                     width={"1.5rem"}
-                    // height={"2rem"}
-                    color="bg.3"
-                    // filter={"drop-shadow(0 0 2px rgba(0,0,0,1))"}
+                    color="grays.14"
                     boxShadow={"0 0 2px rgba(0,0,0,1)"}
                     borderRadius={1}
                     count={item.num_frames ?? 0}

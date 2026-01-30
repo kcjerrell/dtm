@@ -9,6 +9,7 @@ import ModelsController from "./models"
 import ProjectsController from "./projects"
 import ScannerService from "./scanner"
 import SearchController from "./search"
+import StorageController from "./storage"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
@@ -69,6 +70,7 @@ function createContainer() {
         const scanner = new ScannerService()
         const search = new SearchController()
         const details = new DetailsService(projects)
+        const storage = new StorageController()
 
         search.onSearch = (text, filters) => {
             images.buildImageSource({ text: text ?? "", filters: filters ?? [] })
@@ -78,6 +80,7 @@ function createContainer() {
             projects.loadProjects(),
             models.refreshModels(),
             watchFolders.loadWatchFolders(),
+            // scanner.syncProjectFolders()
         ])
 
         const controllers = {
@@ -90,6 +93,7 @@ function createContainer() {
             images,
             details,
             jobs,
+            storage,
         } as DTPServices
 
         // connectDevMode(controllers)

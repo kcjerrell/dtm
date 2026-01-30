@@ -1,7 +1,8 @@
-import { Box, Button, Link, Text, VStack } from "@chakra-ui/react"
+import { Box, Button, Text, VStack } from "@chakra-ui/react"
+import { openUrl } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
 import { PanelButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
-import { FaMinus, FaPlus, FiList, LuFolderTree } from "@/components/icons"
+import { FaMinus, FaPlus, FiList, LuFolderTree } from "@/components/icons/icons"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
 import { useSelectable } from "@/hooks/useSelectableV"
@@ -9,7 +10,6 @@ import { openAnd } from "@/utils/helpers"
 import { ContentPanelPopup, type ContentPanelPopupProps } from "./imagesList/ContentPanelPopup"
 import { useDTP } from "./state/context"
 import type { WatchFolderState, WatchFoldersController } from "./state/watchFolders"
-import { openUrl } from '@tauri-apps/plugin-opener'
 
 function useCommands(
     folderType: "Projects" | "ModelInfo",
@@ -76,9 +76,26 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                 bgColor: "#00000022",
                 backdropFilter: "blur(2px)",
             }}
+            overflow="visible"
             {...restProps}
         >
-            <Box overflowY="auto">
+            <Box
+                color={"fg.1"}
+                overflowY="scroll"
+                // paddingRight={2}
+                marginRight={-1}
+                scrollbarGutter={"stable"}
+                _scrollbar={{ backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" }}
+                _scrollbarThumb={{
+                    backgroundColor: "fg.2",
+                    width: "4px",
+                    borderRadius: "full",
+                    boxShadow: "pane1",
+                    borderRight: "2px solid",
+                    borderColor: "bg.1",
+                }}
+                // style={{ "-webkit-scrollbar-track": { backgroundColor: "blue" } }}
+            >
                 <VStack
                     bgColor={"unset"}
                     padding={1}
@@ -92,18 +109,22 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                     <Text fontSize={"lg"} fontWeight={"600"} padding={1}>
                         Settings
                     </Text>
-                    <Text fontSize={"sm"} padding={2}>
+                    <Text color={"fg.2"} fontSize={"sm"} padding={2}>
                         Consider this a preview version, some features are currently missing or
                         incomplete, and there are likely some bugs here and there. Report any issues
                         or suggestions in
                         <Button
-                            onClick={() => openUrl("https://discord.com/channels/1038516303666876436/1459386699141480665")}
+                            onClick={() =>
+                                openUrl(
+                                    "https://discord.com/channels/1038516303666876436/1459386699141480665",
+                                )
+                            }
                             marginInline={"0.7ch"}
                             variant={"plain"}
                             color={"info"}
                             fontWeight={"600"}
                             _hover={{
-                                textDecoration: "underline"
+                                textDecoration: "underline",
                             }}
                             cursor={"pointer"}
                             unstyled
@@ -116,7 +137,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                             marginLeft={"0.7ch"}
                             // variant={"plain"}
                             _hover={{
-                                textDecoration: "underline"
+                                textDecoration: "underline",
                             }}
                             cursor={"pointer"}
                             unstyled
@@ -124,7 +145,8 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                             fontWeight={"600"}
                         >
                             GitHub
-                        </Button>.
+                        </Button>
+                        .
                     </Text>
                     <PanelList
                         flex={"0 0 auto"}

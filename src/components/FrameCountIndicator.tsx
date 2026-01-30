@@ -5,16 +5,17 @@ const topEdge = 35
 const bottomEdge = 165
 const width = 220
 const height = 200
-const thickness = 15
-const margin = thickness / 2 + 5
+const THICKNESS = 15
 
 interface FrameCountIndicatorProps extends ChakraProps {
-    count?: number
+    count?: React.ReactNode
     bgColor?: string
+    thickness?: number
 }
 
 function FrameCountIndicator(props: FrameCountIndicatorProps) {
-    const { count, bgColor, ...restProps } = props
+    const { count, bgColor, thickness = THICKNESS, ...restProps } = props
+    const margin = thickness / 2 + 5
 
     return (
         <Box {...restProps}>

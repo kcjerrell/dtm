@@ -1,9 +1,7 @@
 import { Box } from "@chakra-ui/react"
-import { useSnapshot } from "valtio"
 import { IconButton, Panel } from "@/components"
-import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons"
+import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons/icons"
 import { useDTP } from "@/dtProjects/state/context"
-import AppStore from "@/hooks/appState"
 import Tabs from "@/metadata/infoPanel/tabs"
 import ProjectsPanel from "./ProjectsPanel"
 import SearchPanel from "./SearchPanel"
@@ -34,8 +32,8 @@ function ControlPane(props: ControlPane) {
 
     return (
         <Panel
-            flex={"0 0 20rem"}
-            width={"20rem"}
+            flex={"0 0 18rem"}
+            width={"16rem"}
             paddingY={1}
             paddingX={1}
             borderRadius={"md"}
@@ -52,7 +50,7 @@ function ControlPane(props: ControlPane) {
                     uiState.setSelectedTab(e.value as typeof uiSnap.selectedTab)
                 }}
             >
-                <TabList justifyContent={"flex-end"}/>
+                <TabList justifyContent={"flex-end"} />
                 <SearchPanel />
                 <ProjectsPanel />
             </Tabs.Root>

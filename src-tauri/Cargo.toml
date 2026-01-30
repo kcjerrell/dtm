@@ -76,6 +76,7 @@ tauri-plugin-log = "2"
 sevenz-rust = "0.6.1"
 sha2 = "0.10.9"
 futures-util = "0.3.31"
+regex = "1.12.2"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

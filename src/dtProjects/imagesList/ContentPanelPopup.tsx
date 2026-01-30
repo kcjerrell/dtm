@@ -1,6 +1,6 @@
 import { Box, type BoxProps, chakra, Portal, type StackProps } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { type ReactNode, type RefObject, useEffect, useRef } from "react"
+import { type ComponentProps, type ReactNode, type RefObject, useEffect, useRef } from "react"
 import { useMotionRect } from "@/hooks/motion"
 import { useRootElement } from "@/hooks/useRootElement"
 
@@ -63,8 +63,9 @@ export interface ContentPanelPopupProps extends StackProps {
     shadeColor?: string
     shadeTransition?: number
     allowPointerEvents?: boolean
-    shadeElem?: RefObject<HTMLDivElement>
+    shadeElem?: RefObject<HTMLDivElement | null>
     shadeProps?: BoxProps
+    panelProps?: ComponentProps<typeof Panel>
 }
 
 export function ContentPanelPopup(props: ContentPanelPopupProps) {
@@ -76,6 +77,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         allowPointerEvents = true,
         shadeElem,
         shadeProps,
+        panelProps,
         ...restProps
     } = props
     const [mvX, mvY, mvWidth, mvHeight] = useMotionRect(0, 0, 0, 0)
@@ -89,17 +91,20 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
     useEffect(() => {
         if (!panelRef.current || !containerRef.current || !positionerRef.current) return
         const handler = (e: MouseEvent) => {
-            if (panelRef.current === e.target || panelRef.current?.contains(e.target as Node)) return
+            console.log("pointerdown")
+            if (panelRef.current === e.target || panelRef.current?.contains(e.target as Node))
+                return
             const insidePopup = (e.target as HTMLElement).closest("[data-filter-popup]") !== null
             if (insidePopup) return
+            e.preventDefault()
+            e.stopPropagation()
             onClose()
         }
-        window.addEventListener("click", handler, { capture: true })
-        
-        const ro = new ResizeObserver((entries) => {
-            // for (const entry of entries) {
-            // if (entry.target !== elem) continue
-            if (!panelRef.current || !containerRef.current || !positionerRef.current) return
+        window.addEventListener("pointerdown", handler, { capture: true })
+
+        const ro = new ResizeObserver(() => {
+            if (!panelRef.current || !containerRef.current || !positionerRef.current || !root)
+                return
 
             const { x, y, width, height } = positionerRef.current.getBoundingClientRect()
             const { x: rootX, y: rootY } = root.getBoundingClientRect()
@@ -112,7 +117,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         ro.observe(positionerRef.current)
         ro.observe(containerRef.current)
         return () => {
-            window.removeEventListener("click", handler, { capture: true })
+            window.removeEventListener("pointerdown", handler, { capture: true })
             ro.disconnect()
         }
     }, [mvHeight, mvWidth, mvX, mvY, onClose, root])
@@ -120,26 +125,29 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
     return (
         <Container
             ref={containerRef}
-            css={{
-                "@container (width < 25rem)": {
-                    "& div": {
-                        left: "unset",
-                        right: "0",
-                    },
-                },
-                "@container (width > 25rem)": {
-                    "& div": {
-                        left: "0",
-                        right: "unset",
-                    },
-                },
-            }}
+            css={
+                {
+                    // "@container (width < 25rem)": {
+                    //     "& div": {
+                    //         left: "unset",
+                    //         right: "0",
+                    //     },
+                    // },
+                    // "@container (width > 25rem)": {
+                    //     "& div": {
+                    //         left: "0",
+                    //         right: "unset",
+                    //     },
+                    // },
+                }
+            }
             {...restProps}
         >
             <Positioner data-filter-popup {...props} ref={positionerRef}>
                 <Portal container={{ current: shadeElem?.current || root }}>
                     <Box
                         position="absolute"
+                        zIndex={2}
                         width={"100%"}
                         height={"100%"}
                         // bgColor={shadeColor}
@@ -149,15 +157,18 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
                         {...shadeProps}
                     >
                         <Panel
+                            data-solid
                             ref={panelRef}
                             style={{
                                 left: mvX,
                                 top: mvY,
                                 width: mvWidth,
-                                height: mvHeight,
+                                height: panelProps?.height ? undefined : mvHeight,
                             }}
                             pointerEvents={"auto"}
-                            onClick={(e) => e.stopPropagation()}
+                            // onClick={(e) => e.stopPropagation()}
+                            overflow="visible"
+                            {...panelProps}
                         >
                             {children}
                         </Panel>

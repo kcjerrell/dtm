@@ -6,46 +6,63 @@ import { useProxyRef } from "@/hooks/valtioHooks"
 import { everyNth } from "@/utils/helpers"
 import { useFrameAnimation } from "./hooks"
 
-export type VideoContextType = {
-    imgRef: React.RefObject<HTMLImageElement>
-    imgSrc: string
-    callbacksRef: React.RefObject<OnFrameChanged[]>
-    controls: ReturnType<typeof useFrameAnimation>
-    fps: number
-    frames: number
-}
+export type VideoContextType = ReturnType<typeof useCreateVideoContext>
 
 export const VideoContext = createContext<VideoContextType | null>(null)
 
 type OnFrameChanged = (frame: number, fps: number, nFrames: number) => void
+type OnPlaybackStateChanged = (playbackState: "playing" | "paused" | "seeking") => void
 
-export type UseVideoContextOpts = {
+export type UseCreateVideoContextOpts = {
     image: ImageExtra
     half?: boolean
     halfFps?: boolean
     fps?: number
     onFrameChanged?: OnFrameChanged
+    onPlaybackStateChanged?: OnPlaybackStateChanged
     autoStart?: boolean
 }
 
-export function useCreateVideoContext(opts: UseVideoContextOpts) {
-    const { image, half, halfFps, fps: fpsProp = 20, onFrameChanged, autoStart } = opts
+export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
+    const {
+        image,
+        half,
+        halfFps,
+        fps: fpsProp = 20,
+        onFrameChanged,
+        onPlaybackStateChanged,
+        autoStart,
+    } = opts
 
     const fps = halfFps ? fpsProp / 2 : fpsProp
 
     const { state, snap } = useProxyRef(() => ({
-        data: [] as string[],
-        start: 0,
+        urls: [] as string[],
+        playbackState: "paused" as "playing" | "paused" | "seeking",
     }))
 
-    const callbacksRef = useRef<OnFrameChanged[]>([])
+    const frameChangedHandlersRef = useRef<OnFrameChanged[]>([])
+    const playbackStateChangedHandlersRef = useRef<OnPlaybackStateChanged[]>([])
 
     useEffect(() => {
-        if (onFrameChanged) callbacksRef.current.push(onFrameChanged)
+        if (onFrameChanged) frameChangedHandlersRef.current.push(onFrameChanged)
         return () => {
-            callbacksRef.current = callbacksRef.current.filter((cb) => cb !== onFrameChanged)
+            frameChangedHandlersRef.current = frameChangedHandlersRef.current.filter(
+                (cb) => cb !== onFrameChanged,
+            )
         }
     }, [onFrameChanged])
+
+    useEffect(() => {
+        if (onPlaybackStateChanged)
+            playbackStateChangedHandlersRef.current.push(onPlaybackStateChanged)
+        return () => {
+            playbackStateChangedHandlersRef.current =
+                playbackStateChangedHandlersRef.current.filter(
+                    (cb) => cb !== onPlaybackStateChanged,
+                )
+        }
+    }, [onPlaybackStateChanged])
 
     const getUrl = half ? urls.thumbHalf : urls.thumb
     const imgSrc = getUrl(image.project_id, image.preview_id)
@@ -54,10 +71,20 @@ export function useCreateVideoContext(opts: UseVideoContextOpts) {
 
     const controls = useFrameAnimation({
         fps,
-        nFrames: snap.data.length,
+        nFrames: snap.urls.length,
         autoStart,
         onChange: (frame) => {
-            if (imgRef.current) imgRef.current.src = state.data[frame]
+            if (imgRef.current) imgRef.current.src = state.urls[frame]
+            frameChangedHandlersRef.current.forEach((f) => {
+                f(frame, fps, snap.urls.length)
+            })
+        },
+        onStateChange: (videoState) => {
+            console.log("state change", videoState)
+            state.playbackState = videoState
+            playbackStateChangedHandlersRef.current.forEach((f) => {
+                f(videoState)
+            })
         },
     })
 
@@ -68,34 +95,52 @@ export function useCreateVideoContext(opts: UseVideoContextOpts) {
             if (!imgRef.current) return
 
             const frameUrls = data.map((d) => getUrl(image.project_id, d.preview_id))
-            if (halfFps) state.data = everyNth(frameUrls, 2)
-            else state.data = frameUrls
-            await preloadImages(state.data)
+            if (halfFps) state.urls = everyNth(frameUrls, 2)
+            else state.urls = frameUrls
+            await preloadImages(state.urls)
         })
     }, [image, state, getUrl, halfFps])
 
     return {
         imgRef,
         imgSrc,
-        callbacksRef,
+        frameChangedHandlersRef,
+        playbackStateChangedHandlersRef,
         fps,
-        frames: state.data.length,
-        controls
-    }
+        frames: snap.urls.length,
+        controls,
+        state,
+    } as const
 }
 
-export function useVideoContext(onFrameChanged?: OnFrameChanged) {
+interface UseVideoContextOpts {
+    onFrameChanged?: OnFrameChanged
+    onPlaybackStateChanged?: OnPlaybackStateChanged
+}
+export function useVideoContext(opts?: UseVideoContextOpts) {
+    const { onFrameChanged, onPlaybackStateChanged } = opts ?? {}
     const ctx = useContext(VideoContext)
     if (!ctx) throw new Error("useVideoContext must be used within VideoFramesProvider")
 
     useEffect(() => {
-        if (onFrameChanged) ctx.callbacksRef.current.push(onFrameChanged)
+        if (onFrameChanged) ctx.frameChangedHandlersRef.current.push(onFrameChanged)
         return () => {
-            ctx.callbacksRef.current = ctx.callbacksRef.current.filter(
+            ctx.frameChangedHandlersRef.current = ctx.frameChangedHandlersRef.current.filter(
                 (cb) => cb !== onFrameChanged,
             )
         }
     }, [onFrameChanged, ctx])
+
+    useEffect(() => {
+        if (onPlaybackStateChanged)
+            ctx.playbackStateChangedHandlersRef.current.push(onPlaybackStateChanged)
+        return () => {
+            ctx.playbackStateChangedHandlersRef.current =
+                ctx.playbackStateChangedHandlersRef.current.filter(
+                    (cb) => cb !== onPlaybackStateChanged,
+                )
+        }
+    }, [onPlaybackStateChanged, ctx])
 
     return ctx
 }

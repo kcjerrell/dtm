@@ -1649,6 +1649,7 @@ dependencies = [
  "once_cell",
  "png 0.18.0",
  "quick-xml 0.38.4",
+ "regex",
  "sea-orm",
  "sea-query",
  "serde",

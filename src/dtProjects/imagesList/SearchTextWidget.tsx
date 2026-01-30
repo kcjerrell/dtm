@@ -1,6 +1,6 @@
 import { Box, HStack } from "@chakra-ui/react"
 import { IconButton } from "@/components"
-import { FiX } from "@/components/icons"
+import { FiX } from "@/components/icons/icons"
 import { plural } from "@/utils/helpers"
 import { useDTP } from "../state/context"
 

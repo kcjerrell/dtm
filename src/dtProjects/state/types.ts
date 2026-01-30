@@ -9,6 +9,7 @@ import type ProjectsController from "./projects"
 import type ScannerService from "./scanner"
 import type { ProjectJobPayload } from "./scanner"
 import type SearchController from "./search"
+import type StorageController from "./storage"
 import type { UIController } from "./uiState"
 import type { WatchFolderState, WatchFoldersController } from "./watchFolders"
 
@@ -43,6 +44,10 @@ export type DTProjectsJobs = {
     }
     "project-import": {
         data: string
+        result: never
+    }
+    "project-mark-missing": {
+        data: string[]
         result: never
     }
 }
@@ -91,4 +96,5 @@ export interface DTPServices {
     images: ImagesController
     details: DetailsService
     jobs: JobQueue<DTPContainer, DTProjectsJobs>
+    storage: StorageController
 }

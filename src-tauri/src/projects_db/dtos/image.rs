@@ -48,6 +48,7 @@ pub struct ImageExtra {
     pub has_shuffle: bool,
     pub start_width: i32,
     pub start_height: i32,
+    pub upscaler_scale_factor: Option<u8>,
 }
 
 #[derive(Debug, Serialize)]

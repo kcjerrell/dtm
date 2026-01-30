@@ -5,7 +5,7 @@ import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react
 import { ErrorBoundary } from "react-error-boundary"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
-import { FaMinus, FaMoon, FaPlus } from "@/components/icons"
+import { FaMinus, FaMoon, FaPlus } from "@/components/icons/icons"
 import { Preview, useIsPreviewActive } from "@/components/preview"
 import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
@@ -179,7 +179,7 @@ const views = {
     vid: lazy(() => import("./vid/Vid")),
     library: lazy(() => import("./library/Library")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/FilmStrip")),
+    scratch: lazy(() => import("./scratch/Coffee")),
 }
 
 function getView(view: string) {

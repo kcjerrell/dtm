@@ -21,6 +21,7 @@ const Base = chakra("button", {
         verticalAlign: "middle",
         borderWidth: "1px",
         borderColor: "transparent",
+        overflow: "visible",
         cursor: "button",
         flexShrink: "0",
         outline: "0",
@@ -30,21 +31,21 @@ const Base = chakra("button", {
         transitionProperty: "common",
         transitionDuration: "moderate",
         focusVisibleRing: "outside",
-        _hover: {
-            scale: "1.2",
-            color: "fg.1",
-        },
+        transformOrigin: "center center",
         _disabled: {
             layerStyle: "disabled",
             cursor: "default",
         },
-        _icon: {
-            flexShrink: "0",
-        },
+        _icon: {},
     },
 
     variants: {
         variant: {
+            simple: {
+                _hover: {
+                    scale: 1.1,
+                },
+            },
             toggle: {
                 paddingBlock: 0.5,
                 height: "unset",
@@ -64,12 +65,12 @@ const Base = chakra("button", {
                 "& *": {
                     transformOrigin: "center center",
                 },
-                "&:first-child": {
+                "&:first-of-type": {
                     borderTopLeftRadius: "md",
                     borderBottomLeftRadius: "md",
                     marginLeft: 0,
                 },
-                "&:last-child": {
+                "&:last-of-type": {
                     borderTopRightRadius: "md",
                     borderBottomRightRadius: "md",
                     marginRight: 0,
@@ -182,6 +183,7 @@ const Base = chakra("button", {
     },
 
     defaultVariants: {
+        variant: "simple",
         size: "sm",
     },
 })

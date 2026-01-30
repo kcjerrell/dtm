@@ -48,6 +48,7 @@ function DetailsImage(props: DetailsImageProps) {
             transition={{ duration: imgTransition.duration / 2, ease: "linear" }}
         >
             <DetailsImageContent
+                data-solid="true"
                 width={naturalSize.width}
                 height={naturalSize.height}
                 ref={imgRef}

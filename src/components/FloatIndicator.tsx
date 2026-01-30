@@ -2,7 +2,7 @@ import { IconButton } from "@/components"
 import { chakra, HStack } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import { createContext, use, useEffect, useMemo, useState, type ComponentProps } from "react"
-import { FiX } from "@/components/icons"
+import { FiX } from "@/components/icons/icons"
 import { useDTP } from "../dtProjects/state/context"
 
 const dur = 0.2

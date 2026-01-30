@@ -48,6 +48,7 @@ function SidebarComponent(props: SidebarProps) {
 
     return (
         <Root
+            data-solid
             className={"group"}
             hidden={!isSidebarVisible}
             onClick={() => showSidebar(!isSidebarVisible)}

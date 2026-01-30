@@ -9,20 +9,18 @@ function Seekbar(props: SeekbarProps) {
     const { ...restProps } = props
 
     const trackRef = useRef<HTMLDivElement>(null)
-    
-    const { controls, nFrames } = useVideoContext()
-
+    const containerRef = useRef<HTMLDivElement>(null)
     const pointerDownRef = useRef(false)
-
-    // const thumbX = useTransform(controls.frameMv, (frame) => frame * (trackRef.current?.offsetWidth ?? 0))
 
     const hoverPos = useMotionValue(0)
 
+    const { controls } = useVideoContext()
+
     return (
         <Box
+            ref={containerRef}
             position={"relative"}
             height={"2rem"}
-            // bgColor={"bg.1/20"}
             width={"100%"}
             color={"fg.1"}
             onMouseMove={(e) => {
@@ -37,21 +35,23 @@ function Seekbar(props: SeekbarProps) {
                 const rect = trackRef.current?.getBoundingClientRect()
                 if (!rect) return
                 const x = e.clientX - rect.left
-                const pos = x / (rect.width)
+                const pos = Math.max(0, Math.min(1, x / rect.width))
                 controls.pause()
-                controls.seek(pos)
+                controls.seek(pos, true)
             }}
-            onPointerUp={(e) => {
+            onPointerUpCapture={(e) => {
+                if (!pointerDownRef.current) return
                 e.stopPropagation()
                 pointerDownRef.current = false
+                controls.endSeek(false)
             }}
             onPointerMove={(e) => {
-                e.stopPropagation()
                 if (!pointerDownRef.current) return
+                e.stopPropagation()
                 const rect = trackRef.current?.getBoundingClientRect()
                 if (!rect) return
                 const x = e.clientX - rect.left
-                const pos = x / (rect.width)
+                const pos = Math.max(0, Math.min(1, x / rect.width))
                 controls.seek(pos)
             }}
             {...restProps}
@@ -73,35 +73,12 @@ function Seekbar(props: SeekbarProps) {
                     right: 0,
                     top: "50%",
                     y: "-50%",
-                    // width: "1rem",
                     height: "0.25rem",
-                    // borderRadius: "50%",
                     backgroundColor: "var(--chakra-colors-grays-8)",
                     scaleX: controls.posMv,
                     transformOrigin: "left",
                 }}
             />
-            {/* <motion.div
-                style={{
-                    position: "absolute",
-                    left: "-0.5rem",
-                    width: "0.25rem",
-                    height: "1rem",
-                    borderRadius: "50%",
-                    backgroundColor: "var(--chakra-colors-highlight)",
-                    x: hoverPos,
-                    overflow: "visible",
-                }}
-            >
-                <Box
-                    position={"absolute"}
-                    width={"max-content"}
-                    transform={"translate(-50%, 100%)"}
-                    color={"white"}
-                >
-                    Hello
-                </Box>
-            </motion.div> */}
         </Box>
     )
 }

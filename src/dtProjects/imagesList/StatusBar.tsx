@@ -1,6 +1,6 @@
 import { Box, Grid, HStack } from "@chakra-ui/react"
 import IconToggle from "@/components/IconToggle"
-import { PiFilmStrip, PiImage } from "@/components/icons"
+import { PiFilmStrip, PiImage } from "@/components/icons/icons"
 import { useDTP } from "../state/context"
 import ProjectsWidget from "./ProjectsWidget"
 import SearchTextWidget from "./SearchTextWidget"

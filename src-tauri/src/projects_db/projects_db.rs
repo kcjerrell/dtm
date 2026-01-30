@@ -222,10 +222,10 @@ impl ProjectsDb {
                 .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                 .collect();
 
-            let _preview_ids = histories_filtered
-                .iter()
-                .map(|h| h.preview_id)
-                .collect::<Vec<_>>();
+            // let _preview_ids = histories_filtered
+            //     .iter()
+            //     .map(|h| h.preview_id)
+            //     .collect::<Vec<_>>();
             // let preview_thumbs: HashMap<i64, Vec<u8>> = match preview_ids.len() {
             //     0 => HashMap::new(),
             //     _ => dt_project.batch_thumbs(&preview_ids).await?,
@@ -366,6 +366,13 @@ impl ProjectsDb {
                     tiled_diffusion: Set(h.tiled_diffusion),
                     tea_cache: Set(h.tea_cache),
                     cfg_zero_star: Set(h.cfg_zero_star),
+                    upscaler_scale_factor: Set(match h.upscaler {
+                        Some(_) => Some(match h.upscaler_scale_factor {
+                            2 => 2,
+                            _ => 4,
+                        }),
+                        None => None,
+                    }),
                     wall_clock: Set(h.wall_clock.unwrap_or_default().and_utc()), // Handle missing wall_clock
                     has_mask: Set(h.has_mask),
                     has_depth: Set(h.has_depth),
@@ -578,11 +585,10 @@ impl ProjectsDb {
                 total: 0,
             });
         }
-        
+
         if show_image && !show_video {
             query = query.filter(images::Column::NumFrames.is_null());
-        }
-        else if !show_image && show_video {
+        } else if !show_image && show_video {
             query = query.filter(images::Column::NumFrames.is_not_null());
         }
 
@@ -602,9 +608,10 @@ impl ProjectsDb {
                 .map(|p| {
                     total += p.count as u64;
                     ImageCount {
-                    project_id: p.project_id,
-                    count: p.count,
-                }})
+                        project_id: p.project_id,
+                        count: p.count,
+                    }
+                })
                 .collect();
 
             return Ok(ListImagesResult {
@@ -739,6 +746,37 @@ impl ProjectsDb {
                 .await?;
             println!("Deleted {} images", result.rows_affected);
         }
+
+        Ok(())
+    }
+
+    pub async fn bulk_update_missing_on(
+        &self,
+        paths: Vec<String>,
+        missing_on: Option<i64>,
+    ) -> Result<(), DbErr> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        // Look up project IDs from paths
+        let projects = projects::Entity::find()
+            .filter(projects::Column::Path.is_in(paths))
+            .select_only()
+            .column(projects::Column::Id)
+            .into_tuple::<i64>()
+            .all(&self.db)
+            .await?;
+
+        if projects.is_empty() {
+            return Ok(());
+        }
+
+        projects::Entity::update_many()
+            .col_expr(projects::Column::MissingOn, Expr::value(missing_on))
+            .filter(projects::Column::Id.is_in(projects))
+            .exec(&self.db)
+            .await?;
 
         Ok(())
     }
