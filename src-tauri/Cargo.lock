@@ -1628,6 +1628,7 @@ dependencies = [
  "bytemuck",
  "byteorder",
  "bytes",
+ "cc",
  "chrono",
  "entity",
  "flatbuffers",

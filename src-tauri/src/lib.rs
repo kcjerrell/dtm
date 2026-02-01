@@ -11,6 +11,7 @@ mod clipboard;
 mod ffmpeg;
 mod projects_db;
 mod vid;
+mod bookmarks;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -181,7 +182,10 @@ pub fn run() {
             vid::check_pattern,
             ffmpeg_check,
             ffmpeg_download,
-            ffmpeg_call
+            ffmpeg_download,
+            ffmpeg_call,
+            bookmarks::pick_draw_things_folder,
+            bookmarks::resolve_bookmark
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {
@@ -234,6 +238,12 @@ pub fn run() {
             //     .init();
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app_handle, event| match event {
+            tauri::RunEvent::Exit => {
+                bookmarks::cleanup_bookmarks();
+            }
+            _ => {}
+        });
 }

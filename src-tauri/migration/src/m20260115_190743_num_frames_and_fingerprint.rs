@@ -6,7 +6,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Clear data
+        // Clear data, images need to be rescanned
         let db = manager.get_connection();
         db.execute_unprepared("DELETE FROM image_loras").await?;
         db.execute_unprepared("DELETE FROM image_controls").await?;
@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared("DELETE FROM projects").await?;
         println!("Deleted data");
 
-        // Add columns
+        // 1. Add num_frames column to images
         manager
             .alter_table(
                 Table::alter()
@@ -25,7 +25,7 @@ impl MigrationTrait for Migration {
             .await?;
         println!("Added num_frames column");
 
-        // Add columns
+        // 2. Add upscaler_scale_factor column to images
         manager
             .alter_table(
                 Table::alter()
@@ -40,6 +40,7 @@ impl MigrationTrait for Migration {
             .await?;
         println!("Added upscaler_scale_factor column");
 
+        // 3. Add fingerprint column to projects
         manager
             .alter_table(
                 Table::alter()
@@ -55,6 +56,7 @@ impl MigrationTrait for Migration {
             .await?;
         println!("Added fingerprint column");
 
+        // 4. Add missing_on column to projects
         manager
             .alter_table(
                 Table::alter()
@@ -69,6 +71,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // 4. Remove missing_on column from projects
         manager
             .alter_table(
                 Table::alter()
@@ -78,6 +81,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // 3. Remove fingerprint column from projects
         manager
             .alter_table(
                 Table::alter()
@@ -87,6 +91,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // 2. Remove upscaler_scale_factor column from images
         manager
             .alter_table(
                 Table::alter()
@@ -96,6 +101,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // 1. Remove num_frames column from images
         manager
             .alter_table(
                 Table::alter()

@@ -1,7 +1,7 @@
 import { path } from "@tauri-apps/api"
 import { exists, readDir, stat, type UnwatchFn, watch, writeTextFile } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
-import { pdb, type WatchFolder } from "@/commands"
+import { pdb, resolveBookmark, type WatchFolder } from "@/commands"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
 import { arrayIfOnly, compareItems } from "@/utils/helpers"
@@ -9,6 +9,7 @@ import { compileOfficialModels } from "@/utils/models"
 import { DTPStateController } from "./types"
 
 const home = await path.homeDir()
+const _containerPath = await path.join(home, "Library/Containers/com.liuliu.draw-things/Data")
 const _defaultProjectPath = await path.join(
     home,
     "/Library/Containers/com.liuliu.draw-things/Data/Documents",
@@ -321,6 +322,10 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
         const unwatch = await unwatchPromise
         unwatch?.()
+    }
+
+    get containerFolder() {
+        return _containerPath
     }
 
     override dispose() {

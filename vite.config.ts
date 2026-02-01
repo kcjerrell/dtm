@@ -14,7 +14,7 @@ const hmr = true
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [
-    htmlInjectionPlugin({
+    isMock ? null : htmlInjectionPlugin({
       order: "pre",
       injections: [
         {
