@@ -34,7 +34,7 @@ export function FramesExportDialog(props: FramesExportDialogProps) {
     const scaleFactor = image.upscaler_scale_factor ?? 1
     const frameCount = image.num_frames ?? 0
 
-    const { storage } = useDTP()
+    const { settings: storage } = useDTP()
     const storageSnap = storage.useSnap()
 
     const [outputDir, setOutputDir] = useState(storageSnap.export.framesOutputDir)
@@ -117,7 +117,6 @@ export function FramesExportDialog(props: FramesExportDialogProps) {
             shadeElem={rootElement}
             onClose={() => {
                 onClose()
-                console.log("on close")
             }}
             flexDir={"column"}
             panelProps={{

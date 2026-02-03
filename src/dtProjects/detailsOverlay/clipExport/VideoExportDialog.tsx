@@ -22,7 +22,7 @@ interface VideoExportDialogProps {
 
 export function VideoExportDialog(props: VideoExportDialogProps) {
     const { onClose, image } = props
-    const { storage } = useDTP()
+    const { settings: storage } = useDTP()
     const storageSnap = storage.useSnap()
 
     const defaultWidth = image.start_width * 64

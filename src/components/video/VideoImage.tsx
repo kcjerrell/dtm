@@ -1,4 +1,4 @@
-import { Box } from "@chakra-ui/react"
+import { Flex } from "@chakra-ui/react"
 import type { CSSProperties } from "react"
 import { useVideoContext } from "./context"
 
@@ -17,14 +17,13 @@ export function VideoImage(props: VideoImageProps) {
               onPointerDown: (e) => {
                   e.stopPropagation()
                   controls.togglePlayPause()
-                  console.log("I got clicked")
               },
               onClick: (e) => e.stopPropagation(),
           }
         : {}
 
     return (
-        <Box position="relative" {...restProps}>
+        <Flex overflow={"hidden"} justifyContent={"stretch"} alignItems={"stretch"} {...restProps}>
             <img
                 ref={imgRef}
                 style={{
@@ -36,6 +35,6 @@ export function VideoImage(props: VideoImageProps) {
                 alt={"clip"}
                 {...handlers}
             />
-        </Box>
+        </Flex>
     )
 }

@@ -27,3 +27,12 @@ export async function pickDrawThingsFolder(defaultPath?: string): Promise<PickFo
 export async function resolveBookmark(bookmark: string): Promise<string> {
     return await invoke("resolve_bookmark", { bookmark });
 }
+
+/**
+ * Manually stops accessing a security-scoped bookmark and removes it from the bookmark manager.
+ * 
+ * @param bookmark The base64-encoded bookmark string to release.
+ */
+export async function stopAccessingBookmark(bookmark: string): Promise<void> {
+    return await invoke("stop_accessing_bookmark", { bookmark });
+}

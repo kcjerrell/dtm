@@ -261,12 +261,11 @@ pub async fn projects_db_watch_folder_list(
 pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
-    item_type: entity::enums::ItemType,
     recursive: bool,
 ) -> Result<WatchFolderDTO, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let result = projects_db
-        .add_watch_folder(&path, item_type, recursive)
+        .add_watch_folder(&path, recursive)
         .await
         .unwrap();
 
@@ -337,10 +336,10 @@ pub async fn projects_db_list_models(
 pub async fn dt_project_get_tensor_history(
     project_file: String,
     index: u32,
-    count: u32,
+    count: usize,
 ) -> Result<Vec<TensorHistoryImport>, String> {
     let project = DTProject::get(&project_file).await.unwrap();
-    match project.get_histories(index as i64, count as i64).await {
+    match project.get_histories(index as i64, count).await {
         Ok(history) => Ok(history),
         Err(_e) => Ok(Vec::new()),
     }

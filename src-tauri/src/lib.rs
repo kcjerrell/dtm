@@ -8,10 +8,10 @@ use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
+mod bookmarks;
 mod ffmpeg;
 mod projects_db;
 mod vid;
-mod bookmarks;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -185,7 +185,8 @@ pub fn run() {
             ffmpeg_download,
             ffmpeg_call,
             bookmarks::pick_draw_things_folder,
-            bookmarks::resolve_bookmark
+            bookmarks::resolve_bookmark,
+            bookmarks::stop_accessing_bookmark
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {

@@ -3,13 +3,14 @@ import { watch } from "valtio/utils"
 import { UIController } from "@/dtProjects/state/uiState"
 import { JobQueue } from "@/utils/container/queue"
 import { Container } from "../../utils/container/container"
+import { syncRemoteModelsJob } from "../jobs/models"
 import DetailsService from "./details"
 import ImagesController from "./images"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
 import ScannerService from "./scanner"
 import SearchController from "./search"
-import StorageController from "./storage"
+import SettingsController from "./settings"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
@@ -70,7 +71,7 @@ function createContainer() {
         const scanner = new ScannerService()
         const search = new SearchController()
         const details = new DetailsService(projects)
-        const storage = new StorageController()
+        const settings = new SettingsController()
 
         search.onSearch = (text, filters) => {
             images.buildImageSource({ text: text ?? "", filters: filters ?? [] })
@@ -79,8 +80,9 @@ function createContainer() {
         Promise.all([
             projects.loadProjects(),
             models.refreshModels(),
-            watchFolders.loadWatchFolders(),
-            // scanner.syncProjectFolders()
+            // watchFolders.loadWatchFolders(),
+            scanner.sync({}),
+            jobs.addJob(syncRemoteModelsJob()),
         ])
 
         const controllers = {
@@ -93,7 +95,7 @@ function createContainer() {
             images,
             details,
             jobs,
-            storage,
+            settings,
         } as DTPServices
 
         // connectDevMode(controllers)

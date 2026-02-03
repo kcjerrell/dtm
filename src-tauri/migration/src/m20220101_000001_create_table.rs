@@ -33,6 +33,13 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
+                    .col(
+                        ColumnDef::new(Projects::Fingerprint)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(Projects::MissingOn).big_integer().null())
                     .to_owned(),
             )
             .await?;
@@ -241,6 +248,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
+                    .col(ColumnDef::new(Images::NumFrames).small_integer().null())
+                    .col(
+                        ColumnDef::new(Images::UpscalerScaleFactor)
+                            .small_unsigned()
+                            .null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_images_project")
@@ -387,25 +400,18 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(WatchFolders::Path).string().not_null())
+                    .col(
+                        ColumnDef::new(WatchFolders::Path)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(
                         ColumnDef::new(WatchFolders::Recursive)
                             .boolean()
                             .default(false),
                     )
-                    .col(
-                        ColumnDef::new(WatchFolders::ItemType)
-                            .tiny_integer()
-                            .not_null(),
-                    )
                     .col(ColumnDef::new(WatchFolders::LastUpdated).integer().null())
-                    .index(
-                        Index::create()
-                            .name("idx_watch_folders_path_item_type")
-                            .col(WatchFolders::Path)
-                            .col(WatchFolders::ItemType)
-                            .unique(),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -468,6 +474,8 @@ enum Projects {
     Filesize,
     Modified,
     Excluded,
+    Fingerprint,
+    MissingOn,
 }
 
 #[derive(Iden)]
@@ -531,6 +539,8 @@ enum Images {
     HasCustom,
     HasScribble,
     HasShuffle,
+    NumFrames,
+    UpscalerScaleFactor,
 }
 
 #[derive(Iden)]
@@ -555,6 +565,5 @@ enum WatchFolders {
     Id,
     Path,
     Recursive,
-    ItemType,
     LastUpdated,
 }

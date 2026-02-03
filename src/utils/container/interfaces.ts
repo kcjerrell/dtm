@@ -12,6 +12,8 @@ export interface IContainer<
     getFutureService<K extends keyof T>(name: K): Promise<T[K]>
     addTagHandler(tagRoot: string, handler: TagHandler): void
     handleTags(tag: string, data?: Record<string, unknown>): Promise<void>
+    suppressTags(tags: string[]): void
+    stopSuppressingTags(tags: string[]): void
     get isDisposed(): boolean
     dispose(): void
 }

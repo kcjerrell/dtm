@@ -10,7 +10,7 @@ public func open_dt_folder_picker(defaultPath: UnsafePointer<CChar>?) -> UnsafeM
         openPanel.canChooseDirectories = true
         openPanel.canChooseFiles = false
         openPanel.allowsMultipleSelection = false
-        openPanel.prompt = "Select Draw Things Documents Folder"
+        openPanel.prompt = "Select Documents folder"
         
         // Suggest the standard path or the provided default
         if let defaultPath = defaultPath,
@@ -92,6 +92,18 @@ public func start_accessing_security_scoped_resource(bookmarkBase64: UnsafePoint
     } catch {
         print("Error resolving bookmark: \(error)")
         return nil
+    }
+}
+
+@_cdecl("stop_accessing_security_scoped_resource")
+public func stop_accessing_security_scoped_resource(bookmarkBase64: UnsafePointer<CChar>?) {
+    guard let bookmarkBase64 = bookmarkBase64,
+          let base64String = String(validatingUTF8: bookmarkBase64) else {
+        return
+    }
+
+    if let url = BookmarkManager.shared.activeBookmarks.removeValue(forKey: base64String) {
+        url.stopAccessingSecurityScopedResource()
     }
 }
 

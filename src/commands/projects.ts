@@ -215,7 +215,6 @@ export type WatchFolder = {
     id: number
     path: string
     recursive: boolean
-    item_type: "Projects" | "ModelInfo"
     last_updated?: number | null
 }
 
@@ -227,8 +226,16 @@ export const pdb = {
     // #unused
     getImageCount: async (): Promise<number> => invoke("projects_db_image_count"),
 
-    addProject: async (path: string): Promise<ProjectExtra> =>
-        invoke("projects_db_project_add", { path }),
+    addProject: async (path: string): Promise<ProjectExtra | undefined> => {
+        try {
+            return await invoke("projects_db_project_add", { path })
+        }
+        catch (e) {
+            if (e === "error communicating with database: Table not found") return undefined
+            console.error(e)
+            return undefined
+        }
+    },
 
     removeProject: async (path: string): Promise<void> =>
         invoke("projects_db_project_remove", { path }),
@@ -281,10 +288,9 @@ export const pdb = {
 
         add: async (
             path: string,
-            itemType: "Projects" | "ModelInfo",
             recursive: boolean,
         ): Promise<WatchFolder> =>
-            invoke("projects_db_watch_folder_add", { path, itemType, recursive }),
+            invoke("projects_db_watch_folder_add", { path, recursive }),
 
         remove: async (ids: number[] | number): Promise<void> =>
             invoke("projects_db_watch_folder_remove", { ids: Array.isArray(ids) ? ids : [ids] }),

@@ -29,6 +29,7 @@ use crate::projects_db::{
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
+static SCAN_BATCH_SIZE: u32 = 500;
 
 #[derive(Clone, Debug)]
 pub struct ProjectsDb {
@@ -37,7 +38,7 @@ pub struct ProjectsDb {
 
 fn get_path(app_handle: &tauri::AppHandle) -> String {
     let app_data_dir = app_handle.path().app_data_dir().unwrap();
-    let project_db_path = app_data_dir.join("projects2.db");
+    let project_db_path = app_data_dir.join("projects3.db");
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
@@ -214,8 +215,10 @@ impl ProjectsDb {
             false => project.last_id.or(Some(-1)).unwrap(),
         };
 
-        for batch_start in (start..end).step_by(250) {
-            let histories = dt_project.get_histories(batch_start, 250).await?;
+        for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
+            let histories = dt_project
+                .get_histories(batch_start, SCAN_BATCH_SIZE as usize)
+                .await?;
 
             let histories_filtered: Vec<TensorHistoryImport> = histories
                 .into_iter()
@@ -669,12 +672,10 @@ impl ProjectsDb {
     pub async fn add_watch_folder(
         &self,
         path: &str,
-        item_type: entity::enums::ItemType,
         recursive: bool,
     ) -> Result<WatchFolderDTO, DbErr> {
         let model = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
-            item_type: Set(item_type),
             recursive: Set(Some(recursive)),
             ..Default::default()
         }

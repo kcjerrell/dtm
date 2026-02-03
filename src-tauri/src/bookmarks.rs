@@ -9,6 +9,7 @@ mod ffi {
         pub fn free_string_ptr(ptr: *mut c_char);
         pub fn start_accessing_security_scoped_resource(bookmark: *const c_char) -> *mut c_char;
         pub fn stop_all_security_scoped_resources();
+        pub fn stop_accessing_security_scoped_resource(bookmark: *const c_char);
     }
 }
 
@@ -74,13 +75,11 @@ pub async fn pick_draw_things_folder(
 pub async fn resolve_bookmark(bookmark: String) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        use std::ffi::{CString, CStr};
+        use std::ffi::{CStr, CString};
 
         let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
-        
-        let ptr = unsafe { 
-            ffi::start_accessing_security_scoped_resource(c_bookmark.as_ptr()) 
-        };
+
+        let ptr = unsafe { ffi::start_accessing_security_scoped_resource(c_bookmark.as_ptr()) };
 
         if ptr.is_null() {
             return Err("Failed to resolve bookmark or start accessing resource".to_string());
@@ -92,6 +91,27 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<String, String> {
         unsafe { ffi::free_string_ptr(ptr) };
 
         Ok(result)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Unsupported platform".to_string())
+    }
+}
+
+#[command]
+pub async fn stop_accessing_bookmark(bookmark: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::ffi::CString;
+
+        let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
+
+        unsafe {
+            ffi::stop_accessing_security_scoped_resource(c_bookmark.as_ptr());
+        };
+
+        Ok(())
     }
 
     #[cfg(not(target_os = "macos"))]
