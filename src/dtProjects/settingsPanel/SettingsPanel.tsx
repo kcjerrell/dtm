@@ -1,25 +1,23 @@
-import { Box, Button, Text, VStack } from "@chakra-ui/react"
+import { Box, Text, VStack } from "@chakra-ui/react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
-import { PanelButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
+import { LinkButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
 import { FaMinus, FaPlus, FiList, LuFolderTree } from "@/components/icons/icons"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
 import { useSelectable } from "@/hooks/useSelectableV"
 import { openAnd } from "@/utils/helpers"
-import { ContentPanelPopup, type ContentPanelPopupProps } from "./imagesList/ContentPanelPopup"
-import { useDTP } from "./state/context"
-import type { WatchFolderState, WatchFoldersController } from "./state/watchFolders"
+import { ContentPanelPopup, type ContentPanelPopupProps } from "../imagesList/ContentPanelPopup"
+import { useDTP } from "../state/context"
+import type { WatchFolderState, WatchFoldersController } from "../state/watchFolders"
+import GrantAccess from "./GrantAccess"
+import ResetPermission from "./ResetPermission"
 
-function useCommands(
-    folderType: "Projects" | "ModelInfo",
-    watchFolders: WatchFoldersController,
-): PanelListCommand<WatchFolderState>[] {
-    const ft = folderType === "Projects" ? "proj" : "modinfo"
+function useCommands(watchFolders: WatchFoldersController): PanelListCommand<WatchFolderState>[] {
     const commands = useMemo(
         () => [
             {
-                id: `${ft}-toggle-recursive`,
+                id: `watch-toggle-recursive`,
                 getIcon: (selected: readonly WatchFolderState[]) =>
                     selected[0]?.recursive ? FiList : LuFolderTree,
                 requiresSelection: true,
@@ -30,7 +28,7 @@ function useCommands(
                     selected[0]?.recursive ? "Disable recursive" : "Enable recursive",
             },
             {
-                id: `${ft}-remove-folders`,
+                id: `watch-remove-folders`,
                 icon: FaMinus,
                 requiresSelection: true,
                 onClick: (selected: readonly WatchFolderState[]) => {
@@ -39,18 +37,18 @@ function useCommands(
                 tip: "Remove selected folders",
             },
             {
-                id: `${ft}-add-folder`,
+                id: `watch-add-folder`,
                 icon: FaPlus,
                 onClick: () =>
-                    openAnd((f) => watchFolders.addWatchFolder(f, folderType), {
+                    openAnd((f) => watchFolders.addWatchFolder(f), {
                         directory: true,
                         multiple: false,
-                        title: `Select ${folderType.toLowerCase()} folder`,
+                        title: `Select watch folder`,
                     }),
                 tip: "Add folder",
             },
         ],
-        [folderType, watchFolders, ft],
+        [watchFolders],
     )
 
     return commands
@@ -61,11 +59,9 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
     const { images, watchFolders, uiState } = useDTP()
     const imagesSnap = images.useSnap()
 
-    const { hasModelInfoDefault, hasProjectDefault, modelInfoFolders, projectFolders } =
-        watchFolders.useSnap()
+    const { folders } = watchFolders.useSnap()
 
-    const projectFolderCommands = useCommands("Projects", watchFolders)
-    const modelInfoFolderCommands = useCommands("ModelInfo", watchFolders)
+    const folderCommands = useCommands(watchFolders)
 
     return (
         <ContentPanelPopup
@@ -87,11 +83,11 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                 scrollbarGutter={"stable"}
                 _scrollbar={{ backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" }}
                 _scrollbarThumb={{
-                    backgroundColor: "fg.2",
+                    backgroundColor: "fg.2/50",
                     width: "4px",
-                    borderRadius: "full",
+                    borderRadius: "2px 7px 7px 2px",
                     boxShadow: "pane1",
-                    borderRight: "2px solid",
+                    borderRight: "1px solid",
                     borderColor: "bg.1",
                 }}
                 // style={{ "-webkit-scrollbar-track": { backgroundColor: "blue" } }}
@@ -104,67 +100,49 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                     justifyContent={"flex-start"}
                     overflowY="visible"
                     height="auto"
-                    gap={0}
+                    gap={2}
                 >
-                    <Text fontSize={"lg"} fontWeight={"600"} padding={1}>
+                    <Text fontSize={"lg"} fontWeight={"600"} paddingX={1}>
                         Settings
                     </Text>
-                    <Text color={"fg.2"} fontSize={"sm"} padding={2}>
+                    <Text color={"fg.2"} fontSize={"sm"} paddingX={2}>
                         Consider this a preview version, some features are currently missing or
                         incomplete, and there are likely some bugs here and there. Report any issues
-                        or suggestions in
-                        <Button
+                        or suggestions in&nbsp;
+                        <LinkButton
                             onClick={() =>
                                 openUrl(
                                     "https://discord.com/channels/1038516303666876436/1459386699141480665",
                                 )
                             }
-                            marginInline={"0.7ch"}
-                            variant={"plain"}
-                            color={"info"}
-                            fontWeight={"600"}
-                            _hover={{
-                                textDecoration: "underline",
-                            }}
-                            cursor={"pointer"}
-                            unstyled
                         >
                             Discord
-                        </Button>
-                        or
-                        <Button
+                        </LinkButton>
+                        &nbsp;or&nbsp;
+                        <LinkButton
                             onClick={() => openUrl("https://github.com/kcjerrell/dtm/issues")}
-                            marginLeft={"0.7ch"}
-                            // variant={"plain"}
-                            _hover={{
-                                textDecoration: "underline",
-                            }}
-                            cursor={"pointer"}
-                            unstyled
-                            color={"info"}
-                            fontWeight={"600"}
                         >
                             GitHub
-                        </Button>
+                        </LinkButton>
                         .
                     </Text>
+                    <GrantAccess />
                     <PanelList
                         flex={"0 0 auto"}
                         height={"min-content"}
-                        itemsState={() => watchFolders.state.projectFolders}
-                        header={"Project locations"}
+                        itemsState={() => watchFolders.state.folders}
+                        header={"Watch locations"}
                         headerInfo={
-                            "Draw Things projects in these folders will be indexed and listed in the projects tab. \n\nFor most users, only the default folder will be needed. If you move your projects to external storage, you can include the locations here."
+                            "Folders in these locations will be scanned for Draw Things projects and model info files. \n\nFor most users, only the default folders will be needed."
                         }
-                        commands={projectFolderCommands}
+                        commands={folderCommands}
                         keyFn={(item) => item.id}
-                        clearSelection={modelInfoFolders.some((f) => f.selected)}
                     >
-                        {projectFolders.map((folder) => (
+                        {folders.map((folder) => (
                             <WatchFolderItem key={folder.id} folder={folder} />
                         ))}
 
-                        {projectFolders.length === 0 && (
+                        {folders.length === 0 && (
                             <Box
                                 alignSelf={"center"}
                                 margin={"auto"}
@@ -178,55 +156,6 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                             </Box>
                         )}
                     </PanelList>
-
-                    {!hasProjectDefault && (
-                        <PanelButton
-                            margin={2}
-                            onClick={() => watchFolders.addDefaultWatchFolder("Projects")}
-                        >
-                            Add default location
-                        </PanelButton>
-                    )}
-
-                    <PanelList
-                        flex={"0 0 auto"}
-                        height={"min-content"}
-                        marginTop={4}
-                        itemsState={() => watchFolders.state.modelInfoFolders}
-                        header={"Model info"}
-                        headerInfo={
-                            "Model info files in these folders will be indexed to improve search and provide more useful context. \n\nIf you use the External Model Folder setting in Draw Things, add that folder here."
-                        }
-                        commands={modelInfoFolderCommands}
-                        keyFn={(item) => item.id}
-                        clearSelection={projectFolders.some((f) => f.selected)}
-                    >
-                        {modelInfoFolders.map((folder) => (
-                            <WatchFolderItem key={folder.id} folder={folder} />
-                        ))}
-                        {modelInfoFolders.length === 0 && (
-                            <Box
-                                alignSelf={"center"}
-                                margin={"auto"}
-                                paddingY={"1rem"}
-                                justifySelf={"center"}
-                                opacity={0.7}
-                                color={"fg.2"}
-                                fontStyle={"italic"}
-                            >
-                                (no folders added)
-                            </Box>
-                        )}
-                    </PanelList>
-
-                    {!hasModelInfoDefault && (
-                        <PanelButton
-                            margin={2}
-                            onClick={() => watchFolders.addDefaultWatchFolder("ModelInfo")}
-                        >
-                            Add default locations
-                        </PanelButton>
-                    )}
 
                     <PanelSection marginTop={4}>
                         <PanelSectionHeader marginY={2}>Thumbnail columns</PanelSectionHeader>
@@ -246,6 +175,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                             )}
                         </Box>
                     </PanelSection>
+                    <ResetPermission />
                 </VStack>
             </Box>
         </ContentPanelPopup>

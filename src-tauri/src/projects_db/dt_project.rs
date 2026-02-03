@@ -153,7 +153,7 @@ impl DTProject {
     pub async fn get_histories(
         &self,
         first_id: i64,
-        count: i64,
+        count: usize,
     ) -> Result<Vec<TensorHistoryImport>, Error> {
         match self.check_table(&DTProjectTable::TensorHistory).await {
             Ok(_) => {}
@@ -166,15 +166,12 @@ impl DTProject {
         // full_query_where selects: rowid, lineage, logical_time, p, and then the content IDs.
         // It does NOT select f86.
         // We need to add f86 to the selection.
-        println!("rowid: {}, count: {}", first_id, count);
         let result: Vec<TensorHistoryTensorData> =
             query_as(&full_query_where("thn.rowid >= ?1 AND thn.rowid < ?2"))
                 .bind(first_id)
-                .bind(first_id + count)
+                .bind(first_id + count as i64)
                 .fetch_all(&self.pool)
                 .await?;
-
-        println!("result: {}", result.len());
 
         let grouper = TensorNodeGrouper::new(&result);
 

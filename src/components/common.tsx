@@ -214,6 +214,18 @@ export const PanelButton = chakra(
                         boxShadow: "0px 1px 5px -3px #00000055",
                     },
                 },
+                success: {
+                    color: "bg.0",
+                    fontWeight: "600",
+                    bgColor: "success.1", // "color-mix(in srgb, {colors.bg.1} 70%, {colors.green.500} 30%)",
+                    border: "2px solid {colors.success.1}",
+                    _hover: {
+                        bgColor: "success.1/90",
+                        // bgColor: "color-mix(in srgb, {colors.bg.1} 20%, {colors.highlight} 80%)",
+                        border: "2px solid {colors.success.1}",
+                        boxShadow: "0px 1px 5px -3px #00000055",
+                    },
+                },
                 none: {
                     _hover: {
                         // border: "1px solid {colors.fg.2/20}",
@@ -256,7 +268,6 @@ export const PanelSection = chakra("div", {
 
 export const LinkButton = chakra("button", {
     base: {
-        marginInline: "0.7ch",
         color: "info",
         fontWeight: "600",
         _hover: {
@@ -267,7 +278,7 @@ export const LinkButton = chakra("button", {
     variants: {
         show: {
             true: {
-                display: "inline-flex",
+                display: "inline",
             },
             false: {
                 display: "none",

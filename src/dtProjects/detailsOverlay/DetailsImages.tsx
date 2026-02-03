@@ -1,4 +1,4 @@
-import { HStack, Spinner, VStack } from "@chakra-ui/react"
+import { Grid, HStack, Spinner } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import type { DTImageFull } from "@/commands"
 import urls from "@/commands/urls"
@@ -37,16 +37,24 @@ function DetailsImages(props: DetailsImagesProps) {
     return (
         <>
             {(itemDetails?.node.clip_id ?? -1) >= 0 ? (
-                <VStack onClick={(e) => e.stopPropagation()}>
+                <Grid
+                    onClick={(e) => e.stopPropagation()}
+                    templateRows={"1fr auto"}
+                    // width={"100%"}
+                    // height={"100%"}
+                    maxHeight={"100%"}
+                    overflow={"hidden"}
+                    gridArea={"image"}
+                >
                     <Video image={item} autoStart={false} key={item.id}>
                         <Extractor />
                         <VideoImage data-solid="true" clickToPause />
-                        <HStack width={"100%"}>
+                        <HStack width={"100%"} flexShrink={0}>
                             <PlayPauseButton data-solid="true" />
                             <Seekbar data-solid="true" />
                         </HStack>
                     </Video>
-                </VStack>
+                </Grid>
             ) : (
                 <DetailsImage
                     width={"100%"}

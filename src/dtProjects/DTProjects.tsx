@@ -6,7 +6,7 @@ import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
 import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
-import { SettingsPanel } from "./SettingsPanel"
+import { SettingsPanel } from "./settingsPanel/SettingsPanel"
 import { useDTP } from "./state/context"
 
 function ProjectData(props: ChakraProps) {

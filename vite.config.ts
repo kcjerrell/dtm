@@ -8,13 +8,14 @@ import { visualizer } from 'rollup-plugin-visualizer'
 
 const host = process.env.TAURI_DEV_HOST;
 const isMock = process.env.MOCK_TAURI === "true";
+const reactDevtools = process.env.REACT_DEVTOOLS === "true";
 
 const hmr = true
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [
-    htmlInjectionPlugin({
+    reactDevtools ? htmlInjectionPlugin({
       order: "pre",
       injections: [
         {
@@ -25,7 +26,7 @@ export default defineConfig(async () => ({
           buildModes: "dev",
         },
       ],
-    }),
+    }) : null,
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler',
