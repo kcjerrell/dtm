@@ -12,6 +12,7 @@ let exit = false;
 export const config = {
   host: '127.0.0.1',
   port: 4444,
+  path: "/",
   specs: ['./test/specs/**/*.ts'],
   maxInstances: 1,
   capabilities: [
@@ -22,6 +23,7 @@ export const config = {
       },
     },
   ],
+  // restartBrowserBetweenTests: false,
   reporters: ['spec'],
   framework: 'mocha',
   mochaOpts: {
