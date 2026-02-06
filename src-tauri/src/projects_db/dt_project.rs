@@ -346,15 +346,9 @@ impl DTProject {
         node_id: i64,
     ) -> Result<Vec<TensorHistoryClip>, Error> {
         self.check_table(&DTProjectTable::TensorHistory).await?;
-
-        // get_history_full
+        
         let history = self.get_history_full(node_id).await?;
-        // find out num_frames and clip_id from the history,
-        // let clip_id = history.history.clip_id;
         let num_frames = history.history.num_frames;
-        println!("num_frames: {}, {}", num_frames, self.path);
-        // and return get_histories(node_id, num_frames)
-        // self.get_histories(node_id, num_frames as i64).await
 
         let items: Vec<TensorHistoryClip> = query(CLIP_QUERY)
             .bind(node_id)

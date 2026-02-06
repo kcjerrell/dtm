@@ -7,6 +7,8 @@ type FutureServices<T extends Record<string, object> = Record<string, object>> =
 }>
 
 type TagHandler = (tag: string, data?: Record<string, unknown>) => void
+type TagFormatter = (tag: string, data?: Record<string, unknown>) => string
+type TagService = { formatTags: TagFormatter, handleTags: TagHandler }
 
 export class Container<
         T extends { [K in keyof T]: IStateService<IContainer<T>> } = object,
@@ -20,7 +22,7 @@ export class Container<
     private futureServices: FutureServices<T> = {}
     private invalidateUnlistenPromise: Promise<() => void>
     private updateUnlistenPromise: Promise<() => void>
-    private tagHandlers: Map<string, TagHandler> = new Map()
+    private tagHandlers: Map<string, TagService> = new Map()
 
     constructor(servicesInit: () => T) {
         super()
@@ -41,12 +43,10 @@ export class Container<
 
         this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
             const { tag, desc } = event.payload as { tag: string; desc: string }
-            console.debug("invalidate-tags", tag, desc)
             this.handleTags(tag, { desc })
         })
         this.updateUnlistenPromise = listen("update-tags", (event) => {
             const { tag, data } = event.payload as { tag: string; data: Record<string, unknown> }
-            console.debug("update-tags", tag, data)
             this.handleTags(tag, data)
         })
     }
@@ -68,18 +68,20 @@ export class Container<
         return future.promise
     }
 
-    addTagHandler(tagRoot: string, handler: TagHandler) {
+    addTagHandler(tagRoot: string, handler: TagHandler, formatter: TagFormatter) {
         if (this.tagHandlers.has(tagRoot)) {
             throw new Error(`Tag handler for ${tagRoot} already exists`)
         }
-        this.tagHandlers.set(tagRoot, handler)
+        this.tagHandlers.set(tagRoot, { handleTags: handler, formatTags: formatter })
     }
 
     async handleTags(tag: string, data?: Record<string, unknown>) {
         const root = tag.split(":")[0]
         const handler = this.tagHandlers.get(root)
+
         if (handler) {
-            handler(tag, data)
+            handler.handleTags(tag, data)
+            console.debug(handler.formatTags(tag, data))
         } else {
             console.warn("no handler for tag", tag)
         }

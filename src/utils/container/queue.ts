@@ -59,6 +59,9 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
     mutex = new Mutex()
 
     private static idCounter = 0
+    private addingInternalJob = false
+    private internalJobsAdded = 0
+    private internalJobsMerged = 0
 
     constructor() {
         super("jobs")
@@ -90,12 +93,14 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                     j.status = "canceled"
                     if (Array.isArray(j.data)) jobsData.push(...j.data)
                     if (j.callback) callbacks.push(j.callback)
+                    this.internalJobsMerged++
                 }
             })
             if (firstIndex !== null) {
                 this.jobs.splice(firstIndex, 1, item)
+                this.internalJobsAdded++
                 if (Array.isArray(item.data)) item.data.unshift(...jobsData)
-                console.debug("merged job", formatJob(item))
+                if (!this.addingInternalJob) console.debug("merged job", formatJob(item))
                 const itemCallback = item.callback
                 item.callback = (result, error) => {
                     for (const callback of callbacks) {
@@ -114,14 +119,16 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
             const jobsData = []
             this.jobs.forEach((j) => {
                 if (j.type === item.type && j.subtype === item.subtype) {
+                    this.internalJobsMerged++
                     j.status = "canceled"
                     if (Array.isArray(j.data)) jobsData.push(...j.data)
                     if (j.callback) callbacks.push(j.callback)
                 }
             })
             this.jobs.push(item)
+            this.internalJobsAdded++
             if (Array.isArray(item.data)) item.data.unshift(...jobsData)
-            console.debug("merged job", formatJob(item))
+            if (!this.addingInternalJob) console.debug("merged job", formatJob(item))
             const itemCallback = item.callback
             item.callback = (result, error) => {
                 for (const callback of callbacks) {
@@ -134,8 +141,9 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
 
         if (addToFront) this.jobs.unshift(item)
         else this.jobs.push(item)
+        this.internalJobsAdded++
 
-        console.debug("added job", formatJob(item))
+        if (!this.addingInternalJob) console.debug("added job", formatJob(item))
 
         if (!this.isActive) this.start()
     }
@@ -144,6 +152,17 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
         for (const job of jobs) {
             this.addJob(job, addToFront)
         }
+    }
+
+    private internalAddJobs(jobs: JobUnion<C, JM>[], addToFront = false) {
+        this.addingInternalJob = true
+        this.internalJobsAdded = 0
+        this.internalJobsMerged = 0
+        for (const job of jobs) {
+            this.addJob(job, addToFront)
+        }
+        this.addingInternalJob = false
+        return { added: this.internalJobsAdded, merged: this.internalJobsMerged }
     }
 
     async start() {
@@ -165,7 +184,8 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                     const result = await job.execute(job.data, this.container)
 
                     if (Array.isArray(result?.jobs) && result.jobs.length > 0) {
-                        this.addJobs(result.jobs)
+                        const { added, merged } = this.internalAddJobs(result.jobs)
+                        console.debug(`job ${formatJob(job)} added ${added} jobs (${merged} merged)`)
                     }
 
                     job.status = "completed"

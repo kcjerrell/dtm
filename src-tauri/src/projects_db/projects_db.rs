@@ -738,14 +738,14 @@ impl ProjectsDb {
         project.update(&self.db).await?;
 
         if exclude {
-            println!("Excluding project {}", project_id);
+            log::debug!("Excluding project {}", project_id);
             // Remove all images associated with this project
             // Cascade delete will handle image_controls and image_loras
             let result = images::Entity::delete_many()
                 .filter(images::Column::ProjectId.eq(project_id))
                 .exec(&self.db)
                 .await?;
-            println!("Deleted {} images", result.rows_affected);
+            log::debug!("Deleted {} images", result.rows_affected);
         }
 
         Ok(())

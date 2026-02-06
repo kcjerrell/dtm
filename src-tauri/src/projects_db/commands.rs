@@ -196,7 +196,7 @@ pub async fn projects_db_project_scan(
             Ok(total as i32)
         }
         Err(err) => {
-            eprintln!("Error scanning project {}: {}", path, err);
+            log::error!("Error scanning project {}: {}", path, err);
             Err(err.to_string())
         }
     }

@@ -10,6 +10,7 @@ import "./index.css"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { HotkeysProvider } from "react-hotkeys-hook"
+import "./utils/tauriLogger"
 
 window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
