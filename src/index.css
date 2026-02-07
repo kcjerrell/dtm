@@ -8,12 +8,21 @@
 
 .loading-text {
   color: #8e97a2;
-  font-size: 2rem;
+  font-size: 3rem;
   font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+:root.dark .loading-text {
+  color: #b9bfc5;
 }
 
 #root {
   background-color: #dbdddf;
+}
+
+:root.dark #root {
+  background-color: #1a1a1d;
 }
 
 .error-container {

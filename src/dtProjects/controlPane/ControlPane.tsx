@@ -32,13 +32,11 @@ function ControlPane(props: ControlPane) {
 
     return (
         <Panel
-            flex={"0 0 18rem"}
-            width={"16rem"}
-            paddingY={1}
-            paddingX={1}
+            width={"full"}
+            paddingY={0}
+            paddingX={0}
             borderRadius={"md"}
             bgColor={"bg.2"}
-            margin={2}
             {...restProps}
         >
             <Tabs.Root

@@ -159,7 +159,7 @@ export function getUnknown<T>(obj: unknown, key: string): T | undefined {
  */
 export function plural(n?: number, singular?: string, plural?: string) {
     if (!Number.isNaN(n) && n === 1) return singular ?? ""
-    return plural ?? "s"
+    return plural ?? (singular ? `${singular}s` : "s")
 }
 
 export interface CompareOptions {
@@ -245,11 +245,16 @@ export function everyNth<T>(arr: T[], n: number): T[] {
 }
 
 export async function pickFileForImport(options?: Parameters<typeof open>[0]) {
-const e2eFilePath = (window as any).__E2E_FILE_PATH__
-console.debug("E2E file path:", e2eFilePath);    
-if (e2eFilePath) {
+    const e2eFilePath = (window as any).__E2E_FILE_PATH__
+    console.debug("E2E file path:", e2eFilePath);
+    if (e2eFilePath) {
         return e2eFilePath;
     }
 
     return await open(options);
+}
+
+export function truncate(text: string, length: number) {
+    if (text.length <= length) return text
+    return `${text.slice(0, length)}...`
 }

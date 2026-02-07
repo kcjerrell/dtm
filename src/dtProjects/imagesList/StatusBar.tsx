@@ -1,7 +1,9 @@
-import { Box, Grid, HStack } from "@chakra-ui/react"
+import { HStack, Spacer } from "@chakra-ui/react"
+import { IconButton } from "@/components"
 import IconToggle from "@/components/IconToggle"
-import { PiFilmStrip, PiImage } from "@/components/icons/icons"
+import { PiFilmStrip, PiImage, TbSortAscending2, TbSortDescending2 } from "@/components/icons/icons"
 import { useDTP } from "../state/context"
+import FiltersWidget from "./FiltersWidget"
 import ProjectsWidget from "./ProjectsWidget"
 import SearchTextWidget from "./SearchTextWidget"
 
@@ -14,16 +16,20 @@ function StatusBar(props: StatusBarProps) {
     const imagesSnap = images.useSnap()
 
     return (
-        <Grid
+        <HStack
+            justifyContent={"flex-start"}
             paddingX={2}
             paddingY={0.5}
             bgColor={"bg.deep/50"}
             color={"fg.2"}
-            templateColumns={"repeat(4, minmax(max-content, 1fr))"}
+            overflow={"hidden"}
             {...restProps}
         >
-            <SearchTextWidget />
-            <ProjectsWidget />
+            <SearchTextWidget fontSize={"sm"} />
+            <FiltersWidget fontSize={"sm"} />
+            <ProjectsWidget fontSize={"sm"} />
+            <Spacer />
+            {/* <HStack flex={"0 0 auto"} cursor={"pointer"} justifySelf={"flex-end"}> */}
             <IconToggle
                 value={{
                     image: imagesSnap.imageSource.showImage,
@@ -33,23 +39,28 @@ function StatusBar(props: StatusBarProps) {
                     images.setShowImages(value.image ?? false)
                     images.setShowVideos(value.video ?? false)
                 }}
+                mode="zeroOrOne"
             >
-                <IconToggle.Trigger option="image">
+                <IconToggle.Trigger option="image" tipText={"Show only images"}>
                     <PiImage />
                 </IconToggle.Trigger>
-                <IconToggle.Trigger option="video">
+                <IconToggle.Trigger option="video" tipText={"Show only videos"}>
                     <PiFilmStrip />
                 </IconToggle.Trigger>
             </IconToggle>
-            <HStack
-                gridArea={"1/3"}
-                className={"group"}
-                cursor={"pointer"}
-                justifySelf={"flex-end"}
+            <IconButton
+                variant={"inset"}
+                onClick={() => images.toggleSortDirection()}
+                tip={`Sort by date (${imagesSnap.imageSource.direction === "asc" ? "oldest" : "newest"})`}
             >
-                <Box>Date</Box>
-            </HStack>
-        </Grid>
+                {imagesSnap.imageSource.direction === "asc" ? (
+                    <TbSortDescending2 />
+                ) : (
+                    <TbSortAscending2 />
+                )}
+            </IconButton>
+            {/* </HStack> */}
+        </HStack>
     )
 }
 

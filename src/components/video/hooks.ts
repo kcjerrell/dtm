@@ -35,13 +35,18 @@ export function useFrameAnimation(opts: UseFrameAnimationOpts) {
 
     useEffect(() => {
         if (!nFrames) return
+        const elapsed =
+            (animationRef.current?.time ?? 0) / (animationRef.current?.iterationDuration || 1)
+        const duration = nFrames / fps
+        const isPlaying = animationRef.current?.state === "running"
         animationRef.current = animate(posMv, [0, 1], {
-            duration: nFrames / fps,
+            duration,
             repeat: Infinity,
             repeatType: "loop",
             ease: "linear",
-            autoplay: autoStart,
+            autoplay: isPlaying || autoStart,
         })
+        animationRef.current.time = elapsed * duration
         onStateChangeRef.current?.(autoStart ? "playing" : "paused")
     }, [autoStart, fps, posMv, nFrames])
 

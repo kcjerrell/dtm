@@ -1,12 +1,10 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
-import { pdb } from "@/commands"
 import {
     FiEye,
     FiEyeOff,
     FiFolder,
     FiRefreshCw,
-    GiNeedleDrill,
-    MdBlock,
+    MdBlock
 } from "@/components/icons/icons"
 import type { PanelListCommandItem } from "@/components/PanelList"
 import { useDTP } from "../state/context"
@@ -28,17 +26,17 @@ export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
             requiresSelection: false,
         },
         "spacer",
-        {
-            id: "fullScan",
-            tipTitle: "Full scan",
-            tipText: "Include ALL items in project",
-            icon: GiNeedleDrill,
-            onClick: async (selected) => {
-                pdb.scanProject(selected[0].path, true)
-            },
-            requiresSelection: true,
-            requiresSingleSelection: true,
-        },
+        // {
+        //     id: "fullScan",
+        //     tipTitle: "Full scan",
+        //     tipText: "Include ALL items in project",
+        //     icon: GiNeedleDrill,
+        //     onClick: async (selected) => {
+        //         pdb.scanProject(selected[0].path, true)
+        //     },
+        //     requiresSelection: true,
+        //     requiresSingleSelection: true,
+        // },
         {
             id: "exclude",
             getTipTitle: (selected) =>

@@ -41,6 +41,29 @@ const Base = chakra("button", {
 
     variants: {
         variant: {
+            inset: {
+                bgColor: "bg.1",
+                border: "1px solid {gray/30}",
+                color: "fg.1",
+                paddingBlock: 0.5,
+                height: "unset",
+                paddingInline: 1,
+                // border: "1px solid",
+                // borderColor: "transparent",
+                borderRadius: "md",
+                margin: 0,
+                marginInline: "-0.5px",
+                _hover: {
+                    color: "fg.1",
+                    scale: "1",
+                    "& *": {
+                        scale: 1.05,
+                    },
+                },
+                "& *": {
+                    transformOrigin: "center center",
+                },
+            },
             simple: {
                 _hover: {
                     scale: 1.1,
@@ -57,7 +80,6 @@ const Base = chakra("button", {
                 marginInline: "-0.5px",
                 _hover: {
                     scale: "1",
-                    color: "fg.1",
                     "& *": {
                         scale: 1.05,
                     },
@@ -79,14 +101,21 @@ const Base = chakra("button", {
         },
         toggled: {
             true: {
-                bgColor: "bg.3",
+                bgColor: "bg.2",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
+                _hover: {
+                    color: "fg.1",
+                },
+                // boxShadow: "0px 0px 5px 0px #c958286d inset"
             },
             false: {
-                color: "fg.3",
+                color: "fg.3/70",
                 bgColor: "bg.deep",
                 border: "1px solid {gray/30}",
+                _hover: {
+                    color: "fg.3",
+                },
             },
         },
         size: {

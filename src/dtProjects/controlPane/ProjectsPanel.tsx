@@ -33,7 +33,10 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
     const activeProjectsSnap = useSnapshot(groups.activeProjects)
     const excludedProjectsSnap = useSnapshot(groups.excludedProjects)
 
-    const isFiltering = !!imageSource?.filters?.length || !!imageSource?.search
+    const isFiltering =
+        !!imageSource?.filters?.length ||
+        !!imageSource?.search ||
+        imageSource?.showImage !== imageSource?.showVideo
     const showEmpty = snap.showEmptyProjects || !isFiltering
 
     useEffect(() => {

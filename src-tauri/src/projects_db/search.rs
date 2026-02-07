@@ -44,9 +44,6 @@ pub fn add_search(mut query: Select<images::Entity>, search_text: &str) -> Selec
     remainder = process_prompt(&remainder);
     let terms: Vec<&str> = remainder.split_whitespace().collect();
 
-    println!("terms: {:#?}", terms);
-    println!("phrases: {:#?}", phrases);
-
     if !terms.is_empty() {
         let fts_query = terms.join(" OR ");
 

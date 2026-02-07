@@ -136,6 +136,16 @@ pub fn run() {
                         && !metadata.target().starts_with("sqlx")
                 })
                 .level(LevelFilter::Debug)
+                .clear_targets()
+                .targets(vec![
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("logs.txt".to_string()),
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .max_file_size(200000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(2))
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![

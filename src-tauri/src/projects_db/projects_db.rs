@@ -11,7 +11,10 @@ use sea_orm::{
     QueryTrait, RelationTrait, Set,
 };
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+};
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
@@ -45,8 +48,17 @@ fn get_path(app_handle: &tauri::AppHandle) -> String {
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
+fn check_old_path(app_handle: &tauri::AppHandle) {
+    let app_data_dir = app_handle.path().app_data_dir().unwrap();
+    let old_path = app_data_dir.join("projects2.db");
+    if old_path.exists() {
+        fs::remove_file(old_path).unwrap_or_default();
+    }
+}
+
 impl ProjectsDb {
     pub async fn get_or_init(app_handle: &tauri::AppHandle) -> Result<&'static ProjectsDb, String> {
+        check_old_path(app_handle);
         CELL.get_or_try_init(|| async {
             ProjectsDb::new(&get_path(app_handle))
                 .await
@@ -99,7 +111,7 @@ impl ProjectsDb {
         let project = projects::Entity::find_by_path(path).one(&self.db).await?;
 
         if project.is_none() {
-            println!("No project found for path: {}", path);
+            log::debug!("remove project: No project found for path: {}", path);
             return Ok(None);
         }
         let project = project.unwrap();
@@ -109,7 +121,7 @@ impl ProjectsDb {
             .await?;
 
         if delete_result.rows_affected == 0 {
-            println!("project couldn't be deleted: {}", path);
+            log::debug!("remove project: project couldn't be deleted: {}", path);
         }
 
         Ok(Some(project.id))
@@ -212,6 +224,10 @@ impl ProjectsDb {
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
         let project = self.get_project_by_path(path).await?;
+
+        if project.excluded {
+            return Ok((project.id, 0));
+        }
 
         let start = match full_scan {
             true => 0,
@@ -516,10 +532,19 @@ impl ProjectsDb {
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<ListImagesResult, DbErr> {
         // print!("ListImagesOptions: {:#?}\n", opts);
 
+        let direction = match Some(opts.direction) {
+            Some(direction) => match direction.unwrap().as_str() {
+                "asc" => Order::Asc,
+                "desc" => Order::Desc,
+                _ => Order::Desc,
+            },
+            None => Order::Desc,
+        };
+
         let mut query = images::Entity::find()
             .join(JoinType::LeftJoin, images::Relation::Models.def())
             .column_as(entity::models::Column::Filename, "model_file")
-            .order_by(images::Column::WallClock, Order::Desc);
+            .order_by(images::Column::WallClock, direction);
 
         if let Some(project_ids) = &opts.project_ids {
             if !project_ids.is_empty() {
@@ -636,8 +661,6 @@ impl ProjectsDb {
         }
 
         let _stmt = query.clone().build(self.db.get_database_backend());
-        // println!("Query: {:#?}", stmt);
-
         let count = query.clone().count(&self.db).await?;
 
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
@@ -741,14 +764,14 @@ impl ProjectsDb {
         project.update(&self.db).await?;
 
         if exclude {
-            println!("Excluding project {}", project_id);
+            log::debug!("Excluding project {}", project_id);
             // Remove all images associated with this project
             // Cascade delete will handle image_controls and image_loras
             let result = images::Entity::delete_many()
                 .filter(images::Column::ProjectId.eq(project_id))
                 .exec(&self.db)
                 .await?;
-            println!("Deleted {} images", result.rows_affected);
+            log::debug!("Deleted {} images", result.rows_affected);
         }
 
         Ok(())

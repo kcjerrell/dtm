@@ -59,6 +59,18 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         super("projects", "projects")
     }
 
+    protected formatTags(tags: string, data?:  { removed?: number; added?: ProjectExtra; updated?: ProjectExtra, desc?: string }): string {
+        if (data?.desc)
+            return `invalidate tag: ${tags} - ${data.desc}`
+        if (data?.removed) 
+            return `update tag - removed project - id ${data.removed}`
+        if (data?.added) 
+            return `update tag - added project - ${data.added.path.split("/").pop()} id ${data.added.id}`
+        if (data?.updated) 
+            return `update tag - updated project - ${data.updated.path.split("/").pop()} id ${data.updated.id}`
+        return `update tag: ${tags} ${String(data)}`
+    }
+
     protected handleTags(
         _tags: string,
         data: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra },
@@ -147,6 +159,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             await pdb.updateExclude(project.id, exclude)
             projectState.excluded = exclude
             stateUpdate.push(projectState)
+            projectState.setSelected(false)
         }
         this.setSelectedProjects([])
         const scanner = this.container.getService("scanner")

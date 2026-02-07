@@ -34,13 +34,15 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         autoStart,
     } = opts
 
-    const fps = halfFps ? fpsProp / 2 : fpsProp
-
+    
     const { state, snap } = useProxyRef(() => ({
         urls: [] as string[],
         playbackState: "paused" as "playing" | "paused" | "seeking",
+        fps: fpsProp
     }))
 
+    const fps = halfFps ? snap.fps / 2 : snap.fps
+    
     const frameChangedHandlersRef = useRef<OnFrameChanged[]>([])
     const playbackStateChangedHandlersRef = useRef<OnPlaybackStateChanged[]>([])
 
@@ -101,15 +103,20 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         })
     }, [image, state, getUrl, halfFps])
 
+    const setFps = (fps: number) => {
+        state.fps = fps
+    }
+
     return {
         imgRef,
         imgSrc,
         frameChangedHandlersRef,
         playbackStateChangedHandlersRef,
-        fps,
+        fps: snap.fps,
         frames: snap.urls.length,
         controls,
         state,
+        setFps
     } as const
 }
 

@@ -61,7 +61,7 @@ pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: Uri
     let response = match handle_request(request).await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("DTM Protocol Error: {}", e);
+            log::error!("DTM Protocol Error: {}", e);
             Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(e.into_bytes())

@@ -13,13 +13,18 @@ function ResetPermission(props: ResetPermissionProps) {
     const hasBookmark = !!storageSnap.permissions.bookmark
 
     return (
-        <PanelSection display={hasBookmark ? undefined : "none"} {...restProps}>
+        <PanelSection
+            paddingY={2}
+            paddingX={4}
+            display={hasBookmark ? undefined : "none"}
+            {...restProps}
+        >
             <PanelSectionHeader padding={2}>Reset Permission</PanelSectionHeader>
             <VStack>
                 <Text paddingX={2}>
-                    Permission granted to use Draw Thing's data. If this no longer seems to be
-                    working, you can reset it by clicking the button below. This will clear the
-                    permissions and relaunch the app.
+                    Permission has been granted to use Draw Thing's data. If this is no longer
+                    working as expected, you can reset by clicking the button below. This will clear
+                    the permissions and relaunch the app.
                 </Text>
                 <PanelButton
                     onClick={async () => {

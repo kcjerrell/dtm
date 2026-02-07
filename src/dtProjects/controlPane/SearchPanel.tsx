@@ -1,4 +1,4 @@
-import { Box, Button, chakra, Em, HStack, Input, VStack } from "@chakra-ui/react"
+import { Box, Button, chakra, Em, HStack, Textarea, VStack } from "@chakra-ui/react"
 import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
 import { PiInfo } from "@/components/icons/icons"
@@ -16,7 +16,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
     const { shouldFocus } = uiState.useSnap()
 
     const [searchInput, setSearchInput] = useState("")
-    const searchInputRef = useRef<HTMLInputElement>(null)
+    const searchInputRef = useRef<HTMLTextAreaElement>(null)
 
     useEffect(() => {
         models.refreshModels()
@@ -27,10 +27,6 @@ function SearchPanel(props: SearchPanelComponentProps) {
             searchInputRef.current.focus()
         }
     }, [shouldFocus])
-
-    // useEffect(() => {
-    // searchService.incLayoutId()
-    // }, [searchService.incLayoutId])
 
     return (
         <TabContent
@@ -45,13 +41,16 @@ function SearchPanel(props: SearchPanelComponentProps) {
             {...restProps}
         >
             <HStack>
-                <Input
+                <Textarea
                     ref={searchInputRef}
+                    rows={1}
+                    autoresize
                     bgColor={"bg.3"}
                     value={searchInput}
                     onChange={(e) => {
-                        setSearchInput(e.target.value)
-                        search.state.searchInput = e.target.value
+                        const value = e.target.value.replace(/\n/g, "")
+                        setSearchInput(value)
+                        search.state.searchInput = value
                     }}
                     border={"2px solid gray"}
                     borderRadius={"lg"}

@@ -331,7 +331,7 @@ pub async fn create_video_from_frames(
 /// returns the highest existing clip id and frame number for the given pattern
 /// -1 indicates no matches
 pub fn check_files(dir: &str, pattern: &str) -> Result<(i32, i32), String> {
-    println!("checking {} for {}", dir, pattern);
+    log::debug!("checking {} for {}", dir, pattern);
     let matcher = get_matcher(pattern);
 
     let mut max_clip: i32 = -1;
@@ -370,7 +370,6 @@ pub fn check_files(dir: &str, pattern: &str) -> Result<(i32, i32), String> {
 pub fn get_matcher(filename_pattern: &str) -> Regex {
     let mut pattern = regex::escape(filename_pattern);
     pattern = format!("^{}$", pattern);
-    println!("pattern: {}", pattern);
     let matcher_frame: Regex = Regex::new(r"(\\#)+").unwrap();
     let matcher_clip: Regex = Regex::new(r"%+").unwrap();
     let pattern = matcher_frame.replace_all(&pattern, "(?P<frame>\\d+)");

@@ -1,7 +1,7 @@
-import { Icon } from "@chakra-ui/react"
+import { Icon, Popover, Portal } from "@chakra-ui/react"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { motion } from "motion/react"
-import { type ComponentProps, useEffect, useState } from "react"
+import { type ComponentProps, useCallback, useEffect, useState } from "react"
 import { useSnapshot } from "valtio"
 import { SidebarButton } from "@/components/sidebar/Sidebar"
 import { type ColorMode, useColorMode } from "@/components/ui/color-mode"
@@ -16,6 +16,7 @@ const statusTips = {
     downloading: "Downloading update",
     installing: "Installing update",
 } as const
+
 function getStatusTip(status: (typeof AppStore.store)["updateStatus"]) {
     if (status in statusTips) return statusTips[status as keyof typeof statusTips]
     else return undefined
@@ -24,19 +25,32 @@ function getStatusTip(status: (typeof AppStore.store)["updateStatus"]) {
 const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "label" | "icon">) => {
     const appSnap = useSnapshot(AppStore.store)
     const [showHiddenButton, setShowHiddenButton] = useState(false)
+    const [message, setMessage] = useState<string | null>(null)
+    // const [prevStatus, setPrevStatus] = useState(appSnap.updateStatus)
+
+    const showMessage = useCallback((message: string) => {
+        setMessage(message)
+        setTimeout(() => setMessage(null), 4000)
+    }, [])
 
     useEffect(() => {
         if (appSnap.updateStatus === "unknown") AppStore.checkForUpdate()
 
-        if (
-            appSnap.updateStatus === "found" ||
-            appSnap.updateStatus === "installed" ||
-            appSnap.updateStatus === "error"
-        ) {
-            setShowHiddenButton(true)
-            setTimeout(() => setShowHiddenButton(false), 5000)
+        if (appSnap.updateStatus === "found") {
+            showMessage("Update available! Click to download.")
         }
-    }, [appSnap.updateStatus])
+        if (appSnap.updateStatus === "installed") {
+            showMessage("Update installed! Click to restart.")
+        }
+        if (appSnap.updateStatus === "error") {
+            showMessage("Update failed! Click to retry.")
+        }
+
+        // {
+        //     setShowHiddenButton(true)
+        //     setTimeout(() => setShowHiddenButton(false), 5000)
+        // }
+    }, [appSnap.updateStatus, showMessage])
 
     if (appSnap.updateAttempts >= 3) return null
 
@@ -44,23 +58,35 @@ const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "label"
 
     if (["found", "installed"].includes(appSnap.updateStatus)) {
         return (
-            <SidebarButton
-                label={"Update"}
-                icon={UpgradeIcon}
-                isUpgrade={showHiddenButton}
-                onClick={async () => {
-                    if (AppStore.store.updateStatus === "found") {
-                        await AppStore.downloadAndInstallUpdate()
-                    } else if (appSnap.updateStatus === "installed") await relaunch()
-                    else if (appSnap.updateStatus === "error") await AppStore.retryUpdate()
-                }}
-                {...props}
-            />
+            <Popover.Root open={!!message} positioning={{ placement: "right", sameWidth: true }}>
+                <Popover.Trigger asChild>
+                    <SidebarButton
+                        label={"Update"}
+                        icon={UpgradeIcon}
+                        isUpgrade={showHiddenButton}
+                        onClick={async () => {
+                            if (AppStore.store.updateStatus === "found") {
+                                await AppStore.downloadAndInstallUpdate()
+                            } else if (appSnap.updateStatus === "installed") await relaunch()
+                            else if (appSnap.updateStatus === "error") await AppStore.retryUpdate()
+                        }}
+                        {...props}
+                    />
+                </Popover.Trigger>
+                <Portal>
+                    <Popover.Positioner>
+                        <Popover.Content>
+                            <Popover.Arrow />
+                            <Popover.Body>{message}</Popover.Body>
+                        </Popover.Content>
+                    </Popover.Positioner>
+                </Portal>
+            </Popover.Root>
         )
     }
 
     if (appSnap.updateStatus === "downloading" || appSnap.updateStatus === "installing") {
-        return <ToolbarButton icon={Spinner} tip={statusTips[appSnap.updateStatus]} />
+        return <ToolbarButton icon={Spinner} tip={statusTips[appSnap.updateStatus]} {...props} />
     }
 }
 
