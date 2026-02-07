@@ -37,9 +37,11 @@ export function FramesExportDialog(props: FramesExportDialogProps) {
     const { settings: storage } = useDTP()
     const storageSnap = storage.useSnap()
 
-    const [outputDir, setOutputDir] = useState(storageSnap.export.framesOutputDir)
-    const [frameSource, setFrameSource] = useState<FrameSource>(storageSnap.export.framesSource)
-    const [filenamePattern, setFilenamePattern] = useState(storageSnap.export.framesFilenamePattern)
+    const [outputDir, setOutputDir] = useState(storage.state.export.framesOutputDir)
+    const [frameSource, setFrameSource] = useState<FrameSource>(storage.state.export.framesSource)
+    const [filenamePattern, setFilenamePattern] = useState(
+        storage.state.export.framesFilenamePattern,
+    )
     const [checkResult, setCheckResult] = useState<CheckPatternResult | null>(null)
 
     const [isExporting, setIsExporting] = useState(false)
@@ -121,6 +123,9 @@ export function FramesExportDialog(props: FramesExportDialogProps) {
             flexDir={"column"}
             panelProps={{
                 height: "auto",
+                maxHeight: "80vh",
+                overflowY: "auto",
+                className: "panel-scroll",
             }}
             height={"auto"}
             shadeProps={{
@@ -133,6 +138,7 @@ export function FramesExportDialog(props: FramesExportDialogProps) {
                 alignItems="stretch"
                 justifyContent={"flex-start"}
                 gap={2}
+                height={"100%"}
             >
                 <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
                     Export Frames
@@ -209,9 +215,9 @@ export function FramesExportDialog(props: FramesExportDialogProps) {
                     </VStack>
                 </PanelSection>
 
-                <PanelSection>
+                <PanelSection paddingX={4} paddingY={2} gap={1}>
                     <PanelSectionHeader>Frame Source</PanelSectionHeader>
-                    <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <VStack alignItems="stretch" gap={1}>
                         <HStack gap={2} padding={0}>
                             <PanelButton
                                 flex={1}

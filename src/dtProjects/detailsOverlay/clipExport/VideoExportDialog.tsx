@@ -6,7 +6,6 @@ import { createVideoFromFrames, type ImageExtra } from "@/commands"
 import { LinkButton, PanelButton, PanelSection, PanelSectionHeader } from "@/components"
 import { Checkbox } from "@/components/ui/checkbox"
 import { NumberInputField, NumberInputRoot } from "@/components/ui/number-input"
-import { Radio, RadioGroup } from "@/components/ui/radio"
 import { useDTP } from "@/dtProjects/state/context"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
 import { ContentPanelPopup } from "../../imagesList/ContentPanelPopup"
@@ -33,13 +32,6 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
     const [fps, setFps] = useState(storageSnap.export.videoFps ?? 16)
-    const [fpsMode, setFpsMode] = useState<string>(
-        storageSnap.export.videoFps === 16
-            ? "16"
-            : storageSnap.export.videoFps === 24
-              ? "24"
-              : "custom",
-    )
     const [frameSource, setFrameSource] = useState<FrameSource>(storageSnap.export.videoSource)
     const [lockAspectRatio, setLockAspectRatio] = useState(true)
 
@@ -79,12 +71,6 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
         if (lockAspectRatio) {
             setWidth(Math.round(val * aspectRatio))
         }
-    }
-
-    const handleFpsModeChange = (val: string) => {
-        setFpsMode(val)
-        if (val === "16") setFps(16)
-        if (val === "24") setFps(24)
     }
 
     const handleExport = async () => {
@@ -160,6 +146,9 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
             }}
             panelProps={{
                 height: "auto",
+                maxHeight: "80vh",
+                overflowY: "auto",
+                className: "panel-scroll",
             }}
             height={"auto"}
         >
@@ -169,13 +158,14 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
                 alignItems="stretch"
                 justifyContent={"flex-start"}
                 gap={2}
+                height={"100%"}
             >
                 <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
                     Export Video
                 </Text>
 
-                <PanelSection display={"grid"} gridTemplateColumns={"1fr 1fr"} bgColor={"bg.2"}>
-                    <VStack alignItems="stretch" gap={3} paddingX={4} paddingY={3}>
+                <PanelSection display={"grid"} gridTemplateColumns={"1fr 1fr"} bgColor={"bg.1"} paddingX={4} paddingY={2}>
+                    <VStack alignItems="stretch" gap={3} paddingRight={4}>
                         <VStack alignItems={"stretch"}>
                             <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
                             <HStack>
@@ -221,57 +211,54 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
                     </VStack>
                     <VStack
                         alignItems="stretch"
-                        gap={3}
-                        paddingX={4}
-                        paddingY={3}
+                        gap={2}
                         borderLeft={"1px solid"}
                         borderColor={"gray/20"}
+                        paddingLeft={4}
                     >
                         <PanelSectionHeader padding={0}>Frame Rate</PanelSectionHeader>
-                        <RadioGroup
-                            value={fpsMode}
-                            onValueChange={(e: { value: string | null }) =>
-                                handleFpsModeChange(e.value || "custom")
-                            }
-                            variant={"subtle"}
-                            size={"sm"}
-                        >
-                            <HStack gap={4}>
-                                <Radio value="16">16</Radio>
-                                <Radio value="24">24</Radio>
-                                <Radio value="custom">Custom</Radio>
-                            </HStack>
-                        </RadioGroup>
                         <HStack gap={4} alignItems={"center"}>
+                            <Box flex={1}>
+                                <NumberInputRoot
+                                    variant={"subtle"}
+                                    value={fps.toString()}
+                                    onValueChange={(e: { value: string | null }) => {
+                                        const nextVal = parseInt(e.value || "0") || 1
+                                        // If the difference is exactly 2 or 1, it's likely a step from the trigger.
+                                        // We snap to the next/prev even number in that case.
+                                        const diff = nextVal - fps
+                                        if (Math.abs(diff) === 2 || Math.abs(diff) === 1) {
+                                            if (diff > 0) {
+                                                setFps(nextVal % 2 === 0 ? nextVal : nextVal - 1)
+                                            } else {
+                                                setFps(nextVal % 2 === 0 ? nextVal : nextVal + 1)
+                                            }
+                                        } else {
+                                            setFps(nextVal)
+                                        }
+                                    }}
+                                    min={1}
+                                    max={120}
+                                    step={2}
+                                >
+                                    <NumberInputField />
+                                </NumberInputRoot>
+                            </Box>
                             <Box flex={1}>
                                 <Text fontSize="xs" fontWeight="600" color={"fg.muted"}>
                                     Duration
                                 </Text>
-                                <Text fontSize="sm">{duration}s</Text>
+                                <Text fontSize="sm" paddingTop={1}>
+                                    {duration}s
+                                </Text>
                             </Box>
-                            <NumberInputRoot
-                                flex={1}
-                                variant={"subtle"}
-                                value={fps.toString()}
-                                onValueChange={(e: { value: string | null }) => {
-                                    const val = parseInt(e.value || "0") || 1
-                                    setFps(val)
-                                    if (val !== 16 && val !== 24) setFpsMode("custom")
-                                }}
-                                min={1}
-                                max={60}
-                                disabled={fpsMode !== "custom"}
-                                showScrubber={false}
-                            >
-                                <NumberInputField />
-                            </NumberInputRoot>
                         </HStack>
                     </VStack>
                 </PanelSection>
 
-                <PanelSection>
+                <PanelSection paddingX={4} paddingY={2} gap={1}>
                     <PanelSectionHeader>Frame Source</PanelSectionHeader>
-                    <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <VStack alignItems="stretch" gap={1}>
                         <HStack
                             gap={2}
                             padding={0}

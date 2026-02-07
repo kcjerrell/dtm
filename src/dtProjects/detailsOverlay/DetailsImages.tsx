@@ -3,6 +3,7 @@ import type { Snapshot } from "valtio"
 import type { DTImageFull } from "@/commands"
 import urls from "@/commands/urls"
 import { VideoContext, type VideoContextType } from "@/components/video/context"
+import FpsButton from '@/components/video/FpsButton'
 import PlayPauseButton from "@/components/video/PlayPauseButton"
 import Seekbar from "@/components/video/Seekbar"
 import Video from "@/components/video/Video"
@@ -49,9 +50,10 @@ function DetailsImages(props: DetailsImagesProps) {
                     <Video image={item} autoStart={false} key={item.id}>
                         <Extractor />
                         <VideoImage data-solid="true" clickToPause />
-                        <HStack width={"100%"} flexShrink={0}>
-                            <PlayPauseButton data-solid="true" />
-                            <Seekbar data-solid="true" />
+                        <HStack data-solid="true" width={"100%"} paddingY={2} flexShrink={0}>
+                            <PlayPauseButton />
+                            <Seekbar />
+                            <FpsButton />
                         </HStack>
                     </Video>
                 </Grid>
