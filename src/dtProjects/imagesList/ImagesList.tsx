@@ -85,6 +85,10 @@ function GridItemAnim(
 
     return (
         <Box
+            role={"gridcell"}
+            data-testid="image-item"
+            data-project-id={item.project_id}
+            data-image-id={item.id}
             position={"relative"}
             bgColor={"fg.1/20"}
             onPointerEnter={() => onPointerEnter?.(index)}

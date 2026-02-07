@@ -28,7 +28,8 @@ export const config: Options.Testrunner = {
     reporters: ['spec'],
     mochaOpts: {
         ui: 'bdd',
-        timeout: 60000
+        timeout: 60000,
+        parallel: false
     },
 
     // ensure the rust project is built since we expect this binary to exist for the webdriver sessions

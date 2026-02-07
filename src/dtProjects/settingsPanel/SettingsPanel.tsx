@@ -1,8 +1,8 @@
-import { Box, Text, VStack } from "@chakra-ui/react"
+import { Box, HStack, Text, VStack } from "@chakra-ui/react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
-import { LinkButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
-import { FaMinus, FaPlus, FiList, LuFolderTree } from "@/components/icons/icons"
+import { IconButton, LinkButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
+import { FaMinus, FaPlus, FiList, FiX, LuFolderTree } from "@/components/icons/icons"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
 import { useSelectable } from "@/hooks/useSelectableV"
@@ -107,9 +107,20 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                     height="auto"
                     gap={2}
                 >
-                    <Text fontSize={"lg"} fontWeight={"600"} paddingX={1}>
-                        Settings
-                    </Text>
+                    <HStack width={"100%"} justifyContent={"space-between"}>
+                        <Text fontSize={"lg"} fontWeight={"600"} paddingX={1} flex={"1 1 auto"}>
+                            Settings
+                        </Text>
+                        <IconButton
+                            role={"button"}
+                            aria-label={"close settings"}
+                            flex={"0 0 auto"}
+                            size="min"
+                            onClick={() => uiState.showSettings(false)}
+                        >
+                            <FiX />
+                        </IconButton>
+                    </HStack>
                     <Text color={"fg.2"} fontSize={"sm"} paddingX={2}>
                         Consider this a preview version, some features are currently missing or
                         incomplete, and there are likely some bugs here and there. Report any issues

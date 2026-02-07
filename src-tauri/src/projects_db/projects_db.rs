@@ -532,13 +532,9 @@ impl ProjectsDb {
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<ListImagesResult, DbErr> {
         // print!("ListImagesOptions: {:#?}\n", opts);
 
-        let direction = match Some(opts.direction) {
-            Some(direction) => match direction.unwrap().as_str() {
-                "asc" => Order::Asc,
-                "desc" => Order::Desc,
-                _ => Order::Desc,
-            },
-            None => Order::Desc,
+        let direction = match opts.direction.as_deref() {
+            Some("asc") => Order::Asc,
+            _ => Order::Desc,
         };
 
         let mut query = images::Entity::find()

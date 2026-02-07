@@ -58,6 +58,8 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             {...restProps}
         >
             <PanelList
+                role={"listbox"}
+                aria-label={"projects"}
                 flex={"1 1 auto"}
                 className={"pl"}
                 // height={"full"}
@@ -134,8 +136,14 @@ function ProjectListItem(props: ProjectListItemProps) {
         countStyle = "italic"
     } // what if every image in the project matches a search?	then it won't be italic
 
+    const projectName = project.path.split("/").pop()?.slice(0, -8)
+
     return (
         <PanelListItem
+            role={"option"}
+            aria-selected={isSelected}
+            data-test-id={`project-item`}
+            data-project-id={project.id}
             position={"relative"}
             selectable
             selected={isSelected}
@@ -152,7 +160,7 @@ function ProjectListItem(props: ProjectListItemProps) {
         >
             <HStack justifyContent={"space-between"}>
                 <Box flex={"1 1 auto"}>
-                    {project.path.split("/").pop()?.slice(0, -8)}
+                    {projectName}
                     {project.isMissing && " (missing)"}
                 </Box>
                 {project.isScanning ? (

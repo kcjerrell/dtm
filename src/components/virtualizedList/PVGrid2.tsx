@@ -195,6 +195,9 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
             {...restProps}
         >
             <Grid
+                role={"grid"}
+                aria-label={"Image grid"}
+                data-test-id={"image-grid"}
                 gap={0}
                 ref={scrollContentRef}
                 gridTemplateColumns={`repeat(${snap.columns}, 1fr)`}
