@@ -24,6 +24,18 @@ const themeConfig = defineConfig({
             /*Chrome, Safari, Edge*/
             display: "none",
         },
+        ".panel-scroll": {
+            scrollbarGutter: "stable",
+            _scrollbar: { backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" },
+            _scrollbarThumb: {
+                backgroundColor: "fg.2/50",
+                width: "4px",
+                borderRadius: "2px 7px 7px 2px",
+                boxShadow: "pane1",
+                borderRight: "1px solid",
+                borderColor: "bg.1",
+            },
+        },
         "#root": {
             bgColor: "#73747540",
             overflow: "clip",

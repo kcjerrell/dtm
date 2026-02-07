@@ -29,19 +29,32 @@ export const CheckRoot = chakra(
     {
         base: {
             display: "flex",
-            bgImage: "url(check_light.png)",
-            bgSize: "50px 50px",
-            bgColor: "#000000",
+            // bgImage: "url(check_light.png)",
+            // bgSize: "50px 50px",
+            // bgColor: "#000000",
+            bgColor: "transparent",
             width: "100%",
             height: "100%",
             overscrollBehavior: "none none",
             position: "relative",
             borderRadius: "md",
+            zIndex: 0,
+            _before: {
+                content: '""',
+                bgImage: "url(check_light.png)",
+                position: "absolute",
+                width: "100%",
+                height: "100%",
+                bgSize: "50px 50px",
+                inset: 0,
+                pointerEvents: "none",
+                zIndex: -2,
+            },
         },
         variants: {
             dark: {
                 true: {
-                    _before: {
+                    _after: {
                         content: '""',
                         bgImage: "url(check_dark.png)",
                         position: "absolute",
@@ -51,10 +64,11 @@ export const CheckRoot = chakra(
                         inset: 0,
                         animation: "fadeIn 0.2s ease forwards",
                         pointerEvents: "none",
+                        zIndex: -1,
                     },
                 },
                 false: {
-                    _before: {
+                    _after: {
                         content: '""',
                         bgImage: "url(check_dark.png)",
                         position: "absolute",
@@ -64,6 +78,7 @@ export const CheckRoot = chakra(
                         inset: 0,
                         animation: "fadeOut 0.2s ease forwards",
                         pointerEvents: "none",
+                        zIndex: -1,
                     },
                 },
             },
@@ -101,7 +116,7 @@ export const PaneListScrollContainer = chakra(
             height: "100%",
             width: "100%",
             paddingY: "1px",
-            gap: 0.5,
+            gap: 0,
             display: "flex",
             justifyContent: "flex-start",
             alignItems: "stretch",
@@ -149,9 +164,9 @@ export const PanelListItem = chakra(
             paddingX: 2,
             paddingY: 1,
             borderRadius: "sm",
-            boxShadow: "0px 0px 18px -8px #00000022",
+            // boxShadow: "0px 0px 18px -8px #00000022",
             border: "1px solid",
-            marginBottom: "-1px",
+            margin: "0px",
             borderColor: "#00000033",
             // borderColor: "fg.3/30",
             transition: "all 0.2s ease-out",

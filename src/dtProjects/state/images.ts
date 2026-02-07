@@ -101,16 +101,14 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         })
     }
 
-    buildImageSource(search?: { text?: string; filters?: BackendFilter<unknown>[] }) {
-        const source = this.state.imageSource
+    buildImageSource(search?: { text?: string; filters?: BackendFilter[] }) {
         if (search) {
-            console.log(search.text)
-            source.search = search.text
-            source.filters = search.filters as BackendFilter[]
+            this.setSearchText(search.text)
+            this.setSearchFilters(search.filters)
         }
 
         const selectedProjects = this.container.getService("projects")?.state.selectedProjects
-        if (selectedProjects) source.projectIds = selectedProjects.map((p) => p.id)
+        if (selectedProjects) this.setSelectedProjects(selectedProjects)
     }
 
     projectsCache: Record<number, number> = {}
@@ -121,15 +119,18 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         else this.state.imageSource.direction = "asc"
     }
 
-    async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
-        this.state.imageSource.search = searchText
-            ?.replace(/\u201C|\u201D/g, '"')
-            .replace(/\u2018|\u2019/g, "'")
-        this.state.imageSource.filters = filter?.map((f) => ({
+    async setSearchFilters(filters?: BackendFilter[]) {
+        this.state.imageSource.filters = filters?.map((f) => ({
             target: f.target.toLowerCase(),
             operator: f.operator,
             value: f.value,
         }))
+    }
+
+    async setSearchText(searchText?: string) {
+        this.state.imageSource.search = searchText
+            ?.replace(/\u201C|\u201D/g, '"')
+            .replace(/\u2018|\u2019/g, "'")
     }
 
     async setSelectedProjects(projects: ProjectState[]) {

@@ -210,7 +210,7 @@ function getExecuteSync(callback?: JobCallback<null>) {
                 else project.action = "remove"
             }
             // update if sizes or modified times are different
-            else if (project.file && project.entity) {
+            else if (project.file && project.entity && !project.entity.excluded) {
                 if (
                     project.file.size !== project.entity.filesize ||
                     project.file.modified !== project.entity.modified

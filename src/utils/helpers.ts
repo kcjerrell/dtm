@@ -158,7 +158,7 @@ export function getUnknown<T>(obj: unknown, key: string): T | undefined {
  */
 export function plural(n?: number, singular?: string, plural?: string) {
     if (!Number.isNaN(n) && n === 1) return singular ?? ""
-    return plural ?? "s"
+    return plural ?? (singular ? `${singular}s` : "s")
 }
 
 export interface CompareOptions {
@@ -241,4 +241,9 @@ function shallowCompare<T extends Record<string, unknown>>(a: T, b: T, opts: Com
 
 export function everyNth<T>(arr: T[], n: number): T[] {
     return arr.filter((_, i) => i % n === 0)
+}
+
+export function truncate(text: string, length: number) {
+    if (text.length <= length) return text
+    return `${text.slice(0, length)}...`
 }

@@ -73,25 +73,27 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                 backdropFilter: "blur(2px)",
             }}
             overflow="visible"
+            panelProps={{
+                height: "auto",
+                maxHeight: "80vh",
+            }}
+            css={{
+                "@container (width < 25rem)": {
+                    "& div": {
+                        left: "unset",
+                        right: "0",
+                    },
+                },
+                "@container (width > 25rem)": {
+                    "& div": {
+                        left: "0",
+                        right: "unset",
+                    },
+                },
+            }}
             {...restProps}
         >
-            <Box
-                color={"fg.1"}
-                overflowY="scroll"
-                // paddingRight={2}
-                marginRight={-1}
-                scrollbarGutter={"stable"}
-                _scrollbar={{ backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" }}
-                _scrollbarThumb={{
-                    backgroundColor: "fg.2/50",
-                    width: "4px",
-                    borderRadius: "2px 7px 7px 2px",
-                    boxShadow: "pane1",
-                    borderRight: "1px solid",
-                    borderColor: "bg.1",
-                }}
-                // style={{ "-webkit-scrollbar-track": { backgroundColor: "blue" } }}
-            >
+            <Box color={"fg.1"} overflowY="scroll" marginRight={-1} className="panel-scroll">
                 <VStack
                     bgColor={"unset"}
                     padding={1}
@@ -133,7 +135,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                         itemsState={() => watchFolders.state.folders}
                         header={"Watch locations"}
                         headerInfo={
-                            "Folders in these locations will be scanned for Draw Things projects and model info files. \n\nFor most users, only the default folders will be needed."
+                            "Folders in these locations will be scanned for Draw Things projects and model info files. \n\nFor most users, only the default folders will be needed. If you use a custom model folder, include it here."
                         }
                         commands={folderCommands}
                         keyFn={(item) => item.id}

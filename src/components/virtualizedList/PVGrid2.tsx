@@ -246,17 +246,22 @@ function PVGridItems<T, P>(props: {
     )
 }
 
-const Container = chakra("div", {
-    base: {
-        overflowY: "auto",
-        overflowX: "visible",
-        scrollBehavior: "smooth",
-        overscrollBehavior: "contain",
-        scrollbarGutter: "stable",
-        scrollbarWidth: "thin",
-        maxHeight: "100%",
+const Container = chakra(
+    "div",
+    {
+        base: {
+            overflowY: "auto",
+            overflowX: "visible",
+            scrollBehavior: "smooth",
+            overscrollBehavior: "contain",
+            maxHeight: "100%",
+            _scrollbarTrack: {
+                backgroundColor: "bg.deep/50",
+            },
+        },
     },
-})
+    { defaultProps: { className: "panel-scroll" } },
+)
 
 export default PVGridWrapper
 

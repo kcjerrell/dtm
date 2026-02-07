@@ -1,6 +1,6 @@
 import { check } from "@tauri-apps/plugin-updater"
+// import { check } from "@/mocks/tauri-updater"
 import { store } from "@tauri-store/valtio"
-import { postMessage } from "@/context/Messages"
 import { getStoreName } from "@/utils/helpers"
 
 type ViewRequest = {
@@ -86,37 +86,15 @@ async function downloadAndInstallUpdate() {
     if (!update || appState.updateStatus !== "found") return
     try {
         appState.updateStatus = "downloading"
-        postMessage({
-            channel: "toolbar",
-            message: "Downloading update...",
-            uType: "update",
-        })
         await update.download()
 
         appState.updateStatus = "installing"
-        postMessage({
-            channel: "toolbar",
-            message: "Installing update...",
-            uType: "update",
-        })
         await update.install()
 
         appState.updateStatus = "installed"
-        postMessage({
-            channel: "toolbar",
-            message: "Update installed! Click the update button to restart",
-            duration: 3000,
-            uType: "update",
-        })
     } catch (e) {
         console.error(e)
         appState.updateStatus = "error"
-        postMessage({
-            channel: "toolbar",
-            message: "There was a problem installing the update. Click to retry.",
-            duration: 3000,
-            uType: "update",
-        })
     }
 }
 

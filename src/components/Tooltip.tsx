@@ -36,7 +36,6 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
                 padding: 2,
                 lineHeight: "1.25rem",
                 whiteSpace: "pre-line",
-                width: "80rem",
                 ...contentProps,
             }}
             positioning={{ placement: "top" }}

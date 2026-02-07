@@ -11,11 +11,11 @@ interface IconToggleProps extends Omit<ChakraProps, "value" | "onChange"> {
     children: ReactNode
     value: Record<string, boolean | undefined>
     onChange: (value: Record<string, boolean | undefined>) => void
-    requireOne?: boolean
+    mode?: "toggle" | "requireOne" | "zeroOrOne"
 }
 
 function IconToggle(props: IconToggleProps) {
-    const { children, value, requireOne, onChange, ...restProps } = props
+    const { children, value, mode, onChange, ...restProps } = props
 
     const onClick = useCallback(
         (option: string) => {
@@ -23,7 +23,7 @@ function IconToggle(props: IconToggleProps) {
             const totalOptions = Object.keys(entries).length
             const totalSelected = Object.values(entries).filter((v) => v).length
 
-            if (requireOne) {
+            if (mode === "requireOne") {
                 // if clicking the selected option, and can switch if there are two
                 if (entries[option] && totalOptions === 2 && totalSelected === 1) {
                     Object.keys(entries).forEach((key) => {
@@ -38,11 +38,19 @@ function IconToggle(props: IconToggleProps) {
                     entries[option] = true
                 }
             }
+            // max one can be selected
+            else if (mode === "zeroOrOne") {
+                const optionValue = entries[option]
+                for (const key in entries) {
+                    entries[key] = false
+                }
+                entries[option] = !optionValue
+            }
             // otherwise just toggle
             else entries[option] = !entries[option]
             onChange(entries)
         },
-        [value, onChange, requireOne],
+        [value, onChange, mode],
     )
 
     const cv = { value, onClick }
@@ -66,14 +74,10 @@ function IconToggle(props: IconToggleProps) {
 
 interface TriggerProps extends ComponentProps<typeof IconButton> {
     option: string
-    // initialValue?: boolean
-    tip?: ReactNode
-    tipText?: string
-    tipTitle?: string
 }
 
 function Trigger(props: TriggerProps) {
-    const { children, option, tip, tipText, tipTitle, ...restProps } = props
+    const { children, option, ...restProps } = props
 
     const { value, onClick } = use(IconToggleContext)
 
@@ -87,18 +91,16 @@ function Trigger(props: TriggerProps) {
     // }, [option, initialValue, context])
 
     return (
-        <Tooltip tip={tip} tipText={tipText} tipTitle={tipTitle}>
-            <IconButton
-                variant={"toggle"}
-                toggled={value[option] ?? false}
-                onClick={() => {
-                    onClick(option)
-                }}
-                {...restProps}
-            >
-                {children}
-            </IconButton>
-        </Tooltip>
+        <IconButton
+            variant={"toggle"}
+            toggled={value[option] ?? false}
+            onClick={() => {
+                onClick(option)
+            }}
+            {...restProps}
+        >
+            {children}
+        </IconButton>
     )
 }
 

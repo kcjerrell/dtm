@@ -1,8 +1,5 @@
-import { Box, HStack } from "@chakra-ui/react"
-import { IconButton } from "@/components"
-import { FiX } from "@/components/icons/icons"
-import { plural } from "@/utils/helpers"
 import { useDTP } from "../state/context"
+import SearchChip from "./SearchChip"
 
 interface SearchTextWidgetProps extends ChakraProps {}
 
@@ -11,43 +8,23 @@ function SearchTextWidget(props: SearchTextWidgetProps) {
     const { images, uiState } = useDTP()
     const snap = images.useSnap()
 
-    const search = snap.imageSource.search
-    const filters = snap.imageSource.filters?.filter((f) => f.target !== "type").length
+    const searchText = snap.imageSource.search
 
-    if (!search && !filters) return null
-
-    const searchText = search ? `${search}` : ""
+    if (!searchText) return null
 
     return (
-        <HStack
-            // gridArea={"1/1"}
-            className={"group"}
-            cursor={"pointer"}
+        <SearchChip
+            shrink
             onClick={() => {
                 uiState.setSelectedTab("search")
                 uiState.state.shouldFocus = "searchInput"
             }}
-            justifySelf={"flex-start"}
+            onClickX={() => images.setSearchText(undefined)}
+            fontStyle={"italic"}
             {...restProps}
         >
-            {!!searchText && <Box fontStyle={"italic"}>{searchText}</Box>}
-            {!!filters && (
-                <Box>
-                    +{filters} filter{plural(filters)}
-                </Box>
-            )}
-            <IconButton
-                size="min"
-                onClick={(e) => {
-                    e.stopPropagation()
-                    images.setSearchFilter()
-                }}
-                visibility="hidden"
-                _groupHover={{ visibility: "visible" }}
-            >
-                <FiX />
-            </IconButton>
-        </HStack>
+            {searchText}
+        </SearchChip>
     )
 }
 
