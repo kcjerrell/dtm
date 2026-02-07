@@ -27,11 +27,9 @@
         "./src/*"
       ]
     },
-    "types": [
-      "@wdio/globals/types"
-    ]
+    "types": ["node", "@wdio/globals/types", "@types/mocha"]
   },
-  "include": ["./src", "./src/global.ts"],
+  "include": ["./src", "./src/global.ts", "./test"],
   // "exclude": ["src/scratch/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

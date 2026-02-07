@@ -40,7 +40,7 @@ const Root = chakra(
     {},
 )
 
-interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> {}
+interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> { }
 function SidebarComponent(props: SidebarProps) {
     const { children, ...rest } = props
     const { isSidebarVisible } = useSnapshot(AppStore.store)
@@ -162,6 +162,8 @@ export function SidebarButton(props: SidebarButtonProps) {
 
     return (
         <ButtonBase
+            role="tab"
+            aria-selected={isActive}
             isActive={isActive}
             popout={!isSidebarVisible}
             update={isUpgrade}

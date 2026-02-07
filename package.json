@@ -17,7 +17,8 @@
     "gen-icons": "tauri icon ./app-icon.png",
     "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'",
     "version": "tsx ./scripts/version.ts",
-    "wdio": "wdio run ./wdio.conf.ts"
+    "wdio": "wdio run ./wdio.conf.ts",
+    "test:release": "USE_RELEASE=true wdio run ./wdio.conf.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.30.0",
@@ -65,6 +66,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/fs-extra": "^11.0.4",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^25.1.0",
     "@types/plist": "^3.0.5",
     "@types/react": "^19.2.7",

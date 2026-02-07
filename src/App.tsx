@@ -46,7 +46,7 @@ function App() {
             }}
         >
             <LayoutGroup>
-                <Sidebar inert={isPreviewActive}>
+                <Sidebar inert={isPreviewActive} role="tablist">
                     {viewDescription.map((item) => (
                         <Sidebar.Button
                             key={item.viewId}

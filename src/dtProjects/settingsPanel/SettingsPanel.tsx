@@ -18,6 +18,7 @@ function useCommands(watchFolders: WatchFoldersController): PanelListCommand<Wat
         () => [
             {
                 id: `watch-toggle-recursive`,
+                ariaLabel: "toggle recursive",
                 getIcon: (selected: readonly WatchFolderState[]) =>
                     selected[0]?.recursive ? FiList : LuFolderTree,
                 requiresSelection: true,
@@ -29,6 +30,7 @@ function useCommands(watchFolders: WatchFoldersController): PanelListCommand<Wat
             },
             {
                 id: `watch-remove-folders`,
+                ariaLabel: "remove folder",
                 icon: FaMinus,
                 requiresSelection: true,
                 onClick: (selected: readonly WatchFolderState[]) => {
@@ -38,6 +40,7 @@ function useCommands(watchFolders: WatchFoldersController): PanelListCommand<Wat
             },
             {
                 id: `watch-add-folder`,
+                ariaLabel: "add folder",
                 icon: FaPlus,
                 onClick: () =>
                     openAnd((f) => watchFolders.addWatchFolder(f), {
@@ -90,7 +93,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                     borderRight: "1px solid",
                     borderColor: "bg.1",
                 }}
-                // style={{ "-webkit-scrollbar-track": { backgroundColor: "blue" } }}
+            // style={{ "-webkit-scrollbar-track": { backgroundColor: "blue" } }}
             >
                 <VStack
                     bgColor={"unset"}
