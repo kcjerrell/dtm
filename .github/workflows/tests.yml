@@ -98,3 +98,4 @@ jobs:
           path: |
             logs/*
             screenshots/*
+            $HOME/.local/share/com.kcjer.dtm/logs
