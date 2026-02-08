@@ -70,6 +70,24 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build -- --debug
 
+      - name: Run app briefly (smoke test)
+        shell: bash
+        run: |
+          echo "Starting app…"
+
+          ./src-tauri/target/debug/dtm > app.log 2>&1 &
+          APP_PID=$!
+
+          echo "App PID: $APP_PID"
+          sleep 8
+
+          echo "Stopping app…"
+          kill $APP_PID || true
+          sleep 1
+
+          echo "App logs:"
+          cat app.log
+
       # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
         run: cargo install tauri-driver
@@ -92,15 +110,7 @@ jobs:
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 2
-          npm run dev &
-          sleep 2
           npm run wdio
-
-      - name: Find dtm.log
-        if: failure()
-        run: |
-          echo "Searching for dtm.log…"
-          find /home/runner -type f -name "dtm.log" -print || true
 
       - name: Upload artifacts on failure
         if: failure()
@@ -108,6 +118,8 @@ jobs:
         with:
           name: wdio-artifacts
           path: |
-            /home/runner/.local/state/com.kcjer.dtm/logs/
             logs/
             screenshots/
+            app.log
+            $XDG_DATA_HOME/com.kcjer.dtm/logs
+            $HOME/.local/share/com.kcjer.dtm/logs
