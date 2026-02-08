@@ -61,6 +61,9 @@ jobs:
         run: npm run tauri build
         # or cargo tauri build --debug
 
+      - name: Install tauri-driver
+        run: cargo install tauri-driver
+
       # ---- Run tests under Xvfb ----
       - name: Run WDIO tests
         env:
