@@ -84,8 +84,9 @@ jobs:
           APP_PID=$!
 
           echo "App PID: $APP_PID"
-          sleep 8
-
+          
+          echo "Giving it some time..."
+          sleep 30
           echo "Stopping app…"
           kill $APP_PID || true
           sleep 1
