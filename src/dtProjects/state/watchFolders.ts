@@ -1,5 +1,12 @@
 import { path } from "@tauri-apps/api"
-import { exists, readDir, stat, type UnwatchFn, watch } from "@tauri-apps/plugin-fs"
+import {
+    exists,
+    readDir,
+    stat,
+    type UnwatchFn,
+    type WatchEvent,
+    watch,
+} from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import { pdb, type WatchFolder } from "@/commands"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
@@ -254,6 +261,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         const unwatch = watch(
             folder.path,
             async (e) => {
+                if (!shouldReact(e)) return
                 const projectFiles = e.paths
                     .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
                     .map((p) => p.replace(/-wal$/g, ""))
@@ -320,4 +328,14 @@ async function findFiles(
         files.push(await path.join(directory, file.name))
     }
     return files
+}
+
+function shouldReact(event: WatchEvent) {
+    const type = event.type as object
+
+    if (!("modify" in type) || typeof type.modify !== "object") return false
+
+    if (type.modify && "kind" in type.modify && type.modify.kind === "metadata") return false
+
+    return true
 }

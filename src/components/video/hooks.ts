@@ -17,7 +17,6 @@ export type UseFrameAnimationOpts = {
 
 export function useFrameAnimation(opts: UseFrameAnimationOpts) {
     const { nFrames, fps, onChange, onStateChange, autoStart } = opts
-    console.log("useFrameAnimation")
     const posMv = useMotionValue(0)
     const frameMv = useTransform(posMv, (pos) => Math.floor(pos * (nFrames - 1)))
 

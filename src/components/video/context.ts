@@ -82,7 +82,6 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
             })
         },
         onStateChange: (videoState) => {
-            console.log("state change", videoState)
             state.playbackState = videoState
             playbackStateChangedHandlersRef.current.forEach((f) => {
                 f(videoState)

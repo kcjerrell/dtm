@@ -59,14 +59,15 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         super("projects", "projects")
     }
 
-    protected formatTags(tags: string, data?:  { removed?: number; added?: ProjectExtra; updated?: ProjectExtra, desc?: string }): string {
-        if (data?.desc)
-            return `invalidate tag: ${tags} - ${data.desc}`
-        if (data?.removed) 
-            return `update tag - removed project - id ${data.removed}`
-        if (data?.added) 
+    protected formatTags(
+        tags: string,
+        data?: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra; desc?: string },
+    ): string {
+        if (data?.desc) return `invalidate tag: ${tags} - ${data.desc}`
+        if (data?.removed) return `update tag - removed project - id ${data.removed}`
+        if (data?.added)
             return `update tag - added project - ${data.added.path.split("/").pop()} id ${data.added.id}`
-        if (data?.updated) 
+        if (data?.updated)
             return `update tag - updated project - ${data.updated.path.split("/").pop()} id ${data.updated.id}`
         return `update tag: ${tags} ${String(data)}`
     }
@@ -114,7 +115,12 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         va.set(
             this.state.projects,
             projects
-                .map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
+                .map((p) =>
+                    makeSelectable(
+                        { ...p, name: p.path.split("/").pop() as string },
+                        this.state.selectedProjects.some((sp) => sp.id === p.id),
+                    ),
+                )
                 .sort(projectSort),
         )
         this.state.projectsCount = projects.length
@@ -182,12 +188,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     }
 
     setSelectedProjects(projects: ProjectState[]) {
+        for (const project of this.state.projects) {
+            project.setSelected(projects.some((p) => p.id === project.id))
+        }
         va.set(this.state.selectedProjects, projects)
-    }
-
-    useSelectedProjects() {
-        const snap = this.useSnap()
-        return snap.selectedProjects.map((p) => p.id)
     }
 
     useProjectsSummary() {
