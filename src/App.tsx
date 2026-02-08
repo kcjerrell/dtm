@@ -173,19 +173,13 @@ function ViewContainer(
     )
 }
 
-function viewLoader(path: string) {
-    return lazy(async () => {
-        return await import(path)
-    })
-}
-
 const views = {
-    metadata: viewLoader("./metadata/Metadata"),
-    mini: viewLoader("./Mini"),
-    vid: viewLoader("./vid/Vid"),
-    library: viewLoader("./library/Library"),
-    projects: viewLoader("./dtProjects/DTProjects"),
-    scratch: viewLoader("./scratch/Coffee"),
+    metadata: lazy(() => import("./metadata/Metadata")),
+    mini: lazy(() => import("./Mini")),
+    vid: lazy(() => import("./vid/Vid")),
+    library: lazy(() => import("./library/Library")),
+    projects: lazy(() => import("./dtProjects/DTProjects")),
+    // scratch: lazy(() => import("./scratch/Coffee")),
 }
 
 
