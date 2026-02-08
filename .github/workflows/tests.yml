@@ -17,9 +17,10 @@ jobs:
 
       # 2️⃣ Node.js + npm cache
       - name: Setup Node
+        if: always()
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       # 3️⃣ Rust toolchain
@@ -90,6 +91,8 @@ jobs:
           TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 2
+          npm run dev &
           sleep 2
           npm run wdio
 
