@@ -3,7 +3,8 @@ import AppPage from "../pageobjects/AppPage"
 import ProjectsPage from "../pageobjects/ProjectsPage"
 import os from "node:os"
 
-const testProjectsDir = path.join(os.homedir(), "dtm-test-data/projects")
+const testDataRoot = process.env.TEST_DATA_DIR || path.join(os.homedir(), "dtm-test-data")
+const testProjectsDir = path.join(testDataRoot, "projects")
 
 before(() => {
   AppPage.clearAllData()

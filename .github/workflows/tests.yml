@@ -69,12 +69,21 @@ jobs:
       - name: Install tauri-driver
         run: cargo install tauri-driver
 
+      - name: Download test data
+        run: |
+          mkdir -p dtm-test-data/projects
+            curl -L \
+            https://github.com/kcjerrell/dtm/releases/download/test-data-v1/test-projects.zip \
+            -o dtm-test-data/test-projects.zip
+          unzip -q dtm-test-data/test-projects.zip -d dtm-test-data/projects
+
       # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
           USE_RELEASE: "true"
           DISPLAY: :99
           TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
+          TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 2

@@ -25,13 +25,12 @@ export const config: WebdriverIO.Config = {
   ],
   logLevel: 'info',
   framework: 'mocha',
-  reporters: ['spec'],
+  reporters: ['spec', 'concise'],
   mochaOpts: {
     ui: 'bdd',
     timeout: 60000,
     parallel: false,
   },
-
   // ensure the rust project is built since we expect this binary to exist for the webdriver sessions
   onPrepare: async () => {
     if (process.env.USE_RELEASE !== 'true') {
