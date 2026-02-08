@@ -9,7 +9,7 @@ let tauriDriver: ChildProcess | undefined
 export const config: Options.Testrunner = {
     specs: [
         './test/specs/example.e2e.ts',
-        './test/specs/test.e2e.ts'
+        './test/specs/projects.e2e.ts'
     ],
     maxInstances: 1,
     hostname: '127.0.0.1',

@@ -87,7 +87,7 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         ...restProps
     } = props
     const Item = itemComponent
-    const { renderItems, totalCount } = itemSource.useItemSource()
+    const { renderItems, totalCount, hasInitialLoad } = itemSource.useItemSource()
 
     const stateRef = useRef<StateProxy>(null)
     if (stateRef.current === null) {
@@ -197,7 +197,8 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
             <Grid
                 role={"grid"}
                 aria-label={"Image grid"}
-                data-test-id={"image-grid"}
+                data-testid={"image-grid"}
+                aria-busy={hasInitialLoad ? "false" : "true"}
                 gap={0}
                 ref={scrollContentRef}
                 gridTemplateColumns={`repeat(${snap.columns}, 1fr)`}

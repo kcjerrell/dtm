@@ -1,5 +1,6 @@
 import path from "node:path"
 import AppPage from "../pageobjects/AppPage"
+import ProjectsPage from "../pageobjects/ProjectsPage"
 import os from "node:os"
 
 const testProjectsDir = path.join(os.homedir(), "dtm-test-data/projects")
@@ -49,48 +50,53 @@ describe('Projects', () => {
     await expect(AppPage.projectsButton).toHaveAttribute("aria-selected", "true")
 
     // verify projects are listed
-    const projectA = $("div=test-project-a")
-    await expect(projectA).toBeDisplayedInViewport()
-    const projectB = $("div=test-project-b")
-    await expect(projectB).toBeDisplayedInViewport()
-
-    const imageItems = $$('[data-testid="image-item"]')
+    await expect(ProjectsPage.projectA).toBeDisplayedInViewport()
+    await expect(ProjectsPage.projectB).toBeDisplayedInViewport()
 
     // count images
-    const countBefore = await imageItems.length
+    await browser.waitUntil(async () =>
+      (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
+    )
+    const countBefore = await ProjectsPage.countVisibleImages()
 
     // select project A
-    await expect(projectA).not.toHaveAttribute("aria-selected", "true")
-    await projectA.click()
-    await expect(projectA).toHaveAttribute("aria-selected", "true")
-    const projectAId = await projectA.getAttribute("data-project-id")
+    await ProjectsPage.selectProject("test-project-a")
+    await browser.waitUntil(async () =>
+      (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
+    )
 
     // verify only project A's images are shown
-    await expect(imageItems).not.toBeElementsArrayOfSize(countBefore)
+    let updatedCount = await ProjectsPage.countVisibleImages()
+    expect(updatedCount).toBeLessThan(countBefore)
 
-    for (const el of imageItems) {
+    const projectAId = await ProjectsPage.projectA.getAttribute("data-project-id")
+    for (const el of await ProjectsPage.images.getElements()) {
       await expect(el).toHaveAttribute('data-project-id', projectAId)
     }
 
     // select project B
-    await expect(projectB).toHaveAttribute("aria-selected", "false")
-    await projectB.click()
-    await expect(projectB).toHaveAttribute("aria-selected", "true")
-    const projectBId = await projectB.getAttribute("data-project-id")
+    await ProjectsPage.selectProject("test-project-b")
+    await browser.waitUntil(async () =>
+      (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
+    )
 
     // verify only project B's images are shown
-    await expect(imageItems).not.toBeElementsArrayOfSize(countBefore)
+    updatedCount = await ProjectsPage.countVisibleImages()
+    expect(updatedCount).toBeLessThan(countBefore)
 
-    for (const el of imageItems) {
+    const projectBId = await ProjectsPage.projectB.getAttribute("data-project-id")
+    for (const el of await ProjectsPage.images.getElements()) {
       await expect(el).toHaveAttribute('data-project-id', projectBId)
     }
 
     // deselect project
-    await projectB.click()
-    await expect(projectB).toHaveAttribute("aria-selected", "false")
+    await ProjectsPage.deselectProject("test-project-b")
+    await browser.waitUntil(async () =>
+      (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
+    )
 
     // verify all images are shown again
-    await expect(imageItems).toBeElementsArrayOfSize(countBefore)
+    await expect(ProjectsPage.images).toBeElementsArrayOfSize(countBefore)
   })
 })
 
