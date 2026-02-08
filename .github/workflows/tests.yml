@@ -50,6 +50,9 @@ jobs:
             librsvg2-dev \
             xvfb
 
+      - name: Generate icons
+        run: npm run gen-icons
+
       # ---- Build your app (important!) ----
       - name: Build app
         run: npm run tauri build
