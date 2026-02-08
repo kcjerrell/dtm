@@ -31,14 +31,6 @@ export const config: WebdriverIO.Config = {
     timeout: 60000,
     parallel: false,
   },
-  services: [
-    [
-      'native-driver',
-      {
-        binaryPath: process.env.TAURI_DRIVER_PATH || '/home/runner/.cargo/bin/tauri-driver',
-      },
-    ],
-  ],
 
   // ensure the rust project is built since we expect this binary to exist for the webdriver sessions
   onPrepare: async () => {
