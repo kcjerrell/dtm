@@ -140,7 +140,7 @@ pub fn run() {
                 .targets(vec![
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                        file_name: Some("logs.txt".to_string()),
+                        file_name: Some("dtm.log".to_string()),
                     }),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
                 ])
