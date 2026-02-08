@@ -87,7 +87,7 @@ jobs:
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 2
-          npm run wdio -- --native-driver $TAURI_DRIVER_PATH
+          npm run wdio
 
       # 11️⃣ Upload artifacts on failure
       - name: Upload artifacts on failure
