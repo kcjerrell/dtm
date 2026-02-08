@@ -89,19 +89,28 @@ jobs:
           sleep 2
           npm run wdio
 
-      - name: Locate dtm.log
+      - name: Find all Tauri log directories
         if: failure()
         run: |
-          find /home/runner/.local -type f -name "dtm.log" || true
+          find /home/runner/.local/state -maxdepth 3 -type d -name "logs" || true
 
-      # 11️⃣ Upload artifacts on failure
+      - name: Find any .log files
+        if: failure()
+        run: |
+          find /home/runner/.local -type f -name "*.log" || true
+
+      - name: Copy any Tauri logs into artifacts
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          find /home/runner/.local/state -type d -name logs -exec cp -r {} artifacts/ \; || true
+
       - name: Upload artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: wdio-artifacts
           path: |
-            /home/runner/.local/state/dtm/logs/
-            /home/runner/.local/state/com.kcjer.dtm/logs/
+            artifacts/
             logs/
             screenshots/
