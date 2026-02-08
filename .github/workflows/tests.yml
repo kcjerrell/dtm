@@ -1,0 +1,72 @@
+name: WDIO (Linux)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  wdio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+           # Node.js + npm cache
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      # Rust toolchain
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      # Rust build cache (biggest speedup)
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install dependencies
+        run: npm install
+
+      # ---- System deps for GTK / WebKit / Tauri ----
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-0 \
+            libwebkit2gtk-4.1-0 \
+            libayatana-appindicator3-1 \
+            librsvg2-2 \
+            xvfb
+
+      # ---- Build your app (important!) ----
+      - name: Build app
+        run: npm run build:linux
+        # or cargo tauri build --debug
+
+      # ---- Run tests under Xvfb ----
+      - name: Run WDIO tests
+        env:
+          DISPLAY: :99
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          npm run wdio
+
+      # ---- Artifacts on failure ----
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wdio-artifacts
+          path: |
+            logs/
+            screenshots/
