@@ -11,33 +11,35 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
-           # Node.js + npm cache
+      # 2️⃣ Node.js + npm cache
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 20
           cache: npm
 
-      # Rust toolchain
+      # 3️⃣ Rust toolchain
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.rust-targets }}
+          targets: ${{ matrix.rust-targets || '' }}
 
-      # Rust build cache (biggest speedup)
+      # 4️⃣ Rust build cache
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             src-tauri -> target
 
+      # 5️⃣ Install npm dependencies
       - name: Install dependencies
         run: npm install
 
-      # ---- System deps for GTK / WebKit / Tauri ----
+      # 6️⃣ System dependencies (GTK / WebKit / Tauri)
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -48,37 +50,42 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            xvfb
+            xvfb \
+            webkit2gtk-driver \
+            xkb-data
 
+      # 7️⃣ Generate icons
       - name: Generate icons
         run: npm run gen-icons
 
-      # ---- Build your app (important!) ----
+      # 8️⃣ Build Tauri app
       - name: Build app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build
-        # or cargo tauri build --debug
 
+      # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
         run: cargo install tauri-driver
 
-      # ---- Run tests under Xvfb ----
+      # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
           USE_RELEASE: "true"
           DISPLAY: :99
+          TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
-          npm run wdio
+          sleep 2
+          npm run wdio -- --native-driver $TAURI_DRIVER_PATH
 
-      # ---- Artifacts on failure ----
+      # 11️⃣ Upload artifacts on failure
       - name: Upload artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: wdio-artifacts
           path: |
-            logs/
-            screenshots/
+            logs/*
+            screenshots/*
