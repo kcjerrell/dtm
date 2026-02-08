@@ -213,9 +213,6 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
-            use tauri::Listener;
-            app.listen("tauri://log", |event| { println!("WEBVIEW LOG: {:?}", event.payload()); });
-
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
                 .inner_size(800.0, 600.0)
@@ -230,12 +227,6 @@ pub fn run() {
                 .title_bar_style(TitleBarStyle::Overlay);
 
             let _window = win_builder.build().unwrap();
-
-    #[cfg(debug_assertions)]
-    std::env::set_var(
-        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-        "--remote-debugging-port=9222 --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection"
-    );
 
             // let _panel_builder =
             //     WebviewWindowBuilder::new(app, "panel", WebviewUrl::App(PathBuf::from("#mini")))
@@ -257,7 +248,7 @@ pub fn run() {
         .run(|_app_handle, event| match event {
             tauri::RunEvent::Exit => {
                 bookmarks::cleanup_bookmarks();
-            }
+            },
             _ => {}
         });
 }

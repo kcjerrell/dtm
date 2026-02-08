@@ -17,6 +17,7 @@ import UpgradeButton from "./metadata/toolbar/UpgradeButton"
 import { viewDescription } from "./views"
 
 // import Onboard from "./Onboard"
+console.log("Loaded App")
 
 function App() {
     const firstRender = useRef(true)

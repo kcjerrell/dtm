@@ -71,16 +71,16 @@ jobs:
         run: npm run tauri build -- --debug
 
       - name: Run app briefly (smoke test)
-        env:
-          DISPLAY: :99
+        # env:
+          # DISPLAY: :99
         shell: bash
         run: |
           echo "Starting app…"
 
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 2
+          # Xvfb :99 -screen 0 1920x1080x24 &
+          # sleep 2
 
-          ./src-tauri/target/debug/dtm > app.log 2>&1 &
+          xvfb-run ./src-tauri/target/debug/dtm > app.log 2>&1 &
           APP_PID=$!
 
           echo "App PID: $APP_PID"
@@ -96,7 +96,7 @@ jobs:
 
       # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
-        run: cargo install tauri-driver
+        run: cargo install tauri-driver --locked
 
       - name: Download test data
         run: |
@@ -110,13 +110,13 @@ jobs:
       - name: Run WDIO tests
         env:
           # USE_RELEASE: "true"
-          DISPLAY: :99
+          # DISPLAY: :99
           TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
           TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
-        run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 2
-          npm run wdio
+        run: xvfb-run npm run wdio
+          # Xvfb :99 -screen 0 1920x1080x24 &
+          # sleep 2
+          # npm run wdio
 
       - name: Upload artifacts on failure
         if: failure()
@@ -127,5 +127,7 @@ jobs:
             logs/
             screenshots/
             app.log
-            $XDG_DATA_HOME/com.kcjer.dtm/logs
-            $HOME/.local/share/com.kcjer.dtm/logs
+            $XDG_DATA_HOME/com.kcjer.dtm
+            $XDG_DATA_HOME/dtm
+            $HOME/.local/share/com.kcjer.dtm
+            $HOME/.local/share/dtm
