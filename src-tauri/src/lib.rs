@@ -214,6 +214,8 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
+            app.listen_global("tauri://log", |event| { println!("WEBVIEW LOG: {:?}", event.payload()); });
+
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
                 .inner_size(800.0, 600.0)

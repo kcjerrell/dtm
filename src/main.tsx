@@ -12,6 +12,13 @@ import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import "./utils/tauriLogger"
 
+window.addEventListener("error", (e) => {
+    window.__TAURI__.event.emit("tauri://log", `Error: ${e.message}`)
+})
+window.addEventListener("unhandledrejection", (e) => {
+    window.__TAURI__.event.emit("tauri://log", `Promise rejection: ${e.reason}`)
+})
+
 window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
 const hash = document.location?.hash?.slice(1)

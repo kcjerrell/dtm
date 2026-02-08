@@ -30,6 +30,7 @@ jobs:
 
       # 4️⃣ Rust build cache
       - name: Cache Rust
+        if: always()
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -52,7 +53,10 @@ jobs:
             librsvg2-dev \
             xvfb \
             webkit2gtk-driver \
-            xkb-data
+            xkb-data \
+            webkit2gtk-4.1 \
+            libwebkit2gtk-4.1-0 \
+            libjavascriptcoregtk-4.1-0
 
       # 7️⃣ Generate icons
       - name: Generate icons

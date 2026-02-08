@@ -14,7 +14,7 @@ const hmr = true
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  base: "",
+  base: "./",
   build: {
     target: "esnext",
     assetsInlineLimit: 0,
