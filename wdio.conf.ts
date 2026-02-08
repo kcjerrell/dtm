@@ -18,7 +18,7 @@ export const config: Options.Testrunner = {
     capabilities: [{
         maxInstances: 1,
         'tauri:options': {
-            application: process.env.USE_RELEASE
+            application: process.env.USE_RELEASE === "true"
                 ? './src-tauri/target/release/dtm'
                 : './src-tauri/target/debug/dtm',
         },
@@ -34,7 +34,7 @@ export const config: Options.Testrunner = {
 
     // ensure the rust project is built since we expect this binary to exist for the webdriver sessions
     onPrepare: async () => {
-        if (!process.env.USE_RELEASE) {
+        if (process.env.USE_RELEASE !== "true") {
             // start vite server
             const vite = spawn('npm', ['run', 'dev:vite'], { stdio: 'ignore', cwd: process.cwd() });
             (global as any).vite = vite

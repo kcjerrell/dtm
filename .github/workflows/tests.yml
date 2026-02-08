@@ -50,12 +50,13 @@ jobs:
 
       # ---- Build your app (important!) ----
       - name: Build app
-        run: npm run build:linux
+        run: npm run tauri build
         # or cargo tauri build --debug
 
       # ---- Run tests under Xvfb ----
       - name: Run WDIO tests
         env:
+          USE_RELEASE: "true"
           DISPLAY: :99
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
