@@ -14,7 +14,7 @@ import AppStore from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
 import UpgradeButton from "./metadata/toolbar/UpgradeButton"
-import { viewDescription } from "./views"
+import { viewDescription, views } from "./views"
 
 // import Onboard from "./Onboard"
 console.log("Loaded App")
@@ -172,15 +172,6 @@ function ViewContainer(
             {children}
         </motion.div>
     )
-}
-
-const views = {
-    metadata: lazy(() => import("./metadata/Metadata")),
-    mini: lazy(() => import("./Mini")),
-    vid: lazy(() => import("./vid/Vid")),
-    library: lazy(() => import("./library/Library")),
-    projects: lazy(() => import("./dtProjects/DTProjects")),
-    // scratch: lazy(() => import("./scratch/Coffee")),
 }
 
 

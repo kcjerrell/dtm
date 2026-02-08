@@ -9,7 +9,7 @@ import StatusBar from "./imagesList/StatusBar"
 import { SettingsPanel } from "./settingsPanel/SettingsPanel"
 import { useDTP } from "./state/context"
 
-function ProjectData(props: ChakraProps) {
+function DTProjects(props: ChakraProps) {
     const { ...restProps } = props
 
     const { uiState, projects } = useDTP()
@@ -73,4 +73,4 @@ export const Container = chakra("div", {
     },
 })
 
-export default ProjectData
+export default DTProjects
