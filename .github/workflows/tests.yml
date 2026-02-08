@@ -63,7 +63,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri build
+        run: npm run tauri build -- --debug
 
       # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
@@ -80,7 +80,7 @@ jobs:
       # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
-          USE_RELEASE: "true"
+          # USE_RELEASE: "true"
           DISPLAY: :99
           TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
           TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
@@ -93,7 +93,7 @@ jobs:
         if: failure()
         run: |
           echo "Searching for dtm.log…"
-          find /home/runner/.local/state -type f -name "dtm.log" -print || true
+          find /home/runner -type f -name "dtm.log" -print || true
 
       - name: Upload artifacts on failure
         if: failure()
