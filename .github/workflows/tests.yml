@@ -109,7 +109,7 @@ jobs:
       # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
-          USE_RELEASE: "true"
+          # USE_RELEASE: "true"
           DISPLAY: :99
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
@@ -117,8 +117,8 @@ jobs:
           TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
           TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 2
+          # Xvfb :99 -screen 0 1920x1080x24 &
+          # sleep 2
           npm run wdio
 
       - name: Upload artifacts on failure
