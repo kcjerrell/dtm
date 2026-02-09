@@ -17,7 +17,6 @@ import UpgradeButton from "./metadata/toolbar/UpgradeButton"
 import { viewDescription, views } from "./views"
 
 // import Onboard from "./Onboard"
-console.log("Loaded App")
 
 function App() {
     const firstRender = useRef(true)
@@ -137,6 +136,7 @@ function ViewContainer(
         if (firstRender.current) {
             firstRender.current = false
             getCurrentWindow().show().catch(console.error)
+            console.debug("Loaded app")
         }
     }, [firstRender])
 

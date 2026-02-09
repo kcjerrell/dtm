@@ -12,7 +12,7 @@ import SettingsController from "./settings"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
-let _container = createContainer()
+let _container: Container<DTPServices, DTPEvents> | null = null
 function getContainer() {
     if (!_container || _container.isDisposed) {
         _container = createContainer()
@@ -20,9 +20,9 @@ function getContainer() {
     return _container
 }
 
-window.addEventListener("unload", () => {
-    if (document.hidden && _container && !_container.isDisposed) _container.dispose()
-})
+// window.addEventListener("unload", () => {
+//     if (document.hidden && _container && !_container.isDisposed) _container.dispose()
+// })
 
 export function useDTP() {
     const container = getContainer()

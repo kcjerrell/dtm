@@ -15,8 +15,8 @@ export function bind<T extends object>(instance: T): T {
     for (const prop of props) {
         const method = instance[prop as keyof T]
         if (prop === "constructor" || typeof method !== "function") continue
-        ;(instance as Record<string, unknown>)[prop] = (...args: unknown[]) =>
-            method.apply(instance, args)
+            ; (instance as Record<string, unknown>)[prop] = (...args: unknown[]) =>
+                method.apply(instance, args)
     }
 
     return instance
@@ -24,7 +24,7 @@ export function bind<T extends object>(instance: T): T {
 
 
 function initStore() {
-    return store(
+    const storeInstance = store(
         getStoreName("metadata"),
         {
             images: [] as ImageItem[],
@@ -68,6 +68,11 @@ function initStore() {
             },
         },
     )
+    window.addEventListener("unload", () => {
+        cleanUp()
+        getStore().stop()
+    })
+    return storeInstance
 }
 
 let metadataStore: ReturnType<typeof initStore> | undefined
@@ -92,13 +97,6 @@ export type ImageItemParam = ReadonlyState<ImageItem> | ImageItem | number | nul
 //     await cleanUp()
 //     await window.destroy()
 // })
-
-
-window.addEventListener("unload", () => {
-    // unlisten.then((u) => u())
-    cleanUp()
-    getStore().stop()
-})
 
 async function cleanUp() {
     const clearHistory = AppStore.store.clearHistoryOnExit
