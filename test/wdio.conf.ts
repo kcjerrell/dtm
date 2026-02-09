@@ -18,7 +18,7 @@ export const config = {
     {
       maxInstances: 1,
       'tauri:options': {
-        application: '../src-tauri/target/debug/tauri-app',
+        application: '../src-tauri/target/debug/dtm',
       },
     },
   ],
