@@ -80,7 +80,7 @@ jobs:
           # Xvfb :99 -screen 0 1920x1080x24 &
           # sleep 2
 
-          xvfb-run ./src-tauri/target/debug/dtm > app.log 2>&1 &
+          xvfb-run -a ./src-tauri/target/debug/dtm > app.log 2>&1 &
           APP_PID=$!
 
           echo "App PID: $APP_PID"
@@ -113,7 +113,7 @@ jobs:
           # DISPLAY: :99
           TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
           TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
-        run: xvfb-run npm run wdio
+        run: xvfb-run -a npm run wdio
           # Xvfb :99 -screen 0 1920x1080x24 &
           # sleep 2
           # npm run wdio
