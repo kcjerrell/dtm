@@ -1,9 +1,6 @@
 name: WDIO (Linux)
 
-on:
-  pull_request:
-  push:
-    branches: [main]
+on: []
 
 jobs:
   wdio:

@@ -1,5 +1,7 @@
 {
     "compilerOptions": {
-        "types": ["node", "@wdio/globals/types"]
+        "target": "esnext",
+        "types": ["node", "@wdio/globals/types", "@wdio/mocha-framework"],
+        "allowSyntheticDefaultImports": true
     }
 }

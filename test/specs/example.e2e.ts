@@ -1,5 +1,9 @@
 import AppPage from "../pageobjects/AppPage"
 
+before(async () => {
+    await AppPage.clearAllData()
+})
+
 describe('Hello Tauri', () => {
     it('should be the correct title', async () => {
         await expect(browser).toHaveTitle('DTM')
@@ -7,9 +11,6 @@ describe('Hello Tauri', () => {
 })
 
 describe('Basic', () => {
-    before(async () => {
-        await AppPage.clearAllData()
-    })
     it('can switch views', async () => {
         await new Promise(resolve => setTimeout(resolve, 2000))
 

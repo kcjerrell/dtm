@@ -25,7 +25,7 @@ describe('Projects', () => {
     await expect(settingsHeader).toBeDisplayedInViewport()
 
     await browser.execute((folderPath) => {
-      window.__E2E_FILE_PATH__ = folderPath
+      (window as any).__E2E_FILE_PATH__ = folderPath
     }, testProjectsDir);
 
     // the progress bar goes by fast so we start waiting before adding the folder
