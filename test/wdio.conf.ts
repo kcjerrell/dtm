@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+// keep track of the `tauri-driver` child process
 let tauriDriver;
 let exit = false;
 
