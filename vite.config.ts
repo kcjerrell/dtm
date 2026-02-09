@@ -18,15 +18,15 @@ export default defineConfig(async () => ({
   build: {
     target: "esnext",
     assetsInlineLimit: 0,
-    cssCodeSplit: false,
-    sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks() {
-          return 'app'
-        }
-      }
-    }
+    // cssCodeSplit: false,
+    // sourcemap: true,
+    // rollupOptions: {
+      // output: {
+        // manualChunks() {
+        //   return 'app'
+        // }
+      // }
+    // }
   },
   plugins: [
     reactDevtools ? htmlInjectionPlugin({

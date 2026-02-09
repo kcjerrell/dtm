@@ -13,49 +13,51 @@ import { system } from "./theme/theme"
 import "./utils/tauriLogger"
 import App from './App'
 
-window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
+function bootstrap() {
+    window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
-const hash = document.location?.hash?.slice(1)
-if (hash === "mini") AppStore.setView("mini")
-else if (hash === "vid") AppStore.setView("vid")
+    const hash = document.location?.hash?.slice(1)
+    if (hash === "mini") AppStore.setView("mini")
+    else if (hash === "vid") AppStore.setView("vid")
 
-const RootComponent = App
+    const RootComponent = App
 
-themeHelpers.applySize()
+    themeHelpers.applySize()
 
-if (import.meta.env.DEV) {
-    const _global = globalThis as unknown as { _devKeyPressHandler?: (e: KeyboardEvent) => void }
-    if (_global._devKeyPressHandler) {
-        window.removeEventListener("keypress", _global._devKeyPressHandler)
-    }
-    _global._devKeyPressHandler = async (e: KeyboardEvent) => {
-        if (e.key === "`") {
-            invoke("show_dev_window")
+    if (import.meta.env.DEV) {
+        const _global = globalThis as unknown as { _devKeyPressHandler?: (e: KeyboardEvent) => void }
+        if (_global._devKeyPressHandler) {
+            window.removeEventListener("keypress", _global._devKeyPressHandler)
         }
+        _global._devKeyPressHandler = async (e: KeyboardEvent) => {
+            if (e.key === "`") {
+                invoke("show_dev_window")
+            }
+        }
+        window.addEventListener("keypress", _global._devKeyPressHandler)
     }
-    window.addEventListener("keypress", _global._devKeyPressHandler)
-}
 
-// this ensures that the window appears even if an error is thrown in the initial render
-if (hash !== "dev") {
-    setTimeout(() => {
-        getCurrentWindow().show()
-    }, 3000)
-}
+    // this ensures that the window appears even if an error is thrown in the initial render
+    if (hash !== "dev") {
+        setTimeout(() => {
+            getCurrentWindow().show()
+        }, 3000)
+    }
 
-const root = document.getElementById("root")
-if (root)
-    createRoot(root).render(
-        <StrictMode>
-            <ChakraProvider value={system}>
-                <ColorModeProvider>
-                    <HotkeysProvider initiallyActiveScopes={["*"]}>
-                        <RootComponent />
-                    </HotkeysProvider>
-                </ColorModeProvider>
-            </ChakraProvider>
-        </StrictMode>,
-    )
+    const root = document.getElementById("root")
+    if (root)
+        createRoot(root).render(
+            <StrictMode>
+                <ChakraProvider value={system}>
+                    <ColorModeProvider>
+                        <HotkeysProvider initiallyActiveScopes={["*"]}>
+                            <RootComponent />
+                        </HotkeysProvider>
+                    </ColorModeProvider>
+                </ChakraProvider>
+            </StrictMode>,
+        )
+}
 
 export function Loading() {
     return (
@@ -69,3 +71,5 @@ export function Loading() {
         </motion.div>
     )
 }
+
+bootstrap()
