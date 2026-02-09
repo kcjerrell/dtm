@@ -109,7 +109,7 @@ jobs:
       # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
-          # USE_RELEASE: "true"
+          USE_RELEASE: "true"
           # DISPLAY: :99
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"

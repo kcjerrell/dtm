@@ -2,7 +2,7 @@ import { defineConfig, ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
-import wasm from "vite-plugin-wasm";
+// import wasm from "vite-plugin-wasm";
 
 // import { visualizer } from 'rollup-plugin-visualizer'
 
@@ -18,6 +18,14 @@ export default defineConfig(async () => ({
   build: {
     target: "esnext",
     assetsInlineLimit: 0,
+    cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        manualChunks() {
+          return 'app'
+        }
+      }
+    }
   },
   plugins: [
     reactDevtools ? htmlInjectionPlugin({
@@ -40,7 +48,7 @@ export default defineConfig(async () => ({
       }
     }),
     tsconfigPaths(),
-    wasm(),
+    // wasm(),
     // visualizer({ open: true }),
   ],
   resolve: {
