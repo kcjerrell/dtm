@@ -39,6 +39,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install test dependencies
+        run: npm install
+        working-directory: test
+
       # 6️⃣ System dependencies (GTK / WebKit / Tauri)
       - name: Install system dependencies
         run: |
@@ -54,16 +58,16 @@ jobs:
             webkit2gtk-driver \
             xkb-data
 
-      # 7️⃣ Generate icons
-      - name: Generate icons
-        run: npm run gen-icons
+      # # 7️⃣ Generate icons
+      # - name: Generate icons
+      #   run: npm run gen-icons
 
-      # 8️⃣ Build Tauri app
-      - name: Build app
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri build
+      # # 8️⃣ Build Tauri app
+      # - name: Build app
+      #   env:
+      #     TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      #     TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      #   run: npm run tauri build
 
       # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
@@ -71,23 +75,15 @@ jobs:
 
       - name: Download test data
         run: |
-          mkdir -p dtm-test-data/projects
+          mkdir -p test/dtm-test-data/projects
             curl -L \
             https://github.com/kcjerrell/dtm/releases/download/test-data-v1/test-projects.zip \
-            -o dtm-test-data/test-projects.zip
-          unzip -q dtm-test-data/test-projects.zip -d dtm-test-data/projects
+            -o test/dtm-test-data/test-projects.zip
+          unzip -q test/dtm-test-data/test-projects.zip -d test/dtm-test-data/projects
 
-      # 🔟 Run WDIO tests
-      - name: Run WDIO tests
-        env:
-          USE_RELEASE: "true"
-          DISPLAY: :99
-          TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
-          TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
-        run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 2
-          npm run wdio
+      - name: WebdriverIO (Linux)
+        run: xvfb-run yarn test
+        working-directory: test
 
       # 11️⃣ Upload artifacts on failure
       - name: Upload artifacts on failure
@@ -96,6 +92,6 @@ jobs:
         with:
           name: wdio-artifacts
           path: |
-            logs/*
-            screenshots/*
+            test/logs/*
+            test/screenshots/*
             $HOME/.local/share/com.kcjer.dtm/logs
