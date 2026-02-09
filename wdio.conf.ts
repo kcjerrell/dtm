@@ -65,7 +65,7 @@ export const config: WebdriverIO.Config = {
     context,
     { error, result, duration, passed }
   ) {
-    // if (passed) return
+    if (passed) return
 
     const screenshotsDir = path.resolve("./screenshots")
     if (!fs.existsSync(screenshotsDir)) {
