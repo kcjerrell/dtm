@@ -43,7 +43,7 @@ export const config: WebdriverIO.Config = {
       ;(global as any).vite = vite
 
       // give vite some time to start
-      await new Promise(resolve => setTimeout(resolve, 5000))
+      await new Promise(resolve => setTimeout(resolve, 8000))
     }
 
     tauriDriver = spawn(
