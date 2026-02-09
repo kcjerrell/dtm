@@ -6,11 +6,13 @@ import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+const reuse = process.env.REUSE_BUILD === 'true';
+
 // keep track of the `tauri-driver` child process
 let tauriDriver;
 let exit = false;
 
-export const config = {
+export const config: WebdriverIO.Config = {
   host: '127.0.0.1',
   port: 4444,
   specs: ['./specs/**/*.ts'],
@@ -32,20 +34,21 @@ export const config = {
 
   // ensure the rust project is built since we expect this binary to exist for the webdriver sessions
   onPrepare: () => {
-    // Remove the extra `--` if you're not using npm!
-    spawnSync(
-      'npm',
-      ['run', 'tauri', 'build', '--', '--debug', '--no-bundle'],
-      {
-        cwd: path.resolve(__dirname, '..'),
-        stdio: 'inherit',
-        shell: true,
-      }
-    );
+    if (!reuse)
+      spawnSync(
+        'npm',
+        ['run', 'tauri', 'build', '--', '--debug', '--no-bundle'],
+        {
+          cwd: path.resolve(__dirname, '..'),
+          stdio: 'inherit',
+          shell: true,
+        }
+      );
   },
 
   // ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
   beforeSession: () => {
+    console.log("BEFORE SESSION")
     tauriDriver = spawn(
       path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'),
       [],
@@ -64,7 +67,7 @@ export const config = {
     });
   },
 
-    afterTest: async function (
+  afterTest: async function (
     test,
     context,
     { error, result, duration, passed }
