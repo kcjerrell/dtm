@@ -1,4 +1,5 @@
 import os from 'os';
+import fs from 'fs';
 import path from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -61,6 +62,30 @@ export const config = {
         process.exit(1);
       }
     });
+  },
+
+    afterTest: async function (
+    test,
+    context,
+    { error, result, duration, passed }
+  ) {
+    if (passed) return
+
+    const screenshotsDir = path.resolve("./screenshots")
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true })
+    }
+
+    const name = test.title
+      .replace(/[^a-z0-9]+/gi, "_")
+      .toLowerCase()
+
+    const filePath = path.join(
+      screenshotsDir,
+      `${name}-${Date.now()}.png`
+    )
+
+    await browser.saveScreenshot(filePath)
   },
 
   // clean up the `tauri-driver` process we spawned at the start of the session
