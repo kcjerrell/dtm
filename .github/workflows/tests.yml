@@ -70,33 +70,33 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build
 
-      - name: Run app briefly (smoke test)
-        env:
-          DISPLAY: :99
-        shell: bash
-        run: |
-          echo "Starting app…"
+      # - name: Run app briefly (smoke test)
+      #   env:
+      #     DISPLAY: :99
+      #   shell: bash
+      #   run: |
+      #     echo "Starting app…"
 
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 2
+      #     Xvfb :99 -screen 0 1920x1080x24 &
+      #     sleep 2
 
-          ./src-tauri/target/release/dtm > app.log 2>&1 &
-          APP_PID=$!
+      #     ./src-tauri/target/release/dtm > app.log 2>&1 &
+      #     APP_PID=$!
 
-          echo "App PID: $APP_PID"
+      #     echo "App PID: $APP_PID"
           
-          echo "Giving it some time..."
-          sleep 30
-          echo "Stopping app…"
-          kill $APP_PID || true
-          sleep 1
+      #     echo "Giving it some time..."
+      #     sleep 30
+      #     echo "Stopping app…"
+      #     kill $APP_PID || true
+      #     sleep 1
 
-          echo "App logs:"
-          cat app.log
+      #     echo "App logs:"
+      #     cat app.log
 
       # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
-        run: cargo install tauri-driver --locked
+        run: cargo install tauri-driver
 
       - name: Download test data
         run: |
@@ -109,17 +109,14 @@ jobs:
       # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
-          # USE_RELEASE: "true"
+          USE_RELEASE: "true"
           DISPLAY: :99
-          WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-          LIBGL_ALWAYS_SOFTWARE: "1"
-          GDK_BACKEND: x11
           TAURI_DRIVER_PATH: $HOME/.cargo/bin/tauri-driver
           TEST_DATA_DIR: ${{ github.workspace }}/dtm-test-data
         run: |
-          # Xvfb :99 -screen 0 1920x1080x24 &
-          # sleep 2
-          npm run test:release
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 2
+          npm run wdio
 
       - name: Upload artifacts on failure
         if: failure()
