@@ -12,14 +12,14 @@ import {
 import { postMessage } from "@/context/Messages"
 import ImageStore from "@/utils/imageStore"
 import { loadImage2 } from "../state/imageLoaders"
-import { clearAll, MetadataStore, pinImage } from "../state/store"
+import { clearAll, getMetadataStore, pinImage } from "../state/store"
 import PinnedIcon from "./PinnedIcon"
 
 let separatorId = 0
 const separator = () =>
     ({ id: `separator-${separatorId++}`, separator: true }) as ToolbarCommand<unknown>
 
-export const toolbarCommands: ToolbarCommand<typeof MetadataStore>[] = [
+export const toolbarCommands: ToolbarCommand<ReturnType<typeof getMetadataStore>>[] = [
     {
         id: "loadFromClipboard",
         tip: "Load image from clipboard",
@@ -46,12 +46,12 @@ export const toolbarCommands: ToolbarCommand<typeof MetadataStore>[] = [
     {
         id: "pinImage",
         getTip: (snap) => (snap.currentImage?.pin ? "Unpin image" : "Pin image"),
-        getIcon: (snap: ReadonlyState<typeof MetadataStore>) => (
+        getIcon: (snap: ReadonlyState<ReturnType<typeof getMetadataStore>>) => (
             <PinnedIcon pin={snap.currentImage?.pin} />
         ),
         check: (snap) => snap.currentImage != null,
         action: async () => {
-            const pin = MetadataStore.currentImage?.pin !== null ? null : true
+            const pin = getMetadataStore().currentImage?.pin !== null ? null : true
             pinImage(true, pin)
             postMessage({
                 message: pin ? "Image pinned" : "Pin removed",

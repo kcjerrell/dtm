@@ -3,14 +3,14 @@ import { AnimatePresence, motion, } from "motion/react"
 import { useRef } from "react"
 import { useSnapshot } from "valtio"
 import { showPreview } from "@/components/preview"
-import { MetadataStore } from "../state/store"
+import { getMetadataStore } from "../state/store"
 
 interface CurrentImageProps extends ChakraProps {}
 
 function CurrentImage(props: CurrentImageProps) {
 	const { ...restProps } = props
 
-	const snap = useSnapshot(MetadataStore)
+	const snap = useSnapshot(getMetadataStore())
 	const { currentImage } = snap
 
 	const imgRef = useRef<HTMLImageElement>(null)

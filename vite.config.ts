@@ -19,6 +19,7 @@ export default defineConfig(async () => ({
     target: "esnext",
     assetsInlineLimit: 0,
     cssCodeSplit: false,
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks() {

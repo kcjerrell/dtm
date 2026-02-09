@@ -11,6 +11,7 @@ import { HotkeysProvider } from "react-hotkeys-hook"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import "./utils/tauriLogger"
+import App from './App'
 
 window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
@@ -18,10 +19,7 @@ const hash = document.location?.hash?.slice(1)
 if (hash === "mini") AppStore.setView("mini")
 else if (hash === "vid") AppStore.setView("vid")
 
-const RootComponent = lazy(() => {
-    if (hash === "dev") return import("./Dev")
-    else return import("./App")
-})
+const RootComponent = App
 
 themeHelpers.applySize()
 

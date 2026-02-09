@@ -1,30 +1,22 @@
 import AppStore from "@/hooks/appState"
 import type { ImageSource } from "@/types"
 import type { ImageItem } from "./ImageItem"
-
-let _metadataStore: typeof import("./store")
-async function getStore() {
-	if (!_metadataStore) {
-		_metadataStore = await import("./store")
-	}
-	return _metadataStore
-}
+import { createImageItem, getMetadataStore, selectImage } from './store'
 
 export async function sendToMetadata(
 	imageData: Uint8Array<ArrayBuffer>,
 	type: string,
 	source: ImageSource,
 ) {
-	const store = await getStore()
-
 	// check if the item already has been sent to the store
-	let imageItem = store.MetadataStore.images.find((im) =>
+	const state = getMetadataStore()
+	let imageItem = state.images.find((im) =>
 		compareImageSource(im.source, source),
 	) as Nullable<ImageItem>
-	imageItem ??= await store.createImageItem(imageData, type, source)
+	imageItem ??= await createImageItem(imageData, type, source)
 
 	if (imageItem) {
-		store.selectImage(imageItem)
+		selectImage(imageItem)
 		await AppStore.setView("metadata")
 	}
 }

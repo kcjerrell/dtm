@@ -17,14 +17,10 @@ import AppStore from "./hooks/appState"
 import { themeHelpers } from "./theme/helpers"
 import { getLocalImage } from "./utils/clipboard"
 import { viewDescription } from "./views"
+import { clearAll, clearCurrent, createImageItem, getMetadataStore } from './metadata/state/store'
+import { loadImage2 } from './metadata/state/imageLoaders'
 
 const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
-
-let _metadataStore = null as typeof import("./metadata/state/store") | null
-async function getMetadataStore() {
-    if (!_metadataStore) _metadataStore = await import("./metadata/state/store")
-    return _metadataStore
-}
 
 const aboutApp: AboutMetadata = {
     name: "DTM",
@@ -110,7 +106,7 @@ const fileSubmenu = await Submenu.new({
                 if (imagePath == null) return
                 const image = await getLocalImage(imagePath)
                 if (image)
-                    await (await getMetadataStore()).createImageItem(
+                    await createImageItem(
                         image,
                         await pathLib.extname(imagePath),
                         {
@@ -124,7 +120,6 @@ const fileSubmenu = await Submenu.new({
             text: "Open from pasteboard...",
             id: "file_openPasteboard",
             action: async () => {
-                const { loadImage2 } = await import("./metadata/state/imageLoaders")
                 await loadImage2("general")
             },
         }),
@@ -133,21 +128,21 @@ const fileSubmenu = await Submenu.new({
             text: "Close",
             id: "file_close",
             action: async () => {
-                await (await getMetadataStore()).clearCurrent()
+                await clearCurrent()
             },
         }),
         await MenuItem.new({
             text: "Close unpinned",
             id: "file_closeUnpinned",
             action: async () => {
-                await (await getMetadataStore()).clearAll(true)
+                await clearAll(true)
             },
         }),
         await MenuItem.new({
             text: "Close all",
             id: "file_closeAll",
             action: async () => {
-                await (await getMetadataStore()).clearAll(false)
+                await clearAll(false)
             },
         }),
     ],
