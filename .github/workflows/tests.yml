@@ -68,7 +68,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri build
+        run: npm run tauri build -- --debug
 
       - name: Run app briefly (smoke test)
         # env:
@@ -80,7 +80,7 @@ jobs:
           # Xvfb :99 -screen 0 1920x1080x24 &
           # sleep 2
 
-          xvfb-run -a ./src-tauri/target/release/dtm > app.log 2>&1 &
+          xvfb-run -a ./src-tauri/target/debug/dtm > app.log 2>&1 &
           APP_PID=$!
 
           echo "App PID: $APP_PID"
@@ -109,7 +109,7 @@ jobs:
       # 🔟 Run WDIO tests
       - name: Run WDIO tests
         env:
-          USE_RELEASE: "true"
+          # USE_RELEASE: "true"
           # DISPLAY: :99
           WEBKIT_DISABLE_COMPOSITING_MODE: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"

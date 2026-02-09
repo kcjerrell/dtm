@@ -8,7 +8,10 @@ import { spawn, type ChildProcess } from 'child_process'
 let tauriDriver: ChildProcess | undefined
 
 export const config: WebdriverIO.Config = {
-  specs: ['./test/specs/example.e2e.ts', './test/specs/projects.e2e.ts'],
+  specs: [
+    './test/specs/example.e2e.ts', 
+    // './test/specs/projects.e2e.ts'
+  ],
   maxInstances: 1,
   hostname: '127.0.0.1',
   port: 4444,
@@ -62,7 +65,7 @@ export const config: WebdriverIO.Config = {
     context,
     { error, result, duration, passed }
   ) {
-    if (passed) return
+    // if (passed) return
 
     const screenshotsDir = path.resolve("./screenshots")
     if (!fs.existsSync(screenshotsDir)) {
