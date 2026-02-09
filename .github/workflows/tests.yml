@@ -17,10 +17,9 @@ jobs:
 
       # 2️⃣ Node.js + npm cache
       - name: Setup Node
-        if: always()
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
 
       # 3️⃣ Rust toolchain
@@ -31,7 +30,6 @@ jobs:
 
       # 4️⃣ Rust build cache
       - name: Cache Rust
-        if: always()
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -54,10 +52,7 @@ jobs:
             librsvg2-dev \
             xvfb \
             webkit2gtk-driver \
-            xkb-data \
-            webkit2gtk-4.1 \
-            libwebkit2gtk-4.1-0 \
-            libjavascriptcoregtk-4.1-0
+            xkb-data
 
       # 7️⃣ Generate icons
       - name: Generate icons
@@ -69,30 +64,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build
-
-      # - name: Run app briefly (smoke test)
-      #   env:
-      #     DISPLAY: :99
-      #   shell: bash
-      #   run: |
-      #     echo "Starting app…"
-
-      #     Xvfb :99 -screen 0 1920x1080x24 &
-      #     sleep 2
-
-      #     ./src-tauri/target/release/dtm > app.log 2>&1 &
-      #     APP_PID=$!
-
-      #     echo "App PID: $APP_PID"
-          
-      #     echo "Giving it some time..."
-      #     sleep 30
-      #     echo "Stopping app…"
-      #     kill $APP_PID || true
-      #     sleep 1
-
-      #     echo "App logs:"
-      #     cat app.log
 
       # 9️⃣ Install tauri-driver
       - name: Install tauri-driver
@@ -118,16 +89,13 @@ jobs:
           sleep 2
           npm run wdio
 
+      # 11️⃣ Upload artifacts on failure
       - name: Upload artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: wdio-artifacts
           path: |
-            logs/
-            screenshots/
-            app.log
-            $XDG_DATA_HOME/com.kcjer.dtm
-            $XDG_DATA_HOME/dtm
-            $HOME/.local/share/com.kcjer.dtm
-            $HOME/.local/share/dtm
+            logs/*
+            screenshots/*
+            $HOME/.local/share/com.kcjer.dtm/logs

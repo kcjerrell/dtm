@@ -8,10 +8,7 @@ import { spawn, type ChildProcess } from 'child_process'
 let tauriDriver: ChildProcess | undefined
 
 export const config: WebdriverIO.Config = {
-  specs: [
-    // './test/specs/example.e2e.ts', 
-    './test/specs/projects.e2e.ts'
-  ],
+  specs: ['./test/specs/example.e2e.ts', './test/specs/projects.e2e.ts'],
   maxInstances: 1,
   hostname: '127.0.0.1',
   port: 4444,
@@ -43,7 +40,7 @@ export const config: WebdriverIO.Config = {
       ;(global as any).vite = vite
 
       // give vite some time to start
-      await new Promise(resolve => setTimeout(resolve, 8000))
+      await new Promise(resolve => setTimeout(resolve, 5000))
     }
 
     tauriDriver = spawn(
@@ -52,12 +49,6 @@ export const config: WebdriverIO.Config = {
       [],
       { stdio: [null, process.stdout, process.stderr] },
     )
-  },
-
-  before: () => {
-    browser.on('console', (msg) => {
-      console.log('WEBVIEW:', msg.text())
-    })
   },
 
   afterTest: async function (
