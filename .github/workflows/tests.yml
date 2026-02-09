@@ -58,9 +58,9 @@ jobs:
             webkit2gtk-driver \
             xkb-data
 
-      # # 7️⃣ Generate icons
-      # - name: Generate icons
-      #   run: npm run gen-icons
+      # 7️⃣ Generate icons
+      - name: Generate icons
+        run: npm run gen-icons
 
       # # 8️⃣ Build Tauri app
       # - name: Build app
