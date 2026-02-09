@@ -51,6 +51,12 @@ export const config: WebdriverIO.Config = {
     )
   },
 
+  before: () => {
+    browser.on('console', (msg) => {
+      console.log('WEBVIEW:', msg.text())
+    })
+  },
+
   afterTest: async function (
     test,
     context,
