@@ -1,23 +1,23 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "notes": "See the assets to download this version and install.",
-  "pub_date": "2026-01-12T20:30:05.573Z",
+  "pub_date": "2026-02-10T19:57:35.849Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNitpaitWZ0Z3MTE5TGc4ZkUyMHl3ajl2RVh0RjlXcXZzM0lVQ2pWTGlkMkpDMWhocWNSVkw1Nk1Gck9tQ3lLbVkzdnhwcnhyWmRZcEVhLzhVWm9LOGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4MjQ5Nzk4CWZpbGU6RFRNLmFwcC50YXIuZ3oKeWszUGNyWDRVTnVTOVhlMzR6VmVnRHY4SThmZzl6QVdtOU9xQ3F5SlVjOVJqQjNGenY3TEVrS1ZSSGIxWmJiSFN0UnFLM2JsSVRRUEhZNHBRc1V4QUE9PQo=",
-      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.2.0/DTM_universal.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNjNjaHRTbDFuc1EzY2xnU2MvZU8xVmZoVHIySUVhV20veS9jNllWWlBoeU5EdWV2alYvZGM3TEswQlpXLzl6YVpTYVZESXRaQUNNSEdPdFROdU03c3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcwNzUxMjA5CWZpbGU6RFRNLmFwcC50YXIuZ3oKZ2p1azZ6ano1UkZYZUxYUDl2THl4a3dJT0dyUEZPTGRpTFc3VGVWSkVvVnNRd0ZxL3B3ZFkvdHcrU3IzR1hhcy9kSTl1YW9BZ1puVHVTUHd4SUhUQVE9PQo=",
+      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.3.0/DTM_universal.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNitpaitWZ0Z3MTE5TGc4ZkUyMHl3ajl2RVh0RjlXcXZzM0lVQ2pWTGlkMkpDMWhocWNSVkw1Nk1Gck9tQ3lLbVkzdnhwcnhyWmRZcEVhLzhVWm9LOGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4MjQ5Nzk4CWZpbGU6RFRNLmFwcC50YXIuZ3oKeWszUGNyWDRVTnVTOVhlMzR6VmVnRHY4SThmZzl6QVdtOU9xQ3F5SlVjOVJqQjNGenY3TEVrS1ZSSGIxWmJiSFN0UnFLM2JsSVRRUEhZNHBRc1V4QUE9PQo=",
-      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.2.0/DTM_universal.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNjNjaHRTbDFuc1EzY2xnU2MvZU8xVmZoVHIySUVhV20veS9jNllWWlBoeU5EdWV2alYvZGM3TEswQlpXLzl6YVpTYVZESXRaQUNNSEdPdFROdU03c3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcwNzUxMjA5CWZpbGU6RFRNLmFwcC50YXIuZ3oKZ2p1azZ6ano1UkZYZUxYUDl2THl4a3dJT0dyUEZPTGRpTFc3VGVWSkVvVnNRd0ZxL3B3ZFkvdHcrU3IzR1hhcy9kSTl1YW9BZ1puVHVTUHd4SUhUQVE9PQo=",
+      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.3.0/DTM_universal.app.tar.gz"
     },
     "darwin-aarch64-app": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNitpaitWZ0Z3MTE5TGc4ZkUyMHl3ajl2RVh0RjlXcXZzM0lVQ2pWTGlkMkpDMWhocWNSVkw1Nk1Gck9tQ3lLbVkzdnhwcnhyWmRZcEVhLzhVWm9LOGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4MjQ5Nzk4CWZpbGU6RFRNLmFwcC50YXIuZ3oKeWszUGNyWDRVTnVTOVhlMzR6VmVnRHY4SThmZzl6QVdtOU9xQ3F5SlVjOVJqQjNGenY3TEVrS1ZSSGIxWmJiSFN0UnFLM2JsSVRRUEhZNHBRc1V4QUE9PQo=",
-      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.2.0/DTM_universal.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNjNjaHRTbDFuc1EzY2xnU2MvZU8xVmZoVHIySUVhV20veS9jNllWWlBoeU5EdWV2alYvZGM3TEswQlpXLzl6YVpTYVZESXRaQUNNSEdPdFROdU03c3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcwNzUxMjA5CWZpbGU6RFRNLmFwcC50YXIuZ3oKZ2p1azZ6ano1UkZYZUxYUDl2THl4a3dJT0dyUEZPTGRpTFc3VGVWSkVvVnNRd0ZxL3B3ZFkvdHcrU3IzR1hhcy9kSTl1YW9BZ1puVHVTUHd4SUhUQVE9PQo=",
+      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.3.0/DTM_universal.app.tar.gz"
     },
     "darwin-x86_64-app": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNitpaitWZ0Z3MTE5TGc4ZkUyMHl3ajl2RVh0RjlXcXZzM0lVQ2pWTGlkMkpDMWhocWNSVkw1Nk1Gck9tQ3lLbVkzdnhwcnhyWmRZcEVhLzhVWm9LOGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4MjQ5Nzk4CWZpbGU6RFRNLmFwcC50YXIuZ3oKeWszUGNyWDRVTnVTOVhlMzR6VmVnRHY4SThmZzl6QVdtOU9xQ3F5SlVjOVJqQjNGenY3TEVrS1ZSSGIxWmJiSFN0UnFLM2JsSVRRUEhZNHBRc1V4QUE9PQo=",
-      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.2.0/DTM_universal.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUZJYXZtZURBNjNjaHRTbDFuc1EzY2xnU2MvZU8xVmZoVHIySUVhV20veS9jNllWWlBoeU5EdWV2alYvZGM3TEswQlpXLzl6YVpTYVZESXRaQUNNSEdPdFROdU03c3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcwNzUxMjA5CWZpbGU6RFRNLmFwcC50YXIuZ3oKZ2p1azZ6ano1UkZYZUxYUDl2THl4a3dJT0dyUEZPTGRpTFc3VGVWSkVvVnNRd0ZxL3B3ZFkvdHcrU3IzR1hhcy9kSTl1YW9BZ1puVHVTUHd4SUhUQVE9PQo=",
+      "url": "https://github.com/kcjerrell/dtm/releases/download/v0.3.0/DTM_universal.app.tar.gz"
     }
   }
 }
