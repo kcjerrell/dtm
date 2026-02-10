@@ -9,8 +9,14 @@ import type ProjectsController from "./projects"
 import type ScannerService from "./scanner"
 import type { ProjectJobPayload } from "./scanner"
 import type SearchController from "./search"
+import type SettingsController from "./settings"
 import type { UIController } from "./uiState"
-import type { WatchFolderState, WatchFoldersController } from "./watchFolders"
+import type {
+    ListModelInfoFilesResult,
+    ProjectFileStats,
+    WatchFolderState,
+    WatchFoldersController,
+} from "./watchFolders"
 
 export type DTProjectsJobs = {
     "models-refresh": {
@@ -18,11 +24,15 @@ export type DTProjectsJobs = {
         result: never
     }
     "models-scan": {
-        data: string
+        data: ListModelInfoFilesResult[]
+        result: never
+    }
+    "models-scan-remote": {
+        data: undefined
         result: never
     }
     "project-add": {
-        data: string[]
+        data: ProjectFileStats[]
         result: never
     }
     "project-update": {
@@ -30,7 +40,7 @@ export type DTProjectsJobs = {
         result: never
     }
     "project-remove": {
-        data: ProjectJobPayload
+        data: string
         result: never
     }
     "project-folder-scan": {
@@ -45,7 +55,20 @@ export type DTProjectsJobs = {
         data: string
         result: never
     }
+    "project-mark-missing": {
+        data: string[]
+        result: never
+    }
+    "data-sync": {
+        data: SyncScope
+        result: never
+    }
 }
+
+export type SyncScope =
+    | { watchFolders?: never; projects?: ProjectFileStats[] }
+    | { watchFolders?: WatchFolderState[]; projects?: never }
+    | Record<string, never>
 
 export type DTPJob = JobUnion<DTPContainer, DTProjectsJobs>
 export type DTPJobSpec<J extends keyof DTProjectsJobs> = JobSpec<DTPContainer, DTProjectsJobs, J>
@@ -91,4 +114,5 @@ export interface DTPServices {
     images: ImagesController
     details: DetailsService
     jobs: JobQueue<DTPContainer, DTProjectsJobs>
+    settings: SettingsController
 }

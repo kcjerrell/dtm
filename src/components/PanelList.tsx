@@ -1,12 +1,11 @@
 import { HStack, Spacer } from "@chakra-ui/react"
-import { motion, useSpring } from "motion/react"
 import { type ComponentType, useEffect, useMemo, useRef } from "react"
-import type { IconType } from "@/components/icons"
-import { PiInfo } from "@/components/icons"
 import { proxy, type Snapshot, useSnapshot } from "valtio"
+import type { IconType } from "@/components/icons/icons"
+import { PiInfo } from "@/components/icons/icons"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
-import { PanelListScrollContent, PanelSection, PaneListScrollContainer } from "./common"
+import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
@@ -26,6 +25,7 @@ export type PanelListCommandItem<T, C = undefined> = PanelListCommand<T, C> | "s
 
 export interface PanelListCommand<T, C = undefined> {
     id: string
+    ariaLabel?: string
     icon?: IconType | ComponentType
     getIcon?: (selected: Snapshot<T[]>, context?: C) => IconType | ComponentType
     requiresSelection?: boolean
@@ -93,8 +93,8 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         emptyListTextProp === false
             ? null
             : typeof emptyListTextProp === "string"
-              ? emptyListTextProp
-              : "(No items)"
+                ? emptyListTextProp
+                : "(No items)"
 
     return (
         <PanelSection {...boxProps}>
@@ -111,14 +111,14 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
             <PaneListContainer>
                 <PaneListScrollContainer
                     ref={wrapperRef}
-                    // overflowY="clip"
-                    // onWheel={(e) => {
-                    // 	if (!wrapperRef.current || !contentRef.current) return
-                    // 	const max =
-                    // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
-                    // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
-                    // 	scrollYMv.set(-scrollY.current)
-                    // }}
+                // overflowY="clip"
+                // onWheel={(e) => {
+                // 	if (!wrapperRef.current || !contentRef.current) return
+                // 	const max =
+                // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
+                // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
+                // 	scrollYMv.set(-scrollY.current)
+                // }}
                 >
                     <PanelListScrollContent ref={contentRef} asChild>
                         <SelectableGroup>{children}</SelectableGroup>
@@ -161,6 +161,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
 
                         return (
                             <IconButton
+                                aria-label={command.ariaLabel}
                                 key={command.id}
                                 size={"sm"}
                                 onClick={() => command.onClick(selectedItems, commandContext)}

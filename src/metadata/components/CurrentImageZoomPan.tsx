@@ -1,18 +1,17 @@
 // @ts-nocheck
 
 import { Box, chakra, Flex } from "@chakra-ui/react"
-import { MetadataStore } from "../state/store"
+import { getMetadataStore } from "../state/store"
 import { useSnapshot } from "valtio"
 import { motion, useMotionValue, useSpring } from 'motion/react'
-import { showPreview } from '@/components/preview'
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 
 interface CurrentImageProps extends ChakraProps {}
 
 function CurrentImage(props: CurrentImageProps) {
 	const { ...restProps } = props
 
-	const snap = useSnapshot(MetadataStore)
+	const snap = useSnapshot(getMetadataStore())
 	const { currentImage } = snap
 
 	const zoomMv = useSpring(1, {bounce: 0, visualDuration: 0.2})

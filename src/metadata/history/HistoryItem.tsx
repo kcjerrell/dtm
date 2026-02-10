@@ -1,10 +1,10 @@
 import { type BoxProps, chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { useEffect, useRef } from "react"
-import type { MetadataStore } from "../state/store"
+import type { getMetadataStore } from "../state/store"
 
 interface HistoryItemProps extends BoxProps {
-	image: ReadonlyState<(typeof MetadataStore)["images"][number]>
+	image: ReadonlyState<ReturnType<typeof getMetadataStore>["images"][number]>
 	isSelected: boolean
 	onSelect?: () => void
 	isPinned?: boolean

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { useSnapshot } from "valtio"
 import { computed } from "valtio-reactive"
 import { PanelListItem } from "@/components"
-import { FiRefreshCw, MdBlock } from "@/components/icons"
+import { FiRefreshCw, MdBlock } from "@/components/icons/icons"
 import PanelList from "@/components/PanelList"
 import { useSelectable } from "@/hooks/useSelectableV"
 import TabContent from "@/metadata/infoPanel/TabContent"
@@ -33,7 +33,10 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
     const activeProjectsSnap = useSnapshot(groups.activeProjects)
     const excludedProjectsSnap = useSnapshot(groups.excludedProjects)
 
-    const isFiltering = !!imageSource?.filters?.length || !!imageSource?.search
+    const isFiltering =
+        !!imageSource?.filters?.length ||
+        !!imageSource?.search ||
+        imageSource?.showImage !== imageSource?.showVideo
     const showEmpty = snap.showEmptyProjects || !isFiltering
 
     useEffect(() => {
@@ -55,6 +58,8 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             {...restProps}
         >
             <PanelList
+                role={"listbox"}
+                aria-label={"projects"}
                 flex={"1 1 auto"}
                 className={"pl"}
                 // height={"full"}
@@ -100,9 +105,13 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
                 <Box>{groups.activeProjects.length} projects</Box>
 
-                <Box>{groups.activeProjects.reduce((p, c) => p + c.image_count, 0)} images</Box>
                 <Box>
-                    <FormatByte value={groups.activeProjects.reduce((p, c) => p + c.filesize, 0)} />
+                    {groups.activeProjects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images
+                </Box>
+                <Box>
+                    <FormatByte
+                        value={groups.activeProjects.reduce((p, c) => p + (c.filesize ?? 0), 0)}
+                    />
                 </Box>
             </HStack>
         </TabContent>
@@ -119,7 +128,7 @@ function ProjectListItem(props: ProjectListItemProps) {
     const { project, altCount, ...restProps } = props
     const { handlers, isSelected } = useSelectable(project)
 
-    let count: number | string = project.image_count
+    let count: number | string = project.image_count ?? 0
     let countStyle: string | undefined
 
     if (altCount !== count) {
@@ -127,8 +136,14 @@ function ProjectListItem(props: ProjectListItemProps) {
         countStyle = "italic"
     } // what if every image in the project matches a search?	then it won't be italic
 
+    const projectName = project.path.split("/").pop()?.slice(0, -8)
+
     return (
         <PanelListItem
+            role={"option"}
+            aria-selected={isSelected}
+            data-test-id={`project-item`}
+            data-project-id={project.id}
             position={"relative"}
             selectable
             selected={isSelected}
@@ -144,7 +159,10 @@ function ProjectListItem(props: ProjectListItemProps) {
             // }}
         >
             <HStack justifyContent={"space-between"}>
-                <Box flex={"1 1 auto"}>{project.path.split("/").pop()?.slice(0, -8)}</Box>
+                <Box flex={"1 1 auto"}>
+                    {projectName}
+                    {project.isMissing && " (missing)"}
+                </Box>
                 {project.isScanning ? (
                     <Box color={"fg.3"}>-</Box>
                 ) : (

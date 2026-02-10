@@ -5,7 +5,7 @@ import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react
 import { ErrorBoundary } from "react-error-boundary"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
-import { FaMinus, FaMoon, FaPlus } from "@/components/icons"
+import { FaMinus, FaMoon, FaPlus } from "@/components/icons/icons"
 import { Preview, useIsPreviewActive } from "@/components/preview"
 import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
@@ -14,7 +14,7 @@ import AppStore from "./hooks/appState"
 import { Loading } from "./main"
 import "./menu"
 import UpgradeButton from "./metadata/toolbar/UpgradeButton"
-import { viewDescription } from "./views"
+import { viewDescription, views } from "./views"
 
 // import Onboard from "./Onboard"
 
@@ -46,7 +46,7 @@ function App() {
             }}
         >
             <LayoutGroup>
-                <Sidebar inert={isPreviewActive}>
+                <Sidebar inert={isPreviewActive} role="tablist">
                     {viewDescription.map((item) => (
                         <Sidebar.Button
                             key={item.viewId}
@@ -136,6 +136,7 @@ function ViewContainer(
         if (firstRender.current) {
             firstRender.current = false
             getCurrentWindow().show().catch(console.error)
+            console.debug("Loaded app")
         }
     }, [firstRender])
 
@@ -173,14 +174,6 @@ function ViewContainer(
     )
 }
 
-const views = {
-    metadata: lazy(() => import("./metadata/Metadata")),
-    mini: lazy(() => import("./Mini")),
-    vid: lazy(() => import("./vid/Vid")),
-    library: lazy(() => import("./library/Library")),
-    projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/Reactive")),
-}
 
 function getView(view: string) {
     if (isView(view)) return views[view]

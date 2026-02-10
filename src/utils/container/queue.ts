@@ -15,9 +15,13 @@ export interface JobSpec<
     K extends keyof JM = keyof JM,
 > {
     type: K
-    tag?: string
+    subtype?: string
+    label?: string
     data: JM[K]["data"]
-    execute: (data: JM[K]["data"], container: C) => Promise<JobResult<JM, K, C>> | Promise<void>
+    execute: (
+        data: JM[K]["data"],
+        container: C,
+    ) => Promise<JobResult<JM, K, C> | undefined> | Promise<void>
     callback?: JobCallback<JM[K]["result"]>
     merge?: "first" | "last"
     retries?: number
@@ -55,6 +59,9 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
     mutex = new Mutex()
 
     private static idCounter = 0
+    private addingInternalJob = false
+    private internalJobsAdded = 0
+    private internalJobsMerged = 0
 
     constructor() {
         super("jobs")
@@ -78,18 +85,29 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
         if (item.merge === "first") {
             // merge all instances into the first position, and replace with this instance
             let firstIndex: number | null = null
+            const callbacks: JobCallback[] = []
             const jobsData = []
             this.jobs.forEach((j, i) => {
-                if (j.type === item.type && j.tag === item.tag) {
+                if (j.type === item.type && j.subtype === item.subtype) {
                     firstIndex = firstIndex === null ? i : Math.min(firstIndex, i)
                     j.status = "canceled"
                     if (Array.isArray(j.data)) jobsData.push(...j.data)
+                    if (j.callback) callbacks.push(j.callback)
+                    this.internalJobsMerged++
                 }
             })
             if (firstIndex !== null) {
                 this.jobs.splice(firstIndex, 1, item)
+                this.internalJobsAdded++
                 if (Array.isArray(item.data)) item.data.unshift(...jobsData)
-                console.debug("merged job", formatJob(item))
+                if (!this.addingInternalJob) console.debug("merged job", formatJob(item))
+                const itemCallback = item.callback
+                item.callback = (result, error) => {
+                    for (const callback of callbacks) {
+                        callback(result, error)
+                    }
+                    itemCallback?.(result, error)
+                }
                 return
             }
             // if no matching jobs were found, continue as if normal
@@ -97,23 +115,35 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
         if (item.merge === "last") {
             // cancel all jobs jobs of same type tag, add this one to the end of the queue
             if (addToFront) throw new Error("Cannot add job to front with merge=last")
+            const callbacks: JobCallback[] = []
             const jobsData = []
             this.jobs.forEach((j) => {
-                if (j.type === item.type && j.tag === item.tag) {
+                if (j.type === item.type && j.subtype === item.subtype) {
+                    this.internalJobsMerged++
                     j.status = "canceled"
                     if (Array.isArray(j.data)) jobsData.push(...j.data)
+                    if (j.callback) callbacks.push(j.callback)
                 }
             })
             this.jobs.push(item)
+            this.internalJobsAdded++
             if (Array.isArray(item.data)) item.data.unshift(...jobsData)
-            console.debug("merged job", formatJob(item))
+            if (!this.addingInternalJob) console.debug("merged job", formatJob(item))
+            const itemCallback = item.callback
+            item.callback = (result, error) => {
+                for (const callback of callbacks) {
+                    callback(result, error)
+                }
+                itemCallback?.(result, error)
+            }
             return
         }
 
         if (addToFront) this.jobs.unshift(item)
         else this.jobs.push(item)
+        this.internalJobsAdded++
 
-        console.debug("added job", formatJob(item))
+        if (!this.addingInternalJob) console.debug("added job", formatJob(item))
 
         if (!this.isActive) this.start()
     }
@@ -122,6 +152,17 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
         for (const job of jobs) {
             this.addJob(job, addToFront)
         }
+    }
+
+    private internalAddJobs(jobs: JobUnion<C, JM>[], addToFront = false) {
+        this.addingInternalJob = true
+        this.internalJobsAdded = 0
+        this.internalJobsMerged = 0
+        for (const job of jobs) {
+            this.addJob(job, addToFront)
+        }
+        this.addingInternalJob = false
+        return { added: this.internalJobsAdded, merged: this.internalJobsMerged }
     }
 
     async start() {
@@ -139,10 +180,12 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                 job.status = "active"
 
                 try {
+                    console.log("starting job", formatJob(job))
                     const result = await job.execute(job.data, this.container)
 
                     if (Array.isArray(result?.jobs) && result.jobs.length > 0) {
-                        this.addJobs(result.jobs)
+                        const { added, merged } = this.internalAddJobs(result.jobs)
+                        console.debug(`job ${formatJob(job)} added ${added} jobs (${merged} merged)`)
                     }
 
                     job.status = "completed"
@@ -161,7 +204,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                         this.addJob(spec, false)
                     } else {
                         job.status = "failed"
-                        console.error("a job failed", job)
+                        console.error("a job failed", job, error)
                     }
                 }
             }
@@ -171,5 +214,9 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
 }
 
 function formatJob<C extends IContainer, JM extends JobTypeMap>(job: Job<C, JM>) {
-    return `${job.id}:${String(job.type)}:${job.tag}`
+    let formatted = `${job.id}:${String(job.type)}`
+
+    if (job.subtype) formatted += `:${job.subtype}`
+    if (job.label) formatted += `:${job.label}`
+    return formatted
 }

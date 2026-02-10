@@ -83,10 +83,11 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         itemProps,
         maxItemSize,
         onImagesChanged,
+        onScroll,
         ...restProps
     } = props
     const Item = itemComponent
-    const { renderItems, totalCount } = itemSource.useItemSource()
+    const { renderItems, totalCount, hasInitialLoad } = itemSource.useItemSource()
 
     const stateRef = useRef<StateProxy>(null)
     if (stateRef.current === null) {
@@ -187,10 +188,17 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         <Container
             ref={scrollContainerRef}
             position={"relative"}
-            onScroll={(e) => handleScroll(e)}
+            onScroll={(e) => {
+                handleScroll(e)
+                onScroll?.(e)
+            }}
             {...restProps}
         >
             <Grid
+                role={"grid"}
+                aria-label={"Image grid"}
+                data-testid={"image-grid"}
+                aria-busy={hasInitialLoad ? "false" : "true"}
                 gap={0}
                 ref={scrollContentRef}
                 gridTemplateColumns={`repeat(${snap.columns}, 1fr)`}
@@ -242,17 +250,22 @@ function PVGridItems<T, P>(props: {
     )
 }
 
-const Container = chakra("div", {
-    base: {
-        overflowY: "auto",
-        overflowX: "visible",
-        scrollBehavior: "smooth",
-        overscrollBehavior: "contain",
-        scrollbarGutter: "stable",
-        scrollbarWidth: "thin",
-        maxHeight: "100%",
+const Container = chakra(
+    "div",
+    {
+        base: {
+            overflowY: "auto",
+            overflowX: "visible",
+            scrollBehavior: "smooth",
+            overscrollBehavior: "contain",
+            maxHeight: "100%",
+            _scrollbarTrack: {
+                backgroundColor: "bg.deep/50",
+            },
+        },
     },
-})
+    { defaultProps: { className: "panel-scroll" } },
+)
 
 export default PVGridWrapper
 

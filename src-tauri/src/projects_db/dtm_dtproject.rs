@@ -11,6 +11,13 @@ use crate::projects_db::{
     DTProject, ProjectsDb,
 };
 
+const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <path d="M87.4474 43.7443C90.8991 43.7443 93.6974 46.5425 93.6974 49.9943C93.6974 49.9943 93.6974 93.7443 93.6974 93.7443C93.6974 97.1961 90.8991 99.9943 87.4474 99.9943C83.9956 99.9943 81.1974 97.1961 81.1974 93.7443C81.1974 93.7443 81.1974 49.9943 81.1974 49.9943C81.1974 46.5425 83.9956 43.7443 87.4474 43.7443ZM78.0724 121.869C78.0724 127.047 82.2697 131.244 87.4474 131.244C92.625 131.244 96.8224 127.047 96.8224 121.869C96.8224 116.692 92.625 112.494 87.4474 112.494C82.2697 112.494 78.0724 116.692 78.0724 121.869ZM174.947 87.4943C174.957 90.8011 173.643 93.9743 171.299 96.3068C171.299 96.3068 96.2599 171.354 96.2599 171.354C91.3844 176.2 83.5104 176.2 78.6349 171.354C78.6349 171.354 78.6349 171.354 78.6349 171.354C78.6349 171.354 3.63491 96.3068 3.63491 96.3068C-1.21164 91.4313 -1.21164 83.5573 3.63491 78.6818C3.63491 78.6818 78.674 3.63491 78.674 3.63491C83.5494 -1.21164 91.4235 -1.21164 96.299 3.63491C96.299 3.63491 171.338 78.6818 171.338 78.6818C173.668 81.0207 174.967 84.1931 174.947 87.4943C174.947 87.4943 174.947 87.4943 174.947 87.4943ZM162.447 87.4943L87.4474 12.4943L12.4474 87.4943L87.4474 162.494L87.4474 162.494L162.447 87.4943Z" fill="#77777733" stroke-width="0" stroke="#77777733" transform="translate(12.553 12.506)" />
+  </g>
+</svg>"##;
+
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
 
@@ -61,12 +68,18 @@ pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: Uri
     let response = match handle_request(request).await {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("DTM Protocol Error: {}", e);
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(e.into_bytes())
-                .unwrap()
+            log::error!("DTM Protocol Error: {}", e);
+            // Response::builder()
+            //     .status(StatusCode::INTERNAL_SERVER_ERROR)
+            //     .body(e.into_bytes())
+            //     .unwrap()
+        Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "image/svg+xml")
+        .body(MISSING_SVG.as_bytes().to_vec())
+        .unwrap()
         }
+
     };
 
     responder.respond(response);
@@ -140,7 +153,7 @@ async fn tensor(
     node: Option<i64>,
     scale: Option<u32>,
     invert: Option<bool>,
-    mask: Option<String>,
+    _mask: Option<String>,
 ) -> Result<Response<Vec<u8>>, String> {
     let dtp = DTProject::get(project_file)
         .await

@@ -1,6 +1,6 @@
 import { useSnapshot } from "valtio"
 import { MotionBox } from "@/components/common"
-import { MetadataStore } from "../state/store"
+import { getMetadataStore } from "../state/store"
 import type { ToolbarCommand } from "./commands"
 import ToolbarButton from "./ToolbarButton"
 
@@ -14,14 +14,14 @@ const separatorProps: ChakraProps["_before"] = {
 }
 
 interface ToolbarItemProps {
-	command: ToolbarCommand
+	command: ToolbarCommand<ReturnType<typeof getMetadataStore>>
 	showSeparator?: boolean
 	state: "hide" | "show"
 }
 
 export function ToolbarItem(props: ToolbarItemProps) {
 	const { command, showSeparator, state } = props
-	const snap = useSnapshot(MetadataStore) as ReadonlyState<typeof MetadataStore>
+	const snap = useSnapshot(getMetadataStore()) as ReadonlyState<ReturnType<typeof getMetadataStore>>
 
 	const tip = command.tip ?? command.getTip?.(snap)
 	const Icon = command.icon
@@ -66,7 +66,7 @@ export function ToolbarItem(props: ToolbarItemProps) {
 			// exit={"hide"}
 			// layout={"preserve-aspect"}
 		>
-			<ToolbarButton key={command.id} tip={tip} onClick={() => command.action(MetadataStore)}>
+			<ToolbarButton key={command.id} tip={tip} onClick={() => command.action(getMetadataStore())}>
 				{content}
 			</ToolbarButton>
 		</MotionBox>

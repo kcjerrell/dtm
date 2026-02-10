@@ -1,0 +1,22 @@
+{
+  "name": "webdriverio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "wdio run wdio.conf.ts",
+    "test:dev": "REUSE_BUILD=true wdio run wdio.conf.ts"
+  },
+  "dependencies": {
+    "@wdio/cli": "^9.19.0"
+  },
+  "devDependencies": {
+    "@wdio/local-runner": "^9.19.0",
+    "@wdio/mocha-framework": "^9.19.0",
+    "@wdio/spec-reporter": "^9.19.0",
+    "@wdio/types": "^9.23.3",
+    "dotenv": "^17.2.4",
+    "fs-extra": "^11.3.3",
+    "tsx": "^4.21.0"
+  }
+}

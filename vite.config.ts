@@ -2,19 +2,34 @@ import { defineConfig, ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
-import wasm from "vite-plugin-wasm";
+// import wasm from "vite-plugin-wasm";
 
-import { visualizer } from 'rollup-plugin-visualizer'
+// import { visualizer } from 'rollup-plugin-visualizer'
 
 const host = process.env.TAURI_DEV_HOST;
 const isMock = process.env.MOCK_TAURI === "true";
+const reactDevtools = process.env.REACT_DEVTOOLS === "true";
 
 const hmr = true
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+  base: "./",
+  build: {
+    target: "esnext",
+    assetsInlineLimit: 0,
+    // cssCodeSplit: false,
+    // sourcemap: true,
+    // rollupOptions: {
+      // output: {
+        // manualChunks() {
+        //   return 'app'
+        // }
+      // }
+    // }
+  },
   plugins: [
-    htmlInjectionPlugin({
+    reactDevtools ? htmlInjectionPlugin({
       order: "pre",
       injections: [
         {
@@ -25,7 +40,7 @@ export default defineConfig(async () => ({
           buildModes: "dev",
         },
       ],
-    }),
+    }) : null,
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler',
@@ -34,8 +49,8 @@ export default defineConfig(async () => ({
       }
     }),
     tsconfigPaths(),
-    wasm(),
-    visualizer({ open: true }),
+    // wasm(),
+    // visualizer({ open: true }),
   ],
   resolve: {
     alias: {

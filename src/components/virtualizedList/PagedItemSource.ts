@@ -41,6 +41,7 @@ type PagedItemSourceState<T> = {
 	totalCount: number
 	activeItemIndex?: number
 	activeItem?: T
+	hasInitialLoad: boolean
 }
 
 export class PagedItemSource<T> implements IItemSource<T> {
@@ -62,6 +63,7 @@ export class PagedItemSource<T> implements IItemSource<T> {
 				totalCount: 0,
 				activeItemIndex: undefined,
 				activeItem: undefined,
+				hasInitialLoad: false,
 			})
 
 			this.getItems = opts.getItems
@@ -79,6 +81,7 @@ export class PagedItemSource<T> implements IItemSource<T> {
 				to: (index + 1) * this.pageSize - 1,
 				items: [...page],
 			}
+			this.state.hasInitialLoad = true
 			return true
 		}
 

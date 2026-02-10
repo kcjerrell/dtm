@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { Model } from "@/commands"
+import type { MediaType, SamplerType } from '@/types'
 import { arrayIfOnly } from "@/utils/helpers"
 import {
     type FilterValueSelector,
@@ -8,7 +9,6 @@ import {
     targetCollection,
 } from "../controlPane/filters/collections"
 import { DTPStateController } from "./types"
-import { SamplerType } from '@/types'
 
 export type SearchControllerState = {
     searchInput: string
@@ -42,7 +42,7 @@ export type BackendFilter<T = string[] | number[]> = {
 }
 
 export type ContentType = "depth" | "pose" | "color" | "custom" | "scribble" | "shuffle"
-export type FilterValue = number | ContentType[] | Model | SamplerType
+export type FilterValue = number | ContentType[] | Model | SamplerType | MediaType
 
 /**
  * Handles state for building search queries.

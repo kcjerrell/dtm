@@ -8,7 +8,10 @@ use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
+mod bookmarks;
+mod ffmpeg;
 mod projects_db;
+mod vid;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -16,11 +19,6 @@ use tokio::runtime::Runtime;
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
-// #[tauri::command]
-// fn get_tensor(project_file: String, name: String) -> Result<dt_project::TensorResult, String> {
-//     let project = dt_project::DTProject::new(&project_file).unwrap();
-//     Ok(project.get_tensor(name).unwrap())
-// }
 
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
@@ -43,6 +41,21 @@ fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<Vec<u
 #[tauri::command]
 fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
     clipboard::write_clipboard_binary(ty, data)
+}
+
+#[tauri::command]
+async fn ffmpeg_check(app: tauri::AppHandle) -> Result<bool, String> {
+    ffmpeg::check_ffmpeg(&app).await
+}
+
+#[tauri::command]
+async fn ffmpeg_download(app: tauri::AppHandle) -> Result<(), String> {
+    ffmpeg::download_ffmpeg(app).await
+}
+
+#[tauri::command]
+async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String, String> {
+    ffmpeg::call_ffmpeg(&app, args).await
 }
 
 #[tauri::command]
@@ -115,7 +128,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_valtio::Builder::new().build())
-        .plugin(tauri_plugin_nspopover::init())
+        // .plugin(tauri_plugin_nspopover::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .filter(|metadata| {
@@ -123,6 +136,15 @@ pub fn run() {
                         && !metadata.target().starts_with("sqlx")
                 })
                 .level(LevelFilter::Debug)
+                .clear_targets()
+                .targets(vec![
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("dtm.log".to_string()),
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                ])
+                .max_file_size(200000)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
@@ -140,8 +162,10 @@ pub fn run() {
             projects_db_project_remove,
             projects_db_project_scan,
             projects_db_project_update_exclude,
+            projects_db_project_bulk_update_missing_on,
             projects_db_image_count, // #unused
             projects_db_image_list,
+            projects_db_get_clip,
             projects_db_image_rebuild_fts,
             projects_db_watch_folder_list,
             projects_db_watch_folder_add,
@@ -156,7 +180,17 @@ pub fn run() {
             dt_project_find_predecessor_candidates,
             dt_project_get_tensor_raw, // #unused
             dt_project_get_tensor_size,
-            dt_project_decode_tensor
+            dt_project_decode_tensor,
+            vid::create_video_from_frames,
+            vid::save_all_clip_frames,
+            vid::check_pattern,
+            ffmpeg_check,
+            ffmpeg_download,
+            ffmpeg_download,
+            ffmpeg_call,
+            bookmarks::pick_draw_things_folder,
+            bookmarks::resolve_bookmark,
+            bookmarks::stop_accessing_bookmark
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {
@@ -183,7 +217,7 @@ pub fn run() {
                 .title("DTM")
                 .inner_size(800.0, 600.0)
                 .min_inner_size(600.0, 400.0)
-                .visible(false)
+                .visible(true)
                 .disable_drag_drop_handler();
 
             // set transparent title bar only when building for macOS
@@ -209,6 +243,12 @@ pub fn run() {
             //     .init();
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app_handle, event| match event {
+            tauri::RunEvent::Exit => {
+                bookmarks::cleanup_bookmarks();
+            },
+            _ => {}
+        });
 }

@@ -14,6 +14,7 @@ export function DTImageProvider(props: DTImageProviderProps) {
 	const model = models.getModel("Model", image?.config?.model)
 	const loras = image?.node?.loras?.map((l) => models.getModel("Lora", l.file))
 	const controls = image?.node?.controls?.map((c) => models.getModel("Cnet", c.file))
+	const refiner = models.getModel("Model", image?.groupedConfig?.refiner?.model || undefined)
 
-	return <DTImageContext value={{ image, model, loras, controls }}>{children}</DTImageContext>
+	return <DTImageContext value={{ image, model, loras, controls, refiner }}>{children}</DTImageContext>
 }

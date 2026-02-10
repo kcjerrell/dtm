@@ -1,17 +1,14 @@
 import { listen } from "@tauri-apps/api/event"
 import EventEmitter from "eventemitter3"
-import {
-    type EventMap,
-    type IContainer,
-    type IStateService, 
-    isDisposable
-} from "./interfaces"
+import { type EventMap, type IContainer, type IStateService, isDisposable } from "./interfaces"
 
 type FutureServices<T extends Record<string, object> = Record<string, object>> = Partial<{
     [K in keyof T]: PromiseWithResolvers<T[K]>
 }>
 
 type TagHandler = (tag: string, data?: Record<string, unknown>) => void
+type TagFormatter = (tag: string, data?: Record<string, unknown>) => string
+type TagService = { formatTags: TagFormatter, handleTags: TagHandler }
 
 export class Container<
         T extends { [K in keyof T]: IStateService<IContainer<T>> } = object,
@@ -25,30 +22,32 @@ export class Container<
     private futureServices: FutureServices<T> = {}
     private invalidateUnlistenPromise: Promise<() => void>
     private updateUnlistenPromise: Promise<() => void>
-    private tagHandlers: Map<string, TagHandler> = new Map()
+    private tagHandlers: Map<string, TagService> = new Map()
 
     constructor(servicesInit: () => T) {
         super()
 
-        buildContainer<Container<T, E>>(this, servicesInit, (name: keyof T, service: T[keyof T]) => {
-            this.services[name] = service
+        buildContainer<Container<T, E>>(
+            this,
+            servicesInit,
+            (name: keyof T, service: T[keyof T]) => {
+                this.services[name] = service
 
-            const future = this.futureServices[name]
-            if (future) {
-                future.resolve(service)
-                delete this.futureServices[name]
-            }
-        })
+                const future = this.futureServices[name]
+                if (future) {
+                    future.resolve(service)
+                    delete this.futureServices[name]
+                }
+            },
+        )
 
         this.invalidateUnlistenPromise = listen("invalidate-tags", (event) => {
-            console.debug("invalidate-tags", event)
-            const payload = event.payload as { tag: string; desc: string }                                                                                                                                  
-            this.handleTags(payload.tag, { desc: payload.desc })
+            const { tag, desc } = event.payload as { tag: string; desc: string }
+            this.handleTags(tag, { desc })
         })
         this.updateUnlistenPromise = listen("update-tags", (event) => {
-            console.debug("update-tags", event)
-            const payload = event.payload as { tag: string; data: Record<string, unknown> }
-            this.handleTags(payload.tag, payload.data)
+            const { tag, data } = event.payload as { tag: string; data: Record<string, unknown> }
+            this.handleTags(tag, data)
         })
     }
 
@@ -69,24 +68,29 @@ export class Container<
         return future.promise
     }
 
-    addTagHandler(tagRoot: string, handler: TagHandler) {
+    addTagHandler(tagRoot: string, handler: TagHandler, formatter: TagFormatter) {
         if (this.tagHandlers.has(tagRoot)) {
             throw new Error(`Tag handler for ${tagRoot} already exists`)
         }
-        this.tagHandlers.set(tagRoot, handler)
+        this.tagHandlers.set(tagRoot, { handleTags: handler, formatTags: formatter })
     }
 
     async handleTags(tag: string, data?: Record<string, unknown>) {
         const root = tag.split(":")[0]
         const handler = this.tagHandlers.get(root)
+
         if (handler) {
-            handler(tag, data)
+            handler.handleTags(tag, data)
+            console.debug(handler.formatTags(tag, data))
         } else {
             console.warn("no handler for tag", tag)
         }
     }
 
-    override emit<EN extends EventEmitter.EventNames<E>>(eventName: EN, ...args: EventEmitter.EventArgs<E, EN>): boolean {
+    override emit<EN extends EventEmitter.EventNames<E>>(
+        eventName: EN,
+        ...args: EventEmitter.EventArgs<E, EN>
+    ): boolean {
         console.debug("emit", eventName, args)
         return super.emit(eventName, ...args)
     }
@@ -122,7 +126,7 @@ export function registerContainerService<C extends IContainer>(name: string, ser
 function buildContainer<C extends Container = Container>(
     container: C,
     servicesInit: () => C["services"],
-    register: (name: keyof C["services"], service: C["services"][keyof C["services"]] ) => void,
+    register: (name: keyof C["services"], service: C["services"][keyof C["services"]]) => void,
 ) {
     _containerStack.push({ container, register })
     const services = servicesInit()

@@ -1,0 +1,2836 @@
+[
+    {
+        "lineage": 2,
+        "logical_time": 0,
+        "start_edits": 0,
+        "start_positive_text": "",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "war in space, lasers, spacestation in space, people, futuristic, planet outside window, unreal engine, octane render, bokeh, vray, houdini render, quixel megascans, arnold render, 8k uhd, raytracing, cgi, lumen reflections, cgsociety, ultra realistic, 100mm, film photography, dslr, cinema4d, studio quality, film grain, trending on artstation, trending on cgsociety"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 366
+                },
+                "text": "3d fluffy llama, closeup cute and adorable, cute big circular reflective eyes, long fuzzy fur, pixar render, unreal engine cinematic smooth, intricate detail, cinematic"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 168
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "O"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "m"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 14
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "T"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "d"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 19
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "k"
+            }
+        ]
+    },
+    {
+        "lineage": 2,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "an ugly turke",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "1"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "2"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 13
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "w"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "m"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "p"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "c"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "3"
+            }
+        ]
+    },
+    {
+        "lineage": 5,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "an ugly turke",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "1"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "2"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 12
+                },
+                "text": "b"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 21,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 21,
+                    "length": 0
+                },
+                "text": "3"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": " "
+            }
+        ]
+    },
+    {
+        "lineage": 3,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "an ugly turke",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "1"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "2"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 13
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "w"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "m"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "p"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "c"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "3"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "4"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 15
+                },
+                "text": "h"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "p"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "p"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "d"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "u"
+            }
+        ]
+    },
+    {
+        "lineage": 3,
+        "logical_time": 2,
+        "start_edits": 100,
+        "start_positive_text": "happy dinosaur(#4)",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            }
+        ]
+    },
+    {
+        "lineage": 4,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "an ugly turke",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "1"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 19
+                },
+                "text": "m"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "m"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "2"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "7"
+            }
+        ]
+    },
+    {
+        "lineage": 6,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "an ugly turke",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "1"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "2"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 12
+                },
+                "text": "b"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 21,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 21,
+                    "length": 0
+                },
+                "text": "3"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 9
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "c"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 2
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "h"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 3
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "5"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "d"
+            }
+        ]
+    },
+    {
+        "lineage": 7,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "an ugly turke",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "("
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "#"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "1"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": ")"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "2"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "3"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 15
+                },
+                "text": "b"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": " "
+            }
+        ]
+    },
+    {
+        "lineage": 8,
+        "logical_time": 0,
+        "start_edits": 0,
+        "start_positive_text": "",
+        "start_negative_text": "",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "war in space, lasers, spacestation in space, people, futuristic, planet outside window, unreal engine, octane render, bokeh, vray, houdini render, quixel megascans, arnold render, 8k uhd, raytracing, cgi, lumen reflections, cgsociety, ultra realistic, 100mm, film photography, dslr, cinema4d, studio quality, film grain, trending on artstation, trending on cgsociety"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 366
+                },
+                "text": "3d fluffy llama, closeup cute and adorable, cute big circular reflective eyes, long fuzzy fur, pixar render, unreal engine cinematic smooth, intricate detail, cinematic"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 168
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "O"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "m"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 14
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "T"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 4,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "g"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "d"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "s"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": "r"
+            },
+            {
+                "modification_type": "NegativeText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 1
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 13
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 0,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 1,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 2,
+                    "length": 0
+                },
+                "text": "b"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 3,
+                    "length": 0
+                },
+                "text": "r"
+            }
+        ]
+    },
+    {
+        "lineage": 8,
+        "logical_time": 1,
+        "start_edits": 50,
+        "start_positive_text": "a bro",
+        "start_negative_text": " ",
+        "modifications": [
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 5,
+                    "length": 0
+                },
+                "text": "w"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 6,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 7,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 8,
+                    "length": 0
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 9,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 10,
+                    "length": 0
+                },
+                "text": "z"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 11,
+                    "length": 0
+                },
+                "text": "z"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 12,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 13,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 14,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 15,
+                    "length": 0
+                },
+                "text": "l"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 16,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 17,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 18,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 19,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 20,
+                    "length": 0
+                },
+                "text": "w"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 21,
+                    "length": 0
+                },
+                "text": "i"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 22,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 23,
+                    "length": 0
+                },
+                "text": "h"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 24,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 25,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 26,
+                    "length": 0
+                },
+                "text": "n"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 27,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 28,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 29,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 30,
+                    "length": 0
+                },
+                "text": "y"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 31,
+                    "length": 0
+                },
+                "text": "e"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 24,
+                    "length": 8
+                },
+                "text": ""
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 24,
+                    "length": 0
+                },
+                "text": "o"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 25,
+                    "length": 0
+                },
+                "text": "u"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 26,
+                    "length": 0
+                },
+                "text": "t"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 27,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 28,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 29,
+                    "length": 0
+                },
+                "text": " "
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 30,
+                    "length": 0
+                },
+                "text": "f"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 31,
+                    "length": 0
+                },
+                "text": "a"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 32,
+                    "length": 0
+                },
+                "text": "c"
+            },
+            {
+                "modification_type": "PositiveText",
+                "range": {
+                    "location": 33,
+                    "length": 0
+                },
+                "text": "e"
+            }
+        ]
+    }
+]

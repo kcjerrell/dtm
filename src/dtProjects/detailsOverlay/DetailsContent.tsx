@@ -27,8 +27,8 @@ function DetailsContent(props: DetailsContentProps) {
         <Panel
             flex={"1 1 auto"}
             overflow={"clip"}
-            padding={2}
             onClick={(e) => e.stopPropagation()}
+            padding={0}
             {...boxProps}
             asChild
         >
@@ -50,7 +50,7 @@ function DetailsContent(props: DetailsContentProps) {
                 animate={"open"}
                 exit={"closed"}
             >
-                <Tabs.Root overflowY={"auto"} defaultValue={"details"}>
+                <Tabs.Root overflowY={"auto"} defaultValue={"details"} className={"panel-scroll"}>
                     <Tabs.List>
                         <Tabs.Trigger height={"2rem"} value="details">
                             Details
@@ -59,7 +59,7 @@ function DetailsContent(props: DetailsContentProps) {
                             Raw
                         </Tabs.Trigger>
                     </Tabs.List>
-                    <Tabs.Content value={"raw"}>
+                    <Tabs.Content value={"raw"} padding={2}>
                         <DataItem
                             size={"sm"}
                             label={"Raw"}
@@ -67,7 +67,7 @@ function DetailsContent(props: DetailsContentProps) {
                         />
                     </Tabs.Content>
 
-                    <Tabs.Content value="details">
+                    <Tabs.Content value="details" padding={2}>
                         {/* <Grid
                             overflowY={"auto"}
                             gridTemplateColumns={"1fr 1fr"}
@@ -169,15 +169,26 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.TiledDiffusion value={config.tiledDiffusion} />
                                 <DataItem.Upscaler value={config.upscaler} />
                                 {/* <DataItem.Batch value={config.batch} /> */}
+                                <DataItem.NumFrames value={snap.item?.num_frames} />
                                 <DataItem.CausalInference value={config.causalInference} />
                                 <DataItem.CfgZero value={config.cfgZero} />
                                 <DataItem.MaskBlur value={config.maskBlur} />
+                                <DataItem
+                                    label={"Mask Outset"}
+                                    data={snap.itemDetails?.groupedConfig?.maskBlur?.outset}
+                                />
                                 <DataItem.Sharpness value={config.sharpness} />
                                 <DataItem.Stage2 value={config.stage2} />
                                 <DataItem.ImagePrior value={config.imagePrior} />
                                 <DataItem.AestheticScore value={config.aestheticScore} />
                                 <DataItem.TeaCache value={config.teaCache} />
                             </Grid>
+                            <DataItem label={"Node ID"} data={snap.item?.node_id} />
+                            <DataItem label={"Lineage"} data={snap.itemDetails?.node.lineage} />
+                            <DataItem
+                                label={"Logical Time"}
+                                data={snap.itemDetails?.node.logical_time}
+                            />
                             <DataItem
                                 label={"Tensor ID"}
                                 data={snap.itemDetails.images?.tensorId}

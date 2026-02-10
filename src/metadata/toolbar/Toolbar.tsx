@@ -2,7 +2,7 @@ import { Box } from "@chakra-ui/react"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { useSnapshot } from "valtio"
 import { useMessages } from "@/context/Messages"
-import { MetadataStore } from "../state/store"
+import { getMetadataStore } from "../state/store"
 import { toolbarCommands } from "./commands"
 import { ContentHeaderContainer, ToolbarButtonGroup, ToolbarContainer, ToolbarRoot } from "./parts"
 import ToolbarItem from "./ToolbarItem"
@@ -10,7 +10,7 @@ import ToolbarItem from "./ToolbarItem"
 function Toolbar(props: ChakraProps) {
 	const { ...restProps } = props
 
-	const snap = useSnapshot(MetadataStore)
+	const snap = useSnapshot(getMetadataStore())
 
 	const messageChannel = useMessages("toolbar")
 

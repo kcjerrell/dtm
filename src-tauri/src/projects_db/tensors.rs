@@ -5,13 +5,13 @@ use fpzip_sys::*;
 use image::GrayImage;
 use png::{BitDepth, ColorType, Encoder};
 
+
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
 
-use crate::projects_db::dt_project::TensorRaw;
+use crate::projects_db::dtos::tensor::{TensorRaw, TensorHistoryNode};
 use crate::projects_db::metadata::DrawThingsMetadata;
-use crate::projects_db::tensor_history::TensorHistoryNode;
 
 // const HEADER_SIZE: usize = 68;
 // const FPZIP_MAGIC: u32 = 1012247;

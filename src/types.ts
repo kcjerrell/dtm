@@ -233,3 +233,8 @@ export const SeedModeLabels = [
   'Scale Alike',
   'Nvidia Gpu Compatible',
 ]
+
+export enum MediaType {
+    Image = 0,
+    Video = 1,
+}

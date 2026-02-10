@@ -1,12 +1,11 @@
-import { Box, Button, chakra, Em, HStack, Input, VStack } from "@chakra-ui/react"
+import { Box, Button, chakra, Em, HStack, Textarea, VStack } from "@chakra-ui/react"
 import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
-import { PiInfo } from "@/components/icons"
+import { PiInfo } from "@/components/icons/icons"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../state/context"
 import SearchFilterForm from "./filters/SearchFilterForm"
 
-    
 interface SearchPanelComponentProps extends ChakraProps {}
 
 function SearchPanel(props: SearchPanelComponentProps) {
@@ -17,7 +16,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
     const { shouldFocus } = uiState.useSnap()
 
     const [searchInput, setSearchInput] = useState("")
-    const searchInputRef = useRef<HTMLInputElement>(null)
+    const searchInputRef = useRef<HTMLTextAreaElement>(null)
 
     useEffect(() => {
         models.refreshModels()
@@ -28,10 +27,6 @@ function SearchPanel(props: SearchPanelComponentProps) {
             searchInputRef.current.focus()
         }
     }, [shouldFocus])
-
-    // useEffect(() => {
-    // searchService.incLayoutId()
-    // }, [searchService.incLayoutId])
 
     return (
         <TabContent
@@ -46,13 +41,16 @@ function SearchPanel(props: SearchPanelComponentProps) {
             {...restProps}
         >
             <HStack>
-                <Input
+                <Textarea
                     ref={searchInputRef}
+                    rows={1}
+                    autoresize
                     bgColor={"bg.3"}
                     value={searchInput}
                     onChange={(e) => {
-                        setSearchInput(e.target.value)
-                        search.state.searchInput = e.target.value
+                        const value = e.target.value.replace(/\n/g, "")
+                        setSearchInput(value)
+                        search.state.searchInput = value
                     }}
                     border={"2px solid gray"}
                     borderRadius={"lg"}
@@ -102,6 +100,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
                     flex={"0 0 auto"}
                     onClick={() => {
                         setSearchInput("")
+                        search.state.searchInput = ""
                         search.clearFilters()
                     }}
                 >
@@ -123,14 +122,25 @@ function SearchInfo() {
     return (
         <VStack fontSize={"sm"} alignItems={"flex-start"}>
             <Box>Images will match if the prompt contains any of the search terms.</Box>
-            <Box>Search terms are stemmed, so <Em>shade</Em>, <Em>shades</Em>, <Em>shading</Em>, and <Em>shaded</Em> are all seen as the same word.</Box>
+            <Box>
+                Search terms are stemmed, so <Em>shade</Em>, <Em>shades</Em>, <Em>shading</Em>, and{" "}
+                <Em>shaded</Em> are all seen as the same word.
+            </Box>
             <Box>Wrap words or phrases in "quotes" to require an exact text match.</Box>
             <B>cow boy</B>
-            <Box marginTop={-2}>Matches images that have the words <Em>cow</Em> or <Em>boy</Em> in the prompt - but not <Em>cowboy</Em> since that is a different word</Box>
+            <Box marginTop={-2}>
+                Matches images that have the words <Em>cow</Em> or <Em>boy</Em> in the prompt - but
+                not <Em>cowboy</Em> since that is a different word
+            </Box>
             <B>"cow" "boy"</B>
-            <Box marginTop={-2}>Matches images that have both <Em>cow</Em> and <Em>boy</Em> in the prompt - including <Em>cowboys</Em></Box>
+            <Box marginTop={-2}>
+                Matches images that have both <Em>cow</Em> and <Em>boy</Em> in the prompt -
+                including <Em>cowboys</Em>
+            </Box>
             <B>"cow boy"</B>
-            <Box marginTop={-2}>Matches images that have the exact phrase <Em>cow boy</Em> in the prompt</Box>
+            <Box marginTop={-2}>
+                Matches images that have the exact phrase <Em>cow boy</Em> in the prompt
+            </Box>
         </VStack>
     )
 }
@@ -138,7 +148,7 @@ function SearchInfo() {
 const B = chakra("span", {
     base: {
         fontWeight: "bold",
-        marginBottom: "0"
+        marginBottom: "0",
     },
 })
 

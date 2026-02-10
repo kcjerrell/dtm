@@ -1,11 +1,12 @@
-import { type ImageExtra, pdb } from "@/commands"
+import { proxy, subscribe, useSnapshot } from "valtio"
+import { pdb } from "@/commands"
 import {
     EmptyItemSource,
     type IItemSource,
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
+import type { ImageExtra } from "@/generated/types"
 import type { ContainerEvent } from "@/utils/container/StateController"
-import { proxy, useSnapshot } from "valtio"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
@@ -46,14 +47,17 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         super("images")
 
         this.container.getFutureService("projects").then((projectsService) => {
-            this.watchProxy((get) => {
-                const p = get(projectsService.state.selectedProjects)
-                this.setSelectedProjects(p)
+            const unsubProjects = subscribe(projectsService.state.selectedProjects, () => {
+                this.buildImageSource()
             })
-            this.watchProxy((get) => {
+            this.unwatchFns.push(unsubProjects)
+
+            this.watchProxy(async (get) => {
                 const p = get(projectsService.state.projects)
                 const changed = updateProjectsCache(p, this.projectsCache)
+
                 if (changed.length > 0) {
+                    await this.container.services.uiState.importLockPromise
                     if (this.eventTimer) return
                     clearTimeout(this.eventTimer)
                     this.eventTimer = setTimeout(async () => {
@@ -67,10 +71,15 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
         this.watchProxy((get) => {
             const source = get(this.state.imageSource)
-
+            console.log("imageSource", source)
             const getItems = async (skip: number, take: number) => {
-                const res = await pdb.listImages(source, skip, take)
-                return res.items
+                const s = { ...source }
+                if (s.showImage === false && s.showVideo === false) {
+                    s.showImage = true
+                    s.showVideo = true
+                }
+                const res = await pdb.listImages(s, skip, take)
+                return res.images
             }
             const getCount = async () => {
                 await this.refreshImageCounts()
@@ -92,6 +101,16 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         })
     }
 
+    buildImageSource(search?: { text?: string; filters?: BackendFilter[] }) {
+        if (search) {
+            this.setSearchText(search.text)
+            this.setSearchFilters(search.filters)
+        }
+
+        const selectedProjects = this.container.getService("projects")?.state.selectedProjects
+        if (selectedProjects) this.setSelectedProjects(selectedProjects)
+    }
+
     projectsCache: Record<number, number> = {}
 
     toggleSortDirection() {
@@ -100,15 +119,18 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         else this.state.imageSource.direction = "asc"
     }
 
-    async setSearchFilter(searchText?: string, filter?: BackendFilter[]) {
-        this.state.imageSource.search = searchText
-            ?.replace(/\u201C|\u201D/g, '"')
-            .replace(/\u2018|\u2019/g, "'")
-        this.state.imageSource.filters = filter?.map((f) => ({
+    async setSearchFilters(filters?: BackendFilter[]) {
+        this.state.imageSource.filters = filters?.map((f) => ({
             target: f.target.toLowerCase(),
             operator: f.operator,
             value: f.value,
         }))
+    }
+
+    async setSearchText(searchText?: string) {
+        this.state.imageSource.search = searchText
+            ?.replace(/\u201C|\u201D/g, '"')
+            .replace(/\u2018|\u2019/g, "'")
     }
 
     async setSelectedProjects(projects: ProjectState[]) {
@@ -126,7 +148,13 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
     }
 
     async refreshImageCounts() {
-        const { total, counts } = await pdb.listImagesCount(this.state.imageSource)
+        const source = { ...this.state.imageSource }
+        console.log("refreshImageCounts", source)
+        if (source.showImage === false && source.showVideo === false) {
+            source.showImage = true
+            source.showVideo = true
+        }
+        const { total, counts } = await pdb.listImagesCount(source)
         const projectCounts = {} as Record<string, number>
         for (const count of counts) {
             projectCounts[count.project_id] = count.count
@@ -140,6 +168,14 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
               )
             : total
         this.state.totalImageCount = total
+    }
+
+    setShowVideos(show: boolean) {
+        this.state.imageSource.showVideo = show
+    }
+
+    setShowImages(show: boolean) {
+        this.state.imageSource.showImage = show
     }
 
     useItemSource() {
@@ -166,7 +202,7 @@ function updateProjectsCache(
         visited[project.id] = null
         if (cache[project.id] !== project.image_count) {
             projectsChanged.push(project.id)
-            cache[project.id] = project.image_count
+            cache[project.id] = project.image_count ?? 0
         }
     }
 

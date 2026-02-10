@@ -4,7 +4,7 @@ import { createPortal } from "react-dom"
 import type { Model } from "@/commands"
 import { IconButton, PaneListContainer, PanelListItem } from "@/components"
 import { PaneListScrollContainer, PanelListScrollContent } from "@/components/common"
-import { FiX, TbSortAscendingLetters, TbSortDescendingNumbers } from "@/components/icons"
+import { FiX, TbSortAscendingLetters, TbSortDescendingNumbers } from "@/components/icons/icons"
 import PanelList from "@/components/PanelList"
 import { ContentPanelPopup } from "@/dtProjects/imagesList/ContentPanelPopup"
 import { useDTP } from "@/dtProjects/state/context"
@@ -134,7 +134,7 @@ function ModelValueSelectorComponent(
                         }}
                         maxWidth={"30rem"}
                         shadeProps={{
-                            pointerEvents: "none"
+                            pointerEvents: "none",
                         }}
                     >
                         <VStack

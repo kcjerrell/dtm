@@ -1,6 +1,7 @@
 import { proxy, ref, useSnapshot } from "valtio"
-import { type DTImageFull, dtProject, type ImageExtra, type TensorHistoryExtra } from "@/commands"
+import { type DTImageFull, dtProject, type TensorHistoryExtra } from "@/commands"
 import urls from "@/commands/urls"
+import type { ImageExtra } from "@/generated/types"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ProjectState } from "./projects"
@@ -94,8 +95,21 @@ export class UIController extends DTPStateController<UIControllerState> {
         this.state.isGridInert = inert ?? !this.state.isGridInert
     }
 
+    _importLockPromise = Promise.resolve()
+    _importLockResolver: (() => void) | null = null
+    get importLockPromise() {
+        return this._importLockPromise
+    }
+    /** show/hide the import lock */
     setImportLock(lock: boolean) {
         this.state.importLock = lock
+        if (lock) {
+            this._importLockPromise = new Promise((resolve) => {
+                this._importLockResolver = resolve
+            })
+        } else {
+            this._importLockResolver?.()
+        }
     }
 
     async showDetailsOverlay(item: ImageExtra) {

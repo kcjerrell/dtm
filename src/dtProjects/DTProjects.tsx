@@ -1,15 +1,15 @@
+import { chakra } from "@chakra-ui/react"
 import { useEffect } from "react"
 import { Panel } from "@/components"
-import { LayoutRoot } from "@/metadata/Containers"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
 import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
-import { SettingsPanel } from "./SettingsPanel"
+import { SettingsPanel } from "./settingsPanel/SettingsPanel"
 import { useDTP } from "./state/context"
 
-function ProjectData(props: ChakraProps) {
+function DTProjects(props: ChakraProps) {
     const { ...restProps } = props
 
     const { uiState, projects } = useDTP()
@@ -29,28 +29,48 @@ function ProjectData(props: ChakraProps) {
     }, [projects, uiState])
 
     return (
-        <LayoutRoot position={"relative"} {...restProps}>
+        <Container position={"relative"} {...restProps}>
             <ImportProgress open={uiSnap.importLock} />
-            <ControlPane margin={2} />
+            <ControlPane />
             <Panel
                 id={"project-content-pane"}
                 position="relative"
-                margin={2}
-                marginLeft={0}
-                p={0.5}
-                // overflow={"clip"}
-                flex={"1 1 auto"}
                 bgColor={"bg.2"}
                 alignItems={"stretch"}
                 justifyContent={"flex-start"}
+                overflow={"hidden"}
+                padding={0}
             >
-                <StatusBar flex={"0 0 auto"} />
-                <ImagesList flex={"1 1 auto"} />
+                <StatusBar flex={"0 0 auto"} width={"100%"} maxWidth={"100%"} />
+                <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
                 {uiSnap.isSettingsOpen && <SettingsPanel />}
             </Panel>
             <DetailsOverlay />
-        </LayoutRoot>
+        </Container>
     )
 }
 
-export default ProjectData
+export const Container = chakra("div", {
+    base: {
+        flex: "1 1 auto",
+
+        display: "grid",
+        gridTemplateColumns: "18rem 1fr",
+        gridTemplateRows: "100%",
+        gridTemplateAreas: "controlPane content",
+
+        width: "100%",
+        height: "100%",
+
+        gap: 2,
+        padding: 2,
+
+        justifyContent: "normal",
+        alignItems: "stretch",
+
+        overflow: "hidden",
+        overscrollBehavior: "none none",
+    },
+})
+
+export default DTProjects

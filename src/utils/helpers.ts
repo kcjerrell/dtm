@@ -60,8 +60,8 @@ export function shuffle<T>(array: T[]): T[] {
         // Pick a random index
         const i = Math.floor(Math.random() * m--)
 
-        // Swap element at m with element at i
-        ;[array[m], array[i]] = [array[i], array[m]]
+            // Swap element at m with element at i
+            ;[array[m], array[i]] = [array[i], array[m]]
     }
 
     return array
@@ -107,7 +107,8 @@ export async function openAnd<T>(
     callback: SingleOpenAndCallback<T> | MultiOpenAndCallback<T>,
     options: Parameters<typeof open>[0] = {},
 ) {
-    const files = await open(options)
+
+    const files = await pickFileForImport(options)
     if (!files || (Array.isArray(files) && files.length === 0)) return null
 
     if (options.multiple) {
@@ -158,7 +159,7 @@ export function getUnknown<T>(obj: unknown, key: string): T | undefined {
  */
 export function plural(n?: number, singular?: string, plural?: string) {
     if (!Number.isNaN(n) && n === 1) return singular ?? ""
-    return plural ?? "s"
+    return plural ?? (singular ? `${singular}s` : "s")
 }
 
 export interface CompareOptions {
@@ -237,4 +238,23 @@ function shallowCompare<T extends Record<string, unknown>>(a: T, b: T, opts: Com
         }
     }
     return true
+}
+
+export function everyNth<T>(arr: T[], n: number): T[] {
+    return arr.filter((_, i) => i % n === 0)
+}
+
+export async function pickFileForImport(options?: Parameters<typeof open>[0]) {
+    const e2eFilePath = (window as any).__E2E_FILE_PATH__
+    console.debug("E2E file path:", e2eFilePath);
+    if (e2eFilePath) {
+        return e2eFilePath;
+    }
+
+    return await open(options);
+}
+
+export function truncate(text: string, length: number) {
+    if (text.length <= length) return text
+    return `${text.slice(0, length)}...`
 }

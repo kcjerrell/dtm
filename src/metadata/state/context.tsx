@@ -1,10 +1,10 @@
-import { createContext, type PropsWithChildren } from "react"
+import { createContext, useContext, type PropsWithChildren } from "react"
 import type { ImageSource } from "@/types"
 import type { ImageItem } from "./ImageItem"
-import type { ExifType, ImageItemParam, MetadataStore } from "./store"
+import type { ExifType, ImageItemParam, getMetadataStore } from "./store"
 
 export type MetadataStoreContextType = {
-	state: typeof MetadataStore
+	state: ReturnType<typeof getMetadataStore>
 	selectImage(image?: ImageItemParam | null): void
 	pinImage(image: ImageItemParam, value: number | boolean | null): void
 	pinImage(useCurrent: true, value: number | boolean | null): void

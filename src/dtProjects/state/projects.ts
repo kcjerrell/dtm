@@ -17,16 +17,40 @@ export type ProjectsControllerState = {
     selectedProjects: ProjectState[]
     showEmptyProjects: boolean
     projectsCount: number
-    projectsScanned: number
 }
 
+const projectSort = (
+    a: Selectable<{
+        name: string
+        id: number
+        fingerprint: string
+        path: string
+        image_count: number | null
+        last_id: number | null
+        filesize: number | null
+        modified: number | null
+        missing_on: number | null
+        excluded: boolean
+    }>,
+    b: Selectable<{
+        name: string
+        id: number
+        fingerprint: string
+        path: string
+        image_count: number | null
+        last_id: number | null
+        filesize: number | null
+        modified: number | null
+        missing_on: number | null
+        excluded: boolean
+    }>,
+): number => a.name.toLowerCase().localeCompare(b.name.toLowerCase())
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
     state = proxy<ProjectsControllerState>({
         projects: [],
         selectedProjects: [],
         showEmptyProjects: false,
         projectsCount: 0,
-        projectsScanned: 0,
     })
 
     hasLoaded = false
@@ -35,25 +59,52 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         super("projects", "projects")
     }
 
+    protected formatTags(
+        tags: string,
+        data?: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra; desc?: string },
+    ): string {
+        if (data?.desc) return `invalidate tag: ${tags} - ${data.desc}`
+        if (data?.removed) return `update tag - removed project - id ${data.removed}`
+        if (data?.added)
+            return `update tag - added project - ${data.added.path.split("/").pop()} id ${data.added.id}`
+        if (data?.updated)
+            return `update tag - updated project - ${data.updated.path.split("/").pop()} id ${data.updated.id}`
+        return `update tag: ${tags} ${String(data)}`
+    }
+
     protected handleTags(
         _tags: string,
         data: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra },
     ) {
         if (data.updated) {
-            const index = this.state.projects.findIndex((p) => p.id === data.updated?.id)
-            if (index !== -1) {
-                if (this.state.projects[index].filesize === 0) {
-                    this.state.projectsScanned++
-                }
-                this.state.projects[index].filesize = data.updated.filesize
-                this.state.projects[index].image_count = data.updated.image_count
-                this.state.projects[index].excluded = data.updated.excluded
-                this.state.projects[index].modified = data.updated.modified
+            this.updateProject(data.updated.id, data.updated)
+        } else if (data.added) {
+            // check if project is already listed
+            if (this.state.projects.some((p) => p.id === data.added?.id)) {
+                this.updateProject(data.added.id, data.added)
+                return true
             }
-        } else {
-            this.loadProjects()
+            this.state.projects.push(
+                makeSelectable({ ...data.added, name: data.added.path.split("/").pop() as string }),
+            )
+            this.state.projects.sort(projectSort)
+            this.state.projectsCount++
+        } else if (data.removed) {
+            const project = this.state.projects.find((p) => p.id === data.removed)
+            if (project) {
+                va.remove(this.state.projects, project)
+                this.state.projectsCount--
+            }
         }
+        this.loadProjectsDebounced()
         return true
+    }
+
+    updateProject(projectId: number, data: Partial<ProjectExtra>) {
+        const project = this.state.projects.find((p) => p.id === projectId)
+        if (project) {
+            Object.assign(project, data)
+        }
     }
 
     private _onProjectsLoaded: ContainerEvent<"projectsLoaded"> = {
@@ -70,13 +121,27 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         va.set(
             this.state.projects,
             projects
-                .map((p) => makeSelectable({ ...p, name: p.path.split("/").pop() as string }))
-                .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
+                .map((p) =>
+                    makeSelectable(
+                        { ...p, name: p.path.split("/").pop() as string },
+                        this.state.selectedProjects.some((sp) => sp.id === p.id),
+                    ),
+                )
+                .sort(projectSort),
         )
         this.state.projectsCount = projects.length
-        this.state.projectsScanned = projects.filter((p) => p.filesize > 0).length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
+    }
+
+    private loadProjectsTimeout: NodeJS.Timeout | null = null
+    async loadProjectsDebounced() {
+        if (this.loadProjectsTimeout) {
+            clearTimeout(this.loadProjectsTimeout)
+        }
+        this.loadProjectsTimeout = setTimeout(() => {
+            this.loadProjects()
+        }, 2000)
     }
 
     async removeProjects(projectFiles: string[]) {
@@ -106,10 +171,11 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             await pdb.updateExclude(project.id, exclude)
             projectState.excluded = exclude
             stateUpdate.push(projectState)
+            projectState.setSelected(false)
         }
         this.setSelectedProjects([])
-        await this.container.getService("scanner").syncProjects(stateUpdate.map((p) => p.path))
-        await this.loadProjects()
+        const scanner = this.container.getService("scanner")
+        await scanner.syncProjects(stateUpdate.map((p) => p.path))
     }
 
     getProject(projectId?: number | null) {
@@ -128,20 +194,18 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     }
 
     setSelectedProjects(projects: ProjectState[]) {
+        for (const project of this.state.projects) {
+            project.setSelected(projects.some((p) => p.id === project.id))
+        }
         va.set(this.state.selectedProjects, projects)
-    }
-
-    useSelectedProjects() {
-        const snap = this.useSnap()
-        return snap.selectedProjects.map((p) => p.id)
     }
 
     useProjectsSummary() {
         const snap = this.useSnap()
         return {
             totalProjects: snap.projects.length,
-            totalImages: snap.projects.reduce((acc, p) => acc + p.image_count, 0),
-            totalSize: snap.projects.reduce((acc, p) => acc + p.filesize, 0),
+            totalImages: snap.projects.reduce((acc, p) => acc + (p.image_count ?? 0), 0),
+            totalSize: snap.projects.reduce((acc, p) => acc + (p.filesize ?? 0), 0),
         }
     }
 

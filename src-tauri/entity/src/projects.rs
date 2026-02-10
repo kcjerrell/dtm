@@ -9,10 +9,12 @@ use serde::Serialize;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
+    pub fingerprint: String,
     #[sea_orm(unique)]
     pub path: String,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
+    pub missing_on: Option<i64>,
     pub excluded: bool,
     #[sea_orm(has_many)]
     pub images: HasMany<super::images::Entity>,

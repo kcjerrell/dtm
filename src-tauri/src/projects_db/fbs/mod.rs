@@ -15,3 +15,7 @@ mod text_modification_generated;
 pub use self::text_modification_generated::*;
 mod text_history_node_generated;
 pub use self::text_history_node_generated::*;
+mod tensor_history_generated;
+pub use self::tensor_history_generated::*;
+mod tensor_data_generated;
+pub use self::tensor_data_generated::*;

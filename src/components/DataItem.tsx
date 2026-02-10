@@ -287,7 +287,8 @@ const templates = {
         const { image } = useDTImage()
         const upscaler = image?.groupedConfig?.upscaler
 
-        const scale = upscaler?.value && upscaler?.scaleFactor ? `(x${upscaler.scaleFactor})` : ""
+        let scale = ""
+        if (upscaler?.value) scale = upscaler.scaleFactor === 2 ? "(x2)" : "(x4)"
 
         if (!value?.width || !value?.height) return null
         return (
@@ -346,6 +347,7 @@ const templates = {
     },
     NumFrames: (props: DataItemTemplateProps<"numFrames">) => {
         const { value, ...rest } = props
+
         if (!value) return null
         return <DataItem label={"Num Frames"} data={value} {...rest} />
     },
@@ -389,9 +391,12 @@ const templates = {
     },
     Refiner: (props: DataItemTemplateProps<"refiner">) => {
         const { value, ...rest } = props
+        const { refiner } = useDTImage()
         if (!value?.model) return null
+
+        const name = refiner?.name || value.model
         const start = value.start !== undefined ? ` (${(value.start * 100).toFixed(1)}%)` : ""
-        return <DataItem label={"Refiner"} data={`${value.model}${start}`} {...rest} />
+        return <DataItem label={"Refiner"} data={`${name}${start}`} {...rest} />
     },
     Shift: (props: DataItemTemplateProps<"shift">) => {
         const { value, ...rest } = props

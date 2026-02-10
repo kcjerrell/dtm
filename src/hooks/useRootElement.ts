@@ -27,6 +27,10 @@ function getElement(id: keyof typeof rootElementIds, view?: string) {
 export function useRootElement(rootElement: RootElement) {
     const { currentView } = useSnapshot(AppStore.store)
 
+    if (process.env.NODE_ENV === "test") {
+        return document.getElementById("root")
+    }
+
     const element = getElement(rootElement, currentView)
     if (!element) throw new Error(`Element ${rootElementIds[rootElement]} not found`)
     return element

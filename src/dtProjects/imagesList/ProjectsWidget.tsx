@@ -1,40 +1,31 @@
-import { Box, HStack } from "@chakra-ui/react"
-import { FiX } from "@/components/icons"
-import { IconButton } from "@/components"
+import { plural } from "@/utils/helpers"
 import { useDTP } from "../state/context"
+import SearchChip from "./SearchChip"
 
 interface ProjectsWidgetProps extends ChakraProps {}
 
 function ProjectsWidget(props: ProjectsWidgetProps) {
     const { ...restProps } = props
 
-    const { images } = useDTP()
-    const snap = images.useSnap()
+    const { projects, uiState } = useDTP()
+    const pSnap = projects.useSnap()
 
-    const projects = snap.imageSource.projectIds?.length
+    const projectsCount = pSnap.selectedProjects.length
 
-    if (!projects) return null
+    if (!projectsCount) return null
 
     return (
-        <HStack
-            className={"group"}
-            cursor={"pointer"}
-            // gridArea={"1/2"}
-            // justifySelf={"center"}
+        <SearchChip
+            onClick={() => {
+                uiState.setSelectedTab("projects")
+            }}
+            onClickX={() => {
+                projects.setSelectedProjects([])
+            }}
             {...restProps}
         >
-            <Box>{projects} projects selected</Box>
-            <IconButton
-                size="min"
-                onClick={() => {
-                    images.setSelectedProjects([])
-                }}
-                visibility="hidden"
-                _groupHover={{ visibility: "visible" }}
-            >
-                <FiX />
-            </IconButton>
-        </HStack>
+            {projectsCount} {plural(projectsCount, "project")}
+        </SearchChip>
     )
 }
 

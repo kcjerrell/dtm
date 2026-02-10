@@ -1,135 +1,58 @@
 import { exists, stat } from "@tauri-apps/plugin-fs"
-import { pdb } from "@/commands"
+import { type ProjectExtra, pdb } from "@/commands"
 import type { JobCallback } from "@/utils/container/queue"
+import { TMap } from "@/utils/TMap"
+import { syncModelInfoJob } from "../jobs/models"
+import { getRefreshModelsJob } from "./models"
 import {
+    type DTPContainer,
     type DTPJob,
-    type DTPJobSpec,
     DTPStateService,
     type ProjectFilesChangedPayload,
+    type SyncScope,
     type WatchFoldersChangedPayload,
 } from "./types"
-import type { WatchFolderState } from "./watchFolders"
-import { getRefreshModelsJob } from "./models"
+import type { ListModelInfoFilesResult, ProjectFileStats, WatchFolderState } from "./watchFolders"
 
 class ScannerService extends DTPStateService {
     constructor() {
         super("scanner")
-
         this.container.on("watchFoldersChanged", (e) => this.onWatchFoldersChanged(e))
-
         this.container.on("projectFilesChanged", async (e) => this.onProjectFilesChanged(e))
     }
 
     async onWatchFoldersChanged(e: WatchFoldersChangedPayload) {
         const syncFolders = [e.added, e.changed].flat() as WatchFolderState[]
-        for (const folder of syncFolders) {
-            if (folder.item_type === "ModelInfo") {
-                const job = getModelInfoJob(folder.path)
-                this.container.getService("jobs").addJob(job)
-            } else if (folder.item_type === "Projects") {
-                const job = syncProjectFolderJob(folder.path)
-                this.container.getService("jobs").addJob(job)
-            } else throw new Error("Invalid item type")
+        if (syncFolders.length > 0) {
+            this.sync({ watchFolders: syncFolders }, () => {
+                console.log("sync finished?")
+            })
         }
         if (e.removed.length > 0) {
-            this.syncProjectFolders(undefined, () => {
-                this.syncModelInfo()
+            this.sync({}, () => {
+                console.log("sync finished?")
             })
         }
     }
 
     async onProjectFilesChanged(e: ProjectFilesChangedPayload) {
-        {
-            const jobs = []
-            for (const projectFile of e.files) {
-                const stats = await getProjectStats(projectFile)
-                const project = this.container
-                    .getService("projects")
-                    .state.projects.find((p) => p.path === projectFile)
-                if (project?.excluded) continue
-
-                if (!stats || stats === "dne") {
-                    if (project) {
-                        jobs.push(
-                            getProjectJob(projectFile, { action: "remove", size: 0, mtime: 0 }),
-                        )
-                    }
-                    continue
-                }
-
-                if (!project) {
-                    jobs.push(getProjectJob(projectFile, { action: "add", ...stats }))
-                    continue
-                }
-
-                jobs.push(getProjectJob(projectFile, { action: "update", ...stats }))
-            }
-            this.container.getService("jobs").addJobs(jobs)
-        }
+        this.syncProjects(e.files)
     }
 
-    /**
-     * if watchfolder provided, the projects in that folder will be add/updated to the db. This won't
-     * remove any projects.
-     * If not provided, every project in the db and every project in the watchfolders will be checked.
-     * This may remove projects, if the project file is missing and thw watchfolder is still present
-     */
-    syncProjectFolders(watchFolder?: string, callback?: JobCallback<null>) {
-        if (watchFolder) {
-            const job = syncProjectFolderJob(watchFolder, () => {
-                callback?.()
-            })
-            this.container.getService("jobs").addJob(job)
-        } else {
-            const job = syncProjectsJob(() => {
-                callback?.()
-            })
-            this.container.getService("jobs").addJob(job)
+    sync(scope: SyncScope, callback?: JobCallback<null>) {
+        console.log("starting sync job", scope)
+        const callbackWrapper = () => {
+            console.log("sync finished")
+            callback?.()
         }
+        const job = createSyncJob(scope, callbackWrapper)
+        this.container.getService("jobs").addJob(job)
     }
 
     async syncProjects(projectPaths: string[], callback?: JobCallback<null>) {
-        const result: DTPJob[] = []
-        const projects = this.container.getService("projects")
-
-        for (const path of projectPaths) {
-            const stats = await getProjectStats(path)
-            const project = projects.state.projects.find((p) => p.path === path)
-
-            if (!stats || stats === "dne") {
-                if (project) {
-                    result.push(getProjectJob(path, { action: "remove", size: 0, mtime: 0 }))
-                }
-                continue
-            }
-
-            if (!project) {
-                result.push(getProjectJob(path, { action: "add", ...stats }))
-            }
-
-            if (project?.excluded) continue
-
-            if (project?.filesize !== stats.size || project?.modified !== stats.mtime) {
-                result.push(getProjectJob(path, { action: "update", ...stats }))
-            }
-        }
-
-        if (result.length > 0) {
-            this.container.getService("jobs").addJobs(result)
-        }
-
-        callback?.()
-    }
-
-    async syncModelInfo() {
-        const wf = this.container.getService("watchFolders")
-
-        await wf.loadWatchFolders()
-
-        for (const folder of wf.state.modelInfoFolders) {
-            const job = getModelInfoJob(folder.path)
-            this.container.getService("jobs").addJob(job)
-        }
+        const projectStats = await Promise.all(projectPaths.map((p) => getProjectStats(p)))
+        const projects = projectStats.filter((p) => !!p) as ProjectFileStats[]
+        this.sync({ projects }, callback)
     }
 
     override dispose() {
@@ -140,8 +63,8 @@ class ScannerService extends DTPStateService {
 export default ScannerService
 
 async function getProjectStats(projectPath: string) {
-    if (!projectPath.endsWith(".sqlite3")) return null
-    if (!(await exists(projectPath))) return "dne"
+    if (!projectPath.endsWith(".sqlite3")) return undefined
+    if (!(await exists(projectPath))) return undefined
 
     const stats = await stat(projectPath)
 
@@ -154,239 +77,210 @@ async function getProjectStats(projectPath: string) {
     }
 
     return {
+        path: projectPath,
         size: stats.size + walStats.size,
-        mtime: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
+        modified: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
     }
 }
 
 export type ProjectJobPayload = {
-    action: "add" | "update" | "remove" | "none"
+    action: "add" | "update" | "remove" | "none" | "mark-missing"
     project: string
     size: number
     mtime: number
 }
 
-/** this job syncs all projects in the db with all watch folders */
-function syncProjectsJob(callback?: () => void): DTPJob {
+function getSyncScopeLabel(scope: SyncScope) {
+    if (scope.watchFolders) {
+        const folders = scope.watchFolders.map((f) => f.path.split("/").pop())
+        return `Sync for folders: ${folders.join(", ")}`
+    }
+    if (scope.projects) {
+        const projects = scope.projects.map((p) => p.path.split("/").pop())
+        return `Sync for projects: ${projects.join(", ")}`
+    }
+    return "Full sync"
+}
+
+function createSyncJob(scope: SyncScope, callback?: JobCallback<null>): DTPJob {
+    const label = getSyncScopeLabel(scope)
     return {
-        type: "projects-sync",
-        data: undefined,
-        execute: async (_, container) => {
-            const wf = container.services.watchFolders
-            const p = container.services.projects
-
-            type ProjectDesc = {
-                projectFile: string
-                size: number
-                mtime: number
-                status: "unknown" | "new" | "changed" | "missing" | "unchanged"
-                action: "none" | "remove" | "add" | "update"
-                isOrphaned?: boolean
-            }
-            let allProjects: Map<string, ProjectDesc>
-            const cpd = (projectFile: string) =>
-                ({
-                    projectFile,
-                    size: -1,
-                    mtime: -1,
-                    status: "unknown",
-                    action: "none",
-                }) as ProjectDesc
-            const getPd = (projectFile: string) => {
-                if (!allProjects.has(projectFile)) allProjects.set(projectFile, cpd(projectFile))
-                const pd = allProjects.get(projectFile)
-                if (!pd) throw new Error("Project not found")
-                return pd
-            }
-
-            await p.loadProjects()
-            allProjects = new Map(p.state.projects.map((p) => [p.path, cpd(p.path)]))
-
-            // iterate over known projects (in the db already)
-            for (const project of p.state.projects) {
-                const projectStats = await getProjectStats(project.path)
-                const pd = getPd(project.path)
-
-                if (!projectStats || projectStats === "dne") {
-                    pd.status = "missing"
-                    pd.size = 0
-                    pd.mtime = 0
-                    continue
-                }
-
-                pd.size = projectStats.size
-                pd.mtime = projectStats.mtime
-
-                if (project.filesize !== pd.size || project.modified !== pd.mtime) {
-                    pd.status = "changed"
-                } else {
-                    pd.status = "unchanged"
-                }
-            }
-
-            await wf.loadWatchFolders()
-
-            // iterate over project files in each watch folder
-            for (const folder of wf.state.projectFolders) {
-                const folderProjects = await wf.listProjects(folder)
-                for (const project of folderProjects) {
-                    const pd = getPd(project)
-                    if (pd.status !== "unknown") continue
-
-                    const projectStats = await getProjectStats(project)
-                    if (projectStats && projectStats !== "dne") {
-                        pd.status = "new"
-                        pd.size = projectStats.size
-                        pd.mtime = projectStats.mtime
-                    }
-                }
-            }
-
-            // assign actions
-            for (const pd of allProjects.values()) {
-                if (pd.status === "new") pd.action = "add"
-                else if (pd.status === "changed") pd.action = "update"
-
-                // check if project is orphaned
-                const folder = await wf.getFolderForProject(pd.projectFile)
-                if (!folder) {
-                    pd.isOrphaned = true
-                    pd.action = "remove"
-                }
-
-                if (pd.status === "missing" && !pd.isOrphaned) {
-                    // if project is missing, do nothing if folder is also missing
-                    // keep this project in db to support removable storage
-                    pd.action = "remove"
-                }
-            }
-
-            const jobs = [] as DTPJob[]
-
-            let jobsCreated = 0
-            let jobsDone = 0
-            const finishedCallback = () => {
-                jobsDone++
-                if (jobsDone === jobsCreated) {
-                    callback?.()
-                }
-            }
-
-            for (const pd of allProjects.values()) {
-                if (pd.action === "none") continue
-
-                const job = getProjectJob(pd.projectFile, pd, finishedCallback)
-
-                if (job?.type === "project-add") {
-                    jobs.unshift(job)
-                } else if (job?.type === "project-update") {
-                    jobs.push(job)
-                } else if (job?.type === "project-remove") {
-                    jobs.unshift(job)
-                }
-            }
-
-            jobsCreated = jobs.length
-
-            return { jobs }
-        },
+        type: "data-sync",
+        label,
+        data: scope,
+        execute: getExecuteSync(callback),
     }
 }
 
-function syncProjectFolderJob(watchFolder: string, callback?: () => void): DTPJob {
+type ProjectSyncObject = {
+    file?: ProjectFileStats
+    entity?: ProjectExtra
+    isMissing: boolean
+    action: "add" | "remove" | "update" | "none" | "mark-missing"
+}
+
+function getSyncObject(opts: Partial<ProjectSyncObject>): ProjectSyncObject {
     return {
-        type: "project-folder-scan",
-        data: watchFolder,
-        callback,
-        execute: async (_, container) => {
-            const wf = container.services.watchFolders
-            const p = container.services.projects
-
-            await wf.loadWatchFolders()
-            const folder = wf.state.projectFolders.find((f) => f.path === watchFolder)
-
-            if (!folder) return { jobs: [] }
-
-            await p.loadProjects()
-
-            const folderProjects = await wf.listProjects(folder)
-            const updProjects = {} as Record<
-                string,
-                { size: number; mtime: number; action: "add" | "update" }
-            >
-
-            for (const path of folderProjects) {
-                const existingProject = p.state.projects.find((pj) => pj.path === path)
-                const stats = await getProjectStats(path)
-
-                if (!stats || stats === "dne") continue
-
-                if (existingProject) {
-                    if (
-                        existingProject.filesize !== stats.size ||
-                        existingProject.modified !== stats.mtime
-                    ) {
-                        updProjects[path] = { ...stats, action: "update" }
-                    }
-                } else {
-                    updProjects[path] = { ...stats, action: "add" }
-                }
-            }
-
-            const jobs = [] as DTPJob[]
-
-            let jobsCreated = 0
-            let jobsDone = 0
-            const finishedCallback = () => {
-                jobsDone++
-                if (jobsDone === jobsCreated) {
-                    callback?.()
-                }
-            }
-
-            for (const [project, data] of Object.entries(updProjects)) {
-                const job = getProjectJob(
-                    project,
-                    data as Omit<ProjectJobPayload, "project">,
-                    finishedCallback,
-                )
-                if (job?.type === "project-update") jobs.push(job)
-                else if (job?.type === "project-add") jobs.unshift(job)
-            }
-
-            jobsCreated = jobs.length
-
-            return { jobs }
-        },
+        file: opts.file,
+        entity: opts.entity,
+        isMissing: opts.isMissing ?? false,
+        action: opts.action ?? "none",
     }
+}
+
+function getExecuteSync(callback?: JobCallback<null>) {
+    async function executeSync(scope: SyncScope, container: DTPContainer) {
+        const wfs = container.services.watchFolders
+        const ps = container.services.projects
+
+        const folderScoped = !!scope.watchFolders && scope.watchFolders.length > 0
+        const projectScoped = !!scope.projects && scope.projects.length > 0
+
+        if (folderScoped && projectScoped) throw new Error("not supported at this time")
+
+        const watchFolders =
+            (await (async () => {
+                if (folderScoped) return scope.watchFolders
+                if (projectScoped) return []
+                await wfs.loadWatchFolders(true)
+                return wfs.state.folders
+            })()) ?? []
+
+        const modelFiles = [] as ListModelInfoFilesResult[]
+        const projectFiles = [] as ProjectFileStats[]
+
+        for (const folder of watchFolders) {
+            const folderFiles = await wfs.listFiles(folder)
+            modelFiles.push(...folderFiles.models)
+            projectFiles.push(...folderFiles.projects)
+        }
+        if (projectScoped) {
+            projectFiles.push(...(scope.projects ?? []))
+        }
+
+        // gather ENTITIES
+        await ps.loadProjects()
+        const projectEntities = TMap.from(ps.state.projects, (p) => p.path)
+
+        if (folderScoped && watchFolders?.length) {
+            projectEntities.retain((path) => watchFolders.some((f) => path.startsWith(f.path)))
+        } else if (projectScoped && scope.projects?.length) {
+            const scopedProjects = new Set(scope.projects.map((p) => p.path))
+            projectEntities.retain((path) => scopedProjects.has(path))
+        }
+
+        const syncs = [] as ProjectSyncObject[]
+
+        for (const projectFile of projectFiles) {
+            const project = getSyncObject({
+                file: projectFile,
+                entity: projectEntities.take(projectFile.path),
+            })
+            syncs.push(project)
+        }
+
+        for (const projectEntity of projectEntities.values()) {
+            const project = getSyncObject({
+                entity: projectEntity,
+            })
+            // if a project is not covered by a watchfolder, we can stop searching for a file
+            const projectFolder = await wfs.getFolderForProject(projectEntity.path)
+            if (!projectFolder) {
+                syncs.push(project)
+                continue
+            }
+
+            const projectStats = await getProjectStats(projectEntity.path)
+            if (projectStats)
+                project.file = { ...projectStats, watchFolderPath: projectFolder.path }
+            else project.isMissing = true
+            syncs.push(project)
+        }
+
+        // create jobs from the entity/file pairs
+        const jobs = [] as DTPJob[]
+
+        for (const project of syncs) {
+            // file with no entity, add new project
+            if (project.file && !project.entity) project.action = "add"
+            // entity with no file, remove or mark missing
+            else if (!project.file && project.entity) {
+                const folder = await wfs.getFolderForProject(project.entity.path)
+                if (folder?.isMissing) project.action = "mark-missing"
+                else project.action = "remove"
+            }
+            // update if sizes or modified times are different
+            else if (project.file && project.entity && !project.entity.excluded) {
+                if (
+                    project.file.size !== project.entity.filesize ||
+                    project.file.modified !== project.entity.modified
+                )
+                    project.action = "update"
+            }
+        }
+
+        let jobsCreated = 0
+        let jobsCompleted = 0
+
+        const jobCallback = () => {
+            jobsCompleted++
+            if (jobsCompleted === jobsCreated) callback?.()
+        }
+
+        // create jobs
+        for (const project of syncs) {
+            if (project.action === "none") continue
+            const projectPath = project.file?.path ?? project.entity?.path
+            if (!projectPath) continue
+            const job = getProjectJob(projectPath, project, jobCallback)
+            if (job) jobs.push(job)
+        }
+
+        if (modelFiles.length > 0) {
+            jobs.push(syncModelInfoJob(modelFiles, jobCallback))
+        }
+
+        jobsCreated = jobs.length
+
+        return { jobs }
+    }
+
+    return executeSync
 }
 
 function getProjectJob(
     project: string,
-    data: Omit<ProjectJobPayload, "project">,
+    data: ProjectSyncObject,
     callback?: JobCallback,
-): DTPJob {
+): DTPJob | undefined {
     switch (data.action) {
         case "add":
+            if (!data.file) {
+                console.warn("can't create 'project-add' job without file stats")
+                return undefined
+            }
             return {
                 type: "project-add",
-                data: [project],
+                data: [data.file],
                 merge: "first",
                 callback,
-                execute: async (data: string[], container) => {
+                execute: async (data: ProjectFileStats[], container) => {
                     container.services.uiState.setImportLock(true)
+                    const projects = [] as [ProjectFileStats, ProjectExtra][]
+                    // there are two loops here because of the way the progress bar works
+                    // the first loop creates the projects and gives the progress bar a total count
+                    // the second loop scans each project and advances the progress bar
                     for (const p of data) {
                         try {
-                            await pdb.addProject(p)
+                            const project = await pdb.addProject(p.path)
+                            if (project) projects.push([p, project])
                         } catch (e) {
                             console.error(e)
                         }
                     }
-                    for (const p of data) {
+                    for (const [p, project] of projects) {
                         try {
-                            const stats = await getProjectStats(p)
-                            if (!stats || stats === "dne") continue
-                            await pdb.scanProject(p, false, stats.size, stats.mtime)
+                            await pdb.scanProject(project.path, false, p.size, p.modified)
                         } catch (e) {
                             console.error(e)
                         }
@@ -396,9 +290,18 @@ function getProjectJob(
                 },
             }
         case "update":
+            if (!data.file) {
+                console.warn("can't create 'project-update' job without file stats")
+                return undefined
+            }
             return {
                 type: "project-update",
-                data: { project, ...data },
+                data: {
+                    project,
+                    mtime: data.file?.modified,
+                    size: data.file?.size,
+                    action: "update",
+                },
                 callback,
                 execute: async (data: ProjectJobPayload, _container) => {
                     await pdb.scanProject(project, false, data.size, data.mtime)
@@ -407,33 +310,24 @@ function getProjectJob(
         case "remove":
             return {
                 type: "project-remove",
-                data: { project, ...data },
+                data: project,
                 callback,
-                execute: async (_data: ProjectJobPayload, _container) => {
+                execute: async (_data: string, _container) => {
                     await pdb.removeProject(project)
                 },
             }
-        default:
-            throw new Error()
-    }
-}
-
-function getModelInfoJob(folder: string, callback?: JobCallback): DTPJobSpec<"models-scan"> {
-    return {
-        type: "models-scan",
-        callback,
-        data: folder,
-        execute: async (folder, container) => {
-            const wf = container.services.watchFolders
-            const folderState = wf.state.modelInfoFolders.find((f) => f.path === folder)
-
-            if (!folderState) return
-
-            const files = await wf.listModelInfoFiles(folderState)
-
-            for (const file of files) {
-                await pdb.scanModelInfo(file.path, file.modelType)
+        case "mark-missing":
+            return {
+                type: "project-mark-missing",
+                data: [project],
+                merge: "first",
+                callback,
+                execute: async (data: string[], _container) => {
+                    await pdb.updateMissingOn(data, null)
+                    console.log("missing", data)
+                },
             }
-        },
+        default:
+            return undefined
     }
 }
