@@ -5,10 +5,11 @@ import { useVideoContext } from "./context"
 interface VideoImageProps extends ChakraProps {
     objectFit?: CSSProperties["objectFit"]
     clickToPause?: boolean
+    naturalSize?: { width: number; height: number }
 }
 
 export function VideoImage(props: VideoImageProps) {
-    const { objectFit, clickToPause, ...restProps } = props
+    const { objectFit, clickToPause, naturalSize, ...restProps } = props
 
     const { imgSrc, imgRef, controls } = useVideoContext()
 
@@ -23,12 +24,16 @@ export function VideoImage(props: VideoImageProps) {
         : {}
 
     return (
-        <Flex overflow={"hidden"} justifyContent={"stretch"} alignItems={"stretch"} {...restProps}>
+        <Flex overflow={"hidden"} justifyContent={"center"} alignItems={"center"} {...restProps}>
             <img
                 ref={imgRef}
+                width={naturalSize?.width}
+                height={naturalSize?.height}
                 style={{
-                    width: "100%",
-                    height: "100%",
+                    width: objectFit === "cover" ? "100%" : "auto",
+                    height: objectFit === "cover" ? "100%" : "auto",
+                    maxWidth: "100%",
+                    maxHeight: "100%",
                     objectFit: objectFit ?? "contain",
                 }}
                 src={imgSrc}

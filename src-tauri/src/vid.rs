@@ -155,7 +155,12 @@ pub async fn create_video_from_frames(
     // Prepare temp dir
     // -------------------------------------------------
     let app_data_dir = app.path().app_data_dir().unwrap();
+    let ffmpeg_path = app_data_dir.join("bin").join("ffmpeg");
     let temp_dir = app_data_dir.join("temp_video_frames");
+
+    if !ffmpeg_path.exists() {
+        return Err("ffmpeg not found".to_string());
+    }
 
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
@@ -231,7 +236,7 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Build ffmpeg command
     // -------------------------------------------------
-    let mut cmd = Command::new("ffmpeg");
+    let mut cmd = Command::new(ffmpeg_path);
 
     cmd.args([
         "-y",

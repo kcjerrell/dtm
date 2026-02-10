@@ -32,8 +32,8 @@ function DetailsImages(props: DetailsImagesProps) {
     const srcHalf = urls.thumbHalf(item)
     const srcFull = urls.thumb(item)
 
-    const width = subItem?.width ?? itemDetails?.node?.start_width ?? item.start_width
-    const height = subItem?.height ?? itemDetails?.node?.start_height ?? item.start_height
+    const width = subItem?.width ?? itemDetails?.node?.start_width ?? item.start_width * 64
+    const height = subItem?.height ?? itemDetails?.node?.start_height ?? item.start_height * 64
 
     return (
         <>
@@ -49,7 +49,7 @@ function DetailsImages(props: DetailsImagesProps) {
                 >
                     <Video image={item} autoStart={false} key={item.id}>
                         <Extractor />
-                        <VideoImage data-solid="true" clickToPause />
+                        <VideoImage clickToPause naturalSize={{ width, height }} />
                         <HStack data-solid="true" width={"100%"} paddingY={2} flexShrink={0}>
                             <PlayPauseButton />
                             <Seekbar />
