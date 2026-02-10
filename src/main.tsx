@@ -10,7 +10,7 @@ import "./index.css"
 import { HotkeysProvider } from "react-hotkeys-hook"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
-import "./utils/tauriLogger"
+// import "./utils/tauriLogger"
 import App from './App'
 
 function bootstrap() {

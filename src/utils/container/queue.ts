@@ -204,7 +204,7 @@ export class JobQueue<C extends IContainer, JM extends JobTypeMap> extends Servi
                         this.addJob(spec, false)
                     } else {
                         job.status = "failed"
-                        console.error("a job failed", job)
+                        console.error("a job failed", job, error)
                     }
                 }
             }

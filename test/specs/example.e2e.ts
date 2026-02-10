@@ -1,7 +1,7 @@
-import AppPage from "../pageobjects/AppPage"
+import App from "../pageobjects/App"
 
 before(async () => {
-    await AppPage.clearAllData()
+    await App.clearAllData()
 })
 
 describe('Hello Tauri', () => {
@@ -14,13 +14,13 @@ describe('Basic', () => {
     it('can switch views', async () => {
         await new Promise(resolve => setTimeout(resolve, 2000))
 
-        await AppPage.metadataButton.click();
-        await expect(AppPage.metadataButton).toHaveAttribute("aria-selected", "true")
+        await App.metadataButton.click();
+        await expect(App.metadataButton).toHaveAttribute("aria-selected", "true")
 
         await expect($("div*=Drop image here")).toBeDisplayedInViewport()
 
-        await AppPage.projectsButton.click();
-        await expect(AppPage.projectsButton).toHaveAttribute("aria-selected", "true")
+        await App.projectsButton.click();
+        await expect(App.projectsButton).toHaveAttribute("aria-selected", "true")
 
         await expect($("aria/Projects")).toBeDisplayedInViewport()
     })

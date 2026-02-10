@@ -1,10 +1,12 @@
 import os from 'os';
-import fs from 'fs';
+import fse from 'fs-extra';
 import path from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const testDataSource = "/media/share/dtm-test-data/"
+const testDataDest = path.join(os.homedir(), "dtm-test-data")
 
 const reuse = process.env.REUSE_BUILD === 'true';
 
@@ -67,29 +69,34 @@ export const config: WebdriverIO.Config = {
     });
   },
 
-  afterTest: async function (
-    test,
-    context,
-    { error, result, duration, passed }
-  ) {
-    if (passed) return
-
-    const screenshotsDir = path.resolve("./screenshots")
-    if (!fs.existsSync(screenshotsDir)) {
-      fs.mkdirSync(screenshotsDir, { recursive: true })
-    }
-
-    const name = test.title
-      .replace(/[^a-z0-9]+/gi, "_")
-      .toLowerCase()
-
-    const filePath = path.join(
-      screenshotsDir,
-      `${name}-${Date.now()}.png`
-    )
-
-    await browser.saveScreenshot(filePath)
+  before: async () => {
+    fse.emptyDirSync(testDataDest)
+    fse.copySync(testDataSource, testDataDest)
   },
+
+  // afterTest: async function (
+  //   test,
+  //   context,
+  //   { error, result, duration, passed }
+  // ) {
+  //   if (passed) return
+
+  //   const screenshotsDir = path.resolve("./screenshots")
+  //   if (!fs.existsSync(screenshotsDir)) {
+  //     fs.mkdirSync(screenshotsDir, { recursive: true })
+  //   }
+
+  //   const name = test.title
+  //     .replace(/[^a-z0-9]+/gi, "_")
+  //     .toLowerCase()
+
+  //   const filePath = path.join(
+  //     screenshotsDir,
+  //     `${name}-${Date.now()}.png`
+  //   )
+
+  //   await browser.saveScreenshot(filePath)
+  // },
 
   // clean up the `tauri-driver` process we spawned at the start of the session
   // note that afterSession might not run if the session fails to start, so we also run the cleanup on shutdown

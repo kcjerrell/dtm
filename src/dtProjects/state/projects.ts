@@ -77,14 +77,13 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         data: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra },
     ) {
         if (data.updated) {
-            const index = this.state.projects.findIndex((p) => p.id === data.updated?.id)
-            if (index !== -1) {
-                this.state.projects[index].filesize = data.updated.filesize
-                this.state.projects[index].image_count = data.updated.image_count
-                this.state.projects[index].excluded = data.updated.excluded
-                this.state.projects[index].modified = data.updated.modified
-            }
+            this.updateProject(data.updated.id, data.updated)
         } else if (data.added) {
+            // check if project is already listed
+            if (this.state.projects.some((p) => p.id === data.added?.id)) {
+                this.updateProject(data.added.id, data.added)
+                return true
+            }
             this.state.projects.push(
                 makeSelectable({ ...data.added, name: data.added.path.split("/").pop() as string }),
             )
@@ -99,6 +98,13 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
         this.loadProjectsDebounced()
         return true
+    }
+
+    updateProject(projectId: number, data: Partial<ProjectExtra>) {
+        const project = this.state.projects.find((p) => p.id === projectId)
+        if (project) {
+            Object.assign(project, data)
+        }
     }
 
     private _onProjectsLoaded: ContainerEvent<"projectsLoaded"> = {

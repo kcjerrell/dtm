@@ -1,7 +1,11 @@
 {
+    "include": ["./"],
     "compilerOptions": {
         "target": "esnext",
         "types": ["node", "@wdio/globals/types", "@wdio/mocha-framework"],
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "module": "commonjs",
     }
 }

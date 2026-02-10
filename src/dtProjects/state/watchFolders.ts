@@ -92,7 +92,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
             if (!this.state.hasDefaultDataFolder && folder.path === _defaultDataFolder) {
                 this.state.hasDefaultDataFolder = true
             }
-            folder.isMissing = !(await stat(folder.path))
+            folder.isMissing = !(await exists(folder.path))
         }
 
         const prevFolders = [...this.state.folders]
@@ -261,6 +261,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         const unwatch = watch(
             folder.path,
             async (e) => {
+                console.debug("watch event", e, shouldReact(e))
                 if (!shouldReact(e)) return
                 const projectFiles = e.paths
                     .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
@@ -333,9 +334,14 @@ async function findFiles(
 function shouldReact(event: WatchEvent) {
     const type = event.type as object
 
-    if (!("modify" in type) || typeof type.modify !== "object") return false
-
-    if (type.modify && "kind" in type.modify && type.modify.kind === "metadata") return false
+    if ("access" in type) return false
+    if ("remove" in type) return true
+    if ("create" in type) return true
+    if ("modify" in type && type.modify && typeof type.modify === "object") {
+        // only react to changes in the file, not metadata changes
+        if ("kind" in type.modify && type.modify.kind === "metadata") return false
+        return true
+    }
 
     return true
 }
