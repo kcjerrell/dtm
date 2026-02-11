@@ -1621,7 +1621,7 @@ dependencies = [
 
 [[package]]
 name = "dtm"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1630,6 +1630,7 @@ dependencies = [
  "bytes",
  "cc",
  "chrono",
+ "dtm_macros",
  "entity",
  "flatbuffers",
  "flate2",
@@ -1678,6 +1679,15 @@ dependencies = [
  "tracing-subscriber",
  "unicode-normalization",
  "web-image-meta",
+]
+
+[[package]]
+name = "dtm_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]

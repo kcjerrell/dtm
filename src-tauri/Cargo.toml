@@ -1,9 +1,9 @@
 [workspace]
-members = ["migration", "entity", ".", "fpzip-sys"]
+members = ["migration", "entity", ".", "fpzip-sys", "macros"]
 
 [package]
 name = "dtm"
-version = "0.3.0"
+version = "0.3.2"
 description = "A little app for reading Draw Things Metadata"
 authors = ["kcjerrell"]
 edition = "2021"
@@ -21,6 +21,7 @@ cc = "1.0"
 entity = { path = "./entity" }
 migration = { path = "./migration" }
 fpzip-sys = { path = "./fpzip-sys" }
+dtm_macros = { path = "./macros" }
 
 # Core Tauri
 tauri = { version = "2", features = ["tray-icon", "protocol-asset", "devtools"] }

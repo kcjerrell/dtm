@@ -1,0 +1,15 @@
+[package]
+name = "dtm_macros"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+proc-macro = true
+name = "dtm_macros"
+path = "src/libs.rs"
+
+[dependencies]
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"

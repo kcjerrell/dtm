@@ -76,6 +76,7 @@ function createContainer() {
         }
 
         Promise.all([
+            watchFolders.assignPaths(),
             projects.loadProjects(),
             models.refreshModels(),
             // watchFolders.loadWatchFolders(),

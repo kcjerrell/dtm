@@ -10,10 +10,11 @@ import "./index.css"
 import { HotkeysProvider } from "react-hotkeys-hook"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
-// import "./utils/tauriLogger"
+import { forwardConsoleAll } from "./utils/tauriLogger"
 import App from './App'
 
 function bootstrap() {
+    forwardConsoleAll()
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
     const hash = document.location?.hash?.slice(1)

@@ -15,10 +15,6 @@ import { DebounceMap } from "@/utils/DebounceMap"
 import { arrayIfOnly, compareItems } from "@/utils/helpers"
 import { DTPStateController } from "./types"
 
-const home = await path.homeDir()
-const _containerPath = await path.join(home, "Library/Containers/com.liuliu.draw-things/Data")
-const _defaultDataFolder = await path.join(_containerPath, "Documents")
-
 const modelInfoFilenames = {
     "custom.json": "Model",
     "custom_controlnet.json": "Cnet",
@@ -72,6 +68,16 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         hasDefaultDataFolder: false,
     })
 
+    async assignPaths() {
+        this._home = await path.homeDir()
+        this._containerPath = await path.join(this._home, "Library/Containers/com.liuliu.draw-things/Data")
+        this._defaultDataFolder = await path.join(this._containerPath, "Documents")
+    }
+
+    _home: string = ""
+    _containerPath: string = ""
+    _defaultDataFolder: string = ""
+
     watchDisposers = new Map<string, Promise<UnwatchFn>>()
     watchCallbacks = new DebounceMap<string>(1500)
 
@@ -89,7 +95,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         const folders = res.map((f) => makeSelectable(f as WatchFolderState))
 
         for (const folder of folders) {
-            if (!this.state.hasDefaultDataFolder && folder.path === _defaultDataFolder) {
+            if (!this.state.hasDefaultDataFolder && folder.path === this._defaultDataFolder) {
                 this.state.hasDefaultDataFolder = true
             }
             folder.isMissing = !(await exists(folder.path))
@@ -116,7 +122,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     // it is not necessary to reload after adding - tags will invalidate
     async addWatchFolder(folderPath: string, recursive = false) {
         if (await exists(folderPath)) {
-            const isDtFolder = folderPath === _defaultDataFolder
+            const isDtFolder = folderPath === this._defaultDataFolder
             await pdb.watchFolders.add(folderPath, recursive || isDtFolder)
         } else {
             throw new Error("DNE")
@@ -129,13 +135,13 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     async removeWatchFolders(arg: WatchFolderState | readonly WatchFolderState[]): Promise<void> {
         const folders = arrayIfOnly(arg)
         await pdb.watchFolders.remove(folders.map((f) => f.id))
-        if (folders.some((f) => f.path === _defaultDataFolder))
+        if (folders.some((f) => f.path === this._defaultDataFolder))
             this.state.hasDefaultDataFolder = false
     }
 
     async setRecursive(folder: WatchFolderState | readonly WatchFolderState[], value: boolean) {
         // disallow changing recursive on default folder
-        const toUpdate = arrayIfOnly(folder).filter((f) => f.path !== _defaultDataFolder)
+        const toUpdate = arrayIfOnly(folder).filter((f) => f.path !== this._defaultDataFolder)
         for (const folder of toUpdate) {
             const updFolder = await pdb.watchFolders.update(folder.id, value)
 
@@ -148,7 +154,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     }
 
     async addDefaultDataFolder() {
-        await this.addWatchFolder(_defaultDataFolder, true)
+        await this.addWatchFolder(this._defaultDataFolder, true)
     }
 
     async listFiles(folder: WatchFolderState): Promise<ListFilesResult> {
@@ -261,12 +267,12 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         const unwatch = watch(
             folder.path,
             async (e) => {
-                console.debug("watch event", e, shouldReact(e))
                 if (!shouldReact(e)) return
                 const projectFiles = e.paths
-                    .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
-                    .map((p) => p.replace(/-wal$/g, ""))
+                .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
+                .map((p) => p.replace(/-wal$/g, ""))
                 if (projectFiles.length === 0) return
+                console.debug("watch event", JSON.stringify(e))
                 const uniqueFiles = Array.from(new Set(projectFiles))
 
                 for (const file of uniqueFiles) {
@@ -291,11 +297,11 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     }
 
     get defaultProjectPath() {
-        return _defaultDataFolder
+        return this._defaultDataFolder
     }
 
     get containerPath() {
-        return _containerPath
+        return this._containerPath
     }
 
     override dispose() {
@@ -332,6 +338,8 @@ async function findFiles(
 }
 
 function shouldReact(event: WatchEvent) {
+    if (event.paths.every((p) => p.endsWith("shm"))) return false
+
     const type = event.type as object
 
     if ("access" in type) return false
