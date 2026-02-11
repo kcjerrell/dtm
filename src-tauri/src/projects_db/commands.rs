@@ -51,13 +51,10 @@ fn update_tags(app_handle: &tauri::AppHandle, tag: &str, data: Value) {
     );
 }
 
-#[tauri::command]
-pub async fn projects_db_image_count(app_handle: tauri::AppHandle) -> Result<u32, String> {
-    let projects_db = ProjectsDb::get_or_init(&app_handle).await?;
-    Ok(projects_db.get_image_count().await.unwrap())
-}
-
-#[dtm_command]
+#[dtm_command(
+    ok = |ctx| format!("added project {}", project_name(&ctx.path)),
+    err = |ctx| format!("error adding project {}: {}", project_name(&ctx.path), ctx.res)
+)]
 pub async fn projects_db_project_add(
     app_handle: tauri::AppHandle,
     path: String,
@@ -74,7 +71,10 @@ pub async fn projects_db_project_add(
     Ok(project)
 }
 
-#[dtm_command]
+#[dtm_command(
+    ok = |ctx| format!("removed project {}", project_name(&ctx.path)),
+    err = |ctx| format!("error removing project {}: {}", project_name(&ctx.path), ctx.res)
+)]
 pub async fn projects_db_project_remove(
     app_handle: tauri::AppHandle,
     path: String,
@@ -121,7 +121,7 @@ pub async fn projects_db_project_update_exclude(
     Ok(())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_project_bulk_update_missing_on(
     app_handle: tauri::AppHandle,
     paths: Vec<String>,
@@ -135,7 +135,10 @@ pub async fn projects_db_project_bulk_update_missing_on(
     Ok(())
 }
 
-#[tauri::command]
+#[dtm_command(
+    ok = |ctx| format!("scanned project {}", project_name(&ctx.path)),
+    err = |ctx| format!("error scanning project {}: {}", project_name(&ctx.path), ctx.res)
+)]
 pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
     path: String,
@@ -203,7 +206,7 @@ pub async fn projects_db_project_scan(
     }
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_image_list(
     app: tauri::AppHandle,
     project_ids: Option<Vec<i64>>,
@@ -234,7 +237,7 @@ pub async fn projects_db_image_list(
     Ok(projects_db.list_images(opts).await.unwrap())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_get_clip(
     app_handle: tauri::AppHandle,
     image_id: i64,
@@ -243,14 +246,14 @@ pub async fn projects_db_get_clip(
     projects_db.get_clip(image_id).await
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     projects_db.rebuild_images_fts().await.unwrap();
     Ok(())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_watch_folder_list(
     app: tauri::AppHandle,
 ) -> Result<Vec<WatchFolderDTO>, String> {
@@ -258,7 +261,10 @@ pub async fn projects_db_watch_folder_list(
     Ok(projects_db.list_watch_folders().await.unwrap())
 }
 
-#[tauri::command]
+#[dtm_command(
+    ok = |ctx| format!("added watch folder {}", ctx.path),
+    err = |ctx| format!("error adding watch folder {}: {}", ctx.path, ctx.res)
+)]
 pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
@@ -275,7 +281,7 @@ pub async fn projects_db_watch_folder_add(
     Ok(result)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_watch_folder_remove(
     app: tauri::AppHandle,
     ids: Vec<i64>,
@@ -286,7 +292,7 @@ pub async fn projects_db_watch_folder_remove(
     Ok(())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_watch_folder_update(
     app: tauri::AppHandle,
     id: i64,
@@ -302,7 +308,10 @@ pub async fn projects_db_watch_folder_update(
     Ok(result)
 }
 
-#[tauri::command]
+#[dtm_command(
+    ok = |ctx| format!("scanned model info {}", ctx.file_path),
+    err = |ctx| format!("error scanning model info {}: {}", ctx.file_path, ctx.res)
+)]
 pub async fn projects_db_scan_model_info(
     app: tauri::AppHandle,
     file_path: String,
@@ -321,7 +330,7 @@ pub async fn projects_db_scan_model_info(
     Ok(count)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_list_models(
     app: tauri::AppHandle,
     model_type: Option<entity::enums::ModelType>,
@@ -333,7 +342,7 @@ pub async fn projects_db_list_models(
         .map_err(|e| e.to_string())?)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_get_tensor_history(
     project_file: String,
     index: u32,
@@ -346,7 +355,7 @@ pub async fn dt_project_get_tensor_history(
     }
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_get_text_history(
     project_file: String,
 ) -> Result<Vec<TextHistoryNodeDTO>, String> {
@@ -354,7 +363,7 @@ pub async fn dt_project_get_text_history(
     Ok(project.get_text_history().await.unwrap())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_get_thumb_half(
     project_file: String,
     thumb_id: i64,
@@ -363,7 +372,7 @@ pub async fn dt_project_get_thumb_half(
     Ok(project.get_thumb_half(thumb_id).await.unwrap())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_get_history_full(
     project_file: String,
     row_id: i64,
@@ -373,7 +382,7 @@ pub async fn dt_project_get_history_full(
     Ok(history)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_get_tensor_raw(
     app: tauri::AppHandle,
     project_id: Option<i64>,
@@ -385,7 +394,7 @@ pub async fn dt_project_get_tensor_raw(
     Ok(tensor)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_get_tensor_size(
     app: tauri::AppHandle,
     project_id: Option<i64>,
@@ -397,7 +406,7 @@ pub async fn dt_project_get_tensor_size(
     Ok(tensor)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_decode_tensor(
     app: tauri::AppHandle,
     project_id: Option<i64>,
@@ -417,7 +426,7 @@ pub async fn dt_project_decode_tensor(
     Ok(tauri::ipc::Response::new(buffer))
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn dt_project_find_predecessor_candidates(
     project_file: String,
     row_id: i64,
@@ -446,4 +455,13 @@ async fn get_project(
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let project = projects_db.get_dt_project(project_ref).await?;
     Ok(project)
+}
+
+fn project_name(project_path: &str) -> String {
+    std::path::Path::new(project_path)
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
 }

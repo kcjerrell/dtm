@@ -223,9 +223,6 @@ export type WatchFolder = {
 // --------------------
 
 export const pdb = {
-    // #unused
-    getImageCount: async (): Promise<number> => invoke("projects_db_image_count"),
-
     addProject: async (path: string): Promise<ProjectExtra | undefined> => {
         try {
             return await invoke("projects_db_project_add", { path })

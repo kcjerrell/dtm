@@ -138,7 +138,7 @@ pub fn run() {
                 .level(LevelFilter::Debug)
                 .clear_targets()
                 .targets(vec![
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    // tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
                         file_name: Some("dtm.log".to_string()),
                     }),
@@ -163,7 +163,6 @@ pub fn run() {
             projects_db_project_scan,
             projects_db_project_update_exclude,
             projects_db_project_bulk_update_missing_on,
-            projects_db_image_count, // #unused
             projects_db_image_list,
             projects_db_get_clip,
             projects_db_image_rebuild_fts,

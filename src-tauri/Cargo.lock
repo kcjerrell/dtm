@@ -1630,7 +1630,7 @@ dependencies = [
  "bytes",
  "cc",
  "chrono",
- "dtm-macros",
+ "dtm_macros",
  "entity",
  "flatbuffers",
  "flate2",
@@ -1682,7 +1682,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dtm-macros"
+name = "dtm_macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

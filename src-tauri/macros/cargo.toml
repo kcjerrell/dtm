@@ -1,12 +1,10 @@
 [package]
-name = "dtm-macros"
+name = "dtm_macros"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
-name = "dtm_macros"
-path = "src/lib.rs"
 proc-macro = true
 
 [dependencies]

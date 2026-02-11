@@ -1,5 +1,5 @@
 [workspace]
-members = ["migration", "entity", ".", "fpzip-sys"]
+members = ["migration", "entity", ".", "fpzip-sys", "macros"]
 
 [package]
 name = "dtm"
@@ -21,7 +21,7 @@ cc = "1.0"
 entity = { path = "./entity" }
 migration = { path = "./migration" }
 fpzip-sys = { path = "./fpzip-sys" }
-dtm-macros = { path = "./macros" }
+dtm_macros = { path = "./macros" }
 
 # Core Tauri
 tauri = { version = "2", features = ["tray-icon", "protocol-asset", "devtools"] }
