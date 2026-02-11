@@ -1630,6 +1630,7 @@ dependencies = [
  "bytes",
  "cc",
  "chrono",
+ "dtm-macros",
  "entity",
  "flatbuffers",
  "flate2",
@@ -1678,6 +1679,15 @@ dependencies = [
  "tracing-subscriber",
  "unicode-normalization",
  "web-image-meta",
+]
+
+[[package]]
+name = "dtm-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]

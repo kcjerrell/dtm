@@ -17,6 +17,7 @@ use crate::projects_db::{
     tensors::decode_tensor,
     DTProject, ProjectsDb,
 };
+use dtm_macros::dtm_command;
 
 #[derive(serde::Serialize, Clone)]
 struct InvalidateTagsPayload {
@@ -56,7 +57,7 @@ pub async fn projects_db_image_count(app_handle: tauri::AppHandle) -> Result<u32
     Ok(projects_db.get_image_count().await.unwrap())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_project_add(
     app_handle: tauri::AppHandle,
     path: String,
@@ -73,7 +74,7 @@ pub async fn projects_db_project_add(
     Ok(project)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_project_remove(
     app_handle: tauri::AppHandle,
     path: String,
@@ -96,7 +97,7 @@ pub async fn projects_db_project_remove(
     Ok(())
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_project_list(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<ProjectExtra>, String> {
@@ -105,7 +106,7 @@ pub async fn projects_db_project_list(
     Ok(projects)
 }
 
-#[tauri::command]
+#[dtm_command]
 pub async fn projects_db_project_update_exclude(
     app_handle: tauri::AppHandle,
     id: i32,
