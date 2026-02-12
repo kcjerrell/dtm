@@ -6,6 +6,40 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // watchfolders
+        manager
+            .create_table(
+                Table::create()
+                    .table(WatchFolders::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(WatchFolders::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(
+                        ColumnDef::new(WatchFolders::Path)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(WatchFolders::Bookmark)
+                            .string()
+                            .unique_key()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(WatchFolders::Recursive)
+                            .boolean()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(WatchFolders::LastUpdated).integer().null())
+                    .to_owned(),
+            )
+            .await?;
+
         // projects
         manager
             .create_table(
@@ -22,8 +56,12 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Projects::Path)
                             .string()
-                            .not_null()
-                            .unique_key(),
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Projects::WatchfolderId)
+                            .integer()
+                            .not_null(),
                     )
                     .col(ColumnDef::new(Projects::Filesize).big_integer().null())
                     .col(ColumnDef::new(Projects::Modified).big_integer().null())
@@ -33,13 +71,22 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(
-                        ColumnDef::new(Projects::Fingerprint)
-                            .string()
-                            .not_null()
-                            .default(""),
-                    )
+                    .col(ColumnDef::new(Projects::Fingerprint).string().not_null().default(""))
                     .col(ColumnDef::new(Projects::MissingOn).big_integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_projects_watchfolder")
+                            .from(Projects::Table, Projects::WatchfolderId)
+                            .to(WatchFolders::Table, WatchFolders::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .index(
+                        Index::create()
+                            .name("idx_projects_path_watchfolder_id")
+                            .col(Projects::Path)
+                            .col(Projects::WatchfolderId)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -387,35 +434,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // watchfolders
-        manager
-            .create_table(
-                Table::create()
-                    .table(WatchFolders::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(WatchFolders::Id)
-                            .integer()
-                            .not_null()
-                            .primary_key()
-                            .auto_increment(),
-                    )
-                    .col(
-                        ColumnDef::new(WatchFolders::Path)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(
-                        ColumnDef::new(WatchFolders::Recursive)
-                            .boolean()
-                            .default(false),
-                    )
-                    .col(ColumnDef::new(WatchFolders::LastUpdated).integer().null())
-                    .to_owned(),
-            )
-            .await?;
-
         manager
             .get_connection()
             .execute_unprepared(
@@ -476,6 +494,7 @@ enum Projects {
     Excluded,
     Fingerprint,
     MissingOn,
+    WatchfolderId,
 }
 
 #[derive(Iden)]
@@ -566,4 +585,5 @@ enum WatchFolders {
     Path,
     Recursive,
     LastUpdated,
+    Bookmark,
 }

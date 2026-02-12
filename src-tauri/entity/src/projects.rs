@@ -4,18 +4,26 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 #[sea_orm::model]
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "projects")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
     pub fingerprint: String,
-    #[sea_orm(unique)]
     pub path: String,
+    pub watchfolder_id: i64,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
     pub missing_on: Option<i64>,
     pub excluded: bool,
+    #[sea_orm(
+        belongs_to,
+        from = "watchfolder_id",
+        to = "id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    pub watchfolder: HasOne<super::watch_folders::Entity>,
     #[sea_orm(has_many)]
     pub images: HasMany<super::images::Entity>,
 }
