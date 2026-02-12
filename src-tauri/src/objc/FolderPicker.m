@@ -13,11 +13,12 @@ void ensure_bookmarks_initialized() {
     });
 }
 
-const char* open_dt_folder_picker(const char* default_path) {
+const char* open_dt_folder_picker(const char* default_path, const char* button_text) {
     __block char* resultString = NULL;
     
     // Ensure we handle the C string safely
     NSString *defaultPathStr = default_path ? [NSString stringWithUTF8String:default_path] : nil;
+    NSString *buttonTextStr = button_text ? [NSString stringWithUTF8String:button_text] : nil;
     
     // NSOpenPanel must be run on the main thread
     dispatch_sync(dispatch_get_main_queue(), ^{
@@ -25,14 +26,13 @@ const char* open_dt_folder_picker(const char* default_path) {
         openPanel.canChooseDirectories = YES;
         openPanel.canChooseFiles = NO;
         openPanel.allowsMultipleSelection = NO;
-        openPanel.prompt = @"Select Documents folder";
+        openPanel.prompt = buttonTextStr ?: @"Select folder";
         
         if (defaultPathStr) {
             openPanel.directoryURL = [NSURL fileURLWithPath:defaultPathStr];
         } else {
             NSURL *homeDir = [NSFileManager defaultManager].homeDirectoryForCurrentUser;
-            NSURL *suggestion = [homeDir URLByAppendingPathComponent:@"Library/Containers/com.liuliu.draw-things/Data/Documents"];
-            openPanel.directoryURL = suggestion;
+            openPanel.directoryURL = homeDir;
         }
         
         if ([openPanel runModal] == NSModalResponseOK) {
@@ -47,8 +47,24 @@ const char* open_dt_folder_picker(const char* default_path) {
                 if (bookmarkData) {
                     NSString *base64String = [bookmarkData base64EncodedStringWithOptions:0];
                     NSString *path = url.path;
-                    NSString *result = [NSString stringWithFormat:@"%@|%@", path, base64String];
-                    resultString = strdup([result UTF8String]);
+                    
+                    // JSON format: {"path": "...", "bookmark": "..."}
+                    // We need to escape backslashes and quotes in path if necessary (standard JSON rules)
+                    // For simplicity in ObjC without a JSON lib, we can use NSJSONSerialization
+                    
+                    NSDictionary *dict = @{
+                        @"path": path,
+                        @"bookmark": base64String
+                    };
+                    
+                    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict options:0 error:&error];
+                    if (jsonData) {
+                        NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+                        resultString = strdup([jsonString UTF8String]);
+                    } else {
+                         NSLog(@"Failed to serialize JSON: %@", error);
+                    }
+
                 } else {
                     NSLog(@"Failed to create bookmark: %@", error);
                 }

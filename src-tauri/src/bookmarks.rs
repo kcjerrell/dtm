@@ -5,7 +5,7 @@ mod ffi {
     use std::os::raw::c_char;
 
     extern "C" {
-        pub fn open_dt_folder_picker(default_path: *const c_char) -> *mut c_char;
+        pub fn open_dt_folder_picker(default_path: *const c_char, button_text: *const c_char) -> *mut c_char;
         pub fn free_string_ptr(ptr: *mut c_char);
         pub fn start_accessing_security_scoped_resource(bookmark: *const c_char) -> *mut c_char;
         pub fn stop_all_security_scoped_resources();
@@ -13,56 +13,56 @@ mod ffi {
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct PickFolderResult {
     pub path: String,
     pub bookmark: String,
 }
 
 #[command]
-pub async fn pick_draw_things_folder(
+pub async fn pick_folder(
+    app: tauri::AppHandle,
     default_path: Option<String>,
+    button_text: Option<String>,
 ) -> Result<Option<PickFolderResult>, String> {
     #[cfg(target_os = "macos")]
     {
         use std::ffi::{CStr, CString};
         use std::ptr;
+        use tauri::Manager;
 
-        // This function must run on the main thread for UI
-        // In Tauri v2, commands are async by default on a thread pool.
-        // NSOpenPanel should ideally be run on main thread.
-        // However, let's try calling it directly first. If it crashes/hangs, we'll need dispatch.
-
-        let c_default_path = match default_path {
-            Some(path) => Some(CString::new(path).map_err(|e| e.to_string())?),
-            None => None,
+        let target_path = match default_path {
+            Some(p) => p,
+            None => {
+                // Default to home directory
+                match app.path().home_dir() {
+                    Ok(path) => path.to_string_lossy().into_owned(),
+                    Err(_) => return Err("Failed to get home directory".to_string()),
+                }
+            }
         };
 
-        let ptr_arg = match &c_default_path {
-            Some(c_str) => c_str.as_ptr(),
-            None => ptr::null(),
-        };
+        let c_default_path = CString::new(target_path).map_err(|e| e.to_string())?;
+        
+        let display_button_text = button_text.unwrap_or_else(|| "Select folder".to_string());
+        let c_button_text = CString::new(display_button_text).map_err(|e| e.to_string())?;
 
-        let ptr = unsafe { ffi::open_dt_folder_picker(ptr_arg) };
+        let ptr = unsafe { ffi::open_dt_folder_picker(c_default_path.as_ptr(), c_button_text.as_ptr()) };
 
         if ptr.is_null() {
             return Ok(None);
         }
 
         let c_str = unsafe { CStr::from_ptr(ptr) };
-        let full_result = c_str.to_string_lossy().into_owned();
+        let json_result = c_str.to_string_lossy().into_owned();
 
         unsafe { ffi::free_string_ptr(ptr) };
 
-        // Parse "path|bookmark"
-        if let Some((path, bookmark)) = full_result.split_once('|') {
-            Ok(Some(PickFolderResult {
-                path: path.to_string(),
-                bookmark: bookmark.to_string(),
-            }))
-        } else {
-            Err("Failed to parse picker result".to_string())
-        }
+        // Parse JSON result
+        let result: PickFolderResult = serde_json::from_str(&json_result)
+            .map_err(|e| format!("Failed to parse picker result: {}", e))?;
+
+        Ok(Some(result))
     }
 
     #[cfg(not(target_os = "macos"))]

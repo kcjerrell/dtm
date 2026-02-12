@@ -1,5 +1,4 @@
 import { store } from "@tauri-store/valtio"
-import { resolveBookmark, stopAccessingBookmark } from "@/commands"
 import { DTPStateController } from "./types"
 
 type SettingsControllerState = {
@@ -57,19 +56,19 @@ class SettingsController extends DTPStateController<SettingsControllerState> {
     }
 
     async setBookmark(bookmark: string) {
-        await this.clearBookmark()
+        // await this.clearBookmark()
 
-        this.state.permissions.bookmark = bookmark
-        await resolveBookmark(bookmark)
+        // this.state.permissions.bookmark = bookmark
+        // await resolveBookmark(bookmark)
     }
 
     async clearBookmark() {
-        const currentBookmark = this.state.permissions.bookmark
-        if (currentBookmark) {
-            await stopAccessingBookmark(currentBookmark)
-        }
+        // const currentBookmark = this.state.permissions.bookmark
+        // if (currentBookmark) {
+        //     await stopAccessingBookmark(currentBookmark)
+        // }
 
-        this.state.permissions.bookmark = null
+        // this.state.permissions.bookmark = null
     }
 }
 

@@ -187,7 +187,7 @@ pub fn run() {
             ffmpeg_download,
             ffmpeg_download,
             ffmpeg_call,
-            bookmarks::pick_draw_things_folder,
+            bookmarks::pick_folder,
             bookmarks::resolve_bookmark,
             bookmarks::stop_accessing_bookmark
         ])
