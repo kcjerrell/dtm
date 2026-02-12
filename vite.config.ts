@@ -2,7 +2,6 @@ import { defineConfig, ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
-// import wasm from "vite-plugin-wasm";
 
 // import { visualizer } from 'rollup-plugin-visualizer'
 
@@ -18,15 +17,6 @@ export default defineConfig(async () => ({
   build: {
     target: "esnext",
     assetsInlineLimit: 0,
-    // cssCodeSplit: false,
-    // sourcemap: true,
-    // rollupOptions: {
-      // output: {
-        // manualChunks() {
-        //   return 'app'
-        // }
-      // }
-    // }
   },
   plugins: [
     reactDevtools ? htmlInjectionPlugin({
@@ -49,7 +39,6 @@ export default defineConfig(async () => ({
       }
     }),
     tsconfigPaths(),
-    // wasm(),
     // visualizer({ open: true }),
   ],
   resolve: {
@@ -74,8 +63,7 @@ export default defineConfig(async () => ({
     },
   },
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
+
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available

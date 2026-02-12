@@ -8,7 +8,6 @@ import * as Preview from "./preview"
 import SliderWithInput from "./SliderWithInput"
 import Sidebar from "./sidebar/Sidebar"
 import Tooltip from "./Tooltip"
-import VirtualizedList from "./virtualizedList/VirtualizedList"
 
 export const {
     CheckRoot,
@@ -26,7 +25,6 @@ export {
     Tooltip,
     SliderWithInput,
     IconButton,
-    VirtualizedList,
     Sidebar,
     Preview,
     MeasureGrid,

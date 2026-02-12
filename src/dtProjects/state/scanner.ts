@@ -63,23 +63,28 @@ class ScannerService extends DTPStateService {
 export default ScannerService
 
 async function getProjectStats(projectPath: string) {
-    if (!projectPath.endsWith(".sqlite3")) return undefined
-    if (!(await exists(projectPath))) return undefined
+    try {
+        if (!projectPath.endsWith(".sqlite3")) return undefined
+        if (!(await exists(projectPath))) return undefined
 
-    const stats = await stat(projectPath)
+        const stats = await stat(projectPath)
 
-    let walStats: Pick<Awaited<ReturnType<typeof stat>>, "size" | "mtime"> = {
-        size: 0,
-        mtime: new Date(0),
-    }
-    if (await exists(`${projectPath}-wal`)) {
-        walStats = await stat(`${projectPath}-wal`)
-    }
+        let walStats: Pick<Awaited<ReturnType<typeof stat>>, "size" | "mtime"> = {
+            size: 0,
+            mtime: new Date(0),
+        }
+        if (await exists(`${projectPath}-wal`)) {
+            walStats = await stat(`${projectPath}-wal`)
+        }
 
-    return {
-        path: projectPath,
-        size: stats.size + walStats.size,
-        modified: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
+        return {
+            path: projectPath,
+            size: stats.size + walStats.size,
+            modified: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
+        }
+    } catch (e) {
+        console.warn("can't get project stats", projectPath, e)
+        return undefined
     }
 }
 

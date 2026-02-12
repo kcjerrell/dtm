@@ -70,7 +70,10 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
     async assignPaths() {
         this._home = await path.homeDir()
-        this._containerPath = await path.join(this._home, "Library/Containers/com.liuliu.draw-things/Data")
+        this._containerPath = await path.join(
+            this._home,
+            "Library/Containers/com.liuliu.draw-things/Data",
+        )
         this._defaultDataFolder = await path.join(this._containerPath, "Documents")
     }
 
@@ -98,7 +101,13 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
             if (!this.state.hasDefaultDataFolder && folder.path === this._defaultDataFolder) {
                 this.state.hasDefaultDataFolder = true
             }
-            folder.isMissing = !(await exists(folder.path))
+            // this may throw if the path is forbidden
+            try {
+                folder.isMissing = !(await exists(folder.path))
+            } catch (e) {
+                folder.isMissing = true
+                console.warn("marking forbidden folder as missing", folder.path, e)
+            }
         }
 
         const prevFolders = [...this.state.folders]
@@ -113,6 +122,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         }
 
         for (const folder of [...diff.added, ...diff.changed]) {
+            if (folder.isMissing) continue
             this.startWatch(folder)
         }
 
@@ -208,9 +218,8 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
                     }
                 }
             } catch (e) {
-                console.error(e)
+                console.warn(e)
             }
-            return result
         }
 
         while (toCheck.length > 0) {
@@ -221,25 +230,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         }
 
         return result
-    }
-
-    // TODO: deprecate
-    async listProjects(folder: WatchFolderState): Promise<string[]> {
-        try {
-            if (!(await exists(folder.path))) {
-                folder.isMissing = true
-                return []
-            }
-            folder.isMissing = false
-            const projects = await findFiles(folder.path, folder.recursive, (f) =>
-                f.endsWith(".sqlite3"),
-            )
-
-            return projects
-        } catch (e) {
-            console.error(e)
-            return []
-        }
     }
 
     async getFolderForProject(project: string): Promise<WatchFolderState | undefined> {
@@ -263,32 +253,40 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         if (this.watchDisposers.has(folder.path))
             throw new Error(`must stop watching folder first, ${folder.path}`)
 
-        console.debug("starting watch", folder.path)
-        const unwatch = watch(
-            folder.path,
-            async (e) => {
-                if (!shouldReact(e)) return
-                const projectFiles = e.paths
-                .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
-                .map((p) => p.replace(/-wal$/g, ""))
-                if (projectFiles.length === 0) return
-                console.debug("watch event", JSON.stringify(e))
-                const uniqueFiles = Array.from(new Set(projectFiles))
+        try {
+            if (!(await exists(folder.path))) {
+                console.warn("watch folder does not exist, skipping watch", folder.path)
+                return
+            }
+            const unwatch = watch(
+                folder.path,
+                async (e) => {
+                    if (!shouldReact(e)) return
+                    const projectFiles = e.paths
+                        .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
+                        .map((p) => p.replace(/-wal$/g, ""))
+                    if (projectFiles.length === 0) return
+                    console.debug("watch event", JSON.stringify(e))
+                    const uniqueFiles = Array.from(new Set(projectFiles))
 
-                for (const file of uniqueFiles) {
-                    this.watchCallbacks.set(file, () => {
-                        this.container.emit("projectFilesChanged", { files: [file] })
-                    })
-                }
-            },
-            { delayMs: 1500, recursive: folder.recursive },
-        )
-        this.watchDisposers.set(folder.path, unwatch)
+                    for (const file of uniqueFiles) {
+                        this.watchCallbacks.set(file, () => {
+                            this.container.emit("projectFilesChanged", { files: [file] })
+                        })
+                    }
+                },
+                { delayMs: 1500, recursive: folder.recursive },
+            )
+            this.watchDisposers.set(folder.path, unwatch)
+            console.log("watching folder for changes:", folder.path)
+        } catch (e) {
+            console.warn("can't watch folder", folder.path, e)
+        }
     }
 
     async stopWatch(folder: string) {
         if (!this.watchDisposers.has(folder)) return
-        console.debug("stopping watch", folder)
+        console.debug("stopping watch for folder:", folder)
         const unwatchPromise = this.watchDisposers.get(folder)
         this.watchDisposers.delete(folder)
 
@@ -314,28 +312,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 }
 
 export default WatchFoldersController
-
-// TODO: remove
-async function findFiles(
-    directory: string,
-    recursive: boolean,
-    filterFn: (file: string) => boolean,
-) {
-    const files = [] as string[]
-    const dirFiles = await readDir(directory)
-    for (const file of dirFiles) {
-        if (file.isDirectory && recursive) {
-            files.push(
-                ...(await findFiles(await path.join(directory, file.name), recursive, filterFn)),
-            )
-        }
-
-        if (!file.isFile) continue
-        if (!filterFn(file.name)) continue
-        files.push(await path.join(directory, file.name))
-    }
-    return files
-}
 
 function shouldReact(event: WatchEvent) {
     if (event.paths.every((p) => p.endsWith("shm"))) return false
