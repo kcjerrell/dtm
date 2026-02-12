@@ -15,11 +15,11 @@ export function VideoImage(props: VideoImageProps) {
 
     const handlers = clickToPause
         ? {
-              onPointerDown: (e) => {
+              onPointerDown: (e: React.PointerEvent) => {
                   e.stopPropagation()
                   controls.togglePlayPause()
               },
-              onClick: (e) => e.stopPropagation(),
+              onClick: (e: React.MouseEvent) => e.stopPropagation(),
           }
         : {}
 

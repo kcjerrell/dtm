@@ -540,37 +540,16 @@ const templates = {
         const { value, ...rest } = props
         if (!value || (value.guidance === 0 && value.steps === 0)) return null
         return null
-        return (
-            <DataItem
-                label={"Stage 2"}
-                data={`${value.steps} steps at ${value.guidance.toFixed(1)} guidance (${value.shift.toFixed(2)} shift)`}
-                {...rest}
-            />
-        )
     },
     ImagePrior: (props: DataItemTemplateProps<"imagePrior">) => {
         const { value, ...rest } = props
         if (!value || value.steps === 0) return null
         return null
-        return (
-            <DataItem
-                label={"Image Prior"}
-                data={`${value.steps} steps${value.negativePrompt ? " (Negative Prompt)" : ""}`}
-                {...rest}
-            />
-        )
     },
     AestheticScore: (props: DataItemTemplateProps<"aestheticScore">) => {
         const { value, ...rest } = props
         if (!value || (value.positive === 0 && value.negative === 0)) return null
         return null
-        return (
-            <DataItem
-                label={"Aesthetic Score"}
-                data={`${value.positive} / ${value.negative}`}
-                {...rest}
-            />
-        )
     },
 }
 

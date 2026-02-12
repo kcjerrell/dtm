@@ -15,7 +15,9 @@ export function createValueLabelCollection(values: Record<string, string>) {
     })
 }
 
-export type FilterValueSelector<T = unknown> = (props: ValueSelectorProps<T>) => JSX.Element
+export type FilterValueSelector<T = unknown> = ((props: ValueSelectorProps<T>) => JSX.Element) & {
+    getValueLabel: (value: T) => string[]
+}
 
 export function getValueSelector(target?: string) {
     if (!target) return filterTargets.none.ValueComponent

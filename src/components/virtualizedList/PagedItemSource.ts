@@ -227,6 +227,7 @@ export class EmptyItemSource<T> implements IItemSource<T> {
 			totalCount: 0,
 			activeItemIndex: undefined,
 			activeItem: undefined,
+			hasInitialLoad: true,
 		})
 	}
 
