@@ -57,10 +57,11 @@ fn update_tags(app_handle: &tauri::AppHandle, tag: &str, data: Value) {
 )]
 pub async fn projects_db_project_add(
     app_handle: tauri::AppHandle,
+    watch_folder_id: i64,
     path: String,
 ) -> Result<ProjectExtra, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let project = pdb.add_project(&path).await?;
+    let project = pdb.add_project(watch_folder_id, &path).await?;
     update_tags(
         &app_handle,
         "projects",
@@ -72,15 +73,15 @@ pub async fn projects_db_project_add(
 }
 
 #[dtm_command(
-    ok = |ctx| format!("removed project {}", project_name(&ctx.path)),
-    err = |ctx| format!("error removing project {}: {}", project_name(&ctx.path), ctx.res)
+    ok = |ctx| format!("removed project {}", ctx.id),
+    err = |ctx| format!("error removing project {}: {}", ctx.id, ctx.res)
 )]
 pub async fn projects_db_project_remove(
     app_handle: tauri::AppHandle,
-    path: String,
+    id: i64,
 ) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let result = pdb.remove_project(&path).await.map_err(|e| e.to_string())?;
+    let result = pdb.remove_project(id).await.map_err(|e| e.to_string())?;
 
     match result {
         Some(id) => {
@@ -124,11 +125,11 @@ pub async fn projects_db_project_update_exclude(
 #[dtm_command]
 pub async fn projects_db_project_bulk_update_missing_on(
     app_handle: tauri::AppHandle,
-    paths: Vec<String>,
-    missing_on: Option<i64>,
+    watch_folder_id: i64,
+    is_missing: bool,
 ) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    pdb.bulk_update_missing_on(paths, missing_on)
+    pdb.bulk_update_missing_on(watch_folder_id, is_missing)
         .await
         .map_err(|e| e.to_string())?;
     invalidate_tags(&app_handle, "projects", "bulk_update");
@@ -136,12 +137,12 @@ pub async fn projects_db_project_bulk_update_missing_on(
 }
 
 #[dtm_command(
-    ok = |ctx| format!("scanned project {}", project_name(&ctx.path)),
-    err = |ctx| format!("error scanning project {}: {}", project_name(&ctx.path), ctx.res)
+    ok = |ctx| format!("scanned project {}", ctx.id),
+    err = |ctx| format!("error scanning project {}: {}", ctx.id, ctx.res)
 )]
 pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
-    path: String,
+    id: i64,
     full_scan: Option<bool>,
     _filesize: Option<i64>,
     _modified: Option<i64>,
@@ -162,14 +163,14 @@ pub async fn projects_db_project_scan(
     //     .unwrap();
     // };
     let result: Result<(i64, u64), String> = pdb
-        .scan_project(&path, full_scan.unwrap_or(false))
+        .scan_project(id, full_scan.unwrap_or(false))
         .await
         .map_err(|e| e.to_string());
 
     match result {
         Ok((_id, total)) => {
             let project = pdb
-                .update_project(&path, _filesize, _modified)
+                .get_project(_id)
                 .await
                 .map_err(|e| e.to_string())?;
 
@@ -200,7 +201,7 @@ pub async fn projects_db_project_scan(
             Ok(total as i32)
         }
         Err(err) => {
-            log::error!("Error scanning project {}: {}", path, err);
+            log::error!("Error scanning project {}: {}", id, err);
             Err(err.to_string())
         }
     }
@@ -268,11 +269,12 @@ pub async fn projects_db_watch_folder_list(
 pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
+    bookmark: String,
     recursive: bool,
 ) -> Result<WatchFolderDTO, String> {
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let result = projects_db
-        .add_watch_folder(&path, recursive)
+        .add_watch_folder(&path, &bookmark, recursive)
         .await
         .unwrap();
 

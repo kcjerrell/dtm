@@ -14,6 +14,9 @@ pub struct ProjectExtra {
     pub modified: Option<i64>,
     pub missing_on: Option<i64>,
     pub excluded: bool,
+    pub name: String,
+    pub full_path: String,
+    pub is_missing: bool,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -25,6 +28,24 @@ pub struct DTProjectInfo {
 
 impl From<projects::Model> for ProjectExtra {
     fn from(m: projects::Model) -> Self {
+        let name = std::path::Path::new(&m.path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        let wf_path = crate::projects_db::folder_cache::get_folder(m.watchfolder_id);
+        let full_path = if let Some(ref wf) = wf_path {
+            std::path::Path::new(wf)
+                .join(&m.path)
+                .to_string_lossy()
+                .to_string()
+        } else {
+            m.path.clone()
+        };
+
+        let is_missing = m.missing_on.is_some() || wf_path.is_none();
+
         Self {
             id: m.id,
             fingerprint: m.fingerprint,
@@ -36,6 +57,9 @@ impl From<projects::Model> for ProjectExtra {
             modified: m.modified,
             missing_on: m.missing_on,
             excluded: m.excluded,
+            name,
+            full_path,
+            is_missing,
         }
     }
 }

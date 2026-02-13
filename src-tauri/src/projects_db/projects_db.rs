@@ -7,8 +7,8 @@ use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
-    EntityTrait, ExprTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait, RelationTrait, Set,
+    EntityTrait, ExprTrait, IntoActiveModel, JoinType, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Set,
 };
 use serde::Deserialize;
 use std::{
@@ -18,17 +18,21 @@ use std::{
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
-use crate::projects_db::{
-    dt_project::{self, ProjectRef},
-    dtos::{
-        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult, Paged},
-        model::ModelExtra,
-        project::ProjectExtra,
-        tensor::{TensorHistoryClip, TensorHistoryImport},
-        watch_folder::WatchFolderDTO,
+use crate::{
+    bookmarks,
+    projects_db::{
+        dt_project::{self, ProjectRef},
+        dtos::{
+            image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult, Paged},
+            model::ModelExtra,
+            project::ProjectExtra,
+            tensor::{TensorHistoryClip, TensorHistoryImport},
+            watch_folder::WatchFolderDTO,
+        },
+        folder_cache,
+        search::{self, process_prompt},
+        DTProject,
     },
-    search::{self, process_prompt},
-    DTProject,
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
@@ -44,7 +48,7 @@ fn get_path(app_handle: &tauri::AppHandle) -> String {
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
     }
-    let project_db_path = app_data_dir.join("projects3.db");
+    let project_db_path = app_data_dir.join("projects4.db");
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
@@ -54,15 +58,36 @@ fn check_old_path(app_handle: &tauri::AppHandle) {
     if old_path.exists() {
         fs::remove_file(old_path).unwrap_or_default();
     }
+    let old_path = app_data_dir.join("projects3.db");
+    if old_path.exists() {
+        fs::remove_file(old_path).unwrap_or_default();
+    }
 }
 
 impl ProjectsDb {
     pub async fn get_or_init(app_handle: &tauri::AppHandle) -> Result<&'static ProjectsDb, String> {
-        check_old_path(app_handle);
         CELL.get_or_try_init(|| async {
-            ProjectsDb::new(&get_path(app_handle))
+            check_old_path(app_handle);
+            let db = ProjectsDb::new(&get_path(app_handle))
                 .await
                 .map_err(|e| e.to_string())
+                .unwrap();
+
+            let folders = entity::watch_folders::Entity::find()
+                .all(&db.db)
+                .await
+                .unwrap();
+
+            for folder in folders {
+                let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
+                if let Ok(resolved) = resolved {
+                    let mut update = folder.into_active_model();
+                    update.path = Set(resolved);
+                    update.update(&db.db).await.unwrap();
+                }
+            }
+
+            Ok(db)
         })
         .await
     }
@@ -82,22 +107,37 @@ impl ProjectsDb {
         Ok(count as u32)
     }
 
-    pub async fn add_project(&self, path: &str) -> Result<ProjectExtra, MixedError> {
-        let dt_project = DTProject::get(path).await?;
+    // path must be relative to watch folder, which can be retrieved through folder_cache
+    pub async fn add_project(
+        &self,
+        watch_folder_id: i64,
+        relative_path: &str,
+    ) -> Result<ProjectExtra, MixedError> {
+        let watch_folder_path = folder_cache::get_folder(watch_folder_id)
+            .ok_or_else(|| "Watch folder not found in cache".to_string())?;
+        let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
+        let full_path_str = full_path
+            .to_str()
+            .ok_or_else(|| "Invalid path".to_string())?;
+
+        let dt_project = DTProject::get(full_path_str).await?;
         let fingerprint = dt_project.get_fingerprint().await?;
 
         let project = projects::ActiveModel {
-            path: Set(path.to_string()),
+            path: Set(relative_path.to_string()),
+            watchfolder_id: Set(watch_folder_id),
             fingerprint: Set(fingerprint),
             ..Default::default()
         };
 
         let project = entity::projects::Entity::insert(project)
             .on_conflict(
-                OnConflict::column(entity::projects::Column::Path)
-                    // do a fake update so the row returns
-                    .value(entity::projects::Column::Path, path)
-                    .to_owned(),
+                OnConflict::columns([
+                    entity::projects::Column::Path,
+                    entity::projects::Column::WatchfolderId,
+                ])
+                .value(entity::projects::Column::Path, relative_path)
+                .to_owned(),
             )
             .exec_with_returning(&self.db)
             .await?;
@@ -107,11 +147,11 @@ impl ProjectsDb {
         Ok(project)
     }
 
-    pub async fn remove_project(&self, path: &str) -> Result<Option<i64>, DbErr> {
-        let project = projects::Entity::find_by_path(path).one(&self.db).await?;
+    pub async fn remove_project(&self, id: i64) -> Result<Option<i64>, DbErr> {
+        let project = projects::Entity::find_by_id(id).one(&self.db).await?;
 
         if project.is_none() {
-            log::debug!("remove project: No project found for path: {}", path);
+            log::debug!("remove project: No project found for id: {}", id);
             return Ok(None);
         }
         let project = project.unwrap();
@@ -121,7 +161,7 @@ impl ProjectsDb {
             .await?;
 
         if delete_result.rows_affected == 0 {
-            log::debug!("remove project: project couldn't be deleted: {}", path);
+            log::debug!("remove project: project couldn't be deleted: {}", id);
         }
 
         Ok(Some(project.id))
@@ -149,7 +189,8 @@ impl ProjectsDb {
         use images::Entity as Images;
         use projects::Entity as Projects;
 
-        let result = Projects::find_by_path(path)
+        let result = Projects::find()
+            .filter(projects::Column::Path.eq(path))
             .join(JoinType::LeftJoin, projects::Relation::Images.def())
             .column_as(
                 Expr::col((Images, images::Column::ProjectId)).count(),
@@ -215,19 +256,23 @@ impl ProjectsDb {
         Ok(updated)
     }
 
-    pub async fn scan_project(
-        &self,
-        path: &str,
-        full_scan: bool,
-    ) -> Result<(i64, u64), MixedError> {
-        let dt_project = DTProject::get(path).await?;
-        let dt_project_info = dt_project.get_info().await?;
-        let end = dt_project_info.history_max_id;
-        let project = self.get_project_by_path(path).await?;
+    pub async fn scan_project(&self, id: i64, full_scan: bool) -> Result<(i64, u64), MixedError> {
+        let project = self.get_project(id).await?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
+
+        let watch_folder_path = folder_cache::get_folder(project.watchfolder_id)
+            .ok_or_else(|| "Watch folder not found in cache".to_string())?;
+        let full_path = std::path::Path::new(&watch_folder_path).join(&project.path);
+        let full_path_str = full_path
+            .to_str()
+            .ok_or_else(|| "Invalid path".to_string())?;
+
+        let dt_project = DTProject::get(full_path_str).await?;
+        let dt_project_info = dt_project.get_info().await?;
+        let end = dt_project_info.history_max_id;
 
         let start = match full_scan {
             true => 0,
@@ -694,15 +739,27 @@ impl ProjectsDb {
     pub async fn add_watch_folder(
         &self,
         path: &str,
+        bookmark: &str,
         recursive: bool,
     ) -> Result<WatchFolderDTO, DbErr> {
         let model = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
+            bookmark: Set(bookmark.to_string()),
             recursive: Set(Some(recursive)),
             ..Default::default()
         }
         .insert(&self.db)
         .await?;
+
+        let resolved = folder_cache::resolve_bookmark(model.id, bookmark)
+            .await
+            .unwrap_or_else(|_| path.to_string());
+
+        if resolved != path {
+            let mut update = model.clone().into_active_model();
+            update.path = Set(resolved);
+            update.update(&self.db).await?;
+        }
 
         Ok(model.into())
     }
@@ -775,29 +832,18 @@ impl ProjectsDb {
 
     pub async fn bulk_update_missing_on(
         &self,
-        paths: Vec<String>,
-        missing_on: Option<i64>,
+        watch_folder_id: i64,
+        is_missing: bool,
     ) -> Result<(), DbErr> {
-        if paths.is_empty() {
-            return Ok(());
-        }
-
-        // Look up project IDs from paths
-        let projects = projects::Entity::find()
-            .filter(projects::Column::Path.is_in(paths))
-            .select_only()
-            .column(projects::Column::Id)
-            .into_tuple::<i64>()
-            .all(&self.db)
-            .await?;
-
-        if projects.is_empty() {
-            return Ok(());
-        }
+        let missing_on = if is_missing {
+            Some(chrono::Utc::now().timestamp())
+        } else {
+            None
+        };
 
         projects::Entity::update_many()
             .col_expr(projects::Column::MissingOn, Expr::value(missing_on))
-            .filter(projects::Column::Id.is_in(projects))
+            .filter(projects::Column::WatchfolderId.eq(watch_folder_id))
             .exec(&self.db)
             .await?;
 

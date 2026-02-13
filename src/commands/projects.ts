@@ -223,9 +223,9 @@ export type WatchFolder = {
 // --------------------
 
 export const pdb = {
-    addProject: async (path: string): Promise<ProjectExtra | undefined> => {
+    addProject: async (watchFolderId: number, path: string): Promise<ProjectExtra | undefined> => {
         try {
-            return await invoke("projects_db_project_add", { path })
+            return await invoke("projects_db_project_add", { watchFolderId, path })
         }
         catch (e) {
             if (e === "error communicating with database: Table not found") return undefined
@@ -234,24 +234,25 @@ export const pdb = {
         }
     },
 
-    removeProject: async (path: string): Promise<void> =>
-        invoke("projects_db_project_remove", { path }),
+    removeProject: async (id: number): Promise<void> =>
+        invoke("projects_db_project_remove", { id }),
 
     listProjects: async (): Promise<ProjectExtra[]> => invoke("projects_db_project_list"),
 
     scanProject: async (
-        path: string,
+        id: number,
         fullScan = false,
         filesize?: number,
         modified?: number,
     ): Promise<number> =>
-        invoke("projects_db_project_scan", { path, fullScan, filesize, modified }),
+        invoke("projects_db_project_scan", { id, fullScan, filesize, modified }),
 
     updateExclude: async (id: number, exclude: boolean): Promise<void> =>
         invoke("projects_db_project_update_exclude", { id, exclude }),
 
-    updateMissingOn: async (paths: string[], missingOn: number | null): Promise<void> =>
-        invoke("projects_db_project_bulk_update_missing_on", { paths, missingOn }),
+    // TODO+: scanner.ts will need to be reworked
+    updateMissingOn: async (watchFolderId: number, isMissing: boolean): Promise<void> =>
+        invoke("projects_db_project_bulk_update_missing_on", { watchFolderId, isMissing }),
 
     listImages: async (
         source: MaybeReadonly<ListImagesOpts>,
@@ -285,9 +286,10 @@ export const pdb = {
 
         add: async (
             path: string,
+            bookmark: string,
             recursive: boolean,
         ): Promise<WatchFolder> =>
-            invoke("projects_db_watch_folder_add", { path, recursive }),
+            invoke("projects_db_watch_folder_add", { path, bookmark, recursive }),
 
         remove: async (ids: number[] | number): Promise<void> =>
             invoke("projects_db_watch_folder_remove", { ids: Array.isArray(ids) ? ids : [ids] }),
