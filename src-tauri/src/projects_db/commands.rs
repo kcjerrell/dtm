@@ -346,11 +346,12 @@ pub async fn projects_db_list_models(
 
 #[dtm_command]
 pub async fn dt_project_get_tensor_history(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     index: u32,
     count: usize,
 ) -> Result<Vec<TensorHistoryImport>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
+    let project = get_project(app, project_id).await?;
     match project.get_histories(index as i64, count).await {
         Ok(history) => Ok(history),
         Err(_e) => Ok(Vec::new()),
@@ -359,101 +360,95 @@ pub async fn dt_project_get_tensor_history(
 
 #[dtm_command]
 pub async fn dt_project_get_text_history(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
 ) -> Result<Vec<TextHistoryNodeDTO>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project.get_text_history().await.unwrap())
+    let project = get_project(app, project_id).await?;
+    Ok(project.get_text_history().await.map_err(|e| e.to_string())?)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_thumb_half(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     thumb_id: i64,
 ) -> Result<Vec<u8>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project.get_thumb_half(thumb_id).await.unwrap())
+    let project = get_project(app, project_id).await?;
+    Ok(project.get_thumb_half(thumb_id).await.map_err(|e| e.to_string())?)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_history_full(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     row_id: i64,
 ) -> Result<TensorHistoryExtra, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    let history = project.get_history_full(row_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let history = project.get_history_full(row_id).await.map_err(|e| e.to_string())?;
     Ok(history)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_tensor_raw(
     app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
+    project_id: i64,
     tensor_id: String,
 ) -> Result<TensorRaw, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let tensor = project.get_tensor_raw(&tensor_id).await.map_err(|e| e.to_string())?;
     Ok(tensor)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_tensor_size(
     app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
+    project_id: i64,
     tensor_id: String,
 ) -> Result<TensorSize, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_size(&tensor_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let tensor = project.get_tensor_size(&tensor_id).await.map_err(|e| e.to_string())?;
     Ok(tensor)
 }
 
 #[dtm_command]
 pub async fn dt_project_decode_tensor(
     app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_file: Option<String>,
+    project_id: i64,
     node_id: Option<i64>,
     tensor_id: String,
     as_png: bool,
 ) -> Result<tauri::ipc::Response, String> {
-    let project = get_project(app, project_file, project_id).await.unwrap();
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let tensor = project.get_tensor_raw(&tensor_id).await.map_err(|e| e.to_string())?;
     let metadata = match node_id {
-        Some(node) => Some(project.get_history_full(node).await.unwrap().history),
+        Some(node) => Some(project.get_history_full(node).await.map_err(|e| e.to_string())?.history),
         None => None,
     };
 
-    let buffer = decode_tensor(tensor, as_png, metadata, None).unwrap();
+    let buffer = decode_tensor(tensor, as_png, metadata, None).map_err(|e| e.to_string())?;
     Ok(tauri::ipc::Response::new(buffer))
 }
 
 #[dtm_command]
 pub async fn dt_project_find_predecessor_candidates(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     row_id: i64,
     lineage: i64,
     logical_time: i64,
 ) -> Result<Vec<TensorHistoryExtra>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
+    let project = get_project(app, project_id).await?;
     Ok(project
         .find_predecessor_candidates(row_id, lineage, logical_time)
         .await
-        .unwrap())
+        .map_err(|e| e.to_string())?)
 }
 
 async fn get_project(
     app: tauri::AppHandle,
-    project_path: Option<String>,
-    project_id: Option<i64>,
+    project_id: i64,
 ) -> Result<std::sync::Arc<DTProject>, String> {
-    let project_ref = match project_id {
-        Some(pid) => ProjectRef::Id(pid),
-        None => match project_path {
-            Some(path) => ProjectRef::Path(path),
-            None => return Err("No project specified".to_string()),
-        },
-    };
+    let project_ref = ProjectRef::Id(project_id);
     let projects_db = ProjectsDb::get_or_init(&app).await?;
     let project = projects_db.get_dt_project(project_ref).await?;
     Ok(project)

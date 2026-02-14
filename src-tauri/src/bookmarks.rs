@@ -19,6 +19,24 @@ pub struct PickFolderResult {
     pub bookmark: String,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum ResolveResult {
+    CannotResolve,
+    Resolved(String),
+    StaleRefreshed {
+        new_bookmark: String,
+        resolved_path: String,
+    },
+}
+
+#[derive(serde::Deserialize)]
+struct FfiResolveResult {
+    status: String,
+    path: String,
+    new_bookmark: Option<String>,
+}
+
 #[command]
 pub async fn pick_folder(
     app: tauri::AppHandle,
@@ -28,8 +46,7 @@ pub async fn pick_folder(
     #[cfg(target_os = "macos")]
     {
         use std::ffi::{CStr, CString};
-        use std::ptr;
-        use tauri::Manager;
+                use tauri::Manager;
 
         let target_path = match default_path {
             Some(p) => p,
@@ -72,7 +89,7 @@ pub async fn pick_folder(
 }
 
 #[command]
-pub async fn resolve_bookmark(bookmark: String) -> Result<String, String> {
+pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String> {
     #[cfg(target_os = "macos")]
     {
         use std::ffi::{CStr, CString};
@@ -82,15 +99,33 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<String, String> {
         let ptr = unsafe { ffi::start_accessing_security_scoped_resource(c_bookmark.as_ptr()) };
 
         if ptr.is_null() {
-            return Err("Failed to resolve bookmark or start accessing resource".to_string());
+            return Ok(ResolveResult::CannotResolve);
         }
 
         let c_str = unsafe { CStr::from_ptr(ptr) };
-        let result = c_str.to_string_lossy().into_owned();
+        let json_result = c_str.to_string_lossy().into_owned();
 
         unsafe { ffi::free_string_ptr(ptr) };
 
-        Ok(result)
+        // Parse JSON result from FFI
+        let ffi_result: FfiResolveResult = serde_json::from_str(&json_result)
+            .map_err(|e| format!("Failed to parse resolve result: {}", e))?;
+
+        match ffi_result.status.as_str() {
+            "resolved" => Ok(ResolveResult::Resolved(ffi_result.path)),
+            "stale_refreshed" => {
+                if let Some(new_bookmark) = ffi_result.new_bookmark {
+                    Ok(ResolveResult::StaleRefreshed {
+                        new_bookmark,
+                        resolved_path: ffi_result.path,
+                    })
+                } else {
+                    // Should not happen if status is stale_refreshed
+                    Ok(ResolveResult::Resolved(ffi_result.path))
+                }
+            }
+            _ => Ok(ResolveResult::CannotResolve),
+        }
     }
 
     #[cfg(not(target_os = "macos"))]

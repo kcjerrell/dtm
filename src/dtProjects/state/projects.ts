@@ -144,9 +144,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }, 2000)
     }
 
-    async removeProjects(projectFiles: string[]) {
-        for (const projectFile of projectFiles) {
-            await pdb.removeProject(projectFile)
+    async removeProjects(projectIds: number[]) {
+        for (const projectId of projectIds) {
+            await pdb.removeProject(projectId)
         }
         await this.loadProjects()
     }

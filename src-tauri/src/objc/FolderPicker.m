@@ -42,7 +42,7 @@ const char* open_dt_folder_picker(const char* default_path, const char* button_t
                 NSData *bookmarkData = [url bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope
                                      includingResourceValuesForKeys:nil
                                                       relativeToURL:nil
-                                                              error:&error];
+                                                               error:&error];
                 
                 if (bookmarkData) {
                     NSString *base64String = [bookmarkData base64EncodedStringWithOptions:0];
@@ -90,11 +90,18 @@ const char* start_accessing_security_scoped_resource(const char* bookmark_base64
     if (!base64String) return NULL;
     
     // Check if we already have this bookmark active
-    // Note: In Swift we used the base64 string as the key. We do the same here.
     @synchronized(activeBookmarks) {
         NSURL *existingUrl = activeBookmarks[base64String];
         if (existingUrl) {
-            return strdup([existingUrl.path UTF8String]);
+            NSDictionary *dict = @{
+                @"status": @"resolved",
+                @"path": existingUrl.path
+            };
+            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict options:0 error:nil];
+            if (jsonData) {
+                NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+                return strdup([jsonString UTF8String]);
+            }
         }
     }
     
@@ -106,27 +113,53 @@ const char* start_accessing_security_scoped_resource(const char* bookmark_base64
     NSURL *url = [NSURL URLByResolvingBookmarkData:data
                                            options:NSURLBookmarkResolutionWithSecurityScope
                                      relativeToURL:nil
-                               bookmarkDataIsStale:&isStale
-                                             error:&error];
-    
-    if (isStale) {
-        NSLog(@"Bookmark is stale");
-    }
+                                bookmarkDataIsStale:&isStale
+                                              error:&error];
     
     if (url) {
         if ([url startAccessingSecurityScopedResource]) {
+            NSString *status = @"resolved";
+            NSString *newBookmarkBase64 = nil;
+
+            if (isStale) {
+                NSLog(@"Bookmark is stale, refreshing...");
+                NSData *newBookmarkData = [url bookmarkDataWithOptions:NSURLBookmarkCreationWithSecurityScope
+                                        includingResourceValuesForKeys:nil
+                                                         relativeToURL:nil
+                                                                 error:&error];
+                if (newBookmarkData) {
+                    newBookmarkBase64 = [newBookmarkData base64EncodedStringWithOptions:0];
+                    status = @"stale_refreshed";
+                } else {
+                    NSLog(@"Failed to refresh stale bookmark: %@", error);
+                }
+            }
+
             @synchronized(activeBookmarks) {
                 activeBookmarks[base64String] = url;
             }
-            return strdup([url.path UTF8String]);
+
+            NSMutableDictionary *resultDict = [NSMutableDictionary dictionaryWithDictionary:@{
+                @"status": status,
+                @"path": url.path
+            }];
+            if (newBookmarkBase64) {
+                resultDict[@"new_bookmark"] = newBookmarkBase64;
+            }
+
+            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:resultDict options:0 error:&error];
+            if (jsonData) {
+                NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+                return strdup([jsonString UTF8String]);
+            }
         } else {
             NSLog(@"Failed to start accessing security scoped resource");
-            return NULL;
         }
     } else {
         NSLog(@"Error resolving bookmark: %@", error);
-        return NULL;
     }
+    
+    return NULL;
 }
 
 void stop_accessing_security_scoped_resource(const char* bookmark_base64) {

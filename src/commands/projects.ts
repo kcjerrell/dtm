@@ -336,46 +336,39 @@ export type TensorSize = {
 export const dtProject = {
     // #unused
     getTensorHistory: async (
-        project_file: string,
+        projectId: number,
         index: number,
         count: number,
     ): Promise<Record<string, unknown>[]> =>
-        invoke("dt_project_get_tensor_history", { project_file, index, count }),
+        invoke("dt_project_get_tensor_history", { projectId, index, count }),
 
     // #unused
-    getThumbHalf: async (project_file: string, thumb_id: number): Promise<Uint8Array> =>
-        invoke("dt_project_get_thumb_half", { project_file, thumb_id }),
+    getThumbHalf: async (projectId: number, thumbId: number): Promise<Uint8Array> =>
+        invoke("dt_project_get_thumb_half", { projectId, thumbId }),
 
-    getHistoryFull: async (projectFile: string, rowId: number): Promise<TensorHistoryExtra> =>
-        invoke("dt_project_get_history_full", { projectFile, rowId }),
+    getHistoryFull: async (projectId: number, rowId: number): Promise<TensorHistoryExtra> =>
+        invoke("dt_project_get_history_full", { projectId, rowId }),
 
     // #unused
     getTensorRaw: async (
-        projectFile: string,
         projectId: number,
         tensorId: string,
     ): Promise<TensorRaw> =>
-        invoke("dt_project_get_tensor_raw", { projectFile, projectId, tensorId }),
+        invoke("dt_project_get_tensor_raw", { projectId, tensorId }),
 
-    getTensorSize: async (project: string | number, tensorId: string): Promise<TensorSize> => {
-        const opts = {
-            tensorId,
-            projectId: typeof project === "string" ? undefined : project,
-            projectFile: typeof project === "string" ? project : undefined,
-        }
-        return invoke("dt_project_get_tensor_size", opts)
+    getTensorSize: async (projectId: number, tensorId: string): Promise<TensorSize> => {
+        return invoke("dt_project_get_tensor_size", { projectId, tensorId })
     },
 
     decodeTensor: async (
-        project: string | number,
+        projectId: number,
         tensorId: string,
         asPng: boolean,
         nodeId?: number,
     ): Promise<Uint8Array<ArrayBuffer>> => {
         const opts = {
             tensorId,
-            projectId: typeof project === "string" ? undefined : project,
-            projectFile: typeof project === "string" ? project : undefined,
+            projectId,
             asPng,
             nodeId,
         }
@@ -383,13 +376,13 @@ export const dtProject = {
     },
 
     getPredecessorCandidates: async (
-        projectFile: string,
+        projectId: number,
         rowId: number,
         lineage: number,
         logicalTime: number,
     ): Promise<TensorHistoryExtra[]> =>
         invoke("dt_project_find_predecessor_candidates", {
-            projectFile,
+            projectId,
             rowId,
             lineage,
             logicalTime,

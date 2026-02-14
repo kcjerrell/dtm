@@ -83,9 +83,24 @@ impl ProjectsDb {
             for folder in folders {
                 let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
                 if let Ok(resolved) = resolved {
-                    let mut update = folder.into_active_model();
-                    update.path = Set(resolved);
-                    update.update(&db.db).await.unwrap();
+                    match resolved {
+                        crate::bookmarks::ResolveResult::Resolved(path) => {
+                            if path != folder.path {
+                                let mut update = folder.into_active_model();
+                                update.path = Set(path);
+                                update.update(&db.db).await.unwrap();
+                            }
+                        }
+                        crate::bookmarks::ResolveResult::StaleRefreshed { new_bookmark, resolved_path } => {
+                            let mut update = folder.into_active_model();
+                            update.path = Set(resolved_path);
+                            update.bookmark = Set(new_bookmark);
+                            update.update(&db.db).await.unwrap();
+                        }
+                        crate::bookmarks::ResolveResult::CannotResolve => {
+                            // TODO: Mark as missing in DB?
+                        }
+                    }
                 }
             }
 
@@ -188,27 +203,6 @@ impl ProjectsDb {
         Ok(result.unwrap().into())
     }
 
-    pub async fn get_project_by_path(&self, path: &str) -> Result<ProjectExtra, DbErr> {
-        use images::Entity as Images;
-        use projects::Entity as Projects;
-
-        let result = Projects::find()
-            .filter(projects::Column::Path.eq(path))
-            .join(JoinType::LeftJoin, projects::Relation::Images.def())
-            .column_as(
-                Expr::col((Images, images::Column::ProjectId)).count(),
-                "image_count",
-            )
-            .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
-            .into_model::<ProjectRow>()
-            .one(&self.db)
-            .await?;
-
-        match result {
-            Some(result) => Ok(result.into()),
-            None => Err(DbErr::RecordNotFound(format!("Project {path} not found"))),
-        }
-    }
 
     /// List all projects, newest first
     pub async fn list_projects(
@@ -275,14 +269,7 @@ impl ProjectsDb {
             return Ok((project.id, 0));
         }
 
-        let watch_folder_path = folder_cache::get_folder(project.watchfolder_id)
-            .ok_or_else(|| "Watch folder not found in cache".to_string())?;
-        let full_path = std::path::Path::new(&watch_folder_path).join(&project.path);
-        let full_path_str = full_path
-            .to_str()
-            .ok_or_else(|| "Invalid path".to_string())?;
-
-        let dt_project = DTProject::get(full_path_str).await?;
+        let dt_project = DTProject::get(&project.full_path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
 
@@ -763,14 +750,27 @@ impl ProjectsDb {
         .insert(&self.db)
         .await?;
 
-        let resolved = folder_cache::resolve_bookmark(model.id, bookmark)
-            .await
-            .unwrap_or_else(|_| path.to_string());
+        let resolved = folder_cache::resolve_bookmark(model.id, bookmark).await;
 
-        if resolved != path {
-            let mut update = model.clone().into_active_model();
-            update.path = Set(resolved);
-            update.update(&self.db).await?;
+        if let Ok(resolved) = resolved {
+            match resolved {
+                crate::bookmarks::ResolveResult::Resolved(path) => {
+                    if path != model.path {
+                        let mut update = model.clone().into_active_model();
+                        update.path = Set(path);
+                        update.update(&self.db).await?;
+                    }
+                }
+                crate::bookmarks::ResolveResult::StaleRefreshed { new_bookmark, resolved_path } => {
+                    let mut update = model.clone().into_active_model();
+                    update.path = Set(resolved_path);
+                    update.bookmark = Set(new_bookmark);
+                    update.update(&self.db).await?;
+                }
+                crate::bookmarks::ResolveResult::CannotResolve => {
+                    // Handle case where it couldn't be resolved immediately?
+                }
+            }
         }
 
         Ok(model.into())
@@ -874,34 +874,39 @@ impl ProjectsDb {
         &self,
         project_ref: ProjectRef,
     ) -> Result<std::sync::Arc<dt_project::DTProject>, String> {
-        let project_path = match project_ref {
-            ProjectRef::Path(path) => path,
+        let full_path = match project_ref {
             ProjectRef::Id(id) => {
-                let project = entity::projects::Entity::find_by_id(id as i32)
-                    .one(&self.db)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .unwrap();
-                project.path
+                let project = self.get_project(id).await.map_err(|e| e.to_string())?;
+                project.full_path
             }
         };
-        Ok(dt_project::DTProject::get(&project_path).await.unwrap())
+
+        Ok(dt_project::DTProject::get(&full_path).await.map_err(|e| e.to_string())?)
     }
 
     pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
-        let result: Option<(String, i64)> = images::Entity::find_by_id(image_id)
+        let result: Option<(String, i64, i64)> = images::Entity::find_by_id(image_id)
             .join(JoinType::InnerJoin, images::Relation::Projects.def())
             .select_only()
             .column(entity::projects::Column::Path)
+            .column(entity::projects::Column::WatchfolderId)
             .column(images::Column::NodeId)
             .into_tuple()
             .one(&self.db)
             .await
             .map_err(|e| e.to_string())?;
 
-        let (project_path, node_id) = result.ok_or("Image or Project not found")?;
+        let (rel_path, watchfolder_id, node_id) = result.ok_or("Image or Project not found")?;
 
-        let dt_project = DTProject::get(&project_path)
+        let watch_folder_path = folder_cache::get_folder(watchfolder_id)
+            .ok_or_else(|| format!("Watch folder {watchfolder_id} not found in cache"))?;
+
+        let full_path = std::path::Path::new(&watch_folder_path).join(rel_path);
+        let full_path_str = full_path
+            .to_str()
+            .ok_or_else(|| "Invalid path encoding".to_string())?;
+
+        let dt_project = DTProject::get(full_path_str)
             .await
             .map_err(|e| e.to_string())?;
         dt_project
@@ -1106,10 +1111,10 @@ impl ProjectsDb {
 
         // 7. Sort by usage desc
         results.sort_by(|a, b| b.count.cmp(&a.count));
-
         Ok(results)
     }
 }
+
 
 #[derive(Debug)]
 pub enum MixedError {

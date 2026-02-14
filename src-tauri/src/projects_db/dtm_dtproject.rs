@@ -218,7 +218,7 @@ async fn get_project_path(project_id: i64) -> Result<String, DbErr> {
     PROJECT_PATH_CACHE
         .write()
         .unwrap()
-        .insert(project_id, project.path.clone());
+        .insert(project_id, project.full_path.clone());
     Ok(project.path)
 }
 

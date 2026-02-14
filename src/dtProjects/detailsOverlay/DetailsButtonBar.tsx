@@ -64,8 +64,8 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
     const getImage = async (frameIndex?: number) => {
         if (isVideo) return getFrame(frameIndex)
         console.log("getting image")
-        if (!project?.path || !tensorId) return
-        return await dtProject.decodeTensor(project.path, tensorId, true, nodeId)
+        if (!item || !tensorId) return
+        return await dtProject.decodeTensor(item.project_id, tensorId, true, nodeId)
     }
 
     const disabled = !projectId || !tensorId || !show || lockButtons

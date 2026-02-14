@@ -50,10 +50,17 @@ class ScannerService extends DTPStateService {
         this.container.getService("jobs").addJob(job)
     }
 
-    async syncProjects(projects: ProjectState[], callback?: JobCallback<null>) {
-        const projectStats = (await Promise.all(projects.map((p) => getProjectStats(p)))).filter(
-            Boolean,
-        ) as ProjectFileStats[]
+    async syncProjects(projects: (ProjectState | string)[], callback?: JobCallback<null>) {
+        const wfs = this.container.getService("watchFolders")
+        const projectStats = (
+            await Promise.all(
+                projects.map(async (p) => {
+                    const path = typeof p === "string" ? p : p.path
+                    const folder = await wfs.getFolderForProject(path)
+                    return getProjectStats(p, folder)
+                }),
+            )
+        ).filter(Boolean) as ProjectFileStats[]
         this.sync({ projects: projectStats }, callback)
     }
 
@@ -64,28 +71,34 @@ class ScannerService extends DTPStateService {
 
 export default ScannerService
 
-async function getProjectStats(project: ProjectState) {
+async function getProjectStats(
+    project: ProjectState | string,
+    watchFolder?: WatchFolderState,
+): Promise<ProjectFileStats | undefined> {
+    const projectPath = typeof project === "string" ? project : project.path
     try {
-        if (!project.path.endsWith(".sqlite3")) return undefined
-        if (!(await exists(project.path))) return undefined
+        if (!projectPath.endsWith(".sqlite3")) return undefined
+        if (!(await exists(projectPath))) return undefined
 
-        const stats = await stat(project.path)
+        const stats = await stat(projectPath)
 
         let walStats: Pick<Awaited<ReturnType<typeof stat>>, "size" | "mtime"> = {
             size: 0,
             mtime: new Date(0),
         }
-        if (await exists(`${project.path}-wal`)) {
-            walStats = await stat(`${project.path}-wal`)
+        if (await exists(`${projectPath}-wal`)) {
+            walStats = await stat(`${projectPath}-wal`)
         }
 
         return {
-            path: project.path,
+            path: projectPath,
             size: stats.size + walStats.size,
             modified: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
+            watchFolderId: watchFolder?.id ?? (typeof project !== "string" ? project.watchfolder_id : undefined),
+            watchFolderPath: watchFolder?.path,
         }
     } catch (e) {
-        console.warn("can't get project stats", project.path, e)
+        console.warn("can't get project stats", projectPath, e)
         return undefined
     }
 }
@@ -284,7 +297,12 @@ function getProjectJob(data: ProjectSyncObject, callback?: JobCallback): DTPJob 
                                 )
                                 continue
                             }
-                            const project = await pdb.addProject(p.watchFolderId, p.path)
+                            let relativePath = p.path
+                            if (p.watchFolderPath && p.path.startsWith(p.watchFolderPath)) {
+                                relativePath = p.path.slice(p.watchFolderPath.length)
+                                if (relativePath.startsWith("/")) relativePath = relativePath.slice(1)
+                            }
+                            const project = await pdb.addProject(p.watchFolderId, relativePath)
                             if (project) projects.push([p, project])
                         } catch (e) {
                             console.error(e)

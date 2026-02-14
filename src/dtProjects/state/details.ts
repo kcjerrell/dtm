@@ -20,7 +20,7 @@ class DetailsService extends DTPStateService {
         const project = this.projects.state.projects.find((p) => p.id === item.project_id)
         if (!project) return
 
-        const { history, ...extra } = await dtProject.getHistoryFull(project.path, item.node_id)
+        const { history, ...extra } = await dtProject.getHistoryFull(item.project_id, item.node_id)
         const rawConfig = extractConfigFromTensorHistoryNode(history) ?? {}
         const config = groupConfigProperties(rawConfig)
 
@@ -60,7 +60,7 @@ class DetailsService extends DTPStateService {
         if (!history) return
 
         return await dtProject.getPredecessorCandidates(
-            project.path,
+            item.project_id,
             item.node_id,
             history.node.lineage,
             history.node.logical_time,

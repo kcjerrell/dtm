@@ -1,4 +1,3 @@
-use entity::projects;
 use sea_orm::FromQueryResult;
 use serde::Serialize;
 

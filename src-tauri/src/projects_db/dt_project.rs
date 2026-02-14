@@ -674,7 +674,6 @@ fn full_query_where(where_expr: &str) -> String {
 }
 
 pub enum ProjectRef {
-    Path(String),
     Id(i64),
 }
 
