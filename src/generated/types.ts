@@ -293,6 +293,7 @@ export interface ProjectExtra {
     name: string
     full_path: string
     is_missing: boolean
+    watchfolder_id: number
 }
 
 export type TextType = "PositiveText" | "NegativeText"

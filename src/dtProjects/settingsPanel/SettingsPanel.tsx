@@ -1,17 +1,16 @@
 import { Box, HStack, Text, VStack } from "@chakra-ui/react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
+import { pickFolder } from '@/commands'
 import { IconButton, LinkButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
 import { FaMinus, FaPlus, FiList, FiX, LuFolderTree } from "@/components/icons/icons"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
 import { useSelectable } from "@/hooks/useSelectableV"
-import { openAnd } from "@/utils/helpers"
 import { ContentPanelPopup, type ContentPanelPopupProps } from "../imagesList/ContentPanelPopup"
 import { useDTP } from "../state/context"
 import type { WatchFolderState, WatchFoldersController } from "../state/watchFolders"
 import GrantAccess from "./GrantAccess"
-import ResetPermission from "./ResetPermission"
 
 function useCommands(watchFolders: WatchFoldersController): PanelListCommand<WatchFolderState>[] {
     const commands = useMemo(
@@ -42,12 +41,13 @@ function useCommands(watchFolders: WatchFoldersController): PanelListCommand<Wat
                 id: `watch-add-folder`,
                 ariaLabel: "add folder",
                 icon: FaPlus,
-                onClick: () =>
-                    openAnd((f) => watchFolders.addWatchFolder(f), {
-                        directory: true,
-                        multiple: false,
-                        title: `Select watch folder`,
-                    }),
+                onClick: async () => {
+                    const result = await pickFolder()
+                    if (!result?.bookmark || !result?.path) 
+                        return
+                    console.log(result)
+                    watchFolders.addWatchFolder(result.path, result.bookmark, true)
+                },
                 tip: "Add folder",
             },
         ],
@@ -191,7 +191,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                             )}
                         </Box>
                     </PanelSection>
-                    <ResetPermission />
+                    {/* <ResetPermission /> */}
                 </VStack>
             </Box>
         </ContentPanelPopup>

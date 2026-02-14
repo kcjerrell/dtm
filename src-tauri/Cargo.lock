@@ -1678,6 +1678,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unicode-normalization",
+ "walkdir",
  "web-image-meta",
 ]
 

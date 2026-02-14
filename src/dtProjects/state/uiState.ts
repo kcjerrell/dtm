@@ -37,6 +37,7 @@ export type UIControllerState = {
     isSettingsOpen: boolean
     isGridInert: boolean
     importLock: boolean
+    importLockCount: number
 }
 
 type Handler<T> = (payload: T) => void
@@ -60,6 +61,7 @@ export class UIController extends DTPStateController<UIControllerState> {
         isSettingsOpen: false,
         isGridInert: false,
         importLock: false,
+        importLockCount: 0,
     })
 
     constructor() {
@@ -104,6 +106,7 @@ export class UIController extends DTPStateController<UIControllerState> {
     setImportLock(lock: boolean) {
         this.state.importLock = lock
         if (lock) {
+            this.state.importLockCount++
             this._importLockPromise = new Promise((resolve) => {
                 this._importLockResolver = resolve
             })

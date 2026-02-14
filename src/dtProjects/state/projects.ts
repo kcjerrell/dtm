@@ -151,13 +151,6 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         await this.loadProjects()
     }
 
-    async addProjects(projectFiles: string[]) {
-        for (const pf of projectFiles) {
-            await pdb.addProject(pf)
-        }
-        await this.loadProjects()
-    }
-
     /**
      * this function can be called with a project or an array of projects
      * state or snapshot
@@ -175,7 +168,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
         this.setSelectedProjects([])
         const scanner = this.container.getService("scanner")
-        await scanner.syncProjects(stateUpdate.map((p) => p.path))
+        await scanner.syncProjects(stateUpdate)
     }
 
     getProject(projectId?: number | null) {

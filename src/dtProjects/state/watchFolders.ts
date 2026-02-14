@@ -27,7 +27,7 @@ const modelInfoFilenames = {
 
 export type WatchFoldersControllerState = {
     folders: WatchFolderState[]
-    hasDefaultDataFolder: boolean
+    isDtFolderAdded: boolean
 }
 
 export type WatchFolderState = Selectable<
@@ -48,6 +48,7 @@ export type ProjectFileStats = {
     size: number
     modified: number
     watchFolderPath?: string
+    watchFolderId?: number
 }
 
 export type ListFilesResult = {
@@ -65,7 +66,7 @@ export type ListFilesResult = {
 export class WatchFoldersController extends DTPStateController<WatchFoldersControllerState> {
     state = proxy<WatchFoldersControllerState>({
         folders: [] as WatchFolderState[],
-        hasDefaultDataFolder: false,
+        isDtFolderAdded: false,
     })
 
     async assignPaths() {
@@ -98,8 +99,8 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         const folders = res.map((f) => makeSelectable(f as WatchFolderState))
 
         for (const folder of folders) {
-            if (!this.state.hasDefaultDataFolder && folder.path === this._defaultDataFolder) {
-                this.state.hasDefaultDataFolder = true
+            if (!this.state.isDtFolderAdded && folder.path === this._defaultDataFolder) {
+                this.state.isDtFolderAdded = true
             }
             // this may throw if the path is forbidden
             try {
@@ -130,13 +131,11 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     }
 
     // it is not necessary to reload after adding - tags will invalidate
-    async addWatchFolder(folderPath: string, recursive = false) {
-        if (await exists(folderPath)) {
-            const isDtFolder = folderPath === this._defaultDataFolder
-            await pdb.watchFolders.add(folderPath, recursive || isDtFolder)
-        } else {
-            throw new Error("DNE")
-        }
+    async addWatchFolder(folderPath: string, bookmark: string, recursive = false) {
+        if (!folderPath) throw new Error("missing path")
+        if (!bookmark) throw new Error("no security scoped bookmark")
+        const isDtFolder = folderPath === this._defaultDataFolder
+        await pdb.watchFolders.add(folderPath, bookmark, recursive || isDtFolder)
     }
 
     // it is not necessary to reload after removing - tags will invalidate
@@ -146,7 +145,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         const folders = arrayIfOnly(arg)
         await pdb.watchFolders.remove(folders.map((f) => f.id))
         if (folders.some((f) => f.path === this._defaultDataFolder))
-            this.state.hasDefaultDataFolder = false
+            this.state.isDtFolderAdded = false
     }
 
     async setRecursive(folder: WatchFolderState | readonly WatchFolderState[], value: boolean) {
@@ -161,10 +160,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
                 this.state.folders[idx].recursive = updFolder.recursive
             }
         }
-    }
-
-    async addDefaultDataFolder() {
-        await this.addWatchFolder(this._defaultDataFolder, true)
     }
 
     async listFiles(folder: WatchFolderState): Promise<ListFilesResult> {
@@ -205,7 +200,8 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
                                 fileStats.mtime?.getTime() ?? 0,
                                 walStats?.mtime?.getTime() ?? 0,
                             ),
-                            watchFolderPath: currentFolder,
+                            watchFolderPath: folder.path,
+                            watchFolderId: folder.id,
                         }
                         result.projects.push(project)
                     }

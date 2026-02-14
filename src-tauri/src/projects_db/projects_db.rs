@@ -18,21 +18,18 @@ use std::{
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
-use crate::{
-    bookmarks,
-    projects_db::{
-        dt_project::{self, ProjectRef},
-        dtos::{
-            image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult, Paged},
-            model::ModelExtra,
-            project::ProjectExtra,
-            tensor::{TensorHistoryClip, TensorHistoryImport},
-            watch_folder::WatchFolderDTO,
-        },
-        folder_cache,
-        search::{self, process_prompt},
-        DTProject,
+use crate::projects_db::{
+    dt_project::{self, ProjectRef},
+    dtos::{
+        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+        model::ModelExtra,
+        project::{ProjectExtra, ProjectRow},
+        tensor::{TensorHistoryClip, TensorHistoryImport},
+        watch_folder::WatchFolderDTO,
     },
+    folder_cache,
+    search::{self, process_prompt},
+    DTProject,
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
@@ -43,12 +40,17 @@ pub struct ProjectsDb {
     pub db: DatabaseConnection,
 }
 
+#[cfg(dev)]
+const DB_NAME: &str = "projects4-dev.db";
+#[cfg(not(dev))]
+const DB_NAME: &str = "projects4.db";
+
 fn get_path(app_handle: &tauri::AppHandle) -> String {
     let app_data_dir = app_handle.path().app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
     }
-    let project_db_path = app_data_dir.join("projects4.db");
+    let project_db_path = app_data_dir.join(DB_NAME);
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
@@ -178,11 +180,12 @@ impl ProjectsDb {
                 "image_count",
             )
             .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
-            .into_model::<ProjectExtra>()
+            .group_by(projects::Column::Id)
+            .into_model::<ProjectRow>()
             .one(&self.db)
             .await?;
 
-        Ok(result.unwrap())
+        Ok(result.unwrap().into())
     }
 
     pub async fn get_project_by_path(&self, path: &str) -> Result<ProjectExtra, DbErr> {
@@ -197,22 +200,31 @@ impl ProjectsDb {
                 "image_count",
             )
             .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
-            .into_model::<ProjectExtra>()
+            .into_model::<ProjectRow>()
             .one(&self.db)
             .await?;
 
         match result {
-            Some(result) => Ok(result),
+            Some(result) => Ok(result.into()),
             None => Err(DbErr::RecordNotFound(format!("Project {path} not found"))),
         }
     }
 
     /// List all projects, newest first
-    pub async fn list_projects(&self) -> Result<Vec<ProjectExtra>, DbErr> {
+    pub async fn list_projects(
+        &self,
+        watchfolder_id: Option<i64>,
+    ) -> Result<Vec<ProjectExtra>, DbErr> {
         use images::Entity as Images;
         use projects::Entity as Projects;
 
-        let results = Projects::find()
+        let mut query = Projects::find();
+
+        if let Some(watchfolder_id) = watchfolder_id {
+            query = query.filter(projects::Column::WatchfolderId.eq(watchfolder_id));
+        }
+
+        let query = query
             .join(JoinType::LeftJoin, projects::Relation::Images.def())
             .column_as(
                 Expr::col((Images, images::Column::ProjectId)).count(),
@@ -220,26 +232,24 @@ impl ProjectsDb {
             )
             .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
             .group_by(projects::Column::Id)
-            .into_model::<ProjectExtra>()
-            .all(&self.db)
-            .await?;
+            .into_model::<ProjectRow>();
 
-        Ok(results)
+        let results = query.all(&self.db).await?;
+
+        Ok(results.into_iter().map(|r| r.into()).collect())
     }
 
     pub async fn update_project(
         &self,
-        path: &str,
+        project_id: i64,
         filesize: Option<i64>,
         modified: Option<i64>,
     ) -> Result<ProjectExtra, DbErr> {
         // Fetch existing project
-        let mut project: projects::ActiveModel = projects::Entity::find()
-            .filter(projects::Column::Path.eq(path))
-            .one(&self.db)
-            .await?
-            .ok_or(DbErr::RecordNotFound(format!("Project {path} not found")))?
-            .into();
+        let mut project = projects::ActiveModel {
+            id: Set(project_id),
+            ..Default::default()
+        };
 
         // Apply updates
         if let Some(v) = filesize {
@@ -251,7 +261,9 @@ impl ProjectsDb {
         }
 
         // Save changes
-        let updated: ProjectExtra = project.update(&self.db).await?.into();
+        let result = project.update(&self.db).await?;
+
+        let updated = self.get_project(result.id).await?;
 
         Ok(updated)
     }

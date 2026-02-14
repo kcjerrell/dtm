@@ -32,27 +32,45 @@
     "fs:allow-watch",
     "fs:allow-unwatch",
     {
+      "identifier": "fs:allow-watch",
+      "allow": [
+        "$HOME/**",
+        "/Volumes/**"
+      ]
+    },
+    {
       "identifier": "fs:allow-exists",
       "allow": [
-        "$HOME/Library/Containers/com.liuliu.draw-things/Data/*"
+        "$HOME/**",
+        "/Volumes/**"
       ]
     },
     {
       "identifier": "fs:allow-read-dir",
       "allow": [
-        "$HOME/Library/Containers/com.liuliu.draw-things/Data/Documents/*"
+        "$HOME/**",
+        "/Volumes/**"
       ]
     },
     {
       "identifier": "fs:allow-read-file",
       "allow": [
-        "$HOME/Library/Containers/com.liuliu.draw-things/Data/Documents/*"
+        "$HOME/**",
+        "/Volumes/**"
       ]
     },
     {
       "identifier": "fs:allow-read",
       "allow": [
-        "$HOME/Library/Containers/com.liuliu.draw-things/Data/Documents/*"
+        "$HOME/**",
+        "/Volumes/**"
+      ]
+    },
+    {
+      "identifier": "fs:allow-stat",
+      "allow": [
+        "$HOME/**",
+        "/Volumes/**"
       ]
     },
     "http:default",

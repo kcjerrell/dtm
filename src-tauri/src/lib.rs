@@ -189,7 +189,8 @@ pub fn run() {
             ffmpeg_call,
             bookmarks::pick_folder,
             bookmarks::resolve_bookmark,
-            bookmarks::stop_accessing_bookmark
+            bookmarks::stop_accessing_bookmark,
+            // projects_db::sync::sync
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {

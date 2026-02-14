@@ -13,6 +13,7 @@ import {
     type WatchFoldersChangedPayload,
 } from "./types"
 import type { ListModelInfoFilesResult, ProjectFileStats, WatchFolderState } from "./watchFolders"
+import { ProjectState } from "./projects"
 
 class ScannerService extends DTPStateService {
     constructor() {
@@ -49,10 +50,11 @@ class ScannerService extends DTPStateService {
         this.container.getService("jobs").addJob(job)
     }
 
-    async syncProjects(projectPaths: string[], callback?: JobCallback<null>) {
-        const projectStats = await Promise.all(projectPaths.map((p) => getProjectStats(p)))
-        const projects = projectStats.filter((p) => !!p) as ProjectFileStats[]
-        this.sync({ projects }, callback)
+    async syncProjects(projects: ProjectState[], callback?: JobCallback<null>) {
+        const projectStats = (await Promise.all(projects.map((p) => getProjectStats(p)))).filter(
+            Boolean,
+        ) as ProjectFileStats[]
+        this.sync({ projects: projectStats }, callback)
     }
 
     override dispose() {
@@ -62,35 +64,35 @@ class ScannerService extends DTPStateService {
 
 export default ScannerService
 
-async function getProjectStats(projectPath: string) {
+async function getProjectStats(project: ProjectState) {
     try {
-        if (!projectPath.endsWith(".sqlite3")) return undefined
-        if (!(await exists(projectPath))) return undefined
+        if (!project.path.endsWith(".sqlite3")) return undefined
+        if (!(await exists(project.path))) return undefined
 
-        const stats = await stat(projectPath)
+        const stats = await stat(project.path)
 
         let walStats: Pick<Awaited<ReturnType<typeof stat>>, "size" | "mtime"> = {
             size: 0,
             mtime: new Date(0),
         }
-        if (await exists(`${projectPath}-wal`)) {
-            walStats = await stat(`${projectPath}-wal`)
+        if (await exists(`${project.path}-wal`)) {
+            walStats = await stat(`${project.path}-wal`)
         }
 
         return {
-            path: projectPath,
+            path: project.path,
             size: stats.size + walStats.size,
             modified: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
         }
     } catch (e) {
-        console.warn("can't get project stats", projectPath, e)
+        console.warn("can't get project stats", project.path, e)
         return undefined
     }
 }
 
 export type ProjectJobPayload = {
     action: "add" | "update" | "remove" | "none" | "mark-missing"
-    project: string
+    projectId: number
     size: number
     mtime: number
 }
@@ -153,9 +155,10 @@ function getExecuteSync(callback?: JobCallback<null>) {
 
         const modelFiles = [] as ListModelInfoFilesResult[]
         const projectFiles = [] as ProjectFileStats[]
-
+        console.log("sync watchfolders", watchFolders)
         for (const folder of watchFolders) {
             const folderFiles = await wfs.listFiles(folder)
+            console.log("folderFiles", folderFiles)
             modelFiles.push(...folderFiles.models)
             projectFiles.push(...folderFiles.projects)
         }
@@ -168,7 +171,9 @@ function getExecuteSync(callback?: JobCallback<null>) {
         const projectEntities = TMap.from(ps.state.projects, (p) => p.path)
 
         if (folderScoped && watchFolders?.length) {
-            projectEntities.retain((path) => watchFolders.some((f) => path.startsWith(f.path)))
+            projectEntities.retain((_, pState) =>
+                watchFolders.some((f) => f.id === pState.watchfolder_id),
+            )
         } else if (projectScoped && scope.projects?.length) {
             const scopedProjects = new Set(scope.projects.map((p) => p.path))
             projectEntities.retain((path) => scopedProjects.has(path))
@@ -195,7 +200,7 @@ function getExecuteSync(callback?: JobCallback<null>) {
                 continue
             }
 
-            const projectStats = await getProjectStats(projectEntity.path)
+            const projectStats = await getProjectStats(projectEntity)
             if (projectStats)
                 project.file = { ...projectStats, watchFolderPath: projectFolder.path }
             else project.isMissing = true
@@ -237,7 +242,7 @@ function getExecuteSync(callback?: JobCallback<null>) {
             if (project.action === "none") continue
             const projectPath = project.file?.path ?? project.entity?.path
             if (!projectPath) continue
-            const job = getProjectJob(projectPath, project, jobCallback)
+            const job = getProjectJob(project, jobCallback)
             if (job) jobs.push(job)
         }
 
@@ -253,11 +258,7 @@ function getExecuteSync(callback?: JobCallback<null>) {
     return executeSync
 }
 
-function getProjectJob(
-    project: string,
-    data: ProjectSyncObject,
-    callback?: JobCallback,
-): DTPJob | undefined {
+function getProjectJob(data: ProjectSyncObject, callback?: JobCallback): DTPJob | undefined {
     switch (data.action) {
         case "add":
             if (!data.file) {
@@ -277,7 +278,13 @@ function getProjectJob(
                     // the second loop scans each project and advances the progress bar
                     for (const p of data) {
                         try {
-                            const project = await pdb.addProject(p.path)
+                            if (!p.watchFolderId) {
+                                console.warn(
+                                    "can't create 'project-add' job without watchfolder id",
+                                )
+                                continue
+                            }
+                            const project = await pdb.addProject(p.watchFolderId, p.path)
                             if (project) projects.push([p, project])
                         } catch (e) {
                             console.error(e)
@@ -285,7 +292,7 @@ function getProjectJob(
                     }
                     for (const [p, project] of projects) {
                         try {
-                            await pdb.scanProject(project.path, false, p.size, p.modified)
+                            await pdb.scanProject(project.id, false, p.size, p.modified)
                         } catch (e) {
                             console.error(e)
                         }
@@ -295,43 +302,48 @@ function getProjectJob(
                 },
             }
         case "update":
-            if (!data.file) {
+            if (!data.file || !data.entity) {
                 console.warn("can't create 'project-update' job without file stats")
                 return undefined
             }
             return {
                 type: "project-update",
                 data: {
-                    project,
+                    projectId: data.entity?.id,
                     mtime: data.file?.modified,
                     size: data.file?.size,
                     action: "update",
                 },
                 callback,
                 execute: async (data: ProjectJobPayload, _container) => {
-                    await pdb.scanProject(project, false, data.size, data.mtime)
+                    await pdb.scanProject(data.projectId, false, data.size, data.mtime)
                 },
             }
         case "remove":
+            if (!data.entity) {
+                console.warn("can't create 'project-remove' job without entity")
+                return undefined
+            }
             return {
                 type: "project-remove",
-                data: project,
+                data: data.entity?.id,
                 callback,
-                execute: async (_data: string, _container) => {
-                    await pdb.removeProject(project)
+                execute: async (data: number, _container) => {
+                    await pdb.removeProject(data)
                 },
             }
         case "mark-missing":
-            return {
-                type: "project-mark-missing",
-                data: [project],
-                merge: "first",
-                callback,
-                execute: async (data: string[], _container) => {
-                    await pdb.updateMissingOn(data, null)
-                    console.log("missing", data)
-                },
-            }
+            return undefined
+        // return {
+        //     type: "project-mark-missing",
+        //     data: data.entity?.id,
+        //     merge: "first",
+        //     callback,
+        //     execute: async (data: number, _container) => {
+        //         await pdb.updateMissingOn(data, null)
+        //         console.log("missing", data)
+        //     },
+        // }
         default:
             return undefined
     }

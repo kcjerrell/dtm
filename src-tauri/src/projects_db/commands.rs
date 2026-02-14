@@ -103,7 +103,7 @@ pub async fn projects_db_project_list(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<ProjectExtra>, String> {
     let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let projects = pdb.list_projects().await.unwrap();
+    let projects = pdb.list_projects(None).await.unwrap();
     Ok(projects)
 }
 
@@ -144,8 +144,8 @@ pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
     id: i64,
     full_scan: Option<bool>,
-    _filesize: Option<i64>,
-    _modified: Option<i64>,
+    filesize: Option<i64>,
+    modified: Option<i64>,
 ) -> Result<i32, String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
     // let update = |images_scanned: i32, images_total: i32| {
@@ -176,7 +176,7 @@ pub async fn projects_db_project_scan(
 
             if total > 0 {
                 let project = pdb
-                    .get_project(project.id)
+                    .update_project(project.id, filesize, modified)
                     .await
                     .map_err(|e| e.to_string())?;
 

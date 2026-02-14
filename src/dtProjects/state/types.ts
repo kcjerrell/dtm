@@ -40,7 +40,7 @@ export type DTProjectsJobs = {
         result: never
     }
     "project-remove": {
-        data: string
+        data: number
         result: never
     }
     "project-folder-scan": {
