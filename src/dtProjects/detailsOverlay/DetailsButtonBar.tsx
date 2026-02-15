@@ -72,6 +72,8 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
 
     return (
         <DetailsButtonBarRoot
+            aria-label={"Image actions"}
+            role={"toolbar"}
             data-solid
             onClick={(e) => e.stopPropagation()}
             initial={{ opacity: 0 }}

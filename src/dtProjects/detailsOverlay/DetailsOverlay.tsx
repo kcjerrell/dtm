@@ -51,6 +51,8 @@ function DetailsOverlay(props: DetailsOverlayProps) {
         <DTImageProvider image={snap.itemDetails}>
             <DetailsOverlayContainer
                 id={"details-overlay"}
+                role={"dialog"}
+                aria-modal
                 pointerEvents={isVisible ? "auto" : "none"}
                 // onClick={() => {
                 //     if (snap.subItem) uiState.hideSubItem()
