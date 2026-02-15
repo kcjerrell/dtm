@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "wdio run wdio.conf.ts",
-    "test:dev": "REUSE_BUILD=true wdio run wdio.conf.ts"
+    "test:dev": "REUSE_BUILD=true wdio run wdio.conf.ts",
+    "dev": "../src-tauri/target/debug/dtm"
   },
   "dependencies": {
     "@wdio/cli": "^9.19.0"

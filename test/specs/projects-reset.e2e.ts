@@ -15,8 +15,7 @@ beforeEach(async () => {
 
 describe('Projects', () => {
   it('can add a watchfolder', async () => {
-    await App.projectsButton.click();
-    await expect(App.projectsButton).toHaveAttribute("aria-selected", "true")
+    await App.selectView("projects")
 
     const settingsHeader = $("p=Settings")
     await expect(settingsHeader).toBeDisplayedInViewport()

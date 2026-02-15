@@ -219,7 +219,7 @@ async fn get_project_path(project_id: i64) -> Result<String, DbErr> {
         .write()
         .unwrap()
         .insert(project_id, project.full_path.clone());
-    Ok(project.path)
+    Ok(project.full_path)
 }
 
 fn classify_type(s: &str) -> Option<&str> {

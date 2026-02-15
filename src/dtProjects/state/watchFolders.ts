@@ -162,6 +162,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         }
     }
 
+    /** this should always return absolute paths */
     async listFiles(folder: WatchFolderState): Promise<ListFilesResult> {
         const result: ListFilesResult = {
             projects: [],
@@ -169,7 +170,11 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
             isMissing: false,
         }
 
-        if (!exists(folder.path)) {
+        try {
+            // exists may throw if path is forbidden
+            if (!exists(folder.path)) throw new Error()
+        }
+        catch {
             result.isMissing = true
             return result
         }
@@ -181,10 +186,11 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
                 const files = await readDir(currentFolder)
                 for (const file of files) {
                     const filePath = await path.join(currentFolder, file.name)
-                    // add folders to list
+
                     if (file.isDirectory) {
                         toCheck.push(filePath)
                     }
+                    
                     // check project files - this also will check the -wal file
                     else if (file.name.endsWith(".sqlite3")) {
                         const fileStats = await stat(filePath)

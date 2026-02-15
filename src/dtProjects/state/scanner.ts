@@ -168,10 +168,9 @@ function getExecuteSync(callback?: JobCallback<null>) {
 
         const modelFiles = [] as ListModelInfoFilesResult[]
         const projectFiles = [] as ProjectFileStats[]
-        console.log("sync watchfolders", watchFolders)
+        
         for (const folder of watchFolders) {
             const folderFiles = await wfs.listFiles(folder)
-            console.log("folderFiles", folderFiles)
             modelFiles.push(...folderFiles.models)
             projectFiles.push(...folderFiles.projects)
         }
@@ -181,7 +180,8 @@ function getExecuteSync(callback?: JobCallback<null>) {
 
         // gather ENTITIES
         await ps.loadProjects()
-        const projectEntities = TMap.from(ps.state.projects, (p) => p.path)
+        // using full path as key
+        const projectEntities = TMap.from(ps.state.projects, (p) => p.full_path)
 
         if (folderScoped && watchFolders?.length) {
             projectEntities.retain((_, pState) =>
@@ -249,7 +249,7 @@ function getExecuteSync(callback?: JobCallback<null>) {
             jobsCompleted++
             if (jobsCompleted === jobsCreated) callback?.()
         }
-
+        console.log(syncs)
         // create jobs
         for (const project of syncs) {
             if (project.action === "none") continue

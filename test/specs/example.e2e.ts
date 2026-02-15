@@ -15,12 +15,12 @@ describe('Basic', () => {
         await new Promise(resolve => setTimeout(resolve, 2000))
 
         await App.metadataButton.click();
-        await expect(App.metadataButton).toHaveAttribute("aria-selected", "true")
+        await expect(App.metadataButton).toHaveAttribute("aria-current", "page")
 
         await expect($("div*=Drop image here")).toBeDisplayedInViewport()
 
         await App.projectsButton.click();
-        await expect(App.projectsButton).toHaveAttribute("aria-selected", "true")
+        await expect(App.projectsButton).toHaveAttribute("aria-current", "page")
 
         await expect($("aria/Projects")).toBeDisplayedInViewport()
     })

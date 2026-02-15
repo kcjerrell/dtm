@@ -14,5 +14,14 @@ export interface PickFolderResult {
  * @returns A PickFolderResult containing path and bookmark, or null if cancelled.
  */
 export async function pickFolder(defaultPath?: string, buttonText?: string): Promise<PickFolderResult | null> {
+    if ((window as unknown as Record<string, string>).__E2E_FILE_PATH__) {
+        const path = (window as unknown as Record<string, string>).__E2E_FILE_PATH__;
+        (window as unknown as Record<string, string>).__E2E_FILE_PATH__ =  ""; // Clear it after use
+        // In E2E tests, we bypass the native picker and return a predefined path.
+        return {
+            path: path,
+            bookmark: path
+        }
+    }
     return await invoke("pick_folder", { defaultPath, buttonText });
 }

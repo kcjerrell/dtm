@@ -8,10 +8,10 @@ pub async fn pick_folder(
     _default_path: Option<String>,
     _button_text: Option<String>,
 ) -> Result<Option<PickFolderResult>, String> {
-    let folder = app.dialog().file().pick_folder();
+    let folder: Option<tauri_plugin_fs::FilePath> = app.dialog().file().blocking_pick_folder();    
     
     match folder {
-        Some(path) => {
+        Some(path) => {             
             let path_str = path.to_string();
             Ok(Some(PickFolderResult {
                 path: path_str.clone(),
