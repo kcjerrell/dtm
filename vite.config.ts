@@ -3,11 +3,12 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
 
-// import { visualizer } from 'rollup-plugin-visualizer'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 const host = process.env.TAURI_DEV_HOST;
 const isMock = process.env.MOCK_TAURI === "true";
 const reactDevtools = process.env.REACT_DEVTOOLS === "true";
+const showVisualizer = process.env.SHOW_VIS === "true";
 
 const hmr = true
 
@@ -39,7 +40,7 @@ export default defineConfig(async () => ({
       }
     }),
     tsconfigPaths(),
-    // visualizer({ open: true }),
+    showVisualizer ? visualizer({ open: true }) : null,
   ],
   resolve: {
     alias: {

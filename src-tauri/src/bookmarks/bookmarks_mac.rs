@@ -1,11 +1,14 @@
-use tauri::command;
 use super::{PickFolderResult, ResolveResult};
+use tauri::command;
 
 mod ffi {
     use std::os::raw::c_char;
 
     extern "C" {
-        pub fn open_dt_folder_picker(default_path: *const c_char, button_text: *const c_char) -> *mut c_char;
+        pub fn open_dt_folder_picker(
+            default_path: *const c_char,
+            button_text: *const c_char,
+        ) -> *mut c_char;
         pub fn free_string_ptr(ptr: *mut c_char);
         pub fn start_accessing_security_scoped_resource(bookmark: *const c_char) -> *mut c_char;
         pub fn stop_all_security_scoped_resources();
@@ -45,7 +48,8 @@ pub async fn pick_folder(
     let display_button_text = button_text.unwrap_or_else(|| "Select folder".to_string());
     let c_button_text = CString::new(display_button_text).map_err(|e| e.to_string())?;
 
-    let ptr = unsafe { ffi::open_dt_folder_picker(c_default_path.as_ptr(), c_button_text.as_ptr()) };
+    let ptr =
+        unsafe { ffi::open_dt_folder_picker(c_default_path.as_ptr(), c_button_text.as_ptr()) };
 
     if ptr.is_null() {
         return Ok(None);
@@ -85,19 +89,30 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
         .map_err(|e| format!("Failed to parse resolve result: {}", e))?;
 
     match ffi_result.status.as_str() {
-        "resolved" => Ok(ResolveResult::Resolved(ffi_result.path)),
+        "resolved" => {
+            log::debug!("Resolved bookmark: {}", ffi_result.path);
+            Ok(ResolveResult::Resolved(ffi_result.path))
+        }
         "stale_refreshed" => {
             if let Some(new_bookmark) = ffi_result.new_bookmark {
+                log::debug!("Stale refreshed bookmark: {}", ffi_result.path);
                 Ok(ResolveResult::StaleRefreshed {
                     new_bookmark,
                     resolved_path: ffi_result.path,
                 })
             } else {
                 // Should not happen if status is stale_refreshed
+                log::debug!(
+                    "Stale refreshed bookmark with no new bookmark: {}",
+                    ffi_result.path
+                );
                 Ok(ResolveResult::Resolved(ffi_result.path))
             }
         }
-        _ => Ok(ResolveResult::CannotResolve),
+        _ => {
+            log::debug!("Cannot resolve bookmark: {}", ffi_result.path);
+            Ok(ResolveResult::CannotResolve)
+        }
     }
 }
 
@@ -119,4 +134,3 @@ pub fn cleanup_bookmarks() {
         ffi::stop_all_security_scoped_resources();
     }
 }
-

@@ -105,7 +105,7 @@ async function retryUpdate() {
     await checkForUpdate()
 }
 
-async function setView(view: string) {
+function setView(view: string) {
     appState.currentView = view
     if (!appState.viewRequests[view]) appState.viewRequests[view] = []
     localStorage.setItem("currentView", view)

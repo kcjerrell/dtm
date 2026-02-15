@@ -9,19 +9,20 @@ import ImageStore from "@/utils/imageStore"
 import { getDrawThingsDataFromExif } from "../helpers"
 import { ImageItem, type ImageItemConstructorOpts } from "./ImageItem"
 
+console.log("METADATA IMPORTED")
+
 export function bind<T extends object>(instance: T): T {
     const props = Object.getOwnPropertyNames(Object.getPrototypeOf(instance))
 
     for (const prop of props) {
         const method = instance[prop as keyof T]
         if (prop === "constructor" || typeof method !== "function") continue
-            ; (instance as Record<string, unknown>)[prop] = (...args: unknown[]) =>
-                method.apply(instance, args)
+        ;(instance as Record<string, unknown>)[prop] = (...args: unknown[]) =>
+            method.apply(instance, args)
     }
 
     return instance
 }
-
 
 function initStore() {
     const storeInstance = store(
@@ -79,9 +80,10 @@ let metadataStore: ReturnType<typeof initStore> | undefined
 
 function getStore() {
     if (!metadataStore) {
+        console.debug("METADATA: creating store")
         metadataStore = initStore()
     }
-    return metadataStore!
+    return metadataStore
 }
 
 export function getMetadataStore() {
@@ -102,8 +104,8 @@ async function cleanUp() {
     const clearHistory = AppStore.store.clearHistoryOnExit
     const clearPins = AppStore.store.clearPinsOnExit
 
-    const saveIds = getMetadataStore().images
-        .filter((im) => {
+    const saveIds = getMetadataStore()
+        .images.filter((im) => {
             if (im.pin != null && !clearPins) return true
             if (!clearHistory) return true
             return false
@@ -158,8 +160,8 @@ export function pinImage(
 }
 
 function reconcilePins() {
-    const pins = getMetadataStore().images
-        .filter((im) => im.pin != null)
+    const pins = getMetadataStore()
+        .images.filter((im) => im.pin != null)
         .sort((a, b) => (a.pin ?? 0) - (b.pin ?? 0))
 
     pins.forEach((im, i) => {
@@ -168,7 +170,8 @@ function reconcilePins() {
 }
 
 export async function clearAll(keepTabs = false) {
-    if (keepTabs) getMetadataStore().images = getMetadataStore().images.filter((im) => im.pin != null)
+    if (keepTabs)
+        getMetadataStore().images = getMetadataStore().images.filter((im) => im.pin != null)
     else getMetadataStore().images = []
     await syncImageStore()
 }
@@ -190,12 +193,14 @@ export async function createImageItem(
     source: ImageSource,
 ) {
     console.trace("create image item")
+    const store = getMetadataStore()
 
     if (!imageData || !type || !source) return null
     if (imageData.length === 0) return null
 
     // save image to image store
     const entry = await ImageStore.save(imageData, type)
+    console.log("saved image", entry)
     if (!entry) return null
 
     const exif = await getExif(imageData.buffer)
@@ -213,10 +218,12 @@ export async function createImageItem(
     }
 
     const imageItem = bind(proxy(new ImageItem(item)))
-    const itemIndex = getMetadataStore().images.push(imageItem) - 1
+    console.log("image item", imageItem)
+    const itemIndex = store.images.push(imageItem) - 1
+    console.log("item index", itemIndex)
 
     selectImage(itemIndex)
-    return getMetadataStore().images[itemIndex]
+    return store.images[itemIndex]
 }
 
 /**

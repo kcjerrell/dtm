@@ -4,7 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog"
 import { readDir, writeTextFile } from "@tauri-apps/plugin-fs"
 import { proxy, useSnapshot } from "valtio"
 import { getDrawThingsDataFromExif } from "@/metadata/helpers"
-import { getExif } from "@/metadata/state/store"
+import { getExif } from "@/metadata/state/metadataStore"
 import type { DrawThingsMetaData } from "@/types"
 
 const store = proxy({

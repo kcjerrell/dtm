@@ -91,7 +91,10 @@ impl ProjectsDb {
                                 update.update(&db.db).await.unwrap();
                             }
                         }
-                        crate::bookmarks::ResolveResult::StaleRefreshed { new_bookmark, resolved_path } => {
+                        crate::bookmarks::ResolveResult::StaleRefreshed {
+                            new_bookmark,
+                            resolved_path,
+                        } => {
                             let mut update = folder.into_active_model();
                             update.path = Set(resolved_path);
                             update.bookmark = Set(new_bookmark);
@@ -202,7 +205,6 @@ impl ProjectsDb {
 
         Ok(result.unwrap().into())
     }
-
 
     /// List all projects, newest first
     pub async fn list_projects(
@@ -711,6 +713,21 @@ impl ProjectsDb {
         })
     }
 
+    pub async fn find_image_by_preview_id(
+        &self,
+        project_id: i64,
+        preview_id: i64,
+    ) -> Result<Option<ImageExtra>, DbErr> {
+        let image = entity::images::Entity::find()
+            .filter(images::Column::ProjectId.eq(project_id))
+            .filter(images::Column::PreviewId.eq(preview_id))
+            .into_model::<ImageExtra>()
+            .one(&self.db)
+            .await?;
+
+        Ok(image)
+    }
+
     pub async fn list_watch_folders(&self) -> Result<Vec<WatchFolderDTO>, DbErr> {
         let folders = entity::watch_folders::Entity::find()
             .order_by_asc(entity::watch_folders::Column::Path)
@@ -761,7 +778,10 @@ impl ProjectsDb {
                         update.update(&self.db).await?;
                     }
                 }
-                crate::bookmarks::ResolveResult::StaleRefreshed { new_bookmark, resolved_path } => {
+                crate::bookmarks::ResolveResult::StaleRefreshed {
+                    new_bookmark,
+                    resolved_path,
+                } => {
                     let mut update = model.clone().into_active_model();
                     update.path = Set(resolved_path);
                     update.bookmark = Set(new_bookmark);
@@ -881,7 +901,9 @@ impl ProjectsDb {
             }
         };
 
-        Ok(dt_project::DTProject::get(&full_path).await.map_err(|e| e.to_string())?)
+        Ok(dt_project::DTProject::get(&full_path)
+            .await
+            .map_err(|e| e.to_string())?)
     }
 
     pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
@@ -1114,7 +1136,6 @@ impl ProjectsDb {
         Ok(results)
     }
 }
-
 
 #[derive(Debug)]
 pub enum MixedError {

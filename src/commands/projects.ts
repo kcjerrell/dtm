@@ -226,8 +226,7 @@ export const pdb = {
     addProject: async (watchFolderId: number, path: string): Promise<ProjectExtra | undefined> => {
         try {
             return await invoke("projects_db_project_add", { watchFolderId, path })
-        }
-        catch (e) {
+        } catch (e) {
             if (e === "error communicating with database: Table not found") return undefined
             console.error(e)
             return undefined
@@ -244,8 +243,7 @@ export const pdb = {
         fullScan = false,
         filesize?: number,
         modified?: number,
-    ): Promise<number> =>
-        invoke("projects_db_project_scan", { id, fullScan, filesize, modified }),
+    ): Promise<number> => invoke("projects_db_project_scan", { id, fullScan, filesize, modified }),
 
     updateExclude: async (id: number, exclude: boolean): Promise<void> =>
         invoke("projects_db_project_update_exclude", { id, exclude }),
@@ -267,6 +265,12 @@ export const pdb = {
         return result
     },
 
+    findImageByPreviewId: async (
+        projectId: number,
+        previewId: number,
+    ): Promise<ImageExtra | undefined> =>
+        invoke("projects_db_image_find_by_preview_id", { projectId, previewId }),
+
     getClip: async (imageId: number): Promise<TensorHistoryClip[]> =>
         invoke("projects_db_get_clip", { imageId }),
 
@@ -284,11 +288,7 @@ export const pdb = {
     watchFolders: {
         listAll: async (): Promise<WatchFolder[]> => invoke("projects_db_watch_folder_list"),
 
-        add: async (
-            path: string,
-            bookmark: string,
-            recursive: boolean,
-        ): Promise<WatchFolder> =>
+        add: async (path: string, bookmark: string, recursive: boolean): Promise<WatchFolder> =>
             invoke("projects_db_watch_folder_add", { path, bookmark, recursive }),
 
         remove: async (ids: number[] | number): Promise<void> =>
@@ -350,10 +350,7 @@ export const dtProject = {
         invoke("dt_project_get_history_full", { projectId, rowId }),
 
     // #unused
-    getTensorRaw: async (
-        projectId: number,
-        tensorId: string,
-    ): Promise<TensorRaw> =>
+    getTensorRaw: async (projectId: number, tensorId: string): Promise<TensorRaw> =>
         invoke("dt_project_get_tensor_raw", { projectId, tensorId }),
 
     getTensorSize: async (projectId: number, tensorId: string): Promise<TensorSize> => {

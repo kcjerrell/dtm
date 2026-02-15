@@ -12,7 +12,7 @@ import {
 import { postMessage } from "@/context/Messages"
 import ImageStore from "@/utils/imageStore"
 import { loadImage2 } from "../state/imageLoaders"
-import { clearAll, getMetadataStore, pinImage } from "../state/store"
+import { clearAll, getMetadataStore, pinImage } from "../state/metadataStore"
 import PinnedIcon from "./PinnedIcon"
 
 let separatorId = 0

@@ -19,7 +19,6 @@ use tokio::runtime::Runtime;
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
-
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
     clipboard::read_clipboard_types(pasteboard)
@@ -164,6 +163,7 @@ pub fn run() {
             projects_db_project_update_exclude,
             projects_db_project_bulk_update_missing_on,
             projects_db_image_list,
+            projects_db_image_find_by_preview_id,
             projects_db_get_clip,
             projects_db_image_rebuild_fts,
             projects_db_watch_folder_list,
@@ -248,7 +248,7 @@ pub fn run() {
         .run(|_app_handle, event| match event {
             tauri::RunEvent::Exit => {
                 bookmarks::cleanup_bookmarks();
-            },
+            }
             _ => {}
         });
 }

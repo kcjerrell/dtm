@@ -1,7 +1,7 @@
 import { HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
-import { lazy, type PropsWithChildren, Suspense, useEffect, useRef } from "react"
+import { type PropsWithChildren, Suspense, useEffect, useRef } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
@@ -11,6 +11,7 @@ import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
 import AppStore from "./hooks/appState"
+import { useMetadataDrop } from "./hooks/useDrop"
 import { Loading } from "./main"
 import "./menu"
 import UpgradeButton from "./metadata/toolbar/UpgradeButton"
@@ -26,6 +27,8 @@ function App() {
 
     const isPreviewActive = useIsPreviewActive()
     const { colorMode } = useColorMode()
+
+    const { handlers: dropHandlers } = useMetadataDrop()
 
     return (
         <HStack
@@ -44,6 +47,7 @@ function App() {
                     win.startDragging()
                 }
             }}
+            {...dropHandlers}
         >
             <LayoutGroup>
                 <Sidebar inert={isPreviewActive} aria-label="Primary">
@@ -173,7 +177,6 @@ function ViewContainer(
         </motion.div>
     )
 }
-
 
 function getView(view: string) {
     if (isView(view)) return views[view]

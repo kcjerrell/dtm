@@ -169,10 +169,7 @@ pub async fn projects_db_project_scan(
 
     match result {
         Ok((_id, total)) => {
-            let project = pdb
-                .get_project(_id)
-                .await
-                .map_err(|e| e.to_string())?;
+            let project = pdb.get_project(_id).await.map_err(|e| e.to_string())?;
 
             if total > 0 {
                 let project = pdb
@@ -236,6 +233,21 @@ pub async fn projects_db_image_list(
     };
 
     Ok(projects_db.list_images(opts).await.unwrap())
+}
+
+#[dtm_command]
+pub async fn projects_db_image_find_by_preview_id(
+    app: tauri::AppHandle,
+    project_id: i64,
+    preview_id: i64,
+) -> Result<Option<crate::projects_db::dtos::image::ImageExtra>, String> {
+    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let image = projects_db
+        .find_image_by_preview_id(project_id, preview_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(image)
 }
 
 #[dtm_command]
@@ -364,7 +376,10 @@ pub async fn dt_project_get_text_history(
     project_id: i64,
 ) -> Result<Vec<TextHistoryNodeDTO>, String> {
     let project = get_project(app, project_id).await?;
-    Ok(project.get_text_history().await.map_err(|e| e.to_string())?)
+    Ok(project
+        .get_text_history()
+        .await
+        .map_err(|e| e.to_string())?)
 }
 
 #[dtm_command]
@@ -374,7 +389,10 @@ pub async fn dt_project_get_thumb_half(
     thumb_id: i64,
 ) -> Result<Vec<u8>, String> {
     let project = get_project(app, project_id).await?;
-    Ok(project.get_thumb_half(thumb_id).await.map_err(|e| e.to_string())?)
+    Ok(project
+        .get_thumb_half(thumb_id)
+        .await
+        .map_err(|e| e.to_string())?)
 }
 
 #[dtm_command]
@@ -384,7 +402,10 @@ pub async fn dt_project_get_history_full(
     row_id: i64,
 ) -> Result<TensorHistoryExtra, String> {
     let project = get_project(app, project_id).await?;
-    let history = project.get_history_full(row_id).await.map_err(|e| e.to_string())?;
+    let history = project
+        .get_history_full(row_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(history)
 }
 
@@ -395,7 +416,10 @@ pub async fn dt_project_get_tensor_raw(
     tensor_id: String,
 ) -> Result<TensorRaw, String> {
     let project = get_project(app, project_id).await?;
-    let tensor = project.get_tensor_raw(&tensor_id).await.map_err(|e| e.to_string())?;
+    let tensor = project
+        .get_tensor_raw(&tensor_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(tensor)
 }
 
@@ -406,7 +430,10 @@ pub async fn dt_project_get_tensor_size(
     tensor_id: String,
 ) -> Result<TensorSize, String> {
     let project = get_project(app, project_id).await?;
-    let tensor = project.get_tensor_size(&tensor_id).await.map_err(|e| e.to_string())?;
+    let tensor = project
+        .get_tensor_size(&tensor_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(tensor)
 }
 
@@ -419,9 +446,18 @@ pub async fn dt_project_decode_tensor(
     as_png: bool,
 ) -> Result<tauri::ipc::Response, String> {
     let project = get_project(app, project_id).await?;
-    let tensor = project.get_tensor_raw(&tensor_id).await.map_err(|e| e.to_string())?;
+    let tensor = project
+        .get_tensor_raw(&tensor_id)
+        .await
+        .map_err(|e| e.to_string())?;
     let metadata = match node_id {
-        Some(node) => Some(project.get_history_full(node).await.map_err(|e| e.to_string())?.history),
+        Some(node) => Some(
+            project
+                .get_history_full(node)
+                .await
+                .map_err(|e| e.to_string())?
+                .history,
+        ),
         None => None,
     };
 
