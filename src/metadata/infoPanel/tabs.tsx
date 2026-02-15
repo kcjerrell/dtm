@@ -53,10 +53,9 @@ const Indicator = chakra(TabsIndicator, {
 const Content = chakra(TabsContent, {
     base: {
         bgColor: "bg.2",
-        // height: "100%",
         padding: 1,
+        paddingTop: "0.25rem !important",
         flex: "1 1 auto",
-        paddingTop: "0.5rem !important",
     },
 })
 

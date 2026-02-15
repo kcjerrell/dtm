@@ -82,6 +82,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
         >
             {subItem?.maskUrl && (
                 <IconButton
+                    aria-label={"Copy image mask"}
                     size={"sm"}
                     disabled={disabled}
                     onClick={() => uiState.toggleSubItemMask()}
@@ -91,6 +92,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
             )}
 
             <IconButton
+                aria-label={isVideo ? "Copy selected frame" : "Copy image"}
                 size={"sm"}
                 disabled={disabled}
                 onClick={() => {
@@ -111,6 +113,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                 <FiCopy />
             </IconButton>
             <IconButton
+                aria-label={isVideo ? "Save selected frame" : "Save image"}
                 size={"sm"}
                 disabled={disabled}
                 onClick={() => {
@@ -135,6 +138,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                 <FiSave />
             </IconButton>
             <IconButton
+                aria-label={isVideo ? "Send selected frame to metadata" : "Send image to metadata"}
                 size={"sm"}
                 disabled={disabled}
                 onClick={() => {
@@ -160,6 +164,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                 <>
                     <Box height={8} width={"1px"} bgColor={"gray/50"} marginInline={1} />
                     <IconButton
+                        aria-label="Save video"
                         size={"sm"}
                         onClick={() => {
                             if (!item) return
@@ -177,6 +182,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                         />
                     )}
                     <IconButton
+                        aria-label="Save all frames"
                         size={"sm"}
                         onClick={async () => {
                             if (!item) return

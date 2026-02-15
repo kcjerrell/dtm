@@ -12,14 +12,12 @@ const tabs = [
         value: "search",
         Icon: MdImageSearch,
         component: SearchPanel,
-        requiresProjects: true,
     },
     {
         label: "Projects",
         value: "projects",
         Icon: PiCoffee,
         component: ProjectsPanel,
-        requiresProjects: true,
     },
 ]
 
@@ -47,27 +45,35 @@ function ControlPane(props: ControlPane) {
                 onValueChange={(e) => {
                     uiState.setSelectedTab(e.value as typeof uiSnap.selectedTab)
                 }}
+                aria-label="Projects tabs"
             >
                 <TabList justifyContent={"flex-end"} />
-                <SearchPanel />
-                <ProjectsPanel />
+                <SearchPanel id="projects-search-panel" aria-labelledby="projects-search-tab" />
+                <ProjectsPanel
+                    id="projects-projects-panel"
+                    aria-labelledby="projects-projects-tab"
+                />
             </Tabs.Root>
         </Panel>
     )
 }
 
 function TabList(props: ChakraProps) {
-    const { projects, uiState } = useDTP()
-    const snap = projects.useSnap()
-
-    const hasProjects = snap.projects.length > 0
+    const { uiState } = useDTP()
 
     return (
-        <Tabs.List {...props}>
-            {tabs.map(({ value, Icon, label, requiresProjects }) => {
-                if (requiresProjects && !hasProjects) return null
+        <Tabs.List aria-label={"Projects tabs"} {...props}>
+            {tabs.map(({ value, Icon, label }) => {
                 return (
-                    <Tabs.Trigger key={value} value={value} paddingBlock={0.5} height={"2rem"}>
+                    <Tabs.Trigger
+                        key={value}
+                        id={`projects-${value}-tab`}
+                        aria-controls={`projects-${value}-panel`}
+                        aria-label={`${label} tab`}
+                        value={value}
+                        paddingBlock={0.5}
+                        height={"2rem"}
+                    >
                         <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
                         <Box>{label}</Box>
                     </Tabs.Trigger>
