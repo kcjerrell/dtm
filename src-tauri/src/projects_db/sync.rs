@@ -11,6 +11,7 @@ use entity::enums::ModelType;
 use tauri::AppHandle;
 
 use crate::projects_db::{
+    commands::{projects_db_project_add, projects_db_project_remove, projects_db_project_scan},
     dtos::{project::ProjectExtra, watch_folder::WatchFolderDTO},
     folder_cache, ProjectsDb,
 };
@@ -33,28 +34,66 @@ enum SyncAction {
     Update,
 }
 
-#[derive(Default, Debug)]
-struct ProjectSync {
+#[derive(Debug)]
+struct ProjectSync<'a> {
     entity: Option<ProjectExtra>,
     file: Option<ProjectFile>,
     action: SyncAction,
+    watchfolder: &'a WatchFolderDTO,
+}
+
+impl<'a> ProjectSync<'a> {
+    fn new(
+        entity: Option<ProjectExtra>,
+        file: Option<ProjectFile>,
+        watchfolder: &'a WatchFolderDTO,
+    ) -> Self {
+        let mut sync = Self {
+            entity,
+            file,
+            action: SyncAction::None,
+            watchfolder,
+        };
+        sync
+    }
+
+    fn assign_sync_action(&mut self) {
+        if self.entity.is_none() && self.file.is_some() {
+            self.action = SyncAction::Add;
+            return;
+        }
+        if self.entity.is_some() && self.file.is_none() {
+            self.action = SyncAction::Remove;
+            return;
+        }
+        if self.entity.is_none() && self.file.is_none() {
+            return;
+        }
+        if let (Some(entity), Some(file)) = (self.entity.as_ref(), self.file.as_ref()) {
+            if file.filesize != entity.filesize.unwrap_or(0) as u64
+                || file.modified != entity.modified.unwrap_or(0) as i64
+            {
+                self.action = SyncAction::Update;
+            }
+        }
+    }
 }
 
 #[dtm_command]
-pub async fn sync(app: AppHandle) -> Result<(), String> {
+pub async fn projects_db_sync(app: AppHandle) -> Result<(), String> {
     let pdb = ProjectsDb::get_or_init(&app).await?;
 
     let folders = pdb.list_watch_folders().await.unwrap();
 
     for folder in folders {
-        sync_folder(&app, &folder).await?;
+        sync_folder(app.clone(), &folder).await?;
     }
 
     Ok(())
 }
 
-async fn sync_folder(app: &AppHandle, folder: &WatchFolderDTO) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(app).await?;
+async fn sync_folder(app: AppHandle, folder: &WatchFolderDTO) -> Result<(), String> {
+    let pdb = ProjectsDb::get_or_init(&app).await?;
     let files = get_folder_files(folder).await;
     let mut project_files = files.projects;
     let mut sync_projects: Vec<ProjectSync> = Vec::new();
@@ -64,60 +103,72 @@ async fn sync_folder(app: &AppHandle, folder: &WatchFolderDTO) -> Result<(), Str
         let full_path = get_full_project_path(&entity);
         let file = project_files.remove(&full_path);
 
-        let sync = ProjectSync {
-            entity: Some(entity),
-            file,
-            action: SyncAction::None,
-        };
+        let sync = ProjectSync::new(Some(entity), file, folder);
         sync_projects.push(sync);
     }
 
     for (_key, file) in project_files.drain() {
-        let sync = ProjectSync {
-            entity: None,
-            file: Some(file),
-            action: SyncAction::Remove,
-        };
+        let sync = ProjectSync::new(None, Some(file), folder);
         sync_projects.push(sync);
     }
 
     for sync in sync_projects.iter_mut() {
-        assign_sync_action(sync);
+        sync.assign_sync_action();
         println!("sync: {:#?}", sync);
-        match sync.action {
-            SyncAction::Add => {
-                pdb.add_project(folder.id, &sync.file.as_ref().unwrap().path)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                pdb.scan_project(sync.entity.as_ref().unwrap().id, true)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                pdb.update_project(
-                    sync.entity.as_ref().unwrap().id,
-                    Some(sync.file.as_ref().unwrap().filesize as i64),
-                    Some(sync.file.as_ref().unwrap().modified),
-                )
-                .await
-                .map_err(|e| e.to_string())?;
+        let result: Result<(), String> = async {
+            match sync.action {
+                SyncAction::Add => {
+                    let project = projects_db_project_add(
+                        app.clone(),
+                        sync.watchfolder.id,
+                        sync.file.as_ref().unwrap().path.to_string(),
+                    )
+                    .await?;
+                    projects_db_project_scan(
+                        app.clone(),
+                        project.id,
+                        Some(true),
+                        Some(sync.file.as_ref().unwrap().filesize as i64),
+                        Some(sync.file.as_ref().unwrap().modified),
+                    )
+                    .await?;
+                    Ok(())
+                    // pdb.add_project(folder.id, &sync.file.as_ref().unwrap().path)
+                    //     .await
+                    //     .map_err(|e| e.to_string())?;
+                    // pdb.scan_project(sync.entity.as_ref().unwrap().id, true)
+                    //     .await
+                    //     .map_err(|e| e.to_string())?;
+                    // pdb.update_project(
+                    //     sync.entity.as_ref().unwrap().id,
+                    //     Some(sync.file.as_ref().unwrap().filesize as i64),
+                    //     Some(sync.file.as_ref().unwrap().modified),
+                    // )
+                    // .await
+                    // .map_err(|e| e.to_string())?;
+                }
+                SyncAction::Remove => {
+                    projects_db_project_remove(app.clone(), sync.entity.as_ref().unwrap().id)
+                        .await?;
+                    Ok(())
+                }
+                SyncAction::Update => {
+                    projects_db_project_scan(
+                        app.clone(),
+                        sync.entity.as_ref().unwrap().id,
+                        Some(false),
+                        Some(sync.file.as_ref().unwrap().filesize as i64),
+                        Some(sync.file.as_ref().unwrap().modified),
+                    )
+                    .await?;
+                    Ok(())
+                }
+                SyncAction::None => Ok(()),
             }
-            SyncAction::Remove => {
-                pdb.remove_project(sync.entity.as_ref().unwrap().id)
-                    .await
-                    .map_err(|e| e.to_string())?;
-            }
-            SyncAction::Update => {
-                pdb.scan_project(sync.entity.as_ref().unwrap().id, false)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                pdb.update_project(
-                    sync.entity.as_ref().unwrap().id,
-                    Some(sync.file.as_ref().unwrap().filesize as i64),
-                    Some(sync.file.as_ref().unwrap().modified),
-                )
-                .await
-                .map_err(|e| e.to_string())?;
-            }
-            SyncAction::None => {}
+        }
+        .await;
+        if let Err(e) = result {
+            println!("error: {:#?}", e);
         }
     }
     Ok(())
@@ -136,27 +187,6 @@ async fn sync_folder(app: &AppHandle, folder: &WatchFolderDTO) -> Result<(), Str
 //             .map_err(|e| e.to_string())?;
 //     }
 // }
-
-fn assign_sync_action(sync: &mut ProjectSync) {
-    if sync.entity.is_none() && sync.file.is_some() {
-        sync.action = SyncAction::Add;
-        return;
-    }
-    if sync.entity.is_some() && sync.file.is_none() {
-        sync.action = SyncAction::Remove;
-        return;
-    }
-    if sync.entity.is_none() && sync.file.is_none() {
-        return;
-    }
-    if let (Some(entity), Some(file)) = (sync.entity.as_ref(), sync.file.as_ref()) {
-        if file.filesize != entity.filesize.unwrap_or(0) as u64
-            || file.modified != entity.modified.unwrap_or(0) as i64
-        {
-            sync.action = SyncAction::Update;
-        }
-    }
-}
 
 struct GetFolderFilesResult {
     projects: HashMap<String, ProjectFile>,

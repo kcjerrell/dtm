@@ -23,7 +23,7 @@ pub use text_history::TextHistory;
 
 pub mod fbs;
 
-mod filters;
+pub mod filters;
 mod search;
 
 pub mod dtos;
@@ -31,4 +31,4 @@ pub mod dtos;
 mod tensor_history_tensor_data;
 
 mod folder_cache;
-// pub mod sync;
+pub mod sync;

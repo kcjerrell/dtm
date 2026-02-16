@@ -11,6 +11,8 @@ mod clipboard;
 mod bookmarks;
 mod ffmpeg;
 mod projects_db;
+mod dtp_service;
+use dtp_service::{dtp_connect, dtp_list_projects};
 mod vid;
 
 use once_cell::sync::Lazy;
@@ -190,7 +192,9 @@ pub fn run() {
             bookmarks::pick_folder,
             bookmarks::resolve_bookmark,
             bookmarks::stop_accessing_bookmark,
-            // projects_db::sync::sync
+            projects_db::sync::projects_db_sync,
+            dtp_connect,
+            dtp_list_projects,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {
@@ -227,6 +231,16 @@ pub fn run() {
                 .title_bar_style(TitleBarStyle::Overlay);
 
             let _window = win_builder.build().unwrap();
+
+            let dtp_service = dtp_service::DTPService::new(app.handle().clone());
+            app.manage(dtp_service);
+            // tauri::async_runtime::spawn(async move {
+            //     if let Err(e) = dtp_service.init().await {
+            //         eprintln!("Failed to init DB: {}", e);
+            //     } else {
+            //         println!("DB initialized");
+            //     }
+            // });
 
             // let _panel_builder =
             //     WebviewWindowBuilder::new(app, "panel", WebviewUrl::App(PathBuf::from("#mini")))
