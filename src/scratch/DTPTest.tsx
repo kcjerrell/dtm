@@ -1,10 +1,9 @@
-import { motion } from "motion/react"
-import { CheckRoot, Panel } from "@/components"
 import { Button, Grid, Text, VStack } from "@chakra-ui/react"
 import { Channel, invoke } from "@tauri-apps/api/core"
 import { useRef } from "react"
+import { CheckRoot, Panel } from "@/components"
+import type { ProjectExtra } from "@/generated/types"
 import { useProxyRef } from "@/hooks/valtioHooks"
-import { ProjectExtra } from "@/generated/types"
 
 function Empty() {
     const channel = useRef<Channel>(null)
@@ -52,6 +51,14 @@ function Empty() {
                             <Text key={`project_${index}`}>{project.name}</Text>
                         ))}
                     </VStack>
+                    <Button
+                        onClick={async () => {
+                            console.log("click")
+                            await invoke("dtp_test")
+                        }}
+                    >
+                        Test
+                    </Button>
                 </Grid>
             </Panel>
         </CheckRoot>

@@ -1624,6 +1624,7 @@ name = "dtm"
 version = "0.3.2"
 dependencies = [
  "anyhow",
+ "async-trait",
  "base64 0.22.1",
  "bytemuck",
  "byteorder",

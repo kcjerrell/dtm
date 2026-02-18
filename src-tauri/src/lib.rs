@@ -9,9 +9,9 @@ use tauri_plugin_window_state::StateFlags;
 mod clipboard;
 
 mod bookmarks;
+mod dtp_service;
 mod ffmpeg;
 mod projects_db;
-mod dtp_service;
 use dtp_service::{dtp_connect, dtp_list_projects};
 mod vid;
 
@@ -192,9 +192,24 @@ pub fn run() {
             bookmarks::pick_folder,
             bookmarks::resolve_bookmark,
             bookmarks::stop_accessing_bookmark,
-            projects_db::sync::projects_db_sync,
             dtp_connect,
-            dtp_list_projects,
+            projects_db::sync::projects_db_sync,
+            dtp_service::data::dtp_pick_watch_folder,
+            dtp_service::data::dtp_decode_tensor,
+            dtp_service::data::dtp_find_image_from_preview_id,
+            dtp_service::data::dtp_find_predecessor,
+            dtp_service::data::dtp_get_clip,
+            dtp_service::data::dtp_get_history_full,
+            dtp_service::data::dtp_get_tensor_size,
+            dtp_service::data::dtp_list_images,
+            dtp_service::data::dtp_list_models,
+            dtp_service::data::dtp_list_projects,
+            dtp_service::data::dtp_list_watch_folders,
+            dtp_service::data::dtp_remove_watch_folder,
+            dtp_service::data::dtp_update_project,
+            dtp_service::data::dtp_update_watch_folder,
+            dtp_service::dtp_service::dtp_test,
+            dtp_service::dtp_service::dtp_sync,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
             std::thread::spawn(move || {

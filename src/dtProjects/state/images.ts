@@ -1,5 +1,5 @@
 import { proxy, subscribe, useSnapshot } from "valtio"
-import { pdb } from "@/commands"
+import DTPService from "@/commands/DtpService"
 import {
     EmptyItemSource,
     type IItemSource,
@@ -78,7 +78,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
                     s.showImage = true
                     s.showVideo = true
                 }
-                const res = await pdb.listImages(s, skip, take)
+                const res = await DTPService.listImages(s, skip, take)
                 return res.images
             }
             const getCount = async () => {
@@ -154,7 +154,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             source.showImage = true
             source.showVideo = true
         }
-        const { total, counts } = await pdb.listImagesCount(source)
+        const { total, counts } = await DTPService.listImagesCount(source)
         const projectCounts = {} as Record<string, number>
         for (const count of counts) {
             projectCounts[count.project_id] = count.count

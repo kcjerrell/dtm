@@ -6,42 +6,54 @@ use tokio::sync::RwLock;
 
 use crate::{
     dtp_service::{
-        actor::{create_actor, DTPActor},
         events::{self, DTPEvent},
+        jobs::{JobContext, SyncJob},
+        scheduler::Scheduler,
     },
-    projects_db::{dtos::project::ProjectExtra, ProjectsDb},
+    projects_db::ProjectsDb,
 };
 
 #[derive(Clone)]
 pub struct DTPService {
-    app_handle: AppHandle,
+    pub app_handle: AppHandle,
     pdb: Arc<RwLock<Option<ProjectsDb>>>,
-    sender: DTPActor,
-    events: events::DTPEventsService,
+    pub events: events::DTPEventsService,
+    pub scheduler: Arc<RwLock<Option<Scheduler>>>,
 }
 
+#[dtp_commands]
 impl DTPService {
     pub fn new(app_handle: AppHandle) -> Self {
         let pdb = Arc::new(RwLock::new(None));
         let events = events::DTPEventsService::new();
-
-        let sender = create_actor(&app_handle, &pdb, &events);
+        let scheduler = Arc::new(RwLock::new(None));
 
         Self {
             app_handle,
             pdb: pdb,
-            sender: sender,
             events,
+            scheduler,
         }
     }
 
     pub async fn connect(&self, channel: Channel<DTPEvent>) -> Result<(), String> {
         let pdb = ProjectsDb::get_or_init(&self.app_handle).await?;
-        self.events.set_channel(channel);
         let mut guard = self.pdb.write().await;
         *guard = Some(pdb.clone());
 
-        self.events.emit(DTPEvent::DTPServiceReady);
+        self.events.set_channel(channel);
+
+        let ctx = JobContext {
+            app_handle: self.app_handle.clone(),
+            pdb: pdb.clone(),
+            events: self.events.clone(),
+        };
+
+        let scheduler = Scheduler::new(&ctx);
+        let mut guard = self.scheduler.write().await;
+        *guard = Some(scheduler.clone());
+
+        self.events.emit(DTPEvent::DtpServiceReady);
 
         Ok(())
     }
@@ -53,6 +65,23 @@ impl DTPService {
             .clone()
             .ok_or_else(|| "DB not ready".to_string())
     }
+
+    #[dtp_command]
+    pub async fn sync(&self) -> Result<(), String> {
+        let scheduler = self.scheduler.read().await;
+        let scheduler = scheduler.as_ref().unwrap();
+        scheduler.add_job(SyncJob).await;
+
+        Ok(())
+    }
+}
+
+#[dtm_command]
+pub async fn dtp_test(state: State<'_, DTPService>) -> Result<String, String> {
+    let scheduler = state.scheduler.read().await;
+    let scheduler = scheduler.as_ref().unwrap();
+    scheduler.add_job(SyncJob).await;
+    Ok("ok".to_string())
 }
 
 #[dtm_command]

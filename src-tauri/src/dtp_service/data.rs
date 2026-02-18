@@ -1,7 +1,11 @@
-use dtm_macros::{dtp_command, dtp_commands};
+use std::path::Path;
+
+use dtm_macros::dtp_commands;
+use tauri::Manager;
 
 use crate::{
-    dtp_service::DTPService,
+    bookmarks,
+    dtp_service::{events::DTPEvent, jobs::SyncJob, DTPService},
     projects_db::{
         dtos::{
             image::ListImagesResult,
@@ -33,7 +37,24 @@ impl DTPService {
         project_id: i64,
         exclude: Option<bool>,
     ) -> Result<(), String> {
-        todo!()
+        let db = self.get_db().await?;
+
+        if let Some(exclude_val) = exclude {
+            db.update_exclude(project_id as i32, exclude_val)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
+        let project = db
+            .get_project(project_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        self.events
+            .emit(crate::dtp_service::events::DTPEvent::ProjectUpdated(
+                project,
+            ));
+
+        Ok(())
     }
 
     #[dtp_command]
@@ -50,7 +71,21 @@ impl DTPService {
         show_video: Option<bool>,
         show_image: Option<bool>,
     ) -> Result<ListImagesResult, String> {
-        todo!()
+        let db = self.get_db().await?;
+        let opts = crate::projects_db::dtos::image::ListImagesOptions {
+            project_ids,
+            search,
+            filters,
+            sort,
+            direction,
+            take,
+            skip,
+            count,
+            show_video,
+            show_image,
+        };
+
+        db.list_images(opts).await.map_err(|e| e.to_string())
     }
 
     #[dtp_command]
@@ -59,32 +94,100 @@ impl DTPService {
         project_id: i64,
         preview_id: i64,
     ) -> Result<Option<crate::projects_db::dtos::image::ImageExtra>, String> {
-        todo!()
+        let db = self.get_db().await?;
+        db.find_image_by_preview_id(project_id, preview_id)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     #[dtp_command]
     pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
-        todo!()
+        let db = self.get_db().await?;
+        db.get_clip(image_id).await
     }
 
     #[dtp_command]
     pub async fn list_watch_folders(&self) -> Result<Vec<WatchFolderDTO>, String> {
-        todo!()
+        let db = self.get_db().await?;
+        db.list_watch_folders().await.map_err(|e| e.to_string())
     }
 
     #[dtp_command]
-    pub async fn add_watch_folder(&self, path: String) -> Result<WatchFolderDTO, String> {
-        todo!()
+    pub async fn pick_watch_folder(&self, dt_folder: Option<bool>) -> Result<(), String> {
+        let db = self.get_db().await?;
+        let result = match dt_folder {
+            Some(true) => {
+                let result = bookmarks::pick_folder(
+                    self.app_handle.clone(),
+                    Some(get_dt_container(&self.app_handle).await?),
+                    Some("Select Documents Folder".to_string()),
+                )
+                .await?
+                .unwrap();
+
+                if result.path != get_dt_data_folder(&self.app_handle).await? {
+                    return Err("Must select Documents folder".to_string());
+                }
+                result
+            }
+            _ => {
+                let result = bookmarks::pick_folder(self.app_handle.clone(), None, None)
+                    .await?
+                    .unwrap();
+                result
+            }
+        };
+
+        let _ = db
+            .add_watch_folder(&result.path, &result.bookmark, false)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+        self.events
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
+                all_folders,
+            ));
+
+        let scheduler = self.scheduler.read().await;
+        let scheduler = scheduler.as_ref().unwrap();
+        scheduler.add_job(SyncJob).await;
+        Ok(())
     }
 
     #[dtp_command]
     pub async fn remove_watch_folder(&self, id: i64) -> Result<(), String> {
-        todo!()
+        let db = self.get_db().await?;
+        db.remove_watch_folders(vec![id])
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+        self.events
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
+                all_folders,
+            ));
+
+        // the projects will be removed automatically by the db
+        self.events.emit(DTPEvent::ProjectsChanged);
+
+        Ok(())
     }
 
     #[dtp_command]
-    pub async fn update_watch_folder(&self, id: i64, exclude: bool) -> Result<(), String> {
-        todo!()
+    pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> Result<(), String> {
+        let db = self.get_db().await?;
+        db.update_watch_folder(id, Some(recursive), None)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+        self.events
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
+                all_folders,
+            ));
+
+        Ok(())
     }
 
     #[dtp_command]
@@ -92,7 +195,8 @@ impl DTPService {
         &self,
         model_type: Option<entity::enums::ModelType>,
     ) -> Result<Vec<ModelExtra>, String> {
-        todo!()
+        let db = self.get_db().await?;
+        db.list_models(model_type).await.map_err(|e| e.to_string())
     }
 
     #[dtp_command]
@@ -101,7 +205,11 @@ impl DTPService {
         project_id: i64,
         row_id: i64,
     ) -> Result<TensorHistoryExtra, String> {
-        todo!()
+        let project = self.get_project(project_id).await?;
+        project
+            .get_history_full(row_id)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     #[dtp_command]
@@ -110,7 +218,11 @@ impl DTPService {
         project_id: i64,
         tensor_id: String,
     ) -> Result<TensorSize, String> {
-        todo!()
+        let project = self.get_project(project_id).await?;
+        project
+            .get_tensor_size(&tensor_id)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     #[dtp_command]
@@ -121,7 +233,26 @@ impl DTPService {
         tensor_id: String,
         as_png: bool,
     ) -> Result<tauri::ipc::Response, String> {
-        todo!()
+        let project = self.get_project(project_id).await?;
+        let tensor = project
+            .get_tensor_raw(&tensor_id)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let metadata = match node_id {
+            Some(node) => Some(
+                project
+                    .get_history_full(node)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .history,
+            ),
+            None => None,
+        };
+
+        let buffer = crate::projects_db::decode_tensor(tensor, as_png, metadata, None)
+            .map_err(|e| e.to_string())?;
+        Ok(tauri::ipc::Response::new(buffer))
     }
 
     #[dtp_command]
@@ -132,6 +263,38 @@ impl DTPService {
         lineage: i64,
         logical_time: i64,
     ) -> Result<Vec<TensorHistoryExtra>, String> {
-        todo!()
+        let project = self.get_project(project_id).await?;
+        project
+            .find_predecessor_candidates(row_id, lineage, logical_time)
+            .await
+            .map_err(|e| e.to_string())
     }
+
+    // Helper method to get a DTProject instance
+    async fn get_project(
+        &self,
+        project_id: i64,
+    ) -> Result<std::sync::Arc<crate::projects_db::DTProject>, String> {
+        let db = self.get_db().await?;
+        let project_ref = crate::projects_db::ProjectRef::Id(project_id);
+        db.get_dt_project(project_ref).await
+    }
+}
+
+async fn get_dt_container(app_handle: &tauri::AppHandle) -> Result<String, String> {
+    let path = app_handle
+        .path()
+        .home_dir()
+        .unwrap()
+        .join("Library/Containers/com.liuliu.draw-things/Data");
+    Ok(path.to_string_lossy().to_string())
+}
+
+async fn get_dt_data_folder(app_handle: &tauri::AppHandle) -> Result<String, String> {
+    let path = app_handle
+        .path()
+        .home_dir()
+        .unwrap()
+        .join("Library/Containers/com.liuliu.draw-things/Data/Documents");
+    Ok(path.to_string_lossy().to_string())
 }

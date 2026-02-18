@@ -1,6 +1,5 @@
 import { Text } from "@chakra-ui/react"
 import { useState } from "react"
-import { pickFolder } from "@/commands"
 import { PanelButton, PanelSection, PanelSectionHeader } from "@/components"
 import { useDTP } from "../state/context"
 
@@ -15,19 +14,9 @@ function GrantAccess(props: GrantAccessProps) {
     const handleGrantAccess = async () => {
         setIsLoading(true)
         try {
-            const result = await pickFolder(watchFolders.containerPath, "Select Documents folder")
-            if (!result) return
-            console.log(result, watchFolders.defaultProjectPath)
-            if (result.path !== watchFolders.defaultProjectPath) {
-                // Warn user if they selected the wrong folder, but maybe we should allow it?
-                // The original code enforced equality. I'll ask the user or keep it for now.
-                // The prompt didn't say to remove this check, so I'll keep it but adapted.
-                alert(`Please select the correct folder: ${watchFolders.defaultProjectPath}`)
-                return
-            }
-
-            watchFolders.addWatchFolder(result.path, result.bookmark, true)
+            await watchFolders.pickDtFolder()
         } catch (e) {
+            alert(`Couldn't add folder:\n\n${e}`)
             console.error(e)
         } finally {
             setIsLoading(false)

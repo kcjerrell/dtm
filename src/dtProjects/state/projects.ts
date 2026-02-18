@@ -1,5 +1,6 @@
 import { proxy } from "valtio"
-import { type ProjectExtra, pdb } from "@/commands"
+import type { ProjectExtra } from "@/commands"
+import DTPService from "@/commands/DtpService"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
 import type { ContainerEvent } from "@/utils/container/StateController"
@@ -57,6 +58,40 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
     constructor() {
         super("projects", "projects")
+
+        this.container.on("project_added", (project) => {
+            console.debug("handling event: project_added", project)
+            this.state.projects.push(
+                makeSelectable({ ...project, name: project.path.split("/").pop() as string }),
+            )
+            this.state.projects.sort(projectSort)
+            this.state.projectsCount++
+            this.loadProjectsDebounced()
+        })
+
+        this.container.on("projects_changed", () => {
+            console.debug("handling event: projects_changed")
+            this.loadProjects()
+        })
+
+        this.container.on("project_removed", (projectId) => {
+            console.debug("handling event: project_removed", projectId)
+            const projectState = this.state.projects.find((p) => p.id === projectId)
+            if (projectState) {
+                va.remove(this.state.projects, projectState)
+                this.state.projectsCount--
+            }
+            this.loadProjectsDebounced()
+        })
+
+        this.container.on("project_updated", (project) => {
+            console.debug("handling event: project_update", project)
+            const projectState = this.state.projects.find((p) => p.id === project.id)
+            if (projectState) {
+                Object.assign(projectState, project)
+            }
+            this.loadProjectsDebounced()
+        })
     }
 
     protected formatTags(
@@ -117,7 +152,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     }
 
     async loadProjects() {
-        const projects = await pdb.listProjects()
+        const projects = await DTPService.listProjects()
         va.set(
             this.state.projects,
             projects
@@ -144,13 +179,6 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }, 2000)
     }
 
-    async removeProjects(projectIds: number[]) {
-        for (const projectId of projectIds) {
-            await pdb.removeProject(projectId)
-        }
-        await this.loadProjects()
-    }
-
     /**
      * this function can be called with a project or an array of projects
      * state or snapshot
@@ -161,7 +189,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         for (const project of toUpdate) {
             const projectState = this.state.projects.find((p) => p.id === project.id)
             if (!projectState) continue
-            await pdb.updateExclude(project.id, exclude)
+            await DTPService.updateProject(project.id, exclude)
             projectState.excluded = exclude
             stateUpdate.push(projectState)
             projectState.setSelected(false)

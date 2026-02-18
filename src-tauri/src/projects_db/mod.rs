@@ -1,6 +1,6 @@
 mod dt_project;
-pub use dt_project::DTProject;
-mod projects_db;
+pub use dt_project::{DTProject, ProjectRef};
+pub mod projects_db;
 pub use projects_db::ProjectsDb;
 
 mod tensor_history;
@@ -30,5 +30,5 @@ pub mod dtos;
 
 mod tensor_history_tensor_data;
 
-mod folder_cache;
+pub mod folder_cache;
 pub mod sync;

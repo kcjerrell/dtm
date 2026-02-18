@@ -15,7 +15,7 @@ pub struct ProjectRow {
     pub excluded: bool,
 }
 
-#[derive(Debug, FromQueryResult, Serialize)]
+#[derive(Debug, FromQueryResult, Serialize, Clone)]
 pub struct ProjectExtra {
     pub id: i64,
     pub fingerprint: String,

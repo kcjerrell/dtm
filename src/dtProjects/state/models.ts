@@ -1,5 +1,6 @@
 import { proxy } from "valtio"
-import { type Model, pdb } from "@/commands"
+import type { Model } from "@/commands"
+import DTPService from "@/commands/DtpService"
 import { getVersionLabel } from "@/utils/models"
 import type { ModelVersionInfo, VersionModel } from "../types"
 import { type DTPJob, DTPStateController } from "./types"
@@ -32,7 +33,7 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
     }
 
     async refreshModels() {
-        const dbModels = await pdb.listModels()
+        const dbModels = await DTPService.listModels()
 
         const versions = {
             "": { models: 0, controls: 0, loras: 0, label: "Unknown" },

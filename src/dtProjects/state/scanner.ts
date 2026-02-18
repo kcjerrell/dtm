@@ -4,6 +4,7 @@ import type { JobCallback } from "@/utils/container/queue"
 import { TMap } from "@/utils/TMap"
 import { syncModelInfoJob } from "../jobs/models"
 import { getRefreshModelsJob } from "./models"
+import type { ProjectState } from "./projects"
 import {
     type DTPContainer,
     type DTPJob,
@@ -13,13 +14,12 @@ import {
     type WatchFoldersChangedPayload,
 } from "./types"
 import type { ListModelInfoFilesResult, ProjectFileStats, WatchFolderState } from "./watchFolders"
-import { ProjectState } from "./projects"
 
 class ScannerService extends DTPStateService {
     constructor() {
         super("scanner")
-        this.container.on("watchFoldersChanged", (e) => this.onWatchFoldersChanged(e))
-        this.container.on("projectFilesChanged", async (e) => this.onProjectFilesChanged(e))
+        // this.container.on("watchFoldersChanged", (e) => this.onWatchFoldersChanged(e))
+        // this.container.on("projectFilesChanged", async (e) => this.onProjectFilesChanged(e))
     }
 
     async onWatchFoldersChanged(e: WatchFoldersChangedPayload) {
@@ -41,16 +41,26 @@ class ScannerService extends DTPStateService {
     }
 
     sync(scope: SyncScope, callback?: JobCallback<null>) {
-        console.log("starting sync job", scope)
-        const callbackWrapper = () => {
-            console.log("sync finished")
-            callback?.()
-        }
-        const job = createSyncJob(scope, callbackWrapper)
-        this.container.getService("jobs").addJob(job)
+        // console.log("syncing", scope)
+        // this.container.getService("jobs").addJob({
+        //     type: "rust-sync",
+        //     label: "rust sync",
+        //     data: undefined,
+        //     execute: async (container) => {
+        //         await pdb.sync()
+        //     },
+        // })
+        // console.log("starting sync job", scope)
+        // const callbackWrapper = () => {
+        //     console.log("sync finished")
+        //     callback?.()
+        // }
+        // const job = createSyncJob(scope, callbackWrapper)
+        // this.container.getService("jobs").addJob(job)
     }
 
     async syncProjects(projects: (ProjectState | string)[], callback?: JobCallback<null>) {
+        return
         const wfs = this.container.getService("watchFolders")
         const projectStats = (
             await Promise.all(
@@ -94,7 +104,9 @@ async function getProjectStats(
             path: projectPath,
             size: stats.size + walStats.size,
             modified: Math.max(stats.mtime?.getTime() || 0, walStats.mtime?.getTime() || 0),
-            watchFolderId: watchFolder?.id ?? (typeof project !== "string" ? project.watchfolder_id : undefined),
+            watchFolderId:
+                watchFolder?.id ??
+                (typeof project !== "string" ? project.watchfolder_id : undefined),
             watchFolderPath: watchFolder?.path,
         }
     } catch (e) {
@@ -168,7 +180,7 @@ function getExecuteSync(callback?: JobCallback<null>) {
 
         const modelFiles = [] as ListModelInfoFilesResult[]
         const projectFiles = [] as ProjectFileStats[]
-        
+
         for (const folder of watchFolders) {
             const folderFiles = await wfs.listFiles(folder)
             modelFiles.push(...folderFiles.models)
@@ -284,7 +296,7 @@ function getProjectJob(data: ProjectSyncObject, callback?: JobCallback): DTPJob 
                 merge: "first",
                 callback,
                 execute: async (data: ProjectFileStats[], container) => {
-                    container.services.uiState.setImportLock(true)
+                    container.services.uiState.startImport(true)
                     const projects = [] as [ProjectFileStats, ProjectExtra][]
                     // there are two loops here because of the way the progress bar works
                     // the first loop creates the projects and gives the progress bar a total count
@@ -300,7 +312,8 @@ function getProjectJob(data: ProjectSyncObject, callback?: JobCallback): DTPJob 
                             let relativePath = p.path
                             if (p.watchFolderPath && p.path.startsWith(p.watchFolderPath)) {
                                 relativePath = p.path.slice(p.watchFolderPath.length)
-                                if (relativePath.startsWith("/")) relativePath = relativePath.slice(1)
+                                if (relativePath.startsWith("/"))
+                                    relativePath = relativePath.slice(1)
                             }
                             const project = await pdb.addProject(p.watchFolderId, relativePath)
                             if (project) projects.push([p, project])
@@ -315,7 +328,7 @@ function getProjectJob(data: ProjectSyncObject, callback?: JobCallback): DTPJob 
                             console.error(e)
                         }
                     }
-                    container.services.uiState.setImportLock(false)
+                    container.services.uiState.startImport(false)
                     return { jobs: [getRefreshModelsJob()] }
                 },
             }

@@ -1,8 +1,13 @@
 import { Box, HStack, Text, VStack } from "@chakra-ui/react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
-import { pickFolder } from '@/commands'
-import { IconButton, LinkButton, PanelListItem, PanelSection, PanelSectionHeader } from "@/components"
+import {
+    IconButton,
+    LinkButton,
+    PanelListItem,
+    PanelSection,
+    PanelSectionHeader,
+} from "@/components"
 import { FaMinus, FaPlus, FiList, FiX, LuFolderTree } from "@/components/icons/icons"
 import PanelList, { type PanelListCommand } from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
@@ -42,11 +47,7 @@ function useCommands(watchFolders: WatchFoldersController): PanelListCommand<Wat
                 ariaLabel: "add folder",
                 icon: FaPlus,
                 onClick: async () => {
-                    const result = await pickFolder()
-                    if (!result?.bookmark || !result?.path) 
-                        return
-                    console.log(result)
-                    watchFolders.addWatchFolder(result.path, result.bookmark, true)
+                    await watchFolders.pickWatchFolder()
                 },
                 tip: "Add folder",
             },

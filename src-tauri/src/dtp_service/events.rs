@@ -39,19 +39,20 @@ pub enum DTPEvent {
     ProjectAdded(ProjectExtra),
     ProjectRemoved(i64),
     ProjectUpdated(ProjectExtra),
+    // when many projects are changed, such as on delete cascade
+    ProjectsChanged,
 
     ImportStarted,
     ImportProgress(ScanProgress),
     ImportCompleted,
 
-    SyncStated,
+    SyncStarted,
     SyncComplete,
 
-    DoItDone,
-    DidTheThing,
-    Won,
+    FolderSyncStarted(i64),
+    FolderSyncComplete(i64),
 
-    DTPServiceReady,
+    DtpServiceReady,
 }
 
 #[derive(serde::Serialize, Debug)]

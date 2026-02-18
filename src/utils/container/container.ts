@@ -1,3 +1,4 @@
+import type { Channel } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import EventEmitter from "eventemitter3"
 import { type EventMap, type IContainer, type IStateService, isDisposable } from "./interfaces"
@@ -8,7 +9,7 @@ type FutureServices<T extends Record<string, object> = Record<string, object>> =
 
 type TagHandler = (tag: string, data?: Record<string, unknown>) => void
 type TagFormatter = (tag: string, data?: Record<string, unknown>) => string
-type TagService = { formatTags: TagFormatter, handleTags: TagHandler }
+type TagService = { formatTags: TagFormatter; handleTags: TagHandler }
 
 export class Container<
         T extends { [K in keyof T]: IStateService<IContainer<T>> } = object,
@@ -23,8 +24,9 @@ export class Container<
     private invalidateUnlistenPromise: Promise<() => void>
     private updateUnlistenPromise: Promise<() => void>
     private tagHandlers: Map<string, TagService> = new Map()
+    private channel?: Channel<{ type: string; data: unknown }>
 
-    constructor(servicesInit: () => T) {
+    constructor(channel: Channel<{ type: string; data: unknown }>, servicesInit: () => T) {
         super()
 
         buildContainer<Container<T, E>>(
@@ -49,6 +51,13 @@ export class Container<
             const { tag, data } = event.payload as { tag: string; data: Record<string, unknown> }
             this.handleTags(tag, data)
         })
+
+        this.channel = channel
+        this.channel.onmessage = (event) => {
+            const eventType = event.type as EventEmitter.EventNames<E>
+            const data = [event.data] as EventEmitter.EventArgs<E, typeof eventType>
+            this.emit(eventType, ...data)
+        }
     }
 
     getService<K extends keyof T>(name: K): T[K] {
