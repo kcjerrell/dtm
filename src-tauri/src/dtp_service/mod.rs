@@ -1,6 +1,7 @@
 mod events;
 mod helpers;
 mod scheduler;
+mod watch;
 
 pub mod jobs;
 

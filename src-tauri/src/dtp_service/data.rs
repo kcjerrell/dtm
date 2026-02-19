@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use dtm_macros::dtp_commands;
 use tauri::Manager;
 
@@ -151,7 +149,7 @@ impl DTPService {
 
         let scheduler = self.scheduler.read().await;
         let scheduler = scheduler.as_ref().unwrap();
-        scheduler.add_job(SyncJob).await;
+        scheduler.add_job(SyncJob);
         Ok(())
     }
 

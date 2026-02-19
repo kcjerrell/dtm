@@ -248,11 +248,12 @@ impl Scheduler {
         entry.state.status = JobStatus::WaitingForSubtasks(*subtasks_remaining);
     }
 
-    pub async fn add_job<T: Job>(&self, job: T)
-    where
-        T: Job + 'static,
-    {
-        self.add_job_internal(Arc::new(job), None).await;
+    pub fn add_job<T: Job + 'static>(&self, job: T) {
+        let job = Arc::new(job);
+        let this = self.clone();
+        tokio::spawn(async move {
+            this.add_job_internal(job, None).await;
+        });
     }
 
     async fn add_job_internal(&self, job: Arc<dyn Job>, parent_id: Option<JobId>) {

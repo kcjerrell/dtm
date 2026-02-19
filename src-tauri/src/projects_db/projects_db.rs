@@ -1,7 +1,7 @@
 use entity::{
     enums::{ModelType, Sampler},
     images::{self},
-    projects,
+    projects, watch_folders,
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
@@ -204,6 +204,20 @@ impl ProjectsDb {
             .await?;
 
         Ok(result.unwrap().into())
+    }
+
+    pub async fn get_project_by_path(&self, path: &str) -> Result<Option<ProjectExtra>, DbErr> {
+        let project = projects::Entity::find()
+            .join(JoinType::InnerJoin, projects::Relation::WatchFolders.def())
+            .filter(Expr::cust_with_values(
+                "watch_folders.path || '/' || projects.path = ?",
+                [path],
+            ))
+            .into_model::<ProjectRow>()
+            .one(&self.db)
+            .await?;
+
+        Ok(project.map(|r| r.into()))
     }
 
     /// List all projects, newest first
@@ -832,6 +846,18 @@ impl ProjectsDb {
 
         let model = model.update(&self.db).await?;
         Ok(model.into())
+    }
+
+    pub async fn get_watch_folder_for_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<WatchFolderDTO>, DbErr> {
+        let folder = watch_folders::Entity::find()
+            .filter(Expr::cust_with_values("? LIKE path || '/%'", [path]))
+            .one(&self.db)
+            .await?;
+
+        Ok(folder.map(|f| f.into()))
     }
 
     pub async fn update_exclude(&self, project_id: i32, exclude: bool) -> Result<(), DbErr> {
