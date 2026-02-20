@@ -81,7 +81,7 @@ impl<'a> ProjectSync<'a> {
 
 #[dtm_command]
 pub async fn projects_db_sync(app: AppHandle) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app).await?;
+    let pdb = ProjectsDb::get_or_init(&app.clone().into()).await?;
 
     let folders = pdb.list_watch_folders().await.unwrap();
 
@@ -93,7 +93,7 @@ pub async fn projects_db_sync(app: AppHandle) -> Result<(), String> {
 }
 
 async fn sync_folder(app: AppHandle, folder: &WatchFolderDTO) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app).await?;
+    let pdb = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let files = get_folder_files(folder).await;
     let mut project_files = files.projects;
     let mut sync_projects: Vec<ProjectSync> = Vec::new();

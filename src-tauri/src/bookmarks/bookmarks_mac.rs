@@ -1,5 +1,7 @@
+use crate::dtp_service::AppHandleWrapper;
+
 use super::{PickFolderResult, ResolveResult};
-use tauri::command;
+use tauri::{command, State};
 
 mod ffi {
     use std::os::raw::c_char;
@@ -24,8 +26,15 @@ struct FfiResolveResult {
 }
 
 #[command]
+pub async fn pick_folder_command(
+    app: State<'_, AppHandleWrapper>,
+    default_path: Option<String>,
+    button_text: Option<String>,
+) -> Result<Option<PickFolderResult>, String> {
+    pick_folder(&app, default_path, button_text).await
+}
 pub async fn pick_folder(
-    app: tauri::AppHandle,
+    app: &AppHandleWrapper,
     default_path: Option<String>,
     button_text: Option<String>,
 ) -> Result<Option<PickFolderResult>, String> {
@@ -36,7 +45,7 @@ pub async fn pick_folder(
         Some(p) => p,
         None => {
             // Default to home directory
-            match app.path().home_dir() {
+            match app.get_home_dir() {
                 Ok(path) => path.to_string_lossy().into_owned(),
                 Err(_) => return Err("Failed to get home directory".to_string()),
             }
@@ -70,6 +79,10 @@ pub async fn pick_folder(
 #[command]
 pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String> {
     use std::ffi::{CStr, CString};
+
+    if bookmark.starts_with("TESTBOOKMARK::") {
+        return Ok(ResolveResult::Resolved(bookmark.split("::").last().unwrap().to_string()));
+    }
 
     let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
 

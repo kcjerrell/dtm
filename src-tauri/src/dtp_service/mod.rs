@@ -1,4 +1,4 @@
-mod events;
+pub mod events;
 mod helpers;
 mod scheduler;
 mod watch;
@@ -15,3 +15,5 @@ pub use data::{
 
 pub mod dtp_service;
 pub use dtp_service::{dtp_connect, dtp_test, DTPService};
+
+pub use helpers::{AppHandleWrapper, GetFolderFilesResult, ProjectFile};

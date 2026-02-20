@@ -60,7 +60,7 @@ pub async fn projects_db_project_add(
     watch_folder_id: i64,
     path: String,
 ) -> Result<ProjectExtra, String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     let project = pdb.add_project(watch_folder_id, &path).await?;
     update_tags(
         &app_handle,
@@ -80,7 +80,7 @@ pub async fn projects_db_project_remove(
     app_handle: tauri::AppHandle,
     id: i64,
 ) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     let result = pdb.remove_project(id).await.map_err(|e| e.to_string())?;
 
     match result {
@@ -102,7 +102,7 @@ pub async fn projects_db_project_remove(
 pub async fn projects_db_project_list(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<ProjectExtra>, String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     let projects = pdb.list_projects(None).await.unwrap();
     Ok(projects)
 }
@@ -113,7 +113,7 @@ pub async fn projects_db_project_update_exclude(
     id: i32,
     exclude: bool,
 ) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     pdb.update_exclude(id, exclude)
         .await
         .map_err(|e| e.to_string())?;
@@ -128,7 +128,7 @@ pub async fn projects_db_project_bulk_update_missing_on(
     watch_folder_id: i64,
     is_missing: bool,
 ) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     pdb.bulk_update_missing_on(watch_folder_id, is_missing)
         .await
         .map_err(|e| e.to_string())?;
@@ -147,7 +147,7 @@ pub async fn projects_db_project_scan(
     filesize: Option<i64>,
     modified: Option<i64>,
 ) -> Result<i32, String> {
-    let pdb = ProjectsDb::get_or_init(&app).await?;
+    let pdb = ProjectsDb::get_or_init(&app.clone().into()).await?;
     // let update = |images_scanned: i32, images_total: i32| {
     //     app.emit(
     //         "projects_db_scan_progress",
@@ -218,7 +218,7 @@ pub async fn projects_db_image_list(
     show_video: Option<bool>,
     show_image: Option<bool>,
 ) -> Result<ListImagesResult, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let opts = ListImagesOptions {
         project_ids,
         search,
@@ -241,7 +241,7 @@ pub async fn projects_db_image_find_by_preview_id(
     project_id: i64,
     preview_id: i64,
 ) -> Result<Option<crate::projects_db::dtos::image::ImageExtra>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let image = projects_db
         .find_image_by_preview_id(project_id, preview_id)
         .await
@@ -255,13 +255,13 @@ pub async fn projects_db_get_clip(
     app_handle: tauri::AppHandle,
     image_id: i64,
 ) -> Result<Vec<TensorHistoryClip>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app_handle).await?;
+    let projects_db = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     projects_db.get_clip(image_id).await
 }
 
 #[dtm_command]
 pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     projects_db.rebuild_images_fts().await.unwrap();
     Ok(())
 }
@@ -270,7 +270,7 @@ pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), 
 pub async fn projects_db_watch_folder_list(
     app: tauri::AppHandle,
 ) -> Result<Vec<WatchFolderDTO>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     Ok(projects_db.list_watch_folders().await.unwrap())
 }
 
@@ -284,7 +284,7 @@ pub async fn projects_db_watch_folder_add(
     bookmark: String,
     recursive: bool,
 ) -> Result<WatchFolderDTO, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let result = projects_db
         .add_watch_folder(&path, &bookmark, recursive)
         .await
@@ -300,7 +300,7 @@ pub async fn projects_db_watch_folder_remove(
     app: tauri::AppHandle,
     ids: Vec<i64>,
 ) -> Result<(), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     projects_db.remove_watch_folders(ids).await.unwrap();
     invalidate_tags(&app, "watchfolders", "remove");
     Ok(())
@@ -313,7 +313,7 @@ pub async fn projects_db_watch_folder_update(
     recursive: Option<bool>,
     last_updated: Option<i64>,
 ) -> Result<WatchFolderDTO, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let result = projects_db
         .update_watch_folder(id, recursive, last_updated)
         .await
@@ -331,7 +331,7 @@ pub async fn projects_db_scan_model_info(
     file_path: String,
     model_type: entity::enums::ModelType,
 ) -> Result<usize, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let count = projects_db
         .scan_model_info(&file_path, model_type)
         .await
@@ -349,7 +349,7 @@ pub async fn projects_db_list_models(
     app: tauri::AppHandle,
     model_type: Option<entity::enums::ModelType>,
 ) -> Result<Vec<ModelExtra>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     Ok(projects_db
         .list_models(model_type)
         .await
@@ -485,7 +485,7 @@ async fn get_project(
     project_id: i64,
 ) -> Result<std::sync::Arc<DTProject>, String> {
     let project_ref = ProjectRef::Id(project_id);
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let project = projects_db.get_dt_project(project_ref).await?;
     Ok(project)
 }

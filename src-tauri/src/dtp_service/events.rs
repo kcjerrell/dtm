@@ -53,6 +53,13 @@ pub enum DTPEvent {
     FolderSyncComplete(i64),
 
     DtpServiceReady,
+
+    /// By default, tuple is (job id, msg)
+    TestEventStart(Option<u64>, Option<String>),
+    /// By default, tuple is (job id, msg)
+    TestEventComplete(Option<u64>, Option<String>),
+    /// By default, tuple is (job id, msg, error)
+    TestEventFailed(Option<u64>, Option<String>, Option<String>),
 }
 
 #[derive(serde::Serialize, Debug)]

@@ -18,19 +18,15 @@ use std::{
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
-use crate::projects_db::{
-    dt_project::{self, ProjectRef},
-    dtos::{
+use crate::{dtp_service::AppHandleWrapper, projects_db::{
+    DTProject, dt_project::{self, ProjectRef}, dtos::{
         image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
         model::ModelExtra,
         project::{ProjectExtra, ProjectRow},
         tensor::{TensorHistoryClip, TensorHistoryImport},
         watch_folder::WatchFolderDTO,
-    },
-    folder_cache,
-    search::{self, process_prompt},
-    DTProject,
-};
+    }, folder_cache, search::{self, process_prompt}
+}};
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
 static SCAN_BATCH_SIZE: u32 = 500;
@@ -41,12 +37,16 @@ pub struct ProjectsDb {
 }
 
 #[cfg(dev)]
+#[cfg(not(test))]
 const DB_NAME: &str = "projects4-dev.db";
 #[cfg(not(dev))]
+#[cfg(not(test))]
 const DB_NAME: &str = "projects4.db";
+#[cfg(test)]
+const DB_NAME: &str = "projects4-test.db";
 
-fn get_path(app_handle: &tauri::AppHandle) -> String {
-    let app_data_dir = app_handle.path().app_data_dir().unwrap();
+fn get_path(app_handle: &AppHandleWrapper) -> String {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
     }
@@ -54,8 +54,8 @@ fn get_path(app_handle: &tauri::AppHandle) -> String {
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
-fn check_old_path(app_handle: &tauri::AppHandle) {
-    let app_data_dir = app_handle.path().app_data_dir().unwrap();
+fn check_old_path(app_handle: &AppHandleWrapper) {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
     let old_path = app_data_dir.join("projects2.db");
     if old_path.exists() {
         fs::remove_file(old_path).unwrap_or_default();
@@ -67,7 +67,7 @@ fn check_old_path(app_handle: &tauri::AppHandle) {
 }
 
 impl ProjectsDb {
-    pub async fn get_or_init(app_handle: &tauri::AppHandle) -> Result<&'static ProjectsDb, String> {
+    pub async fn get_or_init(app_handle: &AppHandleWrapper) -> Result<&'static ProjectsDb, String> {
         CELL.get_or_try_init(|| async {
             check_old_path(app_handle);
             let db = ProjectsDb::new(&get_path(app_handle))

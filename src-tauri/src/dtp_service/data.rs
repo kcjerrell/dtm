@@ -3,7 +3,7 @@ use tauri::Manager;
 
 use crate::{
     bookmarks,
-    dtp_service::{events::DTPEvent, jobs::SyncJob, DTPService},
+    dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
     projects_db::{
         dtos::{
             image::ListImagesResult,
@@ -116,7 +116,7 @@ impl DTPService {
         let result = match dt_folder {
             Some(true) => {
                 let result = bookmarks::pick_folder(
-                    self.app_handle.clone(),
+                    &self.app_handle,
                     Some(get_dt_container(&self.app_handle).await?),
                     Some("Select Documents Folder".to_string()),
                 )
@@ -129,7 +129,7 @@ impl DTPService {
                 result
             }
             _ => {
-                let result = bookmarks::pick_folder(self.app_handle.clone(), None, None)
+                let result = bookmarks::pick_folder(&self.app_handle, None, None)
                     .await?
                     .unwrap();
                 result
@@ -138,6 +138,25 @@ impl DTPService {
 
         let _ = db
             .add_watch_folder(&result.path, &result.bookmark, false)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+        self.events
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
+                all_folders,
+            ));
+
+        let scheduler = self.scheduler.read().await;
+        let scheduler = scheduler.as_ref().unwrap();
+        scheduler.add_job(SyncJob);
+        Ok(())
+    }
+
+    pub async fn add_watchfolder(self: &Self, path: String, bookmark: String) -> Result<(), String> {
+        let db = self.get_db().await?;
+        let _ = db
+            .add_watch_folder(&path, &bookmark, false)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -279,19 +298,17 @@ impl DTPService {
     }
 }
 
-async fn get_dt_container(app_handle: &tauri::AppHandle) -> Result<String, String> {
+async fn get_dt_container(app_handle: &AppHandleWrapper) -> Result<String, String> {
     let path = app_handle
-        .path()
-        .home_dir()
+        .get_home_dir()
         .unwrap()
         .join("Library/Containers/com.liuliu.draw-things/Data");
     Ok(path.to_string_lossy().to_string())
 }
 
-async fn get_dt_data_folder(app_handle: &tauri::AppHandle) -> Result<String, String> {
+async fn get_dt_data_folder(app_handle: &AppHandleWrapper) -> Result<String, String> {
     let path = app_handle
-        .path()
-        .home_dir()
+        .get_home_dir()
         .unwrap()
         .join("Library/Containers/com.liuliu.draw-things/Data/Documents");
     Ok(path.to_string_lossy().to_string())

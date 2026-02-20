@@ -24,7 +24,7 @@ pub async fn save_all_clip_frames(
     app: tauri::AppHandle,
     opts: FramesExportOpts,
 ) -> Result<(usize, String), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
 
     let result: Option<(String, i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
         .join(

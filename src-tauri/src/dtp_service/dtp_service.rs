@@ -10,13 +10,14 @@ use crate::{
         jobs::{JobContext, SyncJob},
         scheduler::Scheduler,
         watch::WatchService,
+        AppHandleWrapper,
     },
     projects_db::ProjectsDb,
 };
 
 #[derive(Clone)]
 pub struct DTPService {
-    pub app_handle: AppHandle,
+    pub app_handle: AppHandleWrapper,
     pub events: events::DTPEventsService,
     pdb: Arc<RwLock<Option<ProjectsDb>>>,
     pub scheduler: Arc<RwLock<Option<Scheduler>>>,
@@ -25,7 +26,7 @@ pub struct DTPService {
 
 #[dtp_commands]
 impl DTPService {
-    pub fn new(app_handle: AppHandle) -> Self {
+    pub fn new(app_handle: AppHandleWrapper) -> Self {
         let pdb = Arc::new(RwLock::new(None));
         let events = events::DTPEventsService::new();
         let scheduler = Arc::new(RwLock::new(None));
@@ -107,12 +108,17 @@ impl DTPService {
 }
 
 #[dtm_command]
-pub async fn dtp_test(state: State<'_, DTPService>) -> Result<String, String> {
-    let scheduler = state.scheduler.read().await;
-    let scheduler = scheduler.as_ref().unwrap();
-    scheduler.add_job(SyncJob);
-    Ok("ok".to_string())
+pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> Result<(), String> {
+    println!(
+        "dtp test bla bla {}",
+        state.get_home_dir().unwrap().to_string_lossy()
+    );
+    Ok(())
 }
+// let scheduler = state.scheduler.read().await;
+// let scheduler = scheduler.as_ref().unwrap();
+// scheduler.add_job(SyncJob);
+// Ok("ok".to_string())
 
 #[dtm_command]
 pub async fn dtp_connect(
@@ -121,4 +127,15 @@ pub async fn dtp_connect(
 ) -> Result<(), String> {
     let _ = state.connect(channel).await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn something() {
+        let dtp_service = DTPService::new(AppHandleWrapper::new(None));
+        let _ = dtp_service.connect(Channel::new(|_event| Ok(()))).await;
+    }
 }

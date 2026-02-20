@@ -8,8 +8,8 @@ use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
-mod bookmarks;
-mod dtp_service;
+pub mod bookmarks;
+pub mod dtp_service;
 mod ffmpeg;
 mod projects_db;
 use dtp_service::{dtp_connect, dtp_list_projects};
@@ -189,7 +189,7 @@ pub fn run() {
             ffmpeg_download,
             ffmpeg_download,
             ffmpeg_call,
-            bookmarks::pick_folder,
+            bookmarks::pick_folder_command,
             bookmarks::resolve_bookmark,
             bookmarks::stop_accessing_bookmark,
             dtp_connect,
@@ -247,8 +247,11 @@ pub fn run() {
 
             let _window = win_builder.build().unwrap();
 
-            let dtp_service = dtp_service::DTPService::new(app.handle().clone());
+            let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
+
+            let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
             app.manage(dtp_service);
+            app.manage(app_handle_wrapper);
             // tauri::async_runtime::spawn(async move {
             //     if let Err(e) = dtp_service.init().await {
             //         eprintln!("Failed to init DB: {}", e);

@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use tauri::AppHandle;
-
 use crate::{
     dtp_service::events::{DTPEvent, DTPEventsService},
     projects_db::ProjectsDb,
 };
+use crate::dtp_service::AppHandleWrapper;
 
 #[async_trait::async_trait]
 pub trait Job: Send + Sync {
@@ -28,7 +27,7 @@ pub enum JobResult {
 
 #[derive(Clone)]
 pub struct JobContext {
-    pub app_handle: AppHandle,
+    pub app_handle: AppHandleWrapper,
     pub pdb: ProjectsDb,
     pub events: DTPEventsService,
 }

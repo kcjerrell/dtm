@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs, process};
+use tauri::{path, AppHandle, Manager};
 use walkdir::WalkDir;
 
 use crate::projects_db::dtos::model::ModelType;
@@ -133,4 +134,53 @@ pub fn system_time_to_epoch_secs(time: SystemTime) -> Option<i64> {
     time.duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
+}
+
+#[derive(Clone)]
+pub struct AppHandleWrapper {
+    app_handle: Option<AppHandle>,
+}
+
+impl AppHandleWrapper {
+    pub fn new(app_handle: Option<AppHandle>) -> Self {
+        Self { app_handle }
+    }
+
+    fn get_test_path(&self, path: &str) -> PathBuf {
+        let base = std::env::current_dir().unwrap().join("test_data");
+        let result = match path {
+            "" => base,
+            _ => base.join(path),
+        };
+        fs::create_dir_all(&result).unwrap();
+        result
+    }
+
+    pub fn get_home_dir(&self) -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = &self.app_handle {
+            app_handle.path().home_dir()
+        } else {
+            Ok(self.get_test_path(""))
+        }
+    }
+
+    pub fn get_app_data_dir(&self) -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = &self.app_handle {
+            app_handle.path().app_data_dir()
+        } else {
+            Ok(self.get_test_path("app_data_dir"))
+        }
+    }
+}
+
+impl From<AppHandle> for AppHandleWrapper {
+    fn from(value: AppHandle) -> Self {
+        Self { app_handle: Some(value.clone()) }
+    }
+}
+
+impl From<&AppHandle> for AppHandleWrapper {
+    fn from(value: &AppHandle) -> Self {
+        Self { app_handle: Some(value.clone()) }
+    }
 }
