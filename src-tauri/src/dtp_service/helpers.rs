@@ -138,7 +138,7 @@ pub fn system_time_to_epoch_secs(time: SystemTime) -> Option<i64> {
 
 #[derive(Clone)]
 pub struct AppHandleWrapper {
-    app_handle: Option<AppHandle>,
+    pub app_handle: Option<AppHandle>,
 }
 
 impl AppHandleWrapper {
