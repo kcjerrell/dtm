@@ -5,10 +5,27 @@ use super::{PickFolderResult, ResolveResult};
 #[command]
 pub async fn pick_folder(
     app: tauri::AppHandle,
-    _default_path: Option<String>,
-    _button_text: Option<String>,
+    default_path: Option<String>,
+    button_text: Option<String>,
 ) -> Result<Option<PickFolderResult>, String> {
-    let folder: Option<tauri_plugin_fs::FilePath> = app.dialog().file().blocking_pick_folder();    
+
+    let folder_override = match default_path {
+        Some(path) => {
+            match path.starts_with("TESTPATH::") {
+                true => {
+                    let path = path.strip_prefix("TESTPATH::").unwrap();
+                    Some(tauri_plugin_fs::FilePath::from(path.to_string()))
+                }
+                false => None,
+            }
+        }
+        None => None,
+    };
+
+    let folder: Option<tauri_plugin_fs::FilePath> = match folder_override {
+        Some(path) => Some(path),
+        None => app.dialog().file().blocking_pick_folder(),
+    };
     
     match folder {
         Some(path) => {             

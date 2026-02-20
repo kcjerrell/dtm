@@ -2,7 +2,7 @@ use dtm_macros::dtp_commands;
 use tauri::Manager;
 
 use crate::{
-    bookmarks,
+    bookmarks::{self, PickFolderResult},
     dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
     projects_db::{
         dtos::{
@@ -111,30 +111,13 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn pick_watch_folder(&self, dt_folder: Option<bool>) -> Result<(), String> {
+    pub async fn pick_watch_folder(
+        &self,
+        dt_folder: Option<bool>,
+        test_override: Option<String>,
+    ) -> Result<(), String> {
         let db = self.get_db().await?;
-        let result = match dt_folder {
-            Some(true) => {
-                let result = bookmarks::pick_folder(
-                    &self.app_handle,
-                    Some(get_dt_container(&self.app_handle).await?),
-                    Some("Select Documents Folder".to_string()),
-                )
-                .await?
-                .unwrap();
-
-                if result.path != get_dt_data_folder(&self.app_handle).await? {
-                    return Err("Must select Documents folder".to_string());
-                }
-                result
-            }
-            _ => {
-                let result = bookmarks::pick_folder(&self.app_handle, None, None)
-                    .await?
-                    .unwrap();
-                result
-            }
-        };
+        let result = get_folder(&self.app_handle, dt_folder, test_override).await?;
 
         let _ = db
             .add_watch_folder(&result.path, &result.bookmark, false)
@@ -153,7 +136,11 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn add_watchfolder(self: &Self, path: String, bookmark: String) -> Result<(), String> {
+    pub async fn add_watchfolder(
+        self: &Self,
+        path: String,
+        bookmark: String,
+    ) -> Result<(), String> {
         let db = self.get_db().await?;
         let _ = db
             .add_watch_folder(&path, &bookmark, false)
@@ -312,4 +299,41 @@ async fn get_dt_data_folder(app_handle: &AppHandleWrapper) -> Result<String, Str
         .unwrap()
         .join("Library/Containers/com.liuliu.draw-things/Data/Documents");
     Ok(path.to_string_lossy().to_string())
+}
+
+async fn get_folder(
+    app_handle: &AppHandleWrapper,
+    dt_folder: Option<bool>,
+    test_override: Option<String>,
+) -> Result<PickFolderResult, String> {
+    if let Some(test_override) = test_override {
+        return Ok(PickFolderResult {
+            path: test_override.clone(),
+            bookmark: test_override,
+        });
+    }
+
+    let result = match dt_folder {
+        Some(true) => {
+            let result = bookmarks::pick_folder(
+                app_handle,
+                Some(get_dt_container(app_handle).await?),
+                Some("Select Documents Folder".to_string()),
+            )
+            .await?
+            .unwrap();
+
+            if result.path != get_dt_data_folder(app_handle).await? {
+                return Err("Must select Documents folder".to_string());
+            }
+            result
+        }
+        _ => {
+            let result = bookmarks::pick_folder(app_handle, None, None)
+                .await?
+                .unwrap();
+            result
+        }
+    };
+    Ok(result)
 }

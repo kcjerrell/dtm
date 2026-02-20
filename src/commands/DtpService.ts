@@ -59,7 +59,13 @@ async function listWatchFolders(): Promise<WatchFolder[]> {
 }
 
 async function pickWatchFolder(dtFolder?: boolean): Promise<void> {
-    return await invoke("dtp_pick_watch_folder", { dtFolder })
+    let testOverride = undefined
+    if ((window as unknown as Record<string, string>).__E2E_FILE_PATH__) {
+        testOverride = `TESTPATH::${(window as unknown as Record<string, string>).__E2E_FILE_PATH__}`
+        ;(window as unknown as Record<string, string>).__E2E_FILE_PATH__ = "" // Clear it after use
+        // In E2E tests, we bypass the native picker and return a predefined path.
+    }
+    return await invoke("dtp_pick_watch_folder", { dtFolder, testOverride })
 }
 
 async function removeWatchFolder(id: number): Promise<void> {
