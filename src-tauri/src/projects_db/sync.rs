@@ -21,7 +21,7 @@ struct ProjectFile {
     path: String,
     filesize: u64,
     modified: i64,
-    watchfolder_id: i64,
+    _watchfolder_id: i64,
     has_base: bool,
 }
 
@@ -240,7 +240,7 @@ async fn get_folder_files(watchfolder: &WatchFolderDTO) -> GetFolderFilesResult 
                         has_base: false,
                         filesize: 0,
                         modified: 0,
-                        watchfolder_id: watchfolder.id,
+                        _watchfolder_id: watchfolder.id,
                     });
 
                     if ext == "sqlite3" {

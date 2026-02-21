@@ -1,8 +1,8 @@
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{fs, process};
-use tauri::{path, AppHandle, Manager};
+use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
 
 use crate::projects_db::dtos::model::ModelType;
@@ -14,7 +14,7 @@ pub struct ProjectFile {
     pub path: String,
     pub filesize: u64,
     pub modified: i64,
-    pub watchfolder_id: i64,
+    pub _watchfolder_id: i64,
     pub has_base: bool,
 }
 
@@ -70,7 +70,7 @@ pub async fn get_folder_files(watchfolder_path: &str, watchfolder_id: i64) -> Ge
                         has_base: false,
                         filesize: 0,
                         modified: 0,
-                        watchfolder_id: watchfolder_id,
+                        _watchfolder_id: watchfolder_id,
                     });
 
                     if ext == "sqlite3" {
@@ -97,6 +97,8 @@ pub async fn get_folder_files(watchfolder_path: &str, watchfolder_id: i64) -> Ge
             _ => {}
         }
     }
+
+    projects.retain(|_, v| v.has_base);
 
     GetFolderFilesResult {
         projects,
@@ -147,7 +149,7 @@ impl AppHandleWrapper {
     }
 
     fn get_test_path(&self, path: &str) -> PathBuf {
-        let base = std::env::current_dir().unwrap().join("test_data");
+        let base = std::env::current_dir().unwrap().join("test_data/temp");
         let result = match path {
             "" => base,
             _ => base.join(path),
@@ -175,12 +177,16 @@ impl AppHandleWrapper {
 
 impl From<AppHandle> for AppHandleWrapper {
     fn from(value: AppHandle) -> Self {
-        Self { app_handle: Some(value.clone()) }
+        Self {
+            app_handle: Some(value.clone()),
+        }
     }
 }
 
 impl From<&AppHandle> for AppHandleWrapper {
     fn from(value: &AppHandle) -> Self {
-        Self { app_handle: Some(value.clone()) }
+        Self {
+            app_handle: Some(value.clone()),
+        }
     }
 }

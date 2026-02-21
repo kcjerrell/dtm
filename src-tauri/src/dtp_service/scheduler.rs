@@ -40,10 +40,11 @@ struct JobEntry {
 
 #[derive(Clone)]
 pub struct Scheduler {
-    tx: mpsc::Sender<JobId>,
+    tx: Arc<mpsc::Sender<JobId>>,
     jobs: Arc<Mutex<HashMap<JobId, JobEntry>>>,
     next_id: Arc<AtomicU64>,
     ctx: JobContext,
+    worker_handle: Arc<std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl Scheduler {
@@ -52,13 +53,14 @@ impl Scheduler {
 
         let semaphore = Arc::new(Semaphore::new(4));
         let scheduler = Scheduler {
-            tx,
+            tx: Arc::new(tx),
             ctx: ctx.clone(),
             jobs: Arc::new(Mutex::new(HashMap::new())),
             next_id: Arc::new(AtomicU64::new(0)),
+            worker_handle: Arc::new(std::sync::Mutex::new(None)),
         };
 
-        tokio::spawn({
+        let handle = tokio::spawn({
             let semaphore = semaphore.clone();
             let scheduler = scheduler.clone();
 
@@ -75,14 +77,25 @@ impl Scheduler {
             }
         });
 
+        *scheduler.worker_handle.lock().unwrap() = Some(handle);
+
         scheduler
+    }
+
+    pub async fn stop(&self) {
+        if let Some(handle) = self.worker_handle.lock().unwrap().take() {
+            handle.abort();
+        }
     }
 
     async fn process(&self, job_id: JobId) {
         // get the job, updating its status along the way
         let job: Arc<dyn Job> = {
             let mut jobs = self.jobs.lock().await;
-            let entry = jobs.get_mut(&job_id).unwrap();
+            let Some(entry) = jobs.get_mut(&job_id) else {
+                log::warn!("[Scheduler] Job {} not found during process", job_id);
+                return;
+            };
             entry.state.status = JobStatus::Active;
             entry.job.clone()
         };
@@ -102,8 +115,8 @@ impl Scheduler {
 
         match &next_status {
             JobStatus::WaitingForSubtasks(count) => self.shelve_job(job_id, count).await,
-            JobStatus::Complete => self.finish_job(job_id, &self.ctx).await,
-            JobStatus::Failed(e) => self.fail_job(job_id, &self.ctx, e.to_string()).await,
+            JobStatus::Complete => self.resolve_job(job_id, &self.ctx, Ok(())).await,
+            JobStatus::Failed(e) => self.resolve_job(job_id, &self.ctx, Err(e.clone())).await,
             _ => {}
         };
 
@@ -118,7 +131,7 @@ impl Scheduler {
         }
     }
 
-    async fn update_parent_job(&self, job_entry: &JobEntry, ctx: &JobContext) -> Option<JobId> {
+    async fn update_parent_job(&self, job_entry: &JobEntry, _ctx: &JobContext) -> Option<JobId> {
         if job_entry.state.parent_id.is_none() {
             return None;
         }
@@ -126,10 +139,13 @@ impl Scheduler {
 
         let (tasks_remaining, label) = {
             let mut jobs = self.jobs.lock().await;
-            let job = jobs.get_mut(&parent_id).unwrap();
+            let Some(job) = jobs.get_mut(&parent_id) else {
+                return None;
+            };
             let tasks_remaining = match job_entry.state.status {
-                JobStatus::Complete => self.decrement_subtask_count(&mut job.state),
-                JobStatus::Failed(_) => self.decrement_subtask_count(&mut job.state),
+                JobStatus::Complete | JobStatus::Failed(_) => {
+                    self.decrement_subtask_count(&mut job.state)
+                }
                 _ => self.get_subtask_count(&job.state),
             };
             (tasks_remaining, job.job.get_label())
@@ -148,7 +164,7 @@ impl Scheduler {
                 tasks_remaining
             );
         }
-        if tasks_remaining <= 0 {
+        if tasks_remaining == 0 {
             Some(parent_id)
         } else {
             None
@@ -187,7 +203,10 @@ impl Scheduler {
             JobResult::Event(event) => (JobStatus::Complete, Some(event), None),
             JobResult::None => (JobStatus::Complete, None, None),
             JobResult::Subtasks(subtasks) => (
-                JobStatus::WaitingForSubtasks(subtasks.len() as isize),
+                match subtasks.len() {
+                    0 => JobStatus::Complete,
+                    _ => JobStatus::WaitingForSubtasks(subtasks.len() as isize),
+                },
                 None,
                 Some(subtasks),
             ),
@@ -196,56 +215,61 @@ impl Scheduler {
         (status, event, subtasks)
     }
 
-    /// also updates parent job
-    async fn finish_job(&self, job_id: JobId, ctx: &JobContext) {
+    /// Resolves a job, calling on_complete or on_failed, and updates its parent.
+    /// If a parent completes all subtasks, it always resolves as successful,
+    /// even if some subtasks failed.
+    async fn resolve_job(&self, job_id: JobId, ctx: &JobContext, result: Result<(), String>) {
         let mut current_id = Some(job_id);
-        while let Some(id) = current_id {
-            log::debug!("[Scheduler] Finishing job: {}", id);
-            let mut entry = {
-                let mut jobs = self.jobs.lock().await;
-                jobs.remove(&id).unwrap()
-            };
-            entry.state.status = JobStatus::Complete;
-            entry.job.on_complete(ctx).await;
+        let mut current_result = result;
 
-            log::debug!(
-                "[Scheduler] Finished job: {} ({})",
-                entry.job.get_label(),
-                entry.state.id
-            );
-
-            current_id = self.update_parent_job(&entry, ctx).await;
-        }
-    }
-
-    /// also updates parent job
-    async fn fail_job(&self, job_id: JobId, ctx: &JobContext, error: String) {
-        let mut current_id = Some(job_id);
-        let mut current_error = error;
         while let Some(id) = current_id {
             let mut entry = {
                 let mut jobs = self.jobs.lock().await;
-                jobs.remove(&id).unwrap()
+                let Some(entry) = jobs.remove(&id) else {
+                    log::warn!("[Scheduler] Job {} not found during resolution", id);
+                    break;
+                };
+                entry
             };
-            entry.state.status = JobStatus::Failed(current_error.clone());
-            log::warn!(
-                "[Scheduler] Failed job: {} ({}) {}",
-                entry.job.get_label(),
-                entry.state.id,
-                current_error
-            );
-            entry.job.on_failed(ctx, current_error.clone()).await;
+
+            match &current_result {
+                Ok(_) => {
+                    log::debug!("[Scheduler] Finishing job: {}", id);
+                    entry.state.status = JobStatus::Complete;
+                    entry.job.on_complete(ctx).await;
+                    log::debug!(
+                        "[Scheduler] Finished job: {} ({})",
+                        entry.job.get_label(),
+                        entry.state.id
+                    );
+                }
+                Err(error) => {
+                    entry.state.status = JobStatus::Failed(error.clone());
+                    log::warn!(
+                        "[Scheduler] Failed job: {} ({}) {}",
+                        entry.job.get_label(),
+                        entry.state.id,
+                        error
+                    );
+                    entry.job.on_failed(ctx, error.clone()).await;
+                }
+            }
+
             current_id = self.update_parent_job(&entry, ctx).await;
-            // if we have a parent to finish, we treat it as a success for the chain update logic
-            // (or rather, we just continue the chain). If you want parents to fail if subtasks fail,
-            // that would be a different logic change.
+
+            // Parent jobs always succeed when their subtasks finish,
+            // regardless of whether this specific subtask failed.
+            current_result = Ok(());
         }
     }
 
     async fn shelve_job(&self, job_id: JobId, subtasks_remaining: &isize) {
         let mut jobs = self.jobs.lock().await;
-        let entry = jobs.get_mut(&job_id).unwrap();
-        entry.state.status = JobStatus::WaitingForSubtasks(*subtasks_remaining);
+        if let Some(entry) = jobs.get_mut(&job_id) {
+            entry.state.status = JobStatus::WaitingForSubtasks(*subtasks_remaining);
+        } else {
+            log::warn!("[Scheduler] Job {} not found during shelve", job_id);
+        }
     }
 
     pub fn add_job<T: Job + 'static>(&self, job: T) {

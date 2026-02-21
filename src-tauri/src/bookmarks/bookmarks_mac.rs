@@ -39,7 +39,6 @@ pub async fn pick_folder(
     button_text: Option<String>,
 ) -> Result<Option<PickFolderResult>, String> {
     use std::ffi::{CStr, CString};
-    use tauri::Manager;
 
     let target_path = match default_path {
         Some(p) => p,
@@ -81,7 +80,9 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
     use std::ffi::{CStr, CString};
 
     if bookmark.starts_with("TESTBOOKMARK::") {
-        return Ok(ResolveResult::Resolved(bookmark.split("::").last().unwrap().to_string()));
+        return Ok(ResolveResult::Resolved(
+            bookmark.split("::").last().unwrap().to_string(),
+        ));
     }
 
     let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;

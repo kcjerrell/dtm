@@ -1,13 +1,16 @@
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use dtm_macros::{dtm_command, dtp_commands};
-use tauri::{ipc::Channel, AppHandle, State};
+use tauri::{ipc::Channel, State};
 use tokio::sync::RwLock;
 
 use crate::{
     dtp_service::{
         events::{self, DTPEvent},
-        jobs::{JobContext, SyncJob},
+        jobs::{Job, JobContext, SyncJob},
         scheduler::Scheduler,
         watch::WatchService,
         AppHandleWrapper,
@@ -21,7 +24,8 @@ pub struct DTPService {
     pub events: events::DTPEventsService,
     pdb: Arc<RwLock<Option<ProjectsDb>>>,
     pub scheduler: Arc<RwLock<Option<Scheduler>>>,
-    watch: Arc<RwLock<Option<WatchService>>>,
+    pub watch: Arc<RwLock<Option<WatchService>>>,
+    pub auto_watch: Arc<AtomicBool>,
 }
 
 #[dtp_commands]
@@ -38,10 +42,16 @@ impl DTPService {
             events,
             scheduler,
             watch,
+            auto_watch: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    pub async fn connect(&self, channel: Channel<DTPEvent>) -> Result<(), String> {
+    pub async fn connect(
+        &self,
+        channel: Channel<DTPEvent>,
+        auto_watch: bool,
+    ) -> Result<(), String> {
+        self.auto_watch.store(auto_watch, Ordering::Relaxed);
         let pdb = ProjectsDb::get_or_init(&self.app_handle).await?;
         {
             let mut guard = self.pdb.write().await;
@@ -54,6 +64,7 @@ impl DTPService {
             app_handle: self.app_handle.clone(),
             pdb: pdb.clone(),
             events: self.events.clone(),
+            dtp: self.clone(),
         };
 
         let scheduler = Scheduler::new(&ctx);
@@ -70,7 +81,9 @@ impl DTPService {
 
         self.events.emit(DTPEvent::DtpServiceReady);
 
-        self.watch_all().await;
+        if self.auto_watch.load(Ordering::Relaxed) {
+            self.watch_all().await;
+        }
 
         Ok(())
     }
@@ -105,6 +118,56 @@ impl DTPService {
         let watch = watch.as_ref().unwrap();
         watch.watch_folders(watchfolders).await.unwrap();
     }
+
+    pub async fn resume_watch(&self, path: &str, recursive: bool) {
+        if !self.auto_watch.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let watch = self.watch.read().await;
+        let watch = watch.as_ref().unwrap();
+        watch.watch(path, recursive).await.unwrap();
+    }
+
+    pub async fn stop_watch(&self, path: &str) {
+        let watch = self.watch.read().await;
+        let watch = watch.as_ref().unwrap();
+        watch.unwatch(path).await.unwrap();
+    }
+
+    pub fn add_job<T: Job + 'static>(&self, job: T) {
+        let dtp = self.clone();
+        tokio::spawn(async move {
+            let scheduler = dtp.scheduler.read().await;
+            let scheduler = scheduler.as_ref().unwrap();
+            scheduler.add_job(job);
+        });
+    }
+
+    pub async fn stop(&self) {
+        {
+            let watch = self.watch.read().await;
+            let watch = watch.as_ref().unwrap();
+            watch.stop_all().await.unwrap();
+        }
+        {
+            let mut guard = self.pdb.write().await;
+            *guard = None;
+        }
+
+        {
+            let scheduler = self.scheduler.read().await.clone();
+            scheduler.unwrap().stop().await;
+        }
+        {
+            let mut guard = self.scheduler.write().await;
+            *guard = None;
+        }
+        {
+            let mut guard = self.watch.write().await;
+            *guard = None;
+        }
+    }
 }
 
 #[dtm_command]
@@ -124,18 +187,8 @@ pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> Result<(), String> 
 pub async fn dtp_connect(
     state: State<'_, DTPService>,
     channel: Channel<DTPEvent>,
+    auto_watch: bool,
 ) -> Result<(), String> {
-    let _ = state.connect(channel).await;
+    let _ = state.connect(channel, auto_watch).await;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn something() {
-        let dtp_service = DTPService::new(AppHandleWrapper::new(None));
-        let _ = dtp_service.connect(Channel::new(|_event| Ok(()))).await;
-    }
 }

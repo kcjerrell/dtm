@@ -1,13 +1,19 @@
 use std::sync::Arc;
 
+use crate::dtp_service::AppHandleWrapper;
 use crate::{
-    dtp_service::events::{DTPEvent, DTPEventsService},
+    dtp_service::{
+        events::{DTPEvent, DTPEventsService},
+        DTPService,
+    },
     projects_db::ProjectsDb,
 };
-use crate::dtp_service::AppHandleWrapper;
 
 #[async_trait::async_trait]
-pub trait Job: Send + Sync {
+pub trait Job
+where
+    Self: Send + Sync,
+{
     fn get_label(&self) -> String;
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String>;
     fn start_event(self: &Self) -> Option<DTPEvent> {
@@ -30,4 +36,5 @@ pub struct JobContext {
     pub app_handle: AppHandleWrapper,
     pub pdb: ProjectsDb,
     pub events: DTPEventsService,
+    pub dtp: DTPService,
 }

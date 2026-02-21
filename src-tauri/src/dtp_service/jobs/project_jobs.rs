@@ -138,15 +138,16 @@ impl Job for UpdateProjectJob {
                     .await
                     .map_err(|e| e.to_string())?;
 
-                match self.is_import {
-                    true => Ok(JobResult::Event(DTPEvent::ImportProgress(ScanProgress {
+                if self.is_import {
+                    ctx.events.emit(DTPEvent::ImportProgress(ScanProgress {
                         projects_found: 0,
                         projects_scanned: 1,
                         images_found: 0,
                         images_scanned: total,
-                    }))),
-                    false => Ok(JobResult::Event(DTPEvent::ProjectUpdated(project))),
+                    }));
                 }
+
+                Ok(JobResult::Event(DTPEvent::ProjectUpdated(project)))
             }
             Err(err) => {
                 log::error!("Error scanning project {}: {}", self.project_id, err);

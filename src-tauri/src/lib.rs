@@ -12,7 +12,7 @@ pub mod bookmarks;
 pub mod dtp_service;
 mod ffmpeg;
 mod projects_db;
-use dtp_service::{dtp_connect, dtp_list_projects};
+use dtp_service::dtp_connect;
 mod vid;
 
 use once_cell::sync::Lazy;

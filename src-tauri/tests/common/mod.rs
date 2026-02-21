@@ -6,8 +6,11 @@ use std::{
 use dtm_lib::dtp_service::{
     events::DTPEvent,
     jobs::{Job, JobContext, JobResult},
+    AppHandleWrapper, DTPService,
 };
 use serde_json::Value;
+
+pub mod projects;
 
 pub struct EventHelper {
     received: Arc<RwLock<Vec<String>>>,
@@ -49,7 +52,13 @@ impl EventHelper {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             max_checks -= 1;
         }
-        assert_eq!(self.count(event_type), count);
+        assert_eq!(
+            self.count(event_type),
+            count,
+            "Expected {} events of type {}",
+            count,
+            event_type
+        );
     }
 
     pub fn reset_counts(&self) {
@@ -57,12 +66,12 @@ impl EventHelper {
     }
 }
 
-pub const TEST_DATA_PATH: &str = "/Users/kcjer/Desktop/linux-share/dtm-test-data";
 pub const MAX_WAIT_MS: u64 = 8000;
 pub fn reset_db() {
     let db_path = env::current_dir()
         .unwrap()
         .join("test_data")
+        .join("temp")
         .join("app_data_dir")
         .join("projects4-dev.db");
 
@@ -86,7 +95,7 @@ impl TestJob {
             delay,
             subtasks: Vec::new(),
             msg: None,
-            should_fail: false
+            should_fail: false,
         }
     }
 
@@ -150,4 +159,15 @@ impl Job for TestJob {
             Ok(JobResult::Subtasks(subtasks))
         }
     }
+}
+
+pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper) {
+    reset_db();
+    let app_handle = AppHandleWrapper::new(None);
+    let dtps = DTPService::new(app_handle);
+
+    let (event_helper, channel) = EventHelper::new();
+    let _ = dtps.connect(channel, auto_watch).await.unwrap();
+
+    (dtps, event_helper)
 }

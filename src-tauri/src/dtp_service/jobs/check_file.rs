@@ -2,7 +2,7 @@ use std::{fs, sync::Arc};
 
 use crate::dtp_service::{
     helpers::system_time_to_epoch_secs,
-    jobs::{AddProjectJob, Job, JobContext, JobResult, UpdateProjectJob},
+    jobs::{AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, UpdateProjectJob},
 };
 
 pub struct CheckFileJob {
@@ -16,19 +16,38 @@ impl Job for CheckFileJob {
     }
 
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        let metadata = fs::metadata(&self.project_path).unwrap();
-        let filesize = metadata.len() as i64;
-        let modified = system_time_to_epoch_secs(metadata.modified().unwrap());
-
+        println!("Checking file: {}", self.project_path);
         let entity = ctx
             .pdb
             .get_project_by_path(&self.project_path)
             .await
             .map_err(|e| e.to_string())?;
 
+        if !fs::exists(&self.project_path).unwrap_or(false) {
+            println!("File does not exist: {}", self.project_path);
+            match entity {
+                Some(entity) => {
+                    println!("Removing project: {}", entity.id);
+                    let job = RemoveProjectJob {
+                        project_id: entity.id,
+                    };
+                    return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
+                }
+                None => {
+                    println!("File does not exist and no project found");
+                    return Ok(JobResult::None);
+                }
+            }
+        }
+
+        let metadata = fs::metadata(&self.project_path).unwrap();
+        let filesize = metadata.len() as i64;
+        let modified = system_time_to_epoch_secs(metadata.modified().unwrap());
+
         match entity {
             // if an entity was found, compare size and modified
             Some(entity) => {
+                println!("Project found for path: {}", self.project_path);
                 if entity.filesize.unwrap_or(0) != filesize || entity.modified != modified {
                     let job = UpdateProjectJob {
                         project_id: entity.id,
@@ -40,11 +59,13 @@ impl Job for CheckFileJob {
                 }
             }
             None => {
+                println!("No project found for path: {}", self.project_path);
                 let watchfolder = ctx
                     .pdb
                     .get_watch_folder_for_path(&self.project_path)
                     .await
                     .unwrap();
+                println!("Watch folder found for path: {:?}", watchfolder);
                 if watchfolder.is_none() {
                     return Err("Watch folder not found".to_string());
                 }
@@ -55,6 +76,7 @@ impl Job for CheckFileJob {
                     modified: modified.unwrap_or(0),
                     is_import: false,
                 };
+                println!("Adding project: {}", self.project_path);
                 return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
             }
         }

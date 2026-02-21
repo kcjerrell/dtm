@@ -40,6 +40,8 @@ impl Job for SyncFolderJob {
         Some(DTPEvent::FolderSyncStarted(self.watchfolder_id))
     }
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+        ctx.dtp.stop_watch(&self.watchfolder_path).await;
+
         let files = get_folder_files(&self.watchfolder_path, self.watchfolder_id).await;
         let mut project_files = files.projects;
         let mut sync_projects: Vec<ProjectSync> = Vec::new();
@@ -116,6 +118,8 @@ impl Job for SyncFolderJob {
         }
         ctx.events
             .emit(DTPEvent::FolderSyncComplete(self.watchfolder_id));
+
+        ctx.dtp.resume_watch(&self.watchfolder_path, true).await;
     }
 }
 

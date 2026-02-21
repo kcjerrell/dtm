@@ -1,6 +1,3 @@
-use dtm_macros::dtp_commands;
-use tauri::Manager;
-
 use crate::{
     bookmarks::{self, PickFolderResult},
     dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
@@ -15,6 +12,7 @@ use crate::{
         filters::ListImagesFilter,
     },
 };
+use dtm_macros::dtp_commands;
 
 #[dtp_commands]
 impl DTPService {
