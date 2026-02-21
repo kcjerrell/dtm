@@ -13,7 +13,7 @@ import type {
 } from "./projects"
 
 async function connect(channel: Channel) {
-    await invoke("dtp_connect", { channel })
+    await invoke("dtp_connect", { channel, autoWatch: true})
 }
 
 async function listProjects(watchFolderId?: number): Promise<ProjectExtra[]> {

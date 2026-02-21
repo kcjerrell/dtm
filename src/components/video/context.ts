@@ -5,6 +5,7 @@ import type { ImageExtra } from "@/generated/types"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { everyNth } from "@/utils/helpers"
 import { useFrameAnimation } from "./hooks"
+import DTPService from '@/commands/DtpService'
 
 export type VideoContextType = ReturnType<typeof useCreateVideoContext>
 
@@ -91,7 +92,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
 
     useEffect(() => {
         if (!image) return
-        pdb.getClip(image.id).then(async (data) => {
+        DTPService.getClip(image.id).then(async (data) => {
             if (!image) return
             if (!imgRef.current) return
 

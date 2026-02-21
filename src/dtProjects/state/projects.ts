@@ -57,10 +57,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     hasLoaded = false
 
     constructor() {
-        super("projects", "projects")
+        super("projects")
 
         this.container.on("project_added", (project) => {
-            console.debug("handling event: project_added", project)
             this.state.projects.push(
                 makeSelectable({ ...project, name: project.path.split("/").pop() as string }),
             )
@@ -70,12 +69,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         })
 
         this.container.on("projects_changed", () => {
-            console.debug("handling event: projects_changed")
             this.loadProjects()
         })
 
         this.container.on("project_removed", (projectId) => {
-            console.debug("handling event: project_removed", projectId)
             const projectState = this.state.projects.find((p) => p.id === projectId)
             if (projectState) {
                 va.remove(this.state.projects, projectState)
@@ -85,54 +82,12 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         })
 
         this.container.on("project_updated", (project) => {
-            console.debug("handling event: project_update", project)
             const projectState = this.state.projects.find((p) => p.id === project.id)
             if (projectState) {
                 Object.assign(projectState, project)
             }
             this.loadProjectsDebounced()
         })
-    }
-
-    protected formatTags(
-        tags: string,
-        data?: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra; desc?: string },
-    ): string {
-        if (data?.desc) return `invalidate tag: ${tags} - ${data.desc}`
-        if (data?.removed) return `update tag - removed project - id ${data.removed}`
-        if (data?.added)
-            return `update tag - added project - ${data.added.path.split("/").pop()} id ${data.added.id}`
-        if (data?.updated)
-            return `update tag - updated project - ${data.updated.path.split("/").pop()} id ${data.updated.id}`
-        return `update tag: ${tags} ${String(data)}`
-    }
-
-    protected handleTags(
-        _tags: string,
-        data: { removed?: number; added?: ProjectExtra; updated?: ProjectExtra },
-    ) {
-        if (data.updated) {
-            this.updateProject(data.updated.id, data.updated)
-        } else if (data.added) {
-            // check if project is already listed
-            if (this.state.projects.some((p) => p.id === data.added?.id)) {
-                this.updateProject(data.added.id, data.added)
-                return true
-            }
-            this.state.projects.push(
-                makeSelectable({ ...data.added, name: data.added.path.split("/").pop() as string }),
-            )
-            this.state.projects.sort(projectSort)
-            this.state.projectsCount++
-        } else if (data.removed) {
-            const project = this.state.projects.find((p) => p.id === data.removed)
-            if (project) {
-                va.remove(this.state.projects, project)
-                this.state.projectsCount--
-            }
-        }
-        this.loadProjectsDebounced()
-        return true
     }
 
     updateProject(projectId: number, data: Partial<ProjectExtra>) {
@@ -195,8 +150,6 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             projectState.setSelected(false)
         }
         this.setSelectedProjects([])
-        const scanner = this.container.getService("scanner")
-        await scanner.syncProjects(stateUpdate)
     }
 
     getProject(projectId?: number | null) {

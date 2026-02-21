@@ -13,7 +13,7 @@ mod tests {
         let dtp = DTPService::new(app_handle);
 
         let (event_helper, channel) = EventHelper::new();
-        let _ = dtp.connect(channel, false).await;
+        let _ = dtp.connect(channel, false, None).await;
 
         // it can add and run jobs
         dtp.add_job(TestJob::new(1, 100));
@@ -44,6 +44,8 @@ mod tests {
         event_helper.assert_count("test_event_start", 3).await;
         event_helper.assert_count("test_event_complete", 3).await;
         assert!(start_time.elapsed() >= std::time::Duration::from_millis(1500));
+
+        dtp.stop().await;
     }
 
     #[tokio::test]
@@ -52,7 +54,7 @@ mod tests {
         let dtp_service = DTPService::new(app_handle);
 
         let (event_helper, channel) = EventHelper::new();
-        let _ = dtp_service.connect(channel, false).await;
+        let _ = dtp_service.connect(channel, false, None).await;
 
         let scheduler = { dtp_service.scheduler.read().await.clone().unwrap().clone() };
 
@@ -62,7 +64,6 @@ mod tests {
         event_helper.assert_count("test_event_start", 1).await;
         event_helper.assert_count("test_event_failed", 1).await;
 
-        scheduler.stop().await;
-        drop(scheduler);
+        dtp_service.stop().await;
     }
 }

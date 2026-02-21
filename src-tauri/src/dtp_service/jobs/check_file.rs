@@ -1,5 +1,7 @@
 use std::{fs, sync::Arc};
 
+use sea_query::extension::postgres::PgExpr;
+
 use crate::dtp_service::{
     helpers::system_time_to_epoch_secs,
     jobs::{AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, UpdateProjectJob},
@@ -16,10 +18,23 @@ impl Job for CheckFileJob {
     }
 
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        println!("Checking file: {}", self.project_path);
+        let watchfolder = ctx
+            .pdb
+            .get_watch_folder_for_path(&self.project_path)
+            .await
+            .unwrap();
+        if watchfolder.is_none() {
+            return Err("Watch folder not found".to_string());
+        }
+        let watchfolder = watchfolder.unwrap();
+        let project_path = self
+            .project_path
+            .strip_prefix(format!("{}/", watchfolder.path).as_str())
+            .unwrap();
+        println!("checking {} in {}", project_path, watchfolder.path);
         let entity = ctx
             .pdb
-            .get_project_by_path(&self.project_path)
+            .get_project_by_path(watchfolder.id, &project_path)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -60,18 +75,9 @@ impl Job for CheckFileJob {
             }
             None => {
                 println!("No project found for path: {}", self.project_path);
-                let watchfolder = ctx
-                    .pdb
-                    .get_watch_folder_for_path(&self.project_path)
-                    .await
-                    .unwrap();
-                println!("Watch folder found for path: {:?}", watchfolder);
-                if watchfolder.is_none() {
-                    return Err("Watch folder not found".to_string());
-                }
                 let job = AddProjectJob {
-                    path: self.project_path.clone(),
-                    watchfolder_id: watchfolder.unwrap().id,
+                    path: project_path.to_string(),
+                    watchfolder_id: watchfolder.id,
                     filesize,
                     modified: modified.unwrap_or(0),
                     is_import: false,

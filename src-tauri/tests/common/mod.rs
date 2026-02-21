@@ -1,5 +1,7 @@
 use std::{
-    env, fs,
+    env,
+    fmt::format,
+    fs,
     sync::{Arc, RwLock},
 };
 
@@ -9,6 +11,9 @@ use dtm_lib::dtp_service::{
     AppHandleWrapper, DTPService,
 };
 use serde_json::Value;
+use tempfile::TempDir;
+
+use crate::common::projects::{WatchFolderHelper, Watchfolder};
 
 pub mod projects;
 
@@ -161,13 +166,34 @@ impl Job for TestJob {
     }
 }
 
-pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper) {
-    reset_db();
+pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper, WatchFolderHelper) {
+    let temp_dir = TempDir::new_in("test_data/temp").unwrap();
+    let temp_dir_path = temp_dir.path().to_str().unwrap().to_string();
+    let wfh = WatchFolderHelper::get(Watchfolder::A, temp_dir);
+    // reset_db();
     let app_handle = AppHandleWrapper::new(None);
     let dtps = DTPService::new(app_handle);
 
+    fs::create_dir_all(format!("{}/app_data_dir", temp_dir_path)).unwrap();
     let (event_helper, channel) = EventHelper::new();
-    let _ = dtps.connect(channel, auto_watch).await.unwrap();
+    let _ = dtps
+        .connect(
+            channel,
+            auto_watch,
+            Some(
+                format!(
+                    "sqlite://{}/app_data_dir/projects4.db?mode=rwc",
+                    temp_dir_path,
+                )
+                .to_string(),
+            ),
+        )
+        .await
+        .unwrap();
 
-    (dtps, event_helper)
+    if auto_watch {
+        dtps.watch_all().await;
+    }
+
+    (dtps, event_helper, wfh)
 }

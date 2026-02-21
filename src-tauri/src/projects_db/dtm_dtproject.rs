@@ -5,6 +5,7 @@ use tauri::{
     http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
 };
+use tokio::sync::OnceCell;
 
 use crate::projects_db::{
     tensors::{decode_tensor, scribble_mask_to_png},
@@ -64,61 +65,102 @@ fn parse_request(uri: &Uri) -> Option<DTPRequest> {
     Some(req)
 }
 
-pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: UriSchemeResponder) {
-    let response = match handle_request(request).await {
-        Ok(r) => r,
-        Err(e) => {
-            log::error!("DTM Protocol Error: {}", e);
-            // Response::builder()
-            //     .status(StatusCode::INTERNAL_SERVER_ERROR)
-            //     .body(e.into_bytes())
-            //     .unwrap()
-        Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "image/svg+xml")
-        .body(MISSING_SVG.as_bytes().to_vec())
-        .unwrap()
-        }
-
-    };
-
-    responder.respond(response);
+pub struct DtmProtocol {
+    pdb: tokio::sync::RwLock<Option<ProjectsDb>>
 }
 
-async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>>, String> {
-    let req = parse_request(request.uri());
-
-    if req.is_none() {
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body("Invalid path format".as_bytes().to_vec())
-            .map_err(|e| e.to_string())?);
+impl DtmProtocol {
+    pub fn new() -> Self {
+        Self {
+            pdb: tokio::sync::RwLock::new(None),
+        }
     }
 
-    let req = req.unwrap();
+    pub async fn init(&self, pdb: ProjectsDb) {
+        self.pdb.write().await.replace(pdb);
+    }
 
-    let item_type = req.item_type;
-    let project_id: i64 = req.project_id;
+    async fn get_db(&self) -> Option<ProjectsDb> {
+        self.pdb.read().await.as_ref().cloned()
+    }
 
-    let project_path = get_project_path(project_id)
-        .await
-        .map_err(|e| format!("Failed to get project path: {}", e))?;
+    pub async fn dtm_dtproject_protocol<T>(
+        &self,
+        request: http::Request<T>,
+        responder: UriSchemeResponder,
+    ) {
+        let response = match self.handle_request(request).await {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("DTM Protocol Error: {}", e);
+                // Response::builder()
+                //     .status(StatusCode::INTERNAL_SERVER_ERROR)
+                //     .body(e.into_bytes())
+                //     .unwrap()
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "image/svg+xml")
+                    .body(MISSING_SVG.as_bytes().to_vec())
+                    .unwrap()
+            }
+        };
 
-    let item_id = req.item_id;
+        responder.respond(response);
+    }
 
-    let node = req.node;
-    let scale = req.scale;
-    let invert = req.invert;
-    let mask = req.mask;
+    async fn handle_request<T>(
+        &self,
+        request: http::Request<T>,
+    ) -> Result<Response<Vec<u8>>, String> {
+        let req = parse_request(request.uri());
 
-    match item_type.as_str() {
-        "thumb" => thumb(&project_path, &item_id, false).await,
-        "thumbhalf" => thumb(&project_path, &item_id, true).await,
-        "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
-        _ => Ok(Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body("Not Found".as_bytes().to_vec())
-            .map_err(|e| e.to_string())?),
+        if req.is_none() {
+            return Ok(Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body("Invalid path format".as_bytes().to_vec())
+                .map_err(|e| e.to_string())?);
+        }
+
+        let req = req.unwrap();
+
+        let item_type = req.item_type;
+        let project_id: i64 = req.project_id;
+
+        let project_path = self
+            .get_project_path(project_id)
+            .await
+            .map_err(|e| format!("Failed to get project path: {}", e))?;
+
+        let item_id = req.item_id;
+
+        let node = req.node;
+        let scale = req.scale;
+        let invert = req.invert;
+        let mask = req.mask;
+
+        match item_type.as_str() {
+            "thumb" => thumb(&project_path, &item_id, false).await,
+            "thumbhalf" => thumb(&project_path, &item_id, true).await,
+            "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
+            _ => Ok(Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body("Not Found".as_bytes().to_vec())
+                .map_err(|e| e.to_string())?),
+        }
+    }
+
+    async fn get_project_path(&self, project_id: i64) -> Result<String, DbErr> {
+        if let Some(path) = PROJECT_PATH_CACHE.read().unwrap().get(&project_id).cloned() {
+            return Ok(path);
+        }
+
+        let pdb = self.get_db().await.unwrap();
+        let project = pdb.get_project(project_id).await?;
+        PROJECT_PATH_CACHE
+            .write()
+            .unwrap()
+            .insert(project_id, project.full_path.clone());
+        Ok(project.full_path)
     }
 }
 
@@ -206,20 +248,6 @@ async fn tensor(
             )
             .map_err(|e| e.to_string()),
     }
-}
-
-async fn get_project_path(project_id: i64) -> Result<String, DbErr> {
-    if let Some(path) = PROJECT_PATH_CACHE.read().unwrap().get(&project_id).cloned() {
-        return Ok(path);
-    }
-
-    let pdb = ProjectsDb::get().map_err(|e| DbErr::Custom(e.to_string()))?;
-    let project = pdb.get_project(project_id).await?;
-    PROJECT_PATH_CACHE
-        .write()
-        .unwrap()
-        .insert(project_id, project.full_path.clone());
-    Ok(project.full_path)
 }
 
 fn classify_type(s: &str) -> Option<&str> {

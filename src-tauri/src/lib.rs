@@ -111,7 +111,7 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use projects_db::commands::*;
-    use projects_db::dtm_dtproject_protocol;
+    use projects_db::DtmProtocol;
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -211,11 +211,13 @@ pub fn run() {
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
         ])
-        .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
+        .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
+            let app_handle = ctx.app_handle().clone();
             std::thread::spawn(move || {
                 TOKIO_RT.block_on(async move {
+                    let state = app_handle.state::<DtmProtocol>();
                     if request.uri().host().unwrap() == "dtproject" {
-                        dtm_dtproject_protocol(request, responder).await;
+                        state.dtm_dtproject_protocol(request, responder).await;
                     } else {
                         responder.respond(
                             http::Response::builder()
@@ -248,10 +250,12 @@ pub fn run() {
             let _window = win_builder.build().unwrap();
 
             let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
-
             let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
+            let dtm_protocol = DtmProtocol::new();
+
             app.manage(dtp_service);
             app.manage(app_handle_wrapper);
+            app.manage(dtm_protocol);
             // tauri::async_runtime::spawn(async move {
             //     if let Err(e) = dtp_service.init().await {
             //         eprintln!("Failed to init DB: {}", e);

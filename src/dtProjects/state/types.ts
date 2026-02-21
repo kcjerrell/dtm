@@ -8,8 +8,6 @@ import type DetailsService from "./details"
 import type ImagesController from "./images"
 import type ModelsController from "./models"
 import type ProjectsController from "./projects"
-import type ScannerService from "./scanner"
-import type { ProjectJobPayload } from "./scanner"
 import type SearchController from "./search"
 import type SettingsController from "./settings"
 import type { UIController } from "./uiState"
@@ -35,10 +33,6 @@ export type DTProjectsJobs = {
     }
     "project-add": {
         data: ProjectFileStats[]
-        result: never
-    }
-    "project-update": {
-        data: ProjectJobPayload
         result: never
     }
     "project-remove": {
@@ -129,7 +123,6 @@ export interface DTPServices {
     projects: ProjectsController
     models: ModelsController
     watchFolders: WatchFoldersController
-    scanner: ScannerService
     search: SearchController
     images: ImagesController
     details: DetailsService

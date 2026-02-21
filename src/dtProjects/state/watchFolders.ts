@@ -1,5 +1,4 @@
 import { path } from "@tauri-apps/api"
-import { exists, type WatchEvent, watch } from "@tauri-apps/plugin-fs"
 import { proxy } from "valtio"
 import type { WatchFolder } from "@/commands"
 import DTPService from "@/commands/DtpService"
@@ -81,29 +80,23 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         )
     }
 
-    // watchDisposers = new Map<string, Promise<UnwatchFn>>()
-    // watchCallbacks = new DebounceMap<string>(1500)
-
     constructor() {
-        super("watchFolders", "watchfolders")
+        super("watchFolders")
 
         this.container.on("watch_folders_changed", (folders: WatchFolder[]) => {
             this.setWatchfolders(folders)
         })
 
-        this.assignPaths().then(() => {
-            console.log(this.state.homePath, this.state.containerPath, this.state.defaultDataFolder)
-        })
+        this.assignPaths().then(() => {})
     }
 
-    async loadWatchFolders(supressEvent = false) {
+    async loadWatchFolders() {
         const res = await DTPService.listWatchFolders()
         this.setWatchfolders(res)
     }
 
     private setWatchfolders(folders: WatchFolder[]) {
         const foldersState = folders.map((f) => makeSelectable(f as WatchFolderState))
-        console.log(folders, this.state.defaultDataFolder)
         this.state.isDtFolderAdded = folders.some(
             (folder) => folder.path === this.state.defaultDataFolder,
         )
@@ -146,59 +139,6 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
             await DTPService.updateWatchFolder(folder.id, recursive)
         }
     }
-
-    async startWatch(folder: WatchFolderState) {
-        throw new Error("deprecated")
-        if (this.watchDisposers.has(folder.path))
-            throw new Error(`must stop watching folder first, ${folder.path}`)
-
-        try {
-            if (!(await exists(folder.path))) {
-                console.warn("watch folder does not exist, skipping watch", folder.path)
-                return
-            }
-            const unwatch = watch(
-                folder.path,
-                async (e) => {
-                    if (!shouldReact(e)) return
-                    const projectFiles = e.paths
-                        .filter((p) => p.endsWith(".sqlite3") || p.endsWith(".sqlite3-wal"))
-                        .map((p) => p.replace(/-wal$/g, ""))
-                    if (projectFiles.length === 0) return
-                    console.debug("watch event", JSON.stringify(e))
-                    const uniqueFiles = Array.from(new Set(projectFiles))
-
-                    for (const file of uniqueFiles) {
-                        this.watchCallbacks.set(file, () => {
-                            this.container.emit("projectFilesChanged", { files: [file] })
-                        })
-                    }
-                },
-                { delayMs: 1500, recursive: folder.recursive },
-            )
-            this.watchDisposers.set(folder.path, unwatch)
-            console.log("watching folder for changes:", folder.path)
-        } catch (e) {
-            console.warn("can't watch folder", folder.path, e)
-        }
-    }
 }
 
 export default WatchFoldersController
-
-function shouldReact(event: WatchEvent) {
-    if (event.paths.every((p) => p.endsWith("shm"))) return false
-
-    const type = event.type as object
-
-    if ("access" in type) return false
-    if ("remove" in type) return true
-    if ("create" in type) return true
-    if ("modify" in type && type.modify && typeof type.modify === "object") {
-        // only react to changes in the file, not metadata changes
-        if ("kind" in type.modify && type.modify.kind === "metadata") return false
-        return true
-    }
-
-    return true
-}

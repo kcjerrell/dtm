@@ -9,7 +9,7 @@ pub mod tensor_history_generated;
 pub mod commands;
 
 mod dtm_dtproject;
-pub use dtm_dtproject::{dtm_dtproject_protocol, extract_jpeg_slice};
+pub use dtm_dtproject::{DtmProtocol, extract_jpeg_slice};
 
 mod tensor_history_mod;
 

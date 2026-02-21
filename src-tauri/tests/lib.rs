@@ -15,7 +15,7 @@ mod tests {
         let dtp_service = DTPService::new(app_handle);
 
         let (event_helper, channel) = EventHelper::new();
-        let _ = dtp_service.connect(channel).await;
+        let _ = dtp_service.connect(channel, true, None).await;
 
         let wfs = dtp_service.list_watch_folders().await;
         assert!(wfs.is_ok());

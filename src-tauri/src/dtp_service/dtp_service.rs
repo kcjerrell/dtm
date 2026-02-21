@@ -1,21 +1,16 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::{fs, sync::{
+    Arc, atomic::{AtomicBool, Ordering}
+}};
 
 use dtm_macros::{dtm_command, dtp_commands};
-use tauri::{ipc::Channel, State};
+use tauri::{Manager, State, ipc::Channel};
 use tokio::sync::RwLock;
 
 use crate::{
     dtp_service::{
-        events::{self, DTPEvent},
-        jobs::{Job, JobContext, SyncJob},
-        scheduler::Scheduler,
-        watch::WatchService,
-        AppHandleWrapper,
+        AppHandleWrapper, events::{self, DTPEvent}, jobs::{Job, JobContext, SyncJob}, scheduler::Scheduler, watch::WatchService
     },
-    projects_db::ProjectsDb,
+    projects_db::{DtmProtocol, ProjectsDb},
 };
 
 #[derive(Clone)]
@@ -50,15 +45,20 @@ impl DTPService {
         &self,
         channel: Channel<DTPEvent>,
         auto_watch: bool,
+        db_path: String,
     ) -> Result<(), String> {
         self.auto_watch.store(auto_watch, Ordering::Relaxed);
-        let pdb = ProjectsDb::get_or_init(&self.app_handle).await?;
+        let pdb = ProjectsDb::new(&db_path).await.unwrap();
         {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
         }
 
         self.events.set_channel(channel);
+
+        let app_handle = self.app_handle.clone().app_handle.unwrap();
+        let dtm_protocol = app_handle.state::<DtmProtocol>();
+        dtm_protocol.init(pdb.clone()).await;
 
         let ctx = JobContext {
             app_handle: self.app_handle.clone(),
@@ -81,9 +81,9 @@ impl DTPService {
 
         self.events.emit(DTPEvent::DtpServiceReady);
 
-        if self.auto_watch.load(Ordering::Relaxed) {
-            self.watch_all().await;
-        }
+        // if self.auto_watch.load(Ordering::Relaxed) {
+        //     self.watch_all().await;
+        // }
 
         Ok(())
     }
@@ -105,7 +105,7 @@ impl DTPService {
         Ok(())
     }
 
-    async fn watch_all(&self) {
+    pub async fn watch_all(&self) {
         let watchfolders = self
             .list_watch_folders()
             .await
@@ -185,10 +185,34 @@ pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> Result<(), String> 
 
 #[dtm_command]
 pub async fn dtp_connect(
+    app_handle: State<'_, AppHandleWrapper>,
     state: State<'_, DTPService>,
     channel: Channel<DTPEvent>,
     auto_watch: bool,
 ) -> Result<(), String> {
-    let _ = state.connect(channel, auto_watch).await;
+    let db_path = get_db_path(&app_handle);
+    check_old_path(&app_handle);
+    let _ = state.connect(channel, auto_watch, db_path).await;
     Ok(())
+}
+
+fn get_db_path(app_handle: &AppHandleWrapper) -> String {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
+    if !app_data_dir.exists() {
+        std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
+    }
+    let project_db_path = app_data_dir.join("projects4.db");
+    format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
+}
+
+fn check_old_path(app_handle: &AppHandleWrapper) {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
+    let old_path = app_data_dir.join("projects2.db");
+    if old_path.exists() {
+        fs::remove_file(old_path).unwrap_or_default();
+    }
+    let old_path = app_data_dir.join("projects3.db");
+    if old_path.exists() {
+        fs::remove_file(old_path).unwrap_or_default();
+    }
 }

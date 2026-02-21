@@ -18,15 +18,22 @@ use std::{
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
-use crate::{dtp_service::AppHandleWrapper, projects_db::{
-    DTProject, dt_project::{self, ProjectRef}, dtos::{
-        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
-        model::ModelExtra,
-        project::{ProjectExtra, ProjectRow},
-        tensor::{TensorHistoryClip, TensorHistoryImport},
-        watch_folder::WatchFolderDTO,
-    }, folder_cache, search::{self, process_prompt}
-}};
+use crate::{
+    dtp_service::AppHandleWrapper,
+    projects_db::{
+        dt_project::{self, ProjectRef},
+        dtos::{
+            image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+            model::ModelExtra,
+            project::{ProjectExtra, ProjectRow},
+            tensor::{TensorHistoryClip, TensorHistoryImport},
+            watch_folder::WatchFolderDTO,
+        },
+        folder_cache,
+        search::{self, process_prompt},
+        DTProject,
+    },
+};
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
 static SCAN_BATCH_SIZE: u32 = 500;
@@ -37,13 +44,9 @@ pub struct ProjectsDb {
 }
 
 #[cfg(dev)]
-#[cfg(not(test))]
 const DB_NAME: &str = "projects4-dev.db";
 #[cfg(not(dev))]
-#[cfg(not(test))]
 const DB_NAME: &str = "projects4.db";
-#[cfg(test)]
-const DB_NAME: &str = "projects4-test.db";
 
 fn get_path(app_handle: &AppHandleWrapper) -> String {
     let app_data_dir = app_handle.get_app_data_dir().unwrap();
@@ -68,9 +71,17 @@ fn check_old_path(app_handle: &AppHandleWrapper) {
 
 impl ProjectsDb {
     pub async fn get_or_init(app_handle: &AppHandleWrapper) -> Result<&'static ProjectsDb, String> {
+        if CELL.initialized() {
+            return Ok(CELL.get().unwrap());
+        }
+        check_old_path(app_handle);
+        return ProjectsDb::get_or_init_path(app_handle, &get_path(app_handle)).await;
+    }
+
+    pub async fn get_or_init_path(_app_handle: &AppHandleWrapper, db_path: &str) -> Result<&'static ProjectsDb, String> {
         CELL.get_or_try_init(|| async {
-            check_old_path(app_handle);
-            let db = ProjectsDb::new(&get_path(app_handle))
+            println!("[ProjectsDB] opening db {}", db_path);
+            let db = ProjectsDb::new(&db_path)
                 .await
                 .map_err(|e| e.to_string())
                 .unwrap();
@@ -116,7 +127,7 @@ impl ProjectsDb {
         CELL.get().ok_or("Database not initialized".to_string())
     }
 
-    async fn new(db_path: &str) -> Result<Self, DbErr> {
+    pub async fn new(db_path: &str) -> Result<Self, DbErr> {
         let db = Database::connect(db_path).await?;
         Migrator::up(&db, None).await?;
         Ok(Self { db: db })
@@ -206,13 +217,14 @@ impl ProjectsDb {
         Ok(result.unwrap().into())
     }
 
-    pub async fn get_project_by_path(&self, path: &str) -> Result<Option<ProjectExtra>, DbErr> {
+    pub async fn get_project_by_path(
+        &self,
+        watchfolder_id: i64,
+        path: &str,
+    ) -> Result<Option<ProjectExtra>, DbErr> {
         let project = projects::Entity::find()
-            .join(JoinType::InnerJoin, projects::Relation::WatchFolders.def())
-            .filter(Expr::cust_with_values(
-                "watch_folders.path || '/' || projects.path = ?",
-                [path],
-            ))
+            .filter(projects::Column::WatchfolderId.eq(watchfolder_id))
+            .filter(projects::Column::Path.eq(path))
             .into_model::<ProjectRow>()
             .one(&self.db)
             .await?;

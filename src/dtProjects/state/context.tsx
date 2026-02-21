@@ -7,7 +7,6 @@ import DetailsService from "./details"
 import ImagesController from "./images"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
-import ScannerService from "./scanner"
 import SearchController from "./search"
 import SettingsController from "./settings"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
@@ -68,7 +67,6 @@ function createContainer() {
         const watchFolders = new WatchFoldersController()
         const models = new ModelsController()
         const images = new ImagesController()
-        const scanner = new ScannerService()
         const search = new SearchController()
         const details = new DetailsService(projects)
         const settings = new SettingsController()
@@ -93,7 +91,6 @@ function createContainer() {
             uiState,
             models,
             watchFolders,
-            scanner,
             search,
             images,
             details,

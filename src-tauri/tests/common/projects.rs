@@ -1,7 +1,10 @@
-use std::fs;
+use std::{fs, path::PathBuf};
+
+use tempfile::TempDir;
+use tracing::warn;
 
 pub const PROJECTS_DIR: &str = "test_data/projects";
-pub const WATCHFOLDER_A: &str = "test_data/temp/watchfolder_a";
+pub const WATCHFOLDER_A: &str = "watchfolder_a";
 
 pub enum Watchfolder {
     A,
@@ -21,38 +24,48 @@ pub struct TestProject {
 
 impl TestProject {
     pub fn copy(&self) {
-        let original_path = self.get_original_path();
-        let watchfolder_path = self.get_watchfolder_path();
-        println!("Copying {} to {}", original_path, watchfolder_path);
-        fs::copy(original_path, watchfolder_path).unwrap();
+        let src_path = self.get_src_path();
+        let dest_path = self.get_dest_path();
+        println!("Copying {} to {}", src_path, dest_path);
+        fs::copy(src_path, dest_path).unwrap();
     }
 
     pub fn remove(&self) {
-        let watchfolder_path = self.get_watchfolder_path();
-        fs::remove_file(watchfolder_path).unwrap();
+        let remove_path = self.get_dest_path();
+        let remove_path = PathBuf::from(remove_path);
+
+        if remove_path.exists() {
+            fs::remove_file(&remove_path).unwrap();
+        }
+
+        if remove_path.with_extension("sqlite3-wal").exists() {
+            fs::remove_file(&remove_path.with_extension("sqlite3-wal")).unwrap();
+        }
+
+        if remove_path.with_extension("sqlite3-shm").exists() {
+            fs::remove_file(&remove_path.with_extension("sqlite3-shm")).unwrap();
+        }
     }
 
     pub fn copy_variant(&self) {
         if let Some(variant) = &self.variant {
-            let original_path = self.get_variant_path();
-            let watchfolder_path = self.get_watchfolder_path();
-            fs::copy(original_path, watchfolder_path).unwrap();
+            let src_path = self.get_variant_src_path();
+            let dest_path = self.get_dest_path();
+            fs::copy(src_path, dest_path).unwrap();
+        } else {
+            warn!("No variant for {}", self.filename);
         }
     }
 
-    pub fn remove_variant(&self) {
-        self.copy();
-    }
-
-    pub fn get_original_path(&self) -> String {
+    pub fn get_src_path(&self) -> String {
         format!("{}/{}", PROJECTS_DIR, self.filename)
     }
 
-    pub fn get_variant_path(&self) -> String {
+    pub fn get_variant_src_path(&self) -> String {
         format!("{}/{}", PROJECTS_DIR, self.variant.as_ref().unwrap())
     }
 
-    pub fn get_watchfolder_path(&self) -> String {
+    pub fn get_dest_path(&self) -> String {
         format!("{}/{}", self.watchfolder, self.filename)
     }
 }
@@ -61,20 +74,18 @@ pub struct WatchFolderHelper {
     pub projects: Vec<TestProject>,
     pub watchfolder_path: String,
     pub bookmark: String,
+    pub temp_dir: TempDir,
 }
 
 impl WatchFolderHelper {
-    pub fn get(watchfolder: Watchfolder) -> Self {
-        let watchfolder_path = std::env::current_dir()
-            .unwrap()
+    pub fn get(watchfolder: Watchfolder, temp_dir: TempDir) -> Self {
+        let watchfolder_path = temp_dir
+            .path()
             .join(get_watchfolder_path(watchfolder))
             .to_str()
             .unwrap()
             .to_string();
-        println!(
-            "Current dir: {}",
-            std::env::current_dir().unwrap().display()
-        );
+
         println!("Watchfolder path: {}", watchfolder_path);
         let bookmark: String = format!("TESTBOOKMARK::{}", watchfolder_path);
 
@@ -94,6 +105,7 @@ impl WatchFolderHelper {
             projects,
             watchfolder_path,
             bookmark,
+            temp_dir,
         };
         wh.clear_all();
         wh
@@ -123,12 +135,6 @@ impl WatchFolderHelper {
     pub fn copy_variants(&self) {
         for project in &self.projects {
             project.copy_variant();
-        }
-    }
-
-    pub fn remove_variants(&self) {
-        for project in &self.projects {
-            project.remove_variant();
         }
     }
 }
