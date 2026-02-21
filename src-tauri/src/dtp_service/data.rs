@@ -10,6 +10,7 @@ use crate::{
             watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
+        folder_cache,
     },
 };
 use dtm_macros::dtp_commands;
@@ -22,9 +23,7 @@ impl DTPService {
         watchfolder_id: Option<i64>,
     ) -> Result<Vec<ProjectExtra>, String> {
         let db = self.get_db().await?;
-        db.list_projects(watchfolder_id)
-            .await
-            .map_err(|e| e.to_string())
+        Ok(db.list_projects(watchfolder_id).await?)
     }
 
     #[dtp_command]
@@ -36,15 +35,10 @@ impl DTPService {
         let db = self.get_db().await?;
 
         if let Some(exclude_val) = exclude {
-            db.update_exclude(project_id as i32, exclude_val)
-                .await
-                .map_err(|e| e.to_string())?;
+            db.update_exclude(project_id, exclude_val).await?;
         }
 
-        let project = db
-            .get_project(project_id)
-            .await
-            .map_err(|e| e.to_string())?;
+        let project = db.get_project(project_id).await?;
         self.events
             .emit(crate::dtp_service::events::DTPEvent::ProjectUpdated(
                 project,
@@ -81,7 +75,7 @@ impl DTPService {
             show_image,
         };
 
-        db.list_images(opts).await.map_err(|e| e.to_string())
+        Ok(db.list_images(opts).await?)
     }
 
     #[dtp_command]
@@ -91,21 +85,19 @@ impl DTPService {
         preview_id: i64,
     ) -> Result<Option<crate::projects_db::dtos::image::ImageExtra>, String> {
         let db = self.get_db().await?;
-        db.find_image_by_preview_id(project_id, preview_id)
-            .await
-            .map_err(|e| e.to_string())
+        Ok(db.find_image_by_preview_id(project_id, preview_id).await?)
     }
 
     #[dtp_command]
     pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
         let db = self.get_db().await?;
-        db.get_clip(image_id).await
+        Ok(db.get_clip(image_id).await?)
     }
 
     #[dtp_command]
     pub async fn list_watch_folders(&self) -> Result<Vec<WatchFolderDTO>, String> {
         let db = self.get_db().await?;
-        db.list_watch_folders().await.map_err(|e| e.to_string())
+        Ok(db.list_watch_folders().await?)
     }
 
     #[dtp_command]
@@ -114,24 +106,9 @@ impl DTPService {
         dt_folder: Option<bool>,
         test_override: Option<String>,
     ) -> Result<(), String> {
-        let db = self.get_db().await?;
         let result = get_folder(&self.app_handle, dt_folder, test_override).await?;
-
-        let _ = db
-            .add_watch_folder(&result.path, &result.bookmark, false)
+        self.internal_add_watch_folder(result.path, result.bookmark)
             .await
-            .map_err(|e| e.to_string())?;
-
-        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
-                all_folders,
-            ));
-
-        let scheduler = self.scheduler.read().await;
-        let scheduler = scheduler.as_ref().unwrap();
-        scheduler.add_job(SyncJob);
-        Ok(())
     }
 
     pub async fn add_watchfolder(
@@ -139,13 +116,41 @@ impl DTPService {
         path: String,
         bookmark: String,
     ) -> Result<(), String> {
-        let db = self.get_db().await?;
-        let _ = db
-            .add_watch_folder(&path, &bookmark, false)
-            .await
-            .map_err(|e| e.to_string())?;
+        self.internal_add_watch_folder(path, bookmark).await
+    }
 
-        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+    async fn internal_add_watch_folder(
+        &self,
+        path: String,
+        bookmark: String,
+    ) -> Result<(), String> {
+        let db = self.get_db().await?;
+        let folder = db.add_watch_folder(&path, &bookmark, false).await?;
+
+        // Resolve the bookmark and update if needed
+        let resolved = folder_cache::resolve_bookmark(folder.id, &bookmark).await;
+        if let Ok(resolved) = resolved {
+            match resolved {
+                crate::bookmarks::ResolveResult::Resolved(updated_path) => {
+                    if updated_path != path {
+                        db.update_bookmark_path(folder.id, &bookmark, &updated_path)
+                            .await?;
+                    }
+                }
+                crate::bookmarks::ResolveResult::StaleRefreshed {
+                    new_bookmark,
+                    resolved_path,
+                } => {
+                    db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
+                        .await?;
+                }
+                crate::bookmarks::ResolveResult::CannotResolve => {
+                    // TODO: Mark as missing in DB?
+                }
+            }
+        }
+
+        let all_folders = db.list_watch_folders().await?;
         self.events
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
                 all_folders,
@@ -160,11 +165,9 @@ impl DTPService {
     #[dtp_command]
     pub async fn remove_watch_folder(&self, id: i64) -> Result<(), String> {
         let db = self.get_db().await?;
-        db.remove_watch_folders(vec![id])
-            .await
-            .map_err(|e| e.to_string())?;
+        db.remove_watch_folders(vec![id]).await?;
 
-        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+        let all_folders = db.list_watch_folders().await?;
         self.events
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
                 all_folders,
@@ -179,11 +182,9 @@ impl DTPService {
     #[dtp_command]
     pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> Result<(), String> {
         let db = self.get_db().await?;
-        db.update_watch_folder(id, Some(recursive), None)
-            .await
-            .map_err(|e| e.to_string())?;
+        db.update_watch_folder(id, Some(recursive), None).await?;
 
-        let all_folders = db.list_watch_folders().await.map_err(|e| e.to_string())?;
+        let all_folders = db.list_watch_folders().await?;
         self.events
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
                 all_folders,
@@ -198,7 +199,7 @@ impl DTPService {
         model_type: Option<entity::enums::ModelType>,
     ) -> Result<Vec<ModelExtra>, String> {
         let db = self.get_db().await?;
-        db.list_models(model_type).await.map_err(|e| e.to_string())
+        Ok(db.list_models(model_type).await?)
     }
 
     #[dtp_command]
@@ -208,10 +209,10 @@ impl DTPService {
         row_id: i64,
     ) -> Result<TensorHistoryExtra, String> {
         let project = self.get_project(project_id).await?;
-        project
+        Ok(project
             .get_history_full(row_id)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?)
     }
 
     #[dtp_command]
@@ -221,10 +222,10 @@ impl DTPService {
         tensor_id: String,
     ) -> Result<TensorSize, String> {
         let project = self.get_project(project_id).await?;
-        project
+        Ok(project
             .get_tensor_size(&tensor_id)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?)
     }
 
     #[dtp_command]
@@ -266,10 +267,10 @@ impl DTPService {
         logical_time: i64,
     ) -> Result<Vec<TensorHistoryExtra>, String> {
         let project = self.get_project(project_id).await?;
-        project
+        Ok(project
             .find_predecessor_candidates(row_id, lineage, logical_time)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?)
     }
 
     // Helper method to get a DTProject instance
@@ -279,7 +280,7 @@ impl DTPService {
     ) -> Result<std::sync::Arc<crate::projects_db::DTProject>, String> {
         let db = self.get_db().await?;
         let project_ref = crate::projects_db::ProjectRef::Id(project_id);
-        db.get_dt_project(project_ref).await
+        Ok(db.get_dt_project(project_ref).await?)
     }
 }
 

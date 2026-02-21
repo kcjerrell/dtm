@@ -15,7 +15,9 @@ mod tests {
         let dtp_service = DTPService::new(app_handle);
 
         let (event_helper, channel) = EventHelper::new();
-        let _ = dtp_service.connect(channel, true, None).await;
+        let _ = dtp_service
+            .connect(channel, true, "sqlite::memory:".to_string())
+            .await;
 
         let wfs = dtp_service.list_watch_folders().await;
         assert!(wfs.is_ok());

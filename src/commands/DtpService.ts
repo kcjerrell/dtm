@@ -13,7 +13,7 @@ import type {
 } from "./projects"
 
 async function connect(channel: Channel) {
-    await invoke("dtp_connect", { channel, autoWatch: true})
+    await invoke("dtp_connect", { channel, autoWatch: true })
 }
 
 async function listProjects(watchFolderId?: number): Promise<ProjectExtra[]> {
@@ -39,7 +39,7 @@ async function listImages(
 
 async function listImagesCount(source: MaybeReadonly<ListImagesOpts>) {
     const opts = { ...source, projectIds: undefined, count: true }
-    const result: ListImagesResult = await invoke("projects_db_image_list", opts)
+    const result: ListImagesResult = await invoke("dtp_list_images", opts)
     return result
 }
 

@@ -8,6 +8,7 @@ pub struct WatchFolderDTO {
     pub recursive: Option<bool>,
     pub last_updated: Option<i64>,
     pub is_missing: bool,
+    pub bookmark: String,
 }
 
 impl From<watch_folders::Model> for WatchFolderDTO {
@@ -19,6 +20,7 @@ impl From<watch_folders::Model> for WatchFolderDTO {
             recursive: m.recursive,
             last_updated: m.last_updated,
             is_missing,
+            bookmark: m.bookmark,
         }
     }
 }

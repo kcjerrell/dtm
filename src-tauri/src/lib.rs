@@ -110,9 +110,6 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use projects_db::commands::*;
-    use projects_db::DtmProtocol;
-
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -155,33 +152,6 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
-            // get_tensor_history,
-            // get_tensor,
-            // get_thumb_half,
-            projects_db_project_list,
-            projects_db_project_add,
-            projects_db_project_remove,
-            projects_db_project_scan,
-            projects_db_project_update_exclude,
-            projects_db_project_bulk_update_missing_on,
-            projects_db_image_list,
-            projects_db_image_find_by_preview_id,
-            projects_db_get_clip,
-            projects_db_image_rebuild_fts,
-            projects_db_watch_folder_list,
-            projects_db_watch_folder_add,
-            projects_db_watch_folder_remove,
-            projects_db_watch_folder_update,
-            projects_db_scan_model_info,
-            projects_db_list_models,
-            dt_project_get_tensor_history, // #unused
-            dt_project_get_thumb_half,     // #unused
-            dt_project_get_history_full,
-            dt_project_get_text_history,
-            dt_project_find_predecessor_candidates,
-            dt_project_get_tensor_raw, // #unused
-            dt_project_get_tensor_size,
-            dt_project_decode_tensor,
             vid::create_video_from_frames,
             vid::save_all_clip_frames,
             vid::check_pattern,
@@ -193,7 +163,6 @@ pub fn run() {
             bookmarks::resolve_bookmark,
             bookmarks::stop_accessing_bookmark,
             dtp_connect,
-            projects_db::sync::projects_db_sync,
             dtp_service::data::dtp_pick_watch_folder,
             dtp_service::data::dtp_decode_tensor,
             dtp_service::data::dtp_find_image_from_preview_id,
@@ -213,21 +182,22 @@ pub fn run() {
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
-            std::thread::spawn(move || {
-                TOKIO_RT.block_on(async move {
-                    let state = app_handle.state::<DtmProtocol>();
-                    if request.uri().host().unwrap() == "dtproject" {
-                        state.dtm_dtproject_protocol(request, responder).await;
-                    } else {
-                        responder.respond(
-                            http::Response::builder()
-                                .status(http::StatusCode::BAD_REQUEST)
-                                .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
-                                .body("failed to read file".as_bytes().to_vec())
-                                .unwrap(),
-                        );
-                    }
-                });
+            tauri::async_runtime::spawn(async move {
+                let dtp_service = app_handle.state::<dtp_service::DTPService>();
+                let dtm_protocol = dtp_service.dtm_protocol().await;
+                if request.uri().host().unwrap() == "dtproject" {
+                    dtm_protocol
+                        .dtm_dtproject_protocol(request, responder)
+                        .await;
+                } else {
+                    responder.respond(
+                        http::Response::builder()
+                            .status(http::StatusCode::BAD_REQUEST)
+                            .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
+                            .body("failed to read file".as_bytes().to_vec())
+                            .unwrap(),
+                    );
+                }
             });
         })
         // .manage(AppState {
@@ -251,11 +221,9 @@ pub fn run() {
 
             let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
             let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
-            let dtm_protocol = DtmProtocol::new();
 
             app.manage(dtp_service);
             app.manage(app_handle_wrapper);
-            app.manage(dtm_protocol);
             // tauri::async_runtime::spawn(async move {
             //     if let Err(e) = dtp_service.init().await {
             //         eprintln!("Failed to init DB: {}", e);

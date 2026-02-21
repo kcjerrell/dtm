@@ -1,16 +1,24 @@
-use std::{fs, sync::{
-    Arc, atomic::{AtomicBool, Ordering}
-}};
+use std::{
+    fs,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use dtm_macros::{dtm_command, dtp_commands};
-use tauri::{Manager, State, ipc::Channel};
-use tokio::sync::RwLock;
+use tauri::{ipc::Channel, State};
+use tokio::sync::{OnceCell, RwLock};
 
 use crate::{
     dtp_service::{
-        AppHandleWrapper, events::{self, DTPEvent}, jobs::{Job, JobContext, SyncJob}, scheduler::Scheduler, watch::WatchService
+        events::{self, DTPEvent},
+        jobs::{Job, JobContext, SyncJob},
+        scheduler::Scheduler,
+        watch::WatchService,
+        AppHandleWrapper,
     },
-    projects_db::{DtmProtocol, ProjectsDb},
+    projects_db::{folder_cache, DtmProtocol, ProjectsDb},
 };
 
 #[derive(Clone)]
@@ -20,6 +28,7 @@ pub struct DTPService {
     pdb: Arc<RwLock<Option<ProjectsDb>>>,
     pub scheduler: Arc<RwLock<Option<Scheduler>>>,
     pub watch: Arc<RwLock<Option<WatchService>>>,
+    dtm_protocol: Arc<OnceCell<DtmProtocol>>,
     pub auto_watch: Arc<AtomicBool>,
 }
 
@@ -30,6 +39,7 @@ impl DTPService {
         let events = events::DTPEventsService::new();
         let scheduler = Arc::new(RwLock::new(None));
         let watch = Arc::new(RwLock::new(None));
+        let dtm_protocol = Arc::new(OnceCell::new());
 
         Self {
             app_handle,
@@ -37,6 +47,7 @@ impl DTPService {
             events,
             scheduler,
             watch,
+            dtm_protocol,
             auto_watch: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -53,12 +64,8 @@ impl DTPService {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
         }
-
+        self.init_folder_cache().await;
         self.events.set_channel(channel);
-
-        let app_handle = self.app_handle.clone().app_handle.unwrap();
-        let dtm_protocol = app_handle.state::<DtmProtocol>();
-        dtm_protocol.init(pdb.clone()).await;
 
         let ctx = JobContext {
             app_handle: self.app_handle.clone(),
@@ -94,6 +101,12 @@ impl DTPService {
             .await
             .clone()
             .ok_or_else(|| "DB not ready".to_string())
+    }
+
+    pub async fn dtm_protocol(&self) -> &DtmProtocol {
+        self.dtm_protocol
+            .get_or_init(|| async { DtmProtocol::new(self.get_db().await.unwrap()) })
+            .await
     }
 
     #[dtp_command]
@@ -166,6 +179,36 @@ impl DTPService {
         {
             let mut guard = self.watch.write().await;
             *guard = None;
+        }
+    }
+
+    pub async fn init_folder_cache(&self) {
+        let folders = self.list_watch_folders().await.unwrap();
+        let db = self.get_db().await.unwrap();
+        for folder in folders {
+            let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
+            if let Ok(resolved) = resolved {
+                match resolved {
+                    crate::bookmarks::ResolveResult::Resolved(updated_path) => {
+                        if updated_path != folder.path {
+                            db.update_bookmark_path(folder.id, &folder.bookmark, &updated_path)
+                                .await
+                                .unwrap();
+                        }
+                    }
+                    crate::bookmarks::ResolveResult::StaleRefreshed {
+                        new_bookmark,
+                        resolved_path,
+                    } => {
+                        db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
+                            .await
+                            .unwrap();
+                    }
+                    crate::bookmarks::ResolveResult::CannotResolve => {
+                        // TODO: Mark as missing in DB?
+                    }
+                }
+            }
         }
     }
 }

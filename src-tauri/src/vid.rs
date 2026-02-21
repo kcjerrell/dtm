@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::{fs, path::PathBuf};
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, State};
 
-use crate::projects_db::{decode_tensor, DTProject, ProjectsDb};
+use crate::dtp_service::DTPService;
+use crate::projects_db::{decode_tensor, DTProject};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,9 +23,10 @@ pub struct FramesExportOpts {
 #[tauri::command]
 pub async fn save_all_clip_frames(
     app: tauri::AppHandle,
+    dtp: State<'_, DTPService>,
     opts: FramesExportOpts,
 ) -> Result<(usize, String), String> {
-    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
+    let projects_db = dtp.get_db().await.unwrap();
 
     let result: Option<(String, i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
         .join(
@@ -149,6 +151,7 @@ pub struct VideoExportOpts {
 #[tauri::command]
 pub async fn create_video_from_frames(
     app: tauri::AppHandle,
+    dtp: State<'_, DTPService>,
     opts: VideoExportOpts,
 ) -> Result<String, String> {
     // -------------------------------------------------
@@ -183,6 +186,7 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     let (frame_count, _) = save_all_clip_frames(
         app.clone(),
+        dtp,
         FramesExportOpts {
             image_id: opts.image_id,
             output_dir: temp_dir.to_str().unwrap().to_string(),

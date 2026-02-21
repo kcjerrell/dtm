@@ -13,7 +13,9 @@ mod tests {
         let dtp = DTPService::new(app_handle);
 
         let (event_helper, channel) = EventHelper::new();
-        let _ = dtp.connect(channel, false, None).await;
+        let _ = dtp
+            .connect(channel, false, "sqlite::memory:".to_string())
+            .await;
 
         // it can add and run jobs
         dtp.add_job(TestJob::new(1, 100));
@@ -54,7 +56,9 @@ mod tests {
         let dtp_service = DTPService::new(app_handle);
 
         let (event_helper, channel) = EventHelper::new();
-        let _ = dtp_service.connect(channel, false, None).await;
+        let _ = dtp_service
+            .connect(channel, false, "sqlite::memory:".to_string())
+            .await;
 
         let scheduler = { dtp_service.scheduler.read().await.clone().unwrap().clone() };
 

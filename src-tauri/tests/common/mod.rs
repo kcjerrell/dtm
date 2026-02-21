@@ -1,7 +1,5 @@
 use std::{
-    env,
-    fmt::format,
-    fs,
+    env, fs,
     sync::{Arc, RwLock},
 };
 
@@ -180,13 +178,11 @@ pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper, WatchFo
         .connect(
             channel,
             auto_watch,
-            Some(
-                format!(
-                    "sqlite://{}/app_data_dir/projects4.db?mode=rwc",
-                    temp_dir_path,
-                )
-                .to_string(),
-            ),
+            format!(
+                "sqlite://{}/app_data_dir/projects4.db?mode=rwc",
+                temp_dir_path,
+            )
+            .to_string(),
         )
         .await
         .unwrap();

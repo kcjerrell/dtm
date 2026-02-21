@@ -1,13 +1,12 @@
 use once_cell::sync::Lazy;
-use sea_orm::DbErr;
 use std::{collections::HashMap, sync::RwLock};
 use tauri::{
     http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
 };
-use tokio::sync::OnceCell;
 
 use crate::projects_db::{
+    projects_db::MixedError,
     tensors::{decode_tensor, scribble_mask_to_png},
     DTProject, ProjectsDb,
 };
@@ -66,22 +65,12 @@ fn parse_request(uri: &Uri) -> Option<DTPRequest> {
 }
 
 pub struct DtmProtocol {
-    pdb: tokio::sync::RwLock<Option<ProjectsDb>>
+    pdb: ProjectsDb,
 }
 
 impl DtmProtocol {
-    pub fn new() -> Self {
-        Self {
-            pdb: tokio::sync::RwLock::new(None),
-        }
-    }
-
-    pub async fn init(&self, pdb: ProjectsDb) {
-        self.pdb.write().await.replace(pdb);
-    }
-
-    async fn get_db(&self) -> Option<ProjectsDb> {
-        self.pdb.read().await.as_ref().cloned()
+    pub fn new(pdb: ProjectsDb) -> Self {
+        Self { pdb }
     }
 
     pub async fn dtm_dtproject_protocol<T>(
@@ -137,7 +126,7 @@ impl DtmProtocol {
         let scale = req.scale;
         let invert = req.invert;
         let mask = req.mask;
-
+        println!("{}", project_path);
         match item_type.as_str() {
             "thumb" => thumb(&project_path, &item_id, false).await,
             "thumbhalf" => thumb(&project_path, &item_id, true).await,
@@ -149,13 +138,13 @@ impl DtmProtocol {
         }
     }
 
-    async fn get_project_path(&self, project_id: i64) -> Result<String, DbErr> {
+    async fn get_project_path(&self, project_id: i64) -> Result<String, MixedError> {
         if let Some(path) = PROJECT_PATH_CACHE.read().unwrap().get(&project_id).cloned() {
             return Ok(path);
         }
 
-        let pdb = self.get_db().await.unwrap();
-        let project = pdb.get_project(project_id).await?;
+        let project = self.pdb.get_project(project_id).await?;
+        println!("{} {}", project.path, project.full_path);
         PROJECT_PATH_CACHE
             .write()
             .unwrap()
@@ -164,10 +153,14 @@ impl DtmProtocol {
     }
 }
 
-async fn thumb(path: &str, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
+async fn thumb(
+    full_project_path: &str,
+    item_id: &str,
+    half: bool,
+) -> Result<Response<Vec<u8>>, String> {
     let id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
-    let dtp = DTProject::get(path)
+    let dtp = DTProject::get(full_project_path)
         .await
         .map_err(|e| format!("Failed to open project: {}", e))?;
 
@@ -190,14 +183,14 @@ async fn thumb(path: &str, item_id: &str, half: bool) -> Result<Response<Vec<u8>
 }
 
 async fn tensor(
-    project_file: &str,
+    full_project_path: &str,
     name: &str,
     node: Option<i64>,
     scale: Option<u32>,
     invert: Option<bool>,
     _mask: Option<String>,
 ) -> Result<Response<Vec<u8>>, String> {
-    let dtp = DTProject::get(project_file)
+    let dtp = DTProject::get(full_project_path)
         .await
         .map_err(|e| format!("Failed to open project: {}", e))?;
 

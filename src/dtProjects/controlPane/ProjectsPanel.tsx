@@ -130,7 +130,6 @@ function ProjectListItem(props: ProjectListItemProps) {
 
     let count: number | string = project.image_count ?? 0
     let countStyle: string | undefined
-
     if (altCount !== count) {
         count = altCount || ""
         countStyle = "italic"

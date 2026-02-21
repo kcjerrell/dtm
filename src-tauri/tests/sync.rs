@@ -2,8 +2,7 @@ mod common;
 
 #[cfg(test)]
 mod tests {
-    use crate::common::projects::WatchFolderHelper;
-    use crate::common::projects::Watchfolder;
+
     use crate::common::*;
 
     #[tokio::test]

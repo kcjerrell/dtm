@@ -6,10 +6,8 @@ pub use projects_db::ProjectsDb;
 mod tensor_history;
 pub mod tensor_history_generated;
 
-pub mod commands;
-
 mod dtm_dtproject;
-pub use dtm_dtproject::{DtmProtocol, extract_jpeg_slice};
+pub use dtm_dtproject::{extract_jpeg_slice, DtmProtocol};
 
 mod tensor_history_mod;
 
@@ -31,4 +29,3 @@ pub mod dtos;
 mod tensor_history_tensor_data;
 
 pub mod folder_cache;
-pub mod sync;

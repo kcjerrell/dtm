@@ -19,7 +19,7 @@ type JobId = u64;
 pub enum JobStatus {
     Pending,
     Active,
-    Canceled,
+    // Canceled,
     WaitingForSubtasks(isize),
     Complete,
     Failed(String),

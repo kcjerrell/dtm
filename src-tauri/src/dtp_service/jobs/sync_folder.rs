@@ -124,7 +124,7 @@ impl Job for SyncFolderJob {
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
-enum SyncAction {
+pub enum SyncAction {
     #[default]
     None = 0,
     Add,

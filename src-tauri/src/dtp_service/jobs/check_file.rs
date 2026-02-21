@@ -1,7 +1,5 @@
 use std::{fs, sync::Arc};
 
-use sea_query::extension::postgres::PgExpr;
-
 use crate::dtp_service::{
     helpers::system_time_to_epoch_secs,
     jobs::{AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, UpdateProjectJob},
