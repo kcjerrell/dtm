@@ -41,10 +41,11 @@ function Empty() {
                     </VStack>
                     <Button
                         onClick={async () => {
-                            state.projects = await invoke("dtp_list_projects")
+                            console.log("click")
+                            await invoke("dtp_check_all_2")
                         }}
                     >
-                        List Projects
+                        Check 2
                     </Button>
                     <VStack>
                         {snap.projects.map((project, index) => (
@@ -54,10 +55,10 @@ function Empty() {
                     <Button
                         onClick={async () => {
                             console.log("click")
-                            await invoke("dtp_test")
+                            await invoke("dtp_check_all")
                         }}
                     >
-                        Test
+                        Check 1
                     </Button>
                 </Grid>
             </Panel>

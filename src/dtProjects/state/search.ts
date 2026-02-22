@@ -15,17 +15,7 @@ export type SearchControllerState = {
     filters: Filter[]
 }
 
-export type FilterOperator =
-    | "eq"
-    | "neq"
-    | "gt"
-    | "gte"
-    | "lt"
-    | "lte"
-    | "is"
-    | "isnot"
-    | "has"
-    | "doesnothave"
+import type { FilterOperator, FilterTarget } from "@/commands"
 
 export type Filter<T = FilterValue> = {
     index: number
@@ -36,7 +26,7 @@ export type Filter<T = FilterValue> = {
 }
 
 export type BackendFilter<T = string[] | number[]> = {
-    target: string
+    target: FilterTarget
     operator: FilterOperator
     value: T
 }
@@ -96,7 +86,7 @@ class SearchController extends DTPStateController<SearchControllerState> {
             const filterTarget = filterTargets[filter.target as keyof typeof filterTargets]
 
             const bFilter: BackendFilter = {
-                target: filter.target,
+                target: filter.target as FilterTarget,
                 operator: filter.operator,
                 value: arrayIfOnly(
                     filterTarget.prepare ? filterTarget.prepare(filter.value) : filter.value,

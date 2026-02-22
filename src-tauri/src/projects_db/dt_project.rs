@@ -13,7 +13,11 @@ use crate::projects_db::{
 use moka::future::Cache;
 use once_cell::sync::Lazy;
 use serde::Serialize;
-use sqlx::{query, query_as, sqlite::SqliteRow, Error, Row, SqlitePool};
+use sqlx::{
+    query, query_as,
+    sqlite::{SqliteConnection, SqliteRow},
+    Connection, Error, Row, SqlitePool,
+};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -346,7 +350,7 @@ impl DTProject {
         node_id: i64,
     ) -> Result<Vec<TensorHistoryClip>, Error> {
         self.check_table(&DTProjectTable::TensorHistory).await?;
-        
+
         let history = self.get_history_full(node_id).await?;
         let num_frames = history.history.num_frames;
 
@@ -557,6 +561,16 @@ impl DTProject {
 
         Ok(items)
     }
+}
+
+pub async fn get_last_row(path: &str) -> Result<(i64, i64), Error> {
+    let connect_string = format!("sqlite:{}?mode=ro", path);
+    let mut conn = SqliteConnection::connect(&connect_string).await?;
+    let row = query("SELECT max(rowid) FROM tensorhistorynode")
+        .fetch_one(&mut conn)
+        .await?;
+    let rowid: i64 = row.get(0);
+    Ok((rowid, rowid))
 }
 
 fn import_query(has_moodboard: bool) -> String {

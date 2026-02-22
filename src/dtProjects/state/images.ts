@@ -1,11 +1,11 @@
 import { proxy, subscribe, useSnapshot } from "valtio"
+import type { FilterTarget, ImageExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import {
     EmptyItemSource,
     type IItemSource,
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
-import type { ImageExtra } from "@/generated/types"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
@@ -79,7 +79,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
                     s.showVideo = true
                 }
                 const res = await DTPService.listImages(s, skip, take)
-                return res.images
+                return res.images ?? []
             }
             const getCount = async () => {
                 await this.refreshImageCounts()
@@ -121,7 +121,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     async setSearchFilters(filters?: BackendFilter[]) {
         this.state.imageSource.filters = filters?.map((f) => ({
-            target: f.target.toLowerCase(),
+            target: f.target.toLowerCase() as FilterTarget,
             operator: f.operator,
             value: f.value,
         }))
@@ -155,6 +155,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             source.showVideo = true
         }
         const { total, counts } = await DTPService.listImagesCount(source)
+        if (!counts) return
         const projectCounts = {} as Record<string, number>
         for (const count of counts) {
             projectCounts[count.project_id] = count.count

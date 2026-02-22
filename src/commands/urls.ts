@@ -1,4 +1,4 @@
-import type { ImageExtra } from "./projects"
+import type { ImageExtra } from "./DtpServiceTypes"
 
 function thumb(image: ImageExtra): string
 function thumb(projectId: number, previewId: number): string

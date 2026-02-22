@@ -1,4 +1,4 @@
-import type { ImageExtra } from "@/generated/types"
+import type { ImageExtra } from "@/commands"
 import { useCreateVideoContext, VideoContext } from "./context"
 
 interface VideoFramesProps {

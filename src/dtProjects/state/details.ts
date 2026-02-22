@@ -1,6 +1,5 @@
-import type { DTImageFull } from "@/commands"
+import type { DTImageFull, ImageExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
-import type { ImageExtra } from "@/generated/types"
 import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
 import type ProjectsController from "./projects"
 import { DTPStateService } from "./types"

@@ -1,11 +1,10 @@
 import { createContext, useContext, useEffect, useRef } from "react"
-import { pdb } from "@/commands"
+import type { ImageExtra } from "@/commands"
+import DTPService from '@/commands/DtpService'
 import urls from "@/commands/urls"
-import type { ImageExtra } from "@/generated/types"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { everyNth } from "@/utils/helpers"
 import { useFrameAnimation } from "./hooks"
-import DTPService from '@/commands/DtpService'
 
 export type VideoContextType = ReturnType<typeof useCreateVideoContext>
 

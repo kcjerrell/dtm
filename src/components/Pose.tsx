@@ -1,6 +1,6 @@
 import { Image } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
-import { dtProject } from "@/commands"
+import { DtpService } from "@/commands"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 
@@ -15,7 +15,7 @@ function PoseImage(props: PoseImageComponentProps) {
 
 	useEffect(() => {
 		if (projectId && tensorId) {
-			dtProject.decodeTensor(projectId, tensorId, false).then(async (data) => {
+			DtpService.decodeTensor(projectId, tensorId, false).then(async (data) => {
 				const points = tensorToPoints(data)
 				const pose = pointsToPose(points, 256, 256)
 				const image = await drawPose(pose, 4)

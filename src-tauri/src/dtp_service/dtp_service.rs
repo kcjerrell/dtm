@@ -12,13 +12,9 @@ use tokio::sync::{OnceCell, RwLock};
 
 use crate::{
     dtp_service::{
-        events::{self, DTPEvent},
-        jobs::{Job, JobContext, SyncJob},
-        scheduler::Scheduler,
-        watch::WatchService,
-        AppHandleWrapper,
+        AppHandleWrapper, events::{self, DTPEvent}, jobs::{Job, JobContext, SyncJob}, scheduler::Scheduler, watch::WatchService
     },
-    projects_db::{folder_cache, DtmProtocol, ProjectsDb},
+    projects_db::{DtmProtocol, ProjectsDb, folder_cache, get_last_row},
 };
 
 #[derive(Clone)]
@@ -115,6 +111,36 @@ impl DTPService {
         let scheduler = scheduler.as_ref().unwrap();
         scheduler.add_job(SyncJob);
 
+        Ok(())
+    }
+
+    // test to compare checking rowid vs file metadata
+    pub async fn check_all(&self) -> Result<(), String> {
+        let start = std::time::Instant::now();
+        let projects = self.list_projects(None).await.unwrap();
+        let mut last_rows: Vec<(i64, i64)> = Vec::new();
+        for project in projects {
+            let last_row = get_last_row(&project.full_path).await.unwrap();
+            last_rows.push((project.id, last_row.0));
+        }
+
+        println!("Checked all projects: {:?}", last_rows);
+        println!("Checked all projects: {}", start.elapsed().as_millis());
+        Ok(())
+    }
+    pub async fn check_all_2(&self) -> Result<(), String> {
+        let start = std::time::Instant::now();
+        let projects = self.list_projects(None).await.unwrap();
+        let mut data: Vec<(i64, i64)> = Vec::new();
+        for project in projects {
+            let base = fs::metadata(&project.full_path).map_or(0, |m| m.len() as i64);
+            let wal =
+                fs::metadata(format!("{}-wal", &project.full_path)).map_or(0, |m| m.len() as i64);
+            data.push((base, wal));
+        }
+
+        println!("Checked all projects: {:?}", data);
+        println!("Checked all projects: {}", start.elapsed().as_millis());
         Ok(())
     }
 

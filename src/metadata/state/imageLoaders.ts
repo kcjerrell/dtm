@@ -1,5 +1,6 @@
 import * as pathlib from "@tauri-apps/api/path"
 import plist from "plist"
+import { DtpService } from "@/commands"
 import { postMessage } from "@/context/Messages"
 import {
     fetchImage,
@@ -13,7 +14,6 @@ import { drawPose } from "@/utils/pose"
 import { isOpenPose } from "@/utils/poseHelpers"
 import type { ImageItem } from "./ImageItem"
 import { createImageItem } from "./metadataStore"
-import { dtProject, pdb } from "@/commands"
 
 const prioritizedTypes = [
     "NSFilenamesPboardType",
@@ -316,11 +316,11 @@ async function createImageFromPose(text: string) {
 }
 
 async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
-    const imageItem = await pdb.findImageByPreviewId(dtpImage.projectId, dtpImage.imageId)
+    const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
     if (!imageItem) return
-    const history = await dtProject.getHistoryFull(imageItem.project_id, imageItem.node_id)
+    const history = await DtpService.getHistoryFull(imageItem.project_id, imageItem.node_id)
     if (!history || !history.tensor_id) return
-    const image = await dtProject.decodeTensor(
+    const image = await DtpService.decodeTensor(
         imageItem.project_id,
         history.tensor_id,
         true,

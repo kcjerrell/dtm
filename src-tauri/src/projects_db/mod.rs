@@ -1,5 +1,5 @@
 mod dt_project;
-pub use dt_project::{DTProject, ProjectRef};
+pub use dt_project::{DTProject, ProjectRef, get_last_row};
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 

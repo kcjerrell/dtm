@@ -1,23 +1,25 @@
 import { type Channel, invoke } from "@tauri-apps/api/core"
-import type { TensorHistoryClip } from "@/generated/types"
-import type { ImagesSource as ListImagesOpts } from "../dtProjects/types"
 import type {
     ImageExtra,
+    ImagesSource as ListImagesOpts,
     ListImagesResult,
     Model,
     ModelType,
     ProjectExtra,
+    TensorHistoryClip,
     TensorHistoryExtra,
     TensorSize,
     WatchFolder,
-} from "./projects"
+} from "./DtpServiceTypes"
+
+type MaybeReadonly<T> = T | Readonly<T>
 
 async function connect(channel: Channel) {
     await invoke("dtp_connect", { channel, autoWatch: true })
 }
 
-async function listProjects(watchFolderId?: number): Promise<ProjectExtra[]> {
-    return await invoke("dtp_list_projects", { watchFolderId })
+async function listProjects(watchfolderId?: number): Promise<ProjectExtra[]> {
+    return await invoke("dtp_list_projects", { watchfolderId })
 }
 
 async function updateProject(projectId: number, exclude?: boolean): Promise<void> {

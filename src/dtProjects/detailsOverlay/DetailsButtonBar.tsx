@@ -6,12 +6,11 @@ import { type ComponentProps, useRef, useState } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
-import { dtProject, pdb } from "@/commands"
+import { DtpService, type ImageExtra } from "@/commands"
 import { IconButton } from "@/components"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import type { VideoContextType } from "@/components/video/context"
-import type { ImageExtra } from "@/generated/types"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
@@ -54,18 +53,18 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
         }
         console.log("getting frame", frameIndex)
 
-        const clip = await pdb.getClip(item.id)
+        const clip = await DtpService.getClip(item.id)
         const frame = clip[frameIndex]
         if (!frame) return
 
-        return await dtProject.decodeTensor(item.project_id, frame.tensor_id, true, frame.row_id)
+        return await DtpService.decodeTensor(item.project_id, frame.tensor_id, true, frame.row_id)
     }
 
     const getImage = async (frameIndex?: number) => {
         if (isVideo) return getFrame(frameIndex)
         console.log("getting image")
         if (!item || !tensorId) return
-        return await dtProject.decodeTensor(item.project_id, tensorId, true, nodeId)
+        return await DtpService.decodeTensor(item.project_id, tensorId, true, nodeId)
     }
 
     const disabled = !projectId || !tensorId || !show || lockButtons

@@ -97,6 +97,8 @@ export type DTPEvents = {
     folder_sync_complete: (payload: number) => void
 
     dtp_service_ready: () => void
+    projectsLoaded: (payload?: undefined) => void
+    imagesChanged: (payload?: undefined) => void
 }
 
 export interface WatchFoldersChangedPayload {

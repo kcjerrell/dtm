@@ -1,6 +1,6 @@
 import { path } from "@tauri-apps/api"
 import { writeTextFile } from "@tauri-apps/plugin-fs"
-import { pdb } from "@/commands"
+import { DtpService } from "@/commands"
 import type { JobCallback } from "@/utils/container/queue"
 import type { DTPJobSpec } from "../state/types"
 import type { ListModelInfoFilesResult } from "../state/watchFolders"
@@ -59,7 +59,7 @@ export function syncModelInfoJob(
         data: modelInfoFiles,
         execute: async (data) => {
             for (const { path, modelType } of data) {
-                await pdb.scanModelInfo(path, modelType)
+                await DtpService.scanModelInfo(path, modelType)
             }
         },
     }
