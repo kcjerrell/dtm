@@ -3,7 +3,7 @@ import { IconButton, Panel } from "@/components"
 import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons/icons"
 import { useDTP } from "@/dtProjects/state/context"
 import Tabs from "@/metadata/infoPanel/tabs"
-import ProjectsPanel from "./ProjectsPanel"
+import ProjectsPanel from "./projectsPanel/ProjectsPanel"
 import SearchPanel from "./SearchPanel"
 
 const tabs = [

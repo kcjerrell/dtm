@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { compareItems, plural } from "./helpers"
+import { compareItems, groupMap, plural } from "./helpers"
 
 describe("compareItems", () => {
     const keyFn = (item: { id: number }) => item.id
@@ -116,5 +116,64 @@ describe("plural", () => {
     it("pluralizes the provided word with a custom plural", () => {
         expect(plural(1, "child", "children")).toBe("child")
         expect(plural(7, "child", "children")).toBe("children")
+    })
+})
+
+describe("groupMap", () => {
+    it("should group items by key using default groupFn", () => {
+        const items = [
+            { id: 1, category: "A" },
+            { id: 2, category: "B" },
+            { id: 3, category: "A" },
+        ]
+        const result = groupMap(items, (item) => [item.category, item])
+        expect(result).toEqual([
+            { group: "A", items: [items[0], items[2]] },
+            { group: "B", items: [items[1]] },
+        ])
+    })
+
+    it("should map values using itemFn", () => {
+        const items = [
+            { id: 1, category: "A" },
+            { id: 2, category: "B" },
+            { id: 3, category: "A" },
+        ]
+        const result = groupMap(items, (item) => [item.category, item.id])
+        expect(result).toEqual([
+            { group: "A", items: [1, 3] },
+            { group: "B", items: [2] },
+        ])
+    })
+
+    it("should use custom groupFn", () => {
+        const items = [
+            { id: 1, category: "A" },
+            { id: 2, category: "B" },
+            { id: 3, category: "A" },
+        ]
+        const result = groupMap(
+            items,
+            (item) => [item.category, item.id],
+            (key, values) => ({ cat: key, ids: values, count: values.length }),
+        )
+        expect(result).toEqual([
+            { cat: "A", ids: [1, 3], count: 2 },
+            { cat: "B", ids: [2], count: 1 },
+        ])
+    })
+
+    it("should handle empty arrays", () => {
+        const result = groupMap([] as unknown[], (item) => ["key", item])
+        expect(result).toEqual([])
+    })
+
+    it("should provide index and array to itemFn", () => {
+        const items = ["a", "b", "c"]
+        const result = groupMap(items, (item, index) => [index % 2 === 0 ? "even" : "odd", item])
+        expect(result).toEqual([
+            { group: "even", items: ["a", "c"] },
+            { group: "odd", items: ["b"] },
+        ])
     })
 })

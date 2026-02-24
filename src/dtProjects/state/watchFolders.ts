@@ -30,6 +30,7 @@ export type WatchFolderState = Selectable<
         isMissing?: boolean
         selected?: boolean
         firstScan?: boolean
+        isDtData?: boolean
     }
 >
 
@@ -92,16 +93,19 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
     async loadWatchFolders() {
         const res = await DTPService.listWatchFolders()
-        this.setWatchfolders(res)
+        return this.setWatchfolders(res)
     }
 
     private setWatchfolders(folders: WatchFolder[]) {
-        const foldersState = folders.map((f) => makeSelectable(f as WatchFolderState))
-        this.state.isDtFolderAdded = folders.some(
-            (folder) => folder.path === this.state.defaultDataFolder,
-        )
+        const foldersState = folders.map((f) => this.createWatchFolderState(f))
+        this.state.isDtFolderAdded = foldersState.some((folder) => folder.isDtData)
 
         va.set(this.state.folders, foldersState)
+        return this.state.folders
+    }
+
+    private createWatchFolderState(folder: WatchFolder): WatchFolderState {
+        return makeSelectable({ ...folder, isDtData: folder.path === this.state.defaultDataFolder })
     }
 
     async pickDtFolder() {

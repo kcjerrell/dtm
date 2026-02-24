@@ -4,8 +4,9 @@ import DTPService from "@/commands/DtpService"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
 import va from "@/utils/array"
 import type { ContainerEvent } from "@/utils/container/StateController"
-import { arrayIfOnly } from "@/utils/helpers"
+import { areEquivalent, arrayIfOnly, groupMap } from "@/utils/helpers"
 import { DTPStateController } from "./types"
+import type { WatchFolderState } from "./watchFolders"
 
 export interface ProjectState extends Selectable<ProjectExtra> {
     name: string
@@ -18,10 +19,14 @@ export type ProjectsControllerState = {
     selectedProjects: ProjectState[]
     showEmptyProjects: boolean
     projectsCount: number
+    folders: {
+        watchfolder: WatchFolderState
+        projects: ProjectState[]
+    }[]
 }
 
 const projectSort = (
-    a: Selectable<{
+    a: {
         name: string
         id: number
         fingerprint: string
@@ -32,8 +37,8 @@ const projectSort = (
         modified: number | null
         missing_on: number | null
         excluded: boolean
-    }>,
-    b: Selectable<{
+    },
+    b: {
         name: string
         id: number
         fingerprint: string
@@ -44,14 +49,16 @@ const projectSort = (
         modified: number | null
         missing_on: number | null
         excluded: boolean
-    }>,
+    },
 ): number => a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
     state = proxy<ProjectsControllerState>({
         projects: [],
         selectedProjects: [],
         showEmptyProjects: false,
         projectsCount: 0,
+        folders: [],
     })
 
     hasLoaded = false
@@ -107,19 +114,37 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     }
 
     async loadProjects() {
-        const projects = await DTPService.listProjects()
+        const wfs = this.container.getService("watchFolders")
+        const watchfolders = await wfs.loadWatchFolders()
+        const dtpProjects = await (await DTPService.listProjects()).sort(projectSort)
+
+        const folders = groupMap(
+            dtpProjects,
+            (p) => [
+                p.watchfolder_id,
+                makeSelectable({
+                    ...p,
+                    name: p.path.split("/").pop() as string,
+                }),
+            ],
+            (folderId, folderProjects) => {
+                const folder = watchfolders.find((f) => f.id === folderId)
+                return {
+                    watchfolder: folder,
+                    projects: folderProjects,
+                }
+            },
+        ).filter(
+            (f) => f.watchfolder !== undefined && f.projects.length > 0,
+        ) as ProjectsControllerState["folders"]
+
+        va.set(this.state.folders, folders)
         va.set(
             this.state.projects,
-            projects
-                .map((p) =>
-                    makeSelectable(
-                        { ...p, name: p.path.split("/").pop() as string },
-                        this.state.selectedProjects.some((sp) => sp.id === p.id),
-                    ),
-                )
-                .sort(projectSort),
+            folders.flatMap((f) => f.projects),
         )
-        this.state.projectsCount = projects.length
+
+        this.state.projectsCount = this.state.projects.length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
     }
@@ -168,10 +193,42 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     }
 
     setSelectedProjects(projects: ProjectState[]) {
+        const projectIds = new Set(projects.map((p) => p.id))
         for (const project of this.state.projects) {
-            project.setSelected(projects.some((p) => p.id === project.id))
+            project.setSelected(projectIds.has(project.id))
         }
         va.set(this.state.selectedProjects, projects)
+    }
+
+    /// set selection to every project in the watchfolder
+    /// UNLESS every project in the folder and ONLY projects in the folder are selected
+    /// in which case we deselect all projects
+    /// this depends on sort being the same
+    selectFolderProjects(watchfolder: WatchFolderState) {
+        const selectedIds = this.state.selectedProjects.map((p) => p.id)
+        const folderGroups = this.state.folders.find(
+            (f) => f.watchfolder.id === watchfolder.id,
+        )?.projects
+        if (!folderGroups) return
+        const select = !areEquivalent(
+            selectedIds,
+            folderGroups.map((p) => p.id),
+        )
+
+        const selected: ProjectState[] = []
+
+        if (select) {
+            for (const project of this.state.projects) {
+                project.setSelected(project.watchfolder_id === watchfolder.id)
+                if (project.selected) selected.push(project)
+            }
+        } else {
+            this.state.projects.forEach((p) => {
+                p.setSelected(false)
+            })
+        }
+
+        va.set(this.state.selectedProjects, selected)
     }
 
     useProjectsSummary() {

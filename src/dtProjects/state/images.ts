@@ -96,8 +96,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             itemSource.renderWindow = [0, 20]
             this.itemSource = itemSource
             this.state.searchId++
-
-            this.refreshImageCounts()
         })
     }
 
@@ -149,7 +147,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     async refreshImageCounts() {
         const source = { ...this.state.imageSource }
-        console.log("refreshImageCounts", source)
         if (source.showImage === false && source.showVideo === false) {
             source.showImage = true
             source.showVideo = true
