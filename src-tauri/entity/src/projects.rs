@@ -14,7 +14,6 @@ pub struct Model {
     pub watchfolder_id: i64,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
-    pub missing_on: Option<i64>,
     pub excluded: bool,
     #[sea_orm(
         belongs_to,

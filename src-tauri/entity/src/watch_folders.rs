@@ -12,7 +12,8 @@ pub struct Model {
     pub path: String,
     pub bookmark: String,
     pub recursive: Option<bool>,
-    pub last_updated: Option<i64>,
+    pub is_missing: bool,
+    pub is_locked: bool,
     #[sea_orm(has_many)]
     pub projects: HasMany<super::projects::Entity>,
 }

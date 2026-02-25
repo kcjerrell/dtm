@@ -11,8 +11,9 @@ pub struct ProjectRow {
     pub last_id: Option<i64>,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
-    pub missing_on: Option<i64>,
     pub excluded: bool,
+    pub is_missing: bool,
+    pub is_locked: bool,
 }
 
 #[derive(Debug, FromQueryResult, Serialize, Clone)]
@@ -25,11 +26,11 @@ pub struct ProjectExtra {
     pub last_id: Option<i64>,
     pub filesize: Option<i64>,
     pub modified: Option<i64>,
-    pub missing_on: Option<i64>,
     pub excluded: bool,
     pub name: String,
     pub full_path: String,
     pub is_missing: bool,
+    pub is_locked: bool,
 }
 
 impl From<ProjectRow> for ProjectExtra {
@@ -51,7 +52,7 @@ impl From<ProjectRow> for ProjectExtra {
             m.path.clone()
         };
 
-        let is_missing = m.missing_on.is_some() || wf_path.is_none();
+        // let is_missing = m.missing_on.is_some() || wf_path.is_none();
 
         Self {
             id: m.id,
@@ -62,11 +63,11 @@ impl From<ProjectRow> for ProjectExtra {
             last_id: m.last_id,
             filesize: m.filesize,
             modified: m.modified,
-            missing_on: m.missing_on,
             excluded: m.excluded,
             name,
             full_path,
-            is_missing,
+            is_missing: m.is_missing,
+            is_locked: m.is_locked,
         }
     }
 }

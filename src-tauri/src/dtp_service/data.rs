@@ -182,7 +182,8 @@ impl DTPService {
     #[dtp_command]
     pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> Result<(), String> {
         let db = self.get_db().await?;
-        db.update_watch_folder(id, Some(recursive), None).await?;
+        db.update_watch_folder(id, Some(recursive), None, None)
+            .await?;
 
         let all_folders = db.list_watch_folders().await?;
         self.events

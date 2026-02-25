@@ -5,6 +5,7 @@ use crate::projects_db::{
 use entity::{
     images,
     projects::{self, ActiveModel, Entity},
+    watch_folders,
 };
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, ExprTrait, JoinType, QueryFilter, QuerySelect,
@@ -71,6 +72,19 @@ impl ProjectsDb {
                 Expr::col((images::Entity, images::Column::NodeId)).max(),
                 "last_id",
             )
+            .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
+            .column_as(
+                Expr::col((watch_folders::Entity, watch_folders::Column::Path)),
+                "watchfolder_path",
+            )
+            .column_as(
+                Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
+                "is_missing",
+            )
+            .column_as(
+                Expr::col((watch_folders::Entity, watch_folders::Column::IsLocked)),
+                "is_locked",
+            )
             .group_by(projects::Column::Id)
             .into_model::<ProjectRow>()
             .one(&self.db)
@@ -114,6 +128,19 @@ impl ProjectsDb {
                 "image_count",
             )
             .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
+            .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
+            .column_as(
+                Expr::col((watch_folders::Entity, watch_folders::Column::Path)),
+                "watchfolder_path",
+            )
+            .column_as(
+                Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
+                "is_missing",
+            )
+            .column_as(
+                Expr::col((watch_folders::Entity, watch_folders::Column::IsLocked)),
+                "is_locked",
+            )
             .group_by(projects::Column::Id)
             .into_model::<ProjectRow>();
 
@@ -169,26 +196,6 @@ impl ProjectsDb {
                 .await?;
             log::debug!("Deleted {} images", result.rows_affected);
         }
-
-        Ok(())
-    }
-
-    pub async fn bulk_update_missing_on(
-        &self,
-        watch_folder_id: i64,
-        is_missing: bool,
-    ) -> Result<(), MixedError> {
-        let missing_on = if is_missing {
-            Some(chrono::Utc::now().timestamp())
-        } else {
-            None
-        };
-
-        projects::Entity::update_many()
-            .col_expr(projects::Column::MissingOn, Expr::value(missing_on))
-            .filter(projects::Column::WatchfolderId.eq(watch_folder_id))
-            .exec(&self.db)
-            .await?;
 
         Ok(())
     }

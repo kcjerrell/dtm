@@ -111,7 +111,8 @@ const char* start_accessing_security_scoped_resource(const char* bookmark_base64
     BOOL isStale = NO;
     NSError *error = nil;
     NSURL *url = [NSURL URLByResolvingBookmarkData:data
-                                           options:NSURLBookmarkResolutionWithSecurityScope
+                                          options:NSURLBookmarkResolutionWithSecurityScope |
+                                                  NSURLBookmarkResolutionWithoutMounting
                                      relativeToURL:nil
                                 bookmarkDataIsStale:&isStale
                                               error:&error];

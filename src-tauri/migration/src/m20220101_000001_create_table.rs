@@ -19,11 +19,7 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(
-                        ColumnDef::new(WatchFolders::Path)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(WatchFolders::Path).string().not_null())
                     .col(
                         ColumnDef::new(WatchFolders::Bookmark)
                             .string()
@@ -35,7 +31,16 @@ impl MigrationTrait for Migration {
                             .boolean()
                             .default(false),
                     )
-                    .col(ColumnDef::new(WatchFolders::LastUpdated).integer().null())
+                    .col(
+                        ColumnDef::new(WatchFolders::IsMissing)
+                            .boolean()
+                            .default(true),
+                    )
+                    .col(
+                        ColumnDef::new(WatchFolders::IsLocked)
+                            .boolean()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -53,16 +58,8 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(
-                        ColumnDef::new(Projects::Path)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(Projects::WatchfolderId)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Projects::Path).string().not_null())
+                    .col(ColumnDef::new(Projects::WatchfolderId).integer().not_null())
                     .col(ColumnDef::new(Projects::Filesize).big_integer().null())
                     .col(ColumnDef::new(Projects::Modified).big_integer().null())
                     .col(
@@ -71,8 +68,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Projects::Fingerprint).string().not_null().default(""))
-                    .col(ColumnDef::new(Projects::MissingOn).big_integer().null())
+                    .col(
+                        ColumnDef::new(Projects::Fingerprint)
+                            .string()
+                            .not_null()
+                            .default(""),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_projects_watchfolder")
@@ -493,7 +494,6 @@ enum Projects {
     Modified,
     Excluded,
     Fingerprint,
-    MissingOn,
     WatchfolderId,
 }
 
@@ -584,6 +584,7 @@ enum WatchFolders {
     Id,
     Path,
     Recursive,
-    LastUpdated,
     Bookmark,
+    IsMissing,
+    IsLocked,
 }

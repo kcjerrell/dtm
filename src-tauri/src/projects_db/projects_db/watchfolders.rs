@@ -1,7 +1,7 @@
 use crate::projects_db::dtos::watch_folder::WatchFolderDTO;
 use entity::watch_folders;
 use sea_orm::{
-    sea_query::Expr, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set, sea_query::Expr
 };
 
 use super::{MixedError, ProjectsDb};
@@ -56,20 +56,22 @@ impl ProjectsDb {
         &self,
         id: i64,
         recursive: Option<bool>,
-        last_updated: Option<i64>,
+        is_missing: Option<bool>,
+        is_locked: Option<bool>
     ) -> Result<WatchFolderDTO, MixedError> {
-        let mut model: watch_folders::ActiveModel = watch_folders::Entity::find_by_id(id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| MixedError::Other(format!("Watch folder {id} not found")))?
-            .into();
+        let mut model = watch_folders::ActiveModel::new();
+        model.id = Set(id);
 
         if let Some(r) = recursive {
             model.recursive = Set(Some(r));
         }
 
-        if let Some(lu) = last_updated {
-            model.last_updated = Set(Some(lu));
+        if let Some(is_missing) = is_missing {
+            model.is_missing = Set(is_missing);
+        }
+
+        if let Some(is_locked) = is_locked {
+            model.is_locked = Set(is_locked);
         }
 
         let model = model.update(&self.db).await?;

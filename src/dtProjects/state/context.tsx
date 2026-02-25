@@ -80,7 +80,7 @@ function createContainer() {
                 watchFolders.assignPaths(),
                 projects.loadProjects(),
                 // models.refreshModels(),
-                watchFolders.loadWatchFolders(),
+                // watchFolders.loadWatchFolders(),
                 DTPService.sync(),
                 // jobs.addJob(syncRemoteModelsJob()),
             ])
