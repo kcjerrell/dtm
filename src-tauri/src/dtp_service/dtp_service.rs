@@ -60,6 +60,7 @@ impl DTPService {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
         }
+        // #FOLDER
         self.init_folder_cache().await;
         self.events.set_channel(channel);
 
@@ -76,6 +77,7 @@ impl DTPService {
             *guard = Some(scheduler.clone());
         }
 
+        // #FOLDER
         let watch = WatchService::new(scheduler.clone());
         {
             let mut guard = self.watch.write().await;
@@ -83,6 +85,8 @@ impl DTPService {
         }
 
         self.events.emit(DTPEvent::DtpServiceReady);
+
+        self.add_job(SyncJob::new(true));
 
         // if self.auto_watch.load(Ordering::Relaxed) {
         //     self.watch_all().await;
@@ -109,7 +113,7 @@ impl DTPService {
     pub async fn sync(&self) -> Result<(), String> {
         let scheduler = self.scheduler.read().await;
         let scheduler = scheduler.as_ref().unwrap();
-        scheduler.add_job(SyncJob);
+        scheduler.add_job(SyncJob::new(false));
 
         Ok(())
     }

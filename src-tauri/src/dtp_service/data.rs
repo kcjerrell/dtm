@@ -158,7 +158,7 @@ impl DTPService {
 
         let scheduler = self.scheduler.read().await;
         let scheduler = scheduler.as_ref().unwrap();
-        scheduler.add_job(SyncJob);
+        scheduler.add_job(SyncJob::new(false));
         Ok(())
     }
 

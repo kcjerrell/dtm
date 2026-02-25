@@ -9,6 +9,12 @@ pub struct CheckFileJob {
     pub project_path: String,
 }
 
+impl CheckFileJob {
+    pub fn new(project_path: String) -> Self {
+        Self { project_path }
+    }
+}
+
 #[async_trait::async_trait]
 impl Job for CheckFileJob {
     fn get_label(&self) -> String {

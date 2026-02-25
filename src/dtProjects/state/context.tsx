@@ -81,7 +81,7 @@ function createContainer() {
                 projects.loadProjects(),
                 // models.refreshModels(),
                 // watchFolders.loadWatchFolders(),
-                DTPService.sync(),
+                // DTPService.sync(),
                 // jobs.addJob(syncRemoteModelsJob()),
             ])
         })

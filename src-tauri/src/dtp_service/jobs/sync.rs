@@ -1,11 +1,19 @@
 use std::sync::Arc;
 
 use crate::dtp_service::events::DTPEvent;
+use crate::dtp_service::jobs::CheckFolderJob;
 
 use super::job::{Job, JobContext, JobResult};
-use super::sync_folder::SyncFolderJob;
 
-pub struct SyncJob;
+pub struct SyncJob {
+    reset_locks: bool,
+}
+
+impl SyncJob {
+    pub fn new(reset_locks: bool) -> Self {
+        Self { reset_locks }
+    }
+}
 
 #[async_trait::async_trait]
 impl Job for SyncJob {
@@ -27,7 +35,14 @@ impl Job for SyncJob {
 
         let subtasks = folders
             .iter()
-            .map(|wf| Arc::new(SyncFolderJob::new(wf)) as Arc<dyn Job>)
+            .map(|wf| {
+                Arc::new(CheckFolderJob::new(
+                    wf.clone(),
+                    self.reset_locks,
+                    true,
+                    None,
+                )) as Arc<dyn Job>
+            })
             .collect();
 
         Ok(JobResult::Subtasks(subtasks))
