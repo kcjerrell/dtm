@@ -12,9 +12,13 @@ use tokio::sync::{OnceCell, RwLock};
 
 use crate::{
     dtp_service::{
-        AppHandleWrapper, events::{self, DTPEvent}, jobs::{Job, JobContext, SyncJob}, scheduler::Scheduler, watch::WatchService
+        events::{self, DTPEvent},
+        jobs::{Job, JobContext, SyncJob},
+        scheduler::Scheduler,
+        watch::WatchService,
+        AppHandleWrapper,
     },
-    projects_db::{DtmProtocol, ProjectsDb, folder_cache, get_last_row},
+    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
 };
 
 #[derive(Clone)]
@@ -61,7 +65,6 @@ impl DTPService {
             *guard = Some(pdb.clone());
         }
         // #FOLDER
-        self.init_folder_cache().await;
         self.events.set_channel(channel);
 
         let ctx = JobContext {
@@ -79,6 +82,7 @@ impl DTPService {
 
         // #FOLDER
         let watch = WatchService::new(scheduler.clone());
+        watch.watch("/Volumes", false).await.unwrap();
         {
             let mut guard = self.watch.write().await;
             *guard = Some(watch);
@@ -212,34 +216,18 @@ impl DTPService {
         }
     }
 
-    pub async fn init_folder_cache(&self) {
-        let folders = self.list_watch_folders().await.unwrap();
-        let db = self.get_db().await.unwrap();
-        for folder in folders {
-            let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
-            if let Ok(resolved) = resolved {
-                match resolved {
-                    crate::bookmarks::ResolveResult::Resolved(updated_path) => {
-                        if updated_path != folder.path {
-                            db.update_bookmark_path(folder.id, &folder.bookmark, &updated_path)
-                                .await
-                                .unwrap();
-                        }
-                    }
-                    crate::bookmarks::ResolveResult::StaleRefreshed {
-                        new_bookmark,
-                        resolved_path,
-                    } => {
-                        db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
-                            .await
-                            .unwrap();
-                    }
-                    crate::bookmarks::ResolveResult::CannotResolve => {
-                        // TODO: Mark as missing in DB?
-                    }
-                }
-            }
-        }
+    #[dtp_command]
+    pub async fn lock_folder(&self, watchfolder_id: i64) -> Result<(), String> {
+        let folder = self
+            .get_db()
+            .await
+            .unwrap()
+            .update_watch_folder(watchfolder_id, None, None, Some(true))
+            .await?;
+        self.stop_watch(&folder.path).await;
+        projects_db::close_folder(&folder.path).await;
+        self.events.emit(DTPEvent::WatchFoldersChanged);
+        Ok(())
     }
 }
 

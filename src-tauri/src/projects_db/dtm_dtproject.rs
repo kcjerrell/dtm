@@ -1,5 +1,5 @@
+use moka::future::Cache;
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, sync::RwLock};
 use tauri::{
     http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
@@ -21,8 +21,11 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
 
-static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<i64, String>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static PROJECT_PATH_CACHE: Lazy<Cache<i64, String>> = Lazy::new(|| {
+    Cache::builder()
+        .time_to_idle(std::time::Duration::from_secs(3))
+        .build()
+});
 
 #[derive(Default)]
 struct DTPRequest {
@@ -126,7 +129,6 @@ impl DtmProtocol {
         let scale = req.scale;
         let invert = req.invert;
         let mask = req.mask;
-        println!("{}", project_path);
         match item_type.as_str() {
             "thumb" => thumb(&project_path, &item_id, false).await,
             "thumbhalf" => thumb(&project_path, &item_id, true).await,
@@ -139,16 +141,14 @@ impl DtmProtocol {
     }
 
     async fn get_project_path(&self, project_id: i64) -> Result<String, MixedError> {
-        if let Some(path) = PROJECT_PATH_CACHE.read().unwrap().get(&project_id).cloned() {
+        if let Some(path) = PROJECT_PATH_CACHE.get(&project_id).await {
             return Ok(path);
         }
 
         let project = self.pdb.get_project(project_id).await?;
-        println!("{} {}", project.path, project.full_path);
         PROJECT_PATH_CACHE
-            .write()
-            .unwrap()
-            .insert(project_id, project.full_path.clone());
+            .insert(project_id, project.full_path.clone())
+            .await;
         Ok(project.full_path)
     }
 }

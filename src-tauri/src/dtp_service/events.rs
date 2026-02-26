@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::ipc::Channel;
 
-use crate::projects_db::dtos::{project::ProjectExtra, watch_folder::WatchFolderDTO};
+use crate::projects_db::dtos::project::ProjectExtra;
 
 #[derive(Clone)]
 pub struct DTPEventsService {
@@ -34,7 +34,7 @@ impl DTPEventsService {
 #[derive(serde::Serialize, Debug)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum DTPEvent {
-    WatchFoldersChanged(Vec<WatchFolderDTO>),
+    WatchFoldersChanged,
 
     ProjectAdded(ProjectExtra),
     ProjectRemoved(i64),

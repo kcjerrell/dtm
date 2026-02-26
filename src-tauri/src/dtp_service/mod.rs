@@ -14,6 +14,6 @@ pub use data::{
 };
 
 pub mod dtp_service;
-pub use dtp_service::{dtp_connect, DTPService};
+pub use dtp_service::{dtp_connect, DTPService, dtp_lock_folder};
 
 pub use helpers::{AppHandleWrapper, GetFolderFilesResult, ProjectFile};

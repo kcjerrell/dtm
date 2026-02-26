@@ -46,6 +46,7 @@ export interface ImageExtra {
     start_width: number
     start_height: number
     upscaler_scale_factor: number | null
+    is_ready: boolean
 }
 
 export interface ImageCount {
@@ -107,7 +108,8 @@ export interface WatchFolder {
     path: string
     recursive: boolean | null
     last_updated: number | null
-    is_missing: boolean
+    isMissing: boolean
+    isLocked: boolean
     bookmark: string
 }
 

@@ -16,9 +16,10 @@ export { GiNeedleDrill } from "react-icons/gi"
 export { GoGear } from "react-icons/go"
 export type { IconType } from "react-icons/lib"
 export { LuFolderTree, LuMoon, LuSun, LuX } from "react-icons/lu"
-export { MdBlock, MdImageSearch, MdDoNotDisturbOn } from "react-icons/md"
+export { MdBlock, MdDoNotDisturbOn, MdImageSearch } from "react-icons/md"
 export {
     PiCoffee,
+    PiEject,
     PiFilmStrip,
     PiImage,
     PiImages,

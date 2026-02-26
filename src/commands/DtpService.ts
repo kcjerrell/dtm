@@ -18,6 +18,10 @@ async function connect(channel: Channel) {
     await invoke("dtp_connect", { channel, autoWatch: true })
 }
 
+async function lockFolder(watchfolderId: number) {
+    await invoke("dtp_lock_folder", { watchfolderId })
+}
+
 async function listProjects(watchfolderId?: number): Promise<ProjectExtra[]> {
     return await invoke("dtp_list_projects", { watchfolderId })
 }
@@ -141,6 +145,7 @@ const DTPService = {
     decodeTensor,
     findPredecessor,
     sync,
+    lockFolder
 }
 
 export default DTPService

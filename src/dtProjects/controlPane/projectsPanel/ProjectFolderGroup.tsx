@@ -1,6 +1,9 @@
-import { Box, HStack, Spacer, VStack } from "@chakra-ui/react"
+import { Box, Button, HStack, Spacer, VStack } from "@chakra-ui/react"
 import { useState } from "react"
 import { MdDoNotDisturbOn } from "react-icons/md"
+import { DtpService } from "@/commands"
+import { IconButton } from "@/components"
+import { PiEject } from "@/components/icons/icons"
 import type { WatchFolderState } from "@/dtProjects/state/watchFolders"
 
 interface ProjectFolderGroupProps extends ChakraProps {
@@ -35,12 +38,30 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
                     onMouseLeave={() => setHighlightGroup(false)}
                     onClick={() => onSelectFolder(watchfolder)}
                 >
+                    <Button size={"xs"} variant={"ghost"}>
+                        -
+                    </Button>
                     <Box>{label}</Box>
                     <Spacer />
                     {watchfolder.isMissing && <MdDoNotDisturbOn />}
+                    {!watchfolder.isMissing && !watchfolder.isLocked && (
+                        <IconButton
+                            size={"sm"}
+                            tipTitle={"Eject?"}
+                            tipText={
+                                "Stops tracking the folder so it can be ejected/removed. (Note: It doesn't actually dismount the drive)"
+                            }
+                            onClick={async (e) => {
+                                e.stopPropagation()
+                                await DtpService.lockFolder(watchfolder.id)
+                            }}
+                        >
+                            <PiEject />
+                        </IconButton>
+                    )}
                 </HStack>
             )}
-            {children}
+            {watchfolder.isLocked ? <Box>Safe to remove</Box> : children}
             {/* {activeProjectsSnap.map((p) => {
                     if (!showEmpty && projectImageCounts?.[p.id] === undefined) return null
                     return (

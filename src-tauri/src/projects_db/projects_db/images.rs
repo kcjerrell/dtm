@@ -3,11 +3,12 @@ use crate::projects_db::{
     dtos::tensor::TensorHistoryClip,
     folder_cache, search, DTProject,
 };
-use entity::{images, projects};
+use entity::{images, projects, watch_folders};
 use sea_orm::{
-    ColumnTrait, EntityTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    ColumnTrait, EntityTrait, ExprTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, RelationTrait,
 };
+use sea_query::Expr;
 
 use super::{MixedError, ProjectsDb};
 
@@ -28,7 +29,15 @@ impl ProjectsDb {
 
         let mut query = images::Entity::find()
             .join(JoinType::LeftJoin, images::Relation::Models.def())
+            .join(JoinType::LeftJoin, images::Relation::Projects.def())
+            .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
             .column_as(entity::models::Column::Filename, "model_file")
+            .column_as(
+                Expr::col(watch_folders::Column::IsMissing)
+                    .eq(false)
+                    .and(Expr::col(watch_folders::Column::IsLocked).eq(false)),
+                "is_ready",
+            )
             .order_by(images::Column::WallClock, direction);
 
         if let Some(project_ids) = &opts.project_ids {

@@ -179,6 +179,7 @@ pub fn run() {
             dtp_service::data::dtp_update_watch_folder,
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
+            dtp_service::dtp_service::dtp_lock_folder,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();

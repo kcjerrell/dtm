@@ -1,7 +1,8 @@
 use crate::projects_db::dtos::watch_folder::WatchFolderDTO;
 use entity::watch_folders;
 use sea_orm::{
-    ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set, sea_query::Expr
+    sea_query::Expr, ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter,
+    QueryOrder, Set,
 };
 
 use super::{MixedError, ProjectsDb};
@@ -57,11 +58,10 @@ impl ProjectsDb {
         id: i64,
         recursive: Option<bool>,
         is_missing: Option<bool>,
-        is_locked: Option<bool>
+        is_locked: Option<bool>,
     ) -> Result<WatchFolderDTO, MixedError> {
         let mut model = watch_folders::ActiveModel::new();
         model.id = Set(id);
-
         if let Some(r) = recursive {
             model.recursive = Set(Some(r));
         }

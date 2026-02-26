@@ -5,7 +5,7 @@ use crate::{
         events::DTPEvent,
         jobs::{sync_folder::SyncFolderJob, CheckFileJob, Job, JobContext, JobResult},
     },
-    projects_db::dtos::watch_folder::WatchFolderDTO,
+    projects_db::{dtos::watch_folder::WatchFolderDTO, folder_cache, ProjectsDb},
 };
 
 #[derive(Debug)]
@@ -45,8 +45,12 @@ impl Job for CheckFolderJob {
         let mut locked_update: Option<bool> = None;
         let mut missing_update: Option<bool> = None;
 
+        let resolved = resolve_folder(&self.watchfolder, &ctx.pdb)
+            .await
+            .unwrap_or(false);
+
         // check existence of folder
-        let is_missing = !fs::exists(&self.watchfolder.path).unwrap_or(false);
+        let is_missing = !resolved || !fs::exists(&self.watchfolder.path).unwrap_or(false);
 
         // if DTO.missing is different, update folder and all projects
         if self.watchfolder.is_missing != is_missing {
@@ -56,10 +60,11 @@ impl Job for CheckFolderJob {
         if self.watchfolder.is_locked && self.reset_lock {
             locked_update = Some(false);
         }
-
+        println!("locked_update: {:?}", locked_update);
+        println!("missing_update: {:?}", missing_update);
         if locked_update.is_some() || missing_update.is_some() {
             ctx.pdb
-                .update_watch_folder(self.watchfolder.id, locked_update, missing_update, None)
+                .update_watch_folder(self.watchfolder.id, None, missing_update, locked_update)
                 .await?;
             ctx.events.emit(DTPEvent::ProjectsChanged);
         }
@@ -93,4 +98,32 @@ impl Into<Arc<dyn Job>> for CheckFolderJob {
     fn into(self) -> Arc<dyn Job> {
         Arc::new(self)
     }
+}
+
+async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool, String> {
+    let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
+    if let Ok(resolved) = resolved {
+        match resolved {
+            crate::bookmarks::ResolveResult::Resolved(updated_path) => {
+                if updated_path != folder.path {
+                    db.update_bookmark_path(folder.id, &folder.bookmark, &updated_path)
+                        .await
+                        .unwrap();
+                }
+            }
+            crate::bookmarks::ResolveResult::StaleRefreshed {
+                new_bookmark,
+                resolved_path,
+            } => {
+                db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
+                    .await
+                    .unwrap();
+            }
+            crate::bookmarks::ResolveResult::CannotResolve => {
+                // TODO: Mark as missing in DB?
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
 }

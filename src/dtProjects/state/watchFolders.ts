@@ -84,8 +84,9 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     constructor() {
         super("watchFolders")
 
-        this.container.on("watch_folders_changed", (folders: WatchFolder[]) => {
-            this.setWatchfolders(folders)
+        this.container.on("watch_folders_changed", async () => {
+            await this.loadWatchFolders()
+            await this.container.getService("projects").loadProjects()
         })
 
         this.assignPaths().then(() => {})

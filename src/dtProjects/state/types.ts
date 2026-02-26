@@ -1,4 +1,4 @@
-import type { ProjectExtra, WatchFolder } from "@/commands"
+import type { ProjectExtra } from "@/commands"
 import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import type { IContainer } from "@/utils/container/interfaces"
 import type { JobQueue, JobResult, JobSpec, JobUnion } from "@/utils/container/queue"
@@ -80,7 +80,7 @@ export type DTPEvents = {
     watchFoldersChanged: (payload: WatchFoldersChangedPayload) => void
     projectFilesChanged: (payload: ProjectFilesChangedPayload) => void
 
-    watch_folders_changed: (payload: WatchFolder[]) => void
+    watch_folders_changed: () => void
     project_added: (payload: ProjectExtra) => void
     project_removed: (payload: number) => void
     project_updated: (payload: ProjectExtra) => void

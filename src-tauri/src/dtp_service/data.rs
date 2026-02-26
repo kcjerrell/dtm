@@ -150,11 +150,8 @@ impl DTPService {
             }
         }
 
-        let all_folders = db.list_watch_folders().await?;
         self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
-                all_folders,
-            ));
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
 
         let scheduler = self.scheduler.read().await;
         let scheduler = scheduler.as_ref().unwrap();
@@ -167,11 +164,8 @@ impl DTPService {
         let db = self.get_db().await?;
         db.remove_watch_folders(vec![id]).await?;
 
-        let all_folders = db.list_watch_folders().await?;
         self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
-                all_folders,
-            ));
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
 
         // the projects will be removed automatically by the db
         self.events.emit(DTPEvent::ProjectsChanged);
@@ -185,11 +179,8 @@ impl DTPService {
         db.update_watch_folder(id, Some(recursive), None, None)
             .await?;
 
-        let all_folders = db.list_watch_folders().await?;
         self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged(
-                all_folders,
-            ));
+            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
 
         Ok(())
     }
