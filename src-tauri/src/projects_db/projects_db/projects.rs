@@ -3,8 +3,8 @@ use crate::projects_db::{
     folder_cache, DTProject,
 };
 use entity::{
-    images,
-    projects::{self, ActiveModel, Entity},
+    images::{self, Entity as Images},
+    projects::{self, ActiveModel, Entity as Projects},
     watch_folders,
 };
 use sea_orm::{
@@ -38,7 +38,7 @@ impl ProjectsDb {
             ..Default::default()
         };
 
-        let project = Entity::insert(project)
+        let project = Projects::insert(project)
             .on_conflict(
                 OnConflict::columns([
                     entity::projects::Column::Path,
@@ -56,13 +56,13 @@ impl ProjectsDb {
     }
 
     pub async fn remove_project(&self, id: i64) -> Result<Option<i64>, MixedError> {
-        let _ = Entity::delete_by_id(id).exec(&self.db).await?;
+        let _ = Projects::delete_by_id(id).exec(&self.db).await?;
 
         Ok(Some(id))
     }
 
     pub async fn get_project(&self, id: i64) -> Result<ProjectExtra, MixedError> {
-        let result = Entity::find_by_id(id)
+        let result = Projects::find_by_id(id)
             .join(JoinType::LeftJoin, projects::Relation::Images.def())
             .column_as(
                 Expr::col((images::Entity, images::Column::ProjectId)).count(),
@@ -98,7 +98,7 @@ impl ProjectsDb {
         watchfolder_id: i64,
         path: &str,
     ) -> Result<Option<ProjectExtra>, MixedError> {
-        let project = projects::Entity::find()
+        let project = project_query()
             .filter(projects::Column::WatchfolderId.eq(watchfolder_id))
             .filter(projects::Column::Path.eq(path))
             .into_model::<ProjectRow>()
@@ -112,9 +112,6 @@ impl ProjectsDb {
         &self,
         watchfolder_id: Option<i64>,
     ) -> Result<Vec<ProjectExtra>, MixedError> {
-        use images::Entity as Images;
-        use projects::Entity as Projects;
-
         let mut query = Projects::find();
 
         if let Some(watchfolder_id) = watchfolder_id {
@@ -175,7 +172,7 @@ impl ProjectsDb {
     }
 
     pub async fn update_exclude(&self, project_id: i64, exclude: bool) -> Result<(), MixedError> {
-        let project = Entity::find_by_id(project_id)
+        let project = Projects::find_by_id(project_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| MixedError::Other(format!("Project {project_id} not found")))?;
@@ -213,4 +210,28 @@ impl ProjectsDb {
 
         Ok(DTProject::get(&full_path).await?)
     }
+}
+
+fn project_query() -> sea_orm::Select<entity::prelude::Projects> {
+    projects::Entity::find()
+        .join(JoinType::LeftJoin, projects::Relation::Images.def())
+        .column_as(
+            Expr::col((Images, images::Column::ProjectId)).count(),
+            "image_count",
+        )
+        .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
+        .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
+        .column_as(
+            Expr::col((watch_folders::Entity, watch_folders::Column::Path)),
+            "watchfolder_path",
+        )
+        .column_as(
+            Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
+            "is_missing",
+        )
+        .column_as(
+            Expr::col((watch_folders::Entity, watch_folders::Column::IsLocked)),
+            "is_locked",
+        )
+        .group_by(projects::Column::Id)
 }

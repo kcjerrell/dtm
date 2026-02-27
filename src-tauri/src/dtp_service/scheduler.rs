@@ -15,8 +15,9 @@ use crate::dtp_service::{
 
 type JobId = u64;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum JobStatus {
+    #[default]
     Pending,
     Active,
     // Canceled,
@@ -25,11 +26,13 @@ pub enum JobStatus {
     Failed(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct JobState {
     id: JobId,
     parent_id: Option<JobId>,
     status: JobStatus,
+    jobs_failed: isize,
+    jobs_completed: isize,
 }
 
 #[derive(Clone)]
@@ -43,18 +46,18 @@ pub struct Scheduler {
     tx: Arc<mpsc::Sender<JobId>>,
     jobs: Arc<Mutex<HashMap<JobId, JobEntry>>>,
     next_id: Arc<AtomicU64>,
-    ctx: JobContext,
+    ctx: Arc<JobContext>,
     worker_handle: Arc<std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl Scheduler {
-    pub fn new(ctx: &JobContext) -> Self {
+    pub fn new(ctx: Arc<JobContext>) -> Self {
         let (tx, mut rx) = mpsc::channel::<JobId>(10000);
 
         let semaphore = Arc::new(Semaphore::new(4));
         let scheduler = Scheduler {
             tx: Arc::new(tx),
-            ctx: ctx.clone(),
+            ctx,
             jobs: Arc::new(Mutex::new(HashMap::new())),
             next_id: Arc::new(AtomicU64::new(0)),
             worker_handle: Arc::new(std::sync::Mutex::new(None)),
@@ -139,31 +142,23 @@ impl Scheduler {
 
         let (tasks_remaining, label) = {
             let mut jobs = self.jobs.lock().await;
-            let Some(job) = jobs.get_mut(&parent_id) else {
+            let Some(parent_job) = jobs.get_mut(&parent_id) else {
                 return None;
             };
             let tasks_remaining = match job_entry.state.status {
                 JobStatus::Complete | JobStatus::Failed(_) => {
-                    self.decrement_subtask_count(&mut job.state)
+                    self.decrement_subtask_count(&mut parent_job.state)
                 }
-                _ => self.get_subtask_count(&job.state),
+                _ => self.get_subtask_count(&parent_job.state),
             };
-            (tasks_remaining, job.job.get_label())
+            match job_entry.state.status {
+                JobStatus::Complete => parent_job.state.jobs_completed += 1,
+                JobStatus::Failed(_) => parent_job.state.jobs_failed += 1,
+                _ => {}
+            }
+            (tasks_remaining, parent_job.job.get_label())
         };
 
-        log::debug!(
-            "[Scheduler] Tasks remaining: {} for job: {}",
-            tasks_remaining,
-            label
-        );
-
-        if tasks_remaining < 0 {
-            log::error!(
-                "[Scheduler] Tasks remaining is negative: {} ({})",
-                label,
-                tasks_remaining
-            );
-        }
         if tasks_remaining == 0 {
             Some(parent_id)
         } else {
@@ -234,14 +229,17 @@ impl Scheduler {
 
             match &current_result {
                 Ok(_) => {
-                    log::debug!("[Scheduler] Finishing job: {}", id);
                     entry.state.status = JobStatus::Complete;
                     entry.job.on_complete(ctx).await;
-                    log::debug!(
-                        "[Scheduler] Finished job: {} ({})",
-                        entry.job.get_label(),
-                        entry.state.id
-                    );
+                    if entry.state.jobs_failed + entry.state.jobs_completed > 0 {
+                        log::debug!(
+                            "[Scheduler] Finished job: {} and {} subtasks",
+                            entry.job.get_label(),
+                            entry.state.jobs_failed + entry.state.jobs_completed
+                        );
+                    } else {
+                        log::debug!("[Scheduler] Finished job: {}", entry.job.get_label(),);
+                    }
                 }
                 Err(error) => {
                     entry.state.status = JobStatus::Failed(error.clone());
@@ -282,13 +280,13 @@ impl Scheduler {
 
     async fn add_job_internal(&self, job: Arc<dyn Job>, parent_id: Option<JobId>) {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        println!("[Scheduler] Adding job: {}", job.get_label());
         let entry = JobEntry {
             job,
             state: JobState {
                 id,
                 parent_id,
                 status: JobStatus::Pending,
+                ..Default::default()
             },
         };
         let _ = { self.jobs.lock().await.insert(id, entry) };

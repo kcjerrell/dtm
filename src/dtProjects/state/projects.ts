@@ -138,11 +138,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             (f) => f.watchfolder !== undefined && f.projects.length > 0,
         ) as ProjectsControllerState["folders"]
 
+        const newProjects = folders.flatMap((f) => f.projects)
+
         va.set(this.state.folders, folders)
-        va.set(
-            this.state.projects,
-            folders.flatMap((f) => f.projects),
-        )
+        va.set(this.state.projects, newProjects)
 
         this.state.projectsCount = this.state.projects.length
         this.hasLoaded = true
@@ -242,7 +241,6 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
     toggleShowEmptyProjects() {
         this.state.showEmptyProjects = !this.state.showEmptyProjects
-        console.log("show empty", this.state.showEmptyProjects)
     }
 }
 

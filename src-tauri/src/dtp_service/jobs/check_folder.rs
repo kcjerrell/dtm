@@ -10,7 +10,8 @@ use crate::{
 
 #[derive(Debug)]
 pub struct CheckFolderJob {
-    watchfolder: WatchFolderDTO,
+    watchfolder: Option<WatchFolderDTO>,
+    path: String,
     /// reset is_locked for watchfolder
     reset_lock: bool,
     /// indicates that a SyncFolderJob should follow. overrides check_files if both are present
@@ -27,7 +28,23 @@ impl CheckFolderJob {
         check_files: Option<Vec<String>>,
     ) -> Self {
         Self {
-            watchfolder,
+            path: watchfolder.path.clone(),
+            watchfolder: Some(watchfolder),
+            reset_lock,
+            sync,
+            check_files,
+        }
+    }
+
+    pub fn new_from_path(
+        path: String,
+        reset_lock: bool,
+        sync: bool,
+        check_files: Option<Vec<String>>,
+    ) -> Self {
+        Self {
+            watchfolder: None,
+            path,
             reset_lock,
             sync,
             check_files,
@@ -38,33 +55,40 @@ impl CheckFolderJob {
 #[async_trait::async_trait]
 impl Job for CheckFolderJob {
     fn get_label(&self) -> String {
-        format!("CheckFolderJob for {}", self.watchfolder.path)
+        format!("CheckFolderJob for {}", self.path)
     }
 
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+        ctx.dtp.stop_watch(&self.path).await;
+
         let mut locked_update: Option<bool> = None;
         let mut missing_update: Option<bool> = None;
 
-        let resolved = resolve_folder(&self.watchfolder, &ctx.pdb)
+        let watchfolder = match &self.watchfolder {
+            Some(wf) => wf,
+            None => &ctx.pdb.get_watch_folder_by_path(&self.path).await?.unwrap(),
+        };
+
+        let resolved = resolve_folder(&watchfolder, &ctx.pdb)
             .await
             .unwrap_or(false);
 
         // check existence of folder
-        let is_missing = !resolved || !fs::exists(&self.watchfolder.path).unwrap_or(false);
+        let is_missing = !resolved || !fs::exists(&watchfolder.path).unwrap_or(false);
 
         // if DTO.missing is different, update folder and all projects
-        if self.watchfolder.is_missing != is_missing {
+        if watchfolder.is_missing != is_missing {
             missing_update = Some(is_missing);
         }
 
-        if self.watchfolder.is_locked && self.reset_lock {
+        if watchfolder.is_locked && self.reset_lock {
             locked_update = Some(false);
         }
         println!("locked_update: {:?}", locked_update);
         println!("missing_update: {:?}", missing_update);
         if locked_update.is_some() || missing_update.is_some() {
             ctx.pdb
-                .update_watch_folder(self.watchfolder.id, None, missing_update, locked_update)
+                .update_watch_folder(watchfolder.id, None, missing_update, locked_update)
                 .await?;
             ctx.events.emit(DTPEvent::ProjectsChanged);
         }
@@ -75,7 +99,7 @@ impl Job for CheckFolderJob {
 
         if self.sync {
             return Ok(JobResult::Subtasks(vec![Arc::new(SyncFolderJob::new(
-                &self.watchfolder,
+                &watchfolder,
             ))]));
         }
 
@@ -90,8 +114,13 @@ impl Job for CheckFolderJob {
         Ok(JobResult::None)
     }
 
-    async fn on_complete(&self, _ctx: &JobContext) {}
-    async fn on_failed(&self, _ctx: &JobContext, _error: String) {}
+    async fn on_complete(&self, ctx: &JobContext) {
+        ctx.dtp.resume_watch(&self.path, true).await;
+    }
+
+    async fn on_failed(&self, ctx: &JobContext, _error: String) {
+        ctx.dtp.resume_watch(&self.path, true).await;
+    }
 }
 
 impl Into<Arc<dyn Job>> for CheckFolderJob {
@@ -101,6 +130,12 @@ impl Into<Arc<dyn Job>> for CheckFolderJob {
 }
 
 async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool, String> {
+    let cached = folder_cache::get_folder(folder.id);
+    if let Some(cached) = cached {
+        if cached == folder.path {
+            return Ok(true);
+        }
+    }
     let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
     if let Ok(resolved) = resolved {
         match resolved {

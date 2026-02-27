@@ -25,6 +25,8 @@ export interface ProjectExtra {
     name: string
     full_path: string
     is_missing: boolean
+    is_locked: boolean
+    is_ready: boolean
 }
 
 export interface ImageExtra {

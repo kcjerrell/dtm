@@ -187,9 +187,5 @@ pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper, WatchFo
         .await
         .unwrap();
 
-    if auto_watch {
-        dtps.watch_all().await;
-    }
-
     (dtps, event_helper, wfh)
 }

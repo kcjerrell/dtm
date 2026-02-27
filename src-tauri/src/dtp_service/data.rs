@@ -311,19 +311,29 @@ async fn get_folder(
                 Some(get_dt_container(app_handle).await?),
                 Some("Select Documents Folder".to_string()),
             )
-            .await?
-            .unwrap();
+            .await?;
 
-            if result.path != get_dt_data_folder(app_handle).await? {
-                return Err("Must select Documents folder".to_string());
+            match result {
+                Some(result) => {
+                    if result.path != get_dt_data_folder(app_handle).await? {
+                        return Err("Must select Documents folder".to_string());
+                    }
+                    result
+                }
+                None => {
+                    return Err("Failed to select a folder".to_string());
+                }
             }
-            result
         }
         _ => {
-            let result = bookmarks::pick_folder(app_handle, None, None)
-                .await?
-                .unwrap();
-            result
+            let result = bookmarks::pick_folder(app_handle, None, None).await?;
+
+            match result {
+                Some(result) => result,
+                None => {
+                    return Err("Failed to select a folder".to_string());
+                }
+            }
         }
     };
     Ok(result)

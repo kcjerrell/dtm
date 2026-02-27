@@ -187,7 +187,7 @@ export interface CompareOptions {
  * @param opts Options for comparison
  * @returns An object containing the added, removed, and changed items
  */
-export function compareItems<T extends Record<string, unknown>>(
+export function compareItems<T extends {}>(
     a: T[],
     b: T[],
     keyFn: (item: T) => string | number,
@@ -232,7 +232,6 @@ function shallowCompare<T extends Record<string, unknown>>(a: T, b: T, opts: Com
         if (ignoreObjects && typeof valA === "object" && valA !== null) continue
         if (ignoreFunctions && typeof valA === "function") continue
         if (valA !== b[key]) {
-            console.log("diff", key, valA, b[key])
             return false
         }
     }

@@ -35,7 +35,7 @@ impl Job for CheckFileJob {
             .project_path
             .strip_prefix(format!("{}/", watchfolder.path).as_str())
             .unwrap();
-        println!("checking {} in {}", project_path, watchfolder.path);
+
         let entity = ctx
             .pdb
             .get_project_by_path(watchfolder.id, &project_path)

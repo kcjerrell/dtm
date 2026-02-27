@@ -67,22 +67,21 @@ impl DTPService {
         // #FOLDER
         self.events.set_channel(channel);
 
-        let ctx = JobContext {
+        let ctx = Arc::new(JobContext {
             app_handle: self.app_handle.clone(),
             pdb: pdb.clone(),
             events: self.events.clone(),
             dtp: self.clone(),
-        };
+        });
 
-        let scheduler = Scheduler::new(&ctx);
+        let scheduler = Scheduler::new(ctx.clone());
         {
             let mut guard = self.scheduler.write().await;
             *guard = Some(scheduler.clone());
         }
 
-        // #FOLDER
         let watch = WatchService::new(scheduler.clone());
-        watch.watch("/Volumes", false).await.unwrap();
+        watch.watch_volumes().await.unwrap();
         {
             let mut guard = self.watch.write().await;
             *guard = Some(watch);
@@ -91,10 +90,6 @@ impl DTPService {
         self.events.emit(DTPEvent::DtpServiceReady);
 
         self.add_job(SyncJob::new(true));
-
-        // if self.auto_watch.load(Ordering::Relaxed) {
-        //     self.watch_all().await;
-        // }
 
         Ok(())
     }
@@ -152,34 +147,16 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn watch_all(&self) {
-        let watchfolders = self
-            .list_watch_folders()
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|wf| (wf.path, wf.recursive.unwrap_or(false)))
-            .collect::<Vec<(String, bool)>>();
-
-        let watch = self.watch.read().await;
-        let watch = watch.as_ref().unwrap();
-        watch.watch_folders(watchfolders).await.unwrap();
-    }
-
     pub async fn resume_watch(&self, path: &str, recursive: bool) {
-        if !self.auto_watch.load(Ordering::Relaxed) {
-            return;
-        }
-
         let watch = self.watch.read().await;
         let watch = watch.as_ref().unwrap();
-        watch.watch(path, recursive).await.unwrap();
+        watch.watch_folder(path, recursive).await.unwrap();
     }
 
     pub async fn stop_watch(&self, path: &str) {
         let watch = self.watch.read().await;
         let watch = watch.as_ref().unwrap();
-        watch.unwatch(path).await.unwrap();
+        watch.stop_watch_folder(path).await.unwrap();
     }
 
     pub fn add_job<T: Job + 'static>(&self, job: T) {

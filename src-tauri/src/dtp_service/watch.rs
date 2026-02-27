@@ -1,42 +1,47 @@
+use dashmap::DashMap;
 use notify_debouncer_mini::{
     new_debouncer,
     notify::{RecommendedWatcher, RecursiveMode},
     DebouncedEvent, Debouncer,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::Path,
+    sync::{mpsc::channel, Arc, OnceLock},
 };
-use tokio::sync::Mutex;
 use tokio::time::Duration;
+use tokio::{fs, sync::Mutex};
 
-use crate::dtp_service::{jobs::{CheckFileJob, SyncJob}, scheduler::Scheduler};
+use crate::dtp_service::{
+    jobs::{CheckFolderJob, SyncJob},
+    scheduler::Scheduler,
+};
 
 pub struct WatchService {
-    watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
-    paths: Mutex<HashMap<String, bool>>,
+    watchers: DashMap<String, FolderWatcher>,
+    volume_watcher: OnceLock<VolumeWatcher>,
+    scheduler: Arc<Scheduler>,
+}
+
+pub struct FolderWatcher {
+    watcher: Mutex<Debouncer<RecommendedWatcher>>,
+    path: String,
+    recursive: bool,
     task: tokio::task::JoinHandle<()>,
 }
 
-impl WatchService {
-    pub fn new(scheduler: Scheduler) -> Self {
+impl FolderWatcher {
+    pub fn new(path: String, recursive: bool, scheduler: Arc<Scheduler>) -> Self {
         let (tx_std, rx_std) = std::sync::mpsc::channel::<Result<Vec<DebouncedEvent>, _>>();
 
         let watcher = new_debouncer(Duration::from_secs(2), tx_std).unwrap();
-
+        let folder_path = path.clone();
         let task = tokio::task::spawn_blocking(move || {
             for res in rx_std {
                 match res {
                     Ok(events) => {
                         let mut projects: HashSet<String> = HashSet::new();
-                        let mut volumes_changed = false;
                         for event in events {
-                            if let Some(parent) = event.path.parent() {
-                                if parent == Path::new("/Volumes") {
-                                    volumes_changed = true;
-                                    log::debug!("Volumes changed: {:?}", event.path);
-                                }
-                            }
                             match event.path.extension().and_then(|ext| ext.to_str()) {
                                 Some("sqlite3") | Some("sqlite3-wal") => {
                                     let project_path = event.path.with_extension("sqlite3");
@@ -46,11 +51,75 @@ impl WatchService {
                             }
                         }
 
-                        for project in projects {
-                            let job = CheckFileJob {
-                                project_path: project,
-                            };
+                        if !projects.is_empty() {
+                            let job = CheckFolderJob::new_from_path(
+                                folder_path.clone(),
+                                false,
+                                false,
+                                Some(projects.into_iter().collect()),
+                            );
                             scheduler.add_job(job);
+                        }
+                    }
+                    Err(e) => eprintln!("Watch error: {:?}", e),
+                }
+            }
+        });
+
+        Self {
+            watcher: Mutex::new(watcher),
+            path: path.to_string(),
+            recursive,
+            task,
+        }
+    }
+
+    pub async fn start(&self) {
+        let exists = fs::try_exists(&self.path).await.unwrap_or(false);
+        if !exists {
+            return;
+        }
+
+        let _ = self
+            .watcher
+            .lock()
+            .await
+            .watcher()
+            .watch(Path::new(&self.path), RecursiveMode::NonRecursive);
+    }
+
+    pub async fn stop(&self) {
+        let _ = self
+            .watcher
+            .lock()
+            .await
+            .watcher()
+            .unwatch(Path::new(&self.path));
+    }
+}
+
+pub struct VolumeWatcher {
+    watcher: Mutex<Debouncer<RecommendedWatcher>>,
+}
+
+impl VolumeWatcher {
+    pub fn new(scheduler: Arc<Scheduler>) -> Self {
+        let (tx_std, rx_std) = channel::<Result<Vec<DebouncedEvent>, _>>();
+
+        let watcher = new_debouncer(Duration::from_secs(2), tx_std).unwrap();
+
+        let task = tokio::task::spawn_blocking(move || {
+            for res in rx_std {
+                match res {
+                    Ok(events) => {
+                        let mut volumes_changed = false;
+                        for event in events {
+                            if let Some(parent) = event.path.parent() {
+                                if parent == Path::new("/Volumes") {
+                                    volumes_changed = true;
+                                    log::debug!("Volumes changed: {:?}", event.path);
+                                }
+                            }
                         }
 
                         if volumes_changed {
@@ -64,112 +133,74 @@ impl WatchService {
         });
 
         Self {
-            watcher: Mutex::new(Some(watcher)),
-            // scheduler: scheduler,
-            paths: Mutex::new(HashMap::new()),
-            task: task,
+            watcher: Mutex::new(watcher),
         }
     }
 
-    pub async fn watch_folders(&self, paths: Vec<(String, bool)>) -> Result<(), String> {
-        let mut watcher_guard = self.watcher.lock().await;
-        let watcher = watcher_guard.as_mut().unwrap();
-        let mut watch_paths = self.paths.lock().await;
-
-        for (path, recursive) in paths {
-            let (is_watching, is_watching_recursive) = watch_paths
-                .get(&path)
-                .map(|v| (*v, recursive))
-                .unwrap_or((false, false));
-
-            if is_watching {
-                if is_watching_recursive == recursive {
-                    continue;
-                }
-                stop_watch(watcher, &path);
-            }
-
-            watcher
-                .watcher()
-                .watch(
-                    Path::new(&path),
-                    match recursive {
-                        true => RecursiveMode::Recursive,
-                        false => RecursiveMode::NonRecursive,
-                    },
-                )
-                .map_err(|e| e.to_string())?;
-
-            watch_paths.insert(path, recursive);
-        }
-        Ok(())
-    }
-
-    pub async fn watch(&self, path: &str, recursive: bool) -> Result<(), String> {
-        let mut watcher_guard = self.watcher.lock().await;
-        let watcher = watcher_guard.as_mut().unwrap();
-        let mut watch_paths = self.paths.lock().await;
-
-        let (is_watching, is_watching_recursive) = watch_paths
-            .get(path)
-            .map(|v| (*v, recursive))
-            .unwrap_or((false, false));
-
-        if is_watching {
-            if is_watching_recursive == recursive {
-                return Ok(());
-            }
-            stop_watch(watcher, path);
-        }
-
-        watcher
+    pub async fn start(&self) {
+        self.watcher
+            .lock()
+            .await
             .watcher()
-            .watch(
-                Path::new(path),
-                match recursive {
-                    true => RecursiveMode::Recursive,
-                    false => RecursiveMode::NonRecursive,
-                },
-            )
-            .map_err(|e| e.to_string())?;
+            .watch(Path::new("/Volumes"), RecursiveMode::NonRecursive)
+            .unwrap();
+    }
 
-        watch_paths.insert(path.to_string(), recursive);
-        log::debug!("Watching: {}", path);
+    pub async fn stop(&self) {
+        self.watcher
+            .lock()
+            .await
+            .watcher()
+            .unwatch(Path::new("/Volumes"))
+            .unwrap();
+    }
+}
+
+impl WatchService {
+    pub fn new(scheduler: Scheduler) -> Self {
+        let scheduler = Arc::new(scheduler);
+        let watchers = DashMap::new();
+        let volume_watcher = OnceLock::new();
+        Self {
+            watchers,
+            volume_watcher,
+            scheduler,
+        }
+    }
+
+    pub async fn watch_volumes(&self) -> Result<(), String> {
+        let volume_watcher = self
+            .volume_watcher
+            .get_or_init(|| VolumeWatcher::new(self.scheduler.clone()));
+        volume_watcher.start().await;
         Ok(())
     }
 
-    pub async fn unwatch(&self, path: &str) -> Result<(), String> {
-        log::debug!("Unwatching: {}", path);
-        let mut watcher_guard = self.watcher.lock().await;
-        let mut watch_paths = self.paths.lock().await;
-        if let Some(watcher) = watcher_guard.as_mut() {
-            if watch_paths.contains_key(path) {
-                stop_watch(watcher, path);
-                watch_paths.remove(path);
-                log::debug!("Unwatched: {}", path);
-            }
-        }
+    pub async fn stop_watch_volumes(&self) -> Result<(), String> {
+        let volume_watcher = self.volume_watcher.get().unwrap();
+        volume_watcher.stop().await;
+        Ok(())
+    }
+
+    pub async fn watch_folder(&self, path: &str, recursive: bool) -> Result<(), String> {
+        let watcher = self.watchers.entry(path.to_string()).or_insert_with(|| {
+            FolderWatcher::new(path.to_string(), recursive, self.scheduler.clone())
+        });
+        watcher.start().await;
+        Ok(())
+    }
+
+    pub async fn stop_watch_folder(&self, path: &str) -> Result<(), String> {
+        let watcher = match self.watchers.get(path) {
+            Some(watcher) => watcher,
+            None => return Ok(()),
+        };
+        watcher.stop().await;
         Ok(())
     }
 
     #[allow(dead_code)]
     pub async fn stop_all(&self) -> Result<(), String> {
-        let mut watcher_guard = self.watcher.lock().await;
-        let mut watch_paths = self.paths.lock().await;
-        if let Some(mut watcher) = watcher_guard.take() {
-            let paths_to_stop: Vec<String> = watch_paths.keys().cloned().collect();
-            for path in paths_to_stop {
-                stop_watch(&mut watcher, &path);
-            }
-            watch_paths.clear();
-        }
-
-        self.task.abort();
-
         Ok(())
     }
-}
-
-fn stop_watch(watcher: &mut Debouncer<RecommendedWatcher>, path: &str) {
-    let _ = watcher.watcher().unwatch(&Path::new(path));
 }

@@ -55,7 +55,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             this.watchProxy(async (get) => {
                 const p = get(projectsService.state.projects)
                 const changed = updateProjectsCache(p, this.projectsCache)
-
                 if (changed.length > 0) {
                     await this.container.services.uiState.importLockPromise
                     if (this.eventTimer) return
@@ -198,9 +197,10 @@ function updateProjectsCache(
     const visited: Record<number, number | null> = { ...cache }
     for (const project of projects) {
         visited[project.id] = null
-        if (cache[project.id] !== project.image_count) {
+        const imageCount = project.is_missing || project.is_locked ? 0 : project.image_count
+        if (cache[project.id] !== imageCount) {
             projectsChanged.push(project.id)
-            cache[project.id] = project.image_count ?? 0
+            cache[project.id] = imageCount ?? 0
         }
     }
 

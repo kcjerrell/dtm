@@ -108,4 +108,16 @@ impl ProjectsDb {
 
         Ok(folder.map(|f| f.into()))
     }
+
+    pub async fn get_watch_folder_by_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<WatchFolderDTO>, MixedError> {
+        let folder = watch_folders::Entity::find()
+            .filter(watch_folders::Column::Path.eq(path))
+            .one(&self.db)
+            .await?;
+
+        Ok(folder.map(|f| f.into()))
+    }
 }
