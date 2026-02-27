@@ -12,13 +12,9 @@ use tokio::sync::{OnceCell, RwLock};
 
 use crate::{
     dtp_service::{
-        events::{self, DTPEvent},
-        jobs::{Job, JobContext, SyncJob},
-        scheduler::Scheduler,
-        watch::WatchService,
-        AppHandleWrapper,
+        AppHandleWrapper, events::{self, DTPEvent}, jobs::{FetchModels, Job, JobContext, SyncJob}, scheduler::Scheduler, watch::WatchService
     },
-    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
+    projects_db::{self, DtmProtocol, ProjectsDb, get_last_row},
 };
 
 #[derive(Clone)]
@@ -89,6 +85,7 @@ impl DTPService {
 
         self.events.emit(DTPEvent::DtpServiceReady);
 
+        self.add_job(FetchModels {});
         self.add_job(SyncJob::new(true));
 
         Ok(())

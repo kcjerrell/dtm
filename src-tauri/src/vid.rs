@@ -28,13 +28,8 @@ pub async fn save_all_clip_frames(
 ) -> Result<(usize, String), String> {
     let projects_db = dtp.get_db().await.unwrap();
 
-    let result: Option<(String, i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
-        .join(
-            JoinType::InnerJoin,
-            entity::images::Relation::Projects.def(),
-        )
+    let result: Option<(i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
         .select_only()
-        .column(entity::projects::Column::Path)
         .column(entity::images::Column::NodeId)
         .column(entity::images::Column::ProjectId)
         .into_tuple()
@@ -42,10 +37,12 @@ pub async fn save_all_clip_frames(
         .await
         .map_err(|e| e.to_string())?;
 
-    let (project_path, node_id, _project_db_id) = result.ok_or("Image or Project not found")?;
+    let (node_id, project_id) = result.ok_or("Image or Project not found")?;
+
+    let project = projects_db.get_project(project_id).await.unwrap();
 
     // 2. Fetch Clip Frames
-    let dt_project = DTProject::get(&project_path)
+    let dt_project = DTProject::get(&project.full_path)
         .await
         .map_err(|e| e.to_string())?;
     let frames = dt_project

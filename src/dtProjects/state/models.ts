@@ -23,13 +23,11 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
     })
 
     constructor() {
-        super("models", "models")
-    }
+        super("models")
 
-    protected override handleTags(_tags: string, _desc: Record<string, unknown>) {
-        const job = getRefreshModelsJob()
-        this.container.getService("jobs").addJob(job)
-        return true
+        this.container.on("models_changed", async () => {
+            await this.refreshModels()
+        })
     }
 
     async refreshModels() {

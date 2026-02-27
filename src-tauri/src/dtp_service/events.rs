@@ -42,6 +42,8 @@ pub enum DTPEvent {
     // when many projects are changed, such as on delete cascade
     ProjectsChanged,
 
+    ModelsChanged,
+
     ImportStarted,
     ImportProgress(ScanProgress),
     ImportCompleted,

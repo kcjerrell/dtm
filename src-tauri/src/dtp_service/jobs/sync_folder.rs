@@ -7,7 +7,10 @@ use crate::{
     dtp_service::{
         events::DTPEvent,
         helpers::{get_folder_files, get_full_project_path, ProjectFile},
-        jobs::{AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, UpdateProjectJob},
+        jobs::{
+            AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, SyncModelsJob,
+            UpdateProjectJob,
+        },
     },
     projects_db::dtos::{project::ProjectExtra, watch_folder::WatchFolderDTO},
 };
@@ -105,6 +108,12 @@ impl Job for SyncFolderJob {
                 }
                 _ => {}
             };
+        }
+
+        if !files.model_info.is_empty() {
+            subtasks.push(Arc::new(SyncModelsJob::new(
+                files.model_info.into_iter().map(|m| m.into()).collect(),
+            )));
         }
 
         Ok(JobResult::Subtasks(subtasks))

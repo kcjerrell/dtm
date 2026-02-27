@@ -1,21 +1,30 @@
 import { Box, Button, HStack, Spacer, VStack } from "@chakra-ui/react"
-import { useState } from "react"
-import { MdDoNotDisturbOn } from "react-icons/md"
+import { useEffect, useRef, useState } from "react"
+import { MdBlock, MdDoNotDisturbOn } from "react-icons/md"
 import { DtpService } from "@/commands"
-import { IconButton } from "@/components"
-import { PiEject } from "@/components/icons/icons"
+import { IconButton, PanelListItem } from "@/components"
+import { FiRefreshCw, PiEject } from "@/components/icons/icons"
 import type { WatchFolderState } from "@/dtProjects/state/watchFolders"
+import { ProjectState } from "@/dtProjects/state/projects"
+import ProjectListItem from "./ProjectListItem"
 
 interface ProjectFolderGroupProps extends ChakraProps {
     watchfolder: WatchFolderState
+    projects: readonly ProjectState[]
+    altCounts?: Record<number, number>
     showLabel: boolean
     onSelectFolder: (watchfolder: WatchFolderState) => void
 }
 
 function ProjectFolderGroup(props: ProjectFolderGroupProps) {
-    const { watchfolder, showLabel, children, onSelectFolder, ...restProps } = props
+    const { watchfolder, projects, altCounts, showLabel, children, onSelectFolder, ...restProps } =
+        props
 
     const [highlightGroup, setHighlightGroup] = useState(false)
+    const [showExcluded, setShowExcluded] = useState(false)
+
+    const activeProjects = projects.filter((p) => !p.excluded)
+    const excludedProjects = projects.filter((p) => p.excluded)
 
     const label = getLabel(watchfolder)
 
@@ -38,18 +47,18 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
                     onMouseLeave={() => setHighlightGroup(false)}
                     onClick={() => onSelectFolder(watchfolder)}
                 >
-                    <Button size={"xs"} variant={"ghost"}>
+                    {/* <Button size={"xs"} variant={"ghost"}>
                         -
-                    </Button>
+                    </Button> */}
                     <Box>{label}</Box>
                     <Spacer />
                     {watchfolder.isMissing && <MdDoNotDisturbOn />}
-                    {!watchfolder.isMissing && !watchfolder.isLocked && (
+                    {!watchfolder.isMissing && !watchfolder.isLocked && !watchfolder.isDtData && (
                         <IconButton
                             size={"sm"}
-                            tipTitle={"Eject?"}
+                            tipTitle={"Eject"}
                             tipText={
-                                "Stops tracking the folder so it can be ejected/removed. (Note: It doesn't actually dismount the drive)"
+                                "Stop using this folder so it can be ejected, removed, or dismounted."
                             }
                             onClick={async (e) => {
                                 e.stopPropagation()
@@ -61,7 +70,39 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
                     )}
                 </HStack>
             )}
-            {watchfolder.isLocked ? <Box>Safe to remove</Box> : children}
+            {watchfolder.isLocked ? (
+                <Box>Safe to remove</Box>
+            ) : (
+                <>
+                    {activeProjects.map((p) => (
+                        <ProjectListItem
+                            key={p.path}
+                            project={p}
+                            altCount={altCounts?.[p.id] ?? 0}
+                        />
+                    ))}
+                    {excludedProjects.length > 0 && (
+                        <PanelListItem
+                            // ref={toggleRef}
+                            onClick={() => setShowExcluded(!showExcluded)}
+                            cursor="pointer"
+                            color="fg.3"
+                            _hover={{ color: "fg.1" }}
+                        >
+                            <HStack>
+                                <Box as={showExcluded ? FiRefreshCw : MdBlock} />
+                                <Box>
+                                    {showExcluded
+                                        ? "Hide excluded projects"
+                                        : `Show excluded projects (${excludedProjects.length})`}
+                                </Box>
+                            </HStack>
+                        </PanelListItem>
+                    )}
+                    {showExcluded &&
+                        excludedProjects.map((p) => <ProjectListItem key={p.path} project={p} />)}
+                </>
+            )}
             {/* {activeProjectsSnap.map((p) => {
                     if (!showEmpty && projectImageCounts?.[p.id] === undefined) return null
                     return (
