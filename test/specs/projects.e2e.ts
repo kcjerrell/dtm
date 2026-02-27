@@ -20,8 +20,7 @@ afterEach(async () => {
 
 describe('Projects', () => {
   it('can select a project', async () => {
-    await App.projectsButton.click();
-    await expect(App.projectsButton).toHaveAttribute("aria-selected", "true")
+    await App.selectView("projects")
 
     // verify projects are listed
     await expect(DTProjects.projectA).toBeDisplayedInViewport()
@@ -72,7 +71,9 @@ describe('Projects', () => {
     // verify all images are shown again
     await expect(DTProjects.images).toBeElementsArrayOfSize(countBefore)
   })
+})
 
+describe("Projects files", () => {
   it("projects list stays in sync with file system", async () => {
     await App.selectView("projects")
 

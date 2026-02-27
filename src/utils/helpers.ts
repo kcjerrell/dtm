@@ -60,8 +60,8 @@ export function shuffle<T>(array: T[]): T[] {
         // Pick a random index
         const i = Math.floor(Math.random() * m--)
 
-            // Swap element at m with element at i
-            ;[array[m], array[i]] = [array[i], array[m]]
+        // Swap element at m with element at i
+        ;[array[m], array[i]] = [array[i], array[m]]
     }
 
     return array
@@ -107,7 +107,6 @@ export async function openAnd<T>(
     callback: SingleOpenAndCallback<T> | MultiOpenAndCallback<T>,
     options: Parameters<typeof open>[0] = {},
 ) {
-
     const files = await pickFileForImport(options)
     if (!files || (Array.isArray(files) && files.length === 0)) return null
 
@@ -188,7 +187,7 @@ export interface CompareOptions {
  * @param opts Options for comparison
  * @returns An object containing the added, removed, and changed items
  */
-export function compareItems<T extends Record<string, unknown>>(
+export function compareItems<T extends {}>(
     a: T[],
     b: T[],
     keyFn: (item: T) => string | number,
@@ -233,7 +232,6 @@ function shallowCompare<T extends Record<string, unknown>>(a: T, b: T, opts: Com
         if (ignoreObjects && typeof valA === "object" && valA !== null) continue
         if (ignoreFunctions && typeof valA === "function") continue
         if (valA !== b[key]) {
-            console.log("diff", key, valA, b[key])
             return false
         }
     }
@@ -246,15 +244,57 @@ export function everyNth<T>(arr: T[], n: number): T[] {
 
 export async function pickFileForImport(options?: Parameters<typeof open>[0]) {
     const e2eFilePath = (window as any).__E2E_FILE_PATH__
-    console.debug("E2E file path:", e2eFilePath);
+    console.debug("E2E file path:", e2eFilePath)
     if (e2eFilePath) {
-        return e2eFilePath;
+        return e2eFilePath
     }
 
-    return await open(options);
+    return await open(options)
 }
 
 export function truncate(text: string, length: number) {
     if (text.length <= length) return text
     return `${text.slice(0, length)}...`
+}
+
+type GroupMapItemFn<TKey, TIn, TOut> = (item: TIn, index: number, arr: TIn[]) => [TKey, TOut]
+type GroupMapGroupFn<TKey, TOut, TGroup> = (key: TKey, items: TOut[]) => TGroup
+
+const defaultGroupFn = (key: unknown, items: unknown[]) => ({ group: key, items })
+
+/**
+ *
+ * @param items Maps the item to a group key and (mapped) item value
+ * @param itemFn
+ */
+export function groupMap<TKey, TIn, TOut>(
+    items: TIn[],
+    itemFn: GroupMapItemFn<TKey, TIn, TOut>,
+): { group: TKey; items: TOut[] }[]
+export function groupMap<TKey, TIn, TOut, TGroup>(
+    items: TIn[],
+    itemFn: GroupMapItemFn<TKey, TIn, TOut>,
+    groupFn: GroupMapGroupFn<TKey, TOut, TGroup>,
+): TGroup[]
+export function groupMap<TKey, TIn, TOut, TGroup>(
+    items: TIn[],
+    itemFn: GroupMapItemFn<TKey, TIn, TOut>,
+    groupFn: GroupMapGroupFn<TKey, TOut, TGroup> = defaultGroupFn as unknown as GroupMapGroupFn<
+        TKey,
+        TOut,
+        TGroup
+    >,
+): TGroup[] {
+    const map = new Map<TKey, TOut[]>()
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        const [key, value] = itemFn(item, i, items)
+        const existing = map.get(key)
+        if (existing) {
+            existing.push(value)
+        } else {
+            map.set(key, [value])
+        }
+    }
+    return Array.from(map.entries()).map(([key, value]) => groupFn(key, value))
 }

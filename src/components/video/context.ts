@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef } from "react"
-import { pdb } from "@/commands"
+import type { ImageExtra } from "@/commands"
+import DTPService from '@/commands/DtpService'
 import urls from "@/commands/urls"
-import type { ImageExtra } from "@/generated/types"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { everyNth } from "@/utils/helpers"
 import { useFrameAnimation } from "./hooks"
@@ -91,7 +91,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
 
     useEffect(() => {
         if (!image) return
-        pdb.getClip(image.id).then(async (data) => {
+        DTPService.getClip(image.id).then(async (data) => {
             if (!image) return
             if (!imgRef.current) return
 

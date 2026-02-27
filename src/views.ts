@@ -29,7 +29,7 @@ export const views = {
     vid: lazy(() => import("./vid/Vid")),
     library: lazy(() => import("./library/Library")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    // scratch: lazy(() => import("./scratch/Coffee")),
+    scratch: lazy(() => import("./scratch/DTPTest")),
 }
 
 // export const views = {

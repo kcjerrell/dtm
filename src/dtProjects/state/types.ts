@@ -1,3 +1,5 @@
+import type { ProjectExtra } from "@/commands"
+import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import type { IContainer } from "@/utils/container/interfaces"
 import type { JobQueue, JobResult, JobSpec, JobUnion } from "@/utils/container/queue"
 import { Service } from "@/utils/container/Service"
@@ -6,8 +8,6 @@ import type DetailsService from "./details"
 import type ImagesController from "./images"
 import type ModelsController from "./models"
 import type ProjectsController from "./projects"
-import type ScannerService from "./scanner"
-import type { ProjectJobPayload } from "./scanner"
 import type SearchController from "./search"
 import type SettingsController from "./settings"
 import type { UIController } from "./uiState"
@@ -35,12 +35,8 @@ export type DTProjectsJobs = {
         data: ProjectFileStats[]
         result: never
     }
-    "project-update": {
-        data: ProjectJobPayload
-        result: never
-    }
     "project-remove": {
-        data: string
+        data: number
         result: never
     }
     "project-folder-scan": {
@@ -83,6 +79,26 @@ export type DTProjectsContainer = IContainer<DTPServices, DTPEvents>
 export type DTPEvents = {
     watchFoldersChanged: (payload: WatchFoldersChangedPayload) => void
     projectFilesChanged: (payload: ProjectFilesChangedPayload) => void
+
+    watch_folders_changed: () => void
+    project_added: (payload: ProjectExtra) => void
+    project_removed: (payload: number) => void
+    project_updated: (payload: ProjectExtra) => void
+    projects_changed: () => void
+
+    import_started: () => void
+    import_progress: (payload: ScanProgress) => void
+    import_completed: () => void
+
+    sync_started: () => void
+    sync_complete: () => void
+
+    folder_sync_started: (payload: number) => void
+    folder_sync_complete: (payload: number) => void
+
+    dtp_service_ready: () => void
+    projectsLoaded: (payload?: undefined) => void
+    imagesChanged: (payload?: undefined) => void
 }
 
 export interface WatchFoldersChangedPayload {
@@ -109,7 +125,6 @@ export interface DTPServices {
     projects: ProjectsController
     models: ModelsController
     watchFolders: WatchFoldersController
-    scanner: ScannerService
     search: SearchController
     images: ImagesController
     details: DetailsService

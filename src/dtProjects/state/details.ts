@@ -1,5 +1,5 @@
-import { type DTImageFull, dtProject } from "@/commands"
-import type { ImageExtra } from '@/generated/types'
+import type { DTImageFull, ImageExtra } from "@/commands"
+import DTPService from "@/commands/DtpService"
 import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
 import type ProjectsController from "./projects"
 import { DTPStateService } from "./types"
@@ -20,7 +20,7 @@ class DetailsService extends DTPStateService {
         const project = this.projects.state.projects.find((p) => p.id === item.project_id)
         if (!project) return
 
-        const { history, ...extra } = await dtProject.getHistoryFull(project.path, item.node_id)
+        const { history, ...extra } = await DTPService.getHistoryFull(item.project_id, item.node_id)
         const rawConfig = extractConfigFromTensorHistoryNode(history) ?? {}
         const config = groupConfigProperties(rawConfig)
 
@@ -59,8 +59,8 @@ class DetailsService extends DTPStateService {
         const history = await this.getDetails(item)
         if (!history) return
 
-        return await dtProject.getPredecessorCandidates(
-            project.path,
+        return await DTPService.findPredecessor(
+            item.project_id,
             item.node_id,
             history.node.lineage,
             history.node.logical_time,

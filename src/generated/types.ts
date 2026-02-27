@@ -230,8 +230,8 @@ export interface WatchFolderDTO {
     id: number
     path: string
     recursive: boolean | null
-    item_type: string
     last_updated: number | null
+    is_missing: boolean
 }
 
 export interface TensorHistoryClip {
@@ -290,6 +290,10 @@ export interface ProjectExtra {
     modified: number | null
     missing_on: number | null
     excluded: boolean
+    name: string
+    full_path: string
+    is_missing: boolean
+    watchfolder_id: number
 }
 
 export type TextType = "PositiveText" | "NegativeText"

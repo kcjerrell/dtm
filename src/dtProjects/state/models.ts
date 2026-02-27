@@ -1,5 +1,6 @@
 import { proxy } from "valtio"
-import { type Model, pdb } from "@/commands"
+import type { Model } from "@/commands"
+import DTPService from "@/commands/DtpService"
 import { getVersionLabel } from "@/utils/models"
 import type { ModelVersionInfo, VersionModel } from "../types"
 import { type DTPJob, DTPStateController } from "./types"
@@ -22,17 +23,15 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
     })
 
     constructor() {
-        super("models", "models")
-    }
+        super("models")
 
-    protected override handleTags(_tags: string, _desc: Record<string, unknown>) {
-        const job = getRefreshModelsJob()
-        this.container.getService("jobs").addJob(job)
-        return true
+        this.container.on("models_changed", async () => {
+            await this.refreshModels()
+        })
     }
 
     async refreshModels() {
-        const dbModels = await pdb.listModels()
+        const dbModels = await DTPService.listModels()
 
         const versions = {
             "": { models: 0, controls: 0, loras: 0, label: "Unknown" },

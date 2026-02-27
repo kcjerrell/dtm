@@ -58,9 +58,9 @@ function ContentValueSelectorComponent(props: ValueSelectorProps<string[]>) {
 
 const ContentValueSelector = ContentValueSelectorComponent as FilterValueSelector<string[]>
 
-ContentValueSelector.getValueLabel = (values) => {
-	if (!Array.isArray(values)) return []
-	return values.map((v) =>
+ContentValueSelector.getValueLabel = (values: string | string[]) => {
+	const valueArray = Array.isArray(values) ? values : [values]
+	return valueArray.map((v) =>
 		v in contentValues ? contentValues[v as keyof typeof contentValues] : "unknown",
 	)
 }

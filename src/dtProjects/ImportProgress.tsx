@@ -1,17 +1,22 @@
 import { Box, CloseButton, Dialog, Portal } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Progress } from "@/components"
-import { useDTP } from "./state/context"
 
-const ImportProgress = (props: { open: boolean }) => {
-    const { open } = props
+type ImportProgressProps = {
+    open: boolean
+    progress?: {
+        found: number
+        scanned: number
+        imageCount: number
+    }
+}
 
-    const { projects } = useDTP()
-    const projectsSnap = projects.useSnap()
+const ImportProgress = (props: ImportProgressProps) => {
+    const { open, progress } = props
 
-    const found = projectsSnap.projects.length
-    const scanned = projectsSnap.projects.filter((p) => (p.filesize ?? 0) > 0).length
-    const imageCount = projectsSnap.projects.reduce((acc, p) => acc + (p.image_count ?? 0), 0)
+    if (!open || !progress) return null
+
+    const { found, scanned, imageCount } = progress
 
     return (
         <Dialog.Root lazyMount open={open} size={"sm"} placement={"center"}>

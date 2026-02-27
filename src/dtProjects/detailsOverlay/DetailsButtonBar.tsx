@@ -6,12 +6,11 @@ import { type ComponentProps, useRef, useState } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
-import { dtProject, pdb } from "@/commands"
+import { DtpService, type ImageExtra } from "@/commands"
 import { IconButton } from "@/components"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import type { VideoContextType } from "@/components/video/context"
-import type { ImageExtra } from "@/generated/types"
 import { sendToMetadata } from "@/metadata/state/interop"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
@@ -54,24 +53,26 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
         }
         console.log("getting frame", frameIndex)
 
-        const clip = await pdb.getClip(item.id)
+        const clip = await DtpService.getClip(item.id)
         const frame = clip[frameIndex]
         if (!frame) return
 
-        return await dtProject.decodeTensor(item.project_id, frame.tensor_id, true, frame.row_id)
+        return await DtpService.decodeTensor(item.project_id, frame.tensor_id, true, frame.row_id)
     }
 
     const getImage = async (frameIndex?: number) => {
         if (isVideo) return getFrame(frameIndex)
         console.log("getting image")
-        if (!project?.path || !tensorId) return
-        return await dtProject.decodeTensor(project.path, tensorId, true, nodeId)
+        if (!item || !tensorId) return
+        return await DtpService.decodeTensor(item.project_id, tensorId, true, nodeId)
     }
 
     const disabled = !projectId || !tensorId || !show || lockButtons
 
     return (
         <DetailsButtonBarRoot
+            aria-label={"Image actions"}
+            role={"toolbar"}
             data-solid
             onClick={(e) => e.stopPropagation()}
             initial={{ opacity: 0 }}
@@ -82,6 +83,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
         >
             {subItem?.maskUrl && (
                 <IconButton
+                    aria-label={"Copy image mask"}
                     size={"sm"}
                     disabled={disabled}
                     onClick={() => uiState.toggleSubItemMask()}
@@ -91,6 +93,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
             )}
 
             <IconButton
+                aria-label={isVideo ? "Copy selected frame" : "Copy image"}
                 size={"sm"}
                 disabled={disabled}
                 onClick={() => {
@@ -111,6 +114,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                 <FiCopy />
             </IconButton>
             <IconButton
+                aria-label={isVideo ? "Save selected frame" : "Save image"}
                 size={"sm"}
                 disabled={disabled}
                 onClick={() => {
@@ -135,6 +139,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                 <FiSave />
             </IconButton>
             <IconButton
+                aria-label={isVideo ? "Send selected frame to metadata" : "Send image to metadata"}
                 size={"sm"}
                 disabled={disabled}
                 onClick={() => {
@@ -160,6 +165,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                 <>
                     <Box height={8} width={"1px"} bgColor={"gray/50"} marginInline={1} />
                     <IconButton
+                        aria-label="Save video"
                         size={"sm"}
                         onClick={() => {
                             if (!item) return
@@ -177,6 +183,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                         />
                     )}
                     <IconButton
+                        aria-label="Save all frames"
                         size={"sm"}
                         onClick={async () => {
                             if (!item) return

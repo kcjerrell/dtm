@@ -78,7 +78,7 @@ function GridItemAnim(
     if (!item) return <Box />
 
     const previewId = `${item?.project_id}/${item?.preview_id}`
-    const url = `dtm://dtproject/thumbhalf/${previewId}`
+    const url = item.is_ready ? `dtm://dtproject/thumbhalf/${previewId}` : "/img_not_available.svg"
 
     const isVideo = (item.num_frames ?? 0) > 0
     const showVideo = isVideo && hoveredIndex === index

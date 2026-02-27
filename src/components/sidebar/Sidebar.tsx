@@ -4,7 +4,7 @@ import { useSnapshot } from "valtio"
 import AppStore from "@/hooks/appState"
 
 const Root = chakra(
-    "div",
+    "nav",
     {
         base: {
             display: "flex",
@@ -162,8 +162,7 @@ export function SidebarButton(props: SidebarButtonProps) {
 
     return (
         <ButtonBase
-            role="tab"
-            aria-selected={isActive}
+            aria-current={isActive ? "page" : undefined}
             isActive={isActive}
             popout={!isSidebarVisible}
             update={isUpgrade}

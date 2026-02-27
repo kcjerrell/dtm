@@ -1,9 +1,7 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, Expr, FnArg, GenericArgument, ItemFn, Pat, PathArguments, ReturnType, Token,
-    Type,
+    Expr, FnArg, GenericArgument, ItemFn, Pat, PathArguments, ReturnType, Token, Type, parse::{Parse, ParseStream}, parse_macro_input
 };
 
 struct DtmArgs {
@@ -179,4 +177,122 @@ pub fn dtm_command(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn dtp_command(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // This is now a marker macro when used inside #[dtp_commands]
+    // If used alone, it will still try to generate, but will fail if inside an impl.
+    // We'll keep the logic but allow it to be stripped by dtp_commands.
+    item
+}
+
+#[proc_macro_attribute]
+pub fn dtp_commands(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input = parse_macro_input!(item as syn::ItemImpl);
+    let self_ty = &input.self_ty;
+
+    let mut generated_commands = Vec::new();
+
+    for item in &mut input.items {
+        if let syn::ImplItem::Fn(method) = item {
+            let mut has_dtp_command = false;
+            let mut dtp_command_idx = None;
+
+            for (i, attr) in method.attrs.iter().enumerate() {
+                if attr.path().is_ident("dtp_command") {
+                    has_dtp_command = true;
+                    dtp_command_idx = Some(i);
+                    break;
+                }
+            }
+
+            if has_dtp_command {
+                // Remove the dtp_command attribute from the method
+                if let Some(idx) = dtp_command_idx {
+                    method.attrs.remove(idx);
+                }
+
+                let vis = &method.vis;
+                let sig = &method.sig;
+                let fn_name = &sig.ident;
+
+                // Ensure async
+                if sig.asyncness.is_none() {
+                    return syn::Error::new_spanned(
+                        sig.fn_token,
+                        "dtp_command functions must be async",
+                    )
+                    .to_compile_error()
+                    .into();
+                }
+
+                // Extract args
+                let mut inputs = sig.inputs.iter();
+
+                // Ensure first arg is &self
+                let first = inputs.next();
+                match first {
+                    Some(FnArg::Receiver(_)) => {}
+                    _ => {
+                        return syn::Error::new_spanned(
+                            sig,
+                            "dtp_command requires &self as first parameter",
+                        )
+                        .to_compile_error()
+                        .into();
+                    }
+                }
+
+                // Collect remaining args for wrapper
+                let mut wrapper_args = Vec::new();
+                let mut forward_args = Vec::new();
+
+                for arg in inputs {
+                    if let FnArg::Typed(pat_type) = arg {
+                        wrapper_args.push(pat_type.clone());
+
+                        // extract argument name for forwarding
+                        if let Pat::Ident(pat_ident) = &*pat_type.pat {
+                            forward_args.push(pat_ident.ident.clone());
+                        }
+                    }
+                }
+
+                let output = &sig.output;
+                let wrapper_name = format_ident!("dtp_{}", fn_name);
+                let command_name_str = wrapper_name.to_string();
+
+                generated_commands.push(quote! {
+                    #[tauri::command]
+                    #vis async fn #wrapper_name(
+                        state: tauri::State<'_, #self_ty>,
+                        #(#wrapper_args),*
+                    ) #output {
+                        log::debug!("DTPService command: {}", #command_name_str);
+
+                        let result = state.inner().#fn_name(#(#forward_args),*).await;
+
+                        if let Err(ref e) = result {
+                            log::error!(
+                                "DTPService command failed: {} ({})",
+                                #command_name_str,
+                                e
+                            );
+                        }
+
+                        result
+                    }
+                });
+            }
+        }
+    }
+
+    let expanded = quote! {
+        #input
+
+        #(#generated_commands)*
+    };
+
+    expanded.into()
 }

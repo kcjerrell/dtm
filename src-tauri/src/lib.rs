@@ -8,9 +8,11 @@ use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
-mod bookmarks;
+pub mod bookmarks;
+pub mod dtp_service;
 mod ffmpeg;
 mod projects_db;
+use dtp_service::dtp_connect;
 mod vid;
 
 use once_cell::sync::Lazy;
@@ -18,7 +20,6 @@ use tokio::runtime::Runtime;
 
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
-
 
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
@@ -109,9 +110,6 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use projects_db::commands::*;
-    use projects_db::dtm_dtproject_protocol;
-
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -154,32 +152,6 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
-            // get_tensor_history,
-            // get_tensor,
-            // get_thumb_half,
-            projects_db_project_list,
-            projects_db_project_add,
-            projects_db_project_remove,
-            projects_db_project_scan,
-            projects_db_project_update_exclude,
-            projects_db_project_bulk_update_missing_on,
-            projects_db_image_list,
-            projects_db_get_clip,
-            projects_db_image_rebuild_fts,
-            projects_db_watch_folder_list,
-            projects_db_watch_folder_add,
-            projects_db_watch_folder_remove,
-            projects_db_watch_folder_update,
-            projects_db_scan_model_info,
-            projects_db_list_models,
-            dt_project_get_tensor_history, // #unused
-            dt_project_get_thumb_half,     // #unused
-            dt_project_get_history_full,
-            dt_project_get_text_history,
-            dt_project_find_predecessor_candidates,
-            dt_project_get_tensor_raw, // #unused
-            dt_project_get_tensor_size,
-            dt_project_decode_tensor,
             vid::create_video_from_frames,
             vid::save_all_clip_frames,
             vid::check_pattern,
@@ -187,25 +159,46 @@ pub fn run() {
             ffmpeg_download,
             ffmpeg_download,
             ffmpeg_call,
-            bookmarks::pick_draw_things_folder,
+            bookmarks::pick_folder_command,
             bookmarks::resolve_bookmark,
-            bookmarks::stop_accessing_bookmark
+            bookmarks::stop_accessing_bookmark,
+            dtp_connect,
+            dtp_service::data::dtp_pick_watch_folder,
+            dtp_service::data::dtp_decode_tensor,
+            dtp_service::data::dtp_find_image_from_preview_id,
+            dtp_service::data::dtp_find_predecessor,
+            dtp_service::data::dtp_get_clip,
+            dtp_service::data::dtp_get_history_full,
+            dtp_service::data::dtp_get_tensor_size,
+            dtp_service::data::dtp_list_images,
+            dtp_service::data::dtp_list_models,
+            dtp_service::data::dtp_list_projects,
+            dtp_service::data::dtp_list_watch_folders,
+            dtp_service::data::dtp_remove_watch_folder,
+            dtp_service::data::dtp_update_project,
+            dtp_service::data::dtp_update_watch_folder,
+            dtp_service::dtp_service::dtp_test,
+            dtp_service::dtp_service::dtp_sync,
+            dtp_service::dtp_service::dtp_lock_folder,
         ])
-        .register_asynchronous_uri_scheme_protocol("dtm", |_ctx, request, responder| {
-            std::thread::spawn(move || {
-                TOKIO_RT.block_on(async move {
-                    if request.uri().host().unwrap() == "dtproject" {
-                        dtm_dtproject_protocol(request, responder).await;
-                    } else {
-                        responder.respond(
-                            http::Response::builder()
-                                .status(http::StatusCode::BAD_REQUEST)
-                                .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
-                                .body("failed to read file".as_bytes().to_vec())
-                                .unwrap(),
-                        );
-                    }
-                });
+        .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
+            let app_handle = ctx.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let dtp_service = app_handle.state::<dtp_service::DTPService>();
+                let dtm_protocol = dtp_service.dtm_protocol().await;
+                if request.uri().host().unwrap() == "dtproject" {
+                    dtm_protocol
+                        .dtm_dtproject_protocol(request, responder)
+                        .await;
+                } else {
+                    responder.respond(
+                        http::Response::builder()
+                            .status(http::StatusCode::BAD_REQUEST)
+                            .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
+                            .body("failed to read file".as_bytes().to_vec())
+                            .unwrap(),
+                    );
+                }
             });
         })
         // .manage(AppState {
@@ -227,6 +220,19 @@ pub fn run() {
 
             let _window = win_builder.build().unwrap();
 
+            let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
+            let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
+
+            app.manage(dtp_service);
+            app.manage(app_handle_wrapper);
+            // tauri::async_runtime::spawn(async move {
+            //     if let Err(e) = dtp_service.init().await {
+            //         eprintln!("Failed to init DB: {}", e);
+            //     } else {
+            //         println!("DB initialized");
+            //     }
+            // });
+
             // let _panel_builder =
             //     WebviewWindowBuilder::new(app, "panel", WebviewUrl::App(PathBuf::from("#mini")))
             //         .title("DT Metadata Mini")
@@ -247,7 +253,7 @@ pub fn run() {
         .run(|_app_handle, event| match event {
             tauri::RunEvent::Exit => {
                 bookmarks::cleanup_bookmarks();
-            },
+            }
             _ => {}
         });
 }

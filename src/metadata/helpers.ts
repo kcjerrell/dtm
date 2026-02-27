@@ -1,5 +1,5 @@
 import type { DrawThingsMetaData } from "@/types"
-import type { ExifType } from './state/store'
+import type { ExifType } from './state/metadataStore'
 
 export function hasDrawThingsData(
 	exif?: unknown,

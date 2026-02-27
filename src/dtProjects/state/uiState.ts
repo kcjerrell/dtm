@@ -1,7 +1,8 @@
 import { proxy, ref, useSnapshot } from "valtio"
-import { type DTImageFull, dtProject, type TensorHistoryExtra } from "@/commands"
+import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
+import DTPService from "@/commands/DtpService"
+import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
-import type { ImageExtra } from "@/generated/types"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { ProjectState } from "./projects"
@@ -37,6 +38,12 @@ export type UIControllerState = {
     isSettingsOpen: boolean
     isGridInert: boolean
     importLock: boolean
+    importLockCount: number
+    importProgress?: {
+        found: number
+        scanned: number
+        imageCount: number
+    }
 }
 
 type Handler<T> = (payload: T) => void
@@ -60,10 +67,15 @@ export class UIController extends DTPStateController<UIControllerState> {
         isSettingsOpen: false,
         isGridInert: false,
         importLock: false,
+        importLockCount: 0,
     })
 
     constructor() {
         super("uiState")
+
+        this.container.on("import_started", () => this.startImport())
+        this.container.on("import_progress", (progress) => this.updateImport(progress))
+        this.container.on("import_completed", () => this.endImport())
     }
 
     onItemChanged: Handler<{ item: ImageExtra | null }>[] = []
@@ -100,16 +112,30 @@ export class UIController extends DTPStateController<UIControllerState> {
     get importLockPromise() {
         return this._importLockPromise
     }
-    /** show/hide the import lock */
-    setImportLock(lock: boolean) {
-        this.state.importLock = lock
-        if (lock) {
-            this._importLockPromise = new Promise((resolve) => {
-                this._importLockResolver = resolve
-            })
-        } else {
-            this._importLockResolver?.()
+    startImport() {
+        this.state.importLock = true
+        const { promise, resolve } = Promise.withResolvers<void>()
+        this._importLockPromise = promise
+        this._importLockResolver = resolve
+        this.state.importLockCount++
+        this.state.importProgress = {
+            found: 0,
+            scanned: 0,
+            imageCount: 0,
         }
+    }
+    endImport() {
+        this.state.importLock = false
+        this.state.importProgress = undefined
+        this._importLockResolver?.()
+        this._importLockResolver = null
+    }
+    updateImport(progress: ScanProgress) {
+        const total = this.state.importProgress
+        if (!total) return
+        total.found += progress.projects_found
+        total.scanned += progress.projects_scanned
+        total.imageCount += progress.images_scanned
     }
 
     async showDetailsOverlay(item: ImageExtra) {
@@ -179,7 +205,7 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showSubItemPose(projectId: number, tensorId: string) {
-        const poseData = await dtProject.decodeTensor(projectId, tensorId, false)
+        const poseData = await DTPService.decodeTensor(projectId, tensorId, false)
         const points = tensorToPoints(poseData)
         const pose = pointsToPose(points, 1024, 1024)
         const image = await drawPose(pose, 4)
@@ -194,7 +220,7 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showSubItemImage(projectId: number, tensorId: string) {
-        const size = await dtProject.getTensorSize(projectId, tensorId)
+        const size = await DTPService.getTensorSize(projectId, tensorId)
         const loadImg = new Image()
         loadImg.onload = () => {
             const details = this.state.detailsView

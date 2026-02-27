@@ -1,14 +1,15 @@
-import { defineConfig, ViteDevServer } from "vite";
+import "dotenv/config"
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
-// import wasm from "vite-plugin-wasm";
 
-// import { visualizer } from 'rollup-plugin-visualizer'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 const host = process.env.TAURI_DEV_HOST;
 const isMock = process.env.MOCK_TAURI === "true";
 const reactDevtools = process.env.REACT_DEVTOOLS === "true";
+const showVisualizer = process.env.SHOW_VIS === "true";
 
 const hmr = true
 
@@ -18,15 +19,6 @@ export default defineConfig(async () => ({
   build: {
     target: "esnext",
     assetsInlineLimit: 0,
-    // cssCodeSplit: false,
-    // sourcemap: true,
-    // rollupOptions: {
-      // output: {
-        // manualChunks() {
-        //   return 'app'
-        // }
-      // }
-    // }
   },
   plugins: [
     reactDevtools ? htmlInjectionPlugin({
@@ -49,8 +41,7 @@ export default defineConfig(async () => ({
       }
     }),
     tsconfigPaths(),
-    // wasm(),
-    // visualizer({ open: true }),
+    showVisualizer ? visualizer({ open: true }) : null,
   ],
   resolve: {
     alias: {
@@ -74,8 +65,7 @@ export default defineConfig(async () => ({
     },
   },
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
+
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available

@@ -1,12 +1,12 @@
+import { Channel } from "@tauri-apps/api/core"
+import DTPService from "@/commands/DtpService"
 import { UIController } from "@/dtProjects/state/uiState"
 import { JobQueue } from "@/utils/container/queue"
 import { Container } from "../../utils/container/container"
-import { syncRemoteModelsJob } from "../jobs/models"
 import DetailsService from "./details"
 import ImagesController from "./images"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
-import ScannerService from "./scanner"
 import SearchController from "./search"
 import SettingsController from "./settings"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
@@ -59,14 +59,14 @@ export function useDTP() {
 
 function createContainer() {
     console.log("creating container")
-    return new Container<DTPServices, DTPEvents>(() => {
+    const channel = new Channel()
+    return new Container<DTPServices, DTPEvents>(channel, () => {
         const jobs = new JobQueue<DTPContainer, DTProjectsJobs>()
         const uiState = new UIController()
         const projects = new ProjectsController()
         const watchFolders = new WatchFoldersController()
         const models = new ModelsController()
         const images = new ImagesController()
-        const scanner = new ScannerService()
         const search = new SearchController()
         const details = new DetailsService(projects)
         const settings = new SettingsController()
@@ -75,21 +75,22 @@ function createContainer() {
             images.buildImageSource({ text: text ?? "", filters: filters ?? [] })
         }
 
-        Promise.all([
-            watchFolders.assignPaths(),
-            projects.loadProjects(),
-            models.refreshModels(),
-            // watchFolders.loadWatchFolders(),
-            scanner.sync({}),
-            jobs.addJob(syncRemoteModelsJob()),
-        ])
+        DTPService.connect(channel).then(async () => {
+            await Promise.all([
+                watchFolders.assignPaths(),
+                projects.loadProjects(),
+                // models.refreshModels(),
+                // watchFolders.loadWatchFolders(),
+                // DTPService.sync(),
+                // jobs.addJob(syncRemoteModelsJob()),
+            ])
+        })
 
         const controllers = {
             projects,
             uiState,
             models,
             watchFolders,
-            scanner,
             search,
             images,
             details,

@@ -11,10 +11,11 @@ import { HotkeysProvider } from "react-hotkeys-hook"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
-import App from './App'
+import App from "./App"
 
 function bootstrap() {
-    forwardConsoleAll()
+    if (!import.meta.env.DEV) forwardConsoleAll()
+
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
 
     const hash = document.location?.hash?.slice(1)
@@ -26,7 +27,9 @@ function bootstrap() {
     themeHelpers.applySize()
 
     if (import.meta.env.DEV) {
-        const _global = globalThis as unknown as { _devKeyPressHandler?: (e: KeyboardEvent) => void }
+        const _global = globalThis as unknown as {
+            _devKeyPressHandler?: (e: KeyboardEvent) => void
+        }
         if (_global._devKeyPressHandler) {
             window.removeEventListener("keypress", _global._devKeyPressHandler)
         }

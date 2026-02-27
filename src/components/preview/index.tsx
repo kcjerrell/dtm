@@ -350,7 +350,7 @@ export function contain(
     } as DOMRect
 }
 
-export function DotSpinner(props) {
+export function DotSpinner(props: BoxProps) {
     const { style, ...rest } = props
 
     return (
@@ -378,7 +378,7 @@ const loopTrans = (delay: number) =>
     }) as MotionProps["transition"]
 
 function Dot(props: Record<string, number>) {
-    const { delay, cx, ix, iy, dur } = props
+    const { delay, cx } = props
     return (
         <motion.ellipse
             cx={cx}

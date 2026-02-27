@@ -1,11 +1,11 @@
 import { proxy, subscribe, useSnapshot } from "valtio"
-import { pdb } from "@/commands"
+import type { FilterTarget, ImageExtra } from "@/commands"
+import DTPService from "@/commands/DtpService"
 import {
     EmptyItemSource,
     type IItemSource,
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
-import type { ImageExtra } from "@/generated/types"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
@@ -55,7 +55,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             this.watchProxy(async (get) => {
                 const p = get(projectsService.state.projects)
                 const changed = updateProjectsCache(p, this.projectsCache)
-
                 if (changed.length > 0) {
                     await this.container.services.uiState.importLockPromise
                     if (this.eventTimer) return
@@ -78,8 +77,8 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
                     s.showImage = true
                     s.showVideo = true
                 }
-                const res = await pdb.listImages(s, skip, take)
-                return res.images
+                const res = await DTPService.listImages(s, skip, take)
+                return res.images ?? []
             }
             const getCount = async () => {
                 await this.refreshImageCounts()
@@ -96,8 +95,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
             itemSource.renderWindow = [0, 20]
             this.itemSource = itemSource
             this.state.searchId++
-
-            this.refreshImageCounts()
         })
     }
 
@@ -121,7 +118,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     async setSearchFilters(filters?: BackendFilter[]) {
         this.state.imageSource.filters = filters?.map((f) => ({
-            target: f.target.toLowerCase(),
+            target: f.target.toLowerCase() as FilterTarget,
             operator: f.operator,
             value: f.value,
         }))
@@ -149,12 +146,12 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     async refreshImageCounts() {
         const source = { ...this.state.imageSource }
-        console.log("refreshImageCounts", source)
         if (source.showImage === false && source.showVideo === false) {
             source.showImage = true
             source.showVideo = true
         }
-        const { total, counts } = await pdb.listImagesCount(source)
+        const { total, counts } = await DTPService.listImagesCount(source)
+        if (!counts) return
         const projectCounts = {} as Record<string, number>
         for (const count of counts) {
             projectCounts[count.project_id] = count.count
@@ -200,9 +197,10 @@ function updateProjectsCache(
     const visited: Record<number, number | null> = { ...cache }
     for (const project of projects) {
         visited[project.id] = null
-        if (cache[project.id] !== project.image_count) {
+        const imageCount = project.is_missing || project.is_locked ? 0 : project.image_count
+        if (cache[project.id] !== imageCount) {
             projectsChanged.push(project.id)
-            cache[project.id] = project.image_count ?? 0
+            cache[project.id] = imageCount ?? 0
         }
     }
 

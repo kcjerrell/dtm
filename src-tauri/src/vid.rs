@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::{fs, path::PathBuf};
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, State};
 
-use crate::projects_db::{decode_tensor, DTProject, ProjectsDb};
+use crate::dtp_service::DTPService;
+use crate::projects_db::{decode_tensor, DTProject};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,17 +23,13 @@ pub struct FramesExportOpts {
 #[tauri::command]
 pub async fn save_all_clip_frames(
     app: tauri::AppHandle,
+    dtp: State<'_, DTPService>,
     opts: FramesExportOpts,
 ) -> Result<(usize, String), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = dtp.get_db().await.unwrap();
 
-    let result: Option<(String, i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
-        .join(
-            JoinType::InnerJoin,
-            entity::images::Relation::Projects.def(),
-        )
+    let result: Option<(i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
         .select_only()
-        .column(entity::projects::Column::Path)
         .column(entity::images::Column::NodeId)
         .column(entity::images::Column::ProjectId)
         .into_tuple()
@@ -40,10 +37,12 @@ pub async fn save_all_clip_frames(
         .await
         .map_err(|e| e.to_string())?;
 
-    let (project_path, node_id, _project_db_id) = result.ok_or("Image or Project not found")?;
+    let (node_id, project_id) = result.ok_or("Image or Project not found")?;
+
+    let project = projects_db.get_project(project_id).await.unwrap();
 
     // 2. Fetch Clip Frames
-    let dt_project = DTProject::get(&project_path)
+    let dt_project = DTProject::get(&project.full_path)
         .await
         .map_err(|e| e.to_string())?;
     let frames = dt_project
@@ -149,6 +148,7 @@ pub struct VideoExportOpts {
 #[tauri::command]
 pub async fn create_video_from_frames(
     app: tauri::AppHandle,
+    dtp: State<'_, DTPService>,
     opts: VideoExportOpts,
 ) -> Result<String, String> {
     // -------------------------------------------------
@@ -183,6 +183,7 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     let (frame_count, _) = save_all_clip_frames(
         app.clone(),
+        dtp,
         FramesExportOpts {
             image_id: opts.image_id,
             output_dir: temp_dir.to_str().unwrap().to_string(),

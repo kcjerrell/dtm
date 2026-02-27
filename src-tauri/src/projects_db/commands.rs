@@ -57,10 +57,11 @@ fn update_tags(app_handle: &tauri::AppHandle, tag: &str, data: Value) {
 )]
 pub async fn projects_db_project_add(
     app_handle: tauri::AppHandle,
+    watch_folder_id: i64,
     path: String,
 ) -> Result<ProjectExtra, String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let project = pdb.add_project(&path).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
+    let project = pdb.add_project(watch_folder_id, &path).await?;
     update_tags(
         &app_handle,
         "projects",
@@ -72,15 +73,15 @@ pub async fn projects_db_project_add(
 }
 
 #[dtm_command(
-    ok = |ctx| format!("removed project {}", project_name(&ctx.path)),
-    err = |ctx| format!("error removing project {}: {}", project_name(&ctx.path), ctx.res)
+    ok = |ctx| format!("removed project {}", ctx.id),
+    err = |ctx| format!("error removing project {}: {}", ctx.id, ctx.res)
 )]
 pub async fn projects_db_project_remove(
     app_handle: tauri::AppHandle,
-    path: String,
+    id: i64,
 ) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let result = pdb.remove_project(&path).await.map_err(|e| e.to_string())?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
+    let result = pdb.remove_project(id).await.map_err(|e| e.to_string())?;
 
     match result {
         Some(id) => {
@@ -101,8 +102,8 @@ pub async fn projects_db_project_remove(
 pub async fn projects_db_project_list(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<ProjectExtra>, String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    let projects = pdb.list_projects().await.unwrap();
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
+    let projects = pdb.list_projects(None).await.unwrap();
     Ok(projects)
 }
 
@@ -112,7 +113,7 @@ pub async fn projects_db_project_update_exclude(
     id: i32,
     exclude: bool,
 ) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     pdb.update_exclude(id, exclude)
         .await
         .map_err(|e| e.to_string())?;
@@ -124,11 +125,11 @@ pub async fn projects_db_project_update_exclude(
 #[dtm_command]
 pub async fn projects_db_project_bulk_update_missing_on(
     app_handle: tauri::AppHandle,
-    paths: Vec<String>,
-    missing_on: Option<i64>,
+    watch_folder_id: i64,
+    is_missing: bool,
 ) -> Result<(), String> {
-    let pdb = ProjectsDb::get_or_init(&app_handle).await?;
-    pdb.bulk_update_missing_on(paths, missing_on)
+    let pdb = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
+    pdb.bulk_update_missing_on(watch_folder_id, is_missing)
         .await
         .map_err(|e| e.to_string())?;
     invalidate_tags(&app_handle, "projects", "bulk_update");
@@ -136,17 +137,17 @@ pub async fn projects_db_project_bulk_update_missing_on(
 }
 
 #[dtm_command(
-    ok = |ctx| format!("scanned project {}", project_name(&ctx.path)),
-    err = |ctx| format!("error scanning project {}: {}", project_name(&ctx.path), ctx.res)
+    ok = |ctx| format!("scanned project {}", ctx.id),
+    err = |ctx| format!("error scanning project {}: {}", ctx.id, ctx.res)
 )]
 pub async fn projects_db_project_scan(
     app: tauri::AppHandle,
-    path: String,
+    id: i64,
     full_scan: Option<bool>,
-    _filesize: Option<i64>,
-    _modified: Option<i64>,
+    filesize: Option<i64>,
+    modified: Option<i64>,
 ) -> Result<i32, String> {
-    let pdb = ProjectsDb::get_or_init(&app).await?;
+    let pdb = ProjectsDb::get_or_init(&app.clone().into()).await?;
     // let update = |images_scanned: i32, images_total: i32| {
     //     app.emit(
     //         "projects_db_scan_progress",
@@ -162,20 +163,17 @@ pub async fn projects_db_project_scan(
     //     .unwrap();
     // };
     let result: Result<(i64, u64), String> = pdb
-        .scan_project(&path, full_scan.unwrap_or(false))
+        .scan_project(id, full_scan.unwrap_or(false))
         .await
         .map_err(|e| e.to_string());
 
     match result {
         Ok((_id, total)) => {
-            let project = pdb
-                .update_project(&path, _filesize, _modified)
-                .await
-                .map_err(|e| e.to_string())?;
+            let project = pdb.get_project(_id).await.map_err(|e| e.to_string())?;
 
             if total > 0 {
                 let project = pdb
-                    .get_project(project.id)
+                    .update_project(project.id, filesize, modified)
                     .await
                     .map_err(|e| e.to_string())?;
 
@@ -200,7 +198,7 @@ pub async fn projects_db_project_scan(
             Ok(total as i32)
         }
         Err(err) => {
-            log::error!("Error scanning project {}: {}", path, err);
+            log::error!("Error scanning project {}: {}", id, err);
             Err(err.to_string())
         }
     }
@@ -220,7 +218,7 @@ pub async fn projects_db_image_list(
     show_video: Option<bool>,
     show_image: Option<bool>,
 ) -> Result<ListImagesResult, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let opts = ListImagesOptions {
         project_ids,
         search,
@@ -238,17 +236,32 @@ pub async fn projects_db_image_list(
 }
 
 #[dtm_command]
+pub async fn projects_db_image_find_by_preview_id(
+    app: tauri::AppHandle,
+    project_id: i64,
+    preview_id: i64,
+) -> Result<Option<crate::projects_db::dtos::image::ImageExtra>, String> {
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
+    let image = projects_db
+        .find_image_by_preview_id(project_id, preview_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(image)
+}
+
+#[dtm_command]
 pub async fn projects_db_get_clip(
     app_handle: tauri::AppHandle,
     image_id: i64,
 ) -> Result<Vec<TensorHistoryClip>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app_handle).await?;
+    let projects_db = ProjectsDb::get_or_init(&app_handle.clone().into()).await?;
     projects_db.get_clip(image_id).await
 }
 
 #[dtm_command]
 pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     projects_db.rebuild_images_fts().await.unwrap();
     Ok(())
 }
@@ -257,7 +270,7 @@ pub async fn projects_db_image_rebuild_fts(app: tauri::AppHandle) -> Result<(), 
 pub async fn projects_db_watch_folder_list(
     app: tauri::AppHandle,
 ) -> Result<Vec<WatchFolderDTO>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     Ok(projects_db.list_watch_folders().await.unwrap())
 }
 
@@ -268,11 +281,12 @@ pub async fn projects_db_watch_folder_list(
 pub async fn projects_db_watch_folder_add(
     app: tauri::AppHandle,
     path: String,
+    bookmark: String,
     recursive: bool,
 ) -> Result<WatchFolderDTO, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let result = projects_db
-        .add_watch_folder(&path, recursive)
+        .add_watch_folder(&path, &bookmark, recursive)
         .await
         .unwrap();
 
@@ -286,7 +300,7 @@ pub async fn projects_db_watch_folder_remove(
     app: tauri::AppHandle,
     ids: Vec<i64>,
 ) -> Result<(), String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     projects_db.remove_watch_folders(ids).await.unwrap();
     invalidate_tags(&app, "watchfolders", "remove");
     Ok(())
@@ -299,7 +313,7 @@ pub async fn projects_db_watch_folder_update(
     recursive: Option<bool>,
     last_updated: Option<i64>,
 ) -> Result<WatchFolderDTO, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let result = projects_db
         .update_watch_folder(id, recursive, last_updated)
         .await
@@ -317,7 +331,7 @@ pub async fn projects_db_scan_model_info(
     file_path: String,
     model_type: entity::enums::ModelType,
 ) -> Result<usize, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let count = projects_db
         .scan_model_info(&file_path, model_type)
         .await
@@ -335,7 +349,7 @@ pub async fn projects_db_list_models(
     app: tauri::AppHandle,
     model_type: Option<entity::enums::ModelType>,
 ) -> Result<Vec<ModelExtra>, String> {
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     Ok(projects_db
         .list_models(model_type)
         .await
@@ -344,11 +358,12 @@ pub async fn projects_db_list_models(
 
 #[dtm_command]
 pub async fn dt_project_get_tensor_history(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     index: u32,
     count: usize,
 ) -> Result<Vec<TensorHistoryImport>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
+    let project = get_project(app, project_id).await?;
     match project.get_histories(index as i64, count).await {
         Ok(history) => Ok(history),
         Err(_e) => Ok(Vec::new()),
@@ -357,102 +372,120 @@ pub async fn dt_project_get_tensor_history(
 
 #[dtm_command]
 pub async fn dt_project_get_text_history(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
 ) -> Result<Vec<TextHistoryNodeDTO>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project.get_text_history().await.unwrap())
+    let project = get_project(app, project_id).await?;
+    Ok(project
+        .get_text_history()
+        .await
+        .map_err(|e| e.to_string())?)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_thumb_half(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     thumb_id: i64,
 ) -> Result<Vec<u8>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    Ok(project.get_thumb_half(thumb_id).await.unwrap())
+    let project = get_project(app, project_id).await?;
+    Ok(project
+        .get_thumb_half(thumb_id)
+        .await
+        .map_err(|e| e.to_string())?)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_history_full(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     row_id: i64,
 ) -> Result<TensorHistoryExtra, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
-    let history = project.get_history_full(row_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let history = project
+        .get_history_full(row_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(history)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_tensor_raw(
     app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
+    project_id: i64,
     tensor_id: String,
 ) -> Result<TensorRaw, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let tensor = project
+        .get_tensor_raw(&tensor_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(tensor)
 }
 
 #[dtm_command]
 pub async fn dt_project_get_tensor_size(
     app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_path: Option<String>,
+    project_id: i64,
     tensor_id: String,
 ) -> Result<TensorSize, String> {
-    let project = get_project(app, project_path, project_id).await.unwrap();
-    let tensor = project.get_tensor_size(&tensor_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let tensor = project
+        .get_tensor_size(&tensor_id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(tensor)
 }
 
 #[dtm_command]
 pub async fn dt_project_decode_tensor(
     app: tauri::AppHandle,
-    project_id: Option<i64>,
-    project_file: Option<String>,
+    project_id: i64,
     node_id: Option<i64>,
     tensor_id: String,
     as_png: bool,
 ) -> Result<tauri::ipc::Response, String> {
-    let project = get_project(app, project_file, project_id).await.unwrap();
-    let tensor = project.get_tensor_raw(&tensor_id).await.unwrap();
+    let project = get_project(app, project_id).await?;
+    let tensor = project
+        .get_tensor_raw(&tensor_id)
+        .await
+        .map_err(|e| e.to_string())?;
     let metadata = match node_id {
-        Some(node) => Some(project.get_history_full(node).await.unwrap().history),
+        Some(node) => Some(
+            project
+                .get_history_full(node)
+                .await
+                .map_err(|e| e.to_string())?
+                .history,
+        ),
         None => None,
     };
 
-    let buffer = decode_tensor(tensor, as_png, metadata, None).unwrap();
+    let buffer = decode_tensor(tensor, as_png, metadata, None).map_err(|e| e.to_string())?;
     Ok(tauri::ipc::Response::new(buffer))
 }
 
 #[dtm_command]
 pub async fn dt_project_find_predecessor_candidates(
-    project_file: String,
+    app: tauri::AppHandle,
+    project_id: i64,
     row_id: i64,
     lineage: i64,
     logical_time: i64,
 ) -> Result<Vec<TensorHistoryExtra>, String> {
-    let project = DTProject::get(&project_file).await.unwrap();
+    let project = get_project(app, project_id).await?;
     Ok(project
         .find_predecessor_candidates(row_id, lineage, logical_time)
         .await
-        .unwrap())
+        .map_err(|e| e.to_string())?)
 }
 
 async fn get_project(
     app: tauri::AppHandle,
-    project_path: Option<String>,
-    project_id: Option<i64>,
+    project_id: i64,
 ) -> Result<std::sync::Arc<DTProject>, String> {
-    let project_ref = match project_id {
-        Some(pid) => ProjectRef::Id(pid),
-        None => match project_path {
-            Some(path) => ProjectRef::Path(path),
-            None => return Err("No project specified".to_string()),
-        },
-    };
-    let projects_db = ProjectsDb::get_or_init(&app).await?;
+    let project_ref = ProjectRef::Id(project_id);
+    let projects_db = ProjectsDb::get_or_init(&app.clone().into()).await?;
     let project = projects_db.get_dt_project(project_ref).await?;
     Ok(project)
 }

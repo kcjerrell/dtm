@@ -1,7 +1,14 @@
+mod common;
+
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    use dtm_lib::dtp_service::AppHandleWrapper;
+    use dtm_lib::dtp_service::DTPService;
+
+    use crate::common::projects::WATCHFOLDER_A;
+    use crate::common::*;
+
+    #[tokio::test]
+    async fn projects_test() {
     }
 }

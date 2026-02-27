@@ -1,12 +1,12 @@
+use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use sea_orm::DbErr;
-use std::{collections::HashMap, sync::RwLock};
 use tauri::{
     http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
 };
 
 use crate::projects_db::{
+    projects_db::MixedError,
     tensors::{decode_tensor, scribble_mask_to_png},
     DTProject, ProjectsDb,
 };
@@ -21,8 +21,7 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
 
-static PROJECT_PATH_CACHE: Lazy<RwLock<HashMap<i64, String>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
 #[derive(Default)]
 struct DTPRequest {
@@ -64,68 +63,98 @@ fn parse_request(uri: &Uri) -> Option<DTPRequest> {
     Some(req)
 }
 
-pub async fn dtm_dtproject_protocol<T>(request: http::Request<T>, responder: UriSchemeResponder) {
-    let response = match handle_request(request).await {
-        Ok(r) => r,
-        Err(e) => {
-            log::error!("DTM Protocol Error: {}", e);
-            // Response::builder()
-            //     .status(StatusCode::INTERNAL_SERVER_ERROR)
-            //     .body(e.into_bytes())
-            //     .unwrap()
-        Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "image/svg+xml")
-        .body(MISSING_SVG.as_bytes().to_vec())
-        .unwrap()
+pub struct DtmProtocol {
+    pdb: ProjectsDb,
+}
+
+impl DtmProtocol {
+    pub fn new(pdb: ProjectsDb) -> Self {
+        Self { pdb }
+    }
+
+    pub async fn dtm_dtproject_protocol<T>(
+        &self,
+        request: http::Request<T>,
+        responder: UriSchemeResponder,
+    ) {
+        let response = match self.handle_request(request).await {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("DTM Protocol Error: {}", e);
+                // Response::builder()
+                //     .status(StatusCode::INTERNAL_SERVER_ERROR)
+                //     .body(e.into_bytes())
+                //     .unwrap()
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "image/svg+xml")
+                    .body(MISSING_SVG.as_bytes().to_vec())
+                    .unwrap()
+            }
+        };
+
+        responder.respond(response);
+    }
+
+    async fn handle_request<T>(
+        &self,
+        request: http::Request<T>,
+    ) -> Result<Response<Vec<u8>>, String> {
+        let req = parse_request(request.uri());
+
+        if req.is_none() {
+            return Ok(Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body("Invalid path format".as_bytes().to_vec())
+                .map_err(|e| e.to_string())?);
         }
 
-    };
+        let req = req.unwrap();
 
-    responder.respond(response);
-}
+        let item_type = req.item_type;
+        let project_id: i64 = req.project_id;
 
-async fn handle_request<T>(request: http::Request<T>) -> Result<Response<Vec<u8>>, String> {
-    let req = parse_request(request.uri());
+        let project_path = self
+            .get_project_path(project_id)
+            .await
+            .map_err(|e| format!("Failed to get project path: {}", e))?;
 
-    if req.is_none() {
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body("Invalid path format".as_bytes().to_vec())
-            .map_err(|e| e.to_string())?);
+        let item_id = req.item_id;
+
+        let node = req.node;
+        let scale = req.scale;
+        let invert = req.invert;
+        let mask = req.mask;
+        match item_type.as_str() {
+            "thumb" => thumb(&project_path, &item_id, false).await,
+            "thumbhalf" => thumb(&project_path, &item_id, true).await,
+            "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
+            _ => Ok(Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body("Not Found".as_bytes().to_vec())
+                .map_err(|e| e.to_string())?),
+        }
     }
 
-    let req = req.unwrap();
+    async fn get_project_path(&self, project_id: i64) -> Result<String, MixedError> {
+        if let Some(path) = PROJECT_PATH_CACHE.get(&project_id) {
+            return Ok(path.clone());
+        }
 
-    let item_type = req.item_type;
-    let project_id: i64 = req.project_id;
-
-    let project_path = get_project_path(project_id)
-        .await
-        .map_err(|e| format!("Failed to get project path: {}", e))?;
-
-    let item_id = req.item_id;
-
-    let node = req.node;
-    let scale = req.scale;
-    let invert = req.invert;
-    let mask = req.mask;
-
-    match item_type.as_str() {
-        "thumb" => thumb(&project_path, &item_id, false).await,
-        "thumbhalf" => thumb(&project_path, &item_id, true).await,
-        "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
-        _ => Ok(Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body("Not Found".as_bytes().to_vec())
-            .map_err(|e| e.to_string())?),
+        let project = self.pdb.get_project(project_id).await?;
+        PROJECT_PATH_CACHE.insert(project_id, project.full_path.clone());
+        Ok(project.full_path)
     }
 }
 
-async fn thumb(path: &str, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
+async fn thumb(
+    full_project_path: &str,
+    item_id: &str,
+    half: bool,
+) -> Result<Response<Vec<u8>>, String> {
     let id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
-    let dtp = DTProject::get(path)
+    let dtp = DTProject::get(full_project_path)
         .await
         .map_err(|e| format!("Failed to open project: {}", e))?;
 
@@ -148,14 +177,14 @@ async fn thumb(path: &str, item_id: &str, half: bool) -> Result<Response<Vec<u8>
 }
 
 async fn tensor(
-    project_file: &str,
+    full_project_path: &str,
     name: &str,
     node: Option<i64>,
     scale: Option<u32>,
     invert: Option<bool>,
     _mask: Option<String>,
 ) -> Result<Response<Vec<u8>>, String> {
-    let dtp = DTProject::get(project_file)
+    let dtp = DTProject::get(full_project_path)
         .await
         .map_err(|e| format!("Failed to open project: {}", e))?;
 
@@ -206,20 +235,6 @@ async fn tensor(
             )
             .map_err(|e| e.to_string()),
     }
-}
-
-async fn get_project_path(project_id: i64) -> Result<String, DbErr> {
-    if let Some(path) = PROJECT_PATH_CACHE.read().unwrap().get(&project_id).cloned() {
-        return Ok(path);
-    }
-
-    let pdb = ProjectsDb::get().map_err(|e| DbErr::Custom(e.to_string()))?;
-    let project = pdb.get_project(project_id).await?;
-    PROJECT_PATH_CACHE
-        .write()
-        .unwrap()
-        .insert(project_id, project.path.clone());
-    Ok(project.path)
 }
 
 fn classify_type(s: &str) -> Option<&str> {

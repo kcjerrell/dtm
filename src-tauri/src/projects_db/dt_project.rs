@@ -10,36 +10,88 @@ use crate::projects_db::{
     tensor_history_tensor_data::TensorHistoryTensorData,
     TextHistory,
 };
-use moka::future::Cache;
+use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use serde::Serialize;
-use sqlx::{query, query_as, sqlite::SqliteRow, Error, Row, SqlitePool};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use sqlx::{
+    query, query_as,
+    sqlite::{SqliteConnection, SqliteRow},
+    Connection, Error, Row, SqlitePool,
+};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 use tokio::sync::OnceCell;
 
-static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
-    Cache::builder()
-        .max_capacity(16)
-        // caching database connections for 3 seconds, so images can be loaded in bulk
-        // from separate requests. Closing them early to avoid locks, in case project
-        // is renamed in DT
-        .time_to_idle(std::time::Duration::from_secs(3))
-        .build()
-});
+/// TTL for cached projects. After this duration of no access, the project is evicted.
+const CACHE_TTL: Duration = Duration::from_secs(3);
+/// Grace period after removing from cache before closing the pool,
+/// allowing in-flight queries to complete.
+const DRAIN_GRACE: Duration = Duration::from_millis(500);
+
+static PROJECT_CACHE: Lazy<DashMap<String, Arc<OnceCell<Arc<CachedProject>>>>> =
+    Lazy::new(DashMap::new);
+
+struct CachedProject {
+    project: Arc<DTProject>,
+    generation: AtomicU64,
+}
 
 pub struct DTProject {
-    pool: SqlitePool,
+    pool: Arc<SqlitePool>,
     path: String,
-    has_tensor_history: AtomicBool,
-    has_text_history: AtomicBool,
-    has_moodboard: AtomicBool,
-    has_tensors: AtomicBool,
+    pub tables: Arc<OnceCell<DTProjectTableStatus>>,
+    pub text_history: Arc<OnceCell<TextHistory>>,
+}
 
-    has_thumbs: AtomicBool,
-    pub text_history: OnceCell<TextHistory>,
+pub async fn close_folder(folder_path: &str) {
+    let to_remove: Vec<String> = PROJECT_CACHE
+        .iter()
+        .filter(|entry| entry.key().starts_with(folder_path))
+        .map(|entry| entry.key().clone())
+        .collect();
+
+    for key in to_remove {
+        if let Some((_, cell)) = PROJECT_CACHE.remove(&key) {
+            if let Some(cached) = cell.get() {
+                let pool = cached.project.pool.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(DRAIN_GRACE).await;
+                    pool.close().await;
+                });
+            }
+        }
+    }
+}
+
+fn schedule_eviction(path: String, generation: u64) {
+    tokio::spawn(async move {
+        tokio::time::sleep(CACHE_TTL).await;
+
+        // Only evict if no one has accessed it since we were scheduled
+        let should_evict = PROJECT_CACHE
+            .get(&path)
+            .and_then(|cell| cell.get().map(|c| c.generation.load(Ordering::Relaxed) == generation))
+            .unwrap_or(false);
+
+        if should_evict {
+            if let Some((_, cell)) = PROJECT_CACHE.remove(&path) {
+                if let Some(cached) = cell.get() {
+                    let pool = cached.project.pool.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(DRAIN_GRACE).await;
+                        pool.close().await;
+                    });
+                }
+            }
+        }
+    });
 }
 
 #[derive(Debug, Serialize)]
@@ -51,83 +103,110 @@ enum DTProjectTable {
     Thumbs,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct DTProjectTableStatus {
+    pub has_tensor_history: bool,
+    pub has_text_history: bool,
+    pub has_moodboard: bool,
+    pub has_tensors: bool,
+    pub has_thumbs: bool,
+}
+
 impl DTProject {
     pub async fn new(db_path: &str) -> Result<Self, Error> {
         let connect_string = format!("sqlite:{}?mode=ro", db_path);
         let pool = SqlitePool::connect(&connect_string).await?;
 
         let dtp = Self {
-            pool,
+            pool: Arc::new(pool),
             path: db_path.to_string(),
-            has_tensor_history: AtomicBool::new(false),
-            has_text_history: AtomicBool::new(false),
-            has_moodboard: AtomicBool::new(false),
-            has_tensors: AtomicBool::new(false),
-
-            has_thumbs: AtomicBool::new(false),
-            text_history: OnceCell::new(),
+            tables: Arc::new(OnceCell::new()),
+            text_history: Arc::new(OnceCell::new()),
         };
 
         dtp.check_tables().await?;
-
         Ok(dtp)
     }
 
     pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
-        let arc = PROJECT_CACHE
-            .try_get_with(path.to_string(), async move {
-                let proj = DTProject::new(path).await?;
-                Ok::<_, Error>(Arc::new(proj))
+        let cell = PROJECT_CACHE
+            .entry(path.to_string())
+            .or_insert_with(|| Arc::new(OnceCell::new()))
+            .clone();
+
+        let result = cell
+            .get_or_try_init(|| async {
+                let project = Arc::new(DTProject::new(path).await?);
+                Ok::<Arc<CachedProject>, Error>(Arc::new(CachedProject {
+                    project,
+                    generation: AtomicU64::new(0),
+                }))
             })
-            .await
-            .map_err(|e| Error::Protocol(e.to_string()))?;
+            .await;
 
-        Ok(arc)
-    }
-
-    pub async fn check_tables(&self) -> Result<(), Error> {
-        let tables: Vec<(String,)> =
-            sqlx::query_as::<_, (String,)>("SELECT name FROM sqlite_master WHERE type='table';")
-                .fetch_all(&self.pool)
-                .await?;
-
-        for table in tables {
-            match table.0.as_str() {
-                "tensorhistorynode" => self.has_tensor_history.store(true, Ordering::Relaxed),
-                "tensormoodboarddata" => self.has_moodboard.store(true, Ordering::Relaxed),
-                "tensors" => self.has_tensors.store(true, Ordering::Relaxed),
-                "thumbnailhistorynode" => self.has_thumbs.store(true, Ordering::Relaxed),
-                "texthistorynode" => self.has_text_history.store(true, Ordering::Relaxed),
-                _ => {}
+        match result {
+            Ok(cached) => {
+                let gen = cached.generation.fetch_add(1, Ordering::Relaxed) + 1;
+                schedule_eviction(path.to_string(), gen);
+                Ok(cached.project.clone())
+            }
+            Err(e) => {
+                // Remove the empty OnceCell so the next caller retries fresh
+                PROJECT_CACHE.remove(path);
+                Err(e)
             }
         }
-
-        Ok(())
     }
 
-    fn has_table(&self, table: &DTProjectTable) -> bool {
-        match table {
-            DTProjectTable::TensorHistory => self.has_tensor_history.load(Ordering::Relaxed),
-            DTProjectTable::TextHistory => self.has_text_history.load(Ordering::Relaxed),
-            DTProjectTable::Moodboard => self.has_moodboard.load(Ordering::Relaxed),
-            DTProjectTable::Tensors => self.has_tensors.load(Ordering::Relaxed),
-            DTProjectTable::Thumbs => self.has_thumbs.load(Ordering::Relaxed),
-        }
+    pub async fn check_tables(&self) -> Result<&DTProjectTableStatus, Error> {
+        let status = self
+            .tables
+            .get_or_try_init::<DTProjectTableStatus, _, _>(async || {
+                let tables: Vec<(String,)> = sqlx::query_as::<_, (String,)>(
+                    "SELECT name FROM sqlite_master WHERE type='table';",
+                )
+                .fetch_all(&*self.pool)
+                .await
+                .unwrap();
+
+                let mut status = DTProjectTableStatus::default();
+
+                for table in tables {
+                    match table.0.as_str() {
+                        "tensorhistorynode" => {
+                            status.has_tensor_history = true;
+                        }
+                        "tensormoodboarddata" => status.has_moodboard = true,
+                        "tensors" => status.has_tensors = true,
+                        "thumbnailhistorynode" => status.has_thumbs = true,
+                        "texthistorynode" => status.has_text_history = true,
+                        _ => {}
+                    }
+                }
+                Ok(status)
+            })
+            .await
+            .unwrap();
+
+        Ok(status)
     }
 
     async fn check_table(&self, table: &DTProjectTable) -> Result<bool, Error> {
-        if self.has_table(table) {
-            return Ok(true);
+        let status = self.check_tables().await?;
+
+        let has_table = match table {
+            DTProjectTable::TensorHistory => status.has_tensor_history,
+            DTProjectTable::TextHistory => status.has_text_history,
+            DTProjectTable::Moodboard => status.has_moodboard,
+            DTProjectTable::Tensors => status.has_tensors,
+            DTProjectTable::Thumbs => status.has_thumbs,
+        };
+
+        if !has_table {
+            return Err(Error::Protocol("Table not found".to_string()));
         }
 
-        self.check_tables().await?;
-        match self.has_table(table) {
-            true => Ok(true),
-            false => Err(Error::from(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Table not found",
-            ))),
-        }
+        Ok(has_table)
     }
 
     pub async fn get_fingerprint(&self) -> Result<String, Error> {
@@ -143,7 +222,7 @@ impl DTProject {
                         LIMIT 5
                     )",
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&*self.pool)
         .await?;
 
         let fingerprint: String = row.get(0);
@@ -170,7 +249,7 @@ impl DTProject {
             query_as(&full_query_where("thn.rowid >= ?1 AND thn.rowid < ?2"))
                 .bind(first_id)
                 .bind(first_id + count as i64)
-                .fetch_all(&self.pool)
+                .fetch_all(&*self.pool)
                 .await?;
 
         let grouper = TensorNodeGrouper::new(&result);
@@ -231,7 +310,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT type, format, datatype, dim, data FROM tensors WHERE name = ?1")
             .bind(name)
-            .fetch_one(&self.pool)
+            .fetch_one(&*self.pool)
             .await?;
 
         let tensor_type: i64 = row.get(0);
@@ -261,7 +340,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT datatype, dim FROM tensors WHERE name = ?1")
             .bind(name)
-            .fetch_one(&self.pool)
+            .fetch_one(&*self.pool)
             .await?;
 
         let datatype: i64 = row.get(0);
@@ -311,7 +390,7 @@ impl DTProject {
         let result = query(
             "SELECT COUNT(*) AS total_count, MAX(rowid) AS last_rowid FROM tensorhistorynode;",
         )
-        .fetch_one(&self.pool)
+        .fetch_one(&*self.pool)
         .await?;
 
         Ok(DTProjectInfo {
@@ -325,7 +404,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistoryhalfnode WHERE __pk0 = ?1")
             .bind(thumb_id)
-            .fetch_one(&self.pool)
+            .fetch_one(&*self.pool)
             .await?;
         let thumbnail: Vec<u8> = result.get(0);
         Ok(thumbnail)
@@ -335,7 +414,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistorynode WHERE __pk0 = ?1")
             .bind(thumb_id)
-            .fetch_one(&self.pool)
+            .fetch_one(&*self.pool)
             .await?;
         let thumbnail: Vec<u8> = result.get(0);
         Ok(thumbnail)
@@ -346,7 +425,7 @@ impl DTProject {
         node_id: i64,
     ) -> Result<Vec<TensorHistoryClip>, Error> {
         self.check_table(&DTProjectTable::TensorHistory).await?;
-        
+
         let history = self.get_history_full(node_id).await?;
         let num_frames = history.history.num_frames;
 
@@ -354,7 +433,7 @@ impl DTProject {
             .bind(node_id)
             .bind(node_id + num_frames as i64)
             .map(|row: SqliteRow| self.map_clip(row))
-            .fetch_all(&self.pool)
+            .fetch_all(&*self.pool)
             .await?;
 
         Ok(items)
@@ -368,7 +447,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorHistory).await?;
         let result: Vec<TensorHistoryTensorData> = query_as(&full_query_where("thn.rowid == ?1"))
             .bind(row_id)
-            .fetch_all(&self.pool)
+            .fetch_all(&*self.pool)
             .await?;
 
         let mut item = TensorHistoryExtra::from((result, self.path.clone()));
@@ -463,7 +542,7 @@ impl DTProject {
         .bind(lineage)
         .bind(logical_time)
         .map(|row: SqliteRow| row.get(0))
-        .fetch_all(&self.pool)
+        .fetch_all(&*self.pool)
         .await?;
 
         Ok(shuffle_ids)
@@ -483,7 +562,7 @@ impl DTProject {
             .bind(logical_time - 1)
             .bind(row_id)
             .map(|row: SqliteRow| self.map_full(row))
-            .fetch_all(&self.pool)
+            .fetch_all(&*self.pool)
             .await?;
 
         let mut same_lineage: Option<&TensorHistoryExtra> = None;
@@ -552,11 +631,21 @@ impl DTProject {
                 let p: Vec<u8> = row.get(0);
                 TextHistoryNode::try_from(p.as_slice()).unwrap()
             })
-            .fetch_all(&self.pool)
+            .fetch_all(&*self.pool)
             .await?;
 
         Ok(items)
     }
+}
+
+pub async fn get_last_row(path: &str) -> Result<(i64, i64), Error> {
+    let connect_string = format!("sqlite:{}?mode=ro", path);
+    let mut conn = SqliteConnection::connect(&connect_string).await?;
+    let row = query("SELECT max(rowid) FROM tensorhistorynode")
+        .fetch_one(&mut conn)
+        .await?;
+    let rowid: i64 = row.get(0);
+    Ok((rowid, rowid))
 }
 
 fn import_query(has_moodboard: bool) -> String {
@@ -674,7 +763,6 @@ fn full_query_where(where_expr: &str) -> String {
 }
 
 pub enum ProjectRef {
-    Path(String),
     Id(i64),
 }
 

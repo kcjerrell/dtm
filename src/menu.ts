@@ -14,11 +14,11 @@ import { subscribe } from "valtio"
 import { toggleColorMode } from "./components/ui/color-mode"
 import { postMessage } from "./context/Messages"
 import AppStore from "./hooks/appState"
+import { loadImage2 } from "./metadata/state/imageLoaders"
+import { clearAll, clearCurrent, createImageItem } from "./metadata/state/metadataStore"
 import { themeHelpers } from "./theme/helpers"
 import { getLocalImage } from "./utils/clipboard"
 import { viewDescription } from "./views"
-import { clearAll, clearCurrent, createImageItem, getMetadataStore } from './metadata/state/store'
-import { loadImage2 } from './metadata/state/imageLoaders'
 
 const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
 
@@ -106,14 +106,10 @@ const fileSubmenu = await Submenu.new({
                 if (imagePath == null) return
                 const image = await getLocalImage(imagePath)
                 if (image)
-                    await createImageItem(
-                        image,
-                        await pathLib.extname(imagePath),
-                        {
-                            source: "open",
-                            file: imagePath,
-                        },
-                    )
+                    await createImageItem(image, await pathLib.extname(imagePath), {
+                        source: "open",
+                        file: imagePath,
+                    })
             },
         }),
         await MenuItem.new({

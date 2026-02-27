@@ -30,7 +30,11 @@ function DTProjects(props: ChakraProps) {
 
     return (
         <Container position={"relative"} {...restProps}>
-            <ImportProgress open={uiSnap.importLock} />
+            <ImportProgress
+                open={uiSnap.importLock}
+                progress={uiSnap.importProgress}
+                key={`import-lock-${uiSnap.importLockCount}`}
+            />
             <ControlPane />
             <Panel
                 id={"project-content-pane"}

@@ -1,3 +1,10 @@
-export * from './projects'
-export * from './vid'
-export * from './bookmarks'
+// export * from './projects'
+
+export * from "./bookmarks"
+export * from "./vid"
+
+import DtpService from "./DtpService"
+
+export * from "./DtpServiceTypes"
+
+export { DtpService }

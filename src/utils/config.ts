@@ -1,4 +1,4 @@
-import type { TensorHistoryNode } from "@/generated/types"
+import type { XTensorHistoryNode as TensorHistoryNode } from "@/commands"
 import { type DrawThingsConfigGrouped, type DrawThingsMetaData, SeedModeLabels } from "@/types"
 
 export function extractConfigFromTensorHistoryNode(
@@ -16,7 +16,7 @@ export function extractConfigFromTensorHistoryNode(
         clipLText: node.clip_l_text ?? "",
         clipSkip: node.clip_skip,
         clipWeight: node.clip_weight,
-        controls: node.controls ?? [],
+        controls: node.controls as DrawThingsMetaData["config"]["controls"]?? [],
         cropLeft: node.crop_left,
         cropTop: node.crop_top,
         decodingTileHeight: node.decoding_tile_height * 64,

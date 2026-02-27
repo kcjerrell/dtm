@@ -4,14 +4,18 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 #[sea_orm::model]
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "watch_folders")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
     pub path: String,
+    pub bookmark: String,
     pub recursive: Option<bool>,
-    pub last_updated: Option<i64>,
+    pub is_missing: bool,
+    pub is_locked: bool,
+    #[sea_orm(has_many)]
+    pub projects: HasMany<super::projects::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

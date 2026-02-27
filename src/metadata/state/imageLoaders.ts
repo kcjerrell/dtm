@@ -1,5 +1,6 @@
 import * as pathlib from "@tauri-apps/api/path"
 import plist from "plist"
+import { DtpService } from "@/commands"
 import { postMessage } from "@/context/Messages"
 import {
     fetchImage,
@@ -12,7 +13,7 @@ import { settledValues } from "@/utils/helpers"
 import { drawPose } from "@/utils/pose"
 import { isOpenPose } from "@/utils/poseHelpers"
 import type { ImageItem } from "./ImageItem"
-import { createImageItem } from "./store"
+import { createImageItem } from "./metadataStore"
 
 const prioritizedTypes = [
     "NSFilenamesPboardType",
@@ -50,13 +51,15 @@ export async function loadImage2(pasteboard: "general" | "drag") {
 
         const data = await getType(type)
         if (!data) continue
-
+        console.log("loadimage", data)
         if (isPose(type, data as string)) {
             return createImageFromPose(data as string)
         }
 
         if (typeof data === "string") {
+            console.log("trying to load from text")
             const images = await tryLoadText(data, type, source, checked)
+            console.log(images.length)
             if (images.length > 1) return true
             if (images.length === 1 && images[0].dtData) return true
             if (type === "NSFilenamesPboardType") {
@@ -82,7 +85,19 @@ async function tryLoadText(
     source: "clipboard" | "drop",
     excludeMut: string[] = [],
 ): Promise<ImageItem[]> {
-    const { files, urls } = parseText(text, type)
+    const { files, urls, dtpImage } = parseText(text, type)
+
+    if (dtpImage) {
+        const dtpResult = await loadDtpImage(dtpImage)
+        if (dtpResult) {
+            const item = await createImageItem(dtpResult.image, "png", {
+                source,
+                projectFile: dtpResult.projectFile,
+            })
+            if (item) return [item]
+        }
+    }
+
     const items = [] as Parameters<typeof createImageItem>[]
 
     for (const file of files) {
@@ -137,7 +152,7 @@ async function tryLoadText(
 
     if (!items.length) return []
 
-    return settledValues(items.map((item) => createImageItem(...item)))
+    return await settledValues(items.map((item) => createImageItem(...item)))
 }
 
 export function parseText(value: string, type: string) {
@@ -239,9 +254,20 @@ export function getLocalPath(path: string) {
     return null
 }
 
-function extractPaths(text: string): { files: string[]; urls: string[] } {
+function extractPaths(text: string): {
+    files: string[]
+    urls: string[]
+    dtpImage?: { projectId: number; imageId: number }
+} {
     const files: string[] = []
     const urls: string[] = []
+
+    const dtpImageRegex = /^dtm:\/\/dtproject\/thumb(?:half)?\/(\d+)\/(\d+)/gm
+    const dtpMatch = dtpImageRegex.exec(text)
+    if (dtpMatch) {
+        const dtpImage = { projectId: Number(dtpMatch[1]), imageId: Number(dtpMatch[2]) }
+        return { files, urls, dtpImage }
+    }
 
     // Regex for detecting quoted or unquoted chunks (handles spaces inside quotes)
     const chunkRegex = /'([^']+)'|"([^"]+)"|(\S+)/g
@@ -287,4 +313,18 @@ function isPose(type: string, text: string) {
 async function createImageFromPose(text: string) {
     const image = await drawPose(JSON.parse(text))
     if (image) await createImageItem(image, "png", { source: "clipboard" })
+}
+
+async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
+    const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
+    if (!imageItem) return
+    const history = await DtpService.getHistoryFull(imageItem.project_id, imageItem.node_id)
+    if (!history || !history.tensor_id) return
+    const image = await DtpService.decodeTensor(
+        imageItem.project_id,
+        history.tensor_id,
+        true,
+        imageItem.node_id,
+    )
+    return { image, projectFile: history.project_path }
 }

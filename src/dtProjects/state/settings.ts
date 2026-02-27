@@ -1,5 +1,4 @@
 import { store } from "@tauri-store/valtio"
-import { resolveBookmark, stopAccessingBookmark } from "@/commands"
 import { DTPStateController } from "./types"
 
 type SettingsControllerState = {
@@ -9,9 +8,6 @@ type SettingsControllerState = {
         framesSource: "preview" | "tensor"
         videoSource: "preview" | "tensor"
         videoFps: number
-    }
-    permissions: {
-        bookmark: string | null
     }
     models: {
         lastUpdated: string
@@ -25,9 +21,6 @@ const defaultState: SettingsControllerState = {
         framesSource: "preview",
         videoSource: "preview",
         videoFps: 16,
-    },
-    permissions: {
-        bookmark: null,
     },
     models: {
         lastUpdated: new Date(0).toISOString(),
@@ -46,7 +39,6 @@ class SettingsController extends DTPStateController<SettingsControllerState> {
 
     constructor() {
         super("settings")
-        console.log("does bookmark exist?", !!this.state.permissions.bookmark)
     }
 
     updateSetting<
@@ -54,22 +46,6 @@ class SettingsController extends DTPStateController<SettingsControllerState> {
         K extends keyof SettingsControllerState[G],
     >(group: G, key: K, value: SettingsControllerState[G][K]) {
         this.state[group][key] = value
-    }
-
-    async setBookmark(bookmark: string) {
-        await this.clearBookmark()
-
-        this.state.permissions.bookmark = bookmark
-        await resolveBookmark(bookmark)
-    }
-
-    async clearBookmark() {
-        const currentBookmark = this.state.permissions.bookmark
-        if (currentBookmark) {
-            await stopAccessingBookmark(currentBookmark)
-        }
-
-        this.state.permissions.bookmark = null
     }
 }
 

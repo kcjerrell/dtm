@@ -1,14 +1,14 @@
 use entity::{
     enums::{ModelType, Sampler},
     images::{self},
-    projects,
+    projects, watch_folders,
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{
     sea_query::{Expr, OnConflict},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, DbErr,
-    EntityTrait, ExprTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait, RelationTrait, Set,
+    EntityTrait, ExprTrait, IntoActiveModel, JoinType, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Set,
 };
 use serde::Deserialize;
 use std::{
@@ -18,17 +18,21 @@ use std::{
 use tauri::Manager;
 use tokio::sync::OnceCell;
 
-use crate::projects_db::{
-    dt_project::{self, ProjectRef},
-    dtos::{
-        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult, Paged},
-        model::ModelExtra,
-        project::ProjectExtra,
-        tensor::{TensorHistoryClip, TensorHistoryImport},
-        watch_folder::WatchFolderDTO,
+use crate::{
+    dtp_service::AppHandleWrapper,
+    projects_db::{
+        dt_project::{self, ProjectRef},
+        dtos::{
+            image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+            model::ModelExtra,
+            project::{ProjectExtra, ProjectRow},
+            tensor::{TensorHistoryClip, TensorHistoryImport},
+            watch_folder::WatchFolderDTO,
+        },
+        folder_cache,
+        search::{self, process_prompt},
+        DTProject,
     },
-    search::{self, process_prompt},
-    DTProject,
 };
 
 static CELL: OnceCell<ProjectsDb> = OnceCell::const_new();
@@ -39,30 +43,85 @@ pub struct ProjectsDb {
     pub db: DatabaseConnection,
 }
 
-fn get_path(app_handle: &tauri::AppHandle) -> String {
-    let app_data_dir = app_handle.path().app_data_dir().unwrap();
+#[cfg(dev)]
+const DB_NAME: &str = "projects4-dev.db";
+#[cfg(not(dev))]
+const DB_NAME: &str = "projects4.db";
+
+fn get_path(app_handle: &AppHandleWrapper) -> String {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
     }
-    let project_db_path = app_data_dir.join("projects3.db");
+    let project_db_path = app_data_dir.join(DB_NAME);
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
-fn check_old_path(app_handle: &tauri::AppHandle) {
-    let app_data_dir = app_handle.path().app_data_dir().unwrap();
+fn check_old_path(app_handle: &AppHandleWrapper) {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
     let old_path = app_data_dir.join("projects2.db");
+    if old_path.exists() {
+        fs::remove_file(old_path).unwrap_or_default();
+    }
+    let old_path = app_data_dir.join("projects3.db");
     if old_path.exists() {
         fs::remove_file(old_path).unwrap_or_default();
     }
 }
 
 impl ProjectsDb {
-    pub async fn get_or_init(app_handle: &tauri::AppHandle) -> Result<&'static ProjectsDb, String> {
+    pub async fn get_or_init(app_handle: &AppHandleWrapper) -> Result<&'static ProjectsDb, String> {
+        if CELL.initialized() {
+            return Ok(CELL.get().unwrap());
+        }
         check_old_path(app_handle);
+        return ProjectsDb::get_or_init_path(app_handle, &get_path(app_handle)).await;
+    }
+
+    pub async fn get_or_init_path(
+        _app_handle: &AppHandleWrapper,
+        db_path: &str,
+    ) -> Result<&'static ProjectsDb, String> {
         CELL.get_or_try_init(|| async {
-            ProjectsDb::new(&get_path(app_handle))
+            println!("[ProjectsDB] opening db {}", db_path);
+            let db = ProjectsDb::new(&db_path)
                 .await
                 .map_err(|e| e.to_string())
+                .unwrap();
+
+            let folders = entity::watch_folders::Entity::find()
+                .all(&db.db)
+                .await
+                .unwrap();
+
+            for folder in folders {
+                let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
+                if let Ok(resolved) = resolved {
+                    match resolved {
+                        crate::bookmarks::ResolveResult::Resolved(path) => {
+                            if path != folder.path {
+                                let mut update = folder.into_active_model();
+                                update.path = Set(path);
+                                update.update(&db.db).await.unwrap();
+                            }
+                        }
+                        crate::bookmarks::ResolveResult::StaleRefreshed {
+                            new_bookmark,
+                            resolved_path,
+                        } => {
+                            let mut update = folder.into_active_model();
+                            update.path = Set(resolved_path);
+                            update.bookmark = Set(new_bookmark);
+                            update.update(&db.db).await.unwrap();
+                        }
+                        crate::bookmarks::ResolveResult::CannotResolve => {
+                            // TODO: Mark as missing in DB?
+                        }
+                    }
+                }
+            }
+
+            Ok(db)
         })
         .await
     }
@@ -71,33 +130,49 @@ impl ProjectsDb {
         CELL.get().ok_or("Database not initialized".to_string())
     }
 
-    async fn new(db_path: &str) -> Result<Self, DbErr> {
+    pub async fn new(db_path: &str) -> Result<Self, DbErr> {
         let db = Database::connect(db_path).await?;
         Migrator::up(&db, None).await?;
         Ok(Self { db: db })
     }
 
+    // not used
     pub async fn get_image_count(&self) -> Result<u32, DbErr> {
         let count = images::Entity::find().count(&self.db).await?;
         Ok(count as u32)
     }
 
-    pub async fn add_project(&self, path: &str) -> Result<ProjectExtra, MixedError> {
-        let dt_project = DTProject::get(path).await?;
+    // path must be relative to watch folder, which can be retrieved through folder_cache
+    pub async fn add_project(
+        &self,
+        watch_folder_id: i64,
+        relative_path: &str,
+    ) -> Result<ProjectExtra, MixedError> {
+        let watch_folder_path = folder_cache::get_folder(watch_folder_id)
+            .ok_or_else(|| "Watch folder not found in cache".to_string())?;
+        let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
+        let full_path_str = full_path
+            .to_str()
+            .ok_or_else(|| "Invalid path".to_string())?;
+
+        let dt_project = DTProject::get(full_path_str).await?;
         let fingerprint = dt_project.get_fingerprint().await?;
 
         let project = projects::ActiveModel {
-            path: Set(path.to_string()),
+            path: Set(relative_path.to_string()),
+            watchfolder_id: Set(watch_folder_id),
             fingerprint: Set(fingerprint),
             ..Default::default()
         };
 
         let project = entity::projects::Entity::insert(project)
             .on_conflict(
-                OnConflict::column(entity::projects::Column::Path)
-                    // do a fake update so the row returns
-                    .value(entity::projects::Column::Path, path)
-                    .to_owned(),
+                OnConflict::columns([
+                    entity::projects::Column::Path,
+                    entity::projects::Column::WatchfolderId,
+                ])
+                .value(entity::projects::Column::Path, relative_path)
+                .to_owned(),
             )
             .exec_with_returning(&self.db)
             .await?;
@@ -107,11 +182,11 @@ impl ProjectsDb {
         Ok(project)
     }
 
-    pub async fn remove_project(&self, path: &str) -> Result<Option<i64>, DbErr> {
-        let project = projects::Entity::find_by_path(path).one(&self.db).await?;
+    pub async fn remove_project(&self, id: i64) -> Result<Option<i64>, DbErr> {
+        let project = projects::Entity::find_by_id(id).one(&self.db).await?;
 
         if project.is_none() {
-            log::debug!("remove project: No project found for path: {}", path);
+            log::debug!("remove project: No project found for id: {}", id);
             return Ok(None);
         }
         let project = project.unwrap();
@@ -121,7 +196,7 @@ impl ProjectsDb {
             .await?;
 
         if delete_result.rows_affected == 0 {
-            log::debug!("remove project: project couldn't be deleted: {}", path);
+            log::debug!("remove project: project couldn't be deleted: {}", id);
         }
 
         Ok(Some(project.id))
@@ -138,40 +213,44 @@ impl ProjectsDb {
                 "image_count",
             )
             .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
-            .into_model::<ProjectExtra>()
+            .group_by(projects::Column::Id)
+            .into_model::<ProjectRow>()
             .one(&self.db)
             .await?;
 
-        Ok(result.unwrap())
+        Ok(result.unwrap().into())
     }
 
-    pub async fn get_project_by_path(&self, path: &str) -> Result<ProjectExtra, DbErr> {
-        use images::Entity as Images;
-        use projects::Entity as Projects;
-
-        let result = Projects::find_by_path(path)
-            .join(JoinType::LeftJoin, projects::Relation::Images.def())
-            .column_as(
-                Expr::col((Images, images::Column::ProjectId)).count(),
-                "image_count",
-            )
-            .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
-            .into_model::<ProjectExtra>()
+    pub async fn get_project_by_path(
+        &self,
+        watchfolder_id: i64,
+        path: &str,
+    ) -> Result<Option<ProjectExtra>, DbErr> {
+        let project = projects::Entity::find()
+            .filter(projects::Column::WatchfolderId.eq(watchfolder_id))
+            .filter(projects::Column::Path.eq(path))
+            .into_model::<ProjectRow>()
             .one(&self.db)
             .await?;
 
-        match result {
-            Some(result) => Ok(result),
-            None => Err(DbErr::RecordNotFound(format!("Project {path} not found"))),
-        }
+        Ok(project.map(|r| r.into()))
     }
 
     /// List all projects, newest first
-    pub async fn list_projects(&self) -> Result<Vec<ProjectExtra>, DbErr> {
+    pub async fn list_projects(
+        &self,
+        watchfolder_id: Option<i64>,
+    ) -> Result<Vec<ProjectExtra>, DbErr> {
         use images::Entity as Images;
         use projects::Entity as Projects;
 
-        let results = Projects::find()
+        let mut query = Projects::find();
+
+        if let Some(watchfolder_id) = watchfolder_id {
+            query = query.filter(projects::Column::WatchfolderId.eq(watchfolder_id));
+        }
+
+        let query = query
             .join(JoinType::LeftJoin, projects::Relation::Images.def())
             .column_as(
                 Expr::col((Images, images::Column::ProjectId)).count(),
@@ -179,26 +258,24 @@ impl ProjectsDb {
             )
             .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
             .group_by(projects::Column::Id)
-            .into_model::<ProjectExtra>()
-            .all(&self.db)
-            .await?;
+            .into_model::<ProjectRow>();
 
-        Ok(results)
+        let results = query.all(&self.db).await?;
+
+        Ok(results.into_iter().map(|r| r.into()).collect())
     }
 
     pub async fn update_project(
         &self,
-        path: &str,
+        project_id: i64,
         filesize: Option<i64>,
         modified: Option<i64>,
     ) -> Result<ProjectExtra, DbErr> {
         // Fetch existing project
-        let mut project: projects::ActiveModel = projects::Entity::find()
-            .filter(projects::Column::Path.eq(path))
-            .one(&self.db)
-            .await?
-            .ok_or(DbErr::RecordNotFound(format!("Project {path} not found")))?
-            .into();
+        let mut project = projects::ActiveModel {
+            id: Set(project_id),
+            ..Default::default()
+        };
 
         // Apply updates
         if let Some(v) = filesize {
@@ -210,24 +287,25 @@ impl ProjectsDb {
         }
 
         // Save changes
-        let updated: ProjectExtra = project.update(&self.db).await?.into();
+        let result = project.update(&self.db).await?;
+
+        let updated = self.get_project(result.id).await?;
 
         Ok(updated)
     }
 
-    pub async fn scan_project(
-        &self,
-        path: &str,
-        full_scan: bool,
-    ) -> Result<(i64, u64), MixedError> {
-        let dt_project = DTProject::get(path).await?;
-        let dt_project_info = dt_project.get_info().await?;
-        let end = dt_project_info.history_max_id;
-        let project = self.get_project_by_path(path).await?;
+    // TODO from here down
+    // IMPORT
+    pub async fn scan_project(&self, id: i64, full_scan: bool) -> Result<(i64, u64), MixedError> {
+        let project = self.get_project(id).await?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
+
+        let dt_project = DTProject::get(&project.full_path).await?;
+        let dt_project_info = dt_project.get_info().await?;
+        let end = dt_project_info.history_max_id;
 
         let start = match full_scan {
             true => 0,
@@ -310,6 +388,7 @@ impl ProjectsDb {
         }
     }
 
+    // IMPORT
     async fn process_models(
         &self,
         histories: &[TensorHistoryImport],
@@ -346,6 +425,7 @@ impl ProjectsDb {
         Ok(models_lookup)
     }
 
+    // IMPORT
     fn prepare_image_data(
         &self,
         project_id: i64,
@@ -468,6 +548,7 @@ impl ProjectsDb {
         (images, batch_image_loras, batch_image_controls)
     }
 
+    // IMPORT
     async fn insert_related_data(
         &self,
         node_id_to_image_id: &HashMap<i64, i64>,
@@ -529,6 +610,7 @@ impl ProjectsDb {
         Ok(())
     }
 
+    // IMAGES
     pub async fn list_images(&self, opts: ListImagesOptions) -> Result<ListImagesResult, DbErr> {
         // print!("ListImagesOptions: {:#?}\n", opts);
 
@@ -667,6 +749,23 @@ impl ProjectsDb {
         })
     }
 
+    // IMAGES
+    pub async fn find_image_by_preview_id(
+        &self,
+        project_id: i64,
+        preview_id: i64,
+    ) -> Result<Option<ImageExtra>, DbErr> {
+        let image = entity::images::Entity::find()
+            .filter(images::Column::ProjectId.eq(project_id))
+            .filter(images::Column::PreviewId.eq(preview_id))
+            .into_model::<ImageExtra>()
+            .one(&self.db)
+            .await?;
+
+        Ok(image)
+    }
+
+    // WATCHFOLDERS
     pub async fn list_watch_folders(&self) -> Result<Vec<WatchFolderDTO>, DbErr> {
         let folders = entity::watch_folders::Entity::find()
             .order_by_asc(entity::watch_folders::Column::Path)
@@ -691,22 +790,52 @@ impl ProjectsDb {
     //     // Ok(folder)
     // }
 
+    // WATCHFOLDERS
     pub async fn add_watch_folder(
         &self,
         path: &str,
+        bookmark: &str,
         recursive: bool,
     ) -> Result<WatchFolderDTO, DbErr> {
         let model = entity::watch_folders::ActiveModel {
             path: Set(path.to_string()),
+            bookmark: Set(bookmark.to_string()),
             recursive: Set(Some(recursive)),
             ..Default::default()
         }
         .insert(&self.db)
         .await?;
 
+        let resolved = folder_cache::resolve_bookmark(model.id, bookmark).await;
+
+        if let Ok(resolved) = resolved {
+            match resolved {
+                crate::bookmarks::ResolveResult::Resolved(path) => {
+                    if path != model.path {
+                        let mut update = model.clone().into_active_model();
+                        update.path = Set(path);
+                        update.update(&self.db).await?;
+                    }
+                }
+                crate::bookmarks::ResolveResult::StaleRefreshed {
+                    new_bookmark,
+                    resolved_path,
+                } => {
+                    let mut update = model.clone().into_active_model();
+                    update.path = Set(resolved_path);
+                    update.bookmark = Set(new_bookmark);
+                    update.update(&self.db).await?;
+                }
+                crate::bookmarks::ResolveResult::CannotResolve => {
+                    // Handle case where it couldn't be resolved immediately?
+                }
+            }
+        }
+
         Ok(model.into())
     }
 
+    // WATCHFOLDERS
     pub async fn remove_watch_folders(&self, ids: Vec<i64>) -> Result<(), DbErr> {
         if ids.is_empty() {
             return Ok(());
@@ -720,6 +849,7 @@ impl ProjectsDb {
         Ok(())
     }
 
+    // WATCHFOLDERS
     pub async fn update_watch_folder(
         &self,
         id: i64,
@@ -745,6 +875,41 @@ impl ProjectsDb {
         Ok(model.into())
     }
 
+    // WATCHFOLDERS
+    pub async fn update_bookmark_path(
+        &self,
+        id: i64,
+        bookmark: &str,
+        path: &str,
+    ) -> Result<WatchFolderDTO, DbErr> {
+        let mut model: entity::watch_folders::ActiveModel =
+            entity::watch_folders::Entity::find_by_id(id as i64)
+                .one(&self.db)
+                .await?
+                .unwrap()
+                .into();
+
+        model.bookmark = Set(bookmark.to_string());
+        model.path = Set(path.to_string());
+
+        let model = model.update(&self.db).await?;
+        Ok(model.into())
+    }
+
+    // WATCHFOLDERS
+    pub async fn get_watch_folder_for_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<WatchFolderDTO>, DbErr> {
+        let folder = watch_folders::Entity::find()
+            .filter(Expr::cust_with_values("? LIKE path || '/%'", [path]))
+            .one(&self.db)
+            .await?;
+
+        Ok(folder.map(|f| f.into()))
+    }
+
+    // PROJECTS
     pub async fn update_exclude(&self, project_id: i32, exclude: bool) -> Result<(), DbErr> {
         let project = projects::Entity::find_by_id(project_id)
             .one(&self.db)
@@ -773,37 +938,28 @@ impl ProjectsDb {
         Ok(())
     }
 
+    // PROJECTS
     pub async fn bulk_update_missing_on(
         &self,
-        paths: Vec<String>,
-        missing_on: Option<i64>,
+        watch_folder_id: i64,
+        is_missing: bool,
     ) -> Result<(), DbErr> {
-        if paths.is_empty() {
-            return Ok(());
-        }
-
-        // Look up project IDs from paths
-        let projects = projects::Entity::find()
-            .filter(projects::Column::Path.is_in(paths))
-            .select_only()
-            .column(projects::Column::Id)
-            .into_tuple::<i64>()
-            .all(&self.db)
-            .await?;
-
-        if projects.is_empty() {
-            return Ok(());
-        }
+        let missing_on = if is_missing {
+            Some(chrono::Utc::now().timestamp())
+        } else {
+            None
+        };
 
         projects::Entity::update_many()
             .col_expr(projects::Column::MissingOn, Expr::value(missing_on))
-            .filter(projects::Column::Id.is_in(projects))
+            .filter(projects::Column::WatchfolderId.eq(watch_folder_id))
             .exec(&self.db)
             .await?;
 
         Ok(())
     }
 
+    // IMPORT
     pub async fn rebuild_images_fts(&self) -> Result<(), sea_orm::DbErr> {
         self.db
             .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
@@ -812,38 +968,47 @@ impl ProjectsDb {
         Ok(())
     }
 
+    // HELPERS
     pub async fn get_dt_project(
         &self,
         project_ref: ProjectRef,
     ) -> Result<std::sync::Arc<dt_project::DTProject>, String> {
-        let project_path = match project_ref {
-            ProjectRef::Path(path) => path,
+        let full_path = match project_ref {
             ProjectRef::Id(id) => {
-                let project = entity::projects::Entity::find_by_id(id as i32)
-                    .one(&self.db)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .unwrap();
-                project.path
+                let project = self.get_project(id).await.map_err(|e| e.to_string())?;
+                project.full_path
             }
         };
-        Ok(dt_project::DTProject::get(&project_path).await.unwrap())
+
+        Ok(dt_project::DTProject::get(&full_path)
+            .await
+            .map_err(|e| e.to_string())?)
     }
 
+    // IMAGES
     pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
-        let result: Option<(String, i64)> = images::Entity::find_by_id(image_id)
+        let result: Option<(String, i64, i64)> = images::Entity::find_by_id(image_id)
             .join(JoinType::InnerJoin, images::Relation::Projects.def())
             .select_only()
             .column(entity::projects::Column::Path)
+            .column(entity::projects::Column::WatchfolderId)
             .column(images::Column::NodeId)
             .into_tuple()
             .one(&self.db)
             .await
             .map_err(|e| e.to_string())?;
 
-        let (project_path, node_id) = result.ok_or("Image or Project not found")?;
+        let (rel_path, watchfolder_id, node_id) = result.ok_or("Image or Project not found")?;
 
-        let dt_project = DTProject::get(&project_path)
+        let watch_folder_path = folder_cache::get_folder(watchfolder_id)
+            .ok_or_else(|| format!("Watch folder {watchfolder_id} not found in cache"))?;
+
+        let full_path = std::path::Path::new(&watch_folder_path).join(rel_path);
+        let full_path_str = full_path
+            .to_str()
+            .ok_or_else(|| "Invalid path encoding".to_string())?;
+
+        let dt_project = DTProject::get(full_path_str)
             .await
             .map_err(|e| e.to_string())?;
         dt_project
@@ -852,6 +1017,7 @@ impl ProjectsDb {
             .map_err(|e| e.to_string())
     }
 
+    // MODELS
     pub async fn update_models(
         &self,
         mut models: HashMap<String, ModelInfoImport>,
@@ -910,6 +1076,7 @@ impl ProjectsDb {
         Ok(count)
     }
 
+    // MODELS
     pub async fn scan_model_info(
         &self,
         path: &str,
@@ -928,6 +1095,7 @@ impl ProjectsDb {
         Ok(count)
     }
 
+    // MODELS
     pub async fn list_models(
         &self,
         model_type: Option<ModelType>,
@@ -1048,7 +1216,6 @@ impl ProjectsDb {
 
         // 7. Sort by usage desc
         results.sort_by(|a, b| b.count.cmp(&a.count));
-
         Ok(results)
     }
 }
