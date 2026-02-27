@@ -1,4 +1,4 @@
-use moka::future::Cache;
+use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use tauri::{
     http::{self, Response, StatusCode, Uri},
@@ -21,11 +21,7 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
 
-static PROJECT_PATH_CACHE: Lazy<Cache<i64, String>> = Lazy::new(|| {
-    Cache::builder()
-        .time_to_idle(std::time::Duration::from_secs(3))
-        .build()
-});
+static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
 #[derive(Default)]
 struct DTPRequest {
@@ -141,14 +137,12 @@ impl DtmProtocol {
     }
 
     async fn get_project_path(&self, project_id: i64) -> Result<String, MixedError> {
-        if let Some(path) = PROJECT_PATH_CACHE.get(&project_id).await {
-            return Ok(path);
+        if let Some(path) = PROJECT_PATH_CACHE.get(&project_id) {
+            return Ok(path.clone());
         }
 
         let project = self.pdb.get_project(project_id).await?;
-        PROJECT_PATH_CACHE
-            .insert(project_id, project.full_path.clone())
-            .await;
+        PROJECT_PATH_CACHE.insert(project_id, project.full_path.clone());
         Ok(project.full_path)
     }
 }

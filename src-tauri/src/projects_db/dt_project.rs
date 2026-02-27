@@ -10,7 +10,7 @@ use crate::projects_db::{
     tensor_history_tensor_data::TensorHistoryTensorData,
     TextHistory,
 };
-use moka::{future::Cache, notification::RemovalCause};
+use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use sqlx::{
@@ -22,25 +22,26 @@ use std::{
     future::Future,
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
+    time::Duration,
 };
 use tokio::sync::OnceCell;
 
-static PROJECT_CACHE: Lazy<Cache<String, Arc<DTProject>>> = Lazy::new(|| {
-    let listener = |_: Arc<String>, value: Arc<DTProject>, _: RemovalCause| {
-        Box::pin(async move {
-            let _ = value.pool.close().await;
-        }) as Pin<Box<dyn Future<Output = ()> + Send>>
-    };
+/// TTL for cached projects. After this duration of no access, the project is evicted.
+const CACHE_TTL: Duration = Duration::from_secs(3);
+/// Grace period after removing from cache before closing the pool,
+/// allowing in-flight queries to complete.
+const DRAIN_GRACE: Duration = Duration::from_millis(500);
 
-    Cache::builder()
-        .max_capacity(16)
-        .support_invalidation_closures()
-        .async_eviction_listener(listener)
-        .build()
-});
+static PROJECT_CACHE: Lazy<DashMap<String, Arc<OnceCell<Arc<CachedProject>>>>> =
+    Lazy::new(DashMap::new);
+
+struct CachedProject {
+    project: Arc<DTProject>,
+    generation: AtomicU64,
+}
 
 pub struct DTProject {
     pool: Arc<SqlitePool>,
@@ -50,9 +51,47 @@ pub struct DTProject {
 }
 
 pub async fn close_folder(folder_path: &str) {
-    let path = folder_path.to_string();
-    let _ = PROJECT_CACHE.invalidate_entries_if(move |key, _value| key.starts_with(&path));
-    let _ = PROJECT_CACHE.run_pending_tasks().await;
+    let to_remove: Vec<String> = PROJECT_CACHE
+        .iter()
+        .filter(|entry| entry.key().starts_with(folder_path))
+        .map(|entry| entry.key().clone())
+        .collect();
+
+    for key in to_remove {
+        if let Some((_, cell)) = PROJECT_CACHE.remove(&key) {
+            if let Some(cached) = cell.get() {
+                let pool = cached.project.pool.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(DRAIN_GRACE).await;
+                    pool.close().await;
+                });
+            }
+        }
+    }
+}
+
+fn schedule_eviction(path: String, generation: u64) {
+    tokio::spawn(async move {
+        tokio::time::sleep(CACHE_TTL).await;
+
+        // Only evict if no one has accessed it since we were scheduled
+        let should_evict = PROJECT_CACHE
+            .get(&path)
+            .and_then(|cell| cell.get().map(|c| c.generation.load(Ordering::Relaxed) == generation))
+            .unwrap_or(false);
+
+        if should_evict {
+            if let Some((_, cell)) = PROJECT_CACHE.remove(&path) {
+                if let Some(cached) = cell.get() {
+                    let pool = cached.project.pool.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(DRAIN_GRACE).await;
+                        pool.close().await;
+                    });
+                }
+            }
+        }
+    });
 }
 
 #[derive(Debug, Serialize)]
@@ -90,15 +129,33 @@ impl DTProject {
     }
 
     pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
-        let arc = PROJECT_CACHE
-            .try_get_with(path.to_string(), async move {
-                let proj = DTProject::new(path).await?;
-                Ok::<_, Error>(Arc::new(proj))
-            })
-            .await
-            .map_err(|e| Error::Protocol(e.to_string()))?;
+        let cell = PROJECT_CACHE
+            .entry(path.to_string())
+            .or_insert_with(|| Arc::new(OnceCell::new()))
+            .clone();
 
-        Ok(arc)
+        let result = cell
+            .get_or_try_init(|| async {
+                let project = Arc::new(DTProject::new(path).await?);
+                Ok::<Arc<CachedProject>, Error>(Arc::new(CachedProject {
+                    project,
+                    generation: AtomicU64::new(0),
+                }))
+            })
+            .await;
+
+        match result {
+            Ok(cached) => {
+                let gen = cached.generation.fetch_add(1, Ordering::Relaxed) + 1;
+                schedule_eviction(path.to_string(), gen);
+                Ok(cached.project.clone())
+            }
+            Err(e) => {
+                // Remove the empty OnceCell so the next caller retries fresh
+                PROJECT_CACHE.remove(path);
+                Err(e)
+            }
+        }
     }
 
     pub async fn check_tables(&self) -> Result<&DTProjectTableStatus, Error> {

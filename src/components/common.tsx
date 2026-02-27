@@ -89,6 +89,8 @@ export const CheckRoot = chakra(
 
 export const PaneListContainer = chakra("div", {
     base: {
+        position: "relative",
+
         height: "auto",
         maxHeight: "100%",
         width: "100%",
@@ -113,7 +115,8 @@ export const PaneListScrollContainer = chakra(
     "div",
     {
         base: {
-            height: "100%",
+            position: "relative",
+            // height: "100%",
             width: "100%",
             paddingY: "1px",
             gap: 0,
@@ -133,13 +136,13 @@ export const PaneListScrollContainer = chakra(
 export const PanelListScrollContent = chakra("div", {
     base: {
         height: "auto",
-        bgColor: "bg.deep/90",
+        bgColor: "bg.deep/50",
         // minHeight: "100%",
         display: "flex",
         flexDirection: "column",
         justifyContent: "flex-start",
         alignItems: "stretch",
-        gap: 0.5,
+        gap: 0,
     },
 })
 

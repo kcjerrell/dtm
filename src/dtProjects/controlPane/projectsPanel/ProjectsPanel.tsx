@@ -1,5 +1,5 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
-import PanelList from "@/components/PanelList"
+import PanelList from "@/components/PanelList2"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../../state/context"
 import { useProjectsCommands } from "../useProjectsCommands"
@@ -42,6 +42,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 itemsState={projects.state.projects}
                 keyFn={(p) => p.path}
                 commands={toolbarCommands}
+                selectedItems={snap.selectedProjects}
                 onSelectionChanged={(e) => {
                     projects.setSelectedProjects(e)
                 }}
@@ -62,13 +63,9 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
                 <Box>{snap.projects.length} projects</Box>
 
+                <Box>{snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images</Box>
                 <Box>
-                    {snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images
-                </Box>
-                <Box>
-                    <FormatByte
-                        value={snap.projects.reduce((p, c) => p + (c.filesize ?? 0), 0)}
-                    />
+                    <FormatByte value={snap.projects.reduce((p, c) => p + (c.filesize ?? 0), 0)} />
                 </Box>
             </HStack>
         </TabContent>

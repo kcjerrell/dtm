@@ -122,10 +122,14 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             dtpProjects,
             (p) => [
                 p.watchfolder_id,
-                makeSelectable({
-                    ...p,
-                    name: p.path.split("/").pop() as string,
-                }),
+                makeSelectable(
+                    {
+                        ...p,
+                        name: p.path.split("/").pop() as string,
+                    },
+                    false,
+                    (item, currentValue, modifier) => this.selectItem(item, currentValue, modifier),
+                ),
             ],
             (folderId, folderProjects) => {
                 const folder = watchfolders.find((f) => f.id === folderId)
@@ -146,6 +150,55 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         this.state.projectsCount = this.state.projects.length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
+    }
+
+    private lastSelectedProject: ProjectState | null = null
+    selectItem(item: ProjectState, currentValue: boolean, modifier?: "shift" | "cmd" | null) {
+        // toggle item
+        if (modifier === "cmd") {
+            item.setSelected(!currentValue)
+            this.lastSelectedProject = item
+        }
+        // this is the tricky one
+        else if (modifier === "shift") {
+            const lastIndex = this.state.projects.findIndex(
+                (p) => p.id === this.lastSelectedProject?.id,
+            )
+            const currentIndex = this.state.projects.findIndex((p) => p.id === item.id)
+            if (currentIndex === -1) return
+
+            // if there is no lastselected index, just select/deselect the item
+            if (lastIndex === -1) {
+                item.toggleSelected()
+            } else {
+                const from = Math.min(lastIndex, currentIndex)
+                const to = Math.max(lastIndex, currentIndex)
+                this.state.projects.forEach((p, i) => {
+                    if (i >= from && i <= to && !p.excluded) p.setSelected(true)
+                    else p.setSelected(false)
+                })
+            }
+        }
+        // change selected or deselect if only selected
+        else {
+            const areOthersSelected = this.state.projects.some(
+                (p) => p.id !== item.id && p.selected,
+            )
+            if (areOthersSelected) {
+                // if others are selected, the current state of this item is irrelevant.
+                // the selection becomes this item
+                this.state.projects.forEach((p) => {
+                    p.setSelected(false)
+                })
+                item.setSelected(true)
+            } else {
+                // if no others are selected, we can just toggle this item
+                item.toggleSelected()
+            }
+            this.lastSelectedProject = item
+        }
+        const selectedProjects = this.state.projects.filter((p) => p.selected)
+        va.set(this.state.selectedProjects, selectedProjects)
     }
 
     private loadProjectsTimeout: NodeJS.Timeout | null = null
