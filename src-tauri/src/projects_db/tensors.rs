@@ -22,7 +22,7 @@ pub fn decode_tensor(
     history_node: Option<TensorHistoryNode>,
     scale: Option<u32>,
 ) -> Result<Vec<u8>> {
-    if tensor.data_type == 16384 {
+    if tensor.name.starts_with("pose") {
         return decode_pose(tensor);
     }
     log::debug!("Decoding tensor {} ({}x{}x{})", tensor.name, tensor.height, tensor.width, tensor.channels);
