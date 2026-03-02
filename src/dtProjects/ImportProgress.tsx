@@ -1,6 +1,7 @@
-import { Box, CloseButton, Dialog, Portal } from "@chakra-ui/react"
+import { Box, Dialog, Portal } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Progress } from "@/components"
+import { useDTP } from './state/context'
 
 type ImportProgressProps = {
     open: boolean
@@ -11,7 +12,7 @@ type ImportProgressProps = {
     }
 }
 
-const ImportProgress = (props: ImportProgressProps) => {
+const ImportProgressInner = (props: ImportProgressProps) => {
     const { open, progress } = props
 
     if (!open || !progress) return null
@@ -40,13 +41,24 @@ const ImportProgress = (props: ImportProgressProps) => {
                                 images scanned
                             </Box>
                         </Dialog.Body>
-                        <Dialog.CloseTrigger asChild>
-                            <CloseButton size="sm" />
-                        </Dialog.CloseTrigger>
                     </Dialog.Content>
                 </Dialog.Positioner>
             </Portal>
         </Dialog.Root>
+    )
+}
+
+const ImportProgress = (props: ChakraProps) => {
+    const { uiState } = useDTP()
+    const uiSnap = uiState.useSnap()
+
+    return (
+        <ImportProgressInner
+            open={uiSnap.importLock}
+            progress={uiSnap.importProgress}
+            key={`import-lock-${uiSnap.importLockCount}`}
+            {...props}
+        />
     )
 }
 
