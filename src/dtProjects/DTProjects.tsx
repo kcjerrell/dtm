@@ -1,6 +1,6 @@
 import { chakra } from "@chakra-ui/react"
 import { useEffect } from "react"
-import { Panel } from "@/components"
+import { useSidebarStyle } from "@/components/sidebar/useSidebarStyle"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
 import ImportProgress from "./ImportProgress"
@@ -14,6 +14,8 @@ function DTProjects(props: ChakraProps) {
 
     const { uiState, projects } = useDTP()
     const uiSnap = uiState.useSnap()
+
+    useSidebarStyle("attached")
 
     useEffect(() => {
         const showSettings = () => {

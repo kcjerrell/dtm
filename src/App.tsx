@@ -50,7 +50,11 @@ function App() {
             {...dropHandlers}
         >
             <LayoutGroup>
-                <Sidebar inert={isPreviewActive} aria-label="Primary">
+                <Sidebar
+                    inert={isPreviewActive}
+                    aria-label="Primary"
+                    variant={snap.sidebarStyle.variant}
+                >
                     {viewDescription.map((item) => (
                         <Sidebar.Button
                             key={item.viewId}

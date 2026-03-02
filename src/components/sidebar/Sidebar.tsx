@@ -17,10 +17,8 @@ const Root = chakra(
             bgColor: "bg.2",
             flex: "0 0 auto",
             width: "68px",
-            borderRadius: "lg",
             marginLeft: "0px",
             transition: "all 0.2s ease",
-            boxShadow: "pane1",
         },
         variants: {
             hidden: {
@@ -35,12 +33,27 @@ const Root = chakra(
                     },
                 },
             },
+            variant: {
+                attached: {
+                    borderRadius: "none",
+                    boxShadow: "none",
+                },
+                float: {
+                    borderRadius: "lg",
+                    boxShadow: "pane1",
+                },
+            },
+        },
+        defaultVariants: {
+            variant: "float",
         },
     },
     {},
 )
 
-interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> { }
+export type SidebarVariant = "attached" | "float"
+
+interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> {}
 function SidebarComponent(props: SidebarProps) {
     const { children, ...rest } = props
     const { isSidebarVisible } = useSnapshot(AppStore.store)

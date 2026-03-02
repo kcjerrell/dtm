@@ -1,6 +1,7 @@
 import { check } from "@tauri-apps/plugin-updater"
-// import { check } from "@/mocks/tauri-updater"
 import { store } from "@tauri-store/valtio"
+// import { check } from "@/mocks/tauri-updater"
+import type { SidebarVariant } from "@/components/sidebar/Sidebar"
 import { getStoreName } from "@/utils/helpers"
 
 type ViewRequest = {
@@ -27,6 +28,9 @@ type AppStateType = {
     updateAttempts: number
     currentView: string
     isSidebarVisible: boolean
+    sidebarStyle: {
+        variant?: SidebarVariant
+    }
     viewRequests: Record<string, ViewRequest[]>
     onboardPhase: string
     clearHistoryOnExit: boolean
@@ -43,6 +47,7 @@ const appStore = store(
         updateAttempts: 0,
         currentView: "metadata",
         isSidebarVisible: true,
+        sidebarStyle: {},
         viewRequests: {},
         onboardPhase: "A1",
         clearHistoryOnExit: false,
@@ -115,6 +120,10 @@ function setShowSidebar(show: boolean) {
     appState.isSidebarVisible = show
 }
 
+function setSidebarVariant(variant: SidebarVariant | undefined) {
+    appState.sidebarStyle.variant = variant
+}
+
 async function setViewRequest(view: string, request: ViewRequest) {
     await setView(view)
     appState.viewRequests[view].push(request)
@@ -127,6 +136,7 @@ const AppStore = {
     setView,
     retryUpdate,
     showSidebar: setShowSidebar,
+    setSidebarVariant,
     setViewRequest,
 }
 
