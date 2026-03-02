@@ -1,4 +1,5 @@
 use crate::projects_db::{
+    dt_project::raw::DTProjectRaw,
     dtos::{
         project::DTProjectInfo,
         tensor::{
@@ -19,6 +20,7 @@ use sqlx::{
     Connection, Error, Row, SqlitePool,
 };
 use std::{
+    collections::HashSet,
     future::Future,
     pin::Pin,
     sync::{
@@ -28,6 +30,9 @@ use std::{
     time::Duration,
 };
 use tokio::sync::OnceCell;
+
+mod raw;
+pub use raw::dt_project_tensordata;
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);
@@ -77,7 +82,10 @@ fn schedule_eviction(path: String, generation: u64) {
         // Only evict if no one has accessed it since we were scheduled
         let should_evict = PROJECT_CACHE
             .get(&path)
-            .and_then(|cell| cell.get().map(|c| c.generation.load(Ordering::Relaxed) == generation))
+            .and_then(|cell| {
+                cell.get()
+                    .map(|c| c.generation.load(Ordering::Relaxed) == generation)
+            })
             .unwrap_or(false);
 
         if should_evict {
@@ -550,25 +558,24 @@ impl DTProject {
 
     pub async fn find_predecessor_candidates(
         &self,
-        _row_id: i64,
-        _lineage: i64,
-        _logical_time: i64,
+        row_id: i64,
+        lineage: i64,
+        logical_time: i64,
     ) -> Result<Vec<TensorHistoryExtra>, Error> {
-        Ok(Vec::new())
-        /*
+        // Ok(Vec::new())
+
         self.check_table(&DTProjectTable::TensorHistory).await?;
         let q = &full_query_where("thn.__pk1 == ?1 AND thn.rowid < ?2");
-        let candidates = query(q)
+        let candidates: Vec<TensorHistoryTensorData> = query_as(q)
             .bind(logical_time - 1)
             .bind(row_id)
-            .map(|row: SqliteRow| self.map_full(row))
             .fetch_all(&*self.pool)
             .await?;
 
-        let mut same_lineage: Option<&TensorHistoryExtra> = None;
-        let mut one_less: Option<&TensorHistoryExtra> = None;
-        let mut next_closest: Option<&TensorHistoryExtra> = None;
-        let mut highest_closest: Option<&TensorHistoryExtra> = None;
+        let mut same_lineage: Option<&TensorHistoryTensorData> = None;
+        let mut one_less: Option<&TensorHistoryTensorData> = None;
+        let mut next_closest: Option<&TensorHistoryTensorData> = None;
+        let mut highest_closest: Option<&TensorHistoryTensorData> = None;
 
         for candidate in &candidates {
             use std::cmp::Ordering::*;
@@ -600,7 +607,9 @@ impl DTProject {
         }
 
         if same_lineage.is_some() {
-            return Ok(vec![same_lineage.unwrap().clone()]);
+            return Ok(vec![
+                self.get_history_full(same_lineage.unwrap().node_id).await?,
+            ]);
         }
 
         let mut seen = HashSet::new();
@@ -610,14 +619,17 @@ impl DTProject {
             .into_iter()
             .flatten()
         {
-            if seen.insert(item.row_id) {
+            if seen.insert(item.node_id) {
                 // or any unique field
                 result.push(item.clone());
             }
         }
+        let mut full_result = Vec::new();
+        for item in result {
+            full_result.push(self.get_history_full(item.node_id).await?);
+        }
 
-        Ok(result)
-        */
+        Ok(full_result)
     }
 
     pub async fn get_text_history(&self) -> Result<Vec<TextHistoryNode>, Error> {
@@ -635,6 +647,10 @@ impl DTProject {
             .await?;
 
         Ok(items)
+    }
+
+    pub fn raw(&'_ self) -> DTProjectRaw<'_> {
+        DTProjectRaw::new(self)
     }
 }
 

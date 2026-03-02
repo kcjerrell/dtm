@@ -1,14 +1,9 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
-import {
-    FiEye,
-    FiEyeOff,
-    FiFolder,
-    FiRefreshCw,
-    MdBlock
-} from "@/components/icons/icons"
+import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/icons/icons"
 import type { PanelListCommandItem } from "@/components/PanelList"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
+import { DtpService } from '@/commands'
 
 export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
     const { projects } = useDTP()
@@ -22,6 +17,16 @@ export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
             icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
             onClick: async () => {
                 projects?.toggleShowEmptyProjects()
+            },
+            requiresSelection: false,
+        },
+        {
+            id: "scan",
+            tipTitle: "Scan project",
+            tipText: "Scan project for new images",
+            icon: FiRefreshCw,
+            onClick: async () => {
+                DtpService.sync()
             },
             requiresSelection: false,
         },
@@ -54,7 +59,7 @@ export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
             tipText: "Open project folder in file manager.",
             icon: FiFolder,
             onClick: async (selected) => {
-                await revealItemInDir(selected.map((f) => f.path))
+                await revealItemInDir(selected.map((f) => f.full_path))
             },
             requiresSelection: true,
         },

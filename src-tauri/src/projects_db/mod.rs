@@ -1,5 +1,5 @@
 mod dt_project;
-pub use dt_project::{close_folder, get_last_row, DTProject, ProjectRef};
+pub use dt_project::{close_folder, get_last_row, DTProject, ProjectRef, dt_project_tensordata};
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 
@@ -27,5 +27,6 @@ mod search;
 pub mod dtos;
 
 mod tensor_history_tensor_data;
+pub use tensor_history_tensor_data::TensorHistoryTensorData;
 
 pub mod folder_cache;

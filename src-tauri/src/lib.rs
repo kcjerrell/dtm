@@ -12,6 +12,7 @@ pub mod bookmarks;
 pub mod dtp_service;
 mod ffmpeg;
 mod projects_db;
+use projects_db::dt_project_tensordata;
 use dtp_service::dtp_connect;
 mod vid;
 
@@ -180,6 +181,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
+            dt_project_tensordata,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
