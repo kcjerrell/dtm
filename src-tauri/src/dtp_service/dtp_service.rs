@@ -231,12 +231,17 @@ pub async fn dtp_connect(
     Ok(())
 }
 
+#[cfg(dev)]
+const PROJECT_FILE_NAME: &str = "projects4-dev.db";
+#[cfg(not(dev))]
+const PROJECT_FILE_NAME: &str = "projects4.db";
+
 fn get_db_path(app_handle: &AppHandleWrapper) -> String {
     let app_data_dir = app_handle.get_app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
     }
-    let project_db_path = app_data_dir.join("projects4.db");
+    let project_db_path = app_data_dir.join(PROJECT_FILE_NAME);
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
 }
 
