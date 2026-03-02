@@ -8,6 +8,7 @@ import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
 import { SettingsPanel } from "./settingsPanel/SettingsPanel"
 import { useDTP } from "./state/context"
+import { Panel } from '@/components'
 
 function DTProjects(props: ChakraProps) {
     const { ...restProps } = props
