@@ -71,8 +71,9 @@ function TabList(props: ChakraProps) {
                         aria-controls={`projects-${value}-panel`}
                         aria-label={`${label} tab`}
                         value={value}
-                        paddingBlock={0.5}
-                        height={"2rem"}
+                        // paddingBlock={1}
+                        padding={2}
+                        // height={"2rem"}
                     >
                         <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
                         <Box>{label}</Box>

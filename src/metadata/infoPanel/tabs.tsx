@@ -38,6 +38,7 @@ const Trigger = chakra(TabsTrigger, {
         },
         _before: { display: "none" },
         height: "min",
+        cursor: "default",
     },
 })
 const Indicator = chakra(TabsIndicator, {

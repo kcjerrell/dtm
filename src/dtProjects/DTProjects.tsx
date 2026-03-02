@@ -1,4 +1,4 @@
-import { chakra } from "@chakra-ui/react"
+import { chakra, VStack } from "@chakra-ui/react"
 import { useEffect } from "react"
 import { useSidebarStyle } from "@/components/sidebar/useSidebarStyle"
 import ControlPane from "./controlPane/ControlPane"
@@ -38,7 +38,7 @@ function DTProjects(props: ChakraProps) {
                 key={`import-lock-${uiSnap.importLockCount}`}
             />
             <ControlPane />
-            <Panel
+            <VStack
                 id={"project-content-pane"}
                 position="relative"
                 bgColor={"bg.2"}
@@ -46,9 +46,25 @@ function DTProjects(props: ChakraProps) {
                 justifyContent={"flex-start"}
                 overflow={"hidden"}
                 padding={0}
+                gap={4}
+                borderRadius={0}
             >
-                <StatusBar flex={"0 0 auto"} width={"100%"} maxWidth={"100%"} />
-                <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
+                <StatusBar
+                    position={"absolute"}
+                    top={3}
+                    left={undefined}
+                    right={5}
+                    width={"auto"}
+                    zIndex={5}
+                    margin={"0"}
+                    flex={"0 0 auto"}
+                />
+                <ImagesList
+                    paddingTop={"4rem"}
+                    flex={"1 1 auto"}
+                    width={"full"}
+                    maxWidth={"full"}
+                />
                 {uiSnap.isSettingsOpen && <SettingsPanel />}
             </Panel>
             <DetailsOverlay />
@@ -68,8 +84,8 @@ export const Container = chakra("div", {
         width: "100%",
         height: "100%",
 
-        gap: 2,
-        padding: 2,
+        gap: 0,
+        padding: 0,
 
         justifyContent: "normal",
         alignItems: "stretch",

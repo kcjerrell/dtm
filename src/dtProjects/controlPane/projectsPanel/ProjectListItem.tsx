@@ -2,6 +2,7 @@ import { Box, HStack } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import { PanelListItem } from "@/components"
 import type { ProjectState } from "@/dtProjects/state/projects"
+import { PiImage } from "@/components/icons/icons"
 
 export interface ProjectListItemProps extends ChakraProps {
     project: Snapshot<ProjectState>
@@ -25,6 +26,7 @@ function ProjectListItem(props: ProjectListItemProps) {
             aria-selected={project.selected}
             data-test-id={`project-item`}
             data-project-id={project.id}
+            data-selected={project.selected || undefined}
             position={"relative"}
             selectable
             selected={project.selected}
@@ -34,6 +36,10 @@ function ProjectListItem(props: ProjectListItemProps) {
             // {...handlers}
         >
             <HStack justifyContent={"space-between"}>
+                {/* <Box margin={0} scale={1.25}>
+                    <PiImage />
+                </Box> */}
+
                 <Box flex={"1 1 auto"}>
                     {projectName}
                     {project.isMissing && " (missing)"}

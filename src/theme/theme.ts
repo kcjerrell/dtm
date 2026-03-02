@@ -1,4 +1,5 @@
 import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react"
+import { buttonRecipe } from './Button'
 
 const themeConfig = defineConfig({
     globalCss: {
@@ -52,6 +53,9 @@ const themeConfig = defineConfig({
             // md: "600px",
             // lg: "900px",
             // xl: "1200px",
+        },
+        recipes: {
+            button: buttonRecipe,
         },
         semanticTokens: {
             colors: {

@@ -38,6 +38,8 @@ function App() {
             overflow="hidden"
             alignItems={"stretch"}
             justifyContent={"stretch"}
+            cursor={"default"}
+            userSelect={"none"}
             gap={0}
             bgColor={"check.2"}
             transformOrigin={"left top"}

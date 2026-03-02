@@ -10,8 +10,7 @@ export const Panel = chakra("div", {
         alignItems: "stretch",
         justifyContent: "flex-start",
         padding: 2,
-        borderRadius: "md",
-        boxShadow: "pane1",
+
         backgroundColor: "bg.1",
     },
     variants: {
@@ -21,7 +20,15 @@ export const Panel = chakra("div", {
                 backdropFilter: "blur(8px)",
             },
         },
+        variant: {
+            float: {
+                borderRadius: "md",
+                boxShadow: "pane1",
+            },
+            fixed: {},
+        },
     },
+    defaultVariants: { variant: "float" },
 })
 
 export const CheckRoot = chakra(
@@ -127,7 +134,7 @@ export const PaneListScrollContainer = chakra(
             overscrollBehavior: "contain",
             scrollBehavior: "smooth",
             overflowY: "auto",
-            bgColor: "bg.deep/30",
+            // bgColor: "bg.deep/30",
         },
     },
     { defaultProps: { className: "hide-scrollbar" } },
@@ -136,7 +143,7 @@ export const PaneListScrollContainer = chakra(
 export const PanelListScrollContent = chakra("div", {
     base: {
         height: "auto",
-        bgColor: "bg.deep/50",
+        // bgColor: "bg.deep/50",
         // minHeight: "100%",
         display: "flex",
         flexDirection: "column",
@@ -164,17 +171,14 @@ export const PanelListItem = chakra(
         base: {
             bgColor: "bg.3",
             color: "fg.2",
-            paddingX: 2,
+            paddingX: 3,
             paddingY: 1,
-            borderRadius: "sm",
-            // boxShadow: "0px 0px 18px -8px #00000022",
-            border: "1px solid",
+            border: "1px solid transparent",
+            borderInline: "0px",
             margin: "0px",
-            borderColor: "#00000033",
-            // borderColor: "fg.3/30",
             transition: "all 0.2s ease-out",
             _focusVisible: {
-                outline: "2px inset {colors.blue.400/70} !important",
+                outline: "1px inset {colors.blue.400/70} !important",
             },
             willChange: "transform",
             contain: "paint",
@@ -182,21 +186,47 @@ export const PanelListItem = chakra(
         variants: {
             selectable: {
                 true: {
-                    _hover: {
-                        bgColor: "bg.0",
-                        transition: "all 0.05s ease-out",
+                    // _hover: {
+                    //     bgColor: "color-mix(in srgb, {colors.bg.3} 50%, {colors.bg.0} 50%)",
+                    //     transition: "all 0.05s ease-out",
+                    // },
+
+                    "&[data-selected]:not([data-selected] + [data-selected])": {
+                        borderTop: "1px solid {colors.fg.2/20}",
+                        // marginTop: "-1px",
+                    },
+
+                    "&[data-selected]:not(:has(+ [data-selected]))": {
+                        borderBottom: "1px solid {colors.fg.2/20}",
+                        // marginBottom: "-1px",
                     },
                 },
             },
             selected: {
                 true: {
-                    bgColor: "color-mix(in srgb, {colors.bg.2} 70%, {colors.blue.600} 30%)",
+                    // bgColor: "color-mix(in srgb, {colors.bg.2} 95%, {colors.info} 5%)",
+                    // bgColor: "color-mix(in srgb, {colors.bg.1} 50%, {colors.bg.2} 50%)",
+                    bgColor: "bg.1",
                     color: "fg.1",
-                    _hover: {
-                        bgColor: "color-mix(in srgb, {colors.bg.3} 50%, {colors.blue.500} 50%)",
+                    _dark: {
+                        // bgColor: "color-mix(in srgb, {colors.bg.1} 50%, {colors.bg.2} 50%)",
+                        bgColor: "bg.0",
+                        // _hover: {
+                        //     bgColor: "color-mix(in srgb, {colors.bg.0} 50%, {colors.bg.3} 50%)"
+                        // },
+                        color: "fg.1",
                     },
-                    borderBlock: "1px solid #00000033",
+                    // _hover: {
+                    //     bgColor: "color-mix(in srgb, {colors.bg.1} 25%, {colors.bg.2} 75%)",
+                    // },
+                    // borderBlock: "1px solid #00000011",
+                    zIndex: 5,
                 },
+                false: {
+                    _dark: {
+                        bgColor: "bg.2"
+                    }
+                }
             },
             hoverScale: {
                 true: {
@@ -271,15 +301,15 @@ export const PanelSection = chakra("div", {
         display: "flex",
         flexDirection: "column",
         padding: 0.5,
-        boxShadow: "0px 2px 8px -3px #00000022, 0px 0px 10px -5px #00000022",
-        borderRadius: "lg",
-        border: "1px solid {gray/20}",
+        // boxShadow: "0px 2px 8px -3px #00000022, 0px 0px 10px -5px #00000022",
+        // borderRadius: "lg",
+        // border: "1px solid {gray/20}",
         overflowY: "clip",
         overflowX: "clip",
         alignItems: "stretch",
         justifyContent: "flex-start",
-        gap: 0,
-        bgColor: "bg.1",
+        gap: "1px",
+        // bgColor: "bg.1",
         color: "fg.1",
     },
 })
