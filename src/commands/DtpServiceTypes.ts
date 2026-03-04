@@ -39,6 +39,7 @@ export interface ImageExtra {
     num_frames: number | null
     preview_id: number
     node_id: number
+    clip_id?: number | null
     has_depth: boolean
     has_pose: boolean
     has_color: boolean
@@ -49,6 +50,14 @@ export interface ImageExtra {
     start_height: number
     upscaler_scale_factor: number | null
     is_ready: boolean
+    clip?: {
+        row_id: number
+        clip_id: number
+        count: number
+        frames_per_second: number
+        width: number
+        height: number
+    }
 }
 
 export interface ImageCount {

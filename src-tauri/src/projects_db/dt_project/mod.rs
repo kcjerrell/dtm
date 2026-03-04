@@ -1,6 +1,7 @@
 use crate::projects_db::{
     dt_project::raw::DTProjectRaw,
     dtos::{
+        clip::Clip,
         project::DTProjectInfo,
         tensor::{
             TensorHistoryClip, TensorHistoryExtra, TensorHistoryImport, TensorHistoryNode,
@@ -21,10 +22,8 @@ use sqlx::{
 };
 use std::{
     collections::HashSet,
-    future::Future,
-    pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
@@ -109,6 +108,7 @@ enum DTProjectTable {
     Moodboard,
     Tensors,
     Thumbs,
+    Clip,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -118,6 +118,7 @@ pub struct DTProjectTableStatus {
     pub has_moodboard: bool,
     pub has_tensors: bool,
     pub has_thumbs: bool,
+    pub has_clip: bool,
 }
 
 impl DTProject {
@@ -188,6 +189,7 @@ impl DTProject {
                         "tensors" => status.has_tensors = true,
                         "thumbnailhistorynode" => status.has_thumbs = true,
                         "texthistorynode" => status.has_text_history = true,
+                        "clip" => status.has_clip = true,
                         _ => {}
                     }
                 }
@@ -208,6 +210,7 @@ impl DTProject {
             DTProjectTable::Moodboard => status.has_moodboard,
             DTProjectTable::Tensors => status.has_tensors,
             DTProjectTable::Thumbs => status.has_thumbs,
+            DTProjectTable::Clip => status.has_clip,
         };
 
         if !has_table {
@@ -494,6 +497,24 @@ impl DTProject {
         }
 
         Ok(item)
+    }
+
+    pub async fn get_history_with_clip(
+        &self,
+        row_id: i64,
+        clip_id: i64,
+    ) -> Result<(TensorHistoryExtra, Clip), Error> {
+        let history = self.get_history_full(row_id).await?;
+
+        self.check_table(&DTProjectTable::Clip).await?;
+
+        let clip: Clip = query("SELECT * FROM clip where __pk0 = ?1")
+            .bind(clip_id)
+            .map(|row: SqliteRow| Clip::map_row(&row))
+            .fetch_one(&*self.pool)
+            .await?;
+
+        Ok((history, clip))
     }
 
     fn map_full(&self, row: SqliteRow) -> TensorHistoryExtra {

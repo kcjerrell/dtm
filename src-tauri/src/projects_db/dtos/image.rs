@@ -50,6 +50,7 @@ pub struct ImageExtra {
     pub start_height: i32,
     pub upscaler_scale_factor: Option<u8>,
     pub is_ready: Option<bool>,
+    pub clip_id: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

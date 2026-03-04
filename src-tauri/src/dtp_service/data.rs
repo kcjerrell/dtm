@@ -14,6 +14,7 @@ use crate::{
     },
 };
 use dtm_macros::dtp_commands;
+use serde_json::Value;
 
 #[dtp_commands]
 impl DTPService {
@@ -199,12 +200,38 @@ impl DTPService {
         &self,
         project_id: i64,
         row_id: i64,
-    ) -> Result<TensorHistoryExtra, String> {
+        clip_id: Option<i64>,
+    ) -> Result<Value, String> {
         let project = self.get_project(project_id).await?;
-        Ok(project
-            .get_history_full(row_id)
-            .await
-            .map_err(|e| e.to_string())?)
+
+        let (history, clip) = match clip_id {
+            Some(cid) => {
+                let (h, c) = project
+                    .get_history_with_clip(row_id, cid)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                (h, Some(c))
+            }
+            None => {
+                let h = project
+                    .get_history_full(row_id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                (h, None)
+            }
+        };
+
+        let mut json = serde_json::to_value(history).map_err(|e| e.to_string())?;
+        if let Some(clip) = clip {
+            if let Some(obj) = json.as_object_mut() {
+                obj.insert(
+                    "clip".to_string(),
+                    serde_json::to_value(clip).map_err(|e| e.to_string())?,
+                );
+            }
+        }
+
+        Ok(json)
     }
 
     #[dtp_command]

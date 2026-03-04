@@ -86,8 +86,8 @@ async function listModels(modelType?: ModelType): Promise<Model[]> {
     return await invoke("dtp_list_models", { modelType })
 }
 
-async function getHistoryFull(projectId: number, rowId: number): Promise<TensorHistoryExtra> {
-    return await invoke("dtp_get_history_full", { projectId, rowId })
+async function getHistoryFull(projectId: number, rowId: number, clipId?: number | null): Promise<TensorHistoryExtra> {
+    return await invoke("dtp_get_history_full", { projectId, rowId, clipId })
 }
 
 async function getTensorSize(projectId: number, tensorId: string): Promise<TensorSize> {
