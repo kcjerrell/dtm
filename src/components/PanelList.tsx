@@ -19,6 +19,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     onSelectionChanged?: (selected: T[]) => void
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
+    variant?: "flat" | "inset"
 }
 
 export type PanelListCommandItem<T, C = undefined> = PanelListCommand<T, C> | "spacer"
@@ -54,6 +55,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         onSelectionChanged,
         clearSelection,
         selectionMode = "multipleModifier",
+        variant = "inset",
         ...boxProps
     } = props
 
@@ -97,9 +99,9 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                 : "(No items)"
 
     return (
-        <PanelSection {...boxProps}>
+        <PanelSection {...boxProps} variant={variant}>
             {header && (
-                <PanelSectionHeader marginY={2}>
+                <PanelSectionHeader marginY={2} variant={variant}>
                     {header}
                     {headerInfo && (
                         <Tooltip tip={headerInfo}>
@@ -108,8 +110,9 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                     )}
                 </PanelSectionHeader>
             )}
-            <PaneListContainer>
+            <PaneListContainer variant={variant}>
                 <PaneListScrollContainer
+                    variant={variant}
                     ref={wrapperRef}
                 // overflowY="clip"
                 // onWheel={(e) => {
@@ -120,7 +123,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                 // 	scrollYMv.set(-scrollY.current)
                 // }}
                 >
-                    <PanelListScrollContent ref={contentRef} asChild>
+                    <PanelListScrollContent variant={variant} ref={contentRef} asChild>
                         <SelectableGroup>{children}</SelectableGroup>
                     </PanelListScrollContent>
                 </PaneListScrollContainer>
@@ -130,6 +133,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                         bgColor={"transparent"}
                         fontStyle={"italic"}
                         textAlign={"center"}
+                        variant={variant}
                     >
                         {emptyListText}
                     </PanelListItem>

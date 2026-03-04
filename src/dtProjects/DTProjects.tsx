@@ -40,7 +40,6 @@ function DTProjects(props: ChakraProps) {
                     border={"1px solid {gray/50}"}
                 />
                 <ImagesList
-                    paddingTop={"4rem"}
                     flex={"1 1 auto"}
                     width={"full"}
                     maxWidth={"full"}

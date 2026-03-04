@@ -41,7 +41,7 @@ function App() {
             cursor={"default"}
             userSelect={"none"}
             gap={0}
-            bgColor={"check.2"}
+            bgColor={"grayc.14"}
             transformOrigin={"left top"}
             onPointerDownCapture={async (e) => {
                 if (e.clientY < 50) {
@@ -59,6 +59,7 @@ function App() {
                 >
                     {viewDescription.map((item) => (
                         <Sidebar.Button
+                            aria-selected={snap.currentView === item.viewId || undefined}
                             key={item.viewId}
                             label={item.label}
                             icon={item.icon}
@@ -115,7 +116,11 @@ function App() {
                         </HStack>
                     </VStack>
                 </Sidebar>
-                <CheckRoot id={"check-root"} dark={colorMode === "dark"}>
+                <CheckRoot
+                    id={"check-root"}
+                    dark={colorMode === "dark"}
+                    variant={snap.sidebarStyle.variant}
+                >
                     <ErrorBoundary FallbackComponent={ErrorFallback}>
                         <Suspense fallback={<Loading />}>
                             <AnimatePresence mode={"wait"}>
@@ -172,10 +177,8 @@ function ViewContainer(
                 height: "100%",
                 display: "flex",
                 flex: "1 1 auto",
-                overflow: "clip",
                 justifyContent: "stretch",
                 alignItems: "stretch",
-                // paddingBlock: "4px",
                 boxShadow: "0px 2px 4px -2px #00000099",
             }}
         >

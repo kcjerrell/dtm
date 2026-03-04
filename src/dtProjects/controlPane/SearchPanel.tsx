@@ -33,6 +33,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
             value={"search"}
             overflowX={"clip"}
             height={"auto"}
+            padding={2}
             onKeyDown={(e) => {
                 if (e.key === "Enter") {
                     search.applySearch()

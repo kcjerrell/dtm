@@ -1,5 +1,51 @@
-import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react"
-import { buttonRecipe } from './Button'
+import {
+    createSystem,
+    defaultConfig,
+    defineConfig,
+    SystemConfig,
+    ThemingConfig,
+} from "@chakra-ui/react"
+import { buttonRecipe } from "./button"
+
+const grayValues = [
+    "#0e0f10",  // 0    17
+    "#141617",  // 1    16
+    "#1f2224",  // 2    15
+    "#232629",  // 3    14
+    "#2e3235",  // 4    13
+    "#353940",  // 5    12
+    "#434753",  // 6    11
+    "#565e67",  // 7    10
+    "#8e97a2",  // 8    9
+    "#b9bfc5",  // 9    8
+    "#c7c9ca",  // 10   7
+    "#dbdddf",  // 11   6
+    "#dedfe1",  // 12   5
+    "#e0e1e2",  // 13   4
+    "#e4e6e7",  // 14   3
+    "#e8eaeb",  // 15   2
+    "#EDEFF0",  // 16   1
+    "#f2f3f4",  // 17   0
+]
+
+const grays = grayValues.reduce(
+    (acc, value, index) => {
+        acc[index] = { value }
+        return acc
+    },
+    {} as Record<number, { value: string }>,
+)
+const grayc = Array.from({ length: grayValues.length }).reduce<
+    Record<number, { value: { _light: string; _dark: string } }>
+>((acc, _, index) => {
+    acc[index] = {
+        value: {
+            _light: grayValues[index],
+            _dark: grayValues[grayValues.length - 1 - index],
+        },
+    }
+    return acc
+}, {})
 
 const themeConfig = defineConfig({
     globalCss: {
@@ -137,23 +183,25 @@ const themeConfig = defineConfig({
                         },
                     },
                 },
-                grays: {
-                    "0": { value: "#0e0f10" },
-                    "1": { value: "#141617" },
-                    "2": { value: "#1f2224" },
-                    "3": { value: "#272932" },
-                    "4": { value: "#272a2d" },
-                    "5": { value: "#434753" },
-                    "6": { value: "#434753" },
-                    "7": { value: "#565e67" },
-                    "8": { value: "#8e97a2" },
-                    "9": { value: "#b9bfc5" },
-                    "10": { value: "#c7c9ca" },
-                    "11": { value: "#dbdddf" },
-                    "12": { value: "#e0e1e2" },
-                    "13": { value: "#e8eaeb" },
-                    "14": { value: "#f2f3f4" },
-                },
+                // grays: {
+                //     "0": { value: "#0e0f10" },
+                //     "1": { value: "#141617" },
+                //     "2": { value: "#1f2224" },
+                //     "3": { value: "#272932" },
+                //     "4": { value: "#272a2d" },
+                //     "5": { value: "#434753" },
+                //     "6": { value: "#434753" },
+                //     "7": { value: "#565e67" },
+                //     "8": { value: "#8e97a2" },
+                //     "9": { value: "#b9bfc5" },
+                //     "10": { value: "#c7c9ca" },
+                //     "11": { value: "#dbdddf" },
+                //     "12": { value: "#e0e1e2" },
+                //     "13": { value: "#e8eaeb" },
+                //     "14": { value: "#f2f3f4" },
+                // },
+                grays,
+                grayc,
                 highlight: {
                     DEFAULT: {
                         value: {

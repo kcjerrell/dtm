@@ -1,3 +1,4 @@
+import { cs } from "@/utils/helpers"
 import { Button, chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
 
@@ -59,6 +60,20 @@ export const CheckRoot = chakra(
             },
         },
         variants: {
+            variant: {
+                attached: {
+                    zIndex: 2,
+                    boxShadow: cs(
+                        // "0px 0px 5px -1px #00000022",
+                        "0px 3px 12px -3px #00000022",
+                        // "-2px 0px 6px -2px #FF000000 inset",
+                    ),
+                    borderRadius: "lg",
+                },
+                float: {
+                    zIndex: 0,
+                },
+            },
             dark: {
                 true: {
                     _after: {
@@ -90,6 +105,7 @@ export const CheckRoot = chakra(
                 },
             },
         },
+        defaultVariants: { variant: "float" },
     },
     { forwardProps: ["transition"] },
 )
@@ -106,7 +122,6 @@ export const PaneListContainer = chakra("div", {
 
         paddingY: 0,
         paddingX: 0,
-        // borderBlock: "0.25rem solid {colors.bg.1}",
         borderRadius: "sm",
         gap: 0.5,
         display: "flex",
@@ -116,6 +131,14 @@ export const PaneListContainer = chakra("div", {
         overscrollBehavior: "contain",
         overflowY: "clip",
     },
+    variants: {
+        variant: {
+            inset: {
+                borderBlock: "0.25rem solid {colors.bg.1}",
+            },
+            flat: {},
+        },
+    },
 })
 
 export const PaneListScrollContainer = chakra(
@@ -123,7 +146,6 @@ export const PaneListScrollContainer = chakra(
     {
         base: {
             position: "relative",
-            // height: "100%",
             width: "100%",
             paddingY: "1px",
             gap: 0,
@@ -134,7 +156,14 @@ export const PaneListScrollContainer = chakra(
             overscrollBehavior: "contain",
             scrollBehavior: "smooth",
             overflowY: "auto",
-            // bgColor: "bg.deep/30",
+        },
+        variants: {
+            variant: {
+                inset: {
+                    bgColor: "bg.deep/30",
+                },
+                flat: {},
+            },
         },
     },
     { defaultProps: { className: "hide-scrollbar" } },
@@ -143,13 +172,19 @@ export const PaneListScrollContainer = chakra(
 export const PanelListScrollContent = chakra("div", {
     base: {
         height: "auto",
-        // bgColor: "bg.deep/50",
-        // minHeight: "100%",
         display: "flex",
         flexDirection: "column",
         justifyContent: "flex-start",
         alignItems: "stretch",
         gap: 0,
+    },
+    variants: {
+        variant: {
+            inset: {
+                bgColor: "bg.deep/50",
+            },
+            flat: {},
+        },
     },
 })
 
@@ -163,19 +198,22 @@ export const PanelSectionHeader = chakra("h3", {
         justifyContent: "space-between",
         flex: "0 0 auto",
     },
+    variants: {
+        variant: {
+            inset: {},
+            flat: {},
+        },
+    },
 })
 
 export const PanelListItem = chakra(
     "div",
     {
         base: {
-            bgColor: "bg.3",
             color: "fg.2",
             paddingX: 3,
             paddingY: 1,
             border: "1px solid transparent",
-            borderInline: "0px",
-            margin: "0px",
             transition: "all 0.2s ease-out",
             _focusVisible: {
                 outline: "1px inset {colors.blue.400/70} !important",
@@ -184,6 +222,10 @@ export const PanelListItem = chakra(
             contain: "paint",
         },
         variants: {
+            variant: {
+                inset: {},
+                flat: {},
+            },
             selectable: {
                 true: {
                     // _hover: {
@@ -192,13 +234,13 @@ export const PanelListItem = chakra(
                     // },
 
                     "&[data-selected]:not([data-selected] + [data-selected])": {
-                        borderTop: "1px solid {colors.fg.2/20}",
-                        // marginTop: "-1px",
+                        borderTopColor: "fg.2/10",
+                        borderTopRadius: "lg",
                     },
 
                     "&[data-selected]:not(:has(+ [data-selected]))": {
-                        borderBottom: "1px solid {colors.fg.2/20}",
-                        // marginBottom: "-1px",
+                        borderBottomColor: "fg.2/10",
+                        borderBottomRadius: "lg",
                     },
                 },
             },
@@ -206,27 +248,21 @@ export const PanelListItem = chakra(
                 true: {
                     // bgColor: "color-mix(in srgb, {colors.bg.2} 95%, {colors.info} 5%)",
                     // bgColor: "color-mix(in srgb, {colors.bg.1} 50%, {colors.bg.2} 50%)",
-                    bgColor: "bg.1",
+                    // bgColor: "grayc.13",
+                    bgColor: "#c8d4dfff",
+                    borderLeftColor: "fg.2/10",
+                    borderRightColor: "fg.2/10",
                     color: "fg.1",
                     _dark: {
-                        // bgColor: "color-mix(in srgb, {colors.bg.1} 50%, {colors.bg.2} 50%)",
-                        bgColor: "bg.0",
-                        // _hover: {
-                        //     bgColor: "color-mix(in srgb, {colors.bg.0} 50%, {colors.bg.3} 50%)"
-                        // },
+                        bgColor: "#323f50ff",
                         color: "fg.1",
                     },
-                    // _hover: {
-                    //     bgColor: "color-mix(in srgb, {colors.bg.1} 25%, {colors.bg.2} 75%)",
-                    // },
-                    // borderBlock: "1px solid #00000011",
-                    zIndex: 5,
                 },
                 false: {
-                    _dark: {
-                        bgColor: "bg.2"
-                    }
-                }
+                    // _dark: {
+                    //     bgColor: "bg.2",
+                    // },
+                },
             },
             hoverScale: {
                 true: {
@@ -301,16 +337,23 @@ export const PanelSection = chakra("div", {
         display: "flex",
         flexDirection: "column",
         padding: 0.5,
-        // boxShadow: "0px 2px 8px -3px #00000022, 0px 0px 10px -5px #00000022",
-        // borderRadius: "lg",
-        // border: "1px solid {gray/20}",
         overflowY: "clip",
         overflowX: "clip",
         alignItems: "stretch",
         justifyContent: "flex-start",
         gap: "1px",
-        // bgColor: "bg.1",
         color: "fg.1",
+    },
+    variants: {
+        variant: {
+            inset: {
+                bgColor: "bg.1",
+                boxShadow: "0px 2px 8px -3px #00000022, 0px 0px 10px -5px #00000022",
+                borderRadius: "lg",
+                border: "1px solid {gray/20}",
+            },
+            flat: {},
+        },
     },
 })
 

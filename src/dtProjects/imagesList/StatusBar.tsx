@@ -9,6 +9,15 @@ import SearchTextWidget from "./SearchTextWidget"
 
 interface StatusBarProps extends ChakraProps {}
 
+const divider = {
+    content: '""',
+    width: "1px",
+    height: "1.5rem",
+    bgColor: "fg.3",
+    opacity: "50%",
+    margin: "4px",
+}
+
 function StatusBar(props: StatusBarProps) {
     const { ...restProps } = props
 
@@ -19,7 +28,7 @@ function StatusBar(props: StatusBarProps) {
         <HStack
             justifyContent={"flex-start"}
             paddingX={4}
-            paddingY={1}
+            paddingY={0}
             bgColor={"bg.2"}
             boxShadow={"pane1"}
             borderRadius={"lg"}
@@ -33,7 +42,6 @@ function StatusBar(props: StatusBarProps) {
             <ProjectsWidget fontSize={"sm"} fontWeight={"semibold"} />
             {/* <Spacer /> */}
             {/* <HStack flex={"0 0 auto"} cursor={"pointer"} justifySelf={"flex-end"}> */}
-            <Box bgColor={"fg.3"} width={"1px"} height={"2rem"} opacity={"50%"} />
             <IconToggle
                 value={{
                     image: imagesSnap.imageSource.showImage,
@@ -44,6 +52,12 @@ function StatusBar(props: StatusBarProps) {
                     images.setShowVideos(value.video ?? false)
                 }}
                 mode="zeroOrOne"
+                css={{
+                    "&:not(:nth-of-type(1))": {
+                        _before: divider,
+                    },
+                }}
+                _after={divider}
             >
                 <IconToggle.Trigger
                     size={"sm"}
@@ -62,7 +76,6 @@ function StatusBar(props: StatusBarProps) {
                     <PiFilmStrip />
                 </IconToggle.Trigger>
             </IconToggle>
-            <Box bgColor={"fg.3"} width={"1px"} height={"2rem"} opacity={"50%"} />
 
             <IconButton
                 variant={"ghost"}

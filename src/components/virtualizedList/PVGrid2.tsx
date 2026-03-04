@@ -118,8 +118,8 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         const { columns, rowHeight } = measure(scrollContent, maxItemSize)
         state.columns = columns
         state.rowHeight = rowHeight
-        const firstVisibleRow = scrollContainer.scrollTop / rowHeight
-        const rowsOnScreen = state.visibleHeight / rowHeight
+        const firstVisibleRow = scrollContainer.scrollTop / (rowHeight || 1)
+        const rowsOnScreen = state.visibleHeight / (rowHeight || 1)
 
         const firstRow = firstVisibleRow - rowsOnScreen * overscan
         state.firstRow = Math.max(0, Math.floor(firstRow))
@@ -235,13 +235,14 @@ function PVGridItems<T, P>(props: {
         <>
             {items.map((item, i) => {
                 const index = i + indexOffset
+                const key = item ? keyFn?.(item as T, index) : index
                 return (
                     <Item
                         // gridRow={`${Math.floor(index / columns) + 1}`}
                         // gridColumn={`${(index % columns) + 1}`}
                         index={index}
                         value={item as T}
-                        key={item ? keyFn?.(item as T, index) : index}
+                        key={key}
                         {...(itemProps as P)}
                     />
                 )

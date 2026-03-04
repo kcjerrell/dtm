@@ -170,6 +170,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                         }
                         commands={folderCommands}
                         keyFn={(item) => item.id}
+                        variant="inset"
                     >
                         {folders.map((folder) => (
                             <WatchFolderItem key={folder.id} folder={folder} />

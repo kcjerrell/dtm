@@ -34,7 +34,12 @@ function ControlPane(props: ControlPane) {
             paddingY={0}
             paddingX={0}
             borderRadius={"md"}
-            bgColor={"bg.2"}
+            // borderLeft={"1px solid {colors.grayc.10/50}"}
+            variant={"float"}
+            bgColor={"grayc.16"}
+            _dark={{
+                bgColor: "grayc.15",
+            }}
             {...restProps}
         >
             <Tabs.Root
