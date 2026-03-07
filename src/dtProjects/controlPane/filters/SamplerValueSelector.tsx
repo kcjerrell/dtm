@@ -26,6 +26,7 @@ const samplerValues = {
 	"16": "DDIMTrailing",
 	"17": "UniPCTrailing",
 	"18": "UniPCAYS",
+	"19": "TCDTrailing"
 } as const
 
 const samplerCollection = createValueLabelCollection(samplerValues)

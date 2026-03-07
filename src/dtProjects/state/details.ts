@@ -15,7 +15,6 @@ class DetailsService extends DTPStateService {
 
     async getDetails(item: ImageExtra): Promise<DTImageFull | undefined> {
         const key = detailsKey(item.project_id, item.node_id)
-        console.log("Let's get some deets for ", key)
         if (this.itemDetails[key]) return this.itemDetails[key]
         const project = this.projects.state.projects.find((p) => p.id === item.project_id)
         if (!project) return
@@ -23,7 +22,7 @@ class DetailsService extends DTPStateService {
         const { history, ...extra } = await DTPService.getHistoryFull(
             item.project_id,
             item.node_id,
-            item.clip_id,
+            item.clip_id && item.clip_id > 0 ? item.clip_id : null,
         )
         const rawConfig = extractConfigFromTensorHistoryNode(history) ?? {}
         const config = groupConfigProperties(rawConfig)

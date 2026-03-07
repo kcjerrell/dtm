@@ -1,15 +1,15 @@
 import { HStack, Spacer } from "@chakra-ui/react"
-import { type ComponentType, useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { proxy, type Snapshot, useSnapshot } from "valtio"
-import type { IconType } from "@/components/icons/icons"
 import { PiInfo } from "@/components/icons/icons"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
+import type { ICommandItem } from "@/types"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
-    commands?: PanelListCommandItem<T, C>[]
+    commands?: ICommandItem<T, C>[]
     commandContext?: C
     header?: string
     headerInfo?: string
@@ -19,26 +19,6 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     onSelectionChanged?: (selected: T[]) => void
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
-}
-
-export type PanelListCommandItem<T, C = undefined> = PanelListCommand<T, C> | "spacer"
-
-export interface PanelListCommand<T, C = undefined> {
-    id: string
-    ariaLabel?: string
-    icon?: IconType | ComponentType
-    getIcon?: (selected: Snapshot<T[]>, context?: C) => IconType | ComponentType
-    requiresSelection?: boolean
-    requiresSingleSelection?: boolean
-    getEnabled?: (selected: Snapshot<T[]>, context?: C) => boolean
-    /** if present, tipTitle and tipText will be ignored */
-    tip?: React.ReactNode
-    tipTitle?: string
-    tipText?: string
-    getTip?: (selected: Snapshot<T[]>, context?: C) => React.ReactNode
-    getTipTitle?: (selected: Snapshot<T[]>, context?: C) => string
-    getTipText?: (selected: Snapshot<T[]>, context?: C) => string
-    onClick: (selected: Snapshot<T[]>, context?: C) => void
 }
 
 function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
@@ -93,8 +73,8 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         emptyListTextProp === false
             ? null
             : typeof emptyListTextProp === "string"
-                ? emptyListTextProp
-                : "(No items)"
+              ? emptyListTextProp
+              : "(No items)"
 
     return (
         <PanelSection {...boxProps}>
@@ -109,17 +89,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                 </PanelSectionHeader>
             )}
             <PaneListContainer>
-                <PaneListScrollContainer
-                    ref={wrapperRef}
-                // overflowY="clip"
-                // onWheel={(e) => {
-                // 	if (!wrapperRef.current || !contentRef.current) return
-                // 	const max =
-                // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
-                // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
-                // 	scrollYMv.set(-scrollY.current)
-                // }}
-                >
+                <PaneListScrollContainer ref={wrapperRef}>
                     <PanelListScrollContent ref={contentRef} asChild>
                         <SelectableGroup>{children}</SelectableGroup>
                     </PanelListScrollContent>
@@ -152,16 +122,16 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                         const tip = command.getTip
                             ? command.getTip(selectedItems, commandContext)
                             : command.tip
-                        const tipTitle = command.getTipTitle
-                            ? command.getTipTitle(selectedItems, commandContext)
-                            : command.tipTitle
+                        const tipTitle = command.getLabel
+                            ? command.getLabel(selectedItems, commandContext)
+                            : command.label
                         const tipText = command.getTipText
                             ? command.getTipText(selectedItems, commandContext)
                             : command.tipText
 
                         return (
                             <IconButton
-                                aria-label={command.ariaLabel}
+                                aria-label={command.label}
                                 key={command.id}
                                 size={"sm"}
                                 onClick={() => command.onClick(selectedItems, commandContext)}

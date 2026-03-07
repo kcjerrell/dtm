@@ -1,18 +1,19 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { DtpService } from "@/commands"
 import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/icons/icons"
-import type { PanelListCommandItem } from "@/components/PanelList"
+import { getSpacer, type ICommandItem } from "@/types"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
-import { DtpService } from '@/commands'
 
-export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
+export function useProjectsCommands(): ICommandItem<ProjectState>[] {
     const { projects } = useDTP()
     const snap = projects.useSnap()
 
     return [
         {
             id: "hideEmpty",
-            tipTitle: "Hide empty projects",
+            toolbarOnly: true,
+            label: "Hide empty projects",
             tipText: "Hide projects with no matches when searching",
             icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
             onClick: async () => {
@@ -20,17 +21,17 @@ export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
             },
             requiresSelection: false,
         },
+        getSpacer("toolbar"),
         {
             id: "scan",
-            tipTitle: "Scan project",
+            label: "Scan project",
             tipText: "Scan project for new images",
             icon: FiRefreshCw,
-            onClick: async () => {
-                DtpService.sync()
+            onClick: async (selected) => {
+                DtpService.syncProjects(selected.map((f) => f.id))
             },
-            requiresSelection: false,
+            requiresSelection: true,
         },
-        "spacer",
         // {
         //     id: "fullScan",
         //     tipTitle: "Full scan",
@@ -44,9 +45,8 @@ export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
         // },
         {
             id: "exclude",
-            getTipTitle: (selected) =>
-                selected[0]?.excluded ? "Include project" : "Exclude project",
-            tipText: "Excluded projects will not be scanned and their images won't be listed.",
+            getLabel: (selected) => (selected[0]?.excluded ? "Show project" : "Hide project"),
+            tipText: "Hidden projects will not be scanned and their images won't be listed.",
             getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
             onClick: (selected) => {
                 projects?.setExclude(selected, !selected[0]?.excluded)
@@ -55,7 +55,7 @@ export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
         },
         {
             id: "openFolder",
-            tipTitle: "Open folder",
+            label: "Open folder",
             tipText: "Open project folder in file manager.",
             icon: FiFolder,
             onClick: async (selected) => {

@@ -1,4 +1,5 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
+import { useCommandMenu } from "@/components/contextManu/useCommandMenu"
 import PanelList from "@/components/PanelList2"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../../state/context"
@@ -22,8 +23,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
     const showEmpty = snap.showEmptyProjects || !isFiltering
 
     const toolbarCommands = useProjectsCommands()
-
-    console.log("render")
+    const { Menu, onContextMenu } = useCommandMenu(toolbarCommands, snap.selectedProjects)
 
     return (
         <TabContent
@@ -33,6 +33,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             height={"full"}
             {...restProps}
         >
+            <Menu />
             <PanelList
                 role={"listbox"}
                 aria-label={"projects"}
@@ -48,14 +49,15 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 }}
             >
                 {showFolders &&
-                    snap.folders.map((folderGroup, i, arr) => (
+                    snap.folders.map((folderGroup, _i, arr) => (
                         <ProjectFolderGroup
-                            key={i}
+                            key={folderGroup.watchfolder.id}
                             showLabel={arr.length > 1}
                             watchfolder={folderGroup.watchfolder}
                             altCounts={projectImageCounts}
                             projects={folderGroup.projects}
                             onSelectFolder={(wf) => projects.selectFolderProjects(wf)}
+                            onProjectContextMenu={onContextMenu}
                         />
                     ))}
             </PanelList>

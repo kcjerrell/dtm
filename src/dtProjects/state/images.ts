@@ -11,6 +11,7 @@ import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
 import { DTPStateController } from "./types"
+import { areEquivalent } from "@/utils/helpers"
 
 export type ImagesControllerState = {
     imageSource: ImagesSource
@@ -34,6 +35,8 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
     itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
     eventTimer: NodeJS.Timeout | undefined
 
+    private lastSelectedProjectIds: number[] = []
+
     private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
         on: (fn: (_: undefined) => void) => this.container.on("imagesChanged", fn),
         off: (fn: (_: undefined) => void) => this.container.off("imagesChanged", fn),
@@ -48,7 +51,15 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
         this.container.getFutureService("projects").then((projectsService) => {
             const unsubProjects = subscribe(projectsService.state.selectedProjects, () => {
-                this.buildImageSource()
+                const selectedProjects = this.container
+                    .getService("projects")
+                    ?.state.selectedProjects.map((p) => p.id)
+                    .sort()
+                if (!areEquivalent(selectedProjects, this.lastSelectedProjectIds))
+                    this.buildImageSource()
+                this.lastSelectedProjectIds = projectsService.state.selectedProjects.map(
+                    (p) => p.id,
+                )
             })
             this.unwatchFns.push(unsubProjects)
 

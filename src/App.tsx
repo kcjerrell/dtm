@@ -32,6 +32,7 @@ function App() {
 
     return (
         <HStack
+            onContextMenu={(e) => e.preventDefault()}
             position={"relative"}
             width={"100vw"}
             height={"100vh"}

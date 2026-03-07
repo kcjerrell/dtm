@@ -1,15 +1,15 @@
 import { HStack, Spacer } from "@chakra-ui/react"
-import { type ComponentType, useEffect, useRef } from "react"
+import { useEffect, useRef } from "react"
 import type { Snapshot } from "valtio"
-import type { IconType } from "@/components/icons/icons"
 import { PiInfo } from "@/components/icons/icons"
 import type { Selectable } from "@/hooks/useSelectableV"
+import type { ICommandItem } from "@/types"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
-    commands?: PanelListCommandItem<T, C>[]
+    commands?: ICommandItem<T, C>[]
     commandContext?: C
     header?: string
     headerInfo?: string
@@ -20,26 +20,6 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
     selectedItems?: Snapshot<T[]>
-}
-
-export type PanelListCommandItem<T, C = undefined> = PanelListCommand<T, C> | "spacer"
-
-export interface PanelListCommand<T, C = undefined> {
-    id: string
-    ariaLabel?: string
-    icon?: IconType | ComponentType
-    getIcon?: (selected: Snapshot<T[]>, context?: C) => IconType | ComponentType
-    requiresSelection?: boolean
-    requiresSingleSelection?: boolean
-    getEnabled?: (selected: Snapshot<T[]>, context?: C) => boolean
-    /** if present, tipTitle and tipText will be ignored */
-    tip?: React.ReactNode
-    tipTitle?: string
-    tipText?: string
-    getTip?: (selected: Snapshot<T[]>, context?: C) => React.ReactNode
-    getTipTitle?: (selected: Snapshot<T[]>, context?: C) => string
-    getTipText?: (selected: Snapshot<T[]>, context?: C) => string
-    onClick: (selected: Snapshot<T[]>, context?: C) => void
 }
 
 function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
@@ -158,8 +138,9 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                 )}
 
                 <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
-                    {commands?.map((command, i) => {
-                        if (command === "spacer") return <Spacer key={`spacer-${i.toString()}`} />
+                    {commands?.map((command) => {
+                        if (command.menuOnly) return null
+                        if (command.spacer) return <Spacer key={command.id} />
 
                         let enabled = true
                         if (command.requiresSelection && !areItemsSelected) enabled = false
@@ -174,16 +155,16 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                         const tip = command.getTip
                             ? command.getTip(selectedItems, commandContext)
                             : command.tip
-                        const tipTitle = command.getTipTitle
-                            ? command.getTipTitle(selectedItems, commandContext)
-                            : command.tipTitle
+                        const tipTitle = command.getLabel
+                            ? command.getLabel(selectedItems, commandContext)
+                            : command.label
                         const tipText = command.getTipText
                             ? command.getTipText(selectedItems, commandContext)
                             : command.tipText
 
                         return (
                             <IconButton
-                                aria-label={command.ariaLabel}
+                                aria-label={command.label}
                                 key={command.id}
                                 size={"sm"}
                                 onClick={() => command.onClick(selectedItems, commandContext)}

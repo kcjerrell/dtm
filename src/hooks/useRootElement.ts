@@ -35,3 +35,19 @@ export function useRootElement(rootElement: RootElement) {
     if (!element) throw new Error(`Element ${rootElementIds[rootElement]} not found`)
     return element
 }
+
+export function useRootElementRef(rootElement: RootElement) {
+    const { currentView } = useSnapshot(AppStore.store)
+
+    if (process.env.NODE_ENV === "test") {
+        return { current: document.getElementById("root") }
+    }
+
+    const ref = {
+        get current(): HTMLElement | null {
+            return getElement(rootElement, currentView)
+        },
+    }
+
+    return ref
+}

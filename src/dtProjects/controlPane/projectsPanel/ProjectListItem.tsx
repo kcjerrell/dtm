@@ -1,4 +1,4 @@
-import { Box, HStack } from "@chakra-ui/react"
+import { Box, HStack, Spinner } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import { PanelListItem } from "@/components"
 import type { ProjectState } from "@/dtProjects/state/projects"
@@ -6,9 +6,10 @@ import type { ProjectState } from "@/dtProjects/state/projects"
 export interface ProjectListItemProps extends ChakraProps {
     project: Snapshot<ProjectState>
     altCount?: number
+    onContextMenu?: React.MouseEventHandler
 }
 function ProjectListItem(props: ProjectListItemProps) {
-    const { project, altCount, ...restProps } = props
+    const { project, altCount, onContextMenu, ...restProps } = props
 
     let count: number | string = project.image_count ?? 0
     let countStyle: string | undefined
@@ -30,8 +31,11 @@ function ProjectListItem(props: ProjectListItemProps) {
             selected={project.selected}
             asChild
             onClick={(e) => project.onClick(e)}
+            onContextMenu={(e) => {
+                if (!project.selected) project.onClick()
+                onContextMenu?.(e)
+            }}
             {...restProps}
-            // {...handlers}
         >
             <HStack justifyContent={"space-between"}>
                 <Box flex={"1 1 auto"}>
@@ -39,7 +43,7 @@ function ProjectListItem(props: ProjectListItemProps) {
                     {project.isMissing && " (missing)"}
                 </Box>
                 <Box color={"fg.3"} fontStyle={countStyle} fontVariantNumeric={"tabular-nums"}>
-                    {count}
+                    {project.isScanning ? <Spinner /> : count}
                 </Box>
             </HStack>
         </PanelListItem>

@@ -96,6 +96,9 @@ export type DTPEvents = {
     folder_sync_started: (payload: number) => void
     folder_sync_complete: (payload: number) => void
 
+    project_sync_started: (payload: number) => void
+    project_sync_complete: (payload: number) => void
+
     dtp_service_ready: () => void
     projectsLoaded: (payload?: undefined) => void
     imagesChanged: (payload?: undefined) => void

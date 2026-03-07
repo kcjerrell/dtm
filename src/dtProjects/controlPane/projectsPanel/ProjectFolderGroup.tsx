@@ -1,11 +1,11 @@
-import { Box, Button, HStack, Spacer, VStack } from "@chakra-ui/react"
-import { useEffect, useRef, useState } from "react"
+import { Box, HStack, Spacer, VStack } from "@chakra-ui/react"
+import { useState } from "react"
 import { MdBlock, MdDoNotDisturbOn } from "react-icons/md"
 import { DtpService } from "@/commands"
 import { IconButton, PanelListItem } from "@/components"
 import { FiRefreshCw, PiEject } from "@/components/icons/icons"
+import type { ProjectState } from "@/dtProjects/state/projects"
 import type { WatchFolderState } from "@/dtProjects/state/watchFolders"
-import { ProjectState } from "@/dtProjects/state/projects"
 import ProjectListItem from "./ProjectListItem"
 
 interface ProjectFolderGroupProps extends ChakraProps {
@@ -14,11 +14,20 @@ interface ProjectFolderGroupProps extends ChakraProps {
     altCounts?: Record<number, number>
     showLabel: boolean
     onSelectFolder: (watchfolder: WatchFolderState) => void
+    onProjectContextMenu: React.MouseEventHandler
 }
 
 function ProjectFolderGroup(props: ProjectFolderGroupProps) {
-    const { watchfolder, projects, altCounts, showLabel, children, onSelectFolder, ...restProps } =
-        props
+    const {
+        watchfolder,
+        projects,
+        altCounts,
+        showLabel,
+        children,
+        onSelectFolder,
+        onProjectContextMenu,
+        ...restProps
+    } = props
 
     const [highlightGroup, setHighlightGroup] = useState(false)
     const [showExcluded, setShowExcluded] = useState(false)
@@ -79,6 +88,7 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
                             key={p.path}
                             project={p}
                             altCount={altCounts?.[p.id] ?? 0}
+                            onContextMenu={onProjectContextMenu}
                         />
                     ))}
                     {excludedProjects.length > 0 && (

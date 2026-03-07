@@ -131,6 +131,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         const wfs = this.container.getService("watchFolders")
         const watchfolders = await wfs.loadWatchFolders()
         const dtpProjects = await (await DTPService.listProjects()).sort(projectSort)
+        const selected = this.state.selectedProjects.map((p) => ({ id: p.id }))
 
         const folders = groupMap(
             dtpProjects,
@@ -160,14 +161,24 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
         va.set(this.state.folders, folders)
         va.set(this.state.projects, newProjects)
-
+        this.setSelectedProjects(selected)
         this.state.projectsCount = this.state.projects.length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
     }
 
     private lastSelectedProject: ProjectState | null = null
-    selectItem(item: ProjectState, currentValue: boolean, modifier?: "shift" | "cmd" | null) {
+    selectItem(
+        item: ProjectState,
+        currentValue: boolean,
+        modifier?: "shift" | "cmd" | "context" | null,
+    ) {
+        // if opening context menu, item will be selected
+        if (modifier === "context") {
+            // if already selected, do nothing
+            if (currentValue) return
+        }
+
         // toggle item
         if (modifier === "cmd") {
             item.setSelected(!currentValue)
@@ -258,7 +269,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
     }
 
-    setSelectedProjects(projects: ProjectState[]) {
+    setSelectedProjects(projects: Pick<ProjectState, "id">[]) {
         const projectIds = new Set(projects.map((p) => p.id))
         for (const project of this.state.projects) {
             project.setSelected(projectIds.has(project.id))
