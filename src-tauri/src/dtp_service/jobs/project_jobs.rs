@@ -121,14 +121,18 @@ impl Job for UpdateProjectJob {
         format!("UpdateProjectJob for {}", self.project_id)
     }
 
+    fn start_event(self: &Self) -> Option<DTPEvent> {
+        Some(DTPEvent::ProjectSyncStarted(self.project_id))
+    }
+
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        let result: Result<(i64, u64), String> = ctx
+        let scan_result: Result<(i64, u64), String> = ctx
             .pdb
             .scan_project(self.project_id, false)
             .await
             .map_err(|e| e.to_string());
 
-        match result {
+        let result = match scan_result {
             Ok((_id, total)) => {
                 let project = ctx.pdb.get_project(_id).await.map_err(|e| e.to_string())?;
 
@@ -153,6 +157,11 @@ impl Job for UpdateProjectJob {
                 log::error!("Error scanning project {}: {}", self.project_id, err);
                 Err(err.to_string())
             }
-        }
+        };
+
+        ctx.events
+            .emit(DTPEvent::ProjectSyncComplete(self.project_id));
+
+        result
     }
 }

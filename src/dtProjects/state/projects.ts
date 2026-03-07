@@ -95,6 +95,20 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             }
             this.loadProjectsDebounced()
         })
+
+        this.container.on("project_sync_started", (projectId) => {
+            const projectState = this.state.projects.find((p) => p.id === projectId)
+            if (projectState) {
+                projectState.isScanning = true
+            }
+        })
+
+        this.container.on("project_sync_complete", (projectId) => {
+            const projectState = this.state.projects.find((p) => p.id === projectId)
+            if (projectState) {
+                projectState.isScanning = false
+            }
+        })
     }
 
     updateProject(projectId: number, data: Partial<ProjectExtra>) {

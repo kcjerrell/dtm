@@ -12,3 +12,5 @@ pub use sync::SyncJob;
 pub use check_file::CheckFileJob;
 pub use check_folder::CheckFolderJob;
 pub use sync_models::{FetchModels, SyncModelsJob};
+pub use sync_folder::{SyncFolderJob, ProjectSync};
+

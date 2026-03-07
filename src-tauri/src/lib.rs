@@ -181,6 +181,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
+            dtp_service::dtp_service::dtp_sync_projects,
             dt_project_tensordata,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {

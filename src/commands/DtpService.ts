@@ -127,6 +127,10 @@ async function sync() {
     await invoke("dtp_sync")
 }
 
+async function syncProjects(projectIds: number[]) {
+    await invoke("dtp_sync_projects", { projectIds })
+}
+
 const DTPService = {
     connect,
     listProjects,
