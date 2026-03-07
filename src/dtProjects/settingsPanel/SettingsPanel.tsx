@@ -1,6 +1,6 @@
 import { Box, HStack, Text, VStack } from "@chakra-ui/react"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import {
     IconButton,
     LinkButton,
@@ -60,12 +60,28 @@ function useCommands(watchFolders: WatchFoldersController): PanelListCommand<Wat
 
 export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "children">) {
     const { ...restProps } = props
-    const { images, watchFolders, uiState } = useDTP()
+    const { images, watchFolders, uiState, projects } = useDTP()
+    const uiSnap = uiState.useSnap()
     const imagesSnap = images.useSnap()
 
     const { folders } = watchFolders.useSnap()
 
     const folderCommands = useCommands(watchFolders)
+
+    useEffect(() => {
+        const showSettings = () => {
+            if (projects.state.projects.length === 0) {
+                uiState.showSettings(true)
+            }
+        }
+        if (projects.hasLoaded) showSettings()
+        else
+            projects.onProjectsLoaded.once(() => {
+                showSettings()
+            })
+    }, [projects, uiState])
+
+    if (!uiSnap.isSettingsOpen) return null
 
     return (
         <ContentPanelPopup
@@ -154,6 +170,7 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                         }
                         commands={folderCommands}
                         keyFn={(item) => item.id}
+                        variant="inset"
                     >
                         {folders.map((folder) => (
                             <WatchFolderItem key={folder.id} folder={folder} />
@@ -192,7 +209,6 @@ export function SettingsPanel(props: Omit<ContentPanelPopupProps, "onClose" | "c
                             )}
                         </Box>
                     </PanelSection>
-                    {/* <ResetPermission /> */}
                 </VStack>
             </Box>
         </ContentPanelPopup>

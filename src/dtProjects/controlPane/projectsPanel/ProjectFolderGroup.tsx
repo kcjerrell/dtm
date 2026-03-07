@@ -95,7 +95,7 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
                         <PanelListItem
                             // ref={toggleRef}
                             onClick={() => setShowExcluded(!showExcluded)}
-                            cursor="pointer"
+                            // cursor="pointer"
                             color="fg.3"
                             _hover={{ color: "fg.1" }}
                         >

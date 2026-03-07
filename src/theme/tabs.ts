@@ -26,7 +26,7 @@ export const tabsSlotRecipe = defineSlotRecipe({
 			alignItems: "center",
 			fontWeight: "medium",
 			position: "relative",
-			cursor: "button",
+			// cursor: "button",
 			// gap: "0",
 
 			_focusVisible: {
@@ -35,7 +35,7 @@ export const tabsSlotRecipe = defineSlotRecipe({
 				outlineColor: "colorPalette.focusRing",
 			},
 			_disabled: {
-				cursor: "not-allowed",
+				// cursor: "not-allowed",
 				opacity: 0.5,
 			},
 		},

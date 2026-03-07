@@ -298,3 +298,10 @@ export function groupMap<TKey, TIn, TOut, TGroup>(
     }
     return Array.from(map.entries()).map(([key, value]) => groupFn(key, value))
 }
+
+/**
+ * Joins strings with a comma and a space
+ */
+export function cs(...items: string[]) {
+    return items.join(", ")
+}

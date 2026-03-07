@@ -35,6 +35,8 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
         >
             <Menu />
             <PanelList
+                // bgColor={"bg.3"}
+                px={2}
                 role={"listbox"}
                 aria-label={"projects"}
                 flex={"1 1 auto"}

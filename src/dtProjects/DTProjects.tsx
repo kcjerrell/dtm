@@ -1,57 +1,56 @@
-import { chakra } from "@chakra-ui/react"
-import { useEffect } from "react"
+import { chakra, VStack } from "@chakra-ui/react"
 import { useSidebarStyle } from "@/components/sidebar/useSidebarStyle"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
+import EmptyGrid from "./EmptyGrid"
 import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
 import { SettingsPanel } from "./settingsPanel/SettingsPanel"
-import { useDTP } from "./state/context"
-import { Panel } from '@/components'
 
 function DTProjects(props: ChakraProps) {
     const { ...restProps } = props
 
-    const { uiState, projects } = useDTP()
-    const uiSnap = uiState.useSnap()
-
     useSidebarStyle("attached")
-
-    useEffect(() => {
-        const showSettings = () => {
-            if (projects.state.projects.length === 0) {
-                uiState.showSettings(true)
-            }
-        }
-        if (projects.hasLoaded) showSettings()
-        else
-            projects.onProjectsLoaded.once(() => {
-                showSettings()
-            })
-    }, [projects, uiState])
 
     return (
         <Container position={"relative"} {...restProps}>
-            <ImportProgress
-                open={uiSnap.importLock}
-                progress={uiSnap.importProgress}
-                key={`import-lock-${uiSnap.importLockCount}`}
-            />
             <ControlPane />
-            <Panel
+            <VStack
                 id={"project-content-pane"}
                 position="relative"
-                bgColor={"bg.2"}
                 alignItems={"stretch"}
                 justifyContent={"flex-start"}
                 overflow={"hidden"}
                 padding={0}
+                gap={4}
+                borderRadius={0}
             >
-                <StatusBar flex={"0 0 auto"} width={"100%"} maxWidth={"100%"} />
-                <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
-                {uiSnap.isSettingsOpen && <SettingsPanel />}
-            </Panel>
+                <SettingsPanel />
+                <ImportProgress />
+                <StatusBar
+                    position={"absolute"}
+                    top={3}
+                    left={undefined}
+                    right={5}
+                    width={"auto"}
+                    zIndex={5}
+                    margin={"0"}
+                    flex={"0 0 auto"}
+                    border={"1px solid {gray/50}"}
+                />
+                <ImagesList
+                    flex={"1 1 auto"}
+                    width={"full"}
+                    maxWidth={"full"}
+                />
+                <EmptyGrid
+                    position={"absolute"}
+                    top={"50%"}
+                    left={"50%"}
+                    transform={"translate(-50%, -50%)"}
+                />
+            </VStack>
             <DetailsOverlay />
         </Container>
     )
@@ -69,14 +68,15 @@ export const Container = chakra("div", {
         width: "100%",
         height: "100%",
 
-        gap: 2,
-        padding: 2,
+        gap: 0,
+        padding: 0,
 
         justifyContent: "normal",
         alignItems: "stretch",
 
         overflow: "hidden",
         overscrollBehavior: "none none",
+        zIndex: 2,
     },
 })
 

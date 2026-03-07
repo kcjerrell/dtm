@@ -1,5 +1,5 @@
 import { Box } from "@chakra-ui/react"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { ImageExtra } from "@/commands"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import Video from "@/components/video/Video"

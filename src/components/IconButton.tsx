@@ -22,7 +22,7 @@ const Base = chakra("button", {
         borderWidth: "1px",
         borderColor: "transparent",
         overflow: "visible",
-        cursor: "button",
+        // cursor: "button",
         flexShrink: "0",
         outline: "0",
         lineHeight: "1.2",
@@ -41,13 +41,18 @@ const Base = chakra("button", {
 
     variants: {
         variant: {
+            ghost: {
+                bgColor: "transparent",
+                border: "none",
+
+            },
             inset: {
                 bgColor: "bg.1",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 paddingBlock: 0.5,
                 height: "unset",
-                paddingInline: 1,
+                // paddingInline: 1,
                 // border: "1px solid",
                 // borderColor: "transparent",
                 borderRadius: "md",
@@ -72,7 +77,7 @@ const Base = chakra("button", {
             toggle: {
                 paddingBlock: 0.5,
                 height: "unset",
-                paddingInline: 1,
+                paddingInline: 4,
                 border: "1px solid",
                 borderColor: "transparent",
                 borderRadius: 0,
@@ -168,7 +173,7 @@ const Base = chakra("button", {
                 h: "10",
                 minW: "10",
                 textStyle: "sm",
-                px: "4",
+                px: "0",
                 gap: "2",
                 _icon: {
                     width: "6",
@@ -210,6 +215,33 @@ const Base = chakra("button", {
             },
         },
     },
+
+    compoundVariants: [
+        {
+            variant: "ghost",
+            toggled: true,
+            css: {
+                bgColor: "unset",
+                border: "none",
+                color: "fg.1",
+                _hover: {
+                    color: "fg.1",
+                },
+            },
+        },
+        {
+            variant: "ghost",
+            toggled: false,
+            css: {
+                bgColor: "unset",
+                border: "none",
+                color: "fg.3",
+                _hover: {
+                    color: "fg.1",
+                },
+            },
+        }
+    ],
 
     defaultVariants: {
         variant: "simple",

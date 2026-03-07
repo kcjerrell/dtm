@@ -19,6 +19,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     onSelectionChanged?: (selected: T[]) => void
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
+    variant?: "flat" | "inset"
 }
 
 function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
@@ -34,6 +35,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         onSelectionChanged,
         clearSelection,
         selectionMode = "multipleModifier",
+        variant = "inset",
         ...boxProps
     } = props
 
@@ -77,9 +79,9 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
               : "(No items)"
 
     return (
-        <PanelSection {...boxProps}>
+        <PanelSection {...boxProps} variant={variant}>
             {header && (
-                <PanelSectionHeader marginY={2}>
+                <PanelSectionHeader marginY={2} variant={variant}>
                     {header}
                     {headerInfo && (
                         <Tooltip tip={headerInfo}>
@@ -88,9 +90,20 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                     )}
                 </PanelSectionHeader>
             )}
-            <PaneListContainer>
-                <PaneListScrollContainer ref={wrapperRef}>
-                    <PanelListScrollContent ref={contentRef} asChild>
+            <PaneListContainer variant={variant}>
+                <PaneListScrollContainer
+                    variant={variant}
+                    ref={wrapperRef}
+                    // overflowY="clip"
+                    // onWheel={(e) => {
+                    // 	if (!wrapperRef.current || !contentRef.current) return
+                    // 	const max =
+                    // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
+                    // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
+                    // 	scrollYMv.set(-scrollY.current)
+                    // }}
+                >
+                    <PanelListScrollContent variant={variant} ref={contentRef} asChild>
                         <SelectableGroup>{children}</SelectableGroup>
                     </PanelListScrollContent>
                 </PaneListScrollContainer>
@@ -100,6 +113,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                         bgColor={"transparent"}
                         fontStyle={"italic"}
                         textAlign={"center"}
+                        variant={variant}
                     >
                         {emptyListText}
                     </PanelListItem>

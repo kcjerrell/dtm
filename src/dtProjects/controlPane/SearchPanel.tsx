@@ -33,6 +33,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
             value={"search"}
             overflowX={"clip"}
             height={"auto"}
+            padding={2}
             onKeyDown={(e) => {
                 if (e.key === "Enter") {
                     search.applySearch()
@@ -89,7 +90,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
                 color={"fg.2"}
                 _hover={{ textDecoration: "underline", color: "fg.1" }}
                 fontSize={"sm"}
-                cursor={"pointer"}
+                // cursor={"pointer"}
                 onClick={() => search.addEmptyFilter(true)}
             >
                 Add Filter
