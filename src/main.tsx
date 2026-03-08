@@ -12,6 +12,7 @@ import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
 import App from "./App"
+import { Hotkey } from "./hooks/keyboard"
 
 function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
@@ -54,8 +55,9 @@ function bootstrap() {
             <StrictMode>
                 <ChakraProvider value={system}>
                     <ColorModeProvider>
-                        <HotkeysProvider initiallyActiveScopes={["*"]}>
+                        <HotkeysProvider initiallyActiveScopes={["app"]}>
                             <RootComponent />
+                            <Hotkey handlers={{ "meta+r": () => location.reload() }} />
                         </HotkeysProvider>
                     </ColorModeProvider>
                 </ChakraProvider>

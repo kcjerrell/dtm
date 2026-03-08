@@ -39,11 +39,7 @@ function DTProjects(props: ChakraProps) {
                     flex={"0 0 auto"}
                     border={"1px solid {gray/50}"}
                 />
-                <ImagesList
-                    flex={"1 1 auto"}
-                    width={"full"}
-                    maxWidth={"full"}
-                />
+                <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
                 <EmptyGrid
                     position={"absolute"}
                     top={"50%"}
@@ -51,7 +47,7 @@ function DTProjects(props: ChakraProps) {
                     transform={"translate(-50%, -50%)"}
                 />
             </VStack>
-            <DetailsOverlay zIndex={3}/>
+            <DetailsOverlay zIndex={3} />
         </Container>
     )
 }
