@@ -3,7 +3,7 @@ import { useState } from "react"
 import { MdBlock, MdDoNotDisturbOn } from "react-icons/md"
 import { DtpService } from "@/commands"
 import { IconButton, PanelListItem } from "@/components"
-import { FiRefreshCw, PiEject } from "@/components/icons/icons"
+import { ChevronDown, ChevronForward, FiRefreshCw, PiEject } from "@/components/icons/icons"
 import type { ProjectState } from "@/dtProjects/state/projects"
 import type { WatchFolderState } from "@/dtProjects/state/watchFolders"
 import ProjectListItem from "./ProjectListItem"
@@ -31,6 +31,7 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
 
     const [highlightGroup, setHighlightGroup] = useState(false)
     const [showExcluded, setShowExcluded] = useState(false)
+    const [collapsed, setCollapsed] = useState(watchfolder.isMissing)
 
     const activeProjects = projects.filter((p) => !p.excluded)
     const excludedProjects = projects.filter((p) => p.excluded)
@@ -47,19 +48,39 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
             margin={0}
             bgColor={highlightGroup ? "bg.2" : "unset"}
             opacity={watchfolder.isMissing ? 0.5 : "unset"}
+            // css={{
+            //     "&:not(:first-child)": {
+            //         paddingTop: "4px",
+            //         borderTop: "2px solid var(--chakra-colors-grayc-0)",
+            //     },
+            // }}
             {...restProps}
         >
             {showLabel && (
                 <HStack
                     paddingX={2}
+                    marginBottom={1}
                     onMouseEnter={() => setHighlightGroup(true)}
                     onMouseLeave={() => setHighlightGroup(false)}
-                    onClick={() => onSelectFolder(watchfolder)}
+                    onClick={() => {
+                        if (collapsed) setCollapsed(false)
+                        else onSelectFolder(watchfolder)
+                    }}
+                    borderBottom={"1px solid {colors.grays.8/50}"}
                 >
                     {/* <Button size={"xs"} variant={"ghost"}>
                         -
                     </Button> */}
-                    <Box>{label}</Box>
+                    <IconButton
+                    size={"sm"}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setCollapsed(!collapsed)
+                        }}
+                    >
+                        {collapsed ? <ChevronForward /> : <ChevronDown />}
+                    </IconButton>
+                    <Box fontSize={"sm"}>{label}</Box>
                     <Spacer />
                     {watchfolder.isMissing && <MdDoNotDisturbOn />}
                     {!watchfolder.isMissing && !watchfolder.isLocked && !watchfolder.isDtData && (
@@ -82,36 +103,46 @@ function ProjectFolderGroup(props: ProjectFolderGroupProps) {
             {watchfolder.isLocked ? (
                 <Box>Safe to remove</Box>
             ) : (
-                <>
-                    {activeProjects.map((p) => (
-                        <ProjectListItem
-                            key={p.path}
-                            project={p}
-                            altCount={altCounts?.[p.id] ?? 0}
-                            onContextMenu={onProjectContextMenu}
-                        />
-                    ))}
-                    {excludedProjects.length > 0 && (
-                        <PanelListItem
-                            // ref={toggleRef}
-                            onClick={() => setShowExcluded(!showExcluded)}
-                            // cursor="pointer"
-                            color="fg.3"
-                            _hover={{ color: "fg.1" }}
-                        >
-                            <HStack>
-                                <Box as={showExcluded ? FiRefreshCw : MdBlock} />
-                                <Box>
-                                    {showExcluded
-                                        ? "Hide excluded projects"
-                                        : `Show excluded projects (${excludedProjects.length})`}
-                                </Box>
-                            </HStack>
-                        </PanelListItem>
-                    )}
-                    {showExcluded &&
-                        excludedProjects.map((p) => <ProjectListItem key={p.path} project={p} />)}
-                </>
+                !collapsed && (
+                    <>
+                        {activeProjects.map((p) => (
+                            <ProjectListItem
+                                marginLeft={2}
+                                key={p.path}
+                                project={p}
+                                altCount={altCounts?.[p.id] ?? 0}
+                                onContextMenu={onProjectContextMenu}
+                            />
+                        ))}
+                        {excludedProjects.length > 0 && (
+                            <PanelListItem
+                                // ref={toggleRef}
+                                onClick={() => setShowExcluded(!showExcluded)}
+                                // cursor="pointer"
+                                color="fg.3"
+                                _hover={{ color: "fg.1" }}
+                            >
+                                <HStack>
+                                    <Box as={showExcluded ? FiRefreshCw : MdBlock} />
+                                    <Box>
+                                        {showExcluded
+                                            ? "Hide projects"
+                                            : `Show hidden projects (${excludedProjects.length})`}
+                                    </Box>
+                                </HStack>
+                            </PanelListItem>
+                        )}
+                        {showExcluded &&
+                            excludedProjects.map((p) => (
+                                <ProjectListItem
+                                    marginLeft={2}
+                                    key={p.path}
+                                    project={p}
+                                    onContextMenu={onProjectContextMenu}
+                                />
+                            ))}
+                    </>
+                )
             )}
             {/* {activeProjectsSnap.map((p) => {
                     if (!showEmpty && projectImageCounts?.[p.id] === undefined) return null

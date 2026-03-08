@@ -34,7 +34,7 @@ function DTProjects(props: ChakraProps) {
                     left={undefined}
                     right={5}
                     width={"auto"}
-                    zIndex={5}
+                    zIndex={1}
                     margin={"0"}
                     flex={"0 0 auto"}
                     border={"1px solid {gray/50}"}
@@ -51,7 +51,7 @@ function DTProjects(props: ChakraProps) {
                     transform={"translate(-50%, -50%)"}
                 />
             </VStack>
-            <DetailsOverlay />
+            <DetailsOverlay zIndex={3}/>
         </Container>
     )
 }

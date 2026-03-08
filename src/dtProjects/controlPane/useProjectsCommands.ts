@@ -4,6 +4,7 @@ import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/ic
 import { getSpacer, type ICommandItem } from "@/types"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
+import { plural } from '@/utils/helpers'
 
 export function useProjectsCommands(): ICommandItem<ProjectState>[] {
     const { projects } = useDTP()
@@ -24,7 +25,7 @@ export function useProjectsCommands(): ICommandItem<ProjectState>[] {
         getSpacer("toolbar"),
         {
             id: "scan",
-            label: "Scan project",
+            getLabel: (selected) => `Scan project${plural(selected.length)}`,
             tipText: "Scan project for new images",
             icon: FiRefreshCw,
             onClick: async (selected) => {
@@ -45,7 +46,11 @@ export function useProjectsCommands(): ICommandItem<ProjectState>[] {
         // },
         {
             id: "exclude",
-            getLabel: (selected) => (selected[0]?.excluded ? "Show project" : "Hide project"),
+            getLabel: (selected) => {
+                const verb = selected[0]?.excluded ? "Show" : "Hide"
+                const noun = plural(selected.length, "project", "projects")
+                return `${verb} ${noun}`
+            },
             tipText: "Hidden projects will not be scanned and their images won't be listed.",
             getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
             onClick: (selected) => {

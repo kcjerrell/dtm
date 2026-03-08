@@ -78,7 +78,7 @@ function GridItemAnim(
     if (!item) return <Box />
 
     const previewId = `${item?.project_id}/${item?.preview_id}`
-    const url = item.is_ready ? `dtm://dtproject/thumbhalf/${previewId}` : "/img_not_available.svg"
+    const thumbUrl = item.is_ready ? `dtm://dtproject/thumbhalf/${previewId}` : null
 
     const isVideo = (item.num_frames ?? 0) > 0
     const showVideo = isVideo && hoveredIndex === index
@@ -90,10 +90,10 @@ function GridItemAnim(
             data-project-id={item.project_id}
             data-image-id={item.id}
             position={"relative"}
-            bgColor={"fg.1/20"}
             onPointerEnter={() => onPointerEnter?.(index)}
             onPointerLeave={() => onPointerLeave?.(index)}
             onClick={() => showDetailsOverlay(index)}
+            bgColor={"grayc.12/50"}
         >
             {showVideo ? (
                 <Video image={item} half autoStart>
@@ -104,16 +104,16 @@ function GridItemAnim(
                         border={"1px solid transparent"}
                     />
                 </Video>
-            ) : (
+            ) : thumbUrl ? (
                 <div
-                    key={url}
+                    key={thumbUrl}
                     style={{
                         width: "100%",
                         height: "100%",
                     }}
                 >
                     <img
-                        key={url}
+                        key={thumbUrl}
                         style={{
                             width: "100%",
                             height: "100%",
@@ -122,8 +122,38 @@ function GridItemAnim(
                             backgroundSize: "cover",
                             backgroundPosition: "center",
                         }}
-                        src={url}
+                        src={thumbUrl}
                         alt={item?.prompt}
+                    />
+                </div>
+            ) : (
+                <div
+                    style={{
+                        backgroundColor: "var(--chakra-colors-grays-6)",
+                        borderRadius: "4px",
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: 0.7,
+                    }}
+                >
+                    <div
+                        style={{
+                            width: "70%",
+                            border: "1px solid #0000ff00",
+                            aspectRatio: "1",
+                            backgroundColor: "var(--chakra-colors-grays-8)",
+                            WebkitMaskImage: "url(/img_not_available.svg)",
+                            WebkitMaskSize: "contain",
+                            WebkitMaskRepeat: "no-repeat",
+                            WebkitMaskPosition: "center",
+                            maskImage: "url(/img_not_available.svg)",
+                            maskSize: "contain",
+                            maskRepeat: "no-repeat",
+                            maskPosition: "center",
+                        }}
                     />
                 </div>
             )}

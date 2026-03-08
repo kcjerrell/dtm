@@ -283,20 +283,20 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     /// this depends on sort being the same
     selectFolderProjects(watchfolder: WatchFolderState) {
         const selectedIds = this.state.selectedProjects.map((p) => p.id)
-        const folderGroups = this.state.folders.find(
+        const folderGroup = this.state.folders.find(
             (f) => f.watchfolder.id === watchfolder.id,
         )?.projects
-        if (!folderGroups) return
+        if (!folderGroup) return
         const select = !areEquivalent(
             selectedIds,
-            folderGroups.map((p) => p.id),
+            folderGroup.filter((p) => !p.excluded).map((p) => p.id),
         )
 
         const selected: ProjectState[] = []
 
         if (select) {
             for (const project of this.state.projects) {
-                project.setSelected(project.watchfolder_id === watchfolder.id)
+                project.setSelected(project.watchfolder_id === watchfolder.id && !project.excluded)
                 if (project.selected) selected.push(project)
             }
         } else {
