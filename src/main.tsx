@@ -72,6 +72,13 @@ export function Loading() {
             exit={{ opacity: 0 }}
             className={"loading-container"}
             transition={{ duration: 2 }}
+            style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)"
+            }
+            }
         >
             <div className={"loading-text"}>Loading...</div>
         </motion.div>

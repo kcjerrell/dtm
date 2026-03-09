@@ -1,7 +1,7 @@
 import { HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
-import { AnimatePresence, LayoutGroup, motion } from "motion/react"
-import { type PropsWithChildren, Suspense, useEffect, useRef } from "react"
+import { AnimatePresence, LayoutGroup, motion, Variants } from "motion/react"
+import { Activity, type PropsWithChildren, Suspense, useEffect, useRef, useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Sidebar, Tooltip } from "@/components"
@@ -20,15 +20,24 @@ import { viewDescription, views } from "./views"
 // import Onboard from "./Onboard"
 
 function App() {
+    const mountedViews = useRef<Set<string>>(new Set())
     const firstRender = useRef(true)
 
     const snap = useSnapshot(AppStore.store)
-    const View = getView(snap.currentView)
+    mountedViews.current.add(snap.currentView)
 
     const isPreviewActive = useIsPreviewActive()
     const { colorMode } = useColorMode()
 
     const { handlers: dropHandlers } = useMetadataDrop()
+
+    useEffect(() => {
+        if (firstRender.current) {
+            firstRender.current = false
+            getCurrentWindow().show().catch(console.error)
+            console.debug("Loaded app")
+        }
+    }, [])
 
     return (
         <HStack
@@ -122,19 +131,16 @@ function App() {
                     dark={colorMode === "dark"}
                     variant={snap.sidebarStyle.variant}
                 >
-                    <ErrorBoundary FallbackComponent={ErrorFallback}>
-                        <Suspense fallback={<Loading />}>
-                            <AnimatePresence mode={"wait"}>
-                                <ViewContainer
-                                    key={snap.currentView}
-                                    firstRender={firstRender}
-                                    inert={isPreviewActive}
-                                >
-                                    <View flex={"1 1 auto"} />
-                                </ViewContainer>
-                            </AnimatePresence>
-                        </Suspense>
-                    </ErrorBoundary>
+                    {Array.from(mountedViews.current).map((v) => {
+                        const View = getView(v)
+                        const isActiveView = v === snap.currentView
+                        return (
+                            <ViewContainer key={v} isActiveView={isActiveView}>
+                                <View flex={"1 1 auto"} />
+                            </ViewContainer>
+                        )
+                    })}
+
                     {/* {snap.onboardPhase?.startsWith("A") && <Onboard />} */}
                 </CheckRoot>
             </LayoutGroup>
@@ -144,47 +150,69 @@ function App() {
 }
 
 function ViewContainer(
-    props: PropsWithChildren<{ firstRender: { current: boolean }; inert?: boolean }>,
+    props: PropsWithChildren<{
+        isActiveView: boolean
+    }>,
 ) {
-    const { firstRender, children, inert } = props
+    const { children, isActiveView } = props
+    const [mode, setMode] = useState<"hidden" | "visible">("hidden")
+
+    const variants: Variants = {
+        inactive: {
+            zIndex: 1,
+            opacity: 0,
+            transition: {
+                duration: 0.1,
+            },
+        },
+        active: {
+            zIndex: 0,
+            opacity: 1,
+            scale: 1,
+            transition: {
+                duration: 0.1,
+            },
+        },
+    }
 
     useEffect(() => {
-        if (firstRender.current) {
-            firstRender.current = false
-            getCurrentWindow().show().catch(console.error)
-            console.debug("Loaded app")
-        }
-    }, [firstRender])
+        if (isActiveView) setMode("visible")
+        else setTimeout(() => setMode("hidden"), 200)
+    }, [isActiveView])
 
     return (
-        <motion.div
-            layout
-            inert={inert}
-            initial={{ opacity: 0, scale: 1, filter: "blur(0px)" }}
-            animate={{
-                opacity: 1,
-                scale: 1,
-                filter: "blur(0px)",
-                transition: { duration: 0.1 },
-            }}
-            exit={{
-                opacity: 0,
-                scale: 1,
-                filter: "blur(0px)",
-                transition: { duration: 0.2 },
-            }}
-            style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                flex: "1 1 auto",
-                justifyContent: "stretch",
-                alignItems: "stretch",
-                boxShadow: "0px 2px 4px -2px #00000099",
-            }}
-        >
-            {children}
-        </motion.div>
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+            <Suspense fallback={<Loading />}>
+                <Activity mode={mode}>
+                    <motion.div
+                        layout
+                        inert={!isActiveView}
+                        variants={variants}
+                        initial={"inactive"}
+                        animate={isActiveView ? "active" : "inactive"}
+                        // exit={{
+                        //     opacity: 0,
+                        //     scale: 1,
+                        //     filter: "blur(0px)",
+                        //     transition: { duration: 0.2 },
+                        // }}
+                        style={{
+                            position: "absolute",
+                            inset: "0",
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            // flex: "1 1 auto",
+                            justifyContent: "stretch",
+                            alignItems: "stretch",
+                            boxShadow: "0px 2px 4px -2px #00000099",
+                        }}
+                    >
+                        {children}
+                    </motion.div>
+                </Activity>
+            </Suspense>
+        </ErrorBoundary>
     )
 }
 
