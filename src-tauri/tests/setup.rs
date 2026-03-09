@@ -9,7 +9,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_projects_no_watch() {
-        let (dtps, event_helper, wfh, db_path) = test_fixture(false).await;
+        let (dtps, event_helper, wfh, db_path) = test_fixture(false, false).await;
 
         // add empty watch folder
         dtps.add_watchfolder(wfh.watchfolder_path.clone(), wfh.bookmark.clone())
