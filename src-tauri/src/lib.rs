@@ -12,8 +12,8 @@ pub mod bookmarks;
 pub mod dtp_service;
 mod ffmpeg;
 mod projects_db;
-use projects_db::dt_project_tensordata;
 use dtp_service::dtp_connect;
+use projects_db::dt_project_tensordata;
 mod vid;
 
 use once_cell::sync::Lazy;
@@ -133,6 +133,9 @@ pub fn run() {
                 .filter(|metadata| {
                     !metadata.target().starts_with("sea_orm")
                         && !metadata.target().starts_with("sqlx")
+                        && !metadata.target().starts_with("tauri_plugin_updater")
+                        && !metadata.target().starts_with("h2::codec")
+                        && !metadata.target().starts_with("hyper_util")
                 })
                 .level(LevelFilter::Debug)
                 .clear_targets()

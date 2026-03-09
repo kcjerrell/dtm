@@ -3,12 +3,15 @@ use std::{fs, sync::Arc};
 use crate::{
     dtp_service::{
         events::DTPEvent,
-        jobs::{sync_folder::SyncFolderJob, CheckFileJob, Job, JobContext, JobResult},
+        jobs::{
+            maintenance::MaintenanceJob, sync_folder::SyncFolderJob, CheckFileJob, Job, JobContext,
+            JobResult,
+        },
     },
     projects_db::{dtos::watch_folder::WatchFolderDTO, folder_cache, ProjectsDb},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CheckFolderJob {
     watchfolder: Option<WatchFolderDTO>,
     path: String,
@@ -95,6 +98,16 @@ impl Job for CheckFolderJob {
 
         if is_missing {
             return Ok(JobResult::None);
+        }
+
+        // check for for maintenance tasks
+        if watchfolder.maint > 0 {
+            let job = MaintenanceJob::new(
+                watchfolder.maint,
+                watchfolder.clone(),
+                Some(Arc::new(self.clone())),
+            );
+            return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
         }
 
         if self.sync {

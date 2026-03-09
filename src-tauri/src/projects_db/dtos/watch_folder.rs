@@ -10,6 +10,7 @@ pub struct WatchFolderDTO {
     pub is_missing: bool,
     pub is_locked: bool,
     pub bookmark: String,
+    pub maint: u32
 }
 
 impl From<watch_folders::Model> for WatchFolderDTO {
@@ -21,6 +22,7 @@ impl From<watch_folders::Model> for WatchFolderDTO {
             is_missing: m.is_missing,
             is_locked: m.is_locked,
             bookmark: m.bookmark,
+            maint: m.maint
         }
     }
 }

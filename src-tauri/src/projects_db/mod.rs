@@ -1,5 +1,5 @@
 mod dt_project;
-pub use dt_project::{close_folder, get_last_row, DTProject, ProjectRef, dt_project_tensordata};
+pub use dt_project::{close_folder, get_last_row, DTProject, ProjectRef, dt_project_tensordata, maintenance};
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 

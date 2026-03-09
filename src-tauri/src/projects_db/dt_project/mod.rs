@@ -32,6 +32,7 @@ use tokio::sync::OnceCell;
 
 mod raw;
 pub use raw::dt_project_tensordata;
+pub mod maintenance;
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);
@@ -801,6 +802,12 @@ fn full_query_where(where_expr: &str) -> String {
 
 pub enum ProjectRef {
     Id(i64),
+}
+
+impl From<i64> for ProjectRef {
+    fn from(value: i64) -> Self {
+        ProjectRef::Id(value)
+    }
 }
 
 /*

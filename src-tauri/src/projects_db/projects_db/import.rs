@@ -162,7 +162,7 @@ impl ProjectsDb {
                     has_custom: Set(h.has_custom),
                     has_scribble: Set(h.has_scribble),
                     has_shuffle: Set(h.has_shuffle),
-                    sampler: Set(Sampler::try_from(h.sampler).unwrap_or(Sampler::EulerA)),
+                    sampler: Set(h.sampler),
                     ..Default::default()
                 };
 
