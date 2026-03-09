@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use crate::dtp_service::events::DTPEvent;
 use crate::dtp_service::jobs::CheckFolderJob;
-use crate::dtp_service::{events::DTPEvent, jobs::maintenance::MaintenanceJob};
 
 use super::job::{Job, JobContext, JobResult};
 

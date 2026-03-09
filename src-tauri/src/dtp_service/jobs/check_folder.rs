@@ -4,7 +4,7 @@ use crate::{
     dtp_service::{
         events::DTPEvent,
         jobs::{
-            maintenance::MaintenanceJob, sync_folder::SyncFolderJob, CheckFileJob, Job, JobContext,
+            maintenance::run_maintenance, sync_folder::SyncFolderJob, CheckFileJob, Job, JobContext,
             JobResult,
         },
     },
@@ -100,14 +100,9 @@ impl Job for CheckFolderJob {
             return Ok(JobResult::None);
         }
 
-        // check for for maintenance tasks
+        // run maintenance tasks (if any) before scheduling follow-up work
         if watchfolder.maint > 0 {
-            let job = MaintenanceJob::new(
-                watchfolder.maint,
-                watchfolder.clone(),
-                Some(Arc::new(self.clone())),
-            );
-            return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
+            run_maintenance(watchfolder.maint, watchfolder, ctx).await?;
         }
 
         if self.sync {
