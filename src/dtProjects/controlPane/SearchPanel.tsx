@@ -10,17 +10,13 @@ interface SearchPanelComponentProps extends ChakraProps {}
 
 function SearchPanel(props: SearchPanelComponentProps) {
     const { ...restProps } = props
-    const { models, search, uiState } = useDTP()
+    const { search, uiState } = useDTP()
 
     const searchSnap = search.useSnap()
     const { shouldFocus } = uiState.useSnap()
 
     const [searchInput, setSearchInput] = useState("")
     const searchInputRef = useRef<HTMLTextAreaElement>(null)
-
-    useEffect(() => {
-        models.refreshModels()
-    }, [models.refreshModels])
 
     useEffect(() => {
         if (searchInputRef.current && shouldFocus === "searchInput") {
@@ -53,7 +49,8 @@ function SearchPanel(props: SearchPanelComponentProps) {
                         setSearchInput(value)
                         search.state.searchInput = value
                     }}
-                    border={"2px solid gray"}
+                    border={"1px solid"}
+                    borderColor={"grayc.13"}
                     borderRadius={"lg"}
                     placeholder="Search"
                     width={"full"}
@@ -64,15 +61,18 @@ function SearchPanel(props: SearchPanelComponentProps) {
             </HStack>
             <VStack
                 display={searchSnap.filters.length > 0 ? "flex" : "none"}
-                gap={1}
-                bgColor={"bg.1"}
-                // borderBlock={"0.25rem solid {colors.bg.1}"}
+                gap={0.5}
+                bgColor={"grayc.13"}
+                // border={"1px solid"}
+                // borderColor={"grayc.11"}
+                // _dark={{ borderColor: "grayc.15" }}
                 width={"100%"}
                 alignItems={"stretch"}
-                paddingY={1}
-                paddingX={1}
+                paddingY={0.5}
+                paddingX={0.5}
                 marginY={2}
-                borderRadius={"sm"}
+                borderRadius={"lg"}
+                // boxShadow={"0px 1px 8px -4px #00000033"}
             >
                 {searchSnap.filters.map((filter) => (
                     <SearchFilterForm
@@ -95,8 +95,10 @@ function SearchPanel(props: SearchPanelComponentProps) {
             >
                 Add Filter
             </Button>
-            <HStack marginTop={4} width={"full"}>
+            <HStack marginTop={4} width={"full"} gap={0}>
                 <PanelButton
+                    borderLeftRadius={"lg"}
+                    borderRightRadius={"none"}
                     boxShadow={"xs"}
                     flex={"0 0 auto"}
                     onClick={() => {
@@ -105,9 +107,11 @@ function SearchPanel(props: SearchPanelComponentProps) {
                         search.clearFilters()
                     }}
                 >
-                    Clear
+                    Reset
                 </PanelButton>
                 <PanelButton
+                    borderLeftRadius={"none"}
+                    borderRightRadius={"lg"}
                     boxShadow={"xs"}
                     flex={"1 1 auto"}
                     onClick={() => search.applySearch()}

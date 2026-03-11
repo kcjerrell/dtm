@@ -1,10 +1,11 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
-import { useCommandMenu } from "@/components/contextManu/useCommandMenu"
 import PanelList from "@/components/PanelList2"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../../state/context"
 import { useProjectsCommands } from "../useProjectsCommands"
+import HiddenProjectsGroup from "./HiddenProjectsGroup"
 import ProjectFolderGroup from "./ProjectFolderGroup"
+import ProjectListItem from "./ProjectListItem"
 
 interface ProjectsPanelComponentProps extends ChakraProps {}
 
@@ -22,8 +23,8 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
         imageSource?.showImage !== imageSource?.showVideo
     const showEmpty = snap.showEmptyProjects || !isFiltering
 
-    const toolbarCommands = useProjectsCommands()
-    const { Menu, onContextMenu } = useCommandMenu(toolbarCommands, snap.selectedProjects)
+    const [showContextMenu, toolbarCommands] = useProjectsCommands()
+    // const { Menu, onContextMenu } = useCommandMenu(toolbarCommands, snap.selectedProjects)
 
     return (
         <TabContent
@@ -33,7 +34,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             height={"full"}
             {...restProps}
         >
-            <Menu />
+            {/* <Menu /> */}
             <PanelList
                 // bgColor={"bg.3"}
                 px={2}
@@ -51,17 +52,37 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 }}
             >
                 {showFolders &&
-                    snap.folders.map((folderGroup, _i, arr) => (
-                        <ProjectFolderGroup
-                            key={folderGroup.watchfolder.id}
-                            showLabel={arr.length > 1}
-                            watchfolder={folderGroup.watchfolder}
-                            altCounts={projectImageCounts}
-                            projects={folderGroup.projects}
-                            onSelectFolder={(wf) => projects.selectFolderProjects(wf)}
-                            onProjectContextMenu={onContextMenu}
-                        />
-                    ))}
+                    snap.folders.map((folderGroup, _i, arr) => {
+                        const activeProjects = folderGroup.projects.filter((p) => !p.excluded)
+                        const excludedProjects = folderGroup.projects.filter((p) => p.excluded)
+
+                        return (
+                            <ProjectFolderGroup
+                                key={folderGroup.watchfolder.id}
+                                showLabel={arr.length > 1}
+                                watchfolder={folderGroup.watchfolder}
+                                onSelectFolder={(wf) => projects.selectFolderProjects(wf)}
+                            >
+                                {activeProjects.map((p) => (
+                                    <ProjectListItem
+                                        marginLeft={2}
+                                        key={p.path}
+                                        project={p}
+                                        altCount={projectImageCounts?.[p.id] ?? 0}
+                                        onContextMenu={(_) =>
+                                            showContextMenu(projects.state.selectedProjects)
+                                        }
+                                    />
+                                ))}
+                                <HiddenProjectsGroup
+                                    projects={excludedProjects}
+                                    onProjectContextMenu={() =>
+                                        showContextMenu(projects.state.selectedProjects)
+                                    }
+                                />
+                            </ProjectFolderGroup>
+                        )
+                    })}
             </PanelList>
 
             <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>

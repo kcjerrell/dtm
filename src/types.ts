@@ -270,6 +270,9 @@ export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): IComm
 
 /**
  * Interface used for context menus and toolbars
+ * 
+ * Context is optional - prefer creating commands in a hook and using the
+ * dependencies directly
  *
  * @template T - The type of the items in the list
  * @template C - Optional extra arg used by various methods

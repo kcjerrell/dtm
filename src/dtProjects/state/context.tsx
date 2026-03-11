@@ -79,10 +79,7 @@ function createContainer() {
             await Promise.all([
                 watchFolders.assignPaths(),
                 projects.loadProjects(),
-                // models.refreshModels(),
-                // watchFolders.loadWatchFolders(),
-                // DTPService.sync(),
-                // jobs.addJob(syncRemoteModelsJob()),
+                models.refreshModels(),
             ])
         })
 

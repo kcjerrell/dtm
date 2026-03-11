@@ -16,7 +16,7 @@ const Root = chakra(
             paddingTop: "30px",
             bgColor: "grayc.14",
             _dark: {
-                bgColor: "grayc.16",
+                bgColor: "grayc.17",
             },
             flex: "0 0 auto",
             width: "68px",

@@ -348,9 +348,13 @@ export const PanelSection = chakra("div", {
         variant: {
             inset: {
                 bgColor: "bg.1",
-                boxShadow: "0px 2px 8px -3px #00000022, 0px 0px 10px -5px #00000022",
+                boxShadow: "0px 1px 8px -4px #00000044",
                 borderRadius: "lg",
-                border: "1px solid {gray/20}",
+                border: "1px solid",
+                borderColor: "grayc.10",
+                _dark: {
+                    borderColor: "grayc.14"
+                }
             },
             flat: {},
         },

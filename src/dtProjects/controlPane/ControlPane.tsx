@@ -34,11 +34,10 @@ function ControlPane(props: ControlPane) {
             paddingY={0}
             paddingX={0}
             borderRadius={"md"}
-            // borderLeft={"1px solid {colors.grayc.10/50}"}
             variant={"float"}
             bgColor={"grayc.16"}
             _dark={{
-                bgColor: "grayc.15",
+                bgColor: "grayc.16",
             }}
             {...restProps}
         >
@@ -76,9 +75,7 @@ function TabList(props: ChakraProps) {
                         aria-controls={`projects-${value}-panel`}
                         aria-label={`${label} tab`}
                         value={value}
-                        // paddingBlock={1}
                         padding={2}
-                        // height={"2rem"}
                     >
                         <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
                         <Box>{label}</Box>

@@ -1,6 +1,6 @@
 import { HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
 import { getCurrentWindow } from "@tauri-apps/api/window"
-import { AnimatePresence, LayoutGroup, motion, Variants } from "motion/react"
+import { LayoutGroup, motion, type Variants } from "motion/react"
 import { Activity, type PropsWithChildren, Suspense, useEffect, useRef, useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { useSnapshot } from "valtio"
@@ -11,13 +11,12 @@ import { themeHelpers } from "@/theme/helpers"
 import { toggleColorMode, useColorMode } from "./components/ui/color-mode"
 import ErrorFallback from "./ErrorFallback"
 import AppStore from "./hooks/appState"
+import { useDragWindow } from "./hooks/useDragWindow"
 import { useMetadataDrop } from "./hooks/useDrop"
 import { Loading } from "./main"
 import "./menu"
 import UpgradeButton from "./metadata/toolbar/UpgradeButton"
 import { viewDescription, views } from "./views"
-
-// import Onboard from "./Onboard"
 
 function App() {
     const mountedViews = useRef<Set<string>>(new Set())
@@ -30,6 +29,7 @@ function App() {
     const { colorMode } = useColorMode()
 
     const { handlers: dropHandlers } = useMetadataDrop()
+    useDragWindow()
 
     useEffect(() => {
         if (firstRender.current) {
@@ -53,12 +53,6 @@ function App() {
             gap={0}
             bgColor={"grayc.14"}
             transformOrigin={"left top"}
-            onPointerDownCapture={async (e) => {
-                if (e.clientY < 50) {
-                    const win = await getCurrentWindow()
-                    win.startDragging()
-                }
-            }}
             {...dropHandlers}
         >
             <LayoutGroup>
@@ -140,8 +134,6 @@ function App() {
                             </ViewContainer>
                         )
                     })}
-
-                    {/* {snap.onboardPhase?.startsWith("A") && <Onboard />} */}
                 </CheckRoot>
             </LayoutGroup>
             <Preview />
@@ -190,19 +182,12 @@ function ViewContainer(
                         variants={variants}
                         initial={"inactive"}
                         animate={isActiveView ? "active" : "inactive"}
-                        // exit={{
-                        //     opacity: 0,
-                        //     scale: 1,
-                        //     filter: "blur(0px)",
-                        //     transition: { duration: 0.2 },
-                        // }}
                         style={{
                             position: "absolute",
                             inset: "0",
                             width: "100%",
                             height: "100%",
                             display: "flex",
-                            // flex: "1 1 auto",
                             justifyContent: "stretch",
                             alignItems: "stretch",
                             boxShadow: "0px 2px 4px -2px #00000099",
