@@ -29,10 +29,14 @@ export const views = {
     vid: lazy(() => import("./vid/Vid")),
     library: lazy(() => import("./library/Library")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/Tensordata")),
+    scratch: lazy(() => import("./scratch/UpgradeSpinner")),
 }
 
-// export const views = {
-//     metadata: Metadata,
-//     projects: DTProjects
-// }
+export function getView(view: string) {
+    if (isView(view)) return views[view as keyof typeof views]
+    return views.metadata
+}
+
+export function isView(view: string): view is keyof typeof views {
+    return view in views
+}

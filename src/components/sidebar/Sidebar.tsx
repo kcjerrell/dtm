@@ -1,8 +1,13 @@
-import { chakra } from "@chakra-ui/react"
+import { chakra, HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
 import type { ComponentProps, PropsWithChildren } from "react"
 import { useSnapshot } from "valtio"
+import { FaMinus, FaMoon, FaPlus } from "@/components/icons/icons"
+import { toggleColorMode } from "@/components/ui/color-mode"
 import AppStore from "@/hooks/appState"
+import UpgradeButton from "@/metadata/toolbar/UpgradeButton"
+import { themeHelpers } from "@/theme/helpers"
 import { cs } from "@/utils/helpers"
+import Tooltip from "../Tooltip"
 
 const Root = chakra(
     "nav",
@@ -39,22 +44,12 @@ const Root = chakra(
                 attached: {
                     zIndex: "unset",
                     borderRadius: "none",
-                    boxShadow: cs(
-                        "0px 0px 2px -1px #00000000",
-                        "0px 3px 12px -3px #00000000",
-                        // "-2px 0px 8px -2px #00000022 inset",
-                    ),
-                    // borderRight: "1px solid {colors.grayc.12/50}",
+                    boxShadow: cs("0px 0px 2px -1px #00000000", "0px 3px 12px -3px #00000000"),
                 },
                 float: {
                     zIndex: 2,
                     borderRadius: "lg",
-                    boxShadow: cs(
-                        "0px 0px 5px -1px #00000055",
-                        "0px 3px 12px -3px #00000055",
-                        // "-2px 0px 6px -2px #FF000000 inset",
-                    ),
-                    // boxShadow: "pane1",
+                    boxShadow: cs("0px 0px 5px -1px #00000055", "0px 3px 12px -3px #00000055"),
                 },
             },
         },
@@ -67,11 +62,6 @@ const Root = chakra(
                 hidden: true,
                 css: {
                     zIndex: 3,
-                    // boxShadow: cs(
-                    //     "0px 0px 5px -1px #00000055",
-                    //     "0px 3px 12px -3px #00000055",
-                    //     // "-2px 0px 6px -2px #FF000000 inset",
-                    // ),
                     borderRight: "1px solid {colors.grays.4/50}",
                 },
             },
@@ -114,7 +104,7 @@ const ButtonBase = chakra("button", {
         border: "1px solid transparent",
         borderRight: "3px solid transparent",
         fontWeight: "500",
-        borderRadius: "0"
+        borderRadius: "0",
     },
     variants: {
         isActive: {
@@ -126,20 +116,18 @@ const ButtonBase = chakra("button", {
         },
         popout: {
             true: {
-                // borderColor: "gray/20",
-                // borderRadius: "lg",
                 my: "4px",
                 py: "4px",
                 "&>*": {
                     opacity: 0,
                 },
+                transition: "all 0.5s ease-in",
+
                 _hover: {
                     transform: "translateX(50px) !important",
-                    // bgColor: "bg.0/70",
                     bgColor: "inherit",
+                    transition: "all 0.2s ease-out",
                     boxShadow: "pane1",
-                    // backdropFilter: "blur(8px)",
-                    // borderRadius: "0 8px 8px 0",
                     "&>*": {
                         opacity: 1,
                     },
@@ -152,20 +140,26 @@ const ButtonBase = chakra("button", {
             },
         },
         update: {
-            true: {},
+            true: {
+                borderRightColor: "#66a676ff !important",
+            },
+            false: {},
+        },
+        updating: {
+            true: {
+                _hover: { bgColor: "none" },
+            },
             false: {},
         },
     },
     compoundVariants: [
         {
-            update: true,
+            updating: true,
             popout: true,
             css: {
-                transform: "translateX(50px) !important",
-                // bgColor: "bg.0/70",
+                // transform: "translateX(50px) !important",
+                bgColor: "inherit",
                 boxShadow: "pane1",
-                // backdropFilter: "blur(8px)",
-                // borderRadius: "0 8px 8px 0",
                 "&>*": {
                     opacity: 1,
                 },
@@ -177,11 +171,6 @@ const ButtonBase = chakra("button", {
 const ButtonContent = chakra("div", {
     base: {
         aspectRatio: 1,
-        // flex: "1 1 auto",
-        // px: "15px",
-        // pt: "5px",
-        // pb: "5px",
-        // padding: "5px",
         margin: "auto",
         width: "20px",
         height: "20px",
@@ -196,19 +185,25 @@ const ButtonLabel = chakra("div", {
 })
 
 interface SidebarButtonProps extends ComponentProps<typeof ButtonBase> {
-    label: string
-    icon: React.FC
+    item: {
+        viewId: string
+        label: string
+        icon: React.FC | null
+    }
     isActive?: boolean
     isUpgrade?: boolean
 }
 
 export function SidebarButton(props: SidebarButtonProps) {
-    const { label, icon: Icon, onClick, isActive = false, isUpgrade = false, ...rest } = props
+    const { item, onClick, isActive = false, isUpgrade = false, ref, children, ...rest } = props
+    const { label, icon: Icon } = item
     const { isSidebarVisible } = useSnapshot(AppStore.store)
 
     return (
         <ButtonBase
+            ref={ref}
             aria-current={isActive ? "page" : undefined}
+            aria-selected={isActive || undefined}
             isActive={isActive}
             popout={!isSidebarVisible}
             update={isUpgrade}
@@ -218,18 +213,100 @@ export function SidebarButton(props: SidebarButtonProps) {
             }}
             {...rest}
         >
-            <ButtonContent asChild>
-                <Icon />
-            </ButtonContent>
-            <ButtonLabel>{label}</ButtonLabel>
+            {Icon ? (
+                <>
+                    <ButtonContent asChild>
+                        <Icon />
+                    </ButtonContent>
+                    <ButtonLabel>{label}</ButtonLabel>
+                </>
+            ) : (
+                children
+            )}
         </ButtonBase>
+    )
+}
+
+export function ColorModeToggle() {
+    return (
+        <Tooltip tip={"Toggle color mode"}>
+            <IconButton
+                color={"fg.2"}
+                _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+                size="xs"
+                variant="ghost"
+                onClick={(e) => {
+                    e.stopPropagation()
+                    toggleColorMode()
+                }}
+            >
+                <FaMoon />
+            </IconButton>
+        </Tooltip>
+    )
+}
+
+export function FontSizeToggle() {
+    return (
+        <HStack gap={0}>
+            <Tooltip tip={"Decrease font size"}>
+                <IconButton
+                    color={"fg.2"}
+                    _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+                    size="xs"
+                    variant="ghost"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        themeHelpers.decreaseSize()
+                    }}
+                >
+                    <FaMinus />
+                </IconButton>
+            </Tooltip>
+            <Tooltip tip={"Increase font size"}>
+                <IconButton
+                    color={"fg.2"}
+                    _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
+                    size="xs"
+                    variant="ghost"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        themeHelpers.increaseSize()
+                    }}
+                >
+                    <FaPlus />
+                </IconButton>
+            </Tooltip>
+        </HStack>
+    )
+}
+
+export function SidebarFooter({ children }: PropsWithChildren) {
+    return (
+        <VStack gap={0} pb={2}>
+            {children}
+        </VStack>
     )
 }
 
 type SidebarComponents = typeof SidebarComponent & {
     Button: typeof SidebarButton
+    ButtonContent: typeof ButtonContent
+    ButtonLabel: typeof ButtonLabel
+    UpgradeButton: typeof UpgradeButton
+    ColorModeToggle: typeof ColorModeToggle
+    FontSizeToggle: typeof FontSizeToggle
+    Footer: typeof SidebarFooter
+    Spacer: typeof Spacer
 }
 const Sidebar = SidebarComponent as SidebarComponents
 Sidebar.Button = SidebarButton
+Sidebar.ButtonContent = ButtonContent
+Sidebar.ButtonLabel = ButtonLabel
+Sidebar.UpgradeButton = UpgradeButton
+Sidebar.ColorModeToggle = ColorModeToggle
+Sidebar.FontSizeToggle = FontSizeToggle
+Sidebar.Footer = SidebarFooter
+Sidebar.Spacer = Spacer
 
 export default Sidebar

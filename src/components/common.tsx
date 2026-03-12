@@ -353,8 +353,8 @@ export const PanelSection = chakra("div", {
                 border: "1px solid",
                 borderColor: "grayc.10",
                 _dark: {
-                    borderColor: "grayc.14"
-                }
+                    borderColor: "grayc.14",
+                },
             },
             flat: {},
         },
@@ -379,5 +379,23 @@ export const LinkButton = chakra("button", {
                 display: "none",
             },
         },
+    },
+})
+
+export const AppRoot = chakra("div", {
+    base: {
+        display: "flex",
+        flexDirection: "row",
+        position: "relative",
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+        alignItems: "stretch",
+        justifyContent: "stretch",
+        cursor: "default",
+        userSelect: "none",
+        gap: 0,
+        bgColor: "grayc.14",
+        transformOrigin: "left top",
     },
 })
