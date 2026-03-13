@@ -7,11 +7,11 @@ import {
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
 import type { ContainerEvent } from "@/utils/container/StateController"
+import { areEquivalent } from "@/utils/helpers"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
 import { DTPStateController } from "./types"
-import { areEquivalent } from "@/utils/helpers"
 
 export type ImagesControllerState = {
     imageSource: ImagesSource
@@ -81,7 +81,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
         this.watchProxy((get) => {
             const source = get(this.state.imageSource)
-            console.log("imageSource", source)
             const getItems = async (skip: number, take: number) => {
                 const s = { ...source }
                 if (s.showImage === false && s.showVideo === false) {

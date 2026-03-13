@@ -32,10 +32,13 @@ const Root = chakra(
             hidden: {
                 true: {
                     marginLeft: "-60px",
+                    "& > *:not([aria-selected='true'])": {
+                        borderRightColor: "grayc.10",
+                    },
                     _hover: {
                         transform: "translateX(8px)",
                         "& > *:not([aria-selected='true'])": {
-                            borderRightColor: "gray/50",
+                            borderRightColor: "grayc.10",
                         },
                     },
                 },
@@ -62,7 +65,7 @@ const Root = chakra(
                 hidden: true,
                 css: {
                     zIndex: 3,
-                    borderRight: "1px solid {colors.grays.4/50}",
+                    borderRight: "1px solid {colors.grayc.10}",
                 },
             },
         ],
@@ -120,16 +123,20 @@ const ButtonBase = chakra("button", {
                 py: "4px",
                 "&>*": {
                     opacity: 0,
+                    transitionDelay: "0.25s",
+                    transitionProperty: "opacity",
                 },
-                transition: "all 0.5s ease-in",
+                transition: "all 0.5s ease-out",
 
                 _hover: {
                     transform: "translateX(50px) !important",
                     bgColor: "inherit",
-                    transition: "all 0.2s ease-out",
+                    transition: "all 0.2s ease-in-out",
                     boxShadow: "pane1",
                     "&>*": {
                         opacity: 1,
+                        transitionDelay: "0s",
+                        transitionProperty: "opacity",
                     },
                 },
             },

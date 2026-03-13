@@ -1,7 +1,8 @@
-import { chakra, HStack } from "@chakra-ui/react"
+import { chakra, HStack, Text } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { type ComponentProps, useLayoutEffect, useRef, useState } from "react"
+import { type ComponentProps, useCallback, useLayoutEffect, useRef, useState } from "react"
 import { useDTImage } from "@/dtProjects/detailsOverlay/DTImageContext"
+import { useTimedState } from "@/hooks/useTimedState"
 import { prepData } from "@/metadata/infoPanel/DataItem"
 import type { DrawThingsConfigGrouped } from "@/types"
 import { getSampler, getSeedMode } from "@/utils/config"
@@ -18,6 +19,7 @@ function DataItem(props: DataItemProps) {
     const [collapsible, setCollapsible] = useState(false)
     const [collapsed, setCollapsed] = useState(false)
     const [maxHeight, setMaxHeight] = useState("unset")
+    const [justCopied, setJustCopied] = useTimedState(false, 2000)
 
     const hasMeasured = useRef(false)
     const hasRendered = useRef(false)
@@ -49,18 +51,47 @@ function DataItem(props: DataItemProps) {
         }
     }, [maxLines])
 
+    const handleClick = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            if (props.onClick) {
+                props.onClick(e)
+            } else {
+                setJustCopied(true)
+                navigator.clipboard.writeText(display ?? "")
+            }
+        },
+        [display, props.onClick],
+    )
+
     if (data === undefined || data === null) {
         return null
     }
 
     return (
         <Root {...rest}>
-            <HStack>{label && <Label>{label}</Label>}</HStack>
+            <HStack justifyContent={"flex-start"}>
+                <Label
+                    paddingLeft={0.5}
+                    fontWeight={500}
+                    fontSize={"xs"}
+                    color={"fg.1"}
+                    overflow={"clip"}
+                    textOverflow={"ellipsis"}
+                >
+                    {label}
+                </Label>
+                {justCopied && (
+                    <Text fontWeight={500} fontSize={"xs"} color={"fg.2"}>
+                        Copied!
+                    </Text>
+                )}
+            </HStack>
             <Content
                 key={`${collapsible}`}
                 type={dataType}
                 ref={contentRef}
                 collapse={getVariant(collapsible, collapsed)}
+                onClick={(e) => handleClick(e)}
             >
                 <motion.div
                     // layout
@@ -182,7 +213,8 @@ const Content = chakra(
     {
         base: {
             outline: "1px solid transparent",
-            padding: "2px",
+            paddingX: "4px",
+            paddingY: "2px",
             border: "1px solid transparent",
             color: "fg.2",
             overflowX: "clip",
@@ -191,26 +223,29 @@ const Content = chakra(
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
             borderRadius: "sm",
-            _dark: {
-                _hover: {
-                    bgColor: "bg.3",
-                },
-            },
+            userSelect: "auto",
+            cursor: "text",
+            // _dark: {
+            //     _hover: {
+            //         bgColor: "bg.3",
+            //     },
+            // },
             fontSize: "sm",
             _hover: {
                 // boxShadow: "0px 1px 2px -1px #00000055, 0px 2px 6px -2px #00000022",
-                boxShadow: "2px 2px 4px -2px #00000055, -2px 2px 4px -2px #00000055",
+                // boxShadow: "2px 2px 4px -2px #00000055, -2px 2px 4px -2px #00000055",
                 // transform: "translateY(-1px)",
-                bgColor: "bg.2",
+                border: "1px solid {colors.grayc.10}",
+                bgColor: "grayc.15",
                 transition:
                     "box-shadow 0.1s ease-in-out, transform 0.1s ease-in-out, background-color 0.1s ease-in-out",
             },
             transition:
                 "box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out, background-color 0.3s ease-in-out",
             transitionDelay: "0.25s",
-            _selection: {
-                bgColor: "info/50",
-            },
+            // _selection: {
+            //     bgColor: "red",
+            // },
         },
         variants: {
             collapse: {
@@ -380,11 +415,14 @@ const templates = {
     },
     Sampler: (props: DataItemTemplateProps<"sampler">) => {
         const { value, ...rest } = props
+        const { image } = useDTImage()
         if (!value || value.value === undefined) return null
         const samplerName = getSampler(value.value)
+        const ssg = image?.config?.stochasticSamplingGamma
+        console.log(ssg, samplerName)
         let data = samplerName
-        if (samplerName === "TCD" && value.stochasticSamplingGamma !== undefined) {
-            data += ` (${(value.stochasticSamplingGamma * 100).toFixed(0)}%)`
+        if (samplerName?.startsWith("TCD") && ssg !== undefined) {
+            data += ` (${(ssg * 100).toFixed(0)}%)`
         }
 
         return <DataItem label={"Sampler"} data={data} {...rest} />

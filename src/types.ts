@@ -39,6 +39,9 @@ export type DrawThingsMetaData = {
         clipLText: string
         clipSkip: number
         clipWeight: number
+        compressionArtifacts: "h264" | "h265" | "jpeg"
+        compressionArtifactsQuality: number
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         controls: any[]
         cropLeft: number
         cropTop: number
@@ -60,7 +63,8 @@ export type DrawThingsMetaData = {
         id: number
         imageGuidanceScale: number
         imagePriorSteps: number
-        loras: ObjectConstructor[][]
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        loras: any[]
         maskBlur: number
         maskBlurOutset: number
         model: string

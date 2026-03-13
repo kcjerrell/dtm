@@ -37,7 +37,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
             {/* <Menu /> */}
             <PanelList
                 // bgColor={"bg.3"}
-                px={2}
+                px={0}
                 role={"listbox"}
                 aria-label={"projects"}
                 flex={"1 1 auto"}
@@ -65,7 +65,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                             >
                                 {activeProjects.map((p) => (
                                     <ProjectListItem
-                                        marginLeft={2}
+                                        marginX={2}
                                         key={p.path}
                                         project={p}
                                         altCount={projectImageCounts?.[p.id] ?? 0}
