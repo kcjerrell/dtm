@@ -1,16 +1,15 @@
-import { Menu, MenuItem, type MenuOptions, PredefinedMenuItem } from "@tauri-apps/api/menu"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useCallback, useMemo } from "react"
-import type { Snapshot } from "valtio"
 import { DtpService } from "@/commands"
 import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/icons/icons"
 import { getSpacer, type ICommandItem } from "@/types"
 import { plural } from "@/utils/helpers"
+import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
 
 export function useProjectsCommands(): [
-    (selected: Snapshot<ProjectState[]>) => Promise<void>,
+    (selected: ProjectState[]) => Promise<(() => void | Promise<void>) | null>,
     ICommandItem<ProjectState>[],
 ] {
     const { projects } = useDTP()
@@ -68,42 +67,14 @@ export function useProjectsCommands(): [
         [projects, snap.showEmptyProjects],
     )
 
-    const onContextMenu = useCallback(
-        async (selected: Snapshot<ProjectState[]>) => {
-            const menu = await createMenu(commands, selected)
-            await menu.popup()
+    const selectMenuCommand = useCallback(
+        async (selected: ProjectState[]) => {
+            const command = await showMenu(commands, selected)
+            if (!command) return null
+            return () => command.onClick(selected)
         },
         [commands],
     )
 
-    return [onContextMenu, commands] as const
-}
-
-async function createMenu<T, C = undefined>(
-    commands: ICommandItem<T, C>[],
-    selected: Snapshot<T[]>,
-    context?: C,
-) {
-    const items: MenuOptions["items"] = []
-    for (const command of commands) {
-        if (command.toolbarOnly) continue
-        if (command.spacer) {
-            items.push(
-                await PredefinedMenuItem.new({
-                    text: "separator-text",
-                    item: "Separator",
-                }),
-            )
-            continue
-        }
-        items.push(
-            await MenuItem.new({
-                id: command.id,
-                text: command.getLabel?.(selected, context) ?? command.label ?? "",
-                enabled: command.getEnabled?.(selected, context) ?? true,
-                action: () => command.onClick(selected, context),
-            }),
-        )
-    }
-    return Menu.new({ items })
+    return [selectMenuCommand, commands] as const
 }

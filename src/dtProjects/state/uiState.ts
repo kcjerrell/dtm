@@ -1,10 +1,12 @@
 import { proxy, ref, useSnapshot } from "valtio"
+import { proxySet } from "valtio/utils"
 import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import type { DialogState } from "../dialog/types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
 
@@ -44,6 +46,8 @@ export type UIControllerState = {
         scanned: number
         imageCount: number
     }
+    dialog?: DialogState
+    imageSpinner: Set<number>
 }
 
 type Handler<T> = (payload: T) => void
@@ -68,6 +72,8 @@ export class UIController extends DTPStateController<UIControllerState> {
         isGridInert: false,
         importLock: false,
         importLockCount: 0,
+        dialog: undefined,
+        imageSpinner: proxySet(),
     })
 
     constructor() {
@@ -243,6 +249,13 @@ export class UIController extends DTPStateController<UIControllerState> {
         this.state.detailsView.showSpinner = true
         return fn().finally(() => {
             this.state.detailsView.showSpinner = false
+        })
+    }
+
+    callWithImageSpinner<T>(imageId: number, fn: () => Promise<T>) {
+        this.state.imageSpinner.add(imageId)
+        return fn().finally(() => {
+            this.state.imageSpinner.delete(imageId)
         })
     }
 }

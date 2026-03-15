@@ -1,5 +1,6 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import PanelList from "@/components/PanelList2"
+import type { ProjectState } from '@/dtProjects/state/projects'
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../../state/context"
 import { useProjectsCommands } from "../useProjectsCommands"
@@ -46,7 +47,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 itemsState={projects.state.projects}
                 keyFn={(p) => p.path}
                 commands={toolbarCommands}
-                selectedItems={snap.selectedProjects}
+                selectedItems={snap.selectedProjects as ProjectState[]}
                 onSelectionChanged={(e) => {
                     projects.setSelectedProjects(e)
                 }}
@@ -69,16 +70,26 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                                         key={p.path}
                                         project={p}
                                         altCount={projectImageCounts?.[p.id] ?? 0}
-                                        onContextMenu={(_) =>
-                                            showContextMenu(projects.state.selectedProjects)
-                                        }
+                                        onContextMenu={async (_) => {
+                                            const command = await showContextMenu(
+                                                projects.state.selectedProjects,
+                                            )
+                                            if (command) {
+                                                await command()
+                                            }
+                                        }}
                                     />
                                 ))}
                                 <HiddenProjectsGroup
                                     projects={excludedProjects}
-                                    onProjectContextMenu={() =>
-                                        showContextMenu(projects.state.selectedProjects)
-                                    }
+                                    onProjectContextMenu={async (_) => {
+                                        const command = await showContextMenu(
+                                            projects.state.selectedProjects,
+                                        )
+                                        if (command) {
+                                            await command()
+                                        }
+                                    }}
                                 />
                             </ProjectFolderGroup>
                         )

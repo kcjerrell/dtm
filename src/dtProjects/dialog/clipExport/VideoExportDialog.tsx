@@ -19,7 +19,7 @@ interface VideoExportDialogProps {
     image: ImageExtra
 }
 
-export function VideoExportDialog(props: VideoExportDialogProps) {
+function VideoExportDialog(props: VideoExportDialogProps) {
     const { onClose, image } = props
     const { settings: storage } = useDTP()
     const storageSnap = storage.useSnap()
@@ -164,7 +164,13 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
                     Export Video
                 </Text>
 
-                <PanelSection display={"grid"} gridTemplateColumns={"1fr 1fr"} bgColor={"bg.1"} paddingX={4} paddingY={2}>
+                <PanelSection
+                    display={"grid"}
+                    gridTemplateColumns={"1fr 1fr"}
+                    bgColor={"bg.1"}
+                    paddingX={4}
+                    paddingY={2}
+                >
                     <VStack alignItems="stretch" gap={3} paddingRight={4}>
                         <VStack alignItems={"stretch"}>
                             <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
@@ -336,3 +342,5 @@ export function VideoExportDialog(props: VideoExportDialogProps) {
         </ContentPanelPopup>
     )
 }
+
+export default VideoExportDialog

@@ -1,41 +1,43 @@
-/// <reference path="../../global.d.ts" />
 import { Box, type BoxProps, chakra, Grid } from "@chakra-ui/react"
-import {
-    type ComponentType,
-    type ReactNode,
-    type UIEvent,
-    useCallback,
-    useEffect,
-    useRef,
-} from "react"
+import { type ReactNode, type UIEvent, useCallback, useEffect, useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import type { IItemSource } from "./PagedItemSource"
 
-export interface PVGridProps<T = unknown, P = unknown> extends ChakraProps {
-    itemComponent: PVGridItemComponent<T, P>
-    /** number of screens */
+export interface PVGridProps<T, C extends PVGridItemComponent<T> = PVGridItemComponent<T>>
+    extends ChakraProps {
+    itemComponent: C
+
+    itemProps?: InferItemExtraProps<T, C>
+
     overscan?: number
+
     keyFn?: (
         item: T | null | undefined,
         index: number | null | undefined,
     ) => string | number | undefined | null
+
     initialRowCount?: number
-    itemProps?: P
     maxItemSize: number
     onImagesChanged?: ContainerEvent<"imagesChanged">
     freeze?: boolean
     itemSource: IItemSource<T>
 }
 
-export type PVGridItemComponent<T = unknown, P = unknown> = ComponentType<PVGridItemProps<T, P>>
+export type PVGridItemComponent<T> = React.ComponentType<
+    // biome-ignore lint/suspicious/noExplicitAny: <intentional>
+    PVGridBaseItemProps<T> & any
+>
 
-interface PVGridItemPropsBase<T = unknown> extends ChakraProps {
-    value: T | null | undefined
+export type PVGridBaseItemProps<T> = {
+    item: T | null | undefined
     index: number
 }
 
-export type PVGridItemProps<T = unknown, P = unknown> = PVGridItemPropsBase<T> & P
+type InferItemExtraProps<T, C extends PVGridItemComponent<T>> = Omit<
+    React.ComponentProps<C>,
+    keyof PVGridBaseItemProps<T>
+>
 
 type StateProxy = {
     minThreshold: number
@@ -48,7 +50,9 @@ type StateProxy = {
     rowPos: number
 }
 
-function PVGridWrapper<T = unknown, P = unknown>(props: Partial<PVGridProps<T, P>>) {
+function PVGridWrapper<T, C extends PVGridItemComponent<T> = PVGridItemComponent<T>>(
+    props: PVGridProps<T, C>,
+) {
     const { itemComponent, itemSource, maxItemSize, freeze, ...restProps } = props
 
     const lastRenderRef = useRef<ReactNode>(null)
@@ -62,7 +66,7 @@ function PVGridWrapper<T = unknown, P = unknown>(props: Partial<PVGridProps<T, P
     }
 
     lastRenderRef.current = (
-        <PVGrid<T, P>
+        <PVGrid<T, C>
             itemComponent={itemComponent}
             maxItemSize={maxItemSize}
             itemSource={itemSource}
@@ -73,7 +77,7 @@ function PVGridWrapper<T = unknown, P = unknown>(props: Partial<PVGridProps<T, P
     return lastRenderRef.current
 }
 
-function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
+function PVGrid<T, C extends PVGridItemComponent<T>>(props: PVGridProps<T, C>) {
     const {
         itemComponent,
         itemSource,
@@ -86,7 +90,6 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
         onScroll,
         ...restProps
     } = props
-    const Item = itemComponent
     const { renderItems, totalCount, hasInitialLoad } = itemSource.useItemSource()
 
     const stateRef = useRef<StateProxy>(null)
@@ -210,11 +213,11 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
                     gridRow={`1 / ${snap.firstRow + 1}`}
                     gridColumn={`1 / span ${snap.columns}`}
                 />
-                <PVGridItems<T, P>
+                <PVGridItems<T, C>
                     items={renderItems as T[]}
                     indexOffset={snap.firstRow * snap.columns}
                     component={itemComponent}
-                    itemProps={{ ...itemProps } as P}
+                    itemProps={{ ...itemProps } as InferItemExtraProps<T, C>}
                     keyFn={keyFn}
                 />
             </Grid>
@@ -222,15 +225,15 @@ function PVGrid<T = unknown, P = unknown>(props: PVGridProps<T, P>) {
     )
 }
 
-function PVGridItems<T, P>(props: {
+function PVGridItems<T, C extends PVGridItemComponent<T>>(props: {
     items: T[]
     indexOffset: number
-    component: PVGridItemComponent<T, P>
-    itemProps: P
-    keyFn: PVGridProps<T, P>["keyFn"]
+    component: C
+    itemProps: InferItemExtraProps<T, C>
+    keyFn: PVGridProps<T, C>["keyFn"]
 }) {
     const { items, indexOffset, component, itemProps, keyFn } = props
-    const Item = component
+    const Item = component as React.ComponentType<Record<string, unknown>>
     return (
         <>
             {items.map((item, i) => {
@@ -238,12 +241,10 @@ function PVGridItems<T, P>(props: {
                 const key = item ? keyFn?.(item as T, index) : index
                 return (
                     <Item
-                        // gridRow={`${Math.floor(index / columns) + 1}`}
-                        // gridColumn={`${(index % columns) + 1}`}
                         index={index}
-                        value={item as T}
+                        item={item as T}
                         key={key}
-                        {...(itemProps as P)}
+                        {...(itemProps as InferItemExtraProps<T, C>)}
                     />
                 )
             })}

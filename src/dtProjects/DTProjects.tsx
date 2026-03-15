@@ -2,10 +2,12 @@ import { chakra, VStack } from "@chakra-ui/react"
 import { useSidebarStyle } from "@/components/sidebar/useSidebarStyle"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
+import DialogPresenter from "./dialog/DialogPresenter"
 import EmptyGrid from "./EmptyGrid"
 import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
+import { MenuProvider } from "./MenuContext"
 import { SettingsPanel } from "./settingsPanel/SettingsPanel"
 
 function DTProjects(props: ChakraProps) {
@@ -14,41 +16,44 @@ function DTProjects(props: ChakraProps) {
     useSidebarStyle("attached")
 
     return (
-        <Container position={"relative"} {...restProps}>
-            <ControlPane />
-            <VStack
-                id={"project-content-pane"}
-                position="relative"
-                alignItems={"stretch"}
-                justifyContent={"flex-start"}
-                overflow={"hidden"}
-                padding={0}
-                gap={4}
-                borderRadius={0}
-            >
-                <SettingsPanel />
-                <ImportProgress />
-                <StatusBar
-                    position={"absolute"}
-                    top={3}
-                    left={undefined}
-                    right={5}
-                    width={"auto"}
-                    zIndex={1}
-                    margin={"0"}
-                    flex={"0 0 auto"}
-                    border={"1px solid {gray/50}"}
-                />
-                <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
-                <EmptyGrid
-                    position={"absolute"}
-                    top={"50%"}
-                    left={"50%"}
-                    transform={"translate(-50%, -50%)"}
-                />
-            </VStack>
-            <DetailsOverlay zIndex={3} />
-        </Container>
+        <MenuProvider>
+            <Container position={"relative"} {...restProps}>
+                <ControlPane />
+                <VStack
+                    id={"project-content-pane"}
+                    position="relative"
+                    alignItems={"stretch"}
+                    justifyContent={"flex-start"}
+                    overflow={"hidden"}
+                    padding={0}
+                    gap={4}
+                    borderRadius={0}
+                >
+                    <SettingsPanel />
+                    <ImportProgress />
+                    <StatusBar
+                        position={"absolute"}
+                        top={3}
+                        left={undefined}
+                        right={5}
+                        width={"auto"}
+                        zIndex={1}
+                        margin={"0"}
+                        flex={"0 0 auto"}
+                        border={"1px solid {gray/50}"}
+                    />
+                    <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
+                    <EmptyGrid
+                        position={"absolute"}
+                        top={"50%"}
+                        left={"50%"}
+                        transform={"translate(-50%, -50%)"}
+                    />
+                </VStack>
+                <DetailsOverlay zIndex={3} />
+                <DialogPresenter />
+            </Container>
+        </MenuProvider>
     )
 }
 

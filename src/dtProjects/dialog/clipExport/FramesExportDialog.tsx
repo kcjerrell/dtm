@@ -26,7 +26,7 @@ interface FramesExportDialogProps {
     rootElement?: RefObject<HTMLDivElement | null>
 }
 
-export function FramesExportDialog(props: FramesExportDialogProps) {
+function FramesExportDialog(props: FramesExportDialogProps) {
     const { onClose, image, rootElement } = props
 
     const defaultWidth = image.start_width * 64
@@ -374,3 +374,5 @@ function ensureExtension(filenamePattern: string, useTensor: boolean) {
     const base = filenamePattern.replace(/\.[a-z0-9]+$/i, "")
     return base + extension
 }
+
+export default FramesExportDialog

@@ -1,10 +1,11 @@
-import { HStack, Spacer } from "@chakra-ui/react"
+import { HStack } from "@chakra-ui/react"
 import { useEffect, useRef } from "react"
 import type { Snapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
 import type { Selectable } from "@/hooks/useSelectableV"
 import type { ICommandItem } from "@/types"
-import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import { PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import CommandButton from "./CommandButton"
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
@@ -19,7 +20,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     onSelectionChanged?: (selected: T[]) => void
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
-    selectedItems?: Snapshot<T[]>
+    selectedItems?: T[]
 }
 
 function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
@@ -64,8 +65,6 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
             ro.disconnect()
         }
     }, [])
-
-    const areItemsSelected = selectedItems.length > 0
 
     const emptyListText =
         emptyListTextProp === false
@@ -138,45 +137,14 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                 )}
 
                 <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
-                    {commands?.map((command) => {
-                        if (command.menuOnly) return null
-                        if (command.spacer) return <Spacer key={command.id} />
-
-                        let enabled = true
-                        if (command.requiresSelection && !areItemsSelected) enabled = false
-                        if (command.requiresSingleSelection && selectedItems.length !== 1)
-                            enabled = false
-                        if (command.getEnabled)
-                            enabled = command.getEnabled(selectedItems, commandContext)
-
-                        const Icon = command.getIcon
-                            ? command.getIcon(selectedItems, commandContext)
-                            : command.icon
-                        const tip = command.getTip
-                            ? command.getTip(selectedItems, commandContext)
-                            : command.tip
-                        const tipTitle = command.getLabel
-                            ? command.getLabel(selectedItems, commandContext)
-                            : command.label
-                        const tipText = command.getTipText
-                            ? command.getTipText(selectedItems, commandContext)
-                            : command.tipText
-
-                        return (
-                            <IconButton
-                                aria-label={command.label}
-                                key={command.id}
-                                size={"sm"}
-                                onClick={() => command.onClick(selectedItems, commandContext)}
-                                disabled={!enabled}
-                                tip={tip}
-                                tipTitle={tipTitle}
-                                tipText={tipText}
-                            >
-                                {Icon && <Icon />}
-                            </IconButton>
-                        )
-                    })}
+                    {commands?.map((command) => (
+                        <CommandButton
+                            key={command.id}
+                            command={command}
+                            selectedItems={selectedItems}
+                            context={commandContext}
+                        />
+                    ))}
                 </HStack>
             </PaneListContainer>
         </PanelSection>
