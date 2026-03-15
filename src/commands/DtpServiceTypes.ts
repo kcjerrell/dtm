@@ -57,6 +57,7 @@ export interface ImageExtra {
         frames_per_second: number
         width: number
         height: number
+        audio_id: number
     }
 }
 
@@ -299,6 +300,9 @@ export interface XTensorHistoryNode {
     cfg_zero_init_steps: number
     generation_time: number
     reason: number
+    compression_artifacts: number
+    compression_artifacts_quality: number
+    audio: boolean
 }
 
 export interface TensorHistoryExtra {

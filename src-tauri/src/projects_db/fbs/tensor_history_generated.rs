@@ -12,10 +12,10 @@ use self::flatbuffers::{EndianScalar, Follow};
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_SAMPLER_TYPE: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_SAMPLER_TYPE: i8 = 18;
+pub const ENUM_MAX_SAMPLER_TYPE: i8 = 19;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_SAMPLER_TYPE: [SamplerType; 19] = [
+pub const ENUM_VALUES_SAMPLER_TYPE: [SamplerType; 20] = [
   SamplerType::DPMPP2MKarras,
   SamplerType::EulerA,
   SamplerType::DDIM,
@@ -35,6 +35,7 @@ pub const ENUM_VALUES_SAMPLER_TYPE: [SamplerType; 19] = [
   SamplerType::DDIMTrailing,
   SamplerType::UniPCTrailing,
   SamplerType::UniPCAYS,
+  SamplerType::TCDTrailing,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -61,9 +62,10 @@ impl SamplerType {
   pub const DDIMTrailing: Self = Self(16);
   pub const UniPCTrailing: Self = Self(17);
   pub const UniPCAYS: Self = Self(18);
+  pub const TCDTrailing: Self = Self(19);
 
   pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 18;
+  pub const ENUM_MAX: i8 = 19;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::DPMPP2MKarras,
     Self::EulerA,
@@ -84,6 +86,7 @@ impl SamplerType {
     Self::DDIMTrailing,
     Self::UniPCTrailing,
     Self::UniPCAYS,
+    Self::TCDTrailing,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -107,6 +110,7 @@ impl SamplerType {
       Self::DDIMTrailing => Some("DDIMTrailing"),
       Self::UniPCTrailing => Some("UniPCTrailing"),
       Self::UniPCAYS => Some("UniPCAYS"),
+      Self::TCDTrailing => Some("TCDTrailing"),
       _ => None,
     }
   }
@@ -124,7 +128,7 @@ impl<'a> flatbuffers::Follow<'a> for SamplerType {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
     Self(b)
   }
 }
@@ -133,7 +137,7 @@ impl flatbuffers::Push for SamplerType {
     type Output = SamplerType;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i8>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
     }
 }
 
@@ -217,7 +221,7 @@ impl<'a> flatbuffers::Follow<'a> for SeedMode {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
     Self(b)
   }
 }
@@ -226,7 +230,7 @@ impl flatbuffers::Push for SeedMode {
     type Output = SeedMode;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i8>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
     }
 }
 
@@ -306,7 +310,7 @@ impl<'a> flatbuffers::Follow<'a> for ControlMode {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
     Self(b)
   }
 }
@@ -315,7 +319,7 @@ impl flatbuffers::Push for ControlMode {
     type Output = ControlMode;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i8>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
     }
 }
 
@@ -459,7 +463,7 @@ impl<'a> flatbuffers::Follow<'a> for ControlInputType {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
     Self(b)
   }
 }
@@ -468,7 +472,7 @@ impl flatbuffers::Push for ControlInputType {
     type Output = ControlInputType;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i8>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
     }
 }
 
@@ -548,7 +552,7 @@ impl<'a> flatbuffers::Follow<'a> for LoRAMode {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
     Self(b)
   }
 }
@@ -557,7 +561,7 @@ impl flatbuffers::Push for LoRAMode {
     type Output = LoRAMode;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i8>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
     }
 }
 
@@ -661,7 +665,7 @@ impl<'a> flatbuffers::Follow<'a> for Reason {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i32>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i32>(buf, loc);
     Self(b)
   }
 }
@@ -670,7 +674,7 @@ impl flatbuffers::Push for Reason {
     type Output = Reason;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i32>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i32>(dst, self.0);
     }
 }
 
@@ -699,6 +703,99 @@ impl<'a> flatbuffers::Verifiable for Reason {
 }
 
 impl flatbuffers::SimpleToVerifyInSlice for Reason {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_COMPRESSION_METHOD: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_COMPRESSION_METHOD: i8 = 3;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_COMPRESSION_METHOD: [CompressionMethod; 4] = [
+  CompressionMethod::Disabled,
+  CompressionMethod::H264,
+  CompressionMethod::H265,
+  CompressionMethod::Jpeg,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct CompressionMethod(pub i8);
+#[allow(non_upper_case_globals)]
+impl CompressionMethod {
+  pub const Disabled: Self = Self(0);
+  pub const H264: Self = Self(1);
+  pub const H265: Self = Self(2);
+  pub const Jpeg: Self = Self(3);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 3;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Disabled,
+    Self::H264,
+    Self::H265,
+    Self::Jpeg,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Disabled => Some("Disabled"),
+      Self::H264 => Some("H264"),
+      Self::H265 => Some("H265"),
+      Self::Jpeg => Some("Jpeg"),
+      _ => None,
+    }
+  }
+}
+impl core::fmt::Debug for CompressionMethod {
+  fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> flatbuffers::Follow<'a> for CompressionMethod {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
+    Self(b)
+  }
+}
+
+impl flatbuffers::Push for CompressionMethod {
+    type Output = CompressionMethod;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
+    }
+}
+
+impl flatbuffers::EndianScalar for CompressionMethod {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> flatbuffers::Verifiable for CompressionMethod {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for CompressionMethod {}
 pub enum ControlOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -710,7 +807,7 @@ impl<'a> flatbuffers::Follow<'a> for Control<'a> {
   type Inner = Control<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -960,7 +1057,7 @@ impl<'a> flatbuffers::Follow<'a> for LoRA<'a> {
   type Inner = LoRA<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1091,7 +1188,7 @@ impl<'a> flatbuffers::Follow<'a> for TensorHistoryNode<'a> {
   type Inner = TensorHistoryNode<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1203,6 +1300,9 @@ impl<'a> TensorHistoryNode<'a> {
   pub const VT_CFG_ZERO_INIT_STEPS: flatbuffers::VOffsetT = 216;
   pub const VT_GENERATION_TIME: flatbuffers::VOffsetT = 218;
   pub const VT_REASON: flatbuffers::VOffsetT = 220;
+  pub const VT_COMPRESSION_ARTIFACTS: flatbuffers::VOffsetT = 222;
+  pub const VT_COMPRESSION_ARTIFACTS_QUALITY: flatbuffers::VOffsetT = 224;
+  pub const VT_AUDIO: flatbuffers::VOffsetT = 226;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -1230,6 +1330,7 @@ impl<'a> TensorHistoryNode<'a> {
     builder.add_tensor_id(args.tensor_id);
     builder.add_logical_time(args.logical_time);
     builder.add_lineage(args.lineage);
+    builder.add_compression_artifacts_quality(args.compression_artifacts_quality);
     builder.add_reason(args.reason);
     builder.add_cfg_zero_init_steps(args.cfg_zero_init_steps);
     builder.add_causal_inference_pad(args.causal_inference_pad);
@@ -1302,6 +1403,8 @@ impl<'a> TensorHistoryNode<'a> {
     builder.add_hires_fix_start_width(args.hires_fix_start_width);
     builder.add_start_height(args.start_height);
     builder.add_start_width(args.start_width);
+    builder.add_audio(args.audio);
+    builder.add_compression_artifacts(args.compression_artifacts);
     builder.add_cfg_zero_star(args.cfg_zero_star);
     builder.add_causal_inference_enabled(args.causal_inference_enabled);
     builder.add_separate_t5(args.separate_t5);
@@ -2074,6 +2177,27 @@ impl<'a> TensorHistoryNode<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<Reason>(TensorHistoryNode::VT_REASON, Some(Reason::Other)).unwrap()}
   }
+  #[inline]
+  pub fn compression_artifacts(&self) -> CompressionMethod {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CompressionMethod>(TensorHistoryNode::VT_COMPRESSION_ARTIFACTS, Some(CompressionMethod::Disabled)).unwrap()}
+  }
+  #[inline]
+  pub fn compression_artifacts_quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TensorHistoryNode::VT_COMPRESSION_ARTIFACTS_QUALITY, Some(43.1)).unwrap()}
+  }
+  #[inline]
+  pub fn audio(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TensorHistoryNode::VT_AUDIO, Some(false)).unwrap()}
+  }
 }
 
 impl flatbuffers::Verifiable for TensorHistoryNode<'_> {
@@ -2190,6 +2314,9 @@ impl flatbuffers::Verifiable for TensorHistoryNode<'_> {
      .visit_field::<i32>("cfg_zero_init_steps", Self::VT_CFG_ZERO_INIT_STEPS, false)?
      .visit_field::<f64>("generation_time", Self::VT_GENERATION_TIME, false)?
      .visit_field::<Reason>("reason", Self::VT_REASON, false)?
+     .visit_field::<CompressionMethod>("compression_artifacts", Self::VT_COMPRESSION_ARTIFACTS, false)?
+     .visit_field::<f32>("compression_artifacts_quality", Self::VT_COMPRESSION_ARTIFACTS_QUALITY, false)?
+     .visit_field::<bool>("audio", Self::VT_AUDIO, false)?
      .finish();
     Ok(())
   }
@@ -2302,6 +2429,9 @@ pub struct TensorHistoryNodeArgs<'a> {
     pub cfg_zero_init_steps: i32,
     pub generation_time: f64,
     pub reason: Reason,
+    pub compression_artifacts: CompressionMethod,
+    pub compression_artifacts_quality: f32,
+    pub audio: bool,
 }
 impl<'a> Default for TensorHistoryNodeArgs<'a> {
   #[inline]
@@ -2414,6 +2544,9 @@ impl<'a> Default for TensorHistoryNodeArgs<'a> {
       cfg_zero_init_steps: 0,
       generation_time: 0.0,
       reason: Reason::Other,
+      compression_artifacts: CompressionMethod::Disabled,
+      compression_artifacts_quality: 43.1,
+      audio: false,
     }
   }
 }
@@ -2852,6 +2985,18 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TensorHistoryNodeBuilder<'a, 'b
     self.fbb_.push_slot::<Reason>(TensorHistoryNode::VT_REASON, reason, Reason::Other);
   }
   #[inline]
+  pub fn add_compression_artifacts(&mut self, compression_artifacts: CompressionMethod) {
+    self.fbb_.push_slot::<CompressionMethod>(TensorHistoryNode::VT_COMPRESSION_ARTIFACTS, compression_artifacts, CompressionMethod::Disabled);
+  }
+  #[inline]
+  pub fn add_compression_artifacts_quality(&mut self, compression_artifacts_quality: f32) {
+    self.fbb_.push_slot::<f32>(TensorHistoryNode::VT_COMPRESSION_ARTIFACTS_QUALITY, compression_artifacts_quality, 43.1);
+  }
+  #[inline]
+  pub fn add_audio(&mut self, audio: bool) {
+    self.fbb_.push_slot::<bool>(TensorHistoryNode::VT_AUDIO, audio, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TensorHistoryNodeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TensorHistoryNodeBuilder {
@@ -2976,6 +3121,9 @@ impl core::fmt::Debug for TensorHistoryNode<'_> {
       ds.field("cfg_zero_init_steps", &self.cfg_zero_init_steps());
       ds.field("generation_time", &self.generation_time());
       ds.field("reason", &self.reason());
+      ds.field("compression_artifacts", &self.compression_artifacts());
+      ds.field("compression_artifacts_quality", &self.compression_artifacts_quality());
+      ds.field("audio", &self.audio());
       ds.finish()
   }
 }
@@ -3030,14 +3178,14 @@ pub fn size_prefixed_root_as_tensor_history_node_with_opts<'b, 'o>(
 /// # Safety
 /// Callers must trust the given bytes do indeed contain a valid `TensorHistoryNode`.
 pub unsafe fn root_as_tensor_history_node_unchecked(buf: &[u8]) -> TensorHistoryNode {
-  unsafe { flatbuffers::root_unchecked::<TensorHistoryNode>(buf) }
+  flatbuffers::root_unchecked::<TensorHistoryNode>(buf)
 }
 #[inline]
 /// Assumes, without verification, that a buffer of bytes contains a size prefixed TensorHistoryNode and returns it.
 /// # Safety
 /// Callers must trust the given bytes do indeed contain a valid size prefixed `TensorHistoryNode`.
 pub unsafe fn size_prefixed_root_as_tensor_history_node_unchecked(buf: &[u8]) -> TensorHistoryNode {
-  unsafe { flatbuffers::size_prefixed_root_unchecked::<TensorHistoryNode>(buf) }
+  flatbuffers::size_prefixed_root_unchecked::<TensorHistoryNode>(buf)
 }
 #[inline]
 pub fn finish_tensor_history_node_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(

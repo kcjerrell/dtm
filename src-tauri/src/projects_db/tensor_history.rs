@@ -230,6 +230,9 @@ impl TryFrom<&[u8]> for TensorHistoryNode {
             cfg_zero_init_steps: node.cfg_zero_init_steps(),
             generation_time: node.generation_time(),
             reason: node.reason().0,
+            compression_artifacts: node.compression_artifacts().0,
+            compression_artifacts_quality: node.compression_artifacts_quality(),
+            audio: node.audio(),
         })
     }
 }

@@ -56,7 +56,7 @@ impl<'a> flatbuffers::Follow<'a> for TextType {
   type Inner = Self;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    let b = unsafe { flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
     Self(b)
   }
 }
@@ -65,7 +65,7 @@ impl flatbuffers::Push for TextType {
     type Output = TextType;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        unsafe { flatbuffers::emplace_scalar::<i8>(dst, self.0); }
+        flatbuffers::emplace_scalar::<i8>(dst, self.0);
     }
 }
 
@@ -117,21 +117,21 @@ impl<'a> flatbuffers::Follow<'a> for TextRange {
   type Inner = &'a TextRange;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { <&'a TextRange>::follow(buf, loc) }
+    <&'a TextRange>::follow(buf, loc)
   }
 }
 impl<'a> flatbuffers::Follow<'a> for &'a TextRange {
   type Inner = &'a TextRange;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    unsafe { flatbuffers::follow_cast_ref::<TextRange>(buf, loc) }
+    flatbuffers::follow_cast_ref::<TextRange>(buf, loc)
   }
 }
 impl<'b> flatbuffers::Push for TextRange {
     type Output = TextRange;
     #[inline]
     unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
-        let src = unsafe { ::core::slice::from_raw_parts(self as *const TextRange as *const u8, <Self as flatbuffers::Push>::size()) };
+        let src = ::core::slice::from_raw_parts(self as *const TextRange as *const u8, <Self as flatbuffers::Push>::size());
         dst.copy_from_slice(src);
     }
     #[inline]
@@ -233,7 +233,7 @@ impl<'a> flatbuffers::Follow<'a> for TextModification<'a> {
   type Inner = TextModification<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -364,7 +364,7 @@ impl<'a> flatbuffers::Follow<'a> for TextHistoryNode<'a> {
   type Inner = TextHistoryNode<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -586,14 +586,14 @@ pub fn size_prefixed_root_as_text_history_node_with_opts<'b, 'o>(
 /// # Safety
 /// Callers must trust the given bytes do indeed contain a valid `TextHistoryNode`.
 pub unsafe fn root_as_text_history_node_unchecked(buf: &[u8]) -> TextHistoryNode {
-  unsafe { flatbuffers::root_unchecked::<TextHistoryNode>(buf) }
+  flatbuffers::root_unchecked::<TextHistoryNode>(buf)
 }
 #[inline]
 /// Assumes, without verification, that a buffer of bytes contains a size prefixed TextHistoryNode and returns it.
 /// # Safety
 /// Callers must trust the given bytes do indeed contain a valid size prefixed `TextHistoryNode`.
 pub unsafe fn size_prefixed_root_as_text_history_node_unchecked(buf: &[u8]) -> TextHistoryNode {
-  unsafe { flatbuffers::size_prefixed_root_unchecked::<TextHistoryNode>(buf) }
+  flatbuffers::size_prefixed_root_unchecked::<TextHistoryNode>(buf)
 }
 #[inline]
 pub fn finish_text_history_node_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(

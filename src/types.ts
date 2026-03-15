@@ -288,8 +288,10 @@ export interface ICommand<T, C = undefined> {
     toolbarOnly?: boolean
     spacer?: undefined
 
+    accelerator?: string
+
     icon?: IconType | ComponentType
-    getIcon?: (selected: Snapshot<T[]>, context?: C) => IconType | ComponentType
+    getIcon?: (selected: T[], context?: C) => IconType | ComponentType
 
     /** used to reorder items in the menu. toolbars will use items in the order they are given */
     menuIndex?: number
@@ -302,7 +304,7 @@ export interface ICommand<T, C = undefined> {
     requiresMultipleSelection?: boolean
 
     /** overrides selection options */
-    getEnabled?: (selected: Snapshot<T[]>, context?: C) => boolean
+    getEnabled?: (selected?: T[], context?: C) => boolean
 
     /** item behavior if getEnabled returns false */
     toolbarEnableMode?: "disable" | "hide"
@@ -314,10 +316,10 @@ export interface ICommand<T, C = undefined> {
     /** will be used as the tooltip title as well as aria-label and menu label */
     label?: string
     tipText?: string
-    getTip?: (selected: Snapshot<T[]>, context?: C) => React.ReactNode
+    getTip?: (selected: T[], context?: C) => React.ReactNode
     /** will be used as the tooltip title as well as aria-label and menu label */
-    getLabel?: (selected: Snapshot<T[]>, context?: C) => string
-    getTipText?: (selected: Snapshot<T[]>, context?: C) => string
+    getLabel?: (selected: T[], context?: C) => string
+    getTipText?: (selected: T[], context?: C) => string
 
-    onClick: (selected: Snapshot<T[]>, context?: C) => void
+    onClick: (selected: T[], context?: C) => void | Promise<void>
 }

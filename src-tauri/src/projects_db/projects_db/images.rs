@@ -18,6 +18,25 @@ impl ProjectsDb {
         Ok(count as u32)
     }
 
+    pub async fn get_image(&self, image_id: i64) -> Result<ImageExtra, MixedError> {
+        let image = images::Entity::find_by_id(image_id)
+            .join(JoinType::LeftJoin, images::Relation::Models.def())
+            .join(JoinType::LeftJoin, images::Relation::Projects.def())
+            .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
+            .column_as(entity::models::Column::Filename, "model_file")
+            .column_as(
+                Expr::col(watch_folders::Column::IsMissing)
+                    .eq(false)
+                    .and(Expr::col(watch_folders::Column::IsLocked).eq(false)),
+                "is_ready",
+            )
+            .into_model::<ImageExtra>()
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| "Image not found".to_string())?;
+        Ok(image)
+    }
+
     pub async fn list_images(
         &self,
         opts: ListImagesOptions,

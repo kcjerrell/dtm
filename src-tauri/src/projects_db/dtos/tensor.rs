@@ -268,6 +268,9 @@ pub struct TensorHistoryNode {
     pub cfg_zero_init_steps: i32,
     pub generation_time: f64,
     pub reason: i32,
+    pub compression_artifacts: i8,
+    pub compression_artifacts_quality: f32,
+    pub audio: bool,
 }
 
 #[derive(serde::Serialize, Debug, Clone)]

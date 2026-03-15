@@ -12,6 +12,7 @@ pub struct Clip {
     pub frames_per_second: f64,
     pub width: i32,
     pub height: i32,
+    pub audio_id: i64,
 }
 
 impl Clip {
@@ -25,6 +26,7 @@ impl Clip {
             frames_per_second: data.frames_per_second(),
             width: data.width(),
             height: data.height(),
+            audio_id: data.audio_id(),
         }
     }
 }
