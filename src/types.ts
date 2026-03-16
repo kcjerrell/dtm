@@ -247,17 +247,10 @@ export enum MediaType {
     Video = 1,
 }
 
-export type ICommandItem<T, C = undefined> = ICommand<T, C> | ICommandSpacer
-
-export type ICommandSpacer = {
-    id: string
-    spacer: true
-    toolbarOnly?: boolean
-    menuOnly?: boolean
-}
+export type ICommandItem<T = undefined, C = undefined> = ICommand<T, C>
 
 let spacerCounter = 0
-export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): ICommandSpacer {
+export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): ICommandItem {
     let menuOnly = false
     let toolbarOnly = false
 
@@ -274,7 +267,7 @@ export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): IComm
 
 /**
  * Interface used for context menus and toolbars
- * 
+ *
  * Context is optional - prefer creating commands in a hook and using the
  * dependencies directly
  *
@@ -286,7 +279,8 @@ export interface ICommand<T, C = undefined> {
 
     menuOnly?: boolean
     toolbarOnly?: boolean
-    spacer?: undefined
+    spacer?: boolean
+    separator?: boolean
 
     accelerator?: string
 
@@ -321,7 +315,7 @@ export interface ICommand<T, C = undefined> {
     getLabel?: (selected: T[], context?: C) => string
     getTipText?: (selected: T[], context?: C) => string
 
-    onClick: (selected: T[], context?: C) => void | Promise<void>
+    onClick?: (selected: T[], context?: C) => void | Promise<void>
 
     /** show ellipses on menu item */
     ellipses?: boolean

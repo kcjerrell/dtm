@@ -1,4 +1,4 @@
-import { Box, chakra } from "@chakra-ui/react"
+import { chakra, Icon, type IconProps } from "@chakra-ui/react"
 import { Fragment } from "react/jsx-runtime"
 
 const topEdge = 35
@@ -7,18 +7,18 @@ const width = 220
 const height = 200
 const THICKNESS = 15
 
-interface FrameCountIndicatorProps extends ChakraProps {
+interface FrameCountIndicatorProps extends IconProps {
     count?: React.ReactNode
     bgColor?: string
     thickness?: number
 }
 
 function FrameCountIndicator(props: FrameCountIndicatorProps) {
-    const { count, bgColor, thickness = THICKNESS, ...restProps } = props
+    const { count = "▶︎", bgColor = "transparent", thickness = THICKNESS, ...restProps } = props
     const margin = thickness / 2 + 5
 
     return (
-        <Box {...restProps}>
+        <Icon {...restProps}>
             <svg viewBox={`-${margin} -${margin} ${width + margin * 2} ${height + margin * 2}`}>
                 <chakra.rect
                     x={0}
@@ -80,7 +80,7 @@ function FrameCountIndicator(props: FrameCountIndicatorProps) {
                     {count}
                 </text>
             </svg>
-        </Box>
+        </Icon>
     )
 }
 

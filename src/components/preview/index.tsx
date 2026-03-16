@@ -1,9 +1,5 @@
 import { Box, type BoxProps } from "@chakra-ui/react"
-import {
-    type MotionProps,
-    motion, 
-    type ValueAnimationTransition
-} from "motion/react"
+import { type MotionProps, motion, type ValueAnimationTransition } from "motion/react"
 import { createRef, useEffect, useRef, useState } from "react"
 import { proxy, ref, useSnapshot } from "valtio"
 import { Hotkey } from "@/hooks/keyboard"
@@ -48,93 +44,116 @@ export function Preview(props: PreviewProps) {
     const snap = useSnapshot(store)
     const { src, showPreview: show, sourceElement, isLoaded } = snap
 
-    if (sourceElement.current) return <PreviewZoom key={src} {...restProps} />
+    const [isOpen, setIsOpen] = useState(false)
+
+    useEffect(() => {
+        if (show) setIsOpen(true)
+    }, [show])
+
+    if (!isOpen) return null
+
+    if (sourceElement.current)
+        return <PreviewZoom key={src} onClose={() => setIsOpen(false)} {...restProps} />
 
     return (
-        <Box
-            key={src}
-            width={"100vw"}
-            height={"100vh"}
-            overflow={"clip"}
-            position={"absolute"}
-            zIndex={20}
-            bgColor={"black/90"}
-            onClick={() => hidePreview()}
-            pointerEvents={show ? "all" : "none"}
-            {...restProps}
-            asChild
-        >
-            <motion.div
-                style={{
-                    backgroundColor: "#000000",
+        <>
+            <Hotkey
+                scope="preview"
+                handlers={{
+                    escape: () => {
+                        hidePreview()
+                        setIsOpen(false)
+                    },
                 }}
-                initial={{
-                    backgroundColor: "#000000",
-                    // opacity: 0,
+            />
+            <Box
+                key={src}
+                width={"100vw"}
+                height={"100vh"}
+                overflow={"clip"}
+                position={"absolute"}
+                zIndex={20}
+                bgColor={"black/90"}
+                onClick={() => {
+                    hidePreview()
+                    setIsOpen(false)
                 }}
-                animate={{
-                    backgroundColor: show ? "#000000dd" : "#00000000",
-                    // opacity: show ? 1 : 0,
-                }}
-                transition={{
-                    // ...posTransition,
-                    // duration: show ? (posTransition.duration ?? 0) * 1.5 : posTransition.duration,
-                    // opacity: {
-                    // 	duration: 0,
-                    // 	delay: show ? 0 : posTransition.duration,
-                    // },
-                    duration: 0.2,
-                    delay: show ? 0 : 0.1,
-                    ease: "circOut",
-                }}
+                pointerEvents={show ? "all" : "none"}
+                {...restProps}
+                asChild
             >
-                {show && !isLoaded && (
-                    <DotSpinner
-                        color={"check.1"}
-                        position={"absolute"}
-                        width={"20%"}
-                        height={"20%"}
-                        top={"40%"}
-                        left={"40%"}
-                    />
-                )}
-
-                <motion.img
-                    ref={(e) => {
-                        if (e)
-                            e.onload = () => {
-                                // setTimeout(() => {
-                                store.isLoaded = true
-                                // }, 5000)
-                            }
-                    }}
+                <motion.div
                     style={{
-                        // position: "absolute",
-                        objectFit: "contain",
-                        // left: 0,
-                        // top: 0,
-                        width: "100%",
-                        height: "100%",
-                        transformOrigin: "center center",
+                        backgroundColor: "#000000",
                     }}
                     initial={{
-                        opacity: 0,
-                        scale: 0.9,
+                        backgroundColor: "#000000",
+                        // opacity: 0,
                     }}
                     animate={{
-                        opacity: isLoaded && show ? 1 : 0,
-                        scale: isLoaded && show ? 1 : 0.9,
+                        backgroundColor: show ? "#000000dd" : "#00000000",
+                        // opacity: show ? 1 : 0,
                     }}
-                    src={src ?? undefined}
-                    transition={{ duration: 0.2, delay: show ? 0.1 : 0, ease: "circOut" }}
-                />
-            </motion.div>
-        </Box>
+                    transition={{
+                        // ...posTransition,
+                        // duration: show ? (posTransition.duration ?? 0) * 1.5 : posTransition.duration,
+                        // opacity: {
+                        // 	duration: 0,
+                        // 	delay: show ? 0 : posTransition.duration,
+                        // },
+                        duration: 0.2,
+                        delay: show ? 0 : 0.1,
+                        ease: "circOut",
+                    }}
+                >
+                    {show && !isLoaded && (
+                        <DotSpinner
+                            color={"check.1"}
+                            position={"absolute"}
+                            width={"20%"}
+                            height={"20%"}
+                            top={"40%"}
+                            left={"40%"}
+                        />
+                    )}
+
+                    <motion.img
+                        ref={(e) => {
+                            if (e)
+                                e.onload = () => {
+                                    // setTimeout(() => {
+                                    store.isLoaded = true
+                                    // }, 5000)
+                                }
+                        }}
+                        style={{
+                            // position: "absolute",
+                            objectFit: "contain",
+                            // left: 0,
+                            // top: 0,
+                            width: "100%",
+                            height: "100%",
+                            transformOrigin: "center center",
+                        }}
+                        initial={{
+                            opacity: 0,
+                            scale: 0.9,
+                        }}
+                        animate={{
+                            opacity: isLoaded && show ? 1 : 0,
+                            scale: isLoaded && show ? 1 : 0.9,
+                        }}
+                        src={src ?? undefined}
+                        transition={{ duration: 0.2, delay: show ? 0.1 : 0, ease: "circOut" }}
+                    />
+                </motion.div>
+            </Box>
+        </>
     )
 }
 
 function PreviewZoom(props: PreviewProps) {
-    const { ...restProps } = props
+    const { onClose, ...restProps } = props
 
     const snap = useSnapshot(store)
     const { src, showPreview: show } = snap
@@ -151,18 +170,18 @@ function PreviewZoom(props: PreviewProps) {
 
     useEffect(() => {
         const updateLayout = () => {
-             const sourceElement = store.sourceElement.current
-             if (!sourceElement) return
-             const rect = contain(
-                 sourceElement.naturalWidth,
-                 sourceElement.naturalHeight,
-                 window.innerWidth,
-                 window.innerHeight
-             )
-             setContentSize({ width: rect.width, height: rect.height })
-             return rect
+            const sourceElement = store.sourceElement.current
+            if (!sourceElement) return
+            const rect = contain(
+                sourceElement.naturalWidth,
+                sourceElement.naturalHeight,
+                window.innerWidth,
+                window.innerHeight,
+            )
+            setContentSize({ width: rect.width, height: rect.height })
+            return rect
         }
-        
+
         // Initial setup for useZoomable constraints
         updateLayout()
 
@@ -174,10 +193,10 @@ function PreviewZoom(props: PreviewProps) {
                 // If not showing, we should be at source rect (but source might have moved too?)
                 // For now, let's assume we mainly care about resizing while open.
                 if (show) {
-                     leftMv.set(newRect.left)
-                     topMv.set(newRect.top)
-                     widthMv.set(newRect.width)
-                     heightMv.set(newRect.height)
+                    leftMv.set(newRect.left)
+                    topMv.set(newRect.top)
+                    widthMv.set(newRect.width)
+                    heightMv.set(newRect.height)
                 }
             }
         }
@@ -202,63 +221,62 @@ function PreviewZoom(props: PreviewProps) {
         setContentSize({ width: previewRect.width, height: previewRect.height })
 
         if (show) {
-             // OPENING
-             // 1. Set initial position to source (jump)
-             if (leftMv.get() === 0) { // Only jump if not already initialized or from 0? 
-                 leftMv.jump(originalRect.left)
-                 topMv.jump(originalRect.top)
-                 widthMv.jump(originalRect.width)
-                 heightMv.jump(originalRect.height)
-             }
-             
-             // 2. Animate to target (set)
-             requestAnimationFrame(() => {
-                 leftMv.set(previewRect.left)
-                 topMv.set(previewRect.top)
-                 widthMv.set(previewRect.width)
-                 heightMv.set(previewRect.height)
-             })
+            // OPENING
+            // 1. Set initial position to source (jump)
+            if (leftMv.get() === 0) {
+                // Only jump if not already initialized or from 0?
+                leftMv.jump(originalRect.left)
+                topMv.jump(originalRect.top)
+                widthMv.jump(originalRect.width)
+                heightMv.jump(originalRect.height)
+            }
 
-             // Visibility: Hide source, Show floating
-             sourceElement.style.visibility = "hidden"
-             imgRef.current.style.visibility = "visible"
+            // 2. Animate to target (set)
+            requestAnimationFrame(() => {
+                leftMv.set(previewRect.left)
+                topMv.set(previewRect.top)
+                widthMv.set(previewRect.width)
+                heightMv.set(previewRect.height)
+            })
 
+            // Visibility: Hide source, Show floating
+            sourceElement.style.visibility = "hidden"
+            imgRef.current.style.visibility = "visible"
         } else {
-             // CLOSING
-             // Animate back to source
-             leftMv.set(originalRect.left)
-             topMv.set(originalRect.top)
-             widthMv.set(originalRect.width)
-             heightMv.set(originalRect.height)
+            // CLOSING
+            // Animate back to source
+            leftMv.set(originalRect.left)
+            topMv.set(originalRect.top)
+            widthMv.set(originalRect.width)
+            heightMv.set(originalRect.height)
 
-             // Visibility: 
-             // Visibility: 
-             // Switch visibility after animation duration (200ms)
-             setTimeout(() => {
-                 sourceElement.style.visibility = "visible"
-                 if (imgRef.current) imgRef.current.style.visibility = "hidden"
-             }, 200)
+            // Visibility:
+            // Visibility:
+            // Switch visibility after animation duration (200ms)
+            setTimeout(() => {
+                sourceElement.style.visibility = "visible"
+                if (imgRef.current) imgRef.current.style.visibility = "hidden"
+                onClose()
+            }, 200)
         }
 
         return () => {
-             // Cleanup visibility on unmount or change
+            // Cleanup visibility on unmount or change
             //  if (sourceElement) sourceElement.style.visibility = "visible"
         }
-    }, [leftMv, widthMv, topMv, heightMv, show])
+    }, [leftMv, widthMv, topMv, heightMv, show, onClose])
 
     return (
         <>
-            {show && (
-                <Hotkey
-                    scope="preview"
-                    handlers={{
-                        escape: () => {
-                            reset()
-                            hidePreview()
-                        },
-                    }}
-                />
-            )}
+            <Hotkey
+                scope="preview"
+                handlers={{
+                    escape: () => {
+                        reset()
+                        hidePreview()
+                    },
+                }}
+            />
             <Box
                 ref={containerRef}
                 width={"100vw"}

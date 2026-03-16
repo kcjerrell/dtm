@@ -4,27 +4,17 @@ import * as fs from "@tauri-apps/plugin-fs"
 import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
-import type { Snapshot } from "valtio"
-import { DtpService, TensorHistoryExtra, type ImageExtra } from "@/commands"
+import { DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
+import FrameCountIndicator from "@/components/FrameCountIndicator"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommandItem } from "@/types"
 import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
-import { SubItem } from "../types"
+import type { SubItem } from "../types"
 
 export interface ImageCommandContext {
     isContextMenu?: boolean
-    // isVideo?: boolean
-    // videoRef?: React.RefObject<VideoContextType | null>
-    // item?: ImageExtra
-    // tensorId?: string
-    // addMetadata?: boolean
-    // project?: ProjectState
-    // subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
-    // setLockButtons: (lock: boolean) => void
-    // setShowExportDialog: (show: boolean) => void
-    // setShowFramesDialog: (show: boolean) => void
 }
 
 /*
@@ -37,8 +27,6 @@ export interface ImageCommandContext {
         Export video
         Export frames
         Select project
-
-    Dependencies
 
 */
 
@@ -55,16 +43,6 @@ export function useImageCommands(): [
 
     const commands: ICommandItem<ImageItem, ImageCommandContext>[] = useMemo(
         () => [
-            // {
-            //     id: "copyMask",
-            //     label: "Copy image mask",
-            //     icon: FiCopy,
-            //     getEnabled: (_, ctx) => !!ctx?.subItem?.maskUrl && !ctx?.isVideo,
-            //     toolbarEnableMode: "hide",
-            //     onClick: () => {
-            //         uiState.toggleSubItemMask()
-            //     },
-            // },
             {
                 id: "copyImage",
                 getLabel: (selected, ctx) => {
@@ -127,35 +105,42 @@ export function useImageCommands(): [
                     })
                 },
             },
+            { id: "separator-1", separator: true },
             {
                 id: "saveVideo",
                 label: "Save video",
                 getTip: () => "Save video",
-                icon: VideoFrameIcon,
+                icon: FrameCountIndicator,
                 getEnabled: (selected) => isVideo(selected),
                 toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
                 onClick: (selected, ctx) => {
                     if (!isImageExtra(selected[0])) return
-                    uiState.state.dialog = {
+                    uiState.showDialog({
                         dialogType: "clip-export-video",
                         image: selected[0],
                         root: ctx?.isContextMenu ? "view" : "viewAltContent",
-                    }
+                    })
                 },
                 ellipses: true,
             },
-            // {
-            //     id: "saveFrames",
-            //     label: "Save all frames",
-            //     getTip: () => "Save all frames",
-            //     icon: VideoFrameIcon,
-            //     getEnabled: (selected, ctx) => !!(selected.length > 0 && ctx?.item && ctx?.isVideo),
-            //     toolbarEnableMode: "hide",
-            //     onClick: async (_, ctx) => {
-            //         if (!ctx?.item) return
-            //         ctx.setShowFramesDialog(true)
-            //     },
-            // },
+            {
+                id: "saveFrames",
+                label: "Save all frames",
+                getTip: () => "Save all frames",
+                icon: VideoFrameIcon,
+                getEnabled: (selected) => isVideo(selected),
+                toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
+                onClick: async (selected, ctx) => {
+                    if (!isImageExtra(selected[0])) return
+                    uiState.showDialog({
+                        dialogType: "clip-export-frames",
+                        image: selected[0],
+                        root: ctx?.isContextMenu ? "view" : "viewAltContent",
+                    })
+                },
+            },
         ],
         [uiState],
     )
@@ -185,6 +170,7 @@ async function getImageData(selected: ImageItem[]) {
             selected[0].node_id,
         )
     } else {
+        console.log(selected[0])
         data = await DtpService.decodeTensor(selected[0].projectId, selected[0].tensorId, true)
     }
     return { data: data ?? undefined, history: nodeHistory ?? undefined }
@@ -193,7 +179,7 @@ async function getImageData(selected: ImageItem[]) {
 function isVideo(selected?: ImageItem[]) {
     if (!selected?.length || !selected[0]) return false
     if (!isImageExtra(selected[0])) return false
-    return selected[0].clip_id && selected[0].clip_id > 0
+    return !!selected[0].clip_id && selected[0].clip_id > 0
 }
 
 function isImageExtra(item?: unknown): item is ImageExtra {

@@ -1,18 +1,25 @@
-import { Spacer } from "@chakra-ui/react"
+import { Box, Spacer } from "@chakra-ui/react"
 import type { ComponentProps } from "react"
 import type { ICommandItem } from "@/types"
 import IconButton from "./IconButton"
+
+export class CancelExecute extends Error {}
 
 interface CommandButtonComponentProps<T, C = undefined> extends ComponentProps<typeof IconButton> {
     command: ICommandItem<T, C>
     context?: C
     selectedItems?: T[]
+    /**
+     * This callback is called immediately after the button is clicked
+     * with a shallow copy of the context - which it must return
+     * To cancel execution, throw CancelExecute
+     * */
     beforeExecute?: (context: C) => C | Promise<C>
     afterExecute?: (error?: unknown) => void
     wrapper?: (
         execute: (selected: T[], context?: C | undefined) => void | Promise<void>,
         selected: T[],
-        context: C
+        context: C,
     ) => void | Promise<void>
 }
 
@@ -26,6 +33,7 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
             if (err) console.error(err)
         },
         wrapper = (execute, selected, ctx) => execute(selected, ctx),
+        disabled: disabledProp,
         ...restProps
     } = props
     const areItemsSelected = selectedItems.length > 0
@@ -33,11 +41,29 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
     {
         if (command.menuOnly) return null
         if (command.spacer) return <Spacer key={command.id} />
+        if (command.separator)
+            return (
+                <Box
+                    key={command.id}
+                    bgColor={"fg.2/50"}
+                    height={"1rem"}
+                    marginX={"0.5rem"}
+                    width={"1px"}
+                    css={{
+                        "&:first-child": { display: "none" },
+                        "&:last-child": { display: "none" },
+                    }}
+                />
+            )
 
         let enabled = true
         if (command.requiresSelection && !areItemsSelected) enabled = false
         if (command.requiresSingleSelection && selectedItems.length !== 1) enabled = false
         if (command.getEnabled) enabled = command.getEnabled(selectedItems, context)
+
+        if (!enabled && command.toolbarEnableMode === "hide") return null
+
+        if (disabledProp) enabled = false
 
         const Icon = command.getIcon ? command.getIcon(selectedItems, context) : command.icon
         const tip = command.getTip ? command.getTip(selectedItems, context) : command.tip
@@ -52,14 +78,24 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
                 key={command.id}
                 size={"sm"}
                 onClick={async () => {
-                    const ctx = await beforeExecute({ ...context } as C)
+                    if (!command.onClick) return
+
+                    let ctx: C
+                    try {
+                        ctx = await beforeExecute({ ...context } as C)
+                    } catch (e: unknown) {
+                        if (e instanceof CancelExecute) return
+                        throw e
+                    }
+
                     let err: unknown
                     try {
                         await wrapper(command.onClick, selectedItems, ctx)
                     } catch (e: unknown) {
                         err = e
                     }
-                    afterExecute(err)
+
+                    await afterExecute(err)
                 }}
                 disabled={!enabled}
                 tip={tip}

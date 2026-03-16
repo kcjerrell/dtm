@@ -1,12 +1,9 @@
-import { Box } from "@chakra-ui/react"
-import { lazy, Suspense } from "react"
+import { Flex } from "@chakra-ui/react"
 import { useDTP } from "../state/context"
-import { ContentPanelPopup } from "../imagesList/ContentPanelPopup"
-import { useRootElement, useRootElementRef } from "@/hooks/useRootElement"
-import VideoExportDialog from "./clipExport/VideoExportDialog"
 import FramesExportDialog from "./clipExport/FramesExportDialog"
+import VideoExportDialog from "./clipExport/VideoExportDialog"
 
-function getDialogComponent(dialogType: string) {
+function getDialogComponent(dialogType: Nullable<string>) {
     switch (dialogType) {
         case "clip-export-video":
             return VideoExportDialog
@@ -24,42 +21,37 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
     const { uiState } = useDTP()
     const uiSnap = uiState.useSnap()
 
-    const rootElement = useRootElementRef(uiSnap?.dialog?.root)
-
-    if (!uiSnap.dialog) return null
-
-    const Dialog = getDialogComponent(uiSnap.dialog.dialogType)
+    const Dialog = getDialogComponent(uiSnap.dialog?.dialogType)
     if (!Dialog) return null
 
     return (
-        <ContentPanelPopup
-            shadeElem={rootElement}
-            onClose={() => {
+        <Flex
+            justifyContent={"center"}
+            alignItems={"center"}
+            position={"absolute"}
+            inset={0}
+            zIndex={50}
+            bgColor={"#22222266"}
+            onClick={() => {
                 uiState.hideDialog()
             }}
-            flexDir={"column"}
-            panelProps={{
-                height: "auto",
-                maxHeight: "80vh",
-                overflowY: "auto",
-                className: "panel-scroll",
-                padding: 0,
-                scrollbarGutter: "auto"
-            }}
-            height={"auto"}
-            shadeProps={{
-                bgColor: "#22222266",
-            }}
+            overflow={"hidden"}
         >
-            <Box {...restProps}>
+            <Flex
+                overflow={"hidden"}
+                maxHeight={"80vh"}
+                maxWidth={"80vw"}
+                onClick={(e) => e.stopPropagation()}
+                {...restProps}
+            >
                 <Dialog
                     onClose={() => {
                         uiState.hideDialog()
                     }}
                     {...uiSnap.dialog}
                 />
-            </Box>
-        </ContentPanelPopup>
+            </Flex>
+        </Flex>
     )
 }
 

@@ -35,6 +35,8 @@ const Base = chakra("button", {
         _disabled: {
             layerStyle: "disabled",
             cursor: "default",
+            pointerEvents: "none",
+            _hover: { scale: 1 },
         },
         _icon: {},
     },
@@ -44,7 +46,6 @@ const Base = chakra("button", {
             ghost: {
                 bgColor: "transparent",
                 border: "none",
-
             },
             inset: {
                 bgColor: "bg.1",
@@ -240,7 +241,7 @@ const Base = chakra("button", {
                     color: "fg.1",
                 },
             },
-        }
+        },
     ],
 
     defaultVariants: {

@@ -1,4 +1,11 @@
-import { Box, type BoxProps, chakra, Portal, type StackProps } from "@chakra-ui/react"
+import {
+    Box,
+    type BoxProps,
+    chakra,
+    OverlayOptions,
+    Portal,
+    type StackProps,
+} from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ComponentProps, type ReactNode, type RefObject, useEffect, useRef } from "react"
 import { useMotionRect } from "@/hooks/motion"
@@ -91,7 +98,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
     useEffect(() => {
         if (!panelRef.current || !containerRef.current || !positionerRef.current) return
         const handler = (e: MouseEvent) => {
-            console.log("pointerdown")
+            console.log("pointerdown popup")
             if (panelRef.current === e.target || panelRef.current?.contains(e.target as Node))
                 return
             const insidePopup = (e.target as HTMLElement).closest("[data-filter-popup]") !== null
@@ -100,6 +107,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
             e.stopPropagation()
             onClose()
         }
+        console.log("adding handler")
         window.addEventListener("pointerdown", handler, { capture: true })
 
         const ro = new ResizeObserver(() => {

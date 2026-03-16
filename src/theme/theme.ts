@@ -1,31 +1,25 @@
-import {
-    createSystem,
-    defaultConfig,
-    defineConfig,
-    SystemConfig,
-    ThemingConfig,
-} from "@chakra-ui/react"
+import { createSystem, defaultConfig, defineConfig, defineLayerStyles } from "@chakra-ui/react"
 import { buttonRecipe } from "./button"
 
 const grayValues = [
-    "#0e0f10",  // 0    17
-    "#141617",  // 1    16
-    "#1f2224",  // 2    15
-    "#232629",  // 3    14
-    "#2e3235",  // 4    13
-    "#353940",  // 5    12
-    "#434753",  // 6    11
-    "#565e67",  // 7    10
-    "#8e97a2",  // 8    9
-    "#b9bfc5",  // 9    8
-    "#c7c9ca",  // 10   7
-    "#dbdddf",  // 11   6
-    "#dedfe1",  // 12   5
-    "#e0e1e2",  // 13   4
-    "#e4e6e7",  // 14   3
-    "#e8eaeb",  // 15   2
-    "#EDEFF0",  // 16   1
-    "#f2f3f4",  // 17   0
+    "#0e0f10", // 0    17
+    "#141617", // 1    16
+    "#1f2224", // 2    15
+    "#232629", // 3    14
+    "#2e3235", // 4    13
+    "#353940", // 5    12
+    "#434753", // 6    11
+    "#565e67", // 7    10
+    "#8e97a2", // 8    9
+    "#b9bfc5", // 9    8
+    "#c7c9ca", // 10   7
+    "#dbdddf", // 11   6
+    "#dedfe1", // 12   5
+    "#e0e1e2", // 13   4
+    "#e4e6e7", // 14   3
+    "#e8eaeb", // 15   2
+    "#EDEFF0", // 16   1
+    "#f2f3f4", // 17   0
 ]
 
 const grays = grayValues.reduce(
@@ -72,7 +66,7 @@ const themeConfig = defineConfig({
             display: "none",
         },
         ".panel-scroll": {
-            scrollbarGutter: "stable",
+            // scrollbarGutter: "stable",
             _scrollbar: { backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" },
             _scrollbarThumb: {
                 backgroundColor: "fg.2/50",
@@ -103,6 +97,15 @@ const themeConfig = defineConfig({
         recipes: {
             button: buttonRecipe,
         },
+        layerStyles: defineLayerStyles({
+            borderA: {
+                value: {
+                    border: "1px solid",
+                    borderColor: "grayc.10",
+                    _dark: { borderColor: "grayc.13" },
+                },
+            },
+        }),
         semanticTokens: {
             colors: {
                 check: {

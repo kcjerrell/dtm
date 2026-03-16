@@ -12,10 +12,7 @@ export async function showMenu<T, C = undefined>(
     for (const command of commands) {
         if (command.toolbarOnly) continue
 
-        const isEnabled = !command.spacer ? (command.getEnabled?.(selected, context) ?? true) : true
-        if (!isEnabled && !command.spacer && command.menuEnableMode === "hide") continue
-
-        if (command.spacer) {
+        if (command.separator || command.spacer) {
             items.push(
                 await PredefinedMenuItem.new({
                     text: "separator-text",
@@ -24,6 +21,9 @@ export async function showMenu<T, C = undefined>(
             )
             continue
         }
+
+        const isEnabled = !command.spacer ? (command.getEnabled?.(selected, context) ?? true) : true
+        if (!isEnabled && !command.spacer && command.menuEnableMode === "hide") continue
 
         let label = command.getLabel?.(selected, context) ?? command.label ?? ""
         if (command.ellipses) label += "..."

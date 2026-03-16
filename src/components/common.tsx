@@ -23,7 +23,7 @@ export const Panel = chakra("div", {
         },
         variant: {
             float: {
-                borderRadius: "md",
+                borderRadius: "lg",
                 boxShadow: "pane1",
             },
             fixed: {},
@@ -287,6 +287,9 @@ export const PanelButton = chakra(
             paddingY: 2,
             fontWeight: "500",
             boxShadow: "0px 1px 5px -3px #00000055",
+            _disabled: {
+                cursor: "default",
+            },
         },
         variants: {
             tone: {
@@ -342,8 +345,7 @@ export const PanelSection = chakra("div", {
         alignItems: "stretch",
         justifyContent: "flex-start",
         gap: "1px",
-        color: "fg.1",
-        // bgColor: "grayc.14",
+        color: "fg.2",
     },
     variants: {
         variant: {
@@ -358,6 +360,15 @@ export const PanelSection = chakra("div", {
                 },
             },
             flat: {},
+            dialog: {
+                bgColor: "bg.2/50",
+                borderRadius: "lg",
+                border: "1px solid",
+                borderColor: "grayc.10",
+                _dark: {
+                    borderColor: "grayc.14",
+                },
+            },
         },
     },
 })

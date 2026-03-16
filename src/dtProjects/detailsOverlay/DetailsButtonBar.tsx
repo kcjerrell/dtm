@@ -1,7 +1,7 @@
 import { type ComponentProps, useState } from "react"
 import type { Snapshot } from "valtio"
 import type { ImageExtra } from "@/commands"
-import CommandButton from "@/components/CommandButton"
+import CommandButton, { CancelExecute } from "@/components/CommandButton"
 import type { VideoContextType } from "@/components/video/context"
 import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
@@ -61,12 +61,14 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                     key={cmd.id}
                     command={cmd}
                     selectedItems={commandItem}
+                    disabled={lockButtons}
                     beforeExecute={(ctx) => {
+                        if (lockButtons) throw new CancelExecute()
                         setLockButtons(true)
                         return ctx
                     }}
-                    wrapper={(execute, selected, ctx) => {
-                        uiState.callWithSpinner(async () => await execute(selected, ctx))
+                    wrapper={async (execute, selected, ctx) => {
+                        await uiState.callWithSpinner(async () => await execute(selected, ctx))
                     }}
                     afterExecute={() => {
                         setLockButtons(false)
