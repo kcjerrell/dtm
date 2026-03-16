@@ -24,14 +24,24 @@ interface DetailsButtonBarProps
     isVideo?: boolean
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-    const { item, tensorId, show, addMetadata, subItem, project, videoRef, isVideo, ...restProps } =
-        props
+    const {
+        item: itemProp,
+        tensorId,
+        show,
+        addMetadata,
+        subItem,
+        project,
+        videoRef,
+        isVideo,
+        ...restProps
+    } = props
     const [lockButtons, setLockButtons] = useState(false)
     const [, setShowExportDialog] = useState(false)
 
     const { uiState } = useDTP()
 
     const { imageCommands } = useMenuContext()
+    const item = subItem ?? itemProp
     const commandItem = item ? [item] : []
 
     return (

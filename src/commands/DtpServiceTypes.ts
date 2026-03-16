@@ -50,15 +50,7 @@ export interface ImageExtra {
     start_height: number
     upscaler_scale_factor: number | null
     is_ready: boolean
-    clip?: {
-        row_id: number
-        clip_id: number
-        count: number
-        frames_per_second: number
-        width: number
-        height: number
-        audio_id: number
-    }
+    clip?: Clip
 }
 
 export interface ImageCount {
@@ -125,12 +117,26 @@ export interface WatchFolder {
     bookmark: string
 }
 
-export interface TensorHistoryClip {
-    tensor_id: string
-    preview_id: number
-    clip_id: number
-    index_in_a_clip: number
-    row_id: number
+export interface ClipFrame {
+    tensorId: string
+    previewId: number
+    indexInAClip: number
+    rowId: number
+}
+
+export interface ClipExtra {
+    clip: Clip
+    frames: ClipFrame[]
+}
+
+export interface Clip {
+    rowId: number
+    clipId: number
+    count: number
+    framesPerSecond: number
+    width: number
+    height: number
+    audioId: number
 }
 
 export interface TensorSize {

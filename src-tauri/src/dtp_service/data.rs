@@ -3,10 +3,11 @@ use crate::{
     dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
     projects_db::{
         dtos::{
+            clip::ClipExtra,
             image::ListImagesResult,
             model::ModelExtra,
             project::ProjectExtra,
-            tensor::{TensorHistoryClip, TensorHistoryExtra, TensorSize},
+            tensor::{TensorHistoryExtra, TensorSize},
             watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
@@ -90,9 +91,9 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> Result<ClipExtra, String> {
         let db = self.get_db().await?;
-        Ok(db.get_clip(image_id).await?)
+        Ok(db.get_clip(image_id, clip_id).await?)
     }
 
     #[dtp_command]

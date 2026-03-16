@@ -1,16 +1,13 @@
 use crate::projects_db::{
-    dt_project::raw::DTProjectRaw,
-    dtos::{
-        clip::Clip,
+    TextHistory, dt_project::raw::DTProjectRaw, dtos::{
+        clip::{Clip, ClipExtra, ClipFrame},
         project::DTProjectInfo,
         tensor::{
-            TensorHistoryClip, TensorHistoryExtra, TensorHistoryImport, TensorHistoryNode,
-            TensorNodeGrouper, TensorRaw, TensorSize,
+            TensorHistoryExtra, TensorHistoryImport, TensorHistoryNode, TensorNodeGrouper,
+            TensorRaw, TensorSize,
         },
         text::TextHistoryNode,
-    },
-    tensor_history_tensor_data::TensorHistoryTensorData,
-    TextHistory,
+    }, tensor_history_tensor_data::TensorHistoryTensorData
 };
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -432,16 +429,13 @@ impl DTProject {
         Ok(thumbnail)
     }
 
-    pub async fn get_histories_from_clip(
-        &self,
-        node_id: i64,
-    ) -> Result<Vec<TensorHistoryClip>, Error> {
+    pub async fn get_histories_from_clip(&self, node_id: i64) -> Result<Vec<ClipFrame>, Error> {
         self.check_table(&DTProjectTable::TensorHistory).await?;
 
         let history = self.get_history_full(node_id).await?;
         let num_frames = history.history.num_frames;
 
-        let items: Vec<TensorHistoryClip> = query(CLIP_QUERY)
+        let items: Vec<ClipFrame> = query(CLIP_QUERY)
             .bind(node_id)
             .bind(node_id + num_frames as i64)
             .map(|row: SqliteRow| self.map_clip(row))
@@ -451,8 +445,34 @@ impl DTProject {
         Ok(items)
     }
 
-    fn map_clip(self: &DTProject, row: SqliteRow) -> TensorHistoryClip {
-        TensorHistoryClip::new(row.get(0), row.get(1), row.get(2)).unwrap()
+    pub async fn get_clip_and_frames(
+        &self,
+        node_id: i64,
+        clip_id: i64,
+    ) -> Result<ClipExtra, Error> {
+        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::Clip).await?;
+
+        let clip: Clip = query("SELECT * FROM clip where __pk0 = ?1")
+            .bind(clip_id)
+            .map(|row: SqliteRow| Clip::map_row(&row))
+            .fetch_one(&*self.pool)
+            .await?;
+
+        let frames: Vec<ClipFrame> = query(CLIP_QUERY)
+            .bind(node_id)
+            .bind(node_id + clip.count as i64)
+            .map(|row: SqliteRow| self.map_clip(row))
+            .fetch_all(&*self.pool)
+            .await?;
+
+        let extra = ClipExtra { clip, frames };
+
+        Ok(extra)
+    }
+
+    fn map_clip(self: &DTProject, row: SqliteRow) -> ClipFrame {
+        ClipFrame::new(row.get(0), row.get(1), row.get(2)).unwrap()
     }
 
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {

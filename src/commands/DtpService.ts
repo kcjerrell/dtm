@@ -6,10 +6,11 @@ import type {
     Model,
     ModelType,
     ProjectExtra,
-    TensorHistoryClip,
+    ClipFrame,
     TensorHistoryExtra,
     TensorSize,
     WatchFolder,
+    ClipExtra,
 } from "./DtpServiceTypes"
 
 type MaybeReadonly<T> = T | Readonly<T>
@@ -56,8 +57,8 @@ async function findImageFromPreviewId(
     return await invoke("dtp_find_image_from_preview_id", { projectId, previewId })
 }
 
-async function getClip(imageId: number): Promise<TensorHistoryClip[]> {
-    return await invoke("dtp_get_clip", { imageId })
+async function getClip(imageId: number, clipId: number): Promise<ClipExtra> {
+    return await invoke("dtp_get_clip", { imageId, clipId })
 }
 
 async function listWatchFolders(): Promise<WatchFolder[]> {

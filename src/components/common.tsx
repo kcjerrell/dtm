@@ -343,6 +343,7 @@ export const PanelSection = chakra("div", {
         justifyContent: "flex-start",
         gap: "1px",
         color: "fg.1",
+        // bgColor: "grayc.14",
     },
     variants: {
         variant: {

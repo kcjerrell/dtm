@@ -1,5 +1,6 @@
 import { useSnapshot } from "valtio"
 import AppStore from "./appState"
+import { RefObject } from "react"
 
 export type RootElement =
     | /** root react element, covers entire window */
@@ -8,11 +9,13 @@ export type RootElement =
     | "view"
     /** depends on active view */
     | "viewContent"
+    | "viewAltContent"
 
 const rootElementIds = {
     app: "root",
     view: "check-root",
     viewContent: { projects: "project-content-pane" },
+    viewAltContent: { projects: "details-overlay" },
 } as const
 
 function getElement(id: keyof typeof rootElementIds, view?: string) {
@@ -36,16 +39,18 @@ export function useRootElement(rootElement: RootElement) {
     return element
 }
 
-export function useRootElementRef(rootElement: RootElement) {
+export function useRootElementRef(rootElement?: RootElement): RefObject<HTMLDivElement | null> {
     const { currentView } = useSnapshot(AppStore.store)
 
+    if (!rootElement) return { current: null }
+
     if (process.env.NODE_ENV === "test") {
-        return { current: document.getElementById("root") }
+        return { current: document.getElementById("root") as HTMLDivElement | null }
     }
 
     const ref = {
-        get current(): HTMLElement | null {
-            return getElement(rootElement, currentView)
+        get current(): HTMLDivElement | null {
+            return getElement(rootElement, currentView) as HTMLDivElement | null
         },
     }
 

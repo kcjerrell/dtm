@@ -5,12 +5,13 @@ import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
-import { DtpService, type ImageExtra } from "@/commands"
+import { DtpService, TensorHistoryExtra, type ImageExtra } from "@/commands"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommandItem } from "@/types"
 import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
+import { SubItem } from "../types"
 
 export interface ImageCommandContext {
     isContextMenu?: boolean
@@ -41,16 +42,18 @@ export interface ImageCommandContext {
 
 */
 
+type ImageItem = ImageExtra | SubItem
+
 export function useImageCommands(): [
     (
-        selected: ImageExtra[],
+        selected: ImageItem[],
         context: ImageCommandContext,
     ) => Promise<(() => void | Promise<void>) | null>,
-    ICommandItem<ImageExtra, ImageCommandContext>[],
+    ICommandItem<ImageItem, ImageCommandContext>[],
 ] {
     const { uiState } = useDTP()
 
-    const commands: ICommandItem<ImageExtra, ImageCommandContext>[] = useMemo(
+    const commands: ICommandItem<ImageItem, ImageCommandContext>[] = useMemo(
         () => [
             // {
             //     id: "copyMask",
@@ -118,9 +121,9 @@ export function useImageCommands(): [
                     if (!image) return
                     await sendToMetadata(image.data, "png", {
                         source: "project",
-                        projectFile: image.history.project_path,
-                        tensorId: image.history.tensor_id ?? undefined,
-                        nodeId: selected[0].node_id,
+                        projectFile: image.history?.project_path,
+                        tensorId: image.history?.tensor_id ?? undefined,
+                        nodeId: isImageExtra(selected[0]) ? selected[0].node_id : undefined,
                     })
                 },
             },
@@ -132,11 +135,14 @@ export function useImageCommands(): [
                 getEnabled: (selected) => isVideo(selected),
                 toolbarEnableMode: "hide",
                 onClick: (selected, ctx) => {
+                    if (!isImageExtra(selected[0])) return
                     uiState.state.dialog = {
                         dialogType: "clip-export-video",
                         image: selected[0],
+                        root: ctx?.isContextMenu ? "view" : "viewAltContent",
                     }
                 },
+                ellipses: true,
             },
             // {
             //     id: "saveFrames",
@@ -151,11 +157,11 @@ export function useImageCommands(): [
             //     },
             // },
         ],
-        [],
+        [uiState],
     )
 
     const selectMenuCommand = useCallback(
-        async (selected: ImageExtra[]) => {
+        async (selected: ImageItem[]) => {
             const command = await showMenu(commands, selected, { isContextMenu: true })
             if (!command) return null
             return () => command.onClick(selected, { isContextMenu: true })
@@ -166,19 +172,34 @@ export function useImageCommands(): [
     return [selectMenuCommand, commands] as const
 }
 
-async function getImageData(selected: ImageExtra[]) {
-    const history = await DtpService.getHistoryFull(selected[0].project_id, selected[0].node_id)
-    if (!history || !history.tensor_id) return
-    const data = await DtpService.decodeTensor(
-        selected[0].project_id,
-        history.tensor_id,
-        true,
-        selected[0].node_id,
-    )
-    return { data, history }
+async function getImageData(selected: ImageItem[]) {
+    let data: Uint8Array<ArrayBuffer>
+    let nodeHistory: TensorHistoryExtra | undefined
+    if (isImageExtra(selected[0])) {
+        nodeHistory = await DtpService.getHistoryFull(selected[0].project_id, selected[0].node_id)
+        if (!nodeHistory || !nodeHistory.tensor_id) return
+        data = await DtpService.decodeTensor(
+            selected[0].project_id,
+            nodeHistory.tensor_id,
+            true,
+            selected[0].node_id,
+        )
+    } else {
+        data = await DtpService.decodeTensor(selected[0].projectId, selected[0].tensorId, true)
+    }
+    return { data: data ?? undefined, history: nodeHistory ?? undefined }
 }
 
-function isVideo(selected?: Snapshot<ImageExtra[]>) {
+function isVideo(selected?: ImageItem[]) {
     if (!selected?.length || !selected[0]) return false
+    if (!isImageExtra(selected[0])) return false
     return selected[0].clip_id && selected[0].clip_id > 0
+}
+
+function isImageExtra(item?: unknown): item is ImageExtra {
+    if (!item || typeof item !== "object") return false
+
+    if ("id" in item && "node_id" in item && "project_id" in item) return true
+
+    return false
 }

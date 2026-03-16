@@ -1,5 +1,5 @@
 use crate::projects_db::{
-    fbs::{root_as_tensor_data, TensorData},
+    fbs::{TensorData, root_as_tensor_data, root_as_tensor_history_node},
     tensor_history_mod::{Control, LoRA},
     tensor_history_tensor_data::TensorHistoryTensorData,
 };
@@ -379,13 +379,4 @@ pub struct TensorSize {
     pub width: i32,
     pub height: i32,
     pub channels: i32,
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct TensorHistoryClip {
-    pub tensor_id: String,
-    pub preview_id: i64,
-    pub clip_id: i64,
-    pub index_in_a_clip: i32,
-    pub row_id: i64,
 }

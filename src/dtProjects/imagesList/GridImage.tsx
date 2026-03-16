@@ -46,6 +46,7 @@ const gridImageRecipe = defineSlotRecipe({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transition: "opacity 0.2s",
         },
         video: {
             width: "100%",
@@ -54,10 +55,19 @@ const gridImageRecipe = defineSlotRecipe({
         },
         spinner: {
             position: "absolute",
-            top: "40%",
-            left: "40%",
-            width: "20%",
-            height: "20%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            top: "35%",
+            left: "35%",
+            width: "30%",
+            height: "30%",
+            color: "grays.13",
+            bgColor: "#000000aa",
+            padding: 1,
+            borderRadius: "50%",
+            fontWeight: "bolder",
+            // "--spinner-track-color": "colors.grays.13",
         },
         icon: {
             bgColor: "grays.3/70",
@@ -81,9 +91,15 @@ const gridImageRecipe = defineSlotRecipe({
                     margin: "-1px",
                     zIndex: 1,
                 },
+                wrapper: {
+                    opacity: 1,
+                },
             },
             false: {
                 root: {},
+                wrapper: {
+                    opacity: 0.4,
+                },
             },
         },
     },
@@ -189,8 +205,8 @@ function GridImage(props: GridImageProps) {
                 </GridImageIcon>
             )}
             {showSpinner && (
-                <GridImageSpinner asChild>
-                    <Spinner />
+                <GridImageSpinner>
+                    <Spinner size={"lg"} />
                 </GridImageSpinner>
             )}
         </GridImageRoot>

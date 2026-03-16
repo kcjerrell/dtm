@@ -115,166 +115,144 @@ function FramesExportDialog(props: FramesExportDialogProps) {
     )
 
     return (
-        <ContentPanelPopup
-            shadeElem={rootElement}
-            onClose={() => {
-                onClose()
-            }}
-            flexDir={"column"}
-            panelProps={{
-                height: "auto",
-                maxHeight: "80vh",
-                overflowY: "auto",
-                className: "panel-scroll",
-            }}
-            height={"auto"}
-            shadeProps={{
-                bgColor: "#22222266",
-            }}
+        <VStack
+            padding={2}
+            flex="1 1 auto"
+            alignItems="stretch"
+            justifyContent={"flex-start"}
+            gap={2}
+            height={"100%"}
         >
-            <VStack
-                padding={2}
-                flex="1 1 auto"
-                alignItems="stretch"
-                justifyContent={"flex-start"}
-                gap={2}
-                height={"100%"}
-            >
-                <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
-                    Export Frames
-                </Text>
+            <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
+                Export Frames
+            </Text>
 
-                <PanelSection gridTemplateColumns={"1fr"}>
-                    {/* <PanelSectionHeader>Output Directory</PanelSectionHeader> */}
-                    <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
-                        <HStack alignItems="flex-end">
-                            <Field.Root width={"full"}>
-                                <Field.Label>Directory</Field.Label>
-                                <HStack width={"full"} gap={1}>
-                                    <Input
-                                        flex={"1 1 auto"}
-                                        variant={"subtle"}
-                                        value={outputDir}
-                                        onChange={(e) => setOutputDir(e.target.value)}
-                                    />
-                                    <PanelButton
-                                        flex={"0 0 auto"}
-                                        onClick={async () => {
-                                            const dir = await open({
-                                                directory: true,
-                                                defaultPath: outputDir,
-                                                canCreateDirectories: true,
-                                                title: "Select output directory",
-                                            })
-                                            if (dir) {
-                                                setOutputDir(dir)
-                                            }
-                                        }}
-                                    >
-                                        Browse
-                                    </PanelButton>
-                                </HStack>
-                                {checkResult?.outputDirDne && (
-                                    <Field.HelperText color="orange.solid">
-                                        Folder doesn't exist - it will be created
-                                    </Field.HelperText>
-                                )}
-                            </Field.Root>
-                        </HStack>
-                    </VStack>
-                    <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
-                        <Field.Root invalid={!!checkResult?.invalidReason} width={"full"}>
-                            <Field.Label>
-                                Pattern
-                                <Tooltip tip={<PatternInfo />} contentProps={{ maxWidth: "30rem" }}>
-                                    <PiInfo size={16} />
-                                </Tooltip>
-                            </Field.Label>
+            <PanelSection gridTemplateColumns={"1fr"}>
+                {/* <PanelSectionHeader>Output Directory</PanelSectionHeader> */}
+                <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <HStack alignItems="flex-end">
+                        <Field.Root width={"full"}>
+                            <Field.Label>Directory</Field.Label>
                             <HStack width={"full"} gap={1}>
                                 <Input
                                     flex={"1 1 auto"}
                                     variant={"subtle"}
-                                    value={filenamePattern}
-                                    onChange={(e) => setFilenamePattern(e.target.value)}
+                                    value={outputDir}
+                                    onChange={(e) => setOutputDir(e.target.value)}
                                 />
                                 <PanelButton
                                     flex={"0 0 auto"}
-                                    onClick={() => setFilenamePattern("clip_%%%_frame_###")}
+                                    onClick={async () => {
+                                        const dir = await open({
+                                            directory: true,
+                                            defaultPath: outputDir,
+                                            canCreateDirectories: true,
+                                            title: "Select output directory",
+                                        })
+                                        if (dir) {
+                                            setOutputDir(dir)
+                                        }
+                                    }}
                                 >
-                                    Reset
+                                    Browse
                                 </PanelButton>
                             </HStack>
-                            <Field.ErrorText>{checkResult?.invalidReason}</Field.ErrorText>
+                            {checkResult?.outputDirDne && (
+                                <Field.HelperText color="orange.solid">
+                                    Folder doesn't exist - it will be created
+                                </Field.HelperText>
+                            )}
                         </Field.Root>
-
-                        <Text>Preview:</Text>
-                        <Text>{checkResult?.examples?.join(", ")?.replace("., ", ".")}</Text>
-                        {/* {checkResult?.examples.map((f) => (
-                            <Text key={f}>{f}</Text>
-                        ))} */}
-                    </VStack>
-                </PanelSection>
-
-                <PanelSection paddingX={4} paddingY={2} gap={1}>
-                    <PanelSectionHeader>Frame Source</PanelSectionHeader>
-                    <VStack alignItems="stretch" gap={1}>
-                        <HStack gap={2} padding={0}>
+                    </HStack>
+                </VStack>
+                <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <Field.Root invalid={!!checkResult?.invalidReason} width={"full"}>
+                        <Field.Label>
+                            Pattern
+                            <Tooltip tip={<PatternInfo />} contentProps={{ maxWidth: "30rem" }}>
+                                <PiInfo size={16} />
+                            </Tooltip>
+                        </Field.Label>
+                        <HStack width={"full"} gap={1}>
+                            <Input
+                                flex={"1 1 auto"}
+                                variant={"subtle"}
+                                value={filenamePattern}
+                                onChange={(e) => setFilenamePattern(e.target.value)}
+                            />
                             <PanelButton
-                                flex={1}
-                                size="sm"
-                                tone={frameSource === "preview" ? "selected" : "none"}
-                                onClick={() => setFrameSource("preview")}
-                                borderRadius="md"
+                                flex={"0 0 auto"}
+                                onClick={() => setFilenamePattern("clip_%%%_frame_###")}
                             >
-                                Preview
-                            </PanelButton>
-                            <PanelButton
-                                flex={1}
-                                size="sm"
-                                tone={frameSource === "tensor" ? "selected" : "none"}
-                                onClick={() => setFrameSource("tensor")}
-                                borderRadius="md"
-                            >
-                                Tensor
+                                Reset
                             </PanelButton>
                         </HStack>
-                        <Text fontSize="sm" color="fg.1">
-                            Source size: {originalW} x {originalH}
-                        </Text>
-                        <Text fontSize="sm" color="fg.1">
-                            {frameSource === "preview"
-                                ? "Fast - uses the high quality, preview image for each frame. Generated files will be .png (This uses the same images as the video preview)."
-                                : "Slow, best quality, uses original generated tensor output. Generated files will be .jpg"}
-                        </Text>
-                        {scaleFactor && scaleFactor > 1 && (
-                            <Text fontSize="sm" color="fg.1">
-                                Note: Upscaled videos must use the Tensor source for full
-                                resolution.
-                            </Text>
-                        )}
-                    </VStack>
-                </PanelSection>
+                        <Field.ErrorText>{checkResult?.invalidReason}</Field.ErrorText>
+                    </Field.Root>
 
-                {isExporting || progressText === "Done" || progressText === "Export failed" ? (
-                    <ExportProgress
-                        finished={finishedFrames}
-                        total={totalFrames}
-                        progressText={progressText}
-                    />
-                ) : null}
-                <HStack justifyContent="flex-end" gap={2} marginTop={2}>
-                    <Button variant="outline" onClick={onClose} disabled={isExporting}>
-                        {progressText === "Done" ? "Close" : "Cancel"}
-                    </Button>
-                    <PanelButton
-                        onClick={handleExport}
-                        disabled={!checkResult?.valid || isExporting}
-                    >
-                        Export
-                    </PanelButton>
-                </HStack>
-            </VStack>
-        </ContentPanelPopup>
+                    <Text>Preview:</Text>
+                    <Text>{checkResult?.examples?.join(", ")?.replace("., ", ".")}</Text>
+                    {/* {checkResult?.examples.map((f) => (
+                            <Text key={f}>{f}</Text>
+                        ))} */}
+                </VStack>
+            </PanelSection>
+
+            <PanelSection paddingX={4} paddingY={2} gap={1}>
+                <PanelSectionHeader>Frame Source</PanelSectionHeader>
+                <VStack alignItems="stretch" gap={1}>
+                    <HStack gap={2} padding={0}>
+                        <PanelButton
+                            flex={1}
+                            size="sm"
+                            tone={frameSource === "preview" ? "selected" : "none"}
+                            onClick={() => setFrameSource("preview")}
+                            borderRadius="md"
+                        >
+                            Preview
+                        </PanelButton>
+                        <PanelButton
+                            flex={1}
+                            size="sm"
+                            tone={frameSource === "tensor" ? "selected" : "none"}
+                            onClick={() => setFrameSource("tensor")}
+                            borderRadius="md"
+                        >
+                            Tensor
+                        </PanelButton>
+                    </HStack>
+                    <Text fontSize="sm" color="fg.1">
+                        Source size: {originalW} x {originalH}
+                    </Text>
+                    <Text fontSize="sm" color="fg.1">
+                        {frameSource === "preview"
+                            ? "Fast - uses the high quality, preview image for each frame. Generated files will be .png (This uses the same images as the video preview)."
+                            : "Slow, best quality, uses original generated tensor output. Generated files will be .jpg"}
+                    </Text>
+                    {scaleFactor && scaleFactor > 1 && (
+                        <Text fontSize="sm" color="fg.1">
+                            Note: Upscaled videos must use the Tensor source for full resolution.
+                        </Text>
+                    )}
+                </VStack>
+            </PanelSection>
+
+            {isExporting || progressText === "Done" || progressText === "Export failed" ? (
+                <ExportProgress
+                    finished={finishedFrames}
+                    total={totalFrames}
+                    progressText={progressText}
+                />
+            ) : null}
+            <HStack justifyContent="flex-end" gap={2} marginTop={2}>
+                <Button variant="outline" onClick={onClose} disabled={isExporting}>
+                    {progressText === "Done" ? "Close" : "Cancel"}
+                </Button>
+                <PanelButton onClick={handleExport} disabled={!checkResult?.valid || isExporting}>
+                    Export
+                </PanelButton>
+            </HStack>
+        </VStack>
     )
 }
 

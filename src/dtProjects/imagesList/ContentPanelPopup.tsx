@@ -49,7 +49,7 @@ const Panel = chakra(motion.div, {
         // width: "100%",
         overflow: "clip",
         fontSize: "sm",
-        bgColor: "bg.1",
+        bgColor: "grayc.14",
         boxShadow: "pane1",
         borderRadius: "xl",
         gap: 0,
@@ -63,7 +63,7 @@ export interface ContentPanelPopupProps extends StackProps {
     shadeColor?: string
     shadeTransition?: number
     allowPointerEvents?: boolean
-    shadeElem?: RefObject<HTMLDivElement | null>
+    shadeElem?: RefObject<HTMLDivElement | null> | null
     shadeProps?: BoxProps
     panelProps?: ComponentProps<typeof Panel>
 }

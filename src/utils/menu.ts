@@ -25,10 +25,13 @@ export async function showMenu<T, C = undefined>(
             continue
         }
 
+        let label = command.getLabel?.(selected, context) ?? command.label ?? ""
+        if (command.ellipses) label += "..."
+
         items.push(
             await MenuItem.new({
                 id: command.id,
-                text: command.getLabel?.(selected, context) ?? command.label ?? "",
+                text: label,
                 enabled: isEnabled,
                 action: () => {
                     selectedItem = command

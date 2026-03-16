@@ -1,6 +1,8 @@
 use crate::projects_db::{
-    dtos::image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
-    dtos::tensor::TensorHistoryClip,
+    dtos::{
+        clip::{ClipExtra, ClipFrame},
+        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+    },
     folder_cache, search, DTProject,
 };
 use entity::{images, projects, watch_folders};
@@ -154,7 +156,7 @@ impl ProjectsDb {
         Ok(image)
     }
 
-    pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, MixedError> {
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> Result<ClipExtra, MixedError> {
         let result: Option<(String, i64, i64)> = images::Entity::find_by_id(image_id)
             .join(JoinType::InnerJoin, images::Relation::Projects.def())
             .select_only()
@@ -177,7 +179,8 @@ impl ProjectsDb {
             .ok_or_else(|| "Invalid path encoding".to_string())?;
 
         let dt_project = DTProject::get(full_path_str).await?;
-        let histories = dt_project.get_histories_from_clip(node_id).await?;
-        Ok(histories)
+        let clip = dt_project.get_clip_and_frames(node_id, clip_id).await?;
+
+        Ok(clip)
     }
 }

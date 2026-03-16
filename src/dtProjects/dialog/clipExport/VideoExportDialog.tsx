@@ -1,26 +1,28 @@
-import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react"
-import { listen, type UnlistenFn } from "@tauri-apps/api/event"
-import { save } from "@tauri-apps/plugin-dialog"
-import { type RefObject, useMemo, useState } from "react"
 import { createVideoFromFrames, type ImageExtra } from "@/commands"
 import { LinkButton, PanelButton, PanelSection, PanelSectionHeader } from "@/components"
 import { Checkbox } from "@/components/ui/checkbox"
 import { NumberInputField, NumberInputRoot } from "@/components/ui/number-input"
 import { useDTP } from "@/dtProjects/state/context"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
+import { RootElement } from "@/hooks/useRootElement"
+import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react"
+import { listen, type UnlistenFn } from "@tauri-apps/api/event"
+import { save } from "@tauri-apps/plugin-dialog"
+import { useEffect, useMemo, useState } from "react"
 import { ContentPanelPopup } from "../../imagesList/ContentPanelPopup"
 import ExportProgress from "./ExportProgress"
+import DTPService from "@/commands/DtpService"
 
 export type FrameSource = "preview" | "tensor"
 
 interface VideoExportDialogProps {
     onClose: () => void
-    rootElement?: RefObject<HTMLDivElement | null>
+    root: RootElement
     image: ImageExtra
 }
 
 function VideoExportDialog(props: VideoExportDialogProps) {
-    const { onClose, image } = props
+    const { onClose, image, root, ...restProps } = props
     const { settings: storage } = useDTP()
     const storageSnap = storage.useSnap()
 
@@ -31,7 +33,7 @@ function VideoExportDialog(props: VideoExportDialogProps) {
 
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
-    const [fps, setFps] = useState(storageSnap.export.videoFps ?? 16)
+    const [fps, setFps] = useState(25)
     const [frameSource, setFrameSource] = useState<FrameSource>(storageSnap.export.videoSource)
     const [lockAspectRatio, setLockAspectRatio] = useState(true)
 
@@ -58,6 +60,14 @@ function VideoExportDialog(props: VideoExportDialogProps) {
         originalH = defaultHeight * scaleFactor
     }
     const showUseSizeButton = width !== originalW || height !== originalH
+
+    useEffect(() => {
+        if (!image || !image.clip_id) return
+        DTPService.getClip(image.id, image.clip_id).then(async (data) => {
+            if (!image) return
+            setFps(data.clip.framesPerSecond)
+        })
+    }, [image])
 
     const handleWidthChange = (val: number) => {
         setWidth(val)
@@ -135,211 +145,204 @@ function VideoExportDialog(props: VideoExportDialogProps) {
     const duration = frameCount > 0 ? (frameCount / fps).toFixed(1) : "0.0"
 
     return (
-        <ContentPanelPopup
-            // shadeElem={rootElement}
-            onClose={onClose}
-            flexDir={"column"}
-            shadeProps={{
-                pointerEvents: "auto",
-                bgColor: "#00000044",
-                // backdropFilter: "blur(4px)",
-            }}
-            panelProps={{
-                height: "auto",
-                maxHeight: "80vh",
-                overflowY: "auto",
-                className: "panel-scroll",
-            }}
-            height={"auto"}
+        <VStack
+            padding={2}
+            flex="1 1 auto"
+            alignItems="stretch"
+            justifyContent={"flex-start"}
+            gap={2}
+            height={"100%"}
+            width={"100%"}
+            {...restProps}
         >
-            <VStack
-                padding={2}
-                flex="1 1 auto"
-                alignItems="stretch"
-                justifyContent={"flex-start"}
-                gap={2}
-                height={"100%"}
+            <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
+                Export Video
+            </Text>
+
+            <PanelSection
+                display={"grid"}
+                gridTemplateColumns={"1fr 1fr"}
+                bgColor={"grayc.15"}
+                _dark={{ bgColor: "grayc.13" }}
+                paddingX={4}
+                paddingY={2}
+                // borderRadius={"lg"}
+                variant={"inset"}
             >
-                <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
-                    Export Video
-                </Text>
-
-                <PanelSection
-                    display={"grid"}
-                    gridTemplateColumns={"1fr 1fr"}
-                    bgColor={"bg.1"}
-                    paddingX={4}
-                    paddingY={2}
-                >
-                    <VStack alignItems="stretch" gap={3} paddingRight={4}>
-                        <VStack alignItems={"stretch"}>
-                            <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
-                            <HStack>
-                                <NumberInputRoot
-                                    variant={"subtle"}
-                                    value={width.toString()}
-                                    onValueChange={(e: { value: string | null }) =>
-                                        handleWidthChange(parseInt(e.value || "0") || defaultWidth)
-                                    }
-                                    min={64}
-                                    max={4096}
-                                    step={8}
-                                >
-                                    <NumberInputField textAlign={"center"} paddingRight={"2rem"} />
-                                </NumberInputRoot>
-                                <Text fontSize={"md"}>x</Text>
-                                <NumberInputRoot
-                                    data-testid="height-input"
-                                    variant={"subtle"}
-                                    value={height.toString()}
-                                    onValueChange={(e: { value: string | null }) =>
-                                        handleHeightChange(
-                                            parseInt(e.value || "0") || defaultHeight,
-                                        )
-                                    }
-                                    min={64}
-                                    max={4096}
-                                    step={8}
-                                >
-                                    <NumberInputField />
-                                </NumberInputRoot>
-                            </HStack>
-                        </VStack>
-                        <Checkbox
-                            alignSelf={"center"}
-                            variant={"subtle"}
-                            checked={lockAspectRatio}
-                            onCheckedChange={(e) => setLockAspectRatio(!!e.checked)}
-                            size="sm"
-                        >
-                            Lock aspect ratio
-                        </Checkbox>
+                <VStack alignItems="stretch" gap={3} paddingRight={4}>
+                    <VStack alignItems={"stretch"}>
+                        <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
+                        <HStack>
+                            <NumberInputRoot
+                                variant={"subtle"}
+                                value={width.toString()}
+                                onValueChange={(e: { value: string | null }) =>
+                                    handleWidthChange(parseInt(e.value || "0") || defaultWidth)
+                                }
+                                min={64}
+                                max={4096}
+                                step={8}
+                            >
+                                <NumberInputField textAlign={"center"} paddingRight={"2rem"} />
+                            </NumberInputRoot>
+                            <Text fontSize={"md"}>x</Text>
+                            <NumberInputRoot
+                                data-testid="height-input"
+                                variant={"subtle"}
+                                value={height.toString()}
+                                onValueChange={(e: { value: string | null }) =>
+                                    handleHeightChange(parseInt(e.value || "0") || defaultHeight)
+                                }
+                                min={64}
+                                max={4096}
+                                step={8}
+                            >
+                                <NumberInputField />
+                            </NumberInputRoot>
+                        </HStack>
                     </VStack>
-                    <VStack
-                        alignItems="stretch"
-                        gap={2}
-                        borderLeft={"1px solid"}
-                        borderColor={"gray/20"}
-                        paddingLeft={4}
+                    <Checkbox
+                        alignSelf={"center"}
+                        variant={"subtle"}
+                        checked={lockAspectRatio}
+                        onCheckedChange={(e) => setLockAspectRatio(!!e.checked)}
+                        size="sm"
                     >
-                        <PanelSectionHeader padding={0}>Frame Rate</PanelSectionHeader>
-                        <HStack gap={4} alignItems={"center"}>
-                            <Box flex={1}>
-                                <NumberInputRoot
-                                    variant={"subtle"}
-                                    value={fps.toString()}
-                                    onValueChange={(e: { value: string | null }) => {
-                                        const nextVal = parseInt(e.value || "0") || 1
-                                        // If the difference is exactly 2 or 1, it's likely a step from the trigger.
-                                        // We snap to the next/prev even number in that case.
-                                        const diff = nextVal - fps
-                                        if (Math.abs(diff) === 2 || Math.abs(diff) === 1) {
-                                            if (diff > 0) {
-                                                setFps(nextVal % 2 === 0 ? nextVal : nextVal - 1)
-                                            } else {
-                                                setFps(nextVal % 2 === 0 ? nextVal : nextVal + 1)
-                                            }
+                        Lock aspect ratio
+                    </Checkbox>
+                </VStack>
+                <VStack
+                    alignItems="stretch"
+                    gap={2}
+                    borderLeft={"1px solid"}
+                    borderColor={"gray/20"}
+                    paddingLeft={4}
+                >
+                    <PanelSectionHeader padding={0}>Frame Rate</PanelSectionHeader>
+                    <HStack gap={4} alignItems={"center"}>
+                        <Box flex={1}>
+                            <NumberInputRoot
+                                variant={"subtle"}
+                                value={fps.toString()}
+                                onValueChange={(e: { value: string | null }) => {
+                                    const nextVal = parseInt(e.value || "0") || 1
+                                    // If the difference is exactly 2 or 1, it's likely a step from the trigger.
+                                    // We snap to the next/prev even number in that case.
+                                    const diff = nextVal - fps
+                                    if (Math.abs(diff) === 2 || Math.abs(diff) === 1) {
+                                        if (diff > 0) {
+                                            setFps(nextVal % 2 === 0 ? nextVal : nextVal - 1)
                                         } else {
-                                            setFps(nextVal)
+                                            setFps(nextVal % 2 === 0 ? nextVal : nextVal + 1)
                                         }
-                                    }}
-                                    min={1}
-                                    max={120}
-                                    step={2}
-                                >
-                                    <NumberInputField />
-                                </NumberInputRoot>
-                            </Box>
-                            <Box flex={1}>
-                                <Text fontSize="xs" fontWeight="600" color={"fg.muted"}>
-                                    Duration
-                                </Text>
-                                <Text fontSize="sm" paddingTop={1}>
-                                    {duration}s
-                                </Text>
-                            </Box>
-                        </HStack>
-                    </VStack>
-                </PanelSection>
-
-                <PanelSection paddingX={4} paddingY={2} gap={1}>
-                    <PanelSectionHeader>Frame Source</PanelSectionHeader>
-                    <VStack alignItems="stretch" gap={1}>
-                        <HStack
-                            gap={2}
-                            padding={0}
-                            bgColor="bg.2"
-                            borderRadius="lg"
-                            border="1px solid {colors.gray/10}"
-                        >
-                            <PanelButton
-                                flex={1}
-                                size="sm"
-                                tone={frameSource === "preview" ? "selected" : "none"}
-                                onClick={() => setFrameSource("preview")}
-                                borderRadius="md"
-                            >
-                                Preview
-                            </PanelButton>
-                            <PanelButton
-                                flex={1}
-                                size="sm"
-                                tone={frameSource === "tensor" ? "selected" : "none"}
-                                onClick={() => setFrameSource("tensor")}
-                                borderRadius="md"
-                            >
-                                Tensor
-                            </PanelButton>
-                        </HStack>
-                        <Text fontSize="sm" color="fg.1">
-                            Source size: {originalW} x {originalH}
-                            <LinkButton
-                                show={showUseSizeButton}
-                                onClick={() => {
-                                    setWidth(originalW)
-                                    setHeight(originalH)
+                                    } else {
+                                        setFps(nextVal)
+                                    }
                                 }}
+                                min={1}
+                                max={120}
+                                step={2}
                             >
-                                Use this size
-                            </LinkButton>
-                        </Text>
-                        <Text fontSize="sm" color="fg.1">
-                            {frameSource === "preview"
-                                ? "Fast - uses the high quality, preview image for each frame.  (This uses the same images as the video preview)."
-                                : "Slow, best quality, uses original generated tensor output."}
-                        </Text>
-                        {scaleFactor && scaleFactor > 1 && (
-                            <Text fontSize="sm" color="fg.1">
-                                Note: Upscaled videos must use the Tensor source for full
-                                resolution.
+                                <NumberInputField />
+                            </NumberInputRoot>
+                        </Box>
+                        <Box flex={1}>
+                            <Text fontSize="xs" fontWeight="600" color={"fg.muted"}>
+                                Duration
                             </Text>
-                        )}
-                    </VStack>
-                </PanelSection>
+                            <Text fontSize="sm" paddingTop={1}>
+                                {duration}s
+                            </Text>
+                        </Box>
+                    </HStack>
+                </VStack>
+            </PanelSection>
 
-                <ffmpeg.FfmpegComponent />
-                {(isExporting ||
-                    videoProgress.text === "Done" ||
-                    videoProgress.text === "Export failed") && (
-                    <ExportProgress
-                        finished={framesProgress.finished}
-                        total={framesProgress.total}
-                        progressText={framesProgress.text}
-                        videoFinished={videoProgress.finished}
-                        videoTotal={videoProgress.total}
-                        videoProgressText={videoProgress.text || undefined}
-                    />
-                )}
-                <HStack justifyContent="flex-end" gap={2} marginTop={2}>
-                    <Button variant="outline" onClick={onClose} disabled={isExporting}>
-                        {videoProgress.text === "Done" ? "Close" : "Cancel"}
-                    </Button>
-                    <PanelButton disabled={!ffmpeg.isReady || isExporting} onClick={handleExport}>
-                        Export
-                    </PanelButton>
-                </HStack>
-            </VStack>
-        </ContentPanelPopup>
+            <PanelSection
+                paddingX={4}
+                paddingY={2}
+                gap={1}
+                gridTemplateColumns={"1fr 1fr"}
+                bgColor={"grayc.15"}
+                _dark={{ bgColor: "grayc.13" }}
+                // borderRadius={"lg"}
+                variant={"inset"}
+            >
+                <PanelSectionHeader>Frame Source</PanelSectionHeader>
+                <VStack alignItems="stretch" gap={1}>
+                    <HStack
+                        gap={2}
+                        padding={0}
+                        bgColor="bg.2"
+                        borderRadius="lg"
+                        border="1px solid {colors.gray/10}"
+                    >
+                        <PanelButton
+                            flex={1}
+                            size="sm"
+                            tone={frameSource === "preview" ? "selected" : "none"}
+                            onClick={() => setFrameSource("preview")}
+                            borderRadius="md"
+                        >
+                            Preview
+                        </PanelButton>
+                        <PanelButton
+                            flex={1}
+                            size="sm"
+                            tone={frameSource === "tensor" ? "selected" : "none"}
+                            onClick={() => setFrameSource("tensor")}
+                            borderRadius="md"
+                        >
+                            Tensor
+                        </PanelButton>
+                    </HStack>
+                    <Text fontSize="sm" color="fg.1">
+                        Source size: {originalW} x {originalH}
+                        <LinkButton
+                            show={showUseSizeButton}
+                            onClick={() => {
+                                setWidth(originalW)
+                                setHeight(originalH)
+                            }}
+                        >
+                            Use this size
+                        </LinkButton>
+                    </Text>
+                    <Text fontSize="sm" color="fg.1">
+                        {frameSource === "preview"
+                            ? "Fast - uses the high quality, preview image for each frame.  (This uses the same images as the video preview)."
+                            : "Slow, best quality, uses original generated tensor output."}
+                    </Text>
+                    {scaleFactor && scaleFactor > 1 && (
+                        <Text fontSize="sm" color="fg.1">
+                            Note: Upscaled videos must use the Tensor source for full resolution.
+                        </Text>
+                    )}
+                </VStack>
+            </PanelSection>
+
+            <ffmpeg.FfmpegComponent />
+            {(isExporting ||
+                videoProgress.text === "Done" ||
+                videoProgress.text === "Export failed") && (
+                <ExportProgress
+                    finished={framesProgress.finished}
+                    total={framesProgress.total}
+                    progressText={framesProgress.text}
+                    videoFinished={videoProgress.finished}
+                    videoTotal={videoProgress.total}
+                    videoProgressText={videoProgress.text || undefined}
+                />
+            )}
+            <HStack justifyContent="flex-end" gap={2} marginTop={2}>
+                <Button variant="outline" onClick={onClose} disabled={isExporting}>
+                    {videoProgress.text === "Done" ? "Close" : "Cancel"}
+                </Button>
+                <PanelButton disabled={!ffmpeg.isReady || isExporting} onClick={handleExport}>
+                    Export
+                </PanelButton>
+            </HStack>
+        </VStack>
     )
 }
 

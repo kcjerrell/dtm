@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDateTime};
 
 use super::tensor_history_mod::{Control, LoRA};
 use crate::projects_db::dtos::tensor::{
-    ModelAndWeight, TensorHistoryClip, TensorHistoryImport, TensorHistoryNode,
+    ModelAndWeight, TensorHistoryImport, TensorHistoryNode,
 };
 use crate::projects_db::tensor_history_generated::root_as_tensor_history_node;
 
@@ -251,16 +251,4 @@ fn wall_clock_to_datetime(value: i64) -> Option<NaiveDateTime> {
     }
 }
 
-impl TensorHistoryClip {
-    pub fn new(row_id: i64, blob: &[u8], tensor_id: String) -> Result<Self, String> {
-        let node = root_as_tensor_history_node(blob)
-            .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
-        Ok(Self {
-            tensor_id,
-            preview_id: node.preview_id(),
-            clip_id: node.clip_id(),
-            index_in_a_clip: node.index_in_a_clip(),
-            row_id,
-        })
-    }
-}
+

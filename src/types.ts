@@ -322,4 +322,7 @@ export interface ICommand<T, C = undefined> {
     getTipText?: (selected: T[], context?: C) => string
 
     onClick: (selected: T[], context?: C) => void | Promise<void>
+
+    /** show ellipses on menu item */
+    ellipses?: boolean
 }

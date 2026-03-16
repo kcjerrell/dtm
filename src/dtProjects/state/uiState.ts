@@ -9,6 +9,7 @@ import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
+import { SubItem } from '../types'
 
 export type UIControllerState = {
     selectedTab: "projects" | "search"
@@ -18,18 +19,7 @@ export type UIControllerState = {
         item?: ImageExtra
         itemDetails?: DTImageFull
         showSpinner: boolean
-        subItem?: {
-            projectId: number
-            tensorId: string
-            maskUrl?: string
-            applyMask?: boolean
-            thumbUrl: string
-            url?: string
-            width?: number
-            height?: number
-            isLoading: boolean
-            sourceElement?: HTMLElement
-        }
+        subItem?: SubItem
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
         candidates?: TensorHistoryExtra[]
@@ -257,5 +247,13 @@ export class UIController extends DTPStateController<UIControllerState> {
         return fn().finally(() => {
             this.state.imageSpinner.delete(imageId)
         })
+    }
+
+    showDialog(dialogState: DialogState) {
+        this.state.dialog = dialogState
+    }
+
+    hideDialog() {
+        this.state.dialog = undefined
     }
 }

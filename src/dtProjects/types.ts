@@ -27,3 +27,16 @@ export function isVersionModel(model: Model | VersionModel): model is VersionMod
 }
 
 export type ModelVersionInfo = { label?: string; models: number; controls: number; loras: number }
+
+export type SubItem = {
+    projectId: number
+    tensorId: string
+    maskUrl?: string
+    applyMask?: boolean
+    thumbUrl: string
+    url?: string
+    width?: number
+    height?: number
+    isLoading: boolean
+    sourceElement?: HTMLElement
+}

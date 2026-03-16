@@ -30,11 +30,11 @@ export function VideoImage(props: VideoImageProps) {
                 width={naturalSize?.width}
                 height={naturalSize?.height}
                 style={{
-                    width: objectFit === "cover" ? "100%" : "auto",
-                    height: objectFit === "cover" ? "100%" : "auto",
+                    width: "inherit", //objectFit === "cover" ? "100%" : "auto",
+                    height: "inherit", // objectFit === "cover" ? "100%" : "auto",
                     maxWidth: "100%",
                     maxHeight: "100%",
-                    objectFit: objectFit ?? "contain",
+                    objectFit: "inherit",
                 }}
                 src={imgSrc}
                 alt={"clip"}
