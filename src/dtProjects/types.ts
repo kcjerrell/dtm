@@ -31,6 +31,7 @@ export type ModelVersionInfo = { label?: string; models: number; controls: numbe
 export type SubItem = {
     projectId: number
     tensorId: string
+    type: TensorType
     maskUrl?: string
     applyMask?: boolean
     thumbUrl: string
@@ -38,5 +39,15 @@ export type SubItem = {
     width?: number
     height?: number
     isLoading: boolean
-    sourceElement?: HTMLElement
 }
+
+export type TensorType =
+    | "binary_mask"
+    | "color_palette"
+    | "custom"
+    | "depth_map"
+    | "pose"
+    | "scribble"
+    | "shuffle"
+    | "tensor_history"
+    | "audio"

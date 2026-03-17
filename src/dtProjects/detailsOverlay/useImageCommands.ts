@@ -4,14 +4,13 @@ import * as fs from "@tauri-apps/plugin-fs"
 import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
-import { DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommandItem } from "@/types"
 import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
-import type { SubItem } from "../types"
+import type { ResourceHandle } from "../util/resourceHandle"
 
 export interface ImageCommandContext {
     isContextMenu?: boolean
@@ -30,78 +29,79 @@ export interface ImageCommandContext {
 
 */
 
-type ImageItem = ImageExtra | SubItem
-
 export function useImageCommands(): [
     (
-        selected: ImageItem[],
+        selected: ResourceHandle[],
         context: ImageCommandContext,
     ) => Promise<(() => void | Promise<void>) | null>,
-    ICommandItem<ImageItem, ImageCommandContext>[],
+    ICommandItem<ResourceHandle, ImageCommandContext>[],
 ] {
-    const { uiState } = useDTP()
+    const { uiState, projects } = useDTP()
 
-    const commands: ICommandItem<ImageItem, ImageCommandContext>[] = useMemo(
+    const commands: ICommandItem<ResourceHandle, ImageCommandContext>[] = useMemo(
         () => [
             {
                 id: "copyImage",
                 getLabel: (selected, ctx) => {
-                    if (!isVideo(selected)) return "Copy image"
+                    if (!selected[0].isVideo) return "Copy image"
                     return `Copy ${ctx?.isContextMenu ? "first" : "selected"} frame`
                 },
-                getTip: (selected, _) => (isVideo(selected) ? "Copy selected frame" : "Copy image"),
+                getTip: (selected, _) =>
+                    selected[0].isVideo ? "Copy selected frame" : "Copy image",
                 icon: FiCopy,
                 onClick: async (selected, _) => {
-                    const image = await getImageData(selected)
-                    if (!image) return
+                    const data = await selected[0].getPngData()
+                    if (!data) return
                     await invoke("write_clipboard_binary", {
                         ty: `public.png`,
-                        data: image.data,
+                        data,
                     })
                 },
             },
             {
                 id: "saveImage",
                 getLabel: (selected, ctx) => {
-                    if (!isVideo(selected)) return "Save image"
+                    if (!selected[0].isVideo) return "Save image"
                     return ctx?.isContextMenu ? "Save first frame" : "Save selected frame"
                 },
-                getTip: (selected, _) => (isVideo(selected) ? "Save selected frame" : "Save image"),
+                getTip: (selected, _) =>
+                    selected[0].isVideo ? "Save selected frame" : "Save image",
                 icon: FiSave,
                 onClick: async (selected, _) => {
-                    const image = await getImageData(selected)
-                    if (!image) return
+                    const data = await selected[0].getPngData()
+                    if (!data) return
                     const savePath = await save({
                         canCreateDirectories: true,
                         title: "Save image",
                         filters: [{ name: "Image", extensions: ["png"] }],
                     })
                     if (savePath) {
-                        await fs.writeFile(savePath, image.data)
+                        await fs.writeFile(savePath, data)
                     }
                 },
             },
             {
                 id: "sendToMetadata",
                 getLabel: (selected, ctx) => {
-                    if (!isVideo(selected)) return "Send to Metadata"
+                    if (!selected[0].isVideo) return "Send to Metadata"
                     return ctx?.isContextMenu
                         ? "Send first frame to Metadata"
                         : "Send selected frame to Metadata"
                 },
                 getTip: (selected, _) =>
-                    isVideo(selected)
+                    selected[0].isVideo
                         ? "Send selected frame to Metadata"
                         : "Send image to Metadata",
                 icon: PiListMagnifyingGlassBold,
                 onClick: async (selected, _) => {
-                    const image = await getImageData(selected)
-                    if (!image) return
-                    await sendToMetadata(image.data, "png", {
+                    const data = await selected[0].getPngData()
+                    if (!data) return
+                    const project = projects.getProject(selected[0].projectId)
+                    await sendToMetadata(data, "png", {
                         source: "project",
-                        projectFile: image.history?.project_path,
-                        tensorId: image.history?.tensor_id ?? undefined,
-                        nodeId: isImageExtra(selected[0]) ? selected[0].node_id : undefined,
+                        projectFile: project?.path,
+                        tensorId: await selected[0].getTensorId(),
+                        nodeId: selected[0].nodeId,
                     })
                 },
             },
@@ -111,15 +111,14 @@ export function useImageCommands(): [
                 label: "Save video",
                 getTip: () => "Save video",
                 icon: FrameCountIndicator,
-                getEnabled: (selected) => isVideo(selected),
+                getEnabled: (selected) => !!selected?.[0].isVideo,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                onClick: (selected, ctx) => {
-                    if (!isImageExtra(selected[0])) return
+                onClick: (selected, _) => {
+                    if (!selected[0].image) return
                     uiState.showDialog({
                         dialogType: "clip-export-video",
-                        image: selected[0],
-                        root: ctx?.isContextMenu ? "view" : "viewAltContent",
+                        props: { image: selected[0].image },
                     })
                 },
                 ellipses: true,
@@ -129,63 +128,30 @@ export function useImageCommands(): [
                 label: "Save all frames",
                 getTip: () => "Save all frames",
                 icon: VideoFrameIcon,
-                getEnabled: (selected) => isVideo(selected),
+                getEnabled: (selected) => !!selected?.[0].isVideo,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                onClick: async (selected, ctx) => {
-                    if (!isImageExtra(selected[0])) return
+                onClick: async (selected, _) => {
+                    if (!selected[0].image) return
                     uiState.showDialog({
                         dialogType: "clip-export-frames",
-                        image: selected[0],
-                        root: ctx?.isContextMenu ? "view" : "viewAltContent",
+                        props: { image: selected[0].image },
                     })
                 },
+                ellipses: true,
             },
         ],
-        [uiState],
+        [uiState, projects],
     )
 
     const selectMenuCommand = useCallback(
-        async (selected: ImageItem[]) => {
+        async (selected: ResourceHandle[]) => {
             const command = await showMenu(commands, selected, { isContextMenu: true })
             if (!command) return null
-            return () => command.onClick(selected, { isContextMenu: true })
+            return () => command.onClick?.(selected, { isContextMenu: true })
         },
         [commands],
     )
 
     return [selectMenuCommand, commands] as const
-}
-
-async function getImageData(selected: ImageItem[]) {
-    let data: Uint8Array<ArrayBuffer>
-    let nodeHistory: TensorHistoryExtra | undefined
-    if (isImageExtra(selected[0])) {
-        nodeHistory = await DtpService.getHistoryFull(selected[0].project_id, selected[0].node_id)
-        if (!nodeHistory || !nodeHistory.tensor_id) return
-        data = await DtpService.decodeTensor(
-            selected[0].project_id,
-            nodeHistory.tensor_id,
-            true,
-            selected[0].node_id,
-        )
-    } else {
-        console.log(selected[0])
-        data = await DtpService.decodeTensor(selected[0].projectId, selected[0].tensorId, true)
-    }
-    return { data: data ?? undefined, history: nodeHistory ?? undefined }
-}
-
-function isVideo(selected?: ImageItem[]) {
-    if (!selected?.length || !selected[0]) return false
-    if (!isImageExtra(selected[0])) return false
-    return !!selected[0].clip_id && selected[0].clip_id > 0
-}
-
-function isImageExtra(item?: unknown): item is ImageExtra {
-    if (!item || typeof item !== "object") return false
-
-    if ("id" in item && "node_id" in item && "project_id" in item) return true
-
-    return false
 }

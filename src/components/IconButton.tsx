@@ -236,7 +236,7 @@ const Base = chakra("button", {
             css: {
                 bgColor: "unset",
                 border: "none",
-                color: "fg.3",
+                color: "fg.3/70",
                 _hover: {
                     color: "fg.1",
                 },

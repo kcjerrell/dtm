@@ -3,38 +3,27 @@ import { path } from "@tauri-apps/api"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { open } from "@tauri-apps/plugin-dialog"
 import { useDebounceEffect } from "ahooks"
-import { type RefObject, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { FiX } from "react-icons/fi"
 import { PiInfo } from "react-icons/pi"
-import {
-    type CheckPatternResult,
-    checkPattern,
-    type ImageExtra,
-    saveAllClipFrames,
-} from "@/commands"
+import { type CheckPatternResult, checkPattern, saveAllClipFrames } from "@/commands"
 import {
     IconButton,
-    Panel,
     PanelButton,
     PanelSection,
     PanelSectionHeader,
     Tooltip,
 } from "@/components"
 import { useDTP } from "@/dtProjects/state/context"
+import type { DialogProps, FrameExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
 
 const defaultOutputDir = await path.documentDir()
 
 export type FrameSource = "preview" | "tensor"
 
-interface FramesExportDialogProps {
-    onClose: () => void
-    image: ImageExtra
-    rootElement?: RefObject<HTMLDivElement | null>
-}
-
-function FramesExportDialog(props: FramesExportDialogProps) {
-    const { onClose, image, rootElement, ...restProps } = props
+function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
+    const { onClose, image, ...restProps } = props
 
     const defaultWidth = image.start_width * 64
     const defaultHeight = image.start_height * 64
@@ -121,168 +110,162 @@ function FramesExportDialog(props: FramesExportDialogProps) {
     )
 
     return (
-        <Panel
-            padding={3}
-            width={"32rem"}
-            className={"panel-scroll"}
-            overflowY={"auto"}
-            {...restProps}
-        >
-            <VStack alignItems={"stretch"} gap={2} justifyContent={"flex-start"}>
-                <HStack width={"100%"} justifyContent={"space-between"}>
-                    <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
-                        Export Frames
-                    </Text>
-                    <IconButton
-                        role={"button"}
-                        aria-label={"close settings"}
-                        flex={"0 0 auto"}
-                        size="min"
-                        onClick={() => onClose()}
-                    >
-                        <FiX />
-                    </IconButton>
-                </HStack>
+        <VStack alignItems={"stretch"} gap={2} justifyContent={"flex-start"} {...restProps}>
+            <HStack width={"100%"} justifyContent={"space-between"}>
+                <Text paddingX={2} color={"fg.1"} fontSize={"md"} fontWeight={"600"}>
+                    Export Frames
+                </Text>
+                <IconButton
+                    role={"button"}
+                    aria-label={"close settings"}
+                    flex={"0 0 auto"}
+                    size="min"
+                    onClick={() => onClose()}
+                >
+                    <FiX />
+                </IconButton>
+            </HStack>
 
-                <PanelSection variant={"dialog"} gridTemplateColumns={"1fr"}>
-                    {/* <PanelSectionHeader>Output Directory</PanelSectionHeader> */}
-                    <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
-                        <HStack gap={2} alignItems="flex-end">
-                            <Field.Root width={"full"}>
-                                <Field.Label>Directory</Field.Label>
-                                <HStack width={"full"} gap={1}>
-                                    <Input
-                                        layerStyle={"borderA"}
-                                        variant={"subtle"}
-                                        value={outputDir}
-                                        onChange={(e) => setOutputDir(e.target.value)}
-                                    />
-                                    <PanelButton
-                                        flex={"0 0 auto"}
-                                        onClick={async () => {
-                                            const dir = await open({
-                                                directory: true,
-                                                defaultPath: outputDir,
-                                                canCreateDirectories: true,
-                                                title: "Select output directory",
-                                            })
-                                            if (dir) {
-                                                setOutputDir(dir)
-                                            }
-                                        }}
-                                    >
-                                        Browse
-                                    </PanelButton>
-                                </HStack>
-                                {checkResult?.outputDirDne && (
-                                    <Field.HelperText color="orange.solid">
-                                        Folder doesn't exist - it will be created
-                                    </Field.HelperText>
-                                )}
-                            </Field.Root>
-                        </HStack>
-                    </VStack>
-                    <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
-                        <Field.Root invalid={!!checkResult?.invalidReason} width={"full"}>
-                            <Field.Label>
-                                Pattern
-                                <Tooltip tip={<PatternInfo />} contentProps={{ maxWidth: "30rem" }}>
-                                    <PiInfo size={16} />
-                                </Tooltip>
-                            </Field.Label>
+            <PanelSection variant={"dialog"} gridTemplateColumns={"1fr"}>
+                {/* <PanelSectionHeader>Output Directory</PanelSectionHeader> */}
+                <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <HStack gap={2} alignItems="flex-end">
+                        <Field.Root width={"full"}>
+                            <Field.Label>Directory</Field.Label>
                             <HStack width={"full"} gap={1}>
                                 <Input
                                     layerStyle={"borderA"}
-                                    flex={"1 1 auto"}
                                     variant={"subtle"}
-                                    value={filenamePattern}
-                                    onChange={(e) => setFilenamePattern(e.target.value)}
+                                    value={outputDir}
+                                    onChange={(e) => setOutputDir(e.target.value)}
                                 />
                                 <PanelButton
                                     flex={"0 0 auto"}
-                                    onClick={() => setFilenamePattern("clip_%%%_frame_###")}
+                                    onClick={async () => {
+                                        const dir = await open({
+                                            directory: true,
+                                            defaultPath: outputDir,
+                                            canCreateDirectories: true,
+                                            title: "Select output directory",
+                                        })
+                                        if (dir) {
+                                            setOutputDir(dir)
+                                        }
+                                    }}
                                 >
-                                    Reset
+                                    Browse
                                 </PanelButton>
                             </HStack>
-                            <Field.ErrorText>{checkResult?.invalidReason}</Field.ErrorText>
+                            {checkResult?.outputDirDne && (
+                                <Field.HelperText color="orange.solid">
+                                    Folder doesn't exist - it will be created
+                                </Field.HelperText>
+                            )}
                         </Field.Root>
-
-                        <Text>Preview:</Text>
-                        <Text>{checkResult?.examples?.join(", ")?.replace("., ", ".")}</Text>
-                        {/* {checkResult?.examples.map((f) => (
+                    </HStack>
+                </VStack>
+                <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <Field.Root invalid={!!checkResult?.invalidReason} width={"full"}>
+                        <Field.Label>
+                            Pattern
+                            <Tooltip tip={<PatternInfo />} contentProps={{ maxWidth: "30rem" }}>
+                                <PiInfo size={16} />
+                            </Tooltip>
+                        </Field.Label>
+                        <HStack width={"full"} gap={1}>
+                            <Input
+                                layerStyle={"borderA"}
+                                flex={"1 1 auto"}
+                                variant={"subtle"}
+                                value={filenamePattern}
+                                onChange={(e) => setFilenamePattern(e.target.value)}
+                            />
+                            <PanelButton
+                                flex={"0 0 auto"}
+                                onClick={() => setFilenamePattern("clip_%%%_frame_###")}
+                            >
+                                Reset
+                            </PanelButton>
+                        </HStack>
+                        <Field.ErrorText>{checkResult?.invalidReason}</Field.ErrorText>
+                    </Field.Root>
+                </VStack>
+                <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
+                    <PanelSectionHeader fontSize={"sm"} fontWeight={"medium"} paddingX={0}>
+                        Preview:
+                    </PanelSectionHeader>
+                    <Text fontSize={"sm"} paddingX={2}>
+                        {checkResult?.examples?.join(", ")?.replace("., ", ".")}
+                    </Text>
+                    {/* {checkResult?.examples.map((f) => (
                             <Text key={f}>{f}</Text>
                         ))} */}
-                    </VStack>
-                </PanelSection>
+                </VStack>
+            </PanelSection>
 
-                <PanelSection variant={"dialog"} asChild>
-                    <VStack paddingX={4} paddingY={2} gap={1} alignItems={"stretch"}>
-                        <PanelSectionHeader>Frame Source</PanelSectionHeader>
-                        <VStack alignItems="stretch" gap={1} paddingX={2}>
-                            <HStack
-                                gap={0}
-                                padding={0}
-                                bgColor="bg.2"
-                                borderRadius="lg"
-                                layerStyle={"borderA"}
+            <PanelSection variant={"dialog"} asChild>
+                <VStack paddingX={4} paddingY={2} gap={1} alignItems={"stretch"}>
+                    <PanelSectionHeader>Frame Source</PanelSectionHeader>
+                    <VStack alignItems="stretch" gap={1} paddingX={2}>
+                        <HStack
+                            gap={0}
+                            padding={0}
+                            bgColor="bg.2"
+                            borderRadius="lg"
+                            layerStyle={"borderA"}
+                        >
+                            <PanelButton
+                                flex={1}
+                                size="sm"
+                                tone={frameSource === "preview" ? "selected" : "none"}
+                                onClick={() => setFrameSource("preview")}
+                                borderRadius="md"
+                                borderRightRadius={0}
                             >
-                                <PanelButton
-                                    flex={1}
-                                    size="sm"
-                                    tone={frameSource === "preview" ? "selected" : "none"}
-                                    onClick={() => setFrameSource("preview")}
-                                    borderRadius="md"
-                                    borderRightRadius={0}
-                                >
-                                    Preview
-                                </PanelButton>
-                                <PanelButton
-                                    flex={1}
-                                    size="sm"
-                                    tone={frameSource === "tensor" ? "selected" : "none"}
-                                    onClick={() => setFrameSource("tensor")}
-                                    borderRadius="md"
-                                    borderLeftRadius={0}
-                                >
-                                    Tensor
-                                </PanelButton>
-                            </HStack>
+                                Preview
+                            </PanelButton>
+                            <PanelButton
+                                flex={1}
+                                size="sm"
+                                tone={frameSource === "tensor" ? "selected" : "none"}
+                                onClick={() => setFrameSource("tensor")}
+                                borderRadius="md"
+                                borderLeftRadius={0}
+                            >
+                                Tensor
+                            </PanelButton>
+                        </HStack>
+                        <Text fontSize="sm" color="fg.1">
+                            Source size: {originalW} x {originalH}
+                        </Text>
+                        <Text fontSize="sm" color="fg.1">
+                            {frameSource === "preview"
+                                ? "Fast - uses the high quality, preview image for each frame. Generated files will be .jpg (This uses the same images as the video preview)."
+                                : "Slow, best quality, uses original generated tensor output. Generated files will be .png"}
+                        </Text>
+                        {scaleFactor && scaleFactor > 1 && (
                             <Text fontSize="sm" color="fg.1">
-                                Source size: {originalW} x {originalH}
+                                Note: Upscaled videos must use the Tensor source for full
+                                resolution.
                             </Text>
-                            <Text fontSize="sm" color="fg.1">
-                                {frameSource === "preview"
-                                    ? "Fast - uses the high quality, preview image for each frame. Generated files will be .jpg (This uses the same images as the video preview)."
-                                    : "Slow, best quality, uses original generated tensor output. Generated files will be .png"}
-                            </Text>
-                            {scaleFactor && scaleFactor > 1 && (
-                                <Text fontSize="sm" color="fg.1">
-                                    Note: Upscaled videos must use the Tensor source for full
-                                    resolution.
-                                </Text>
-                            )}
-                        </VStack>
+                        )}
                     </VStack>
-                </PanelSection>
+                </VStack>
+            </PanelSection>
 
-                {isExporting || progressText === "Done" || progressText === "Export failed" ? (
-                    <ExportProgress
-                        finished={finishedFrames}
-                        total={totalFrames}
-                        progressText={progressText}
-                    />
-                ) : null}
-                <HStack justifyContent="flex-end" gap={2} marginTop={2}>
-                    <PanelButton
-                        onClick={handleExport}
-                        disabled={!checkResult?.valid || isExporting}
-                    >
-                        Export
-                    </PanelButton>
-                </HStack>
-            </VStack>
-        </Panel>
+            {isExporting || progressText === "Done" || progressText === "Export failed" ? (
+                <ExportProgress
+                    finished={finishedFrames}
+                    total={totalFrames}
+                    progressText={progressText}
+                />
+            ) : null}
+            <HStack justifyContent="flex-end" gap={2} marginTop={2}>
+                <PanelButton onClick={handleExport} disabled={!checkResult?.valid || isExporting}>
+                    Export
+                </PanelButton>
+            </HStack>
+        </VStack>
     )
 }
 

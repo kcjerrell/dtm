@@ -19,7 +19,11 @@ export const viewDescription = [
         icon: BiDetail,
         devOnly: true,
     },
-    { viewId: "projects", label: "Projects", icon: PiCoffee },
+    { viewId: "projects", label: "Projects", icon: (props) => <PiCoffee strokeWidth={3} css={{
+        "& svg": {
+            strokeWidth: 3,
+        }
+    }} {...props} /> },
     { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: true },
 ].filter((item) => import.meta.env.DEV || !item.devOnly)
 

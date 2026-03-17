@@ -207,8 +207,8 @@ export type ImageSource = {
     url?: string
     image?: string
     projectFile?: string
-    tensorId?: string
-    nodeId?: number
+    tensorId?: Nullable<string>
+    nodeId?: Nullable<number>
     pasteboardType?: string
 }
 

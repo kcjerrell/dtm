@@ -8,7 +8,6 @@ import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
 import { MenuProvider } from "./MenuContext"
-import { SettingsPanel } from "./settingsPanel/SettingsPanel"
 
 function DTProjects(props: ChakraProps) {
     const { ...restProps } = props
@@ -29,7 +28,6 @@ function DTProjects(props: ChakraProps) {
                     gap={4}
                     borderRadius={0}
                 >
-                    <SettingsPanel />
                     <ImportProgress />
                     <StatusBar
                         position={"absolute"}

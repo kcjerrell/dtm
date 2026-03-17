@@ -24,8 +24,8 @@ function SearchChip(props: SearchChipProps) {
     return (
         <HStack
             flex={shrink ? "0 1 auto" : "0 0 auto"}
+            paddingInlineStart={2}
             className={"group"}
-            // cursor={"pointer"}
             onClick={(e) => onClick?.(e)}
             overflow={"hidden"}
             gap={0}

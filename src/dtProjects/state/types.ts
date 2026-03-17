@@ -77,10 +77,10 @@ export type DTPJobResult<J extends keyof DTProjectsJobs> = JobResult<
 export type DTProjectsContainer = IContainer<DTPServices, DTPEvents>
 
 export type DTPEvents = {
-    watchFoldersChanged: (payload: WatchFoldersChangedPayload) => void
-    projectFilesChanged: (payload: ProjectFilesChangedPayload) => void
-
     watch_folders_changed: () => void
+    watchFoldersChanged: (payload: WatchFoldersChangedPayload) => void
+
+    projectFilesChanged: (payload: ProjectFilesChangedPayload) => void
     project_added: (payload: ProjectExtra) => void
     project_removed: (payload: number) => void
     project_updated: (payload: ProjectExtra) => void
@@ -101,6 +101,7 @@ export type DTPEvents = {
 
     dtp_service_ready: () => void
     projectsLoaded: (payload?: undefined) => void
+    watchFoldersLoaded: (payload?: { foldersCount: number }) => void
     imagesChanged: (payload?: undefined) => void
 }
 

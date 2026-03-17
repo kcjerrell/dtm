@@ -18,7 +18,6 @@ export type ImagesControllerState = {
     totalImageCount?: number
     selectedProjectsCount?: number
     projectImageCounts?: Record<number, number>
-    imageSize?: number
     searchId: number
 }
 
@@ -28,7 +27,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
         totalImageCount: undefined,
         selectedProjectsCount: undefined,
         projectImageCounts: undefined,
-        imageSize: undefined,
         searchId: 0,
     })
 

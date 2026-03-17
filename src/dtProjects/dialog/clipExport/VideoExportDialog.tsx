@@ -2,34 +2,21 @@ import { Box, Grid, HStack, Text, VStack } from "@chakra-ui/react"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { save } from "@tauri-apps/plugin-dialog"
 import { useEffect, useMemo, useState } from "react"
-import { createVideoFromFrames, type ImageExtra } from "@/commands"
+import { createVideoFromFrames } from "@/commands"
 import DTPService from "@/commands/DtpService"
-import {
-    IconButton,
-    LinkButton,
-    Panel,
-    PanelButton,
-    PanelSection,
-    PanelSectionHeader,
-} from "@/components"
+import { IconButton, LinkButton, PanelButton, PanelSection, PanelSectionHeader } from "@/components"
 import { FiX } from "@/components/icons/icons"
 import { Checkbox } from "@/components/ui/checkbox"
 import { NumberInputField, NumberInputRoot } from "@/components/ui/number-input"
 import { useDTP } from "@/dtProjects/state/context"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
-import type { RootElement } from "@/hooks/useRootElement"
+import type { DialogProps, VideoExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
 
 export type FrameSource = "preview" | "tensor"
 
-interface VideoExportDialogProps {
-    onClose: () => void
-    root: RootElement
-    image: ImageExtra
-}
-
-function VideoExportDialog(props: VideoExportDialogProps) {
-    const { onClose, image, root, ...restProps } = props
+function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
+    const { onClose, image, ...restProps } = props
     const { settings: storage } = useDTP()
     const storageSnap = storage.useSnap()
 
@@ -152,224 +139,206 @@ function VideoExportDialog(props: VideoExportDialogProps) {
     const duration = frameCount > 0 ? (frameCount / fps).toFixed(1) : "0.0"
 
     return (
-        <Panel
-            padding={3}
-            width={"32rem"}
-            className={"panel-scroll"}
-            overflowY={"auto"}
-            bgColor={"bg.1"}
-            {...restProps}
-        >
-            <VStack alignItems={"stretch"} gap={2} justifyContent={"flex-start"}>
-                <HStack width={"100%"} justifyContent={"space-between"}>
-                    <Text paddingX={2} fontSize={"md"} fontWeight={"600"}>
-                        Export Video
-                    </Text>
-                    <IconButton
-                        role={"button"}
-                        aria-label={"close settings"}
-                        flex={"0 0 auto"}
-                        size="min"
-                        onClick={() => onClose()}
-                    >
-                        <FiX />
-                    </IconButton>
-                </HStack>
+        <VStack alignItems={"stretch"} gap={2} justifyContent={"flex-start"} {...restProps}>
+            <HStack width={"100%"} justifyContent={"space-between"}>
+                <Text paddingX={2} color={"fg.1"} fontSize={"md"} fontWeight={"600"}>
+                    Export Video
+                </Text>
+                <IconButton
+                    role={"button"}
+                    aria-label={"close settings"}
+                    flex={"0 0 auto"}
+                    size="min"
+                    onClick={() => onClose()}
+                >
+                    <FiX />
+                </IconButton>
+            </HStack>
 
-                <PanelSection variant={"dialog"} asChild>
-                    <Grid
-                        display={"grid"}
-                        gridTemplateColumns={"1fr 1fr"}
-                        // bgColor={"grayc.15"}
-                        // _dark={{ bgColor: "grayc.13" }}
-                        paddingX={4}
-                        paddingY={2}
-                        // borderRadius={"lg"}
-                        // variant={"inset"}
-                    >
-                        <VStack alignItems="stretch" gap={3} paddingRight={4}>
-                            <VStack alignItems={"stretch"}>
-                                <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
-                                <HStack>
-                                    <NumberInputRoot
-                                        layerStyle={"borderA"}
-                                        variant={"subtle"}
-                                        value={width.toString()}
-                                        onValueChange={(e: { value: string | null }) =>
-                                            handleWidthChange(
-                                                parseInt(e.value || "0") || defaultWidth,
-                                            )
-                                        }
-                                        min={64}
-                                        max={4096}
-                                        step={8}
-                                    >
-                                        <NumberInputField
-                                            textAlign={"center"}
-                                            paddingRight={"2rem"}
-                                        />
-                                    </NumberInputRoot>
-                                    <Text fontSize={"md"}>x</Text>
-                                    <NumberInputRoot
-                                        data-testid="height-input"
-                                        layerStyle={"borderA"}
-                                        variant={"subtle"}
-                                        value={height.toString()}
-                                        onValueChange={(e: { value: string | null }) =>
-                                            handleHeightChange(
-                                                parseInt(e.value || "0") || defaultHeight,
-                                            )
-                                        }
-                                        min={64}
-                                        max={4096}
-                                        step={8}
-                                    >
-                                        <NumberInputField />
-                                    </NumberInputRoot>
-                                </HStack>
-                            </VStack>
-                            <Checkbox
-                                alignSelf={"center"}
-                                variant={"subtle"}
-                                checked={lockAspectRatio}
-                                onCheckedChange={(e) => setLockAspectRatio(!!e.checked)}
-                                size="sm"
-                            >
-                                Lock aspect ratio
-                            </Checkbox>
+            <PanelSection variant={"dialog"} asChild>
+                <Grid
+                    display={"grid"}
+                    gridTemplateColumns={"1fr 1fr"}
+                    // bgColor={"grayc.15"}
+                    // _dark={{ bgColor: "grayc.13" }}
+                    paddingX={4}
+                    paddingY={2}
+                    // borderRadius={"lg"}
+                    // variant={"inset"}
+                >
+                    <VStack alignItems="stretch" gap={3} paddingRight={4}>
+                        <VStack alignItems={"stretch"}>
+                            <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
+                            <HStack>
+                                <NumberInputRoot
+                                    layerStyle={"borderA"}
+                                    variant={"subtle"}
+                                    value={width.toString()}
+                                    onValueChange={(e: { value: string | null }) =>
+                                        handleWidthChange(parseInt(e.value || "0") || defaultWidth)
+                                    }
+                                    min={64}
+                                    max={4096}
+                                    step={8}
+                                >
+                                    <NumberInputField textAlign={"center"} paddingRight={"2rem"} />
+                                </NumberInputRoot>
+                                <Text fontSize={"md"}>x</Text>
+                                <NumberInputRoot
+                                    data-testid="height-input"
+                                    layerStyle={"borderA"}
+                                    variant={"subtle"}
+                                    value={height.toString()}
+                                    onValueChange={(e: { value: string | null }) =>
+                                        handleHeightChange(
+                                            parseInt(e.value || "0") || defaultHeight,
+                                        )
+                                    }
+                                    min={64}
+                                    max={4096}
+                                    step={8}
+                                >
+                                    <NumberInputField />
+                                </NumberInputRoot>
+                            </HStack>
                         </VStack>
-                        <VStack
-                            alignItems="stretch"
-                            gap={2}
-                            borderLeft={"1px solid"}
-                            borderColor={"gray/20"}
-                            paddingLeft={4}
+                        <Checkbox
+                            alignSelf={"center"}
+                            variant={"subtle"}
+                            checked={lockAspectRatio}
+                            onCheckedChange={(e) => setLockAspectRatio(!!e.checked)}
+                            size="sm"
                         >
-                            <PanelSectionHeader padding={0}>Frame Rate</PanelSectionHeader>
-                            <HStack gap={4} alignItems={"center"}>
-                                <Box flex={1}>
-                                    <NumberInputRoot
-                                        layerStyle={"borderA"}
-                                        variant={"subtle"}
-                                        value={fps.toString()}
-                                        onValueChange={(e: { value: string | null }) => {
-                                            const nextVal = parseInt(e.value || "0") || 1
-                                            // If the difference is exactly 2 or 1, it's likely a step from the trigger.
-                                            // We snap to the next/prev even number in that case.
-                                            const diff = nextVal - fps
-                                            if (Math.abs(diff) === 2 || Math.abs(diff) === 1) {
-                                                if (diff > 0) {
-                                                    setFps(
-                                                        nextVal % 2 === 0 ? nextVal : nextVal - 1,
-                                                    )
-                                                } else {
-                                                    setFps(
-                                                        nextVal % 2 === 0 ? nextVal : nextVal + 1,
-                                                    )
-                                                }
-                                            } else {
-                                                setFps(nextVal)
-                                            }
-                                        }}
-                                        min={1}
-                                        max={120}
-                                        step={2}
-                                    >
-                                        <NumberInputField />
-                                    </NumberInputRoot>
-                                </Box>
-                                <Box flex={1}>
-                                    <Text fontSize="xs" fontWeight="600" color={"fg.muted"}>
-                                        Duration
-                                    </Text>
-                                    <Text fontSize="sm" paddingTop={1}>
-                                        {duration}s
-                                    </Text>
-                                </Box>
-                            </HStack>
-                        </VStack>
-                    </Grid>
-                </PanelSection>
-
-                <PanelSection variant={"dialog"} asChild>
-                    <VStack paddingX={4} paddingY={2} gap={1} alignItems={"stretch"}>
-                        <PanelSectionHeader>Frame Source</PanelSectionHeader>
-                        <VStack alignItems="stretch" gap={1} paddingX={2}>
-                            <HStack
-                                gap={0}
-                                padding={0}
-                                bgColor="bg.2"
-                                borderRadius="lg"
-                                layerStyle={"borderA"}
-                            >
-                                <PanelButton
-                                    flex={1}
-                                    size="sm"
-                                    tone={frameSource === "preview" ? "selected" : "none"}
-                                    onClick={() => setFrameSource("preview")}
-                                    borderRadius="md"
-                                    borderRightRadius={0}
-                                >
-                                    Preview
-                                </PanelButton>
-                                <PanelButton
-                                    flex={1}
-                                    size="sm"
-                                    tone={frameSource === "tensor" ? "selected" : "none"}
-                                    onClick={() => setFrameSource("tensor")}
-                                    borderRadius="md"
-                                    borderLeftRadius={0}
-                                >
-                                    Tensor
-                                </PanelButton>
-                            </HStack>
-                            <Text fontSize="sm" color="fg.1">
-                                Source size: {originalW} x {originalH}
-                                <LinkButton
-                                    show={showUseSizeButton}
-                                    onClick={() => {
-                                        setWidth(originalW)
-                                        setHeight(originalH)
-                                    }}
-                                >
-                                    Use this size
-                                </LinkButton>
-                            </Text>
-                            <Text fontSize="sm" color="fg.1">
-                                {frameSource === "preview"
-                                    ? "Fast - uses the high quality, preview image for each frame.  (This uses the same images as the video preview)."
-                                    : "Slow, best quality, uses original generated tensor output."}
-                            </Text>
-                            {scaleFactor && scaleFactor > 1 && (
-                                <Text fontSize="sm" color="fg.1">
-                                    Note: Upscaled videos must use the Tensor source for full
-                                    resolution.
-                                </Text>
-                            )}
-                        </VStack>
+                            Lock aspect ratio
+                        </Checkbox>
                     </VStack>
-                </PanelSection>
+                    <VStack
+                        alignItems="stretch"
+                        gap={2}
+                        borderLeft={"1px solid"}
+                        borderColor={"gray/20"}
+                        paddingLeft={4}
+                    >
+                        <PanelSectionHeader padding={0}>Frame Rate</PanelSectionHeader>
+                        <HStack gap={4} alignItems={"center"}>
+                            <Box flex={1}>
+                                <NumberInputRoot
+                                    layerStyle={"borderA"}
+                                    variant={"subtle"}
+                                    value={fps.toString()}
+                                    onValueChange={(e: { value: string | null }) => {
+                                        const nextVal = parseInt(e.value || "0") || 1
+                                        // If the difference is exactly 2 or 1, it's likely a step from the trigger.
+                                        // We snap to the next/prev even number in that case.
+                                        const diff = nextVal - fps
+                                        if (Math.abs(diff) === 2 || Math.abs(diff) === 1) {
+                                            if (diff > 0) {
+                                                setFps(nextVal % 2 === 0 ? nextVal : nextVal - 1)
+                                            } else {
+                                                setFps(nextVal % 2 === 0 ? nextVal : nextVal + 1)
+                                            }
+                                        } else {
+                                            setFps(nextVal)
+                                        }
+                                    }}
+                                    min={1}
+                                    max={120}
+                                    step={2}
+                                >
+                                    <NumberInputField />
+                                </NumberInputRoot>
+                            </Box>
+                            <Box flex={1}>
+                                <Text fontSize="xs" fontWeight="600" color={"fg.muted"}>
+                                    Duration
+                                </Text>
+                                <Text fontSize="sm" paddingTop={1}>
+                                    {duration}s
+                                </Text>
+                            </Box>
+                        </HStack>
+                    </VStack>
+                </Grid>
+            </PanelSection>
 
-                <ffmpeg.FfmpegComponent />
-                {(isExporting ||
-                    videoProgress.text === "Done" ||
-                    videoProgress.text === "Export failed") && (
-                    <ExportProgress
-                        finished={framesProgress.finished}
-                        total={framesProgress.total}
-                        progressText={framesProgress.text}
-                        videoFinished={videoProgress.finished}
-                        videoTotal={videoProgress.total}
-                        videoProgressText={videoProgress.text || undefined}
-                    />
-                )}
-                <HStack justifyContent="flex-end" gap={2} marginTop={2}>
-                    <PanelButton disabled={!ffmpeg.isReady || isExporting} onClick={handleExport}>
-                        Export
-                    </PanelButton>
-                </HStack>
-            </VStack>
-        </Panel>
+            <PanelSection variant={"dialog"} asChild>
+                <VStack paddingX={4} paddingY={2} gap={1} alignItems={"stretch"}>
+                    <PanelSectionHeader>Frame Source</PanelSectionHeader>
+                    <VStack alignItems="stretch" gap={1} paddingX={2}>
+                        <HStack
+                            gap={0}
+                            padding={0}
+                            bgColor="bg.2"
+                            borderRadius="lg"
+                            layerStyle={"borderA"}
+                        >
+                            <PanelButton
+                                flex={1}
+                                size="sm"
+                                tone={frameSource === "preview" ? "selected" : "none"}
+                                onClick={() => setFrameSource("preview")}
+                                borderRadius="md"
+                                borderRightRadius={0}
+                            >
+                                Preview
+                            </PanelButton>
+                            <PanelButton
+                                flex={1}
+                                size="sm"
+                                tone={frameSource === "tensor" ? "selected" : "none"}
+                                onClick={() => setFrameSource("tensor")}
+                                borderRadius="md"
+                                borderLeftRadius={0}
+                            >
+                                Tensor
+                            </PanelButton>
+                        </HStack>
+                        <Text fontSize="sm" color="fg.1">
+                            Source size: {originalW} x {originalH}
+                            <LinkButton
+                                show={showUseSizeButton}
+                                onClick={() => {
+                                    setWidth(originalW)
+                                    setHeight(originalH)
+                                }}
+                            >
+                                Use this size
+                            </LinkButton>
+                        </Text>
+                        <Text fontSize="sm" color="fg.1">
+                            {frameSource === "preview"
+                                ? "Fast - uses the high quality, preview image for each frame.  (This uses the same images as the video preview)."
+                                : "Slow, best quality, uses original generated tensor output."}
+                        </Text>
+                        {scaleFactor && scaleFactor > 1 && (
+                            <Text fontSize="sm" color="fg.1">
+                                Note: Upscaled videos must use the Tensor source for full
+                                resolution.
+                            </Text>
+                        )}
+                    </VStack>
+                </VStack>
+            </PanelSection>
+
+            <ffmpeg.FfmpegComponent />
+            {(isExporting ||
+                videoProgress.text === "Done" ||
+                videoProgress.text === "Export failed") && (
+                <ExportProgress
+                    finished={framesProgress.finished}
+                    total={framesProgress.total}
+                    progressText={framesProgress.text}
+                    videoFinished={videoProgress.finished}
+                    videoTotal={videoProgress.total}
+                    videoProgressText={videoProgress.text || undefined}
+                />
+            )}
+            <HStack justifyContent="flex-end" gap={2} marginTop={2}>
+                <PanelButton disabled={!ffmpeg.isReady || isExporting} onClick={handleExport}>
+                    Export
+                </PanelButton>
+            </HStack>
+        </VStack>
     )
 }
 

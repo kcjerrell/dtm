@@ -146,7 +146,8 @@ impl TryFrom<i32> for Sampler {
             16 => Ok(Sampler::DDIMTrailing),
             17 => Ok(Sampler::UniPCTrailing),
             18 => Ok(Sampler::UniPCAYS),
-            _ => Err(()),
+            19 => Ok(Sampler::TCDTrailing),
+            _ => Ok(Sampler::Unknown),
         }
     }
 }

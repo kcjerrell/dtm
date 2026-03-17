@@ -102,6 +102,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         this.state.isDtFolderAdded = foldersState.some((folder) => folder.isDtData)
 
         va.set(this.state.folders, foldersState)
+        this.container.emit("watchFoldersLoaded", { foldersCount: this.state.folders.length })
         return this.state.folders
     }
 

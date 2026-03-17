@@ -1,4 +1,4 @@
-import { proxy, ref, useSnapshot } from "valtio"
+import { proxy, useSnapshot } from "valtio"
 import { proxySet } from "valtio/utils"
 import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
@@ -7,9 +7,9 @@ import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
+import type { SubItem, TensorType } from "../types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
-import { SubItem } from '../types'
 
 export type UIControllerState = {
     selectedTab: "projects" | "search"
@@ -95,7 +95,10 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     /** show/hide the settings panel. If no value is provided, the state will toggle */
     showSettings(show?: boolean) {
-        this.state.isSettingsOpen = show ?? !this.state.isSettingsOpen
+        // this.state.isSettingsOpen = show ?? !this.state.isSettingsOpen
+        if (show === undefined) show = this.state.dialog?.dialogType !== "settings"
+        if (show) this.showDialog({ dialogType: "settings", props: {} })
+        else this.hideDialog()
     }
 
     /** show/hide the grid inert state */
@@ -183,11 +186,11 @@ export class UIController extends DTPStateController<UIControllerState> {
         details.subItem = {
             projectId,
             tensorId,
+            type: tensorId.split("_")[0] as TensorType,
             maskUrl: maskId ? urls.tensor(projectId, maskId, { invert: false }) : undefined,
             applyMask: !!maskId,
             thumbUrl: urls.tensor(projectId, tensorId, { size: 100 }),
             isLoading: true,
-            sourceElement: ref(sourceElement),
         }
         details.subItemSourceRect = toJSON(sourceElement.getBoundingClientRect())
         if (tensorId?.startsWith("pose")) await this.showSubItemPose(projectId, tensorId)
@@ -221,7 +224,11 @@ export class UIController extends DTPStateController<UIControllerState> {
         loadImg.onload = () => {
             const details = this.state.detailsView
             if (!details.item) return
-            if (details.subItem) {
+            if (
+                details.subItem &&
+                details.subItem.tensorId === tensorId &&
+                details.subItem.projectId === projectId
+            ) {
                 details.subItem.url = urls.tensor(projectId, tensorId)
                 details.subItem.isLoading = false
                 details.subItem.width = size.width

@@ -302,9 +302,9 @@ export const PanelButton = chakra(
                     },
                 },
                 success: {
-                    color: "bg.0",
+                    color: "grayc.2",
                     fontWeight: "600",
-                    bgColor: "success.1", // "color-mix(in srgb, {colors.bg.1} 70%, {colors.green.500} 30%)",
+                    bgColor: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)", // "color-mix(in srgb, {colors.bg.1} 70%, {colors.green.500} 30%)",
                     border: "2px solid {colors.success.1}",
                     _hover: {
                         bgColor: "success.1/90",

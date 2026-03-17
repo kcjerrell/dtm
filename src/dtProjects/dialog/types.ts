@@ -1,16 +1,37 @@
 import type { ImageExtra } from "@/commands"
-import type { RootElement } from "@/hooks/useRootElement"
 
 export type VideoExportDialogState = {
     dialogType: "clip-export-video"
-    image: ImageExtra
-    root: RootElement
+    props: {
+        image: ImageExtra
+    }
 }
 
 export type FrameExportDialogState = {
     dialogType: "clip-export-frames"
-    image: ImageExtra
-    root: RootElement
+    props: {
+        image: ImageExtra
+    }
 }
 
-export type DialogState = VideoExportDialogState | FrameExportDialogState
+export type SettingsDialogState = {
+    dialogType: "settings"
+    props: Record<string, unknown>
+}
+
+type UnknownDialogState = {
+    dialogType: "unknown"
+    props: Record<string, unknown>
+}
+
+export interface DialogPropsBase extends ChakraProps {
+    onClose: () => void
+}
+
+export type DialogProps<T extends DialogState = UnknownDialogState> = DialogPropsBase & T["props"]
+
+export type DialogState =
+    | VideoExportDialogState
+    | FrameExportDialogState
+    | SettingsDialogState
+    | UnknownDialogState

@@ -85,7 +85,7 @@ function PVGrid<T, C extends PVGridItemComponent<T>>(props: PVGridProps<T, C>) {
         initialRowCount = 10,
         overscan = 2,
         itemProps,
-        maxItemSize,
+        maxItemSize = 120,
         onImagesChanged,
         onScroll,
         ...restProps
@@ -97,7 +97,6 @@ function PVGrid<T, C extends PVGridItemComponent<T>>(props: PVGridProps<T, C>) {
         stateRef.current = proxy({
             minThreshold: 0,
             firstRow: 0,
-            // lastRow: initialRowCount,
             maxThreshold: 0,
             visibleHeight: 1,
             columns: 1,
@@ -274,8 +273,8 @@ export default PVGridWrapper
 function measure(grid: HTMLDivElement, maxItemSize: number) {
     if (!grid || grid.children.length === 0) return { columns: 1, rowHeight: 1 }
 
-    // const columns = Math.ceil(grid.offsetWidth / maxItemSize)
-    const columns = Math.ceil(maxItemSize)
+    const columns = Math.ceil(grid.offsetWidth / maxItemSize)
+    // const columns = Math.ceil(maxItemSize)
     const itemSize = grid.offsetWidth / columns
 
     return {

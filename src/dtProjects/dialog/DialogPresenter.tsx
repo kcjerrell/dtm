@@ -1,17 +1,24 @@
 import { Flex } from "@chakra-ui/react"
+import type { JSX } from "react"
+import { Panel } from "@/components"
+import { SettingsPanel } from "../settingsPanel/SettingsPanel"
 import { useDTP } from "../state/context"
 import FramesExportDialog from "./clipExport/FramesExportDialog"
 import VideoExportDialog from "./clipExport/VideoExportDialog"
+import type { DialogProps, DialogState } from "./types"
 
-function getDialogComponent(dialogType: Nullable<string>) {
-    switch (dialogType) {
-        case "clip-export-video":
-            return VideoExportDialog
-        case "clip-export-frames":
-            return FramesExportDialog
-        default:
-            return null
-    }
+const _dialogs: Record<string, (props: DialogProps) => JSX.Element> = {
+    "clip-export-video": VideoExportDialog as unknown as (props: DialogProps) => JSX.Element,
+    "clip-export-frames": FramesExportDialog as unknown as (props: DialogProps) => JSX.Element,
+    settings: SettingsPanel as unknown as (props: DialogProps) => JSX.Element,
+}
+
+function getDialogComponent(dialog?: DialogState) {
+    if (!dialog || !(dialog.dialogType in _dialogs)) return { Dialog: null, dialogProps: null }
+    const { dialogType, props } = dialog
+    const Dialog = _dialogs[dialogType]
+
+    return { Dialog, dialogProps: props }
 }
 
 interface DialogPresenterComponentProps extends ChakraProps {}
@@ -21,7 +28,7 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
     const { uiState } = useDTP()
     const uiSnap = uiState.useSnap()
 
-    const Dialog = getDialogComponent(uiSnap.dialog?.dialogType)
+    const { Dialog, dialogProps } = getDialogComponent(uiSnap.dialog)
     if (!Dialog) return null
 
     return (
@@ -44,12 +51,16 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
                 onClick={(e) => e.stopPropagation()}
                 {...restProps}
             >
-                <Dialog
-                    onClose={() => {
-                        uiState.hideDialog()
-                    }}
-                    {...uiSnap.dialog}
-                />
+                <Panel
+                    padding={3}
+                    width={"28rem"}
+                    className={"panel-scroll"}
+                    overflowY={"auto"}
+                    bgColor={"bg.1"}
+                    {...restProps}
+                >
+                    <Dialog onClose={() => uiState.hideDialog()} {...dialogProps} />
+                </Panel>
             </Flex>
         </Flex>
     )

@@ -1,12 +1,12 @@
 import { createContext, type PropsWithChildren, useContext, useMemo } from "react"
-import type { ImageExtra } from "@/commands"
 import type { ICommandItem } from "@/types"
 import { type ImageCommandContext, useImageCommands } from "./detailsOverlay/useImageCommands"
+import type { ResourceHandle } from "./util/resourceHandle"
 
 export type MenuContextType = {
-    imageCommands: ICommandItem<ImageExtra, ImageCommandContext>[]
+    imageCommands: ICommandItem<ResourceHandle, ImageCommandContext>[]
     selectImageMenuCommand: (
-        selected: ImageExtra[],
+        selected: ResourceHandle[],
         context: ImageCommandContext,
     ) => Promise<(() => void | Promise<void>) | null>
 }

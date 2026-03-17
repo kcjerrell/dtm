@@ -7,6 +7,7 @@ import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
 import type { UIControllerState } from "../state/uiState"
+import { ResourceHandle } from "../util/resourceHandle"
 import { DetailsButtonBarRoot } from "./common"
 
 interface DetailsButtonBarProps
@@ -36,13 +37,15 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
         ...restProps
     } = props
     const [lockButtons, setLockButtons] = useState(false)
-    const [, setShowExportDialog] = useState(false)
 
     const { uiState } = useDTP()
 
     const { imageCommands } = useMenuContext()
-    const item = subItem ?? itemProp
-    const commandItem = item ? [item] : []
+    const resource = ResourceHandle.from(subItem ?? itemProp)
+
+    if (!resource) return null
+
+    const commandItem = resource ? [resource] : []
 
     return (
         <DetailsButtonBarRoot

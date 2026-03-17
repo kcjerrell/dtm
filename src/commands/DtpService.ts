@@ -103,7 +103,7 @@ async function decodeTensor(
     projectId: number,
     tensorId: string,
     asPng: boolean,
-    nodeId?: number,
+    nodeId?: number | null,
 ): Promise<Uint8Array<ArrayBuffer>> {
     const opts = {
         tensorId,

@@ -14,6 +14,10 @@ import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
 
+const _global = globalThis as unknown as {
+    _reactRoot?: ReturnType<typeof createRoot>
+}
+
 function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
 
@@ -49,9 +53,13 @@ function bootstrap() {
         }, 3000)
     }
 
-    const root = document.getElementById("root")
-    if (root)
-        createRoot(root).render(
+    const container = document.getElementById("root")
+    if (container) {
+        if (!_global._reactRoot) {
+            _global._reactRoot = createRoot(container)
+        }
+
+        _global._reactRoot.render(
             <StrictMode>
                 <ChakraProvider value={system}>
                     <ColorModeProvider>
@@ -63,6 +71,7 @@ function bootstrap() {
                 </ChakraProvider>
             </StrictMode>,
         )
+    }
 }
 
 export function Loading() {
@@ -76,9 +85,8 @@ export function Loading() {
                 position: "absolute",
                 top: "50%",
                 left: "50%",
-                transform: "translate(-50%, -50%)"
-            }
-            }
+                transform: "translate(-50%, -50%)",
+            }}
         >
             <div className={"loading-text"}>Loading...</div>
         </motion.div>

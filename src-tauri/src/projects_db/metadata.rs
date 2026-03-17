@@ -380,6 +380,8 @@ pub enum Sampler {
     UniPCTrailing = 17,
     #[serde(rename = "UniPC AYS")]
     UniPCAYS = 18,
+    #[serde(rename = "TCD Trailing")]
+    TCDTrailing = 19,
 }
 
 impl fmt::Display for Sampler {
@@ -405,6 +407,7 @@ impl fmt::Display for Sampler {
             Sampler::DDIMTrailing => "DDIM Trailing",
             Sampler::UniPCTrailing => "UniPC Trailing",
             Sampler::UniPCAYS => "UniPC AYS",
+            Sampler::TCDTrailing => "TCD Trailing",
         };
         write!(f, "{}", s)
     }

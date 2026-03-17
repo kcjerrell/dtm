@@ -4,14 +4,16 @@ import PVGrid from "@/components/virtualizedList/PVGrid2"
 import { useItemSelection } from "@/hooks/useIdSelection"
 import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
+import { ResourceHandle } from "../util/resourceHandle"
 import GridImage from "./GridImage"
 
 const keyFn = (item?: ImageExtra | null) => (item ? `${item.project_id}_${item.node_id}` : item)
 
 function ImagesList(props: ChakraProps) {
-    const { images, uiState } = useDTP()
+    const { images, uiState, settings } = useDTP()
     const uiSnap = uiState.useSnap()
     const imagesSnap = images.useSnap()
+    const settingsSnap = settings.useSnap()
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
     const { snap: selectedIds, selectItem, clear } = useItemSelection<number>()
 
@@ -35,6 +37,10 @@ function ImagesList(props: ChakraProps) {
         setHoveredIndex(null)
     }, [])
 
+    const onScroll = useCallback(() => {
+        setHoveredIndex(null)
+    }, [])
+
     const onContextMenu = useCallback(
         async (e: React.MouseEvent) => {
             const dataImageId = e.currentTarget.getAttribute("data-image-id")
@@ -44,8 +50,9 @@ function ImagesList(props: ChakraProps) {
             selectItem(imageId, true)
             try {
                 const image = images.itemSource.findItem((image) => image.id === imageId)
-                if (!image) return
-                const execute = await selectImageMenuCommand([image], { isContextMenu: true })
+                const selected = ResourceHandle.from(image)
+                if (!selected) return
+                const execute = await selectImageMenuCommand([selected], { isContextMenu: true })
                 if (execute) {
                     await uiState.callWithImageSpinner(imageId, async () => {
                         await execute()
@@ -60,14 +67,14 @@ function ImagesList(props: ChakraProps) {
 
     return (
         <PVGrid<ImageExtra>
-            onScroll={() => setHoveredIndex(null)}
+            onScroll={onScroll}
             freeze={!!uiSnap.detailsView?.item}
             inert={uiSnap.isGridInert}
             bgColor={"transparent"}
             key={imagesSnap.searchId}
             itemComponent={GridImage}
             itemSource={itemSource}
-            maxItemSize={imagesSnap.imageSize ?? 5}
+            maxItemSize={settingsSnap.ui.imageSize ?? 200}
             onImagesChanged={images.onImagesChanged}
             itemProps={{
                 spinnerIds: uiSnap.imageSpinner,
