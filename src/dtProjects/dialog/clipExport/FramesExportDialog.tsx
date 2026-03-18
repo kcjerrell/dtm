@@ -7,13 +7,7 @@ import { useEffect, useState } from "react"
 import { FiX } from "react-icons/fi"
 import { PiInfo } from "react-icons/pi"
 import { type CheckPatternResult, checkPattern, saveAllClipFrames } from "@/commands"
-import {
-    IconButton,
-    PanelButton,
-    PanelSection,
-    PanelSectionHeader,
-    Tooltip,
-} from "@/components"
+import { IconButton, PanelButton, PanelSection, PanelSectionHeader, Tooltip } from "@/components"
 import { useDTP } from "@/dtProjects/state/context"
 import type { DialogProps, FrameExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
@@ -134,6 +128,7 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
                             <Field.Label>Directory</Field.Label>
                             <HStack width={"full"} gap={1}>
                                 <Input
+                                    data-defctx={true}
                                     layerStyle={"borderA"}
                                     variant={"subtle"}
                                     value={outputDir}
@@ -174,6 +169,7 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
                         </Field.Label>
                         <HStack width={"full"} gap={1}>
                             <Input
+                                data-defctx={true}
                                 layerStyle={"borderA"}
                                 flex={"1 1 auto"}
                                 variant={"subtle"}

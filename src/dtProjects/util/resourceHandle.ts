@@ -1,4 +1,5 @@
 import { type ClipExtra, DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
+import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { SubItem } from "../types"
 
 export class ResourceHandle {
@@ -22,6 +23,10 @@ export class ResourceHandle {
 
     get isVideo() {
         return this.clipId && this.clipId > 0
+    }
+
+    get isPose() {
+        return this.subItem?.type === "pose"
     }
 
     get nodeId() {
@@ -64,6 +69,9 @@ export class ResourceHandle {
     }
 
     async getPngData(frame?: number) {
+        if (this.isPose) {
+            return await this.getPoseImage()
+        }
         let tensorId: Nullable<string>
         if (frame !== undefined) {
             tensorId = (await this.getClip())?.frames.find(
@@ -76,6 +84,22 @@ export class ResourceHandle {
 
         const data = await DtpService.decodeTensor(this.projectId, tensorId, true, this.nodeId)
         return data
+    }
+
+    async getPoseData() {
+        if (!this.isPose || !this.subItem?.tensorId) throw new Error("Not a pose")
+        let pose = this.subItem.pose
+        if (!pose) {
+            const data = await DtpService.decodeTensor(this.projectId, this.subItem.tensorId, false)
+            const points = tensorToPoints(data)
+            pose = pointsToPose(points, this.subItem.width ?? 1024, this.subItem.height ?? 1024)
+        }
+        return pose
+    }
+
+    async getPoseImage() {
+        const pose = await this.getPoseData()
+        return await drawPose(pose, 4)
     }
 
     static from(item: ImageExtra | SubItem | null | undefined) {

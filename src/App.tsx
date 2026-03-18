@@ -33,7 +33,12 @@ function App() {
     }, [])
 
     return (
-        <AppRoot onContextMenu={(e) => e.preventDefault()} {...dropHandlers}>
+        <AppRoot
+            onContextMenu={(e) => {
+                if (!(e.target as HTMLElement)?.closest("[data-defctx")) e.preventDefault()
+            }}
+            {...dropHandlers}
+        >
             <LayoutGroup>
                 <Sidebar
                     inert={isPreviewActive}

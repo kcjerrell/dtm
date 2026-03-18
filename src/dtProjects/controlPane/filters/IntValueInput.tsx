@@ -9,9 +9,12 @@ function IntValueInputComponent(props: ValueSelectorProps<number>) {
     return (
         <Box {...boxProps}>
             <Input
+                data-defctx={true}
                 border={"none"}
                 height={"100%"}
                 value={inputValue}
+                outlineOffset={"-1px"}
+                borderRadius={"none"}
                 onChange={(e) => {
                     const valid = e.target.value.match(/^-?\d*$/gm)
                     if (valid) {

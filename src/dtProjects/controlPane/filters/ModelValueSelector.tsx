@@ -146,6 +146,7 @@ function ModelValueSelectorComponent(
                         >
                             <HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
                                 <Input
+                                    data-defctx={true}
                                     flex={"1 1 auto"}
                                     key={"modelInput"}
                                     placeholder="Filter"

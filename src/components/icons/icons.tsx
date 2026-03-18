@@ -36,4 +36,5 @@ export {
     TbSortDescending2,
     TbSortDescendingNumbers,
 } from "react-icons/tb"
-export { IoChevronForward as ChevronForward, IoChevronDown as ChevronDown } from "react-icons/io5";
+export { IoChevronForward as ChevronForward, IoChevronDown as ChevronDown } from "react-icons/io5"
+export { GiBodyBalance as PoseIcon } from "react-icons/gi"

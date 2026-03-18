@@ -171,6 +171,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                             <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
                             <HStack>
                                 <NumberInputRoot
+                                    data-defctx={true}
                                     layerStyle={"borderA"}
                                     variant={"subtle"}
                                     value={width.toString()}
@@ -185,6 +186,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                 </NumberInputRoot>
                                 <Text fontSize={"md"}>x</Text>
                                 <NumberInputRoot
+                                    data-defctx={true}
                                     data-testid="height-input"
                                     layerStyle={"borderA"}
                                     variant={"subtle"}
@@ -223,6 +225,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                         <HStack gap={4} alignItems={"center"}>
                             <Box flex={1}>
                                 <NumberInputRoot
+                                    data-defctx={true}
                                     layerStyle={"borderA"}
                                     variant={"subtle"}
                                     value={fps.toString()}

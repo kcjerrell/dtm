@@ -215,6 +215,7 @@ export class UIController extends DTPStateController<UIControllerState> {
             details.subItem.isLoading = false
             details.subItem.width = 1024
             details.subItem.height = 1024
+            details.subItem.pose = pose
         }
     }
 
@@ -242,10 +243,18 @@ export class UIController extends DTPStateController<UIControllerState> {
         this.state.detailsView.subItem = undefined
     }
 
-    callWithSpinner<T>(fn: () => Promise<T>) {
+    callWithSpinner<T>(fn: () => Promise<T>, minTime = 200) {
         this.state.detailsView.showSpinner = true
+        let execFinished = false
+        let timerFinished = false
+        setTimeout(() => {
+            timerFinished = true
+            if (execFinished) this.state.detailsView.showSpinner = false
+        }, minTime)
+
         return fn().finally(() => {
-            this.state.detailsView.showSpinner = false
+            execFinished = true
+            if (timerFinished) this.state.detailsView.showSpinner = false
         })
     }
 

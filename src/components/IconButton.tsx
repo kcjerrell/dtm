@@ -71,8 +71,13 @@ const Base = chakra("button", {
                 },
             },
             simple: {
+                "& > *": {
+                    scale: 1,
+                },
                 _hover: {
-                    scale: 1.1,
+                    "& > *": {
+                        scale: 1.1,
+                    },
                 },
             },
             toggle: {

@@ -1,4 +1,5 @@
 import type { Model, ScanProgress } from "@/commands"
+import type { OpenPose } from "@/utils/poseHelpers"
 import type { BackendFilter } from "./state/search"
 
 export type ScanProgressEvent = {
@@ -39,6 +40,7 @@ export type SubItem = {
     width?: number
     height?: number
     isLoading: boolean
+    pose?: OpenPose
 }
 
 export type TensorType =

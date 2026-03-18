@@ -11,6 +11,7 @@ import type { ICommandItem } from "@/types"
 import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
 import type { ResourceHandle } from "../util/resourceHandle"
+import { PoseIcon } from "@/components/icons/icons"
 
 export interface ImageCommandContext {
     isContextMenu?: boolean
@@ -56,6 +57,22 @@ export function useImageCommands(): [
                         ty: `public.png`,
                         data,
                     })
+                },
+            },
+            {
+                id: "copyPose",
+                getLabel: () => "Copy pose",
+                getTip: () => "Copy pose data as JSON",
+                toolbarOnly: true,
+                toolbarEnableMode: "hide",
+                icon: PoseIcon,
+                getEnabled: (selected) => !!selected?.[0].isPose,
+                onClick: async (selected, _) => {
+                    console.log(selected[0])
+                    if (!selected[0].isPose) return
+                    const pose = await selected[0].getPoseData()
+                    if (!pose) return
+                    navigator.clipboard.writeText(JSON.stringify(pose))
                 },
             },
             {

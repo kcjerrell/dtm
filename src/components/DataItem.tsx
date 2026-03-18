@@ -60,7 +60,7 @@ function DataItem(props: DataItemProps) {
                 navigator.clipboard.writeText(display ?? "")
             }
         },
-        [display, props.onClick],
+        [display, props.onClick, setJustCopied],
     )
 
     if (data === undefined || data === null) {
@@ -87,6 +87,7 @@ function DataItem(props: DataItemProps) {
                 )}
             </HStack>
             <Content
+                data-defctx={true}
                 key={`${collapsible}`}
                 type={dataType}
                 ref={contentRef}

@@ -40,6 +40,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
             <HStack>
                 <Textarea
                     ref={searchInputRef}
+                    data-defctx={true}
                     rows={1}
                     autoresize
                     bgColor={"bg.3"}

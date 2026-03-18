@@ -26,6 +26,7 @@ function StatusBar(props: StatusBarProps) {
             overflow={"hidden"}
             alignItems={"center"}
             gap={0}
+            height={"auto"}
             {...restProps}
         >
             <Section color={"fg.3"}>
@@ -33,7 +34,7 @@ function StatusBar(props: StatusBarProps) {
                 <FiltersWidget fontSize={"sm"} fontWeight={"medium"} />
                 <ProjectsWidget fontSize={"sm"} fontWeight={"medium"} />
             </Section>
-            <Section asChild>
+            <Section>
                 <IconToggle
                     value={{
                         image: imagesSnap.imageSource.showImage,
@@ -65,7 +66,7 @@ function StatusBar(props: StatusBarProps) {
             </Section>
             <Section>
                 <IconButton
-                    variant={"ghost"}
+                    variant={"simple"}
                     size={"sm"}
                     onClick={() => images.toggleSortDirection()}
                     tip={`Sort by date (${imagesSnap.imageSource.direction === "asc" ? "oldest" : "newest"})`}
@@ -88,15 +89,28 @@ const Section = chakra("div", {
         alignItems: "center",
         flexDir: "row",
         px: 1,
-        borderRadius: "none",
-        borderInline: "0.5px solid",
-        borderInlineColor: "grayc.4",
-        _first: {
-            borderInlineStart: "none",
+        _notLast: {
+            _after: {
+                content: "''",
+                width: "1px",
+                minHeight: "1rem",
+                marginLeft: 1,
+                height: 6,
+                backgroundColor: "grayc.9",
+            },
         },
-        _last: {
-            borderInlineEnd: "none",
+        _empty: {
+            display: "none",
         },
+        // borderRadius: "none",
+        // borderInline: "1px solid",
+        // borderInlineColor: "grayc.12",
+        // _first: {
+        //     borderInlineStart: "none",
+        // },
+        // _last: {
+        //     borderInlineEnd: "none",
+        // },
     },
 })
 

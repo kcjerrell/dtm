@@ -9,9 +9,12 @@ function FloatValueInputComponent(props: ValueSelectorProps<number>) {
     return (
         <Box border={"none"} {...boxProps}>
             <Input
+                data-defctx={true}
                 border={"none"}
                 height={"100%"}
                 value={inputValue}
+                outlineOffset={"-1px"}
+                borderRadius={"none"}
                 onChange={(e) => {
                     const valid = e.target.value.match(/^-?\d*\.?\d*$/gm)
                     if (valid) {
