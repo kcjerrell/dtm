@@ -12,9 +12,6 @@ use std::io::Read;
 use crate::projects_db::dtos::tensor::{TensorHistoryNode, TensorRaw};
 use crate::projects_db::metadata::DrawThingsMetadata;
 
-// const HEADER_SIZE: usize = 68;
-// const FPZIP_MAGIC: u32 = 1012247;
-
 pub fn decode_tensor(
     tensor: TensorRaw,
     as_png: bool,
@@ -83,14 +80,6 @@ pub fn decode_tensor(
         }
         (pixels, target_size as u32, target_size as u32)
     } else {
-        // --- Map f16 [-1,1] → u8 [0,255] ---
-        // let pixels: Vec<u8> = out
-        //     .iter()
-        //     .map(|v| {
-        //         let f = v.clamp(-1.0, 1.0);
-        //         ((f * 0.5 + 0.5) * 255.0).round() as u8
-        //     })
-        //     .collect();
         let mut pixels = vec![0u8; out.len()];
         for i in 0..out.len() {
             pixels[i] = ((out[i] * 0.5 + 0.5) * 255.0).round() as u8;
@@ -110,23 +99,6 @@ pub fn decode_tensor(
         false => Ok(pixels),
     }
 }
-
-// pub fn add_metadata(png: &mut Vec<u8>, data: TensorHistoryNode) -> Result<()> {
-//     // let mut metadata = Metadata::new_from_vec(&png, FileExtension::PNG { as_zTXt_chunk: true })?;
-//     let mut metadata = Metadata::new();
-//     let json = serde_json::to_string_pretty(&data)?;
-//     println!("json: {}", json);
-//     metadata.set_tag(ExifTag::UserComment(
-//         json.to_u8_vec(&little_exif::endian::Endian::Little),
-//     ));
-//     metadata.write_to_file(
-//         png,
-//         FileExtension::PNG {
-//             as_zTXt_chunk: true,
-//         },
-//     )?;
-//     Ok(())
-// }
 
 fn decode_pose(tensor: TensorRaw) -> std::result::Result<Vec<u8>, anyhow::Error> {
     if tensor.data[0] == 0x66 && tensor.data[1] == 0x70 && tensor.data[2] == 0x79 {
@@ -162,11 +134,6 @@ pub fn decompress_fzip(data: &Vec<u8>) -> Result<Vec<f32>> {
             fpzip_read_close(fpz);
 
             if data.len() != n_read {
-                // This check might be tricky because n_read is compressed bytes read?
-                // fpzip_read returns "number of compressed bytes read".
-                // If it successfully read the whole stream, it should suffice.
-                // However, matching exactly data.len() is good practice if we provided the whole buffer.
-                // Let's keep the check but note it applies to compressed input consumed.
                 if n_read == 0 {
                     anyhow::bail!("FPZIP read failed (0 bytes read)");
                 }
@@ -236,34 +203,12 @@ fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(out)
 }
 
-// fn data_to_png(pixels: Vec<u8>, width: i32, height: i32, channels: i32) -> Result<Vec<u8>> {
-//     let mut out = Vec::new();
-//
-//     match channels {
-//         4 => RgbaImage::from_raw(width as u32, height as u32, pixels)
-//             .unwrap()
-//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-//         3 => RgbImage::from_raw(width as u32, height as u32, pixels)
-//             .unwrap()
-//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-//         2 => GrayAlphaImage::from_raw(width as u32, height as u32, pixels)
-//             .unwrap()
-//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-//         1 => GrayImage::from_raw(width as u32, height as u32, pixels)
-//             .unwrap()
-//             .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?,
-//         _ => panic!("Unsupported number of channels: {}", channels),
-//     }
-//
-//     Ok(out)
-// }
-
 fn f32_to_u8(vec: Vec<f32>) -> Vec<u8> {
     let len = vec.len() * std::mem::size_of::<f32>();
     let mut u8_vec = Vec::with_capacity(len);
 
     for f in vec {
-        u8_vec.extend_from_slice(&f.to_le_bytes()); // or to_be_bytes depending on endianness
+        u8_vec.extend_from_slice(&f.to_le_bytes());
     }
 
     u8_vec
@@ -400,10 +345,11 @@ fn format_desc_float(f: f64) -> String {
 
 fn build_description(metadata: &DrawThingsMetadata) -> String {
     /*
-        this image has awesome metadata. it is a picture of a cool sexy dude
+    sample description:
+    this image has awesome metadata. it is a picture of a cool dude
     -and a negative prompt
     Steps: 8, Sampler: UniPC Trailing, Guidance Scale: 1.0, Seed: 3665757974, Size: 1024x1024, Model: z_image_turbo_1.0_q6p.ckpt, Strength: 1.0, Seed Mode: Scale Alike, Shift: 3.0
-         */
+    */
 
     format!(
 "{}
@@ -427,22 +373,22 @@ fn build_drawthings_xmp(json: &str, description: &str) -> String {
     let escaped_description = description.replace("\n", "&#xA;");
     format!(
         r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">
-   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-      <rdf:Description rdf:about=""
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about=""
             xmlns:dc="http://purl.org/dc/elements/1.1/"
             xmlns:xmp="http://ns.adobe.com/xap/1.0/"
             xmlns:exif="http://ns.adobe.com/exif/1.0/">
-         <dc:description>
-            <rdf:Alt>
-               <rdf:li xml:lang="x-default">{escaped_description}</rdf:li>
-            </rdf:Alt>
-         </dc:description>
-         <xmp:CreatorTool>Draw Things</xmp:CreatorTool>
-         <exif:UserComment>
-            <rdf:Alt>
-               <rdf:li xml:lang="x-default">{json}</rdf:li>
-            </rdf:Alt>
-         </exif:UserComment>
+            <dc:description>
+                <rdf:Alt>
+                    <rdf:li xml:lang="x-default">{escaped_description}</rdf:li>
+                </rdf:Alt>
+            </dc:description>
+            <xmp:CreatorTool>Draw Things</xmp:CreatorTool>
+            <exif:UserComment>
+                <rdf:Alt>
+                    <rdf:li xml:lang="x-default">{json}</rdf:li>
+                </rdf:Alt>
+            </exif:UserComment>
       </rdf:Description>
    </rdf:RDF>
 </x:xmpmeta>
