@@ -136,7 +136,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                     </PanelListItem>
                 )}
 
-                <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
+                <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0} paddingX={2}>
                     {commands?.map((command) => (
                         <CommandButton
                             key={command.id}

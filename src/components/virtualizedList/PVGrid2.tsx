@@ -3,6 +3,7 @@ import { type ReactNode, type UIEvent, useCallback, useEffect, useRef } from "re
 import { proxy, useSnapshot } from "valtio"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import type { IItemSource } from "./PagedItemSource"
+import { useDebounce, useThrottle } from 'ahooks'
 
 export interface PVGridProps<T, C extends PVGridItemComponent<T> = PVGridItemComponent<T>>
     extends ChakraProps {
@@ -85,12 +86,14 @@ function PVGrid<T, C extends PVGridItemComponent<T>>(props: PVGridProps<T, C>) {
         initialRowCount = 10,
         overscan = 2,
         itemProps,
-        maxItemSize = 120,
+        maxItemSize: maxItemSizeProp = 120,
         onImagesChanged,
         onScroll,
         ...restProps
     } = props
     const { renderItems, totalCount, hasInitialLoad } = itemSource.useItemSource()
+
+    const maxItemSize = useThrottle(maxItemSizeProp, { trailing: true, wait: 100 })
 
     const stateRef = useRef<StateProxy>(null)
     if (stateRef.current === null) {

@@ -28,7 +28,7 @@ impl ProjectsDb {
             return Ok((project.id, 0));
         }
 
-        let dt_project = DTProject::get(&project.full_path).await?;
+        let dt_project = DTProject::open(&project.full_path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
 

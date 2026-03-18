@@ -135,6 +135,13 @@ impl DTProject {
         Ok(dtp)
     }
 
+    /// Creates a standalone DTProject that bypasses the cache and eviction system.
+    /// Use this for long-running operations (e.g. scan_project) where the caller
+    /// manages the lifetime directly. The pool closes when the DTProject is dropped.
+    pub async fn open(path: &str) -> Result<DTProject, Error> {
+        DTProject::new(path).await
+    }
+
     pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
         let cell = PROJECT_CACHE
             .entry(path.to_string())
