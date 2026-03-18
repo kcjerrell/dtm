@@ -35,185 +35,206 @@ const aboutApp: AboutMetadata = {
     shortVersion: "DTM",
 }
 
-// Will become the application submenu on MacOS
-const aboutSubmenu = await Submenu.new({
-    text: "About",
-    items: [
-        await PredefinedMenuItem.new({
-            item: { About: aboutApp },
-            text: "About",
-        }),
-        await MenuItem.new({
-            text: "Check for Updates...",
-            id: "about_checkForUpdates",
-            action: async () => {
-                postMessage({
-                    channel: "toolbar",
-                    message: "Checking for updates...",
-                    uType: "update",
-                    duration: 3000,
-                })
-                await AppStore.checkForUpdate()
-            },
-        }),
-        await Separator(),
-        await PredefinedMenuItem.new({
-            item: "Services",
-            text: "Services",
-        }),
-        await Separator(),
-        await PredefinedMenuItem.new({
-            item: "Hide",
-            text: "Hide DTM",
-        }),
-        await PredefinedMenuItem.new({
-            item: "HideOthers",
-            text: "Hide Others",
-        }),
-        await PredefinedMenuItem.new({
-            item: "ShowAll",
-            text: "Show All",
-        }),
-        await Separator(),
-        await MenuItem.new({
-            id: "dtm_quit",
-            text: "Quit DTM",
-            accelerator: "Command+Q",
-            action: async () => {
-                await exit(0)
-            },
-        }),
-    ],
-})
+let lastOpts: CreateOptionMenuOpts
 
-const fileSubmenu = await Submenu.new({
-    text: "File",
-    items: [
-        await MenuItem.new({
-            text: "Open...",
-            id: "file_open",
-            action: async () => {
-                const imagePath = await open({
-                    multiple: false,
-                    title: "Open image",
-                    filters: [
-                        {
-                            name: "Image",
-                            extensions: ["jpg", "jpeg", "png", "tiff", "webp", "gif", "bmp"],
-                        },
-                    ],
-                })
-                if (imagePath == null) return
-                const image = await getLocalImage(imagePath)
-                if (image)
-                    await createImageItem(image, await pathLib.extname(imagePath), {
-                        source: "open",
-                        file: imagePath,
-                    })
-            },
-        }),
-        await MenuItem.new({
-            text: "Open from pasteboard...",
-            id: "file_openPasteboard",
-            action: async () => {
-                await loadImage2("general")
-            },
-        }),
-        await Separator(),
-        await MenuItem.new({
-            text: "Close",
-            id: "file_close",
-            action: async () => {
-                await clearCurrent()
-            },
-        }),
-        await MenuItem.new({
-            text: "Close unpinned",
-            id: "file_closeUnpinned",
-            action: async () => {
-                await clearAll(true)
-            },
-        }),
-        await MenuItem.new({
-            text: "Close all",
-            id: "file_closeAll",
-            action: async () => {
-                await clearAll(false)
-            },
-        }),
-    ],
-})
+async function createAppMenus() {
+    const _global = globalThis as unknown as { _menuUnsubscribe?: () => void }
+    if (_global._menuUnsubscribe) _global._menuUnsubscribe()
 
-const editSubmenu = await Submenu.new({
-    text: "Edit",
-    items: [
-        await PredefinedMenuItem.new({
-            text: "Cut",
-            item: "Cut",
-        }),
-        await PredefinedMenuItem.new({
-            text: "Copy",
-            item: "Copy",
-        }),
-        await PredefinedMenuItem.new({
-            text: "Paste",
-            item: "Paste",
-        }),
-    ],
-})
+    _global._menuUnsubscribe = subscribe(AppStore.store, async () => {
+        if (
+            lastOpts?.clearHistoryOnExit !== AppStore.store.clearHistoryOnExit ||
+            lastOpts?.clearPinsOnExit !== AppStore.store.clearPinsOnExit
+        ) {
+            await updateMenu()
+        }
+    })
 
-const viewSubmenu = await Submenu.new({
-    text: "View",
-    items: [
-        ...(await Promise.all(
-            viewDescription.map(async (view) => {
-                return await MenuItem.new({
-                    text: view.label,
-                    id: `view-${view.viewId}`,
-                    action: async () => {
-                        AppStore.setView(view.viewId)
-                    },
-                })
+    // Will become the application submenu on MacOS
+    const aboutSubmenu = await Submenu.new({
+        text: "About",
+        items: [
+            await PredefinedMenuItem.new({
+                item: { About: aboutApp },
+                text: "About",
             }),
-        )),
-        await Separator(),
-    ],
-    // items: [
-    // 	await MenuItem.new({
-    // 		text: "Metadata",
-    // 		id: "view-metadata",
-    // 		action: async () => {
-    // 			AppStore.setView("metadata")
-    // 		},
-    // 	}),
-    // 	await MenuItem.new({
-    // 		text: "Vid",
-    // 		id: "view-vid",
-    // 		action: async () => {
-    // 			AppStore.setView("vid")
-    // 		},
-    // 	}),
-    // 	await MenuItem.new({
-    // 		text: "Library",
-    // 		id: "view-library",
-    // 		action: async () => {
-    // 			AppStore.setView("library")
-    // 		},
-    // 	}),
-    // 	await MenuItem.new({
-    // 		text: "Scratch",
-    // 		id: "view-scratch",
-    // 		action: async () => {
-    // 			AppStore.setView("scratch")
-    // 		},
-    // 	}),
-    // ],
-})
+            await MenuItem.new({
+                text: "Check for Updates...",
+                id: "about_checkForUpdates",
+                action: async () => {
+                    postMessage({
+                        channel: "toolbar",
+                        message: "Checking for updates...",
+                        uType: "update",
+                        duration: 3000,
+                    })
+                    await AppStore.checkForUpdate()
+                },
+            }),
+            await Separator(),
+            await PredefinedMenuItem.new({
+                item: "Services",
+                text: "Services",
+            }),
+            await Separator(),
+            await PredefinedMenuItem.new({
+                item: "Hide",
+                text: "Hide DTM",
+            }),
+            await PredefinedMenuItem.new({
+                item: "HideOthers",
+                text: "Hide Others",
+            }),
+            await PredefinedMenuItem.new({
+                item: "ShowAll",
+                text: "Show All",
+            }),
+            await Separator(),
+            await MenuItem.new({
+                id: "dtm_quit",
+                text: "Quit DTM",
+                accelerator: "Command+Q",
+                action: async () => {
+                    await exit(0)
+                },
+            }),
+        ],
+    })
+
+    const fileSubmenu = await Submenu.new({
+        text: "File",
+        items: [
+            await MenuItem.new({
+                text: "Open...",
+                id: "file_open",
+                action: async () => {
+                    const imagePath = await open({
+                        multiple: false,
+                        title: "Open image",
+                        filters: [
+                            {
+                                name: "Image",
+                                extensions: ["jpg", "jpeg", "png", "tiff", "webp", "gif", "bmp"],
+                            },
+                        ],
+                    })
+                    if (imagePath == null) return
+                    const image = await getLocalImage(imagePath)
+                    if (image)
+                        await createImageItem(image, await pathLib.extname(imagePath), {
+                            source: "open",
+                            file: imagePath,
+                        })
+                },
+            }),
+            await MenuItem.new({
+                text: "Open from pasteboard...",
+                id: "file_openPasteboard",
+                action: async () => {
+                    await loadImage2("general")
+                },
+            }),
+            await Separator(),
+            await MenuItem.new({
+                text: "Close",
+                id: "file_close",
+                action: async () => {
+                    await clearCurrent()
+                },
+            }),
+            await MenuItem.new({
+                text: "Close unpinned",
+                id: "file_closeUnpinned",
+                action: async () => {
+                    await clearAll(true)
+                },
+            }),
+            await MenuItem.new({
+                text: "Close all",
+                id: "file_closeAll",
+                action: async () => {
+                    await clearAll(false)
+                },
+            }),
+        ],
+    })
+
+    const editSubmenu = await Submenu.new({
+        text: "Edit",
+        items: [
+            await PredefinedMenuItem.new({
+                text: "Cut",
+                item: "Cut",
+            }),
+            await PredefinedMenuItem.new({
+                text: "Copy",
+                item: "Copy",
+            }),
+            await PredefinedMenuItem.new({
+                text: "Paste",
+                item: "Paste",
+            }),
+        ],
+    })
+
+    const viewSubmenu = await Submenu.new({
+        text: "View",
+        items: [
+            ...(await Promise.all(
+                viewDescription.map(async (view) => {
+                    return await MenuItem.new({
+                        text: view.label,
+                        id: `view-${view.viewId}`,
+                        action: async () => {
+                            AppStore.setView(view.viewId)
+                        },
+                    })
+                }),
+            )),
+            await Separator(),
+        ],
+        // items: [
+        // 	await MenuItem.new({
+        // 		text: "Metadata",
+        // 		id: "view-metadata",
+        // 		action: async () => {
+        // 			AppStore.setView("metadata")
+        // 		},
+        // 	}),
+        // 	await MenuItem.new({
+        // 		text: "Vid",
+        // 		id: "view-vid",
+        // 		action: async () => {
+        // 			AppStore.setView("vid")
+        // 		},
+        // 	}),
+        // 	await MenuItem.new({
+        // 		text: "Library",
+        // 		id: "view-library",
+        // 		action: async () => {
+        // 			AppStore.setView("library")
+        // 		},
+        // 	}),
+        // 	await MenuItem.new({
+        // 		text: "Scratch",
+        // 		id: "view-scratch",
+        // 		action: async () => {
+        // 			AppStore.setView("scratch")
+        // 		},
+        // 	}),
+        // ],
+    })
+    const menus = [aboutSubmenu, fileSubmenu, editSubmenu, await createOptionsMenu(lastOpts)]
+    if (import.meta.env.DEV) menus.push(viewSubmenu)
+
+    return menus
+}
 
 type CreateOptionMenuOpts = {
     clearPinsOnExit?: boolean
     clearHistoryOnExit?: boolean
 }
+
 async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
     return await Submenu.new({
         text: "Options",
@@ -257,17 +278,14 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
     })
 }
 
-let lastOpts: CreateOptionMenuOpts | null = null
-
-async function updateMenu(opts?: CreateOptionMenuOpts) {
+export async function updateMenu(opts?: CreateOptionMenuOpts) {
     lastOpts = opts ?? (await createOpts())
-    const menus = [aboutSubmenu, fileSubmenu, editSubmenu, await createOptionsMenu(lastOpts)]
-    if (import.meta.env.DEV) menus.push(viewSubmenu)
+    const menus = await createAppMenus()
     const menu = await Menu.new({
         items: menus,
     })
 
-    menu.setAsAppMenu()
+    await menu.setAsAppMenu()
 }
 
 async function createOpts(): Promise<CreateOptionMenuOpts> {
@@ -276,17 +294,3 @@ async function createOpts(): Promise<CreateOptionMenuOpts> {
         clearPinsOnExit: AppStore.store.clearPinsOnExit,
     }
 }
-
-await updateMenu()
-
-const _global = globalThis as unknown as { _menuUnsubscribe?: () => void }
-if (_global._menuUnsubscribe) _global._menuUnsubscribe()
-
-_global._menuUnsubscribe = subscribe(AppStore.store, async () => {
-    if (
-        lastOpts?.clearHistoryOnExit !== AppStore.store.clearHistoryOnExit ||
-        lastOpts?.clearPinsOnExit !== AppStore.store.clearPinsOnExit
-    ) {
-        await updateMenu()
-    }
-})

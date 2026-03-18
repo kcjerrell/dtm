@@ -58,8 +58,17 @@ impl ProjectsDb {
                     .eq(false)
                     .and(Expr::col(watch_folders::Column::IsLocked).eq(false)),
                 "is_ready",
-            )
-            .order_by(images::Column::WallClock, direction);
+            );
+
+        if opts.show_disconnected != Some(true) {
+            query = query.filter(
+                Expr::col(watch_folders::Column::IsMissing)
+                    .eq(false)
+                    .and(Expr::col(watch_folders::Column::IsLocked).eq(false)),
+            );
+        }
+
+        let mut query = query.order_by(images::Column::WallClock, direction);
 
         if let Some(project_ids) = &opts.project_ids {
             if !project_ids.is_empty() {

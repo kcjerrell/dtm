@@ -8,7 +8,7 @@ import { useColorMode } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import { useDragWindow } from "./hooks/useDragWindow"
 import { useMetadataDrop } from "./hooks/useDrop"
-import "./menu"
+import { updateMenu } from "./menu"
 import { getView, viewDescription } from "./views"
 
 function App() {
@@ -26,9 +26,13 @@ function App() {
 
     useEffect(() => {
         if (firstRender.current) {
-            firstRender.current = false
-            getCurrentWindow().show().catch(console.error)
-            console.debug("Loaded app")
+            ;(async () => {
+                firstRender.current = false
+                await updateMenu().catch(console.error)
+                await getCurrentWindow().show().catch(console.error)
+                await getCurrentWindow().setFocus().catch(console.error)
+                console.debug("Loaded app")
+            })()
         }
     }, [])
 

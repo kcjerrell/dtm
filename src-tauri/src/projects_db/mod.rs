@@ -1,3 +1,11 @@
+#![allow(dead_code)]
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(mismatched_lifetime_syntaxes)]
+
+
 mod dt_project;
 pub use dt_project::{close_folder, get_last_row, DTProject, ProjectRef, dt_project_tensordata, maintenance};
 pub mod projects_db;

@@ -8,6 +8,7 @@ import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
 import { useDTImage } from "./DTImageContext"
+import DetailsFallback from "./DetailsFallback"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -19,6 +20,10 @@ function DetailsContent(props: DetailsContentProps) {
     const { uiState } = useDTP()
     const { detailsView: snap } = uiState.useSnap()
     const { loras, controls } = useDTImage()
+
+    if (!snap?.itemDetails || snap.item?.is_ready === false)
+        return <DetailsFallback item={snap.item} />
+
     const config = snap?.itemDetails?.groupedConfig
     console.log(snap)
     if (!snap.itemDetails || !config) return null

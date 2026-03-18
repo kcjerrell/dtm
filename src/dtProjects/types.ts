@@ -15,6 +15,7 @@ export type ImagesSource = {
     count?: boolean
     showVideo?: boolean
     showImage?: boolean
+    showDisconnected?: boolean
 }
 
 export type VersionModel = Model & {

@@ -6,14 +6,21 @@ import { useDTP } from "../state/context"
 import FiltersWidget from "./FiltersWidget"
 import ProjectsWidget from "./ProjectsWidget"
 import SearchTextWidget from "./SearchTextWidget"
-
+import { MdOutlineSdStorage } from "react-icons/md"
+import { BsUsbDrive } from "react-icons/bs"
+import { CiUsb } from "react-icons/ci"
+import { FaSlash } from "react-icons/fa"
+import { LuSlash } from "react-icons/lu"
 interface StatusBarProps extends ChakraProps {}
 
 function StatusBar(props: StatusBarProps) {
     const { ...restProps } = props
 
-    const { images } = useDTP()
+    const { images, watchFolders } = useDTP()
     const imagesSnap = images.useSnap()
+    const wfSnap = watchFolders.useSnap()
+
+    const showDisconnected = imagesSnap.imageSource.showDisconnected
 
     return (
         <HStack
@@ -65,6 +72,20 @@ function StatusBar(props: StatusBarProps) {
                 </IconToggle>
             </Section>
             <Section>
+                {wfSnap.hasExternalFolders && (
+                    <IconButton
+                        variant={"simple"}
+                        size={"sm"}
+                        display={"grid"}
+                        css={{ "& svg": { gridColumn: 1, gridRow: 1 } }}
+                        onClick={() => images.toggleShowDisconnected()}
+                        opacity={showDisconnected ? 1 : 0.5}
+                        tip={`Include images from disconnected folders`}
+                    >
+                        <MdOutlineSdStorage />
+                        {!showDisconnected && <LuSlash />}
+                    </IconButton>
+                )}
                 <IconButton
                     variant={"simple"}
                     size={"sm"}
@@ -93,10 +114,9 @@ const Section = chakra("div", {
             _after: {
                 content: "''",
                 width: "1px",
-                minHeight: "1rem",
-                marginLeft: 1,
-                height: 6,
-                backgroundColor: "grayc.9",
+                marginLeft: 2,
+                height: 5,
+                backgroundColor: "grayc.10",
             },
         },
         _empty: {

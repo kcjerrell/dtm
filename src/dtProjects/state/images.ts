@@ -23,7 +23,12 @@ export type ImagesControllerState = {
 
 class ImagesController extends DTPStateController<ImagesControllerState> {
     state = proxy<ImagesControllerState>({
-        imageSource: { projectIds: [], direction: "desc", sort: "wall_clock" },
+        imageSource: {
+            projectIds: [],
+            direction: "desc",
+            sort: "wall_clock",
+            showDisconnected: true,
+        },
         totalImageCount: undefined,
         selectedProjectsCount: undefined,
         projectImageCounts: undefined,
@@ -181,6 +186,10 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     setShowImages(show: boolean) {
         this.state.imageSource.showImage = show
+    }
+
+    toggleShowDisconnected() {
+        this.state.imageSource.showDisconnected = !this.state.imageSource.showDisconnected
     }
 
     useItemSource() {

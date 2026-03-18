@@ -62,6 +62,7 @@ impl DTPService {
         count: Option<bool>,
         show_video: Option<bool>,
         show_image: Option<bool>,
+        show_disconnected: Option<bool>,
     ) -> Result<ListImagesResult, String> {
         let db = self.get_db().await?;
         let opts = crate::projects_db::dtos::image::ListImagesOptions {
@@ -75,6 +76,7 @@ impl DTPService {
             count,
             show_video,
             show_image,
+            show_disconnected,
         };
 
         Ok(db.list_images(opts).await?)

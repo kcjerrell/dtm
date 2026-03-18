@@ -14,6 +14,7 @@ class DetailsService extends DTPStateService {
     }
 
     async getDetails(item: ImageExtra): Promise<DTImageFull | undefined> {
+        if (!item.is_ready) return
         const key = detailsKey(item.project_id, item.node_id)
         if (this.itemDetails[key]) return this.itemDetails[key]
         const project = this.projects.state.projects.find((p) => p.id === item.project_id)

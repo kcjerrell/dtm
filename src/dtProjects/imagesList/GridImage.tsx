@@ -167,6 +167,9 @@ function GridImage(props: GridImageProps) {
             onClick={() => showDetailsOverlay(index)}
             onContextMenu={onContextMenu}
             selected={isSelected}
+            // bgColor={thumbUrl ? undefined : "transparent"}
+            margin={thumbUrl ? undefined : 4}
+            borderRadius={thumbUrl ? undefined : "lg"}
             {...rest}
         >
             {showVideo ? (

@@ -39,7 +39,7 @@ export interface ImageExtra {
     num_frames: number | null
     preview_id: number
     node_id: number
-    clip_id?: number | null
+    has_mask: boolean
     has_depth: boolean
     has_pose: boolean
     has_color: boolean
@@ -48,9 +48,25 @@ export interface ImageExtra {
     has_shuffle: boolean
     start_width: number
     start_height: number
+    upscaler_id: number | null
     upscaler_scale_factor: number | null
+    refiner_id: number | null
+    refiner_start: number | null
+    template_id: number | null
     is_ready: boolean
-    clip?: Clip
+    clip_id: number
+    wall_clock: string
+    seed: number
+    sampler: number
+    steps: number
+    guidance_scale: number
+    strength: number
+    shift: number
+    hires_fix: boolean
+    tiled_decoding: boolean
+    tiled_diffusion: boolean
+    tea_cache: boolean
+    cfg_zero_star: boolean
 }
 
 export interface ImageCount {
@@ -105,6 +121,7 @@ export interface ImagesSource {
     count?: boolean
     showVideo?: boolean
     showImage?: boolean
+    showDisconnected?: boolean
 }
 
 export interface WatchFolder {

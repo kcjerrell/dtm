@@ -23,6 +23,7 @@ export type WatchFoldersControllerState = {
     homePath: string | null
     containerPath: string | null
     defaultDataFolder: string | null
+    hasExternalFolders: boolean
 }
 
 export type WatchFolderState = Selectable<
@@ -66,6 +67,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
         homePath: null,
         containerPath: null,
         defaultDataFolder: null,
+        hasExternalFolders: false,
     })
 
     async assignPaths() {
@@ -100,6 +102,7 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
     private setWatchfolders(folders: WatchFolder[]) {
         const foldersState = folders.map((f) => this.createWatchFolderState(f))
         this.state.isDtFolderAdded = foldersState.some((folder) => folder.isDtData)
+        this.state.hasExternalFolders = foldersState.some((f) => f.path.startsWith("/Volumes"))
 
         va.set(this.state.folders, foldersState)
         this.container.emit("watchFoldersLoaded", { foldersCount: this.state.folders.length })
