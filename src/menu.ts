@@ -22,22 +22,22 @@ import { viewDescription } from "./views"
 
 const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
 
-const aboutApp: AboutMetadata = {
-    name: "DTM",
-    version: await getVersion(),
-    website: "https://github.com/kcjerrell/dtm",
-    websiteLabel: "DTM GitHub",
-    authors: ["kcjerrell"],
-    comments: "Hello",
-    license: "MIT",
-    credits: "https://github.com/kcjerrell/dtm",
-    copyright: "https://drawthings.ai/",
-    shortVersion: "DTM",
-}
-
 let lastOpts: CreateOptionMenuOpts
 
 async function createAppMenus() {
+    const aboutApp: AboutMetadata = {
+        name: "DTM",
+        version: await getVersion(),
+        website: "https://github.com/kcjerrell/dtm",
+        websiteLabel: "DTM GitHub",
+        authors: ["kcjerrell"],
+        comments: "Hello",
+        license: "MIT",
+        credits: "https://github.com/kcjerrell/dtm",
+        copyright: "https://drawthings.ai/",
+        shortVersion: "DTM",
+    }
+
     const _global = globalThis as unknown as { _menuUnsubscribe?: () => void }
     if (_global._menuUnsubscribe) _global._menuUnsubscribe()
 

@@ -12,7 +12,9 @@ import { useDTP } from "@/dtProjects/state/context"
 import type { DialogProps, FrameExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
 
-const defaultOutputDir = await path.documentDir()
+async function getDefaultOutputDir() {
+    return await path.documentDir()
+}
 
 export type FrameSource = "preview" | "tensor"
 
@@ -87,8 +89,11 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
     // these settings can't be initialized by the storage controller
     // due to the way the storage controller is initialized
     useEffect(() => {
-        if (!storage.state.export.framesOutputDir)
-            storage.updateSetting("export", "framesOutputDir", defaultOutputDir)
+        if (!storage.state.export.framesOutputDir) {
+            getDefaultOutputDir().then((dir) => {
+                storage.updateSetting("export", "framesOutputDir", dir)
+            })
+        }
     }, [storage])
 
     useDebounceEffect(
