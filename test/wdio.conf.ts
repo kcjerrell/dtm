@@ -14,14 +14,14 @@ const WEBDRIVER_PORT = 4445;
 export const config: Options.Testrunner = {
   runner: 'local',
 
-  autoCompileOpts: {
-    autoCompile: true,
-    tsNodeOpts: {
-      project: resolve(__dirname, 'tsconfig.json'),
-      transpileOnly: true,
-      esm: true,
-    },
-  },
+  // autoCompileOpts: {
+  //   autoCompile: true,
+  //   tsNodeOpts: {
+  //     project: resolve(__dirname, 'tsconfig.json'),
+  //     transpileOnly: true,
+  //     esm: true,
+  //   },
+  // },
 
   specs: [resolve(__dirname, 'specs', '*.e2e.ts')],
 
@@ -72,10 +72,10 @@ export const config: Options.Testrunner = {
   },
 
   beforeSession: async function (config, capabilities, specs) {
-    if (specs && specs[0] && specs[0].includes('projects-reset.e2e.ts')) {
-      const App = (await import('./pageobjects/App.js')).default;
-      await App.clearAllData();
-    }
+    // if (specs && specs[0] && specs[0].includes('projects-reset.e2e.ts')) {
+    //   const App = (await import('./pageobjects/App.js')).default;
+    //   await App.clearAllData();
+    // }
 
     console.log('Starting Tauri application...');
     await startApp(WEBDRIVER_PORT);

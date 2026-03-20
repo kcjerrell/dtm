@@ -1,16 +1,16 @@
 
 import path from "path";
-import App from "../pageobjects/App";
-import DTProjects from "../pageobjects/DTProjects";
+import App from "../../pageobjects/App";
+import DTProjects from "../../pageobjects/DTProjects";
 
 const testProjectsDir = process.env.DTP_TEST_DIR
 
 // these tests will have the app data cleared before running
 // so there will be no watched folders set up already
 
-before(async () => {
-  await App.clearAllData()
-})
+// before(async () => {
+  // await App.clearAllData()
+// })
 
 
 describe('Projects', () => {

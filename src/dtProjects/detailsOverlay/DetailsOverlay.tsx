@@ -110,33 +110,37 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                             showSpinner={showSpinner}
                         />
                     )}
-                    <DetailsButtonBar
-                        data-solid
-                        key={"details_button_bar"}
-                        transform={snap.subItem ? "translateY(-2rem)" : "unset"}
-                        marginY={-3}
-                        zIndex={5}
-                        alignSelf={"center"}
-                        justifySelf={"center"}
-                        gridArea={"commandBar"}
-                        item={item}
-                        project={snap.project}
-                        show={isVisible}
-                        subItem={snap.subItem}
-                        addMetadata={!snap.subItem}
-                        tensorId={snap.subItem?.tensorId ?? itemDetails?.images?.tensorId}
-                        videoRef={videoRef}
-                        isVideo={isVideo}
-                    />
-                    <TensorsList
-                        key={"tensors_list"}
-                        gridArea={"tensors"}
-                        zIndex={1}
-                        item={item}
-                        details={itemDetails}
-                        candidates={snap.candidates}
-                        transition={{ duration: transition.duration }}
-                    />
+                    {item?.is_ready && (
+                        <>
+                            <DetailsButtonBar
+                                data-solid
+                                key={"details_button_bar"}
+                                transform={snap.subItem ? "translateY(-2rem)" : "unset"}
+                                marginY={-3}
+                                zIndex={5}
+                                alignSelf={"center"}
+                                justifySelf={"center"}
+                                gridArea={"commandBar"}
+                                item={item}
+                                project={snap.project}
+                                show={isVisible}
+                                subItem={snap.subItem}
+                                addMetadata={!snap.subItem}
+                                tensorId={snap.subItem?.tensorId ?? itemDetails?.images?.tensorId}
+                                videoRef={videoRef}
+                                isVideo={isVideo}
+                            />
+                            <TensorsList
+                                key={"tensors_list"}
+                                gridArea={"tensors"}
+                                zIndex={1}
+                                item={item}
+                                details={itemDetails}
+                                candidates={snap.candidates}
+                                transition={{ duration: transition.duration }}
+                            />
+                        </>
+                    )}
                 </AnimatePresence>
                 {isVisible && (
                     <DetailsContent

@@ -15,7 +15,8 @@ function getPlatform(): Platform {
 }
 
 export function getAppPath(): string {
-  const base = resolve(__dirname, '../../src-tauri/target/release');
+  const buildType = 'debug'
+  const base = resolve(__dirname, `../../src-tauri/target/${buildType}`);
 
   switch (process.platform) {
     case 'darwin': {
@@ -23,22 +24,6 @@ export function getAppPath(): string {
       const bundledPath = resolve(base, 'bundle/macos/dtm.app/Contents/MacOS/dtm');
       const unbundledPath = resolve(base, 'dtm');
       return existsSync(bundledPath) ? bundledPath : unbundledPath;
-    }
-    default:
-      throw new Error(`Unsupported platform: ${process.platform}`);
-  }
-}
-
-export function getDevAppPath(): string {
-  const base = resolve(__dirname, '../../src-tauri/target/debug');
-
-  switch (process.platform) {
-    case 'darwin': {
-      // Try bundled app first, fall back to unbundled binary
-      // const bundledPath = resolve(base, 'bundle/macos/dtm.app/Contents/MacOS/dtm');
-      const unbundledPath = resolve(base, 'dtm');
-      // return existsSync(bundledPath) ? bundledPath : unbundledPath;
-      return unbundledPath;
     }
     default:
       throw new Error(`Unsupported platform: ${process.platform}`);
@@ -66,7 +51,7 @@ export async function waitForServer(port: number, timeout: number = 30000): Prom
 
 export async function startApp(port: number = 4445): Promise<ChildProcess | null> {
   // Desktop - spawn app
-  const appPath = getDevAppPath();
+  const appPath = getAppPath();
   console.log(`Starting Tauri app: ${appPath}`);
 
   appProcess = spawn(appPath, [], {

@@ -101,8 +101,8 @@ export class WatchFoldersController extends DTPStateController<WatchFoldersContr
 
     private setWatchfolders(folders: WatchFolder[]) {
         const foldersState = folders.map((f) => this.createWatchFolderState(f))
-        this.state.isDtFolderAdded = foldersState.some((folder) => folder.isDtData)
-        this.state.hasExternalFolders = foldersState.some((f) => f.path.startsWith("/Volumes"))
+        this.state.isDtFolderAdded = foldersState.some((f) => f.isDtData)
+        this.state.hasExternalFolders = foldersState.some((f) => !f.isDtData)
 
         va.set(this.state.folders, foldersState)
         this.container.emit("watchFoldersLoaded", { foldersCount: this.state.folders.length })
