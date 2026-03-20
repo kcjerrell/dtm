@@ -95,6 +95,20 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             }
             this.loadProjectsDebounced()
         })
+
+        this.container.on("project_sync_started", (projectId) => {
+            const projectState = this.state.projects.find((p) => p.id === projectId)
+            if (projectState) {
+                projectState.isScanning = true
+            }
+        })
+
+        this.container.on("project_sync_complete", (projectId) => {
+            const projectState = this.state.projects.find((p) => p.id === projectId)
+            if (projectState) {
+                projectState.isScanning = false
+            }
+        })
     }
 
     updateProject(projectId: number, data: Partial<ProjectExtra>) {
@@ -117,6 +131,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         const wfs = this.container.getService("watchFolders")
         const watchfolders = await wfs.loadWatchFolders()
         const dtpProjects = await (await DTPService.listProjects()).sort(projectSort)
+        const selected = this.state.selectedProjects.map((p) => ({ id: p.id }))
 
         const folders = groupMap(
             dtpProjects,
@@ -146,14 +161,24 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
         va.set(this.state.folders, folders)
         va.set(this.state.projects, newProjects)
-
+        this.setSelectedProjects(selected)
         this.state.projectsCount = this.state.projects.length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
     }
 
     private lastSelectedProject: ProjectState | null = null
-    selectItem(item: ProjectState, currentValue: boolean, modifier?: "shift" | "cmd" | null) {
+    selectItem(
+        item: ProjectState,
+        currentValue: boolean,
+        modifier?: "shift" | "cmd" | "context" | null,
+    ) {
+        // if opening context menu, item will be selected
+        if (modifier === "context") {
+            // if already selected, do nothing
+            if (currentValue) return
+        }
+
         // toggle item
         if (modifier === "cmd") {
             item.setSelected(!currentValue)
@@ -244,7 +269,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
     }
 
-    setSelectedProjects(projects: ProjectState[]) {
+    setSelectedProjects(projects: Pick<ProjectState, "id">[]) {
         const projectIds = new Set(projects.map((p) => p.id))
         for (const project of this.state.projects) {
             project.setSelected(projectIds.has(project.id))
@@ -258,20 +283,20 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     /// this depends on sort being the same
     selectFolderProjects(watchfolder: WatchFolderState) {
         const selectedIds = this.state.selectedProjects.map((p) => p.id)
-        const folderGroups = this.state.folders.find(
+        const folderGroup = this.state.folders.find(
             (f) => f.watchfolder.id === watchfolder.id,
         )?.projects
-        if (!folderGroups) return
+        if (!folderGroup) return
         const select = !areEquivalent(
             selectedIds,
-            folderGroups.map((p) => p.id),
+            folderGroup.filter((p) => !p.excluded).map((p) => p.id),
         )
 
         const selected: ProjectState[] = []
 
         if (select) {
             for (const project of this.state.projects) {
-                project.setSelected(project.watchfolder_id === watchfolder.id)
+                project.setSelected(project.watchfolder_id === watchfolder.id && !project.excluded)
                 if (project.selected) selected.push(project)
             }
         } else {

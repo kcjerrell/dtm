@@ -1,5 +1,8 @@
 import type { FileInfo } from "@tauri-apps/plugin-fs"
 import type { Tags } from "exifreader"
+import type { ComponentType } from "react"
+import type { IconType } from "react-icons/lib"
+import type { Snapshot } from "valtio"
 
 export type DrawThingsMetaData = {
     prompt: string
@@ -36,6 +39,9 @@ export type DrawThingsMetaData = {
         clipLText: string
         clipSkip: number
         clipWeight: number
+        compressionArtifacts: "h264" | "h265" | "jpeg"
+        compressionArtifactsQuality: number
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         controls: any[]
         cropLeft: number
         cropTop: number
@@ -57,7 +63,8 @@ export type DrawThingsMetaData = {
         id: number
         imageGuidanceScale: number
         imagePriorSteps: number
-        loras: ObjectConstructor[][]
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        loras: any[]
         maskBlur: number
         maskBlurOutset: number
         model: string
@@ -200,41 +207,116 @@ export type ImageSource = {
     url?: string
     image?: string
     projectFile?: string
-    tensorId?: string
-    nodeId?: number
+    tensorId?: Nullable<string>
+    nodeId?: Nullable<number>
     pasteboardType?: string
 }
 
 export enum SamplerType {
-  DPMPP2MKarras = 0,
-  EulerA = 1,
-  DDIM = 2,
-  PLMS = 3,
-  DPMPPSDEKarras = 4,
-  UniPC = 5,
-  LCM = 6,
-  EulerASubstep = 7,
-  DPMPPSDESubstep = 8,
-  TCD = 9,
-  EulerATrailing = 10,
-  DPMPPSDETrailing = 11,
-  DPMPP2MAYS = 12,
-  EulerAAYS = 13,
-  DPMPPSDEAYS = 14,
-  DPMPP2MTrailing = 15,
-  DDIMTrailing = 16,
-  UniPCTrailing = 17,
-  UniPCAYS = 18
+    DPMPP2MKarras = 0,
+    EulerA = 1,
+    DDIM = 2,
+    PLMS = 3,
+    DPMPPSDEKarras = 4,
+    UniPC = 5,
+    LCM = 6,
+    EulerASubstep = 7,
+    DPMPPSDESubstep = 8,
+    TCD = 9,
+    EulerATrailing = 10,
+    DPMPPSDETrailing = 11,
+    DPMPP2MAYS = 12,
+    EulerAAYS = 13,
+    DPMPPSDEAYS = 14,
+    DPMPP2MTrailing = 15,
+    DDIMTrailing = 16,
+    UniPCTrailing = 17,
+    UniPCAYS = 18,
+    TCDTrailing = 19,
 }
 
 export const SeedModeLabels = [
-  'Legacy',
-  'Torch Cpu Compatible',
-  'Scale Alike',
-  'Nvidia Gpu Compatible',
+    "Legacy",
+    "Torch Cpu Compatible",
+    "Scale Alike",
+    "Nvidia Gpu Compatible",
 ]
 
 export enum MediaType {
     Image = 0,
     Video = 1,
+}
+
+export type ICommandItem<T = undefined, C = undefined> = ICommand<T, C>
+
+let spacerCounter = 0
+export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): ICommandItem {
+    let menuOnly = false
+    let toolbarOnly = false
+
+    if (type === "menu") menuOnly = true
+    if (type === "toolbar") toolbarOnly = true
+
+    return {
+        id: `spacer-${spacerCounter++}`,
+        spacer: true,
+        toolbarOnly,
+        menuOnly,
+    }
+}
+
+/**
+ * Interface used for context menus and toolbars
+ *
+ * Context is optional - prefer creating commands in a hook and using the
+ * dependencies directly
+ *
+ * @template T - The type of the items in the list
+ * @template C - Optional extra arg used by various methods
+ */
+export interface ICommand<T, C = undefined> {
+    id: string
+
+    menuOnly?: boolean
+    toolbarOnly?: boolean
+    spacer?: boolean
+    separator?: boolean
+
+    accelerator?: string
+
+    icon?: IconType | ComponentType
+    getIcon?: (selected: T[], context?: C) => IconType | ComponentType
+
+    /** used to reorder items in the menu. toolbars will use items in the order they are given */
+    menuIndex?: number
+
+    /** item will be enabled if any item(s) are selected */
+    requiresSelection?: boolean
+    /** item will be enabled only if a single item is selected */
+    requiresSingleSelection?: boolean
+    /** item will be enabled only if multiple items are selected */
+    requiresMultipleSelection?: boolean
+
+    /** overrides selection options */
+    getEnabled?: (selected?: T[], context?: C) => boolean
+
+    /** item behavior if getEnabled returns false */
+    toolbarEnableMode?: "disable" | "hide"
+    /** item behavior if getEnabled returns false */
+    menuEnableMode?: "disable" | "hide"
+
+    /** takes precedence over tipTitle and tipText */
+    tip?: React.ReactNode
+    /** will be used as the tooltip title as well as aria-label and menu label */
+    label?: string
+    tipText?: string
+    getTip?: (selected: T[], context?: C) => React.ReactNode
+    /** will be used as the tooltip title as well as aria-label and menu label */
+    getLabel?: (selected: T[], context?: C) => string
+    getTipText?: (selected: T[], context?: C) => string
+
+    onClick?: (selected: T[], context?: C) => void | Promise<void>
+
+    /** show ellipses on menu item */
+    ellipses?: boolean
 }

@@ -2,16 +2,21 @@ import { ChakraProvider } from "@chakra-ui/react"
 import { invoke } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { motion } from "motion/react"
-import { lazy, StrictMode } from "react"
+import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { HotkeysProvider } from "react-hotkeys-hook"
+import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
+import { Hotkey } from "./hooks/keyboard"
 import "./index.css"
-import { HotkeysProvider } from "react-hotkeys-hook"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
-import App from "./App"
+
+const _global = globalThis as unknown as {
+    _reactRoot?: ReturnType<typeof createRoot>
+}
 
 function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
@@ -48,19 +53,25 @@ function bootstrap() {
         }, 3000)
     }
 
-    const root = document.getElementById("root")
-    if (root)
-        createRoot(root).render(
+    const container = document.getElementById("root")
+    if (container) {
+        if (!_global._reactRoot) {
+            _global._reactRoot = createRoot(container)
+        }
+
+        _global._reactRoot.render(
             <StrictMode>
                 <ChakraProvider value={system}>
                     <ColorModeProvider>
-                        <HotkeysProvider initiallyActiveScopes={["*"]}>
+                        <HotkeysProvider initiallyActiveScopes={["app"]}>
                             <RootComponent />
+                            <Hotkey handlers={{ "meta+r": () => location.reload() }} />
                         </HotkeysProvider>
                     </ColorModeProvider>
                 </ChakraProvider>
             </StrictMode>,
         )
+    }
 }
 
 export function Loading() {
@@ -70,6 +81,12 @@ export function Loading() {
             exit={{ opacity: 0 }}
             className={"loading-container"}
             transition={{ duration: 2 }}
+            style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+            }}
         >
             <div className={"loading-text"}>Loading...</div>
         </motion.div>

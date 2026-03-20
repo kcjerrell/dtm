@@ -3,16 +3,23 @@ use std::sync::{
     Arc,
 };
 
+use tokio::fs;
+
 use crate::{
     dtp_service::{
         events::DTPEvent,
-        helpers::{get_folder_files, get_full_project_path, ProjectFile},
+        helpers::{
+            get_folder_files, get_full_project_path, system_time_to_epoch_secs, ProjectFile,
+        },
         jobs::{
             AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, SyncModelsJob,
             UpdateProjectJob,
         },
     },
-    projects_db::dtos::{project::ProjectExtra, watch_folder::WatchFolderDTO},
+    projects_db::{
+        dtos::{project::ProjectExtra, watch_folder::WatchFolderDTO},
+        ProjectsDb,
+    },
 };
 
 pub struct SyncFolderJob {
@@ -161,6 +168,46 @@ impl ProjectSync {
             watchfolder_path,
         };
         sync
+    }
+
+    pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> Result<Self, String> {
+        let entity = pdb
+            .get_project(project_id)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let mut project = None;
+        if let Ok(metadata) = fs::metadata(&entity.full_path).await {
+            project = Some(ProjectFile {
+                path: entity.full_path.to_string(),
+                has_base: true,
+                filesize: metadata.len(),
+                modified: match metadata.modified() {
+                    Ok(modified) => system_time_to_epoch_secs(modified).unwrap_or(0),
+                    Err(e) => {
+                        log::error!("Failed to get modified time: {}", e);
+                        0
+                    }
+                },
+                _watchfolder_id: entity.watchfolder_id,
+            });
+        };
+
+        let full_path = entity.full_path.to_string();
+
+        let watchfolder_path = full_path
+            .strip_suffix(&entity.path)
+            .unwrap()
+            .strip_suffix("/")
+            .unwrap();
+
+        Ok(Self {
+            watchfolder_id: entity.watchfolder_id,
+            entity: Some(entity),
+            file: project,
+            action: SyncAction::None,
+            watchfolder_path: watchfolder_path.to_string(),
+        })
     }
 
     fn assign_sync_action(&mut self) {

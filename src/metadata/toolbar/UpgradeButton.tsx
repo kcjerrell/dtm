@@ -1,13 +1,12 @@
-import { Icon, Popover, Portal } from "@chakra-ui/react"
+import { Box, Icon } from "@chakra-ui/react"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { motion } from "motion/react"
-import { type ComponentProps, useCallback, useEffect, useState } from "react"
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from "react"
 import { useSnapshot } from "valtio"
-import { SidebarButton } from "@/components/sidebar/Sidebar"
+import Sidebar, { SidebarButton } from "@/components/sidebar/Sidebar"
 import { type ColorMode, useColorMode } from "@/components/ui/color-mode"
 import AppStore from "@/hooks/appState"
 import Spinner from "./Spinner"
-import ToolbarButton from "./ToolbarButton"
 
 const statusTips = {
     found: "Download update",
@@ -17,18 +16,12 @@ const statusTips = {
     installing: "Installing update",
 } as const
 
-function getStatusTip(status: (typeof AppStore.store)["updateStatus"]) {
-    if (status in statusTips) return statusTips[status as keyof typeof statusTips]
-    else return undefined
-}
-
-const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "label" | "icon">) => {
+const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "item">) => {
     const appSnap = useSnapshot(AppStore.store)
-    const [showHiddenButton, setShowHiddenButton] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
     // const [prevStatus, setPrevStatus] = useState(appSnap.updateStatus)
 
-    const showMessage = useCallback((message: string) => {
+    const showMessage = useCallback((message: string, timeout: number = 4000) => {
         setMessage(message)
         setTimeout(() => setMessage(null), 4000)
     }, [])
@@ -45,68 +38,82 @@ const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "label"
         if (appSnap.updateStatus === "error") {
             showMessage("Update failed! Click to retry.")
         }
-
-        // {
-        //     setShowHiddenButton(true)
-        //     setTimeout(() => setShowHiddenButton(false), 5000)
-        // }
+        if (appSnap.updateStatus === "downloading") {
+            showMessage("Downloading update...", 1000)
+        }
     }, [appSnap.updateStatus, showMessage])
 
     if (appSnap.updateAttempts >= 3) return null
 
     if (["checking", "unknown", "none", "error"].includes(appSnap.updateStatus)) return null
 
-    if (["found", "installed"].includes(appSnap.updateStatus)) {
+    if (["found", "installed", "downloading", "installing"].includes(appSnap.updateStatus)) {
         return (
-            <Popover.Root open={!!message} positioning={{ placement: "right", sameWidth: true }}>
-                <Popover.Trigger asChild>
-                    <SidebarButton
-                        label={"Update"}
-                        icon={UpgradeIcon}
-                        isUpgrade={showHiddenButton}
-                        onClick={async () => {
-                            if (AppStore.store.updateStatus === "found") {
-                                await AppStore.downloadAndInstallUpdate()
-                            } else if (appSnap.updateStatus === "installed") await relaunch()
-                            else if (appSnap.updateStatus === "error") await AppStore.retryUpdate()
-                        }}
-                        {...props}
-                    />
-                </Popover.Trigger>
-                <Portal>
-                    <Popover.Positioner>
-                        <Popover.Content>
-                            <Popover.Arrow />
-                            <Popover.Body>{message}</Popover.Body>
-                        </Popover.Content>
-                    </Popover.Positioner>
-                </Portal>
-            </Popover.Root>
+            <SidebarButton
+                update={true}
+                item={{
+                    label: "Update",
+                    icon: null,
+                    viewId: "upgrade",
+                }}
+                updating={
+                    appSnap.updateStatus === "downloading" || appSnap.updateStatus === "installing"
+                }
+                onClick={async () => {
+                    if (AppStore.store.updateStatus === "found") {
+                        await AppStore.downloadAndInstallUpdate()
+                    } else if (appSnap.updateStatus === "installed") await relaunch()
+                    else if (appSnap.updateStatus === "error") await AppStore.retryUpdate()
+                }}
+                {...props}
+                position={"relative"}
+                zIndex={5}
+            >
+                <Sidebar.ButtonContent>
+                    {appSnap.updateStatus === "downloading" ||
+                    appSnap.updateStatus === "installing" ? (
+                        <Spinner />
+                    ) : (
+                        <UpgradeIcon />
+                    )}
+                </Sidebar.ButtonContent>
+                <Sidebar.ButtonLabel>Update</Sidebar.ButtonLabel>
+                <Box
+                    display={message ? "block" : "none"}
+                    bgColor={"grayc.2"}
+                    color={"grayc.14"}
+                    fontSize={"sm"}
+                    padding={2}
+                    justifyContent={"center"}
+                    alignContent={"center"}
+                    position={"absolute"}
+                    left={"calc(100% + 1rem)"}
+                    top={0}
+                    bottom={0}
+                    width={"18rem"}
+                    opacity={1}
+                    borderRadius="md"
+                    boxShadow="pane1"
+                    border={"2px solid #66a676ff"}
+                >
+                    {message}
+                </Box>
+            </SidebarButton>
         )
-    }
-
-    if (appSnap.updateStatus === "downloading" || appSnap.updateStatus === "installing") {
-        return <ToolbarButton icon={Spinner} tip={statusTips[appSnap.updateStatus]} {...props} />
     }
 }
 
-const UpgradeIcon = (props) => {
+const UpgradeIcon = (props: ComponentProps<typeof Icon>) => {
     const { colorMode } = useColorMode()
 
     return (
         <Icon {...props} asChild>
             <motion.svg
-                // width="200"
-                // height="200"
                 viewBox="0 0 200 200"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                // style={{ scaleX: 1, scaleY: 1 }}
                 animate={{
-                    // filter: ["drop-shadow(3px 3px 2px #000000)"]
-                    // boxShadow: ["3px 3px 2px #000000"]
                     y: [0, 0, 1, -2, 1, -2, 0],
-                    // scale: [1, 1.2]
                 }}
                 transition={{
                     duration: 5,
@@ -117,7 +124,6 @@ const UpgradeIcon = (props) => {
                     delay: 0.7,
                 }}
                 whileHover={{ y: 0 }}
-                // style={{ scale: 2 }}
             >
                 <g>
                     <UpgradePath
@@ -163,7 +169,7 @@ const UpgradePath = ({
     colorMode: ColorMode
 }) => {
     const colorDuration = 5
-    const fg = colorMode === "light" ? "#565e67" : "#8e97a2"
+    const fg = colorMode === "light" ? "#627463ff" : "#8e97a2"
     const fgb = colorMode === "light" ? "#476d53ff" : "#66a676ff"
     return (
         <motion.path
@@ -178,7 +184,7 @@ const UpgradePath = ({
                 ease: ["easeOut", "linear", "linear"],
                 repeat: Infinity,
                 repeatType: "loop",
-                delay: 0.1 * i, // (colorDuration * i) / 16,
+                delay: 0.1 * i,
             }}
             stroke-width="0"
             stroke="#000000"

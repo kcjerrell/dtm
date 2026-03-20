@@ -54,6 +54,9 @@ pub enum DTPEvent {
     FolderSyncStarted(i64),
     FolderSyncComplete(i64),
 
+    ProjectSyncStarted(i64),
+    ProjectSyncComplete(i64),
+
     DtpServiceReady,
 
     /// By default, tuple is (job id, msg)

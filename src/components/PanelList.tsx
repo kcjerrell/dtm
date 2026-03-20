@@ -1,15 +1,16 @@
 import { HStack, Spacer } from "@chakra-ui/react"
-import { type ComponentType, useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { proxy, type Snapshot, useSnapshot } from "valtio"
-import type { IconType } from "@/components/icons/icons"
 import { PiInfo } from "@/components/icons/icons"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
+import type { ICommandItem } from "@/types"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
+import CommandButton from './CommandButton'
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
-    commands?: PanelListCommandItem<T, C>[]
+    commands?: ICommandItem<T, C>[]
     commandContext?: C
     header?: string
     headerInfo?: string
@@ -19,26 +20,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     onSelectionChanged?: (selected: T[]) => void
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
-}
-
-export type PanelListCommandItem<T, C = undefined> = PanelListCommand<T, C> | "spacer"
-
-export interface PanelListCommand<T, C = undefined> {
-    id: string
-    ariaLabel?: string
-    icon?: IconType | ComponentType
-    getIcon?: (selected: Snapshot<T[]>, context?: C) => IconType | ComponentType
-    requiresSelection?: boolean
-    requiresSingleSelection?: boolean
-    getEnabled?: (selected: Snapshot<T[]>, context?: C) => boolean
-    /** if present, tipTitle and tipText will be ignored */
-    tip?: React.ReactNode
-    tipTitle?: string
-    tipText?: string
-    getTip?: (selected: Snapshot<T[]>, context?: C) => React.ReactNode
-    getTipTitle?: (selected: Snapshot<T[]>, context?: C) => string
-    getTipText?: (selected: Snapshot<T[]>, context?: C) => string
-    onClick: (selected: Snapshot<T[]>, context?: C) => void
+    variant?: "flat" | "inset"
 }
 
 function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
@@ -54,6 +36,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         onSelectionChanged,
         clearSelection,
         selectionMode = "multipleModifier",
+        variant = "inset",
         ...boxProps
     } = props
 
@@ -93,13 +76,13 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         emptyListTextProp === false
             ? null
             : typeof emptyListTextProp === "string"
-                ? emptyListTextProp
-                : "(No items)"
+              ? emptyListTextProp
+              : "(No items)"
 
     return (
-        <PanelSection {...boxProps}>
+        <PanelSection {...boxProps} variant={variant}>
             {header && (
-                <PanelSectionHeader marginY={2}>
+                <PanelSectionHeader marginY={2} variant={variant}>
                     {header}
                     {headerInfo && (
                         <Tooltip tip={headerInfo}>
@@ -108,19 +91,20 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                     )}
                 </PanelSectionHeader>
             )}
-            <PaneListContainer>
+            <PaneListContainer variant={variant}>
                 <PaneListScrollContainer
+                    variant={variant}
                     ref={wrapperRef}
-                // overflowY="clip"
-                // onWheel={(e) => {
-                // 	if (!wrapperRef.current || !contentRef.current) return
-                // 	const max =
-                // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
-                // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
-                // 	scrollYMv.set(-scrollY.current)
-                // }}
+                    // overflowY="clip"
+                    // onWheel={(e) => {
+                    // 	if (!wrapperRef.current || !contentRef.current) return
+                    // 	const max =
+                    // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
+                    // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
+                    // 	scrollYMv.set(-scrollY.current)
+                    // }}
                 >
-                    <PanelListScrollContent ref={contentRef} asChild>
+                    <PanelListScrollContent variant={variant} ref={contentRef} asChild>
                         <SelectableGroup>{children}</SelectableGroup>
                     </PanelListScrollContent>
                 </PaneListScrollContainer>
@@ -130,50 +114,21 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                         bgColor={"transparent"}
                         fontStyle={"italic"}
                         textAlign={"center"}
+                        variant={variant}
                     >
                         {emptyListText}
                     </PanelListItem>
                 )}
 
                 <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
-                    {commands?.map((command, i) => {
-                        if (command === "spacer") return <Spacer key={`spacer-${i.toString()}`} />
-
-                        let enabled = true
-                        if (command.requiresSelection && !areItemsSelected) enabled = false
-                        if (command.requiresSingleSelection && selectedItems.length !== 1)
-                            enabled = false
-                        if (command.getEnabled)
-                            enabled = command.getEnabled(selectedItems, commandContext)
-
-                        const Icon = command.getIcon
-                            ? command.getIcon(selectedItems, commandContext)
-                            : command.icon
-                        const tip = command.getTip
-                            ? command.getTip(selectedItems, commandContext)
-                            : command.tip
-                        const tipTitle = command.getTipTitle
-                            ? command.getTipTitle(selectedItems, commandContext)
-                            : command.tipTitle
-                        const tipText = command.getTipText
-                            ? command.getTipText(selectedItems, commandContext)
-                            : command.tipText
-
-                        return (
-                            <IconButton
-                                aria-label={command.ariaLabel}
-                                key={command.id}
-                                size={"sm"}
-                                onClick={() => command.onClick(selectedItems, commandContext)}
-                                disabled={!enabled}
-                                tip={tip}
-                                tipTitle={tipTitle}
-                                tipText={tipText}
-                            >
-                                {Icon && <Icon />}
-                            </IconButton>
-                        )
-                    })}
+                    {commands?.map((command) => (
+                        <CommandButton
+                            key={command.id}
+                            command={command}
+                            selectedItems={selectedItems as T[]}
+                            context={commandContext}
+                        />
+                    ))}
                 </HStack>
             </PaneListContainer>
         </PanelSection>

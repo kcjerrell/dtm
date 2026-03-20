@@ -164,7 +164,7 @@ impl Job for TestJob {
     }
 }
 
-pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper, WatchFolderHelper, String) {
+pub async fn test_fixture(auto_watch: bool, copy_db: bool) -> (DTPService, EventHelper, WatchFolderHelper, String) {
     let temp_dir = TempDir::new_in("test_data/temp").unwrap();
     let temp_dir_path = temp_dir.path().to_str().unwrap().to_string();
     let wfh = WatchFolderHelper::get(Watchfolder::A, temp_dir);
@@ -176,6 +176,10 @@ pub async fn test_fixture(auto_watch: bool) -> (DTPService, EventHelper, WatchFo
     let db_path = format!("{}/projects4.db", app_data_dir);
     fs::create_dir_all(&app_data_dir).unwrap();
     
+    if copy_db {
+        fs::copy("test_data/testdb.db", &db_path).unwrap();
+    }
+
     let (event_helper, channel) = EventHelper::new();
     let _ = dtps
         .connect(

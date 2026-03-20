@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sqlx::{sqlite::SqliteRow, FromRow, Row};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TensorHistoryTensorData {
     pub node_id: i64,
     pub lineage: i64,

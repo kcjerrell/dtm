@@ -113,7 +113,7 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
         this.state.versions = versions
     }
 
-    getModel(modelType?: "Model" | "Lora" | "Cnet", filename?: string) {
+    getModel(modelType?: "Model" | "Lora" | "Cnet", filename?: string | null) {
         if (!filename) return
         const models = this.getByType(modelType)
         return models.find((it) => it.filename === filename)

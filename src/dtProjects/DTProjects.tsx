@@ -1,13 +1,13 @@
-import { chakra } from "@chakra-ui/react"
-import { Panel } from "@/components"
+import { chakra, VStack } from "@chakra-ui/react"
 import { useSidebarStyle } from "@/components/sidebar/useSidebarStyle"
 import ControlPane from "./controlPane/ControlPane"
 import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
+import DialogPresenter from "./dialog/DialogPresenter"
 import EmptyGrid from "./EmptyGrid"
 import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
 import StatusBar from "./imagesList/StatusBar"
-import { SettingsPanel } from "./settingsPanel/SettingsPanel"
+import { MenuProvider } from "./MenuContext"
 
 function DTProjects(props: ChakraProps) {
     const { ...restProps } = props
@@ -15,29 +15,43 @@ function DTProjects(props: ChakraProps) {
     useSidebarStyle("attached")
 
     return (
-        <Container position={"relative"} {...restProps}>
-            <ControlPane />
-            <Panel
-                id={"project-content-pane"}
-                position="relative"
-                alignItems={"stretch"}
-                justifyContent={"flex-start"}
-                overflow={"hidden"}
-                padding={0}
-            >
-                <SettingsPanel />
-                <ImportProgress />
-                <StatusBar flex={"0 0 auto"} width={"100%"} maxWidth={"100%"} />
-                <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
-                <EmptyGrid
-                    position={"absolute"}
-                    top={"50%"}
-                    left={"50%"}
-                    transform={"translate(-50%, -50%)"}
-                />
-            </Panel>
-            <DetailsOverlay />
-        </Container>
+        <MenuProvider>
+            <Container position={"relative"} {...restProps}>
+                <ControlPane />
+                <VStack
+                    id={"project-content-pane"}
+                    position="relative"
+                    alignItems={"stretch"}
+                    justifyContent={"flex-start"}
+                    overflow={"hidden"}
+                    padding={0}
+                    gap={4}
+                    borderRadius={0}
+                >
+                    <ImportProgress />
+                    <StatusBar
+                        position={"absolute"}
+                        top={3}
+                        left={undefined}
+                        right={5}
+                        width={"auto"}
+                        zIndex={1}
+                        margin={"0"}
+                        flex={"0 0 auto"}
+                        border={"1px solid {gray/50}"}
+                    />
+                    <ImagesList flex={"1 1 auto"} width={"full"} maxWidth={"full"} />
+                    <EmptyGrid
+                        position={"absolute"}
+                        top={"50%"}
+                        left={"50%"}
+                        transform={"translate(-50%, -50%)"}
+                    />
+                </VStack>
+                <DetailsOverlay zIndex={3} />
+                <DialogPresenter />
+            </Container>
+        </MenuProvider>
     )
 }
 
@@ -53,14 +67,15 @@ export const Container = chakra("div", {
         width: "100%",
         height: "100%",
 
-        gap: 2,
-        padding: 2,
+        gap: 0,
+        padding: 0,
 
         justifyContent: "normal",
         alignItems: "stretch",
 
         overflow: "hidden",
         overscrollBehavior: "none none",
+        zIndex: 2,
     },
 })
 

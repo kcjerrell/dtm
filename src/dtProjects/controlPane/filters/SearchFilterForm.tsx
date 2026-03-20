@@ -1,9 +1,9 @@
 import { Grid } from "@chakra-ui/react"
 import { useRef } from "react"
+import type { FilterOperator } from "@/commands/DtpServiceTypes"
 import { IconButton } from "@/components"
 import { FiX } from "@/components/icons/icons"
 import { useDTP } from "@/dtProjects/state/context"
-import type { FilterOperator } from "@/dtProjects/state/search"
 import FilterSelect from "./FilterSelect"
 
 interface SearchFilterFormComponentProps extends Omit<ChakraProps, "filter"> {
@@ -12,7 +12,7 @@ interface SearchFilterFormComponentProps extends Omit<ChakraProps, "filter"> {
 }
 
 const selectStyle = {
-    // bgColor: "bg.3",
+    bgColor: "bg.3",
     color: "fg.2",
     _hover: {
         bgColor: "bg.0",
@@ -42,17 +42,34 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
         <Grid
             data-filter-root={index}
             // bgColor={"bg.deep"}
-            color={"fg.2"}
-            bgColor={"bg.3"}
-            borderRadius={"sm"}
-            boxShadow={"0px 0px 18px -8px #00000022"}
+            color={"grayc.4"}
+            bgColor={"grayc.16"}
+            borderRadius={"none"}
+            // boxShadow={"0px 0px 18px -8px #00000022"}
             width={"100%"}
-            paddingY={0}
+            padding={"0px"}
             gap={0}
             justifyContent={"stretch"}
             alignItems={"stretch"}
             gridTemplateColumns={templateColumns}
-            overflow={"clip"}
+            _first={{
+                borderTopRadius: "lg",
+                "& .search-filter-form-top-left": {
+                    borderTopLeftRadius: "lg",
+                },
+                "& .search-filter-form-top-right": {
+                    borderTopRightRadius: "lg",
+                },
+            }}
+            _last={{
+                borderBottomRadius: "lg",
+                "& .search-filter-form-bottom-left": {
+                    borderBottomLeftRadius: "lg",
+                },
+                "& .search-filter-form-bottom-right": {
+                    borderBottomRightRadius: "lg",
+                },
+            }}
             onClick={(e) => {
                 if (e.target !== e.currentTarget) return
                 if (!target && !!targetRef.current)
@@ -63,6 +80,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
             {...boxProps}
         >
             <FilterSelect
+                className={`search-filter-form-top-left ${valueRow === "1" ? "search-filter-form-bottom-left" : ""}`}
                 ref={targetRef}
                 placeholder={"Select"}
                 collection={targetCollection}
@@ -89,6 +107,11 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
                 plural={false}
             />
             <ValueSelector
+                className={
+                    valueRow === "2"
+                        ? "search-filter-form-bottom-left search-filter-form-bottom-right"
+                        : undefined
+                }
                 key={`${target}_value`}
                 value={value}
                 target={target}
@@ -105,15 +128,21 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
             />
 
             <IconButton
-                color={"fg.1"}
+                className={`search-filter-form-top-right ${valueRow === "1" ? "search-filter-form-bottom-right" : ""}`}
+                {...selectStyle}
+                // color={"fg.3"}
                 // bgColor={"bg.deep/50"}
-                _hover={{ bgColor: "bg.2" }}
+                _hover={{ bgColor: "bg.0" }}
+                borderRadius={"none"}
                 gridColumn={removeColumn}
+                gridRow={1}
                 size={"xs"}
                 onClick={onRemove}
                 width={"min-content"}
-                height={"min-content"}
+                height={"full"}
+                aspectRatio={"auto"}
                 padding={0}
+                _focusVisible={{ outlineWidth: "1px", outlineOffset: 0 }}
             >
                 <FiX />
             </IconButton>

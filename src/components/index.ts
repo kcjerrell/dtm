@@ -8,6 +8,7 @@ import * as Preview from "./preview"
 import SliderWithInput from "./SliderWithInput"
 import Sidebar from "./sidebar/Sidebar"
 import Tooltip from "./Tooltip"
+import { ViewContainer } from "./ViewContainer"
 
 export const {
     CheckRoot,
@@ -19,6 +20,7 @@ export const {
     PanelButton,
     PanelSection,
     LinkButton,
+    AppRoot,
 } = Common
 
 export {
@@ -31,4 +33,5 @@ export {
     useMeasureGrid,
     DataItem,
     Progress,
+    ViewContainer,
 }

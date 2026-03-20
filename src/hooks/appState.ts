@@ -32,7 +32,6 @@ type AppStateType = {
         variant?: SidebarVariant
     }
     viewRequests: Record<string, ViewRequest[]>
-    onboardPhase: string
     clearHistoryOnExit: boolean
     clearPinsOnExit: boolean
 }
@@ -49,18 +48,11 @@ const appStore = store(
         isSidebarVisible: true,
         sidebarStyle: {},
         viewRequests: {},
-        onboardPhase: "A1",
         clearHistoryOnExit: false,
         clearPinsOnExit: false,
     } as AppStateType,
     {
-        filterKeys: [
-            "currentView",
-            "isSidebarVisible",
-            "onboardPhase",
-            "clearHistoryOnExit",
-            "clearPinsOnExit",
-        ],
+        filterKeys: ["currentView", "isSidebarVisible", "clearHistoryOnExit", "clearPinsOnExit"],
         filterKeysStrategy: "pick",
         saveStrategy: "debounce",
         saveInterval: 1000,

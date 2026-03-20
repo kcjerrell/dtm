@@ -115,6 +115,10 @@ pub enum Sampler {
     #[sea_orm(num_value = 18)]
     #[serde(rename = "UniPCAYS")]
     UniPCAYS = 18,
+
+    #[sea_orm(num_value = 19)]
+    #[serde(rename = "TCDTrailing")]
+    TCDTrailing = 19,
 }
 
 impl TryFrom<i32> for Sampler {
@@ -142,7 +146,8 @@ impl TryFrom<i32> for Sampler {
             16 => Ok(Sampler::DDIMTrailing),
             17 => Ok(Sampler::UniPCTrailing),
             18 => Ok(Sampler::UniPCAYS),
-            _ => Err(()),
+            19 => Ok(Sampler::TCDTrailing),
+            _ => Ok(Sampler::Unknown),
         }
     }
 }

@@ -12,6 +12,9 @@ type SettingsControllerState = {
     models: {
         lastUpdated: string
     }
+    ui: {
+        imageSize: number
+    }
 }
 
 const defaultState: SettingsControllerState = {
@@ -24,6 +27,9 @@ const defaultState: SettingsControllerState = {
     },
     models: {
         lastUpdated: new Date(0).toISOString(),
+    },
+    ui: {
+        imageSize: 200,
     },
 }
 
@@ -39,6 +45,12 @@ class SettingsController extends DTPStateController<SettingsControllerState> {
 
     constructor() {
         super("settings")
+
+        this.container.once("watchFoldersLoaded", (e) => {
+            if (e?.foldersCount === 0) {
+                this.container.services.uiState.showSettings(true)
+            }
+        })
     }
 
     updateSetting<

@@ -1,62 +1,80 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
-import {
-    FiEye,
-    FiEyeOff,
-    FiFolder,
-    FiRefreshCw,
-    MdBlock
-} from "@/components/icons/icons"
-import type { PanelListCommandItem } from "@/components/PanelList"
+import { useCallback, useMemo } from "react"
+import { DtpService } from "@/commands"
+import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/icons/icons"
+import { getSpacer, type ICommandItem } from "@/types"
+import { plural } from "@/utils/helpers"
+import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
 
-export function useProjectsCommands(): PanelListCommandItem<ProjectState>[] {
+export function useProjectsCommands(): [
+    (selected: ProjectState[]) => Promise<(() => void | Promise<void>) | null>,
+    ICommandItem<ProjectState>[],
+] {
     const { projects } = useDTP()
     const snap = projects.useSnap()
 
-    return [
-        {
-            id: "hideEmpty",
-            tipTitle: "Hide empty projects",
-            tipText: "Hide projects with no matches when searching",
-            icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
-            onClick: async () => {
-                projects?.toggleShowEmptyProjects()
+    const commands: ICommandItem<ProjectState>[] = useMemo(
+        () => [
+            {
+                id: "hideEmpty",
+                toolbarOnly: true,
+                label: "Hide empty projects",
+                tipText: "Hide projects with no matches when searching",
+                icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
+                onClick: async () => {
+                    projects?.toggleShowEmptyProjects()
+                },
+                requiresSelection: false,
             },
-            requiresSelection: false,
-        },
-        "spacer",
-        // {
-        //     id: "fullScan",
-        //     tipTitle: "Full scan",
-        //     tipText: "Include ALL items in project",
-        //     icon: GiNeedleDrill,
-        //     onClick: async (selected) => {
-        //         pdb.scanProject(selected[0].path, true)
-        //     },
-        //     requiresSelection: true,
-        //     requiresSingleSelection: true,
-        // },
-        {
-            id: "exclude",
-            getTipTitle: (selected) =>
-                selected[0]?.excluded ? "Include project" : "Exclude project",
-            tipText: "Excluded projects will not be scanned and their images won't be listed.",
-            getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
-            onClick: (selected) => {
-                projects?.setExclude(selected, !selected[0]?.excluded)
+            getSpacer("toolbar"),
+            {
+                id: "scan",
+                getLabel: (selected) => `Scan project${plural(selected.length)}`,
+                tipText: "Scan project for new images",
+                icon: FiRefreshCw,
+                onClick: async (selected) => {
+                    DtpService.syncProjects(selected.map((f) => f.id))
+                },
+                requiresSelection: true,
             },
-            requiresSelection: true,
-        },
-        {
-            id: "openFolder",
-            tipTitle: "Open folder",
-            tipText: "Open project folder in file manager.",
-            icon: FiFolder,
-            onClick: async (selected) => {
-                await revealItemInDir(selected.map((f) => f.path))
+            {
+                id: "exclude",
+                getLabel: (selected) => {
+                    const verb = selected[0]?.excluded ? "Show" : "Hide"
+                    const noun = plural(selected.length, "project", "projects")
+                    return `${verb} ${noun}`
+                },
+                tipText: "Hidden projects will not be scanned and their images won't be listed.",
+                getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
+                onClick: (selected) => {
+                    projects?.setExclude(selected, !selected[0]?.excluded)
+                },
+                requiresSelection: true,
             },
-            requiresSelection: true,
+            {
+                id: "openFolder",
+                label: "Open folder",
+                tipText: "Open project folder in file manager.",
+                icon: FiFolder,
+                onClick: async (selected) => {
+                    await revealItemInDir(selected.map((f) => f.full_path))
+                },
+                requiresSelection: true,
+            },
+        ],
+        [projects, snap.showEmptyProjects],
+    )
+
+    const selectMenuCommand = useCallback(
+        async (selected: ProjectState[]) => {
+            const command = await showMenu(commands, selected)
+            if (!command) return null
+            return () => command.onClick(selected)
         },
-    ]
+        [commands],
+    )
+
+    return [selectMenuCommand, commands] as const
 }

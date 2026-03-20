@@ -12,9 +12,13 @@ use tokio::sync::{OnceCell, RwLock};
 
 use crate::{
     dtp_service::{
-        AppHandleWrapper, events::{self, DTPEvent}, jobs::{FetchModels, Job, JobContext, SyncJob}, scheduler::Scheduler, watch::WatchService
+        events::{self, DTPEvent},
+        jobs::{FetchModels, Job, JobContext, ProjectSync, SyncJob, UpdateProjectJob},
+        scheduler::Scheduler,
+        watch::WatchService,
+        AppHandleWrapper,
     },
-    projects_db::{self, DtmProtocol, ProjectsDb, get_last_row},
+    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
 };
 
 #[derive(Clone)]
@@ -111,6 +115,17 @@ impl DTPService {
         let scheduler = scheduler.as_ref().unwrap();
         scheduler.add_job(SyncJob::new(false));
 
+        Ok(())
+    }
+
+    #[dtp_command]
+    pub async fn sync_projects(&self, project_ids: Vec<i64>) -> Result<(), String> {
+        for project_id in project_ids {
+            let sync = ProjectSync::from_id(&self.get_db().await.unwrap(), project_id)
+                .await
+                .unwrap();
+            self.add_job(UpdateProjectJob::new(&sync, false).unwrap());
+        }
         Ok(())
     }
 

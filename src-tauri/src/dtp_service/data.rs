@@ -3,10 +3,11 @@ use crate::{
     dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
     projects_db::{
         dtos::{
+            clip::ClipExtra,
             image::ListImagesResult,
             model::ModelExtra,
             project::ProjectExtra,
-            tensor::{TensorHistoryClip, TensorHistoryExtra, TensorSize},
+            tensor::{TensorHistoryExtra, TensorSize},
             watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
@@ -14,6 +15,7 @@ use crate::{
     },
 };
 use dtm_macros::dtp_commands;
+use serde_json::Value;
 
 #[dtp_commands]
 impl DTPService {
@@ -60,6 +62,7 @@ impl DTPService {
         count: Option<bool>,
         show_video: Option<bool>,
         show_image: Option<bool>,
+        show_disconnected: Option<bool>,
     ) -> Result<ListImagesResult, String> {
         let db = self.get_db().await?;
         let opts = crate::projects_db::dtos::image::ListImagesOptions {
@@ -73,6 +76,7 @@ impl DTPService {
             count,
             show_video,
             show_image,
+            show_disconnected,
         };
 
         Ok(db.list_images(opts).await?)
@@ -89,9 +93,9 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_clip(&self, image_id: i64) -> Result<Vec<TensorHistoryClip>, String> {
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> Result<ClipExtra, String> {
         let db = self.get_db().await?;
-        Ok(db.get_clip(image_id).await?)
+        Ok(db.get_clip(image_id, clip_id).await?)
     }
 
     #[dtp_command]
@@ -199,12 +203,38 @@ impl DTPService {
         &self,
         project_id: i64,
         row_id: i64,
-    ) -> Result<TensorHistoryExtra, String> {
+        clip_id: Option<i64>,
+    ) -> Result<Value, String> {
         let project = self.get_project(project_id).await?;
-        Ok(project
-            .get_history_full(row_id)
-            .await
-            .map_err(|e| e.to_string())?)
+
+        let (history, clip) = match clip_id {
+            Some(cid) => {
+                let (h, c) = project
+                    .get_history_with_clip(row_id, cid)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                (h, Some(c))
+            }
+            None => {
+                let h = project
+                    .get_history_full(row_id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                (h, None)
+            }
+        };
+
+        let mut json = serde_json::to_value(history).map_err(|e| e.to_string())?;
+        if let Some(clip) = clip {
+            if let Some(obj) = json.as_object_mut() {
+                obj.insert(
+                    "clip".to_string(),
+                    serde_json::to_value(clip).map_err(|e| e.to_string())?,
+                );
+            }
+        }
+
+        Ok(json)
     }
 
     #[dtp_command]
@@ -300,7 +330,7 @@ async fn get_folder(
     if let Some(test_override) = test_override {
         return Ok(PickFolderResult {
             path: test_override.clone(),
-            bookmark: test_override,
+            bookmark: format!("TESTBOOKMARK::{}", test_override),
         });
     }
 

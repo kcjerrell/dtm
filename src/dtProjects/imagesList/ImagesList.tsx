@@ -1,24 +1,24 @@
-import { Box } from "@chakra-ui/react"
 import { useCallback, useState } from "react"
 import type { ImageExtra } from "@/commands"
-import FrameCountIndicator from "@/components/FrameCountIndicator"
-import Video from "@/components/video/Video"
-import { VideoImage } from "@/components/video/VideoImage"
-import PVGrid, {
-    type PVGridItemComponent,
-    type PVGridItemProps,
-} from "@/components/virtualizedList/PVGrid2"
+import PVGrid from "@/components/virtualizedList/PVGrid2"
+import { useItemSelection } from "@/hooks/useIdSelection"
+import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
+import { ResourceHandle } from "../util/resourceHandle"
+import GridImage from "./GridImage"
 
 const keyFn = (item?: ImageExtra | null) => (item ? `${item.project_id}_${item.node_id}` : item)
 
 function ImagesList(props: ChakraProps) {
-    const { images, uiState } = useDTP()
+    const { images, uiState, settings } = useDTP()
     const uiSnap = uiState.useSnap()
     const imagesSnap = images.useSnap()
+    const settingsSnap = settings.useSnap()
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+    const { snap: selectedIds, selectItem, clear } = useItemSelection<number>()
 
     const itemSource = images.useItemSource()
+    const { selectImageMenuCommand } = useMenuContext()
 
     const showDetailsOverlay = useCallback(
         (index: number) => {
@@ -37,110 +37,57 @@ function ImagesList(props: ChakraProps) {
         setHoveredIndex(null)
     }, [])
 
+    const onScroll = useCallback(() => {
+        setHoveredIndex(null)
+    }, [])
+
+    const onContextMenu = useCallback(
+        async (e: React.MouseEvent) => {
+            const dataImageId = e.currentTarget.getAttribute("data-image-id")
+            if (!dataImageId) return
+            const imageId = Number(dataImageId)
+
+            selectItem(imageId, true)
+            try {
+                const image = images.itemSource.findItem((image) => image.id === imageId)
+                const selected = ResourceHandle.from(image)
+                if (!selected) return
+                const execute = await selectImageMenuCommand([selected], { isContextMenu: true })
+                if (execute) {
+                    await uiState.callWithImageSpinner(imageId, async () => {
+                        await execute()
+                    })
+                }
+            } finally {
+                clear()
+            }
+        },
+        [selectItem, images.itemSource, selectImageMenuCommand, uiState, clear],
+    )
+
     return (
         <PVGrid<ImageExtra>
-            onScroll={() => setHoveredIndex(null)}
+            onScroll={onScroll}
             freeze={!!uiSnap.detailsView?.item}
             inert={uiSnap.isGridInert}
             bgColor={"transparent"}
             key={imagesSnap.searchId}
-            itemComponent={GridItemAnim as PVGridItemComponent<ImageExtra>}
+            itemComponent={GridImage}
             itemSource={itemSource}
-            maxItemSize={imagesSnap.imageSize ?? 5}
+            maxItemSize={settingsSnap.ui.imageSize ?? 200}
             onImagesChanged={images.onImagesChanged}
-            itemProps={{ showDetailsOverlay, onPointerEnter, onPointerLeave, hoveredIndex }}
+            itemProps={{
+                spinnerIds: uiSnap.imageSpinner,
+                showDetailsOverlay,
+                onPointerEnter,
+                onPointerLeave,
+                hoveredIndex,
+                onContextMenu,
+                selectedIds: selectedIds.size ? selectedIds : undefined,
+            }}
             keyFn={keyFn}
             {...props}
         />
-    )
-}
-
-function GridItemAnim(
-    props: PVGridItemProps<
-        ImageExtra,
-        {
-            showDetailsOverlay: (index: number) => void
-            onPointerEnter?: (index: number) => void
-            onPointerLeave?: (index: number) => void
-            hoveredIndex?: number
-        }
-    >,
-) {
-    const {
-        value: item,
-        showDetailsOverlay,
-        index,
-        hoveredIndex,
-        onPointerEnter,
-        onPointerLeave,
-    } = props
-
-    if (!item) return <Box />
-
-    const previewId = `${item?.project_id}/${item?.preview_id}`
-    const url = item.is_ready ? `dtm://dtproject/thumbhalf/${previewId}` : "/img_not_available.svg"
-
-    const isVideo = (item.num_frames ?? 0) > 0
-    const showVideo = isVideo && hoveredIndex === index
-
-    return (
-        <Box
-            role={"gridcell"}
-            data-testid="image-item"
-            data-project-id={item.project_id}
-            data-image-id={item.id}
-            position={"relative"}
-            bgColor={"fg.1/20"}
-            onPointerEnter={() => onPointerEnter?.(index)}
-            onPointerLeave={() => onPointerLeave?.(index)}
-            onClick={() => showDetailsOverlay(index)}
-        >
-            {showVideo ? (
-                <Video image={item} half autoStart>
-                    <VideoImage
-                        width={"100%"}
-                        height={"100%"}
-                        objectFit={"cover"}
-                        border={"1px solid transparent"}
-                    />
-                </Video>
-            ) : (
-                <div
-                    key={url}
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                    }}
-                >
-                    <img
-                        key={url}
-                        style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            border: "1px solid #0000ff00",
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                        }}
-                        src={url}
-                        alt={item?.prompt}
-                    />
-                </div>
-            )}
-            {isVideo && (
-                <FrameCountIndicator
-                    bgColor={"grays.3/70"}
-                    position={"absolute"}
-                    bottom={1}
-                    left={1}
-                    width={"1.5rem"}
-                    color="grays.14"
-                    boxShadow={"0 0 2px rgba(0,0,0,1)"}
-                    borderRadius={1}
-                    count={item.num_frames ?? 0}
-                />
-            )}
-        </Box>
     )
 }
 

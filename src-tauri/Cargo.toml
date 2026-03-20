@@ -3,7 +3,7 @@ members = ["migration", "entity", ".", "fpzip-sys", "macros"]
 
 [package]
 name = "dtm"
-version = "0.3.4"
+version = "0.4.0"
 description = "A little app for reading Draw Things Metadata"
 authors = ["kcjerrell"]
 edition = "2021"
@@ -94,6 +94,9 @@ tauri-plugin-nspopover = { git = "https://github.com/freethinkel/tauri-nspopover
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
+
+[target.'cfg(debug_assertions)'.dependencies]
+tauri-plugin-webdriver = "0.2"
 
 [dev-dependencies]
 tempfile = "3.25.0"

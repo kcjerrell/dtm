@@ -21,6 +21,9 @@ pub fn decode_tensor(
     if tensor.name.starts_with("pose") {
         return decode_pose(tensor);
     }
+    if tensor.name.starts_with("binary_mask") || tensor.name.starts_with("scribble") {
+        return scribble_mask_to_png(tensor, scale, Some(false));
+    }
     log::debug!(
         "Decoding tensor {} ({}x{}x{})",
         tensor.name,

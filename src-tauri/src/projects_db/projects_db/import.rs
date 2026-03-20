@@ -28,7 +28,7 @@ impl ProjectsDb {
             return Ok((project.id, 0));
         }
 
-        let dt_project = DTProject::get(&project.full_path).await?;
+        let dt_project = DTProject::open(&project.full_path).await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
 
@@ -162,7 +162,7 @@ impl ProjectsDb {
                     has_custom: Set(h.has_custom),
                     has_scribble: Set(h.has_scribble),
                     has_shuffle: Set(h.has_shuffle),
-                    sampler: Set(Sampler::try_from(h.sampler).unwrap_or(Sampler::EulerA)),
+                    sampler: Set(h.sampler),
                     ..Default::default()
                 };
 

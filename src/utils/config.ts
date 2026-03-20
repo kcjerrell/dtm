@@ -16,7 +16,7 @@ export function extractConfigFromTensorHistoryNode(
         clipLText: node.clip_l_text ?? "",
         clipSkip: node.clip_skip,
         clipWeight: node.clip_weight,
-        controls: node.controls as DrawThingsMetaData["config"]["controls"]?? [],
+        controls: (node.controls as DrawThingsMetaData["config"]["controls"]) ?? [],
         cropLeft: node.crop_left,
         cropTop: node.crop_top,
         decodingTileHeight: node.decoding_tile_height * 64,
@@ -256,6 +256,7 @@ export const samplerLabels = [
     "DDIM Trailing",
     "UniPC Trailing",
     "UniPC AYS",
+    "TCD Trailing",
 ]
 
 export function getSampler(sampler?: number | string | null) {

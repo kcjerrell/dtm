@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useHotkeys, useHotkeysContext } from "react-hotkeys-hook"
+import type { Options } from "react-hotkeys-hook/dist/types"
 
 const scopeStack = [] as string[]
 
@@ -8,47 +9,50 @@ const scopeStack = [] as string[]
  * most recent call
  */
 export function useScopedHotkeys(
-	scope: string,
-	hotkeys: Record<string, (e: KeyboardEvent) => void>,
+    hotkeys: Record<string, (e: KeyboardEvent) => void>,
+    options: Options,
 ) {
-	const { enableScope, disableScope } = useHotkeysContext()
+    const { enableScope, disableScope } = useHotkeysContext()
 
-	const keys = Object.keys(hotkeys)
+    const keys = Object.keys(hotkeys)
+    const scope = options?.scopes?.[0]
 
-	useHotkeys(
-		keys,
-		(e, he) => {
-			console.log(he.scopes)
-			if (he.hotkey in hotkeys) {
-				if (scope === scopeStack.at(-1)) hotkeys[he.hotkey](e)
-			} else {
-				alert("ooops")
-			}
-		},
-		{ scopes: [scope] },
-	)
+    useHotkeys(
+        keys,
+        (e, he) => {
+            const topScope = scopeStack.at(-1)
+            if (he.hotkey in hotkeys) {
+                if ((topScope && topScope === scope) || he.metadata?.global) hotkeys[he.hotkey](e)
+            }
+        },
+        options,
+    )
 
-	useEffect(() => {
-		enableScope(scope)
-		scopeStack.push(scope)
-		console.log("sstack+", scopeStack)
-		return () => {
-			const popped = scopeStack.pop()
-			disableScope(scope)
-			console.log("sstack-", scopeStack)
-
-			if (popped !== scope) alert("ooops messed up")
-		}
-	}, [enableScope, disableScope, scope])
+    useEffect(() => {
+        if (!scope) return
+        enableScope(scope)
+        scopeStack.push(scope)
+        console.log("sstack+", scopeStack)
+        return () => {
+            const popped = scopeStack.pop()
+            disableScope(scope)
+            console.log("sstack-", scopeStack)
+            if (popped !== scope) alert("ooops messed up")
+        }
+    }, [enableScope, disableScope, scope])
 }
 
 type HotkeyComponentProps = {
-	scope: string
-	handlers: Record<string, (e: KeyboardEvent) => void>
+    scope?: string
+    handlers: Record<string, (e: KeyboardEvent) => void>
 }
 export function Hotkey(props: HotkeyComponentProps) {
-	const { scope, handlers } = props
-	useScopedHotkeys(scope, handlers)
+    const { scope, handlers } = props
+    const options: Options = {
+        scopes: scope ? [scope] : ["app"],
+        metadata: { global: !scope },
+    }
+    useScopedHotkeys(handlers, options)
 
-	return null
+    return null
 }

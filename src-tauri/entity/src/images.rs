@@ -43,8 +43,7 @@ pub struct Model {
     pub guidance_scale: f32,
     #[sea_orm(column_type = "Float")]
     pub shift: f32,
-    #[sea_orm(num_enum)]
-    pub sampler: Sampler,
+    pub sampler: i8,
     pub hires_fix: bool,
     pub tiled_decoding: bool,
     pub tiled_diffusion: bool,

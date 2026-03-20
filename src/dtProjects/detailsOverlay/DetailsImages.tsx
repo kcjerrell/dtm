@@ -12,6 +12,7 @@ import { useGetContext } from "@/hooks/useGetContext"
 import type { UIControllerState } from "../state/uiState"
 import { DetailsSpinnerRoot } from "./common"
 import DetailsImage from "./DetailsImage"
+import ImageFallback from './ImageFallback'
 
 interface DetailsImagesProps {
     item: ImageExtra
@@ -27,6 +28,7 @@ function DetailsImages(props: DetailsImagesProps) {
     const { Extractor } = useGetContext(VideoContext, videoRef)
 
     if (!item) return null
+    if (!item.is_ready) return <ImageFallback />
 
     const srcHalf = urls.thumbHalf(item)
     const srcFull = urls.thumb(item)

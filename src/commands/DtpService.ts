@@ -6,10 +6,11 @@ import type {
     Model,
     ModelType,
     ProjectExtra,
-    TensorHistoryClip,
+    ClipFrame,
     TensorHistoryExtra,
     TensorSize,
     WatchFolder,
+    ClipExtra,
 } from "./DtpServiceTypes"
 
 type MaybeReadonly<T> = T | Readonly<T>
@@ -56,8 +57,8 @@ async function findImageFromPreviewId(
     return await invoke("dtp_find_image_from_preview_id", { projectId, previewId })
 }
 
-async function getClip(imageId: number): Promise<TensorHistoryClip[]> {
-    return await invoke("dtp_get_clip", { imageId })
+async function getClip(imageId: number, clipId: number): Promise<ClipExtra> {
+    return await invoke("dtp_get_clip", { imageId, clipId })
 }
 
 async function listWatchFolders(): Promise<WatchFolder[]> {
@@ -67,7 +68,7 @@ async function listWatchFolders(): Promise<WatchFolder[]> {
 async function pickWatchFolder(dtFolder?: boolean): Promise<void> {
     let testOverride = undefined
     if ((window as unknown as Record<string, string>).__E2E_FILE_PATH__) {
-        testOverride = `TESTPATH::${(window as unknown as Record<string, string>).__E2E_FILE_PATH__}`
+        testOverride = (window as unknown as Record<string, string>).__E2E_FILE_PATH__
         ;(window as unknown as Record<string, string>).__E2E_FILE_PATH__ = "" // Clear it after use
         // In E2E tests, we bypass the native picker and return a predefined path.
     }
@@ -86,8 +87,12 @@ async function listModels(modelType?: ModelType): Promise<Model[]> {
     return await invoke("dtp_list_models", { modelType })
 }
 
-async function getHistoryFull(projectId: number, rowId: number): Promise<TensorHistoryExtra> {
-    return await invoke("dtp_get_history_full", { projectId, rowId })
+async function getHistoryFull(
+    projectId: number,
+    rowId: number,
+    clipId?: number | null,
+): Promise<TensorHistoryExtra> {
+    return await invoke("dtp_get_history_full", { projectId, rowId, clipId })
 }
 
 async function getTensorSize(projectId: number, tensorId: string): Promise<TensorSize> {
@@ -98,7 +103,7 @@ async function decodeTensor(
     projectId: number,
     tensorId: string,
     asPng: boolean,
-    nodeId?: number,
+    nodeId?: number | null,
 ): Promise<Uint8Array<ArrayBuffer>> {
     const opts = {
         tensorId,
@@ -127,6 +132,10 @@ async function sync() {
     await invoke("dtp_sync")
 }
 
+async function syncProjects(projectIds: number[]) {
+    await invoke("dtp_sync_projects", { projectIds })
+}
+
 const DTPService = {
     connect,
     listProjects,
@@ -145,7 +154,8 @@ const DTPService = {
     decodeTensor,
     findPredecessor,
     sync,
-    lockFolder
+    syncProjects,
+    lockFolder,
 }
 
 export default DTPService

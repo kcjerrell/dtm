@@ -1,4 +1,4 @@
-import { HStack, Spacer } from "@chakra-ui/react"
+import { chakra, HStack } from "@chakra-ui/react"
 import { IconButton } from "@/components"
 import IconToggle from "@/components/IconToggle"
 import { PiFilmStrip, PiImage, TbSortAscending2, TbSortDescending2 } from "@/components/icons/icons"
@@ -6,62 +6,132 @@ import { useDTP } from "../state/context"
 import FiltersWidget from "./FiltersWidget"
 import ProjectsWidget from "./ProjectsWidget"
 import SearchTextWidget from "./SearchTextWidget"
-
+import { MdOutlineSdStorage } from "react-icons/md"
+import { BsUsbDrive } from "react-icons/bs"
+import { CiUsb } from "react-icons/ci"
+import { FaSlash } from "react-icons/fa"
+import { LuSlash } from "react-icons/lu"
 interface StatusBarProps extends ChakraProps {}
 
 function StatusBar(props: StatusBarProps) {
     const { ...restProps } = props
 
-    const { images } = useDTP()
+    const { images, watchFolders } = useDTP()
     const imagesSnap = images.useSnap()
+    const wfSnap = watchFolders.useSnap()
+
+    const showDisconnected = imagesSnap.imageSource.showDisconnected
 
     return (
         <HStack
             justifyContent={"flex-start"}
-            paddingX={2}
-            paddingY={0.5}
-            bgColor={"bg.deep/50"}
+            padding={0}
+            bgColor={"bg.2"}
+            boxShadow={"pane1"}
+            borderRadius={"lg"}
             color={"fg.2"}
             overflow={"hidden"}
+            alignItems={"center"}
+            gap={0}
+            height={"auto"}
             {...restProps}
         >
-            <SearchTextWidget fontSize={"sm"} />
-            <FiltersWidget fontSize={"sm"} />
-            <ProjectsWidget fontSize={"sm"} />
-            <Spacer />
-            {/* <HStack flex={"0 0 auto"} cursor={"pointer"} justifySelf={"flex-end"}> */}
-            <IconToggle
-                value={{
-                    image: imagesSnap.imageSource.showImage,
-                    video: imagesSnap.imageSource.showVideo,
-                }}
-                onChange={(value) => {
-                    images.setShowImages(value.image ?? false)
-                    images.setShowVideos(value.video ?? false)
-                }}
-                mode="zeroOrOne"
-            >
-                <IconToggle.Trigger option="image" tipText={"Show only images"}>
-                    <PiImage />
-                </IconToggle.Trigger>
-                <IconToggle.Trigger option="video" tipText={"Show only videos"}>
-                    <PiFilmStrip />
-                </IconToggle.Trigger>
-            </IconToggle>
-            <IconButton
-                variant={"inset"}
-                onClick={() => images.toggleSortDirection()}
-                tip={`Sort by date (${imagesSnap.imageSource.direction === "asc" ? "oldest" : "newest"})`}
-            >
-                {imagesSnap.imageSource.direction === "asc" ? (
-                    <TbSortDescending2 />
-                ) : (
-                    <TbSortAscending2 />
+            <Section color={"fg.3"}>
+                <SearchTextWidget fontSize={"sm"} fontWeight={"medium"} />
+                <FiltersWidget fontSize={"sm"} fontWeight={"medium"} />
+                <ProjectsWidget fontSize={"sm"} fontWeight={"medium"} />
+            </Section>
+            <Section>
+                <IconToggle
+                    value={{
+                        image: imagesSnap.imageSource.showImage,
+                        video: imagesSnap.imageSource.showVideo,
+                    }}
+                    onChange={(value) => {
+                        images.setShowImages(value.image ?? false)
+                        images.setShowVideos(value.video ?? false)
+                    }}
+                    mode="zeroOrOne"
+                >
+                    <IconToggle.Trigger
+                        size={"sm"}
+                        variant={"ghost"}
+                        option="image"
+                        tipText={"Show only images"}
+                    >
+                        <PiImage />
+                    </IconToggle.Trigger>
+                    <IconToggle.Trigger
+                        size={"sm"}
+                        variant={"ghost"}
+                        option="video"
+                        tipText={"Show only videos"}
+                    >
+                        <PiFilmStrip />
+                    </IconToggle.Trigger>
+                </IconToggle>
+            </Section>
+            <Section>
+                {wfSnap.hasExternalFolders && (
+                    <IconButton
+                        variant={"simple"}
+                        size={"sm"}
+                        display={"grid"}
+                        css={{ "& svg": { gridColumn: 1, gridRow: 1 } }}
+                        onClick={() => images.toggleShowDisconnected()}
+                        opacity={showDisconnected ? 1 : 0.5}
+                        tip={`Include images from disconnected folders`}
+                    >
+                        <MdOutlineSdStorage />
+                        {!showDisconnected && <LuSlash />}
+                    </IconButton>
                 )}
-            </IconButton>
-            {/* </HStack> */}
+                <IconButton
+                    variant={"simple"}
+                    size={"sm"}
+                    onClick={() => images.toggleSortDirection()}
+                    tip={`Sort by date (${imagesSnap.imageSource.direction === "asc" ? "oldest" : "newest"})`}
+                >
+                    {imagesSnap.imageSource.direction === "asc" ? (
+                        <TbSortDescending2 />
+                    ) : (
+                        <TbSortAscending2 />
+                    )}
+                </IconButton>
+                {/* </Section> */}
+            </Section>
         </HStack>
     )
 }
+
+const Section = chakra("div", {
+    base: {
+        display: "flex",
+        alignItems: "center",
+        flexDir: "row",
+        px: 1,
+        _notLast: {
+            _after: {
+                content: "''",
+                width: "1px",
+                marginLeft: 2,
+                height: 5,
+                backgroundColor: "grayc.10",
+            },
+        },
+        _empty: {
+            display: "none",
+        },
+        // borderRadius: "none",
+        // borderInline: "1px solid",
+        // borderInlineColor: "grayc.12",
+        // _first: {
+        //     borderInlineStart: "none",
+        // },
+        // _last: {
+        //     borderInlineEnd: "none",
+        // },
+    },
+})
 
 export default StatusBar

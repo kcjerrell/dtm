@@ -14,6 +14,7 @@ pub struct Model {
     pub recursive: Option<bool>,
     pub is_missing: bool,
     pub is_locked: bool,
+    pub maint: u32,
     #[sea_orm(has_many)]
     pub projects: HasMany<super::projects::Entity>,
 }

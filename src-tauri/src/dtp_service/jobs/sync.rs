@@ -33,17 +33,20 @@ impl Job for SyncJob {
             .await
             .map_err(|e| e.to_string())?;
 
-        let subtasks = folders
-            .iter()
-            .map(|wf| {
-                Arc::new(CheckFolderJob::new(
-                    wf.clone(),
-                    self.reset_locks,
-                    true,
-                    None,
-                )) as Arc<dyn Job>
-            })
-            .collect();
+        let mut subtasks: Vec<Arc<dyn Job>> = Vec::new();
+
+        for folder in folders {
+            // if folder.maint != 0 {
+            //     let mut maint_tasks = MaintenanceJob::from_int(folder.maint, folder.clone());
+            //     subtasks.append(&mut maint_tasks);
+            // }
+            subtasks.push(Arc::new(CheckFolderJob::new(
+                folder.clone(),
+                self.reset_locks,
+                true,
+                None,
+            )) as Arc<dyn Job>)
+        }
 
         Ok(JobResult::Subtasks(subtasks))
     }

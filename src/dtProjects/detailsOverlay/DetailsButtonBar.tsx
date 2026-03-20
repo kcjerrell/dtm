@@ -1,22 +1,13 @@
-import { Box } from "@chakra-ui/react"
-import { invoke } from "@tauri-apps/api/core"
-import { save } from "@tauri-apps/plugin-dialog"
-import * as fs from "@tauri-apps/plugin-fs"
-import { type ComponentProps, useRef, useState } from "react"
-import { FiCopy, FiSave } from "react-icons/fi"
-import { PiListMagnifyingGlassBold } from "react-icons/pi"
+import { type ComponentProps, useState } from "react"
 import type { Snapshot } from "valtio"
-import { DtpService, type ImageExtra } from "@/commands"
-import { IconButton } from "@/components"
-import FrameCountIndicator from "@/components/FrameCountIndicator"
-import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
+import type { ImageExtra } from "@/commands"
+import CommandButton, { CancelExecute } from "@/components/CommandButton"
 import type { VideoContextType } from "@/components/video/context"
-import { sendToMetadata } from "@/metadata/state/interop"
+import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
 import type { ProjectState } from "../state/projects"
 import type { UIControllerState } from "../state/uiState"
-import { FramesExportDialog } from "./clipExport/FramesExportDialog"
-import { VideoExportDialog } from "./clipExport/VideoExportDialog"
+import { ResourceHandle } from "../util/resourceHandle"
 import { DetailsButtonBarRoot } from "./common"
 
 interface DetailsButtonBarProps
@@ -34,40 +25,27 @@ interface DetailsButtonBarProps
     isVideo?: boolean
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-    const { item, tensorId, show, addMetadata, subItem, project, videoRef, isVideo, ...restProps } =
-        props
-    const { uiState } = useDTP()
+    const {
+        item: itemProp,
+        tensorId,
+        show,
+        addMetadata,
+        subItem,
+        project,
+        videoRef,
+        isVideo,
+        ...restProps
+    } = props
     const [lockButtons, setLockButtons] = useState(false)
-    const [showExportDialog, setShowExportDialog] = useState(false)
-    const [showFramesDialog, setShowFramesDialog] = useState(false)
 
-    const projectId = item?.project_id
-    const nodeId = addMetadata ? item?.node_id : undefined
+    const { uiState } = useDTP()
 
-    const detailsOverlay = useRef(document.getElementById("details-overlay") as HTMLDivElement)
+    const { imageCommands } = useMenuContext()
+    const resource = ResourceHandle.from(subItem ?? itemProp)
 
-    const getFrame = async (frameIndex?: number) => {
-        if (!item) return
-        if (frameIndex === undefined) {
-            frameIndex = videoRef?.current?.controls?.frameMv?.get() ?? 0
-        }
-        console.log("getting frame", frameIndex)
+    if (!resource) return null
 
-        const clip = await DtpService.getClip(item.id)
-        const frame = clip[frameIndex]
-        if (!frame) return
-
-        return await DtpService.decodeTensor(item.project_id, frame.tensor_id, true, frame.row_id)
-    }
-
-    const getImage = async (frameIndex?: number) => {
-        if (isVideo) return getFrame(frameIndex)
-        console.log("getting image")
-        if (!item || !tensorId) return
-        return await DtpService.decodeTensor(item.project_id, tensorId, true, nodeId)
-    }
-
-    const disabled = !projectId || !tensorId || !show || lockButtons
+    const commandItem = resource ? [resource] : []
 
     return (
         <DetailsButtonBarRoot
@@ -81,127 +59,25 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
             pointerEvents="auto"
             {...restProps}
         >
-            {subItem?.maskUrl && (
-                <IconButton
-                    aria-label={"Copy image mask"}
-                    size={"sm"}
-                    disabled={disabled}
-                    onClick={() => uiState.toggleSubItemMask()}
-                >
-                    <FiCopy />
-                </IconButton>
-            )}
-
-            <IconButton
-                aria-label={isVideo ? "Copy selected frame" : "Copy image"}
-                size={"sm"}
-                disabled={disabled}
-                onClick={() => {
-                    setLockButtons(true)
-                    uiState
-                        .callWithSpinner(async () => {
-                            const imgData = await getImage()
-                            if (!imgData) return
-                            await invoke("write_clipboard_binary", {
-                                ty: `public.png`,
-                                data: imgData,
-                            })
-                        })
-                        .finally(() => setLockButtons(false))
-                }}
-                tip={isVideo ? "Copy selected frame" : "Copy image"}
-            >
-                <FiCopy />
-            </IconButton>
-            <IconButton
-                aria-label={isVideo ? "Save selected frame" : "Save image"}
-                size={"sm"}
-                disabled={disabled}
-                onClick={() => {
-                    setLockButtons(true)
-                    uiState
-                        .callWithSpinner(async () => {
-                            const imgData = await getImage()
-                            if (!imgData) return
-                            const savePath = await save({
-                                canCreateDirectories: true,
-                                title: "Save image",
-                                filters: [{ name: "Image", extensions: ["png"] }],
-                            })
-                            if (savePath) {
-                                await fs.writeFile(savePath, imgData)
-                            }
-                        })
-                        .finally(() => setLockButtons(false))
-                }}
-                tip={isVideo ? "Save selected frame" : "Save image"}
-            >
-                <FiSave />
-            </IconButton>
-            <IconButton
-                aria-label={isVideo ? "Send selected frame to metadata" : "Send image to metadata"}
-                size={"sm"}
-                disabled={disabled}
-                onClick={() => {
-                    setLockButtons(true)
-                    uiState
-                        .callWithSpinner(async () => {
-                            const imgData = await getImage()
-                            if (!imgData) return
-                            await sendToMetadata(imgData, "png", {
-                                source: "project",
-                                projectFile: project?.path,
-                                tensorId,
-                                nodeId,
-                            })
-                        })
-                        .finally(() => setLockButtons(false))
-                }}
-                tip={isVideo ? "Send frame to Metadata Viewer" : "Open in Metadata Viewer"}
-            >
-                <PiListMagnifyingGlassBold />
-            </IconButton>
-            {isVideo && (
-                <>
-                    <Box height={8} width={"1px"} bgColor={"gray/50"} marginInline={1} />
-                    <IconButton
-                        aria-label="Save video"
-                        size={"sm"}
-                        onClick={() => {
-                            if (!item) return
-                            setShowExportDialog(true)
-                        }}
-                        tip="Save video"
-                    >
-                        <FrameCountIndicator thickness={20} bgColor={"transparent"} count={"▶︎"} />
-                    </IconButton>
-                    {showExportDialog && item && (
-                        <VideoExportDialog
-                            rootElement={detailsOverlay}
-                            onClose={() => setShowExportDialog(false)}
-                            image={item}
-                        />
-                    )}
-                    <IconButton
-                        aria-label="Save all frames"
-                        size={"sm"}
-                        onClick={async () => {
-                            if (!item) return
-                            setShowFramesDialog(true)
-                        }}
-                        tip="Save all frames"
-                    >
-                        <VideoFrameIcon />
-                    </IconButton>
-                    {showFramesDialog && item && (
-                        <FramesExportDialog
-                            rootElement={detailsOverlay}
-                            onClose={() => setShowFramesDialog(false)}
-                            image={item}
-                        />
-                    )}
-                </>
-            )}
+            {imageCommands.map((cmd) => (
+                <CommandButton
+                    key={cmd.id}
+                    command={cmd}
+                    selectedItems={commandItem}
+                    disabled={lockButtons}
+                    beforeExecute={(ctx) => {
+                        if (lockButtons) throw new CancelExecute()
+                        setLockButtons(true)
+                        return ctx
+                    }}
+                    wrapper={async (execute, selected, ctx) => {
+                        await uiState.callWithSpinner(async () => await execute(selected, ctx))
+                    }}
+                    afterExecute={() => {
+                        setLockButtons(false)
+                    }}
+                />
+            ))}
         </DetailsButtonBarRoot>
     )
 }

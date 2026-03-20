@@ -7,13 +7,19 @@ import { getStoreName } from "./helpers"
 
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
-const appDataDir = await path.appDataDir()
-if (!(await fs.exists(appDataDir))) {
-    await fs.mkdir(appDataDir)
+let _appDataDir: string 
+async function getAppDataDir() {
+    if (_appDataDir) return _appDataDir
+    _appDataDir = await path.appDataDir()
+    return _appDataDir
 }
-const imageFolder = await path.join(appDataDir, getStoreName("images"))
-if (!(await fs.exists(imageFolder))) {
-    await fs.mkdir(imageFolder)
+
+let _imageFolder: string
+async function getImageFolder() {
+    if (_imageFolder) return _imageFolder
+    const appDataDir = await getAppDataDir()
+    _imageFolder = await path.join(appDataDir, getStoreName("images"))
+    return _imageFolder
 }
 
 type ImageStoreEntryBase = {
@@ -95,11 +101,11 @@ async function getImage(id: string): Promise<ImageStoreEntry | undefined> {
 }
 
 async function getFullPath(id: string, ext: string) {
-    return await path.join(imageFolder, `${id}.${ext}`)
+    return await path.join(await getImageFolder(), `${id}.${ext}`)
 }
 
 async function getThumbPath(id: string) {
-    return await path.join(imageFolder, `${id}_thumb.png`)
+    return await path.join(await getImageFolder(), `${id}_thumb.png`)
 }
 
 async function getNewId() {

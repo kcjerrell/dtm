@@ -13,6 +13,7 @@ pub mod dtp_service;
 mod ffmpeg;
 mod projects_db;
 use dtp_service::dtp_connect;
+use projects_db::dt_project_tensordata;
 mod vid;
 
 use once_cell::sync::Lazy;
@@ -110,8 +111,13 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init());
+
+    #[cfg(debug_assertions)]
+    let builder = builder.plugin(tauri_plugin_webdriver::init());
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -132,6 +138,9 @@ pub fn run() {
                 .filter(|metadata| {
                     !metadata.target().starts_with("sea_orm")
                         && !metadata.target().starts_with("sqlx")
+                        && !metadata.target().starts_with("tauri_plugin_updater")
+                        && !metadata.target().starts_with("h2::codec")
+                        && !metadata.target().starts_with("hyper_util")
                 })
                 .level(LevelFilter::Debug)
                 .clear_targets()
@@ -180,6 +189,8 @@ pub fn run() {
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
+            dtp_service::dtp_service::dtp_sync_projects,
+            dt_project_tensordata,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();

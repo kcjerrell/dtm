@@ -29,7 +29,7 @@ function selectItem<T extends Selectable>(
     state: SelectableContextType<T>,
     // key: string | number,
     item: T,
-    modifier?: "shift" | "cmd" | null,
+    modifier?: "shift" | "cmd" | "context" | null,
     value?: boolean,
 ) {
     const items = state.getItems()
@@ -163,7 +163,7 @@ export type Selectable<T extends object = object> = T & {
     selected: boolean
     setSelected: (value: boolean, modifier?: "shift" | "cmd" | null) => void
     toggleSelected: () => void
-    onClick: (e: React.MouseEvent) => void
+    onClick: (e?: React.MouseEvent) => void
 }
 export function makeSelectable<T extends object>(
     item: T,
@@ -171,7 +171,7 @@ export function makeSelectable<T extends object>(
     handleClick?: (
         item: Selectable<T>,
         currentValue: boolean,
-        modifier?: "shift" | "cmd" | null,
+        modifier?: "shift" | "cmd" | "context" | null,
     ) => void,
 ): Selectable<T> {
     const onClick = handleClick ?? ((item: Selectable<T>, value: boolean) => item.toggleSelected())
@@ -189,8 +189,8 @@ export function makeSelectable<T extends object>(
         toggleSelected() {
             p.setSelected(!p._selected)
         },
-        onClick(e: React.MouseEvent) {
-            const modifier = e.metaKey ? "cmd" : e.shiftKey ? "shift" : undefined
+        onClick(e?: React.MouseEvent) {
+            const modifier = e?.metaKey ? "cmd" : e?.shiftKey ? "shift" : undefined
             onClick(p, p._selected, modifier)
         },
     })

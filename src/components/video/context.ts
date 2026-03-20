@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef } from "react"
 import type { ImageExtra } from "@/commands"
-import DTPService from '@/commands/DtpService'
+import DTPService from "@/commands/DtpService"
 import urls from "@/commands/urls"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { everyNth } from "@/utils/helpers"
@@ -34,15 +34,15 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         autoStart,
     } = opts
 
-    
     const { state, snap } = useProxyRef(() => ({
         urls: [] as string[],
         playbackState: "paused" as "playing" | "paused" | "seeking",
-        fps: fpsProp
+        fps: fpsProp,
+        wasFpsChanged: false,
     }))
 
     const fps = halfFps ? snap.fps / 2 : snap.fps
-    
+
     const frameChangedHandlersRef = useRef<OnFrameChanged[]>([])
     const playbackStateChangedHandlersRef = useRef<OnPlaybackStateChanged[]>([])
 
@@ -89,22 +89,25 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         },
     })
 
+    const setFps = (fps: number) => {
+        state.fps = fps
+        state.wasFpsChanged = true
+    }
+
     useEffect(() => {
-        if (!image) return
-        DTPService.getClip(image.id).then(async (data) => {
+        if (!image || !image.clip_id) return
+        DTPService.getClip(image.id, image.clip_id).then(async (data) => {
             if (!image) return
             if (!imgRef.current) return
-
-            const frameUrls = data.map((d) => getUrl(image.project_id, d.preview_id))
+            
+            if (!state.wasFpsChanged) state.fps = data.clip.framesPerSecond
+            
+            const frameUrls = data.frames.map((d) => getUrl(image.project_id, d.previewId))
             if (halfFps) state.urls = everyNth(frameUrls, 2)
             else state.urls = frameUrls
             await preloadImages(state.urls)
         })
     }, [image, state, getUrl, halfFps])
-
-    const setFps = (fps: number) => {
-        state.fps = fps
-    }
 
     return {
         imgRef,
@@ -115,7 +118,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         frames: snap.urls.length,
         controls,
         state,
-        setFps
+        setFps,
     } as const
 }
 

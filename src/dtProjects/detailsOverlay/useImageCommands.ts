@@ -1,0 +1,174 @@
+import { invoke } from "@tauri-apps/api/core"
+import { save } from "@tauri-apps/plugin-dialog"
+import * as fs from "@tauri-apps/plugin-fs"
+import { useCallback, useMemo } from "react"
+import { FiCopy, FiSave } from "react-icons/fi"
+import { PiListMagnifyingGlassBold } from "react-icons/pi"
+import FrameCountIndicator from "@/components/FrameCountIndicator"
+import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
+import { sendToMetadata } from "@/metadata/state/interop"
+import type { ICommandItem } from "@/types"
+import { showMenu } from "@/utils/menu"
+import { useDTP } from "../state/context"
+import type { ResourceHandle } from "../util/resourceHandle"
+import { PoseIcon } from "@/components/icons/icons"
+
+export interface ImageCommandContext {
+    isContextMenu?: boolean
+}
+
+/*
+    image commands:
+        Copy (first/selected) image/frame   -   (menu/toolbar) image/video
+        Save (first/selected) image/frame   -   (menu/toolbar) image/video
+        Send (first/selected frame) to Metadata viewer  -  (menu/toolbar)
+        Copy config
+        Copy prompt (menu)
+        Export video
+        Export frames
+        Select project
+
+*/
+
+export function useImageCommands(): [
+    (
+        selected: ResourceHandle[],
+        context: ImageCommandContext,
+    ) => Promise<(() => void | Promise<void>) | null>,
+    ICommandItem<ResourceHandle, ImageCommandContext>[],
+] {
+    const { uiState, projects } = useDTP()
+
+    const commands: ICommandItem<ResourceHandle, ImageCommandContext>[] = useMemo(
+        () => [
+            {
+                id: "copyImage",
+                getLabel: (selected, ctx) => {
+                    if (!selected[0].isVideo) return "Copy image"
+                    return `Copy ${ctx?.isContextMenu ? "first" : "selected"} frame`
+                },
+                getTip: (selected, _) =>
+                    selected[0].isVideo ? "Copy selected frame" : "Copy image",
+                icon: FiCopy,
+                onClick: async (selected, _) => {
+                    const data = await selected[0].getPngData()
+                    if (!data) return
+                    await invoke("write_clipboard_binary", {
+                        ty: `public.png`,
+                        data,
+                    })
+                },
+            },
+            {
+                id: "copyPose",
+                getLabel: () => "Copy pose",
+                getTip: () => "Copy pose data as JSON",
+                toolbarOnly: true,
+                toolbarEnableMode: "hide",
+                icon: PoseIcon,
+                getEnabled: (selected) => !!selected?.[0].isPose,
+                onClick: async (selected, _) => {
+                    console.log(selected[0])
+                    if (!selected[0].isPose) return
+                    const pose = await selected[0].getPoseData()
+                    if (!pose) return
+                    navigator.clipboard.writeText(JSON.stringify(pose))
+                },
+            },
+            {
+                id: "saveImage",
+                getLabel: (selected, ctx) => {
+                    if (!selected[0].isVideo) return "Save image"
+                    return ctx?.isContextMenu ? "Save first frame" : "Save selected frame"
+                },
+                getTip: (selected, _) =>
+                    selected[0].isVideo ? "Save selected frame" : "Save image",
+                icon: FiSave,
+                onClick: async (selected, _) => {
+                    const data = await selected[0].getPngData()
+                    if (!data) return
+                    const savePath = await save({
+                        canCreateDirectories: true,
+                        title: "Save image",
+                        filters: [{ name: "Image", extensions: ["png"] }],
+                    })
+                    if (savePath) {
+                        await fs.writeFile(savePath, data)
+                    }
+                },
+            },
+            {
+                id: "sendToMetadata",
+                getLabel: (selected, ctx) => {
+                    if (!selected[0].isVideo) return "Send to Metadata"
+                    return ctx?.isContextMenu
+                        ? "Send first frame to Metadata"
+                        : "Send selected frame to Metadata"
+                },
+                getTip: (selected, _) =>
+                    selected[0].isVideo
+                        ? "Send selected frame to Metadata"
+                        : "Send image to Metadata",
+                icon: PiListMagnifyingGlassBold,
+                onClick: async (selected, _) => {
+                    const data = await selected[0].getPngData()
+                    if (!data) return
+                    const project = projects.getProject(selected[0].projectId)
+                    await sendToMetadata(data, "png", {
+                        source: "project",
+                        projectFile: project?.path,
+                        tensorId: await selected[0].getTensorId(),
+                        nodeId: selected[0].nodeId,
+                    })
+                },
+            },
+            { id: "separator-1", separator: true },
+            {
+                id: "saveVideo",
+                label: "Save video",
+                getTip: () => "Save video",
+                icon: FrameCountIndicator,
+                getEnabled: (selected) => !!selected?.[0].isVideo,
+                toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
+                onClick: (selected, _) => {
+                    if (!selected[0].image) return
+                    uiState.showDialog({
+                        dialogType: "clip-export-video",
+                        props: { image: selected[0].image },
+                    })
+                },
+                ellipses: true,
+            },
+            {
+                id: "saveFrames",
+                label: "Save all frames",
+                getTip: () => "Save all frames",
+                icon: VideoFrameIcon,
+                getEnabled: (selected) => !!selected?.[0].isVideo,
+                toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
+                onClick: async (selected, _) => {
+                    if (!selected[0].image) return
+                    uiState.showDialog({
+                        dialogType: "clip-export-frames",
+                        props: { image: selected[0].image },
+                    })
+                },
+                ellipses: true,
+            },
+        ],
+        [uiState, projects],
+    )
+
+    const selectMenuCommand = useCallback(
+        async (selected: ResourceHandle[]) => {
+            const command = await showMenu(commands, selected, { isContextMenu: true })
+            if (!command) return null
+            return () => command.onClick?.(selected, { isContextMenu: true })
+        },
+        [commands],
+    )
+
+    return [selectMenuCommand, commands] as const
+}

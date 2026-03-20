@@ -26,8 +26,10 @@ function GrantAccess(props: GrantAccessProps) {
     return (
         <PanelSection
             padding={2}
-            gap={1}
+            gap={2}
             display={snap.isDtFolderAdded ? "none" : undefined}
+            variant={"dialog"}
+            alignItems={"flex-start"}
             {...restProps}
         >
             <PanelSectionHeader paddingY={1} paddingX={0}>
@@ -38,7 +40,7 @@ function GrantAccess(props: GrantAccessProps) {
                 After clicking the button, a file picker will open. Select the Documents folder.
             </Text>
             <Text>Note: DTM does not modify your projects.</Text>
-            <PanelButton tone={"success"} isLoading={isLoading} onClick={handleGrantAccess}>
+            <PanelButton alignSelf={"center"} tone={"success"} isLoading={isLoading} onClick={handleGrantAccess}>
                 Select folder
             </PanelButton>
         </PanelSection>

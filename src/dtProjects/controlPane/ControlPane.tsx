@@ -34,7 +34,11 @@ function ControlPane(props: ControlPane) {
             paddingY={0}
             paddingX={0}
             borderRadius={"md"}
-            bgColor={"bg.2"}
+            variant={"float"}
+            bgColor={"grayc.16"}
+            _dark={{
+                bgColor: "grayc.16",
+            }}
             {...restProps}
         >
             <Tabs.Root
@@ -71,8 +75,7 @@ function TabList(props: ChakraProps) {
                         aria-controls={`projects-${value}-panel`}
                         aria-label={`${label} tab`}
                         value={value}
-                        paddingBlock={0.5}
-                        height={"2rem"}
+                        padding={2}
                     >
                         <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
                         <Box>{label}</Box>

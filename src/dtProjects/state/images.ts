@@ -7,6 +7,7 @@ import {
     PagedItemSource,
 } from "@/components/virtualizedList/PagedItemSource"
 import type { ContainerEvent } from "@/utils/container/StateController"
+import { areEquivalent } from "@/utils/helpers"
 import type { ImagesSource } from "../types"
 import type { ProjectState, ProjectsControllerState } from "./projects"
 import type { BackendFilter } from "./search"
@@ -17,22 +18,27 @@ export type ImagesControllerState = {
     totalImageCount?: number
     selectedProjectsCount?: number
     projectImageCounts?: Record<number, number>
-    imageSize?: number
     searchId: number
 }
 
 class ImagesController extends DTPStateController<ImagesControllerState> {
     state = proxy<ImagesControllerState>({
-        imageSource: { projectIds: [], direction: "desc", sort: "wall_clock" },
+        imageSource: {
+            projectIds: [],
+            direction: "desc",
+            sort: "wall_clock",
+            showDisconnected: true,
+        },
         totalImageCount: undefined,
         selectedProjectsCount: undefined,
         projectImageCounts: undefined,
-        imageSize: undefined,
         searchId: 0,
     })
 
     itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
     eventTimer: NodeJS.Timeout | undefined
+
+    private lastSelectedProjectIds: number[] = []
 
     private _onImagesChanged: ContainerEvent<"imagesChanged"> = {
         on: (fn: (_: undefined) => void) => this.container.on("imagesChanged", fn),
@@ -48,7 +54,15 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
         this.container.getFutureService("projects").then((projectsService) => {
             const unsubProjects = subscribe(projectsService.state.selectedProjects, () => {
-                this.buildImageSource()
+                const selectedProjects = this.container
+                    .getService("projects")
+                    ?.state.selectedProjects.map((p) => p.id)
+                    .sort()
+                if (!areEquivalent(selectedProjects, this.lastSelectedProjectIds))
+                    this.buildImageSource()
+                this.lastSelectedProjectIds = projectsService.state.selectedProjects.map(
+                    (p) => p.id,
+                )
             })
             this.unwatchFns.push(unsubProjects)
 
@@ -70,7 +84,6 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
         this.watchProxy((get) => {
             const source = get(this.state.imageSource)
-            console.log("imageSource", source)
             const getItems = async (skip: number, take: number) => {
                 const s = { ...source }
                 if (s.showImage === false && s.showVideo === false) {
@@ -173,6 +186,10 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
 
     setShowImages(show: boolean) {
         this.state.imageSource.showImage = show
+    }
+
+    toggleShowDisconnected() {
+        this.state.imageSource.showDisconnected = !this.state.imageSource.showDisconnected
     }
 
     useItemSource() {
