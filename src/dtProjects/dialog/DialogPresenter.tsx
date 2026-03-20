@@ -57,6 +57,8 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
                     className={"panel-scroll"}
                     overflowY={"auto"}
                     bgColor={"bg.1"}
+                    role={"dialog"}
+                    aria-modal="true"
                     {...restProps}
                 >
                     <Dialog onClose={() => uiState.hideDialog()} {...dialogProps} />

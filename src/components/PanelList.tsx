@@ -6,6 +6,7 @@ import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import type { ICommandItem } from "@/types"
 import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
+import CommandButton from './CommandButton'
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
@@ -120,44 +121,14 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                 )}
 
                 <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
-                    {commands?.map((command, i) => {
-                        if (command === "spacer") return <Spacer key={`spacer-${i.toString()}`} />
-
-                        let enabled = true
-                        if (command.requiresSelection && !areItemsSelected) enabled = false
-                        if (command.requiresSingleSelection && selectedItems.length !== 1)
-                            enabled = false
-                        if (command.getEnabled)
-                            enabled = command.getEnabled(selectedItems, commandContext)
-
-                        const Icon = command.getIcon
-                            ? command.getIcon(selectedItems, commandContext)
-                            : command.icon
-                        const tip = command.getTip
-                            ? command.getTip(selectedItems, commandContext)
-                            : command.tip
-                        const tipTitle = command.getLabel
-                            ? command.getLabel(selectedItems, commandContext)
-                            : command.label
-                        const tipText = command.getTipText
-                            ? command.getTipText(selectedItems, commandContext)
-                            : command.tipText
-
-                        return (
-                            <IconButton
-                                aria-label={command.label}
-                                key={command.id}
-                                size={"sm"}
-                                onClick={() => command.onClick(selectedItems, commandContext)}
-                                disabled={!enabled}
-                                tip={tip}
-                                tipTitle={tipTitle}
-                                tipText={tipText}
-                            >
-                                {Icon && <Icon />}
-                            </IconButton>
-                        )
-                    })}
+                    {commands?.map((command) => (
+                        <CommandButton
+                            key={command.id}
+                            command={command}
+                            selectedItems={selectedItems as T[]}
+                            context={commandContext}
+                        />
+                    ))}
                 </HStack>
             </PaneListContainer>
         </PanelSection>

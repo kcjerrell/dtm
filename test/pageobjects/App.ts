@@ -1,5 +1,3 @@
-const r$ = (...args) => browser.react$(...args)
-const r$$ = (...args) => browser.react$$(...args)
 import * as fs from "node:fs"
 import * as path from "node:path"
 import * as os from "node:os"
@@ -18,10 +16,13 @@ class App {
     }
   }
 
-  clearAllData() {
+  async clearAllData() {
     console.log("Clearing data...")
     try {
-      fs.rmSync(path.join(os.homedir(), ".local/share/com.kcjer.dtm"), { recursive: true })
+      const dataPath = os.platform() === 'darwin'
+        ? path.join(os.homedir(), "Library/Application Support/com.kcjer.dtm")
+        : path.join(os.homedir(), ".local/share/com.kcjer.dtm");
+      fs.rmSync(dataPath, { recursive: true });
     } catch (e) {
     }
   }

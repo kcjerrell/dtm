@@ -36,7 +36,7 @@
   color: #cccccc;
   flex-direction: column;
   font-size: 1rem;
-  background-image: url(./check_dark.png);
+  background-image: url(/check_dark.png);
   background-size: 64px 64px;
   overflow: clip;
 }

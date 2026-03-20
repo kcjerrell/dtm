@@ -3,6 +3,7 @@ import App from "../pageobjects/App"
 import DTProjects from "../pageobjects/DTProjects"
 import os from "node:os"
 import * as fs from "node:fs"
+import { addProject, removeProject, renameProject, resetProjects, TestFolder, TestProject } from '../helpers/projects'
 
 const testDataRoot = process.env.TEST_DATA_DIR || path.join(os.homedir(), "dtm-test-data")
 const testProjectsDir = path.join(testDataRoot, "projects")
@@ -11,7 +12,7 @@ const testProjectsDir = path.join(testDataRoot, "projects")
 // they all depend on the projects watchfolder already existing
 
 before(async () => {
-  await DTProjects.helpers.checkProjectFiles()
+  await resetProjects()
 })
 
 afterEach(async () => {
@@ -24,7 +25,7 @@ describe('Projects', () => {
 
     // verify projects are listed
     await expect(DTProjects.projectA).toBeDisplayedInViewport()
-    await expect(DTProjects.projectB).toBeDisplayedInViewport()
+    await expect(DTProjects.projectC).toBeDisplayedInViewport()
 
     // count images
     await browser.waitUntil(async () =>
@@ -33,7 +34,7 @@ describe('Projects', () => {
     const countBefore = await DTProjects.countVisibleImages()
 
     // select project A
-    await DTProjects.selectProject("test-project-a")
+    await DTProjects.projectA.click()
     await browser.waitUntil(async () =>
       (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
     )
@@ -47,23 +48,23 @@ describe('Projects', () => {
       await expect(el).toHaveAttribute('data-project-id', projectAId)
     }
 
-    // select project B
-    await DTProjects.selectProject("test-project-b")
+    // select project C
+    await DTProjects.projectC.click()
     await browser.waitUntil(async () =>
       (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
     )
 
-    // verify only project B's images are shown
+    // verify only project C's images are shown
     updatedCount = await DTProjects.countVisibleImages()
     expect(updatedCount).toBeLessThan(countBefore)
 
-    const projectBId = await DTProjects.projectB.getAttribute("data-project-id")
+    const projectCId = await DTProjects.projectC.getAttribute("data-project-id")
     for (const el of await DTProjects.images.getElements()) {
-      await expect(el).toHaveAttribute('data-project-id', projectBId)
+      await expect(el).toHaveAttribute('data-project-id', projectCId)
     }
 
     // deselect project
-    await DTProjects.deselectProject("test-project-b")
+    await DTProjects.projectC.click()
     await browser.waitUntil(async () =>
       (await $('[data-testid="image-grid"]').getAttribute('aria-busy')) === 'false'
     )
@@ -77,27 +78,28 @@ describe("Projects files", () => {
   it("projects list stays in sync with file system", async () => {
     await App.selectView("projects")
 
-    // verify test-project-b is listed
-    await expect(DTProjects.projectB).toBeDisplayedInViewport()
+    // verify projectC and projectA is listed
+    await expect(DTProjects.projectC).toBeDisplayedInViewport()
+    await expect(DTProjects.projectA).toBeDisplayedInViewport()
 
     // wait a moment to ensure folder is being watched
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // await new Promise(resolve => setTimeout(resolve, 2000))
 
     // remove project files
-    await DTProjects.helpers.removeProjectFiles("test-project-b")
+    await removeProject(TestFolder.folderA, TestProject.projectC)
 
-    // verify test-project-b is no longer listed
-    await DTProjects.projectB.waitForExist({ reverse: true, timeout: 15000 })
+    // verify test-project-c is no longer listed
+    await DTProjects.projectC.waitForExist({ reverse: true, timeout: 15000 })
 
-    // restore project files
-    await DTProjects.helpers.checkProjectFiles()
+    // restore project
+    await addProject(TestFolder.folderA, TestProject.projectC)
 
-    // verify test-project-b is listed again
-    await DTProjects.projectB.waitForExist({ timeout: 15000 })
-    await expect(DTProjects.projectB).toBeDisplayedInViewport()
+    // verify test-project-c is listed again
+    await DTProjects.projectC.waitForExist({ timeout: 15000 })
+    await expect(DTProjects.projectC).toBeDisplayedInViewport()
   })
 
-  it("projects are removed and readded when a files are renamed", async () => {
+  it("projects are removed and readded when files are renamed", async () => {
     await App.selectView("projects")
 
     // verify test-project-a is listed
@@ -107,7 +109,7 @@ describe("Projects files", () => {
     await new Promise(resolve => setTimeout(resolve, 2000))
 
     // rename files
-    await DTProjects.helpers.renameProjectFiles("test-project-a", "test-project-rename")
+    await renameProject(TestFolder.folderA, TestProject.projectA, "test-project-rename")
 
     // verify test-project-a is no longer listed
     await DTProjects.projectA.waitForExist({ reverse: true, timeout: 15000 })
@@ -118,7 +120,7 @@ describe("Projects files", () => {
     await expect($$(`[data-test-id="project-item"]*=${"test-project-rename"}`)).toBeElementsArrayOfSize(1)
 
     // rename back to original name
-    await DTProjects.helpers.renameProjectFiles("test-project-rename", "test-project-a")
+    await renameProject(TestFolder.folderA, "test-project-rename", TestProject.projectA)
 
     // verify the renamed project disappears
     await DTProjects.getProject("test-project-rename").waitForExist({ reverse: true, timeout: 15000 })

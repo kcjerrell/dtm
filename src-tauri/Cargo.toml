@@ -95,5 +95,8 @@ tauri-plugin-nspopover = { git = "https://github.com/freethinkel/tauri-nspopover
 tauri-plugin-updater = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 
+[target.'cfg(debug_assertions)'.dependencies]
+tauri-plugin-webdriver = "0.2"
+
 [dev-dependencies]
 tempfile = "3.25.0"

@@ -1,6 +1,6 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import PanelList from "@/components/PanelList2"
-import type { ProjectState } from '@/dtProjects/state/projects'
+import type { ProjectState } from "@/dtProjects/state/projects"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../../state/context"
 import { useProjectsCommands } from "../useProjectsCommands"
@@ -15,8 +15,6 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
     const { projects, images } = useDTP()
     const snap = projects.useSnap()
     const { imageSource, projectImageCounts } = images.useSnap()
-
-    const showFolders = true
 
     const isFiltering =
         !!imageSource?.filters?.length ||
@@ -52,37 +50,24 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                     projects.setSelectedProjects(e)
                 }}
             >
-                {showFolders &&
-                    snap.folders.map((folderGroup, _i, arr) => {
-                        const activeProjects = folderGroup.projects.filter((p) => !p.excluded)
-                        const excludedProjects = folderGroup.projects.filter((p) => p.excluded)
+                {snap.folders.map((folderGroup, _i, arr) => {
+                    const activeProjects = folderGroup.projects.filter((p) => !p.excluded)
+                    const excludedProjects = folderGroup.projects.filter((p) => p.excluded)
 
-                        return (
-                            <ProjectFolderGroup
-                                key={folderGroup.watchfolder.id}
-                                showLabel={arr.length > 1}
-                                watchfolder={folderGroup.watchfolder}
-                                onSelectFolder={(wf) => projects.selectFolderProjects(wf)}
-                            >
-                                {activeProjects.map((p) => (
-                                    <ProjectListItem
-                                        marginX={2}
-                                        key={p.path}
-                                        project={p}
-                                        altCount={projectImageCounts?.[p.id] ?? 0}
-                                        onContextMenu={async (_) => {
-                                            const command = await showContextMenu(
-                                                projects.state.selectedProjects,
-                                            )
-                                            if (command) {
-                                                await command()
-                                            }
-                                        }}
-                                    />
-                                ))}
-                                <HiddenProjectsGroup
-                                    projects={excludedProjects}
-                                    onProjectContextMenu={async (_) => {
+                    return (
+                        <ProjectFolderGroup
+                            key={folderGroup.watchfolder.id}
+                            showLabel={arr.length > 1}
+                            watchfolder={folderGroup.watchfolder}
+                            onSelectFolder={(wf) => projects.selectFolderProjects(wf)}
+                        >
+                            {activeProjects.map((p) => (
+                                <ProjectListItem
+                                    marginX={2}
+                                    key={p.path}
+                                    project={p}
+                                    altCount={projectImageCounts?.[p.id] ?? 0}
+                                    onContextMenu={async (_) => {
                                         const command = await showContextMenu(
                                             projects.state.selectedProjects,
                                         )
@@ -91,9 +76,21 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                                         }
                                     }}
                                 />
-                            </ProjectFolderGroup>
-                        )
-                    })}
+                            ))}
+                            <HiddenProjectsGroup
+                                projects={excludedProjects}
+                                onProjectContextMenu={async (_) => {
+                                    const command = await showContextMenu(
+                                        projects.state.selectedProjects,
+                                    )
+                                    if (command) {
+                                        await command()
+                                    }
+                                }}
+                            />
+                        </ProjectFolderGroup>
+                    )
+                })}
             </PanelList>
 
             <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>

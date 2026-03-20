@@ -1,132 +1,91 @@
-import os from 'os';
-import fse from 'fs-extra';
-import path from 'path';
-import { spawn, spawnSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import { config as dotenvConfig } from 'dotenv';
+import type { Options } from '@wdio/types';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { startApp, stopApp } from './helpers/appLauncher.js';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const testDataSource = "/media/share/dtm-test-data/"
-const testDataDest = path.join(os.homedir(), "dtm-test-data")
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const reuse = process.env.REUSE_BUILD === 'true';
+dotenvConfig({ path: resolve(__dirname, '.env') });
 
-// keep track of the `tauri-driver` child process
-let tauriDriver;
-let exit = false;
+const WEBDRIVER_PORT = 4445;
 
-export const config: WebdriverIO.Config = {
-  host: '127.0.0.1',
-  port: 4444,
-  specs: ['./specs/**/*.ts'],
+export const config: Options.Testrunner = {
+  runner: 'local',
+
+  autoCompileOpts: {
+    autoCompile: true,
+    tsNodeOpts: {
+      project: resolve(__dirname, 'tsconfig.json'),
+      transpileOnly: true,
+      esm: true,
+    },
+  },
+
+  specs: [resolve(__dirname, 'specs', '*.e2e.ts')],
+
+  exclude: [],
+
   maxInstances: 1,
+
   capabilities: [
     {
-      maxInstances: 1,
-      'tauri:options': {
-        application: '../src-tauri/target/debug/dtm',
+      browserName: 'chrome',
+      'goog:chromeOptions': {
+        // We don't actually use Chrome - WebdriverIO connects to our custom WebDriver server
       },
     },
   ],
-  reporters: ['spec'],
+
+  // Connect to our WebDriver server
+  hostname: '127.0.0.1',
+  port: WEBDRIVER_PORT,
+  path: '/',
+
+  logLevel: 'warn',
+
+  bail: 0,
+
+  waitforTimeout: 10000,
+
+  connectionRetryTimeout: 120000,
+
+  connectionRetryCount: 3,
+
   framework: 'mocha',
+
+  reporters: ['spec'],
+
   mochaOpts: {
     ui: 'bdd',
     timeout: 60000,
   },
 
-  // ensure the rust project is built since we expect this binary to exist for the webdriver sessions
-  onPrepare: () => {
-    if (!reuse)
-      spawnSync(
-        'npm',
-        ['run', 'tauri', 'build', '--', '--debug', '--no-bundle'],
-        {
-          cwd: path.resolve(__dirname, '..'),
-          stdio: 'inherit',
-          shell: true,
-        }
-      );
+  // Hooks
+  onPrepare: async function () {
+    // Global setup before any workers are launched
   },
 
-  // ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
-  beforeSession: () => {
-    console.log("BEFORE SESSION")
-    tauriDriver = spawn(
-      path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver'),
-      [],
-      { stdio: [null, process.stdout, process.stderr] }
-    );
-
-    tauriDriver.on('error', (error) => {
-      console.error('tauri-driver error:', error);
-      process.exit(1);
-    });
-    tauriDriver.on('exit', (code) => {
-      if (!exit) {
-        console.error('tauri-driver exited with code:', code);
-        process.exit(1);
-      }
-    });
+  onComplete: function () {
+    // Global teardown after all workers are finished
   },
 
-  before: async () => {
-    fse.emptyDirSync(testDataDest)
-    fse.copySync(testDataSource, testDataDest)
+  beforeSession: async function (config, capabilities, specs) {
+    if (specs && specs[0] && specs[0].includes('projects-reset.e2e.ts')) {
+      const App = (await import('./pageobjects/App.js')).default;
+      await App.clearAllData();
+    }
+
+    console.log('Starting Tauri application...');
+    await startApp(WEBDRIVER_PORT);
+
+    // Wait a bit for any lingering state to clear
+    await new Promise((resolve) => setTimeout(resolve, 500));
   },
 
-  // afterTest: async function (
-  //   test,
-  //   context,
-  //   { error, result, duration, passed }
-  // ) {
-  //   if (passed) return
-
-  //   const screenshotsDir = path.resolve("./screenshots")
-  //   if (!fs.existsSync(screenshotsDir)) {
-  //     fs.mkdirSync(screenshotsDir, { recursive: true })
-  //   }
-
-  //   const name = test.title
-  //     .replace(/[^a-z0-9]+/gi, "_")
-  //     .toLowerCase()
-
-  //   const filePath = path.join(
-  //     screenshotsDir,
-  //     `${name}-${Date.now()}.png`
-  //   )
-
-  //   await browser.saveScreenshot(filePath)
-  // },
-
-  // clean up the `tauri-driver` process we spawned at the start of the session
-  // note that afterSession might not run if the session fails to start, so we also run the cleanup on shutdown
-  afterSession: () => {
-    closeTauriDriver();
+  afterSession: async function () {
+    console.log('Stopping Tauri application...');
+    stopApp(WEBDRIVER_PORT);
   },
 };
-
-function closeTauriDriver() {
-  exit = true;
-  tauriDriver?.kill();
-}
-
-function onShutdown(fn) {
-  const cleanup = () => {
-    try {
-      fn();
-    } finally {
-      process.exit();
-    }
-  };
-
-  process.on('exit', cleanup);
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
-  process.on('SIGHUP', cleanup);
-  process.on('SIGBREAK', cleanup);
-}
-
-// ensure tauri-driver is closed when our test process exits
-onShutdown(() => {
-  closeTauriDriver();
-});

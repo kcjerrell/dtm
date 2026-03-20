@@ -23,7 +23,7 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
         () => [
             {
                 id: `watch-toggle-recursive`,
-                ariaLabel: "toggle recursive",
+                label: "Toggle recursive",
                 getIcon: (selected: readonly WatchFolderState[]) =>
                     selected[0]?.recursive ? FiList : LuFolderTree,
                 requiresSelection: true,
@@ -35,7 +35,7 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
             },
             {
                 id: `watch-remove-folders`,
-                ariaLabel: "remove folder",
+                label: "Remove folder",
                 icon: FaMinus,
                 requiresSelection: true,
                 onClick: (selected: readonly WatchFolderState[]) => {
@@ -45,7 +45,7 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
             },
             {
                 id: `watch-add-folder`,
-                ariaLabel: "add folder",
+                label: "Add folder",
                 icon: FaPlus,
                 onClick: async () => {
                     await watchFolders.pickWatchFolder()
@@ -88,7 +88,7 @@ export function SettingsPanel(props: DialogProps<SettingsDialogState>) {
                 </Text>
                 <IconButton
                     role={"button"}
-                    aria-label={"close settings"}
+                    aria-label={"Close dialog"}
                     flex={"0 0 auto"}
                     size="min"
                     onClick={() => uiState.showSettings(false)}

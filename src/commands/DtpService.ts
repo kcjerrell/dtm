@@ -68,7 +68,7 @@ async function listWatchFolders(): Promise<WatchFolder[]> {
 async function pickWatchFolder(dtFolder?: boolean): Promise<void> {
     let testOverride = undefined
     if ((window as unknown as Record<string, string>).__E2E_FILE_PATH__) {
-        testOverride = `TESTPATH::${(window as unknown as Record<string, string>).__E2E_FILE_PATH__}`
+        testOverride = (window as unknown as Record<string, string>).__E2E_FILE_PATH__
         ;(window as unknown as Record<string, string>).__E2E_FILE_PATH__ = "" // Clear it after use
         // In E2E tests, we bypass the native picker and return a predefined path.
     }

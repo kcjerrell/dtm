@@ -330,7 +330,7 @@ async fn get_folder(
     if let Some(test_override) = test_override {
         return Ok(PickFolderResult {
             path: test_override.clone(),
-            bookmark: test_override,
+            bookmark: format!("TESTBOOKMARK::{}", test_override),
         });
     }
 

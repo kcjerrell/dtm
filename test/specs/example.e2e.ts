@@ -2,6 +2,9 @@ import App from "../pageobjects/App"
 
 before(async () => {
     await App.clearAllData()
+    await browser.url("tauri://localhost")
+    // Wait for hydration/loading
+    await new Promise(resolve => setTimeout(resolve, 3000))
 })
 
 describe('Hello Tauri', () => {

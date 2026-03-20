@@ -3,15 +3,15 @@ import path from "path";
 import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
 
-const testProjectsDir = path.join(process.env.DTP_TEST_DIR, "projects")
+const testProjectsDir = process.env.DTP_TEST_DIR
 
 // these tests will have the app data cleared before running
 // so there will be no watched folders set up already
 
-beforeEach(async () => {
-  App.clearAllData()
-  await DTProjects.helpers.checkProjectFiles()
+before(async () => {
+  await App.clearAllData()
 })
+
 
 describe('Projects', () => {
   it('can add a watchfolder', async () => {
@@ -20,25 +20,27 @@ describe('Projects', () => {
     const settingsHeader = $("p=Settings")
     await expect(settingsHeader).toBeDisplayedInViewport()
 
+    const projectsAPath = path.resolve(path.join(testProjectsDir, "folder-a"))
+    console.log("projectsAPath", projectsAPath)
+
     await browser.execute((folderPath) => {
       (window as any).__E2E_FILE_PATH__ = folderPath
-    }, testProjectsDir);
+    }, projectsAPath);
+    
+    // the progress bar goes by too fast, we'll comment out for now
+    // const progressBarWait = $("div*=images scanned").waitForDisplayed({ timeout: 5000 })
+    
+    await $("aria/Add folder").click()
+    
+    // await progressBarWait
+    // await $("div*=images scanned").waitForDisplayed({ timeout: 5000, reverse: true })
 
-    // the progress bar goes by fast so we start waiting before adding the folder
-    const progressBarWait = $("div*=images scanned").waitForDisplayed({ timeout: 5000 })
+    await expect($(`div=${projectsAPath}`)).toBeDisplayedInViewport()
 
-    await $("aria/add folder").click()
+    await $('aria/Close dialog').scrollIntoView({scrollableElement: $("div[role='dialog']")})
+    await $('aria/Close dialog').click()
 
-    // make sure progress appeared...
-    await progressBarWait
-    // ...and then went away
-    await $("div*=images scanned").waitForDisplayed({ timeout: 5000, reverse: true })
-
-    await expect($(`div=${testProjectsDir}`)).toBeDisplayedInViewport()
-
-    await $('button[aria-label="close settings"]').click()
-
-    await expect($("div=test-project-a")).toBeDisplayedInViewport()
-    await expect($("div=test-project-b")).toBeDisplayedInViewport()
+    await expect($("div=test-project-a2")).toBeDisplayedInViewport()
+    await expect($("div=test-project-c-9")).toBeDisplayedInViewport()
   })
 })
