@@ -20,7 +20,10 @@ pub use dtm_dtproject::{extract_jpeg_slice, DtmProtocol};
 mod tensor_history_mod;
 
 mod tensors;
-pub use tensors::decode_tensor;
+pub use tensors::{decode_tensor, build_description};
+
+mod audio;
+pub use audio::decode_audio;
 
 mod metadata;
 pub use metadata::DrawThingsMetadata;

@@ -236,7 +236,7 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_metadata(&self, image_id: i64) -> Result<String, String> {
+    pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
         let pdb = self.get_db().await?;
         let image = pdb.get_image(image_id).await?;
         let dt_project = pdb.get_dt_project(ProjectRef::Id(image.project_id)).await?;
@@ -245,7 +245,7 @@ impl DTPService {
             .await
             .map_err(|e| e.to_string())?;
         let metadata = DrawThingsMetadata::try_from(&history.history).unwrap();
-        Ok(serde_json::to_string(&metadata).map_err(|e| e.to_string())?)
+        Ok(metadata)
     }
 
     #[dtp_command]

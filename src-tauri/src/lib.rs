@@ -15,6 +15,7 @@ mod projects_db;
 use dtp_service::dtp_connect;
 use projects_db::dt_project_tensordata;
 mod vid;
+mod vid_export;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -161,9 +162,11 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
-            vid::create_video_from_frames,
-            vid::save_all_clip_frames,
-            vid::check_pattern,
+            vid_export::create_video_from_frames,
+            vid_export::save_all_clip_frames,
+            vid_export::check_pattern,
+            vid::get_video_metadata,
+            vid::get_video_thumbnail,
             ffmpeg_check,
             ffmpeg_download,
             ffmpeg_download,

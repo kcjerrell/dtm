@@ -3,6 +3,7 @@ import * as path from "@tauri-apps/api/path"
 import * as fs from "@tauri-apps/plugin-fs"
 import { store as createStore } from "@tauri-store/valtio"
 import { customAlphabet } from "nanoid"
+import { getVideoThumbnail } from '@/commands'
 import { getStoreName } from "./helpers"
 
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
@@ -37,6 +38,7 @@ export type ImageStoreEntry = {
     type: string
     url: string
     thumbUrl: string
+    cachePath: string
 }
 
 function initStore() {
@@ -48,12 +50,6 @@ function initStore() {
             syncStrategy: "debounce",
             syncInterval: 1000,
             saveOnChange: true,
-            hooks: {
-                beforeFrontendSync: (state) => {
-                    console.log("fe sync")
-                    return state
-                },
-            },
         },
     )
     window.addEventListener("unload", () => storeInstance.stop())
@@ -64,17 +60,18 @@ let imagesStore: ReturnType<typeof initStore> | null = null
 
 function getStore() {
     if (!imagesStore) {
-        console.debug("IMAGES: creating store")
         imagesStore = initStore()
     }
     return imagesStore
 }
 
-const _validTypes = ["png", "tiff", "jpg", "webp"]
+const _imageTypes = ["png", "tiff", "jpg", "webp"]
+const _videoTypes = ["mp4", "webm", "mov", "m4v"]
+const _validTypes = [..._imageTypes, ..._videoTypes]
 
-async function saveImage(image: Uint8Array, type: string): Promise<ImageStoreEntry | undefined> {
+async function saveMedia(data: Uint8Array, type: string): Promise<ImageStoreEntry | undefined> {
     if (!type || !_validTypes.includes(type)) return
-    if (!image || image.length === 0) return
+    if (!data || data.length === 0) return
 
     try {
         const id = await getNewId()
@@ -83,16 +80,22 @@ async function saveImage(image: Uint8Array, type: string): Promise<ImageStoreEnt
         if (!(await fs.exists(await getImageFolder()))) {
             await fs.mkdir(await getImageFolder(), { recursive: true })
         }
-        
-        await fs.writeFile(fname, image, {
+
+        await fs.writeFile(fname, data, {
             createNew: true,
         })
+
+        if (isVideo(type)) {
+            const thumbData = await getVideoThumbnail(fname)
+            await fs.writeFile(await getThumbPath(id), thumbData)
+        }
 
         const entry = { id, type }
         getStore().state.images[id] = entry
 
         const url = convertFileSrc(fname)
-        return { ...entry, url, thumbUrl: url }
+        const thumbUrl = isVideo(type) ? convertFileSrc(await getThumbPath(id)) : url
+        return { ...entry, url, thumbUrl, cachePath: fname }
     } catch (e) {
         console.error(e)
         return
@@ -103,10 +106,10 @@ async function getImage(id: string): Promise<ImageStoreEntry | undefined> {
     const entry = getStore().state.images[id]
 
     if (!entry) return
-
-    const url = convertFileSrc(await getFullPath(id, entry.type))
-    // const thumbUrl = convertFileSrc(await getThumbPath(id))
-    return { ...entry, url, thumbUrl: url }
+    const fullPath = await getFullPath(id, entry.type)
+    const url = convertFileSrc(fullPath)
+    const thumbUrl = isVideo(entry.type) ? convertFileSrc(await getThumbPath(id)) : url
+    return { ...entry, url, thumbUrl, cachePath: fullPath }
 }
 
 async function getFullPath(id: string, ext: string) {
@@ -174,7 +177,7 @@ async function saveCopy(id: string, dest: string) {
 }
 
 const ImageStore = {
-    save: saveImage,
+    save: saveMedia,
     get: getImage,
     remove: removeImage,
     sync: syncImages,
@@ -192,4 +195,18 @@ async function removeFile(filePath: string) {
     } catch (e) {
         console.error(e)
     }
+}
+
+export function isVideo(extension: string): boolean
+export function isVideo(filename: string): boolean
+export function isVideo(filename: string) {
+    const ext = filename.split(".").pop()?.toLowerCase()
+    return ext && _videoTypes.includes(ext)
+}
+
+export function isImage(extension: string): boolean
+export function isImage(filename: string): boolean
+export function isImage(filename: string) {
+    const ext = filename.split(".").pop()?.toLowerCase()
+    return ext && _imageTypes.includes(ext)
 }

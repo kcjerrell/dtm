@@ -201,6 +201,7 @@ export interface DTImageFull {
     config: DrawThingsConfig
     groupedConfig: DrawThingsConfigGrouped
     clipId: number
+    clip?: Clip | null
     numFrames: number
     node: XTensorHistoryNode
     images: {
@@ -342,6 +343,7 @@ export interface TensorHistoryExtra {
     moodboard_ids: string[]
     history: XTensorHistoryNode
     project_path: string
+    clip: Clip | null | undefined
 }
 
 export type ScanProgress = {

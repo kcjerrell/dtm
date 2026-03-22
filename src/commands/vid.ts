@@ -61,3 +61,13 @@ export async function checkPattern(
 ): Promise<CheckPatternResult> {
     return await invoke("check_pattern", { pattern, dir, numFrames })
 }
+
+export async function getVideoMetadata(path: string): Promise<Record<string, unknown>> {
+    const data = await invoke("get_video_metadata", { path })
+    console.log("video metadata", data)
+    return JSON.parse(data as string)
+}
+
+export async function getVideoThumbnail(path: string): Promise<Uint8Array> {
+    return new Uint8Array(await invoke("get_video_thumbnail", { path }))
+}
