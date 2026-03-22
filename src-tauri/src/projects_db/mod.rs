@@ -23,6 +23,7 @@ mod tensors;
 pub use tensors::decode_tensor;
 
 mod metadata;
+pub use metadata::DrawThingsMetadata;
 
 mod text_history;
 pub use text_history::TextHistory;
