@@ -1,17 +1,15 @@
 use crate::{
     bookmarks::{self, PickFolderResult},
-    dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
+    dtp_service::{AppHandleWrapper, DTPService, events::DTPEvent, jobs::SyncJob},
     projects_db::{
-        dtos::{
+        DrawThingsMetadata, ProjectRef, dtos::{
             clip::ClipExtra,
             image::ListImagesResult,
             model::ModelExtra,
             project::ProjectExtra,
             tensor::{TensorHistoryExtra, TensorSize},
             watch_folder::WatchFolderDTO,
-        },
-        filters::ListImagesFilter,
-        folder_cache,
+        }, filters::ListImagesFilter, folder_cache
     },
 };
 use dtm_macros::dtp_commands;
@@ -235,6 +233,19 @@ impl DTPService {
         }
 
         Ok(json)
+    }
+
+    #[dtp_command]
+    pub async fn get_metadata(&self, image_id: i64) -> Result<String, String> {
+        let pdb = self.get_db().await?;
+        let image = pdb.get_image(image_id).await?;
+        let dt_project = pdb.get_dt_project(ProjectRef::Id(image.project_id)).await?;
+        let history = dt_project
+            .get_history_full(image.node_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        let metadata = DrawThingsMetadata::try_from(&history.history).unwrap();
+        Ok(serde_json::to_string(&metadata).map_err(|e| e.to_string())?)
     }
 
     #[dtp_command]

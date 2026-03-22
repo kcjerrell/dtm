@@ -1,5 +1,5 @@
 use regex::Regex;
-use sea_orm::{EntityTrait, JoinType, QuerySelect, RelationTrait};
+use sea_orm::{EntityTrait, QuerySelect};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
@@ -183,7 +183,7 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     let (frame_count, _) = save_all_clip_frames(
         app.clone(),
-        dtp,
+        dtp.clone(),
         FramesExportOpts {
             image_id: opts.image_id,
             output_dir: temp_dir.to_str().unwrap().to_string(),
@@ -234,6 +234,9 @@ pub async fn create_video_from_frames(
         None
     };
 
+    // get metadata
+    let metadata = &dtp.get_metadata(opts.image_id).await.unwrap_or_default();
+
     // -------------------------------------------------
     // Build ffmpeg command
     // -------------------------------------------------
@@ -271,16 +274,14 @@ pub async fn create_video_from_frames(
     ]);
 
     cmd.args([
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        "-preset",
-        "medium",
-        "-crf",
-        "18",
-        output_file.to_str().unwrap(),
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "18",
     ]);
+
+    if !metadata.is_empty() {
+        cmd.args(["-metadata", &format!("comment={}", metadata)]);
+    }
+
+    cmd.arg(output_file.to_str().unwrap());
 
     cmd.stdout(Stdio::piped());
 

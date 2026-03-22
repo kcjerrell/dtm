@@ -75,6 +75,10 @@ async function saveImage(image: Uint8Array, type: string): Promise<ImageStoreEnt
         const id = await getNewId()
         const fname = await getFullPath(id, type)
 
+        if (!(await fs.exists(await getImageFolder()))) {
+            await fs.mkdir(await getImageFolder(), { recursive: true })
+        }
+        
         await fs.writeFile(fname, image, {
             createNew: true,
         })
