@@ -343,7 +343,7 @@ fn format_desc_float(f: f64) -> String {
     }
 }
 
-fn build_description(metadata: &DrawThingsMetadata) -> String {
+pub fn build_description(metadata: &DrawThingsMetadata) -> String {
     /*
     sample description:
     this image has awesome metadata. it is a picture of a cool dude
