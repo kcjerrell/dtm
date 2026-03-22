@@ -6,6 +6,7 @@ use tauri::{
 };
 
 use crate::projects_db::{
+    decode_audio,
     projects_db::MixedError,
     tensors::{decode_tensor, scribble_mask_to_png},
     DTProject, ProjectsDb,
@@ -32,6 +33,7 @@ struct DTPRequest {
     scale: Option<u32>,
     invert: Option<bool>,
     mask: Option<String>,
+    duration: Option<f64>,
 }
 
 fn parse_request(uri: &Uri) -> Option<DTPRequest> {
@@ -55,6 +57,7 @@ fn parse_request(uri: &Uri) -> Option<DTPRequest> {
                 "s" => req.scale = Some(value.parse().unwrap()),
                 "invert" => req.invert = Some(value.parse().unwrap()),
                 "mask" => req.mask = Some(value.to_string()),
+                "t" => req.duration = Some(value.parse().unwrap()),
                 _ => (),
             }
         }
@@ -125,10 +128,11 @@ impl DtmProtocol {
         let scale = req.scale;
         let invert = req.invert;
         let mask = req.mask;
+        let duration = req.duration;
         match item_type.as_str() {
             "thumb" => thumb(&project_path, &item_id, false).await,
             "thumbhalf" => thumb(&project_path, &item_id, true).await,
-            "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
+            "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask, duration).await,
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("Not Found".as_bytes().to_vec())
@@ -183,6 +187,7 @@ async fn tensor(
     scale: Option<u32>,
     invert: Option<bool>,
     _mask: Option<String>,
+    duration: Option<f64>,
 ) -> Result<Response<Vec<u8>>, String> {
     let dtp = DTProject::get(full_project_path)
         .await
@@ -193,19 +198,24 @@ async fn tensor(
         .await
         .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
 
-    let metadata = match node {
-        Some(node) => Some(
-            dtp.get_history_full(node)
-                .await
-                .map_err(|e| format!("Failed to get history: {}", e))?
-                .history,
-        ),
-        None => None,
-    };
+    let tensor_type = classify_type(name).unwrap_or("");
 
-    let body = match classify_type(name).unwrap_or("") {
+    let body = match tensor_type {
         "pose" => None,
+        "audio" => {
+            let audio = decode_audio(tensor, duration.unwrap_or(0.0)).await?;
+            Some(audio)
+        }
         "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
+            let metadata = match node {
+                Some(node) => Some(
+                    dtp.get_history_full(node)
+                        .await
+                        .map_err(|e| format!("Failed to get history: {}", e))?
+                        .history,
+                ),
+                None => None,
+            };
             let png = decode_tensor(tensor, true, metadata, scale)
                 .map_err(|e| format!("Failed to decode tensor: {}", e))?;
             Some(png)
@@ -221,7 +231,14 @@ async fn tensor(
     match body {
         Some(body) => Response::builder()
             .status(StatusCode::OK)
-            .header("Content-Type", "image/png")
+            .header(
+                "Content-Type",
+                if tensor_type == "audio" {
+                    "audio/wav"
+                } else {
+                    "image/png"
+                },
+            )
             .header("Access-Control-Allow-Origin", "*")
             .header("Access-Control-Allow-Methods", "GET")
             .body(body)

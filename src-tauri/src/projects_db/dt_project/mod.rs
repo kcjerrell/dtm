@@ -335,6 +335,7 @@ impl DTProject {
         let dim: Vec<u8> = row.get(3);
         let data: Vec<u8> = row.get(4);
 
+        let n = i32::from_le_bytes(dim[0..4].try_into().ok().unwrap());
         let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
         let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
         let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
@@ -344,6 +345,7 @@ impl DTProject {
             tensor_type,
             format,
             data_type,
+            n,
             height,
             width,
             channels,
