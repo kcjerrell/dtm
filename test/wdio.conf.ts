@@ -1,94 +1,110 @@
-import { config as dotenvConfig } from 'dotenv';
-import type { Options } from '@wdio/types';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { startApp, stopApp } from './helpers/appLauncher.js';
+// import { config as dotenvConfig } from 'dotenv';
+import type { Options } from "@wdio/types";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+	startApp,
+	stopApp,
+	isAppRunning,
+	startDevServer,
+	waitForServer,
+} from "./helpers/appLauncher.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const devMode = process.env.DEV_MODE === 'true';
+const devMode = process.env.DEV_MODE === "true";
+console.log(devMode);
 
-dotenvConfig({ path: resolve(__dirname, '.env') });
+// dotenvConfig({ path: resolve(__dirname, '.env') });
 
 const WEBDRIVER_PORT = 4445;
 
 export const config: Options.Testrunner = {
-  runner: 'local',
+	runner: "local",
 
-  // autoCompileOpts: {
-  //   autoCompile: true,
-  //   tsNodeOpts: {
-  //     project: resolve(__dirname, 'tsconfig.json'),
-  //     transpileOnly: true,
-  //     esm: true,
-  //   },
-  // },
+	// autoCompileOpts: {
+	//   autoCompile: true,
+	//   tsNodeOpts: {
+	//     project: resolve(__dirname, 'tsconfig.json'),
+	//     transpileOnly: true,
+	//     esm: true,
+	//   },
+	// },
 
-  specs: [resolve(__dirname, 'specs', '**/*.e2e.ts')],
+	specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
 
-  exclude: [],
+	exclude: [],
 
-  maxInstances: 1,
+	maxInstances: 1,
 
-  capabilities: [
-    {
-      browserName: 'chrome',
-      'goog:chromeOptions': {
-        // We don't actually use Chrome - WebdriverIO connects to our custom WebDriver server
-      },
-    },
-  ],
+	capabilities: [
+		{
+			browserName: "chrome",
+			"goog:chromeOptions": {
+				// We don't actually use Chrome - WebdriverIO connects to our custom WebDriver server
+			},
+		},
+	],
 
-  // Connect to our WebDriver server
-  hostname: '127.0.0.1',
-  port: WEBDRIVER_PORT,
-  path: '/',
+	// Connect to our WebDriver server
+	hostname: "127.0.0.1",
+	port: WEBDRIVER_PORT,
+	path: "/",
 
-  logLevel: 'warn',
+	logLevel: "warn",
 
-  bail: 0,
+	bail: 0,
 
-  waitforTimeout: 10000,
+	waitforTimeout: 10000,
 
-  connectionRetryTimeout: 120000,
+	connectionRetryTimeout: 120000,
 
-  connectionRetryCount: 3,
+	connectionRetryCount: 3,
 
-  framework: 'mocha',
+	framework: "mocha",
 
-  reporters: ['spec'],
+	reporters: ["spec"],
 
-  mochaOpts: {
-    ui: 'bdd',
-    timeout: 60000,
-  },
+	mochaOpts: {
+		ui: "bdd",
+		timeout: 60000,
+	},
 
-  // Hooks
-  onPrepare: async function () {
-    // Global setup before any workers are launched
-  },
+	// Hooks
+	onPrepare: async function () {
+		// Global setup before any workers are launched
+	},
 
-  onComplete: function () {
-    // Global teardown after all workers are finished
-  },
+	onComplete: function () {
+		// Global teardown after all workers are finished
+	},
 
-  beforeSession: async function (config, capabilities, specs) {
-    if (devMode) {
-      console.log("Running tests in dev mode... (launch app with 'npm run dev' first)")
-      return
-    }
+	beforeSession: async function (config, capabilities, specs) {
+		if (devMode) {
+			if (!isAppRunning("DTM") && !isAppRunning("dtm")) {
+				console.log(`App not running. Starting dev server...`);
+				await startDevServer(WEBDRIVER_PORT);
+			} else {
+				console.log(
+					`App is already running. Connecting to existing session...`,
+				);
+				// Still wait for server to be ready just in case
+				await waitForServer(WEBDRIVER_PORT);
+			}
+			return;
+		}
 
-    console.log('Starting Tauri application...');
-    await startApp(WEBDRIVER_PORT);
+		console.log("Starting Tauri application...");
+		await startApp(WEBDRIVER_PORT);
 
-    // Wait a bit for any lingering state to clear
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  },
+		// Wait a bit for any lingering state to clear
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	},
 
-  afterSession: async function () {
-    if (devMode) return
-    console.log('Stopping Tauri application...');
-    stopApp(WEBDRIVER_PORT);
-  },
+	afterSession: async function () {
+		if (devMode) return;
+		console.log("Stopping Tauri application...");
+		stopApp(WEBDRIVER_PORT);
+	},
 };
