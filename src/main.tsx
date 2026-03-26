@@ -18,10 +18,15 @@ const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
 }
 
+async function reset_db() {
+    await invoke("dtp_reset_db")
+}
+
 function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
 
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
+    window.__reset_db = reset_db
 
     const hash = document.location?.hash?.slice(1)
     if (hash === "mini") AppStore.setView("mini")

@@ -7,6 +7,8 @@ import { startApp, stopApp } from './helpers/appLauncher.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const devMode = process.env.DEV_MODE === 'true';
+
 dotenvConfig({ path: resolve(__dirname, '.env') });
 
 const WEBDRIVER_PORT = 4445;
@@ -23,7 +25,7 @@ export const config: Options.Testrunner = {
   //   },
   // },
 
-  specs: [resolve(__dirname, 'specs', '*.e2e.ts')],
+  specs: [resolve(__dirname, 'specs', '**/*.e2e.ts')],
 
   exclude: [],
 
@@ -72,10 +74,10 @@ export const config: Options.Testrunner = {
   },
 
   beforeSession: async function (config, capabilities, specs) {
-    // if (specs && specs[0] && specs[0].includes('projects-reset.e2e.ts')) {
-    //   const App = (await import('./pageobjects/App.js')).default;
-    //   await App.clearAllData();
-    // }
+    if (devMode) {
+      console.log("Running tests in dev mode... (launch app with 'npm run dev' first)")
+      return
+    }
 
     console.log('Starting Tauri application...');
     await startApp(WEBDRIVER_PORT);
@@ -85,6 +87,7 @@ export const config: Options.Testrunner = {
   },
 
   afterSession: async function () {
+    if (devMode) return
     console.log('Stopping Tauri application...');
     stopApp(WEBDRIVER_PORT);
   },

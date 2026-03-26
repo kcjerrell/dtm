@@ -6,10 +6,11 @@ interface SearchChipProps extends Omit<ChakraProps, "onClick"> {
     onClick?: (e: React.MouseEvent<HTMLDivElement>) => void
     onClickX?: (e: React.MouseEvent<HTMLButtonElement>) => void
     shrink?: boolean
+    ariaLabel: string
 }
 
 function SearchChip(props: SearchChipProps) {
-    const { shrink, onClick, onClickX, children, ...restProps } = props
+    const { shrink, onClick, onClickX, ariaLabel, children, ...restProps } = props
 
     const truncProps = shrink
         ? {
@@ -23,6 +24,7 @@ function SearchChip(props: SearchChipProps) {
 
     return (
         <HStack
+            aria-label={ariaLabel}
             flex={shrink ? "0 1 auto" : "0 0 auto"}
             paddingInlineStart={2}
             className={"group"}
@@ -35,6 +37,7 @@ function SearchChip(props: SearchChipProps) {
                 {children}
             </Box>
             <IconButton
+                aria-label={`Clear ${ariaLabel?.toLowerCase()}`}
                 flex={"0 0 auto"}
                 size="min"
                 onClick={(e) => {

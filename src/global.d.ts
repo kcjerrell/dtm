@@ -15,4 +15,5 @@ declare global {
 	type ChakraProps = Omit<BoxProps, "direction">
 
 	function toJSON<T>(object: T): T
+	function __reset_db(): Promise<void>
 }

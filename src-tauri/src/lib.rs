@@ -195,6 +195,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_sync_projects,
             dtp_service::data::dtp_get_metadata,
             dt_project_tensordata,
+            dtp_service::dtp_service::dtp_reset_db,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();

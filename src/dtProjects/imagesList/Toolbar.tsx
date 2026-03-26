@@ -1,4 +1,6 @@
 import { chakra, HStack } from "@chakra-ui/react"
+import { LuSlash } from "react-icons/lu"
+import { MdOutlineSdStorage } from "react-icons/md"
 import { IconButton } from "@/components"
 import IconToggle from "@/components/IconToggle"
 import { PiFilmStrip, PiImage, TbSortAscending2, TbSortDescending2 } from "@/components/icons/icons"
@@ -6,14 +8,10 @@ import { useDTP } from "../state/context"
 import FiltersWidget from "./FiltersWidget"
 import ProjectsWidget from "./ProjectsWidget"
 import SearchTextWidget from "./SearchTextWidget"
-import { MdOutlineSdStorage } from "react-icons/md"
-import { BsUsbDrive } from "react-icons/bs"
-import { CiUsb } from "react-icons/ci"
-import { FaSlash } from "react-icons/fa"
-import { LuSlash } from "react-icons/lu"
-interface StatusBarProps extends ChakraProps {}
 
-function StatusBar(props: StatusBarProps) {
+interface ToolbarProps extends ChakraProps {}
+
+function Toolbar(props: ToolbarProps) {
     const { ...restProps } = props
 
     const { images, watchFolders } = useDTP()
@@ -24,6 +22,8 @@ function StatusBar(props: StatusBarProps) {
 
     return (
         <HStack
+            aria-label={"Image grid controls"}
+            role={"toolbar"}
             justifyContent={"flex-start"}
             padding={0}
             bgColor={"bg.2"}
@@ -134,4 +134,4 @@ const Section = chakra("div", {
     },
 })
 
-export default StatusBar
+export default Toolbar

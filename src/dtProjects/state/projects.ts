@@ -67,9 +67,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         super("projects")
 
         this.container.on("project_added", (project) => {
-            this.state.projects.push(
-                makeSelectable({ ...project, name: project.path.split("/").pop() as string }),
-            )
+            this.state.projects.push(this.createProjectState(project))
             this.state.projects.sort(projectSort)
             this.state.projectsCount++
             this.loadProjectsDebounced()
@@ -135,17 +133,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
         const folders = groupMap(
             dtpProjects,
-            (p) => [
-                p.watchfolder_id,
-                makeSelectable(
-                    {
-                        ...p,
-                        name: p.path.split("/").pop() as string,
-                    },
-                    false,
-                    (item, currentValue, modifier) => this.selectItem(item, currentValue, modifier),
-                ),
-            ],
+            (p) => [p.watchfolder_id, this.createProjectState(p)],
             (folderId, folderProjects) => {
                 const folder = watchfolders.find((f) => f.id === folderId)
                 return {
@@ -169,10 +157,12 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
     private lastSelectedProject: ProjectState | null = null
     selectItem(
-        item: ProjectState,
+        project: ProjectState,
         currentValue: boolean,
         modifier?: "shift" | "cmd" | "context" | null,
     ) {
+        const item = this.state.projects.find((p) => p.id === project.id)
+        if (!item) return
         // if opening context menu, item will be selected
         if (modifier === "context") {
             // if already selected, do nothing
@@ -231,8 +221,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         if (this.loadProjectsTimeout) {
             clearTimeout(this.loadProjectsTimeout)
         }
-        this.loadProjectsTimeout = setTimeout(() => {
-            this.loadProjects()
+        this.loadProjectsTimeout = setTimeout(async () => {
+            await this.loadProjects()
+            await this.container.getService("models").refreshModels()
         }, 2000)
     }
 
@@ -319,6 +310,17 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
     toggleShowEmptyProjects() {
         this.state.showEmptyProjects = !this.state.showEmptyProjects
+    }
+
+    private createProjectState(project: ProjectExtra) {
+        return makeSelectable(
+            {
+                ...project,
+                name: project.path.split("/").pop() as string,
+            },
+            false,
+            (item, currentValue, modifier) => this.selectItem(item, currentValue, modifier),
+        )
     }
 }
 

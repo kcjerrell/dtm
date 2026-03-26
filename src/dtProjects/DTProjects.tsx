@@ -6,7 +6,7 @@ import DialogPresenter from "./dialog/DialogPresenter"
 import EmptyGrid from "./EmptyGrid"
 import ImportProgress from "./ImportProgress"
 import ImagesList from "./imagesList/ImagesList"
-import StatusBar from "./imagesList/StatusBar"
+import Toolbar from "./imagesList/Toolbar"
 import { MenuProvider } from "./MenuContext"
 
 function DTProjects(props: ChakraProps) {
@@ -29,7 +29,7 @@ function DTProjects(props: ChakraProps) {
                     borderRadius={0}
                 >
                     <ImportProgress />
-                    <StatusBar
+                    <Toolbar
                         position={"absolute"}
                         top={3}
                         left={undefined}

@@ -8,26 +8,14 @@ const __dirname = dirname(__filename);
 
 let appProcess: ChildProcess | null = null;
 
-type Platform = 'desktop'
-
-function getPlatform(): Platform {
-  return 'desktop';
-}
-
 export function getAppPath(): string {
   const buildType = 'debug'
   const base = resolve(__dirname, `../../src-tauri/target/${buildType}`);
 
-  switch (process.platform) {
-    case 'darwin': {
-      // Try bundled app first, fall back to unbundled binary (--no-bundle)
-      const bundledPath = resolve(base, 'bundle/macos/dtm.app/Contents/MacOS/dtm');
-      const unbundledPath = resolve(base, 'dtm');
-      return existsSync(bundledPath) ? bundledPath : unbundledPath;
-    }
-    default:
-      throw new Error(`Unsupported platform: ${process.platform}`);
-  }
+  // Try bundled app first, fall back to unbundled binary (--no-bundle)
+  const bundledPath = resolve(base, 'bundle/macos/dtm.app/Contents/MacOS/dtm');
+  const unbundledPath = resolve(base, 'dtm'); 
+  return existsSync(bundledPath) ? bundledPath : unbundledPath;
 }
 
 export async function waitForServer(port: number, timeout: number = 30000): Promise<void> {

@@ -17,14 +17,16 @@ class App {
   }
 
   async clearAllData() {
-    console.log("Clearing data...")
-    try {
-      const dataPath = os.platform() === 'darwin'
-        ? path.join(os.homedir(), "Library/Application Support/com.kcjer.dtm")
-        : path.join(os.homedir(), ".local/share/com.kcjer.dtm");
-      fs.rmSync(dataPath, { recursive: true });
-    } catch (e) {
-    }
+    await browser.executeAsync(async (done) => {
+      try {
+        await (window as any).__reset_db()
+        done(true)
+      } catch (e) {
+        done(false)
+      }
+    })
+    await browser.refresh()
+    await new Promise(resolve => setTimeout(resolve, 3000))
   }
 }
 
