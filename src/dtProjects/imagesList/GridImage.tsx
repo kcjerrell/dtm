@@ -175,7 +175,7 @@ function GridImage(props: GridImageProps) {
             {showVideo ? (
                 <Video image={item} half autoStart>
                     <GridImageVideo asChild>
-                        <VideoImage />
+                        <VideoImage fit={"cover"} />
                     </GridImageVideo>
                 </Video>
             ) : (
