@@ -1,16 +1,16 @@
-import { HStack, Spacer } from "@chakra-ui/react"
+import { HStack } from "@chakra-ui/react"
 import { useEffect, useMemo, useRef } from "react"
 import { proxy, type Snapshot, useSnapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
-import type { ICommandItem } from "@/types"
-import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import type { ICommand } from "@/types"
+import { PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import CommandButton from "./CommandButton"
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
-import CommandButton from './CommandButton'
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
-    commands?: ICommandItem<T, C>[]
+    commands?: ICommand<T, C>[]
     commandContext?: C
     header?: string
     headerInfo?: string

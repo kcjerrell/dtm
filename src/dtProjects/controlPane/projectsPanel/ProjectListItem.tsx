@@ -31,7 +31,9 @@ function ProjectListItem(props: ProjectListItemProps) {
             selectable
             selected={project.selected}
             asChild
-            onClick={(e) => project.onClick(e)}
+            onClick={(e) => {
+                project.onClick(e)
+            }}
             onContextMenu={(e) => {
                 if (!project.selected) project.onClick()
                 onContextMenu?.(e)

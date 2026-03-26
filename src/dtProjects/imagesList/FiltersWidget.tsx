@@ -15,6 +15,7 @@ function FiltersWidget(props: FiltersWidgetProps) {
 
     return (
         <SearchChip
+            ariaLabel={"Search filters"}
             onClick={() => {
                 uiState.setSelectedTab("search")
             }}

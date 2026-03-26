@@ -1,12 +1,19 @@
 import { Menu, MenuItem, type MenuOptions, PredefinedMenuItem } from "@tauri-apps/api/menu"
-import type { ICommand, ICommandItem } from "@/types"
+import type { ICommand } from "@/types"
 
 export async function showMenu<T, C = undefined>(
-    commands: ICommandItem<T, C>[],
+    commands: ICommand<T, C>[],
     selected: T[],
     context?: C,
 ): Promise<ICommand<T, C> | null> {
-    let selectedItem: ICommandItem<T, C> | null = null
+    const testOption = (window as unknown as Record<string, unknown>).__testMenuOption
+    if (testOption && typeof testOption === "string") {
+        ;(window as unknown as Record<string, unknown>).__testMenuOption = null
+        const cmd = commands.find((c) => c.id === testOption)
+        if (cmd) return cmd
+    }
+
+    let selectedItem: ICommand<T, C> | null = null
 
     const items: MenuOptions["items"] = []
     for (const command of commands) {

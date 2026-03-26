@@ -5,7 +5,7 @@
   "version": "0.4.3",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "TAURI_WEBDRIVER_PORT=4445 tauri dev",
     "dev:web": "MOCK_TAURI=true vite",
     "dev:vite": "vite",
     "build": "vite build",

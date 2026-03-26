@@ -93,7 +93,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 })}
             </PanelList>
 
-            <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
+            <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1} aria-label={"Projects status bar"}>
                 <Box>{snap.projects.length} projects</Box>
 
                 <Box>{snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images</Box>

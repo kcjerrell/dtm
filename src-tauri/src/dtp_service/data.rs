@@ -1,15 +1,21 @@
 use crate::{
     bookmarks::{self, PickFolderResult},
-    dtp_service::{AppHandleWrapper, DTPService, events::DTPEvent, jobs::SyncJob},
+    dtp_service::{
+        events::DTPEvent,
+        jobs::{SyncJob, UpdateProjectJob},
+        AppHandleWrapper, DTPService,
+    },
     projects_db::{
-        DrawThingsMetadata, ProjectRef, dtos::{
+        dtos::{
             clip::ClipExtra,
             image::ListImagesResult,
             model::ModelExtra,
             project::ProjectExtra,
             tensor::{TensorHistoryExtra, TensorSize},
             watch_folder::WatchFolderDTO,
-        }, filters::ListImagesFilter, folder_cache
+        },
+        filters::ListImagesFilter,
+        folder_cache, DrawThingsMetadata, ProjectRef,
     },
 };
 use dtm_macros::dtp_commands;
@@ -36,6 +42,9 @@ impl DTPService {
 
         if let Some(exclude_val) = exclude {
             db.update_exclude(project_id, exclude_val).await?;
+            if !exclude_val {
+                self.add_job(UpdateProjectJob::from_id(&db, project_id, true).await?)
+            }
         }
 
         let project = db.get_project(project_id).await?;

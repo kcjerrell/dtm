@@ -3,14 +3,14 @@ import { useEffect, useRef } from "react"
 import type { Snapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
 import type { Selectable } from "@/hooks/useSelectableV"
-import type { ICommandItem } from "@/types"
+import type { ICommand } from "@/types"
 import { PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
 import CommandButton from "./CommandButton"
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
-    commands?: ICommandItem<T, C>[]
+    commands?: ICommand<T, C>[]
     commandContext?: C
     header?: string
     headerInfo?: string

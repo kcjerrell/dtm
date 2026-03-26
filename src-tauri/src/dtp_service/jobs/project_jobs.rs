@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use crate::dtp_service::{
+use crate::{dtp_service::{
     events::{DTPEvent, ScanProgress},
-    jobs::{sync_folder::ProjectSync, Job, JobContext, JobResult},
-};
+    jobs::{Job, JobContext, JobResult, sync_folder::ProjectSync},
+}, projects_db::ProjectsDb};
 
 pub struct AddProjectJob {
     pub path: String,
@@ -112,6 +112,11 @@ impl UpdateProjectJob {
         } else {
             Err("Project entity not found".to_string())
         }
+    }
+    pub async fn from_id(pdb: &ProjectsDb, project_id: i64, is_import: bool) -> Result<Self, String> {
+        let sync = ProjectSync::from_id(pdb, project_id).await?;
+
+        UpdateProjectJob::new(&sync, is_import)
     }
 }
 
