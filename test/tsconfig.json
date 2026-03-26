@@ -1,15 +1,11 @@
 {
-    "include": ["./"],
-    "compilerOptions": {
-        "target": "esnext",
-        "types": [
-            "node",
-            "@wdio/globals/types",
-            "@wdio/mocha-framework"
-        ],
-        "allowSyntheticDefaultImports": true,
-        "esModuleInterop": true,
-        "moduleResolution": "node",
-        "module": "esnext"
-    }
+	"include": ["./"],
+	"compilerOptions": {
+		"target": "esnext",
+		"types": ["node", "@wdio/globals/types", "@wdio/mocha-framework"],
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"moduleResolution": "node",
+		"module": "esnext"
+	}
 }

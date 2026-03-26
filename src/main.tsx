@@ -19,6 +19,7 @@ const _global = globalThis as unknown as {
 }
 
 async function reset_db() {
+    console.log("resetting db")
     await invoke("dtp_reset_db")
 }
 

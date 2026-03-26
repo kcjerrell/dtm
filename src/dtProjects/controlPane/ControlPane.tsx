@@ -83,7 +83,7 @@ function TabList(props: ChakraProps) {
                 )
             })}
             <Tabs.Indicator />
-            <IconButton onClick={() => uiState.showSettings()}>
+            <IconButton aria-label={"Settings"} onClick={() => uiState.showSettings()}>
                 <GoGear />
             </IconButton>
         </Tabs.List>

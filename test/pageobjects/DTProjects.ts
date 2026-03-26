@@ -11,6 +11,9 @@ class DTProjects {
 	get projectC2() {
 		return $(`[data-test-id="project-item"]*=${TestProject.projectC2}`);
 	}
+	get settings() {
+		return $("aria/Settings");
+	}
 
 	getProjectItem(project: TestProject) {
 		return $(`[data-test-id="project-item"]*=${project}`);
@@ -67,23 +70,38 @@ class DTProjects {
 		return (await this.images).length;
 	}
 
+	async getTotalProjects() {
+		const text = await $("aria/Total projects").getText();
+		return parseInt(text.split(" ")[0]);
+	}
+
+	async getTotalImages() {
+		const text = await $("aria/Total images").getText();
+		return parseInt(text.split(" ")[0]);
+	}
+
+	async getTotalFilesize() {
+		const text = await $("aria/Total filesize").getText();
+		return parseInt(text.split(" ")[0]);
+	}
+
 	imageToolbar = {
 		get searchText() {
 			return $("aria/Search text");
 		},
-        get clearSearchText() {
+		get clearSearchText() {
 			return $("aria/Clear search text");
 		},
 		get filters() {
 			return $("aria/Search filters");
 		},
-        get clearFilters() {
+		get clearFilters() {
 			return $("aria/Clear search filters");
 		},
 		get projects() {
 			return $("aria/Selected projects");
 		},
-        get clearProjects() {
+		get clearProjects() {
 			return $("aria/Clear selected projects");
 		},
 		get showImages() {
