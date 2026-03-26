@@ -20,12 +20,21 @@ const urls = {
     tensor: (
         projectId: number,
         name: string,
-        opts?: { nodeId?: number | null; size?: number | null; invert?: boolean },
+        opts?: { nodeId?: number | null; size?: number | null; invert?: boolean, duration?: number },
     ) => {
         const url = new URL(`dtm://dtproject/tensor/${projectId}/${name}`)
         if (opts?.nodeId) url.searchParams.set("node", opts.nodeId.toString())
         if (opts?.size) url.searchParams.set("s", opts.size.toString())
         if (opts?.invert) url.searchParams.set("mask", "invert")
+        return url.toString()
+    },
+    audio: (
+        projectId: number,
+        name: string,
+        opts?: { duration?: number },
+    ) => {
+        const url = new URL(`dtm://dtproject/audio/${projectId}/${name}`)
+        if (opts?.duration) url.searchParams.set("t", opts.duration.toString())
         return url.toString()
     },
 }
