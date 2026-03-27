@@ -18,9 +18,8 @@
 - **Projects scattered across folders and external drives?** DTM indexes them all into a single, searchable library.
 - **Need to find images by prompt, model, or parameter?** DTM offers full-text search with filters so you can query your entire creative history instantly.
 
-## Features
-
 ### 🔍 Metadata Inspector
+<img width="600" height="400" alt="image" src="https://github.com/user-attachments/assets/c80728c9-705a-4e2c-a1a5-5a6080eddea2" />
 
 Drop or paste any Draw Things image to instantly view its full generation metadata:
 
@@ -30,6 +29,7 @@ Drop or paste any Draw Things image to instantly view its full generation metada
 - **One-click actions** — copy image, save a copy, open the source folder
 
 ### 📂 Project Browser
+<img width="600" height="400" alt="image" src="https://github.com/user-attachments/assets/ddc6255b-1a53-4a86-9060-e22cc5769564" />
 
 A unified library across all your Draw Things projects:
 
