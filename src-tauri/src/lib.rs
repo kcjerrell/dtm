@@ -62,10 +62,17 @@ async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String,
 }
 
 #[tauri::command]
-async fn fetch_image_file(url: String) -> Result<Vec<u8>, String> {
+async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
     let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    let content_type = resp
+        .headers()
+        .get("Content-Type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-    Ok(bytes.to_vec())
+    Ok((bytes.to_vec(), content_type))
 }
 
 // #[tauri::command]
@@ -112,8 +119,7 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init());
+    let builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
 
     #[cfg(debug_assertions)]
     let builder = builder.plugin(tauri_plugin_webdriver::init());

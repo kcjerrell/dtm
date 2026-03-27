@@ -1,6 +1,5 @@
 import * as pathlib from "@tauri-apps/api/path"
 import plist from "plist"
-import { DtpService } from "@/commands"
 import { postMessage } from "@/context/Messages"
 import {
     fetchImage,
@@ -12,8 +11,9 @@ import {
 import { settledValues } from "@/utils/helpers"
 import { drawPose } from "@/utils/pose"
 import { isOpenPose } from "@/utils/poseHelpers"
-import type { ImageItem } from "./ImageItem"
-import { createImageItem } from "./metadataStore"
+import { ImageItem, loadDtpImage } from "./ImageItem"
+import type MediaItem from "./mediaItem"
+import { addImageItem, createImageItem } from "./metadataStore"
 
 const prioritizedTypes = [
     "NSFilenamesPboardType",
@@ -27,7 +27,42 @@ const prioritizedTypes = [
     "public.file-url",
     "public.url",
 ]
+
+export const clipboardTextTypes = [
+    "NSFilenamesPboardType",
+    "public.html",
+    "public.utf8-plain-text",
+    "org.chromium.source-url",
+    "public.file-url",
+    "public.url",
+]
+
 export async function loadImage2(pasteboard: "general" | "drag") {
+    let bestItem: MediaItem | null = null
+    for await (const item of loadItems(pasteboard)) {
+        // the NSFilenamesPboardType will return an array with all filenames
+        // this is the only time multiple images should be loaded at the same time
+        if (Array.isArray(item)) {
+            item.forEach((it) => {
+                addImageItem(it)
+            })
+            return
+        }
+        if (!bestItem) {
+            bestItem = item
+            continue
+        }
+        if ((await item.hasMetadata()) && !(await bestItem.hasMetadata())) {
+            bestItem = item
+        }
+    }
+    if (bestItem) {
+        addImageItem(bestItem)
+    }
+}
+
+async function* loadItems(pasteboard: "general" | "drag") {
+    console.log("loadItems")
     const types = await getClipboardTypes(pasteboard)
     const text = await getClipboardText(
         clipboardTextTypes.filter((t) => types.includes(t)),
@@ -45,40 +80,111 @@ export async function loadImage2(pasteboard: "general" | "drag") {
     const checked: string[] = []
     const skipTypes: string[] = []
 
+    console.log(types.filter((t) => prioritizedTypes.includes(t)))
+
     for (const type of prioritizedTypes) {
         if (!types.includes(type)) continue
         if (skipTypes.includes(type)) continue
 
         const data = await getType(type)
         if (!data) continue
-        console.log("loadimage", data)
+
         if (isPose(type, data as string)) {
-            return createImageFromPose(data as string)
+            const item = await ImageItem.fromBuffer(
+                await drawPose(JSON.parse(data as string)),
+                "png",
+                {
+                    source,
+                    image: "png",
+                },
+            )
+            if (item) yield item
         }
 
         if (typeof data === "string") {
-            console.log("trying to load from text")
-            const images = await tryLoadText(data, type, source, checked)
-            console.log(images.length)
-            if (images.length > 1) return true
-            if (images.length === 1 && images[0].dtData) return true
             if (type === "NSFilenamesPboardType") {
-                skipTypes.push("public.tiff")
+                const items = []
+                for await (const result of tryLoadText2(data, type, checked)) {
+                    const item = await ImageItem.fromBuffer(result.image, result.type, {
+                        source,
+                        image: type,
+                        pasteboardType: type,
+                    })
+                    if (item) items.push(item)
+                }
+                yield items
             }
-            // if one image, but image doesn't have dtdata, keep looking
+            for await (const result of tryLoadText2(data, type, checked)) {
+                const item = await ImageItem.fromBuffer(result.image, result.type, {
+                    source,
+                    image: type,
+                    pasteboardType: type,
+                })
+                if (item) yield item
+            }
+            if (type === "NSFilenamesPboardType") skipTypes.push("public.tiff")
         } else if (data instanceof Uint8Array) {
-            const image = await createImageItem(data, getImageType(type), {
+            const item = await ImageItem.fromBuffer(data, getImageType(type), {
                 source,
                 image: type,
                 pasteboardType: type,
             })
-            if (image) return true
+            if (item) yield item
+        }
+    }
+}
+
+async function* tryLoadText2(text: string, type: string, checked: string[]) {
+    const { files, urls, dtpImage } = parseText(text, type)
+
+    if (dtpImage) {
+        try {
+            const dtpResult = await loadDtpImage(dtpImage)
+            if (dtpResult) yield { image: dtpResult.image, source: dtpResult, type: "png" }
+        } catch (e) {
+            console.warn("couldn't create image item from dtp image", e)
         }
     }
 
-    return null
+    for (const file of files) {
+        if (checked.includes(file)) continue
+        checked.push(file)
+        try {
+            const image = await getLocalImage(file)
+            if (image)
+                yield {
+                    image,
+                    source: { file, pasteboardType: type },
+                    type: getImageType(await pathlib.extname(file)),
+                }
+        } catch (e) {
+            console.warn("couldn't create image item from file", e)
+        }
+    }
+
+    for (const url of urls) {
+        if (checked.includes(url)) continue
+        checked.push(url)
+        try {
+            // TODO this needs to get the mime type
+            const result = await fetchImage(url)
+            if (result)
+                yield {
+                    image: result.data,
+                    source: { url, pasteboardType: type },
+                    type: getImageType(result.type),
+                }
+        } catch (e) {
+            console.warn("couldn't create image item from url", e)
+        }
+    }
 }
 
+/**
+ * takes a text clipboard entry of the given type, attempts to resolve the image
+ * and return the image buffer
+ * @param excludeMut a list of paths that should be ignored. This list will be mutated, adding additional invalid paths/urls as they are discovered
+ */
 async function tryLoadText(
     text: string,
     type: string,
@@ -88,14 +194,8 @@ async function tryLoadText(
     const { files, urls, dtpImage } = parseText(text, type)
 
     if (dtpImage) {
-        const dtpResult = await loadDtpImage(dtpImage)
-        if (dtpResult) {
-            const item = await createImageItem(dtpResult.image, "png", {
-                source,
-                projectFile: dtpResult.projectFile,
-            })
-            if (item) return [item]
-        }
+        const item = await ImageItem.fromDtpImage(dtpImage.projectId, dtpImage.imageId)
+        if (item) return [item]
     }
 
     const items = [] as Parameters<typeof createImageItem>[]
@@ -155,6 +255,10 @@ async function tryLoadText(
     return await settledValues(items.map((item) => createImageItem(...item)))
 }
 
+/**
+ * takes a text clipboard entry of the given type and returns all found
+ * file paths, urls or dtp images
+ */
 export function parseText(value: string, type: string) {
     let paths: string[] = []
     let text: string = ""
@@ -170,7 +274,6 @@ export function parseText(value: string, type: string) {
         case "public.html": {
             const src = extractImgSrc(value)
             if (src) text = src
-            // paths = imgSrc ? [imgSrc] : []
             break
         }
         case "public.file-url":
@@ -178,37 +281,11 @@ export function parseText(value: string, type: string) {
         case "org.chromium.source-url":
         case "public.utf8-plain-text":
             text = value
-            // paths = value
-            // 	.split("\n")
-            // 	.map((f) => f.trim())
-            // 	.filter((f) => f.length > 0)
             break
     }
 
-    // const files = [] as string[]
-    // const urls = [] as string[]
-
-    // for (const p of paths) {
-    // 	const url = getUrl(p)
-    // 	if (url) {
-    // 		urls.push(url)
-    // 		continue
-    // 	}
-    // 	const localPath = getLocalPath(p)
-    // 	if (localPath) files.push(localPath)
-    // }
-
     return extractPaths(text)
 }
-
-export const clipboardTextTypes = [
-    "NSFilenamesPboardType",
-    "public.html",
-    "public.utf8-plain-text",
-    "org.chromium.source-url",
-    "public.file-url",
-    "public.url",
-]
 
 function getImageType(imageType: string) {
     let type = imageType
@@ -231,7 +308,6 @@ function getImageType(imageType: string) {
  * @param htmlString html containing a single img element
  * @returns img.src
  */
-
 function extractImgSrc(htmlString: string): string | null {
     try {
         const parser = new DOMParser()
@@ -308,23 +384,4 @@ function isPose(type: string, text: string) {
     } catch {}
 
     return false
-}
-
-async function createImageFromPose(text: string) {
-    const image = await drawPose(JSON.parse(text))
-    if (image) await createImageItem(image, "png", { source: "clipboard" })
-}
-
-async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
-    const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
-    if (!imageItem) return
-    const history = await DtpService.getHistoryFull(imageItem.project_id, imageItem.node_id)
-    if (!history || !history.tensor_id) return
-    const image = await DtpService.decodeTensor(
-        imageItem.project_id,
-        history.tensor_id,
-        true,
-        imageItem.node_id,
-    )
-    return { image, projectFile: history.project_path }
 }

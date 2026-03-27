@@ -12,7 +12,7 @@ function History(props: HistoryProps) {
     const { ...restProps } = props
 
     const snap = useSnapshot(getMetadataStore())
-    const { images, currentImage } = snap
+    const { items: images, currentItem: currentImage } = snap
 
     const pinned = images.filter((i) => i.pin != null) as ImageItem[]
     const unpinned = images.filter((i) => i.pin == null) as ImageItem[]

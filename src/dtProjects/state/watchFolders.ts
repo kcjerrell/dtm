@@ -3,8 +3,8 @@ import { proxy } from "valtio"
 import type { WatchFolder } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
-import va from "@/utils/array"
 import { arrayIfOnly } from "@/utils/helpers"
+import va from "@/utils/valtio"
 import { DTPStateController } from "./types"
 
 const modelInfoFilenames = {
