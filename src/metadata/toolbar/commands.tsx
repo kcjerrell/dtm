@@ -36,22 +36,22 @@ export const toolbarCommands: ToolbarCommand<ReturnType<typeof getMetadataStore>
         id: "copyImage",
         tip: "Copy image to clipboard",
         action: async (store) => {
-            if (!store.currentImage) return
-            await ImageStore.copy(store.currentImage?.id)
+            if (!store.currentItem) return
+            await ImageStore.copy(store.currentItem?.id)
         },
-        check: (snap) => snap.currentImage != null,
+        check: (snap) => snap.currentItem != null,
         icon: FiCopy,
     },
     separator(),
     {
         id: "pinImage",
-        getTip: (snap) => (snap.currentImage?.pin ? "Unpin image" : "Pin image"),
+        getTip: (snap) => (snap.currentItem?.pin ? "Unpin image" : "Pin image"),
         getIcon: (snap: ReadonlyState<ReturnType<typeof getMetadataStore>>) => (
-            <PinnedIcon pin={snap.currentImage?.pin} />
+            <PinnedIcon pin={snap.currentItem?.pin} />
         ),
-        check: (snap) => snap.currentImage != null,
+        check: (snap) => snap.currentItem != null,
         action: async () => {
-            const pin = getMetadataStore().currentImage?.pin !== null ? null : true
+            const pin = getMetadataStore().currentItem?.pin !== null ? null : true
             pinImage(true, pin)
             postMessage({
                 message: pin ? "Image pinned" : "Pin removed",
@@ -65,7 +65,7 @@ export const toolbarCommands: ToolbarCommand<ReturnType<typeof getMetadataStore>
         id: "clearUnpinned",
         tip: "Clear unpinned images",
         action: () => clearAll(true),
-        check: (snap) => snap.images.some((im) => im.pin == null),
+        check: (snap) => snap.items.some((im) => im.pin == null),
         icon: FiXCircle,
     },
     separator(),
@@ -73,17 +73,17 @@ export const toolbarCommands: ToolbarCommand<ReturnType<typeof getMetadataStore>
         id: "saveImage",
         tip: "Save a copy",
         action: async (store) => {
-            if (!store.currentImage) return
+            if (!store.currentItem) return
             const savePath = await save({
                 canCreateDirectories: true,
                 title: "Save image",
-                filters: [{ name: "Image", extensions: [store.currentImage.type] }],
+                filters: [{ name: "Image", extensions: [store.currentItem.type] }],
             })
             if (savePath) {
-                await ImageStore.saveCopy(store.currentImage.id, savePath)
+                await ImageStore.saveCopy(store.currentItem.id, savePath)
             }
         },
-        check: (snap) => snap.currentImage != null,
+        check: (snap) => snap.currentItem != null,
         icon: FiSave,
     },
     {
@@ -91,10 +91,10 @@ export const toolbarCommands: ToolbarCommand<ReturnType<typeof getMetadataStore>
         tip: "Open folder",
         slotId: "sourceOpen",
         action: async (store) => {
-            if (!store.currentImage?.source?.file) return
-            await revealItemInDir(store.currentImage?.source?.file)
+            if (!store.currentItem?.source?.file) return
+            await revealItemInDir(store.currentItem?.source?.file)
         },
-        check: (snap) => snap.currentImage?.source?.file != null,
+        check: (snap) => snap.currentItem?.source?.file != null,
         icon: FiFolder,
     },
     {
@@ -102,10 +102,10 @@ export const toolbarCommands: ToolbarCommand<ReturnType<typeof getMetadataStore>
         slotId: "sourceOpen",
         tip: "Open URL",
         action: async (store) => {
-            if (!store.currentImage?.source?.url) return
-            await openUrl(store.currentImage.source.url)
+            if (!store.currentItem?.source?.url) return
+            await openUrl(store.currentItem.source.url)
         },
-        check: (snap) => snap.currentImage?.source?.url != null,
+        check: (snap) => snap.currentItem?.source?.url != null,
         icon: TbBrowser,
     },
 ]

@@ -1,12 +1,12 @@
 import { createContext, type PropsWithChildren, useContext } from "react"
 import type { ImageSource } from "@/types"
 import type { ImageItem } from "./ImageItem"
-import type { ExifType, getMetadataStore, ImageItemParam } from "./metadataStore"
+import type { ExifType, getMetadataStore, MediaItemParam } from "./metadataStore"
 
 export type MetadataStoreContextType = {
     state: ReturnType<typeof getMetadataStore>
-    selectImage(image?: ImageItemParam | null): void
-    pinImage(image: ImageItemParam, value: number | boolean | null): void
+    selectImage(image?: MediaItemParam | null): void
+    pinImage(image: MediaItemParam, value: number | boolean | null): void
     pinImage(useCurrent: true, value: number | boolean | null): void
     clearAll(keepTabs: boolean): Promise<void>
     clearCurrent(): Promise<void>

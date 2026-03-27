@@ -1,5 +1,6 @@
 use crate::projects_db::{
-    TextHistory, dt_project::raw::DTProjectRaw, dtos::{
+    dt_project::raw::DTProjectRaw,
+    dtos::{
         clip::{Clip, ClipExtra, ClipFrame},
         project::DTProjectInfo,
         tensor::{
@@ -7,7 +8,9 @@ use crate::projects_db::{
             TensorRaw, TensorSize,
         },
         text::TextHistoryNode,
-    }, tensor_history_tensor_data::TensorHistoryTensorData
+    },
+    tensor_history_tensor_data::TensorHistoryTensorData,
+    TextHistory,
 };
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -15,10 +18,10 @@ use serde::Serialize;
 use sqlx::{
     query, query_as,
     sqlite::{SqliteConnection, SqliteRow},
-    Connection, Error, Row, SqlitePool,
+    Connection, Error, QueryBuilder, Row, SqlitePool,
 };
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -478,6 +481,29 @@ impl DTProject {
         let extra = ClipExtra { clip, frames };
 
         Ok(extra)
+    }
+
+    pub async fn get_clip_counts(&self, clip_ids: Vec<i64>) -> Result<HashMap<i64, i64>, Error> {
+        if clip_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        self.check_table(&DTProjectTable::Clip).await?;
+
+        let mut qb = QueryBuilder::new("SELECT * FROM clip WHERE __pk0 IN (");
+
+        let mut separated = qb.separated(", ");
+        for id in &clip_ids {
+            separated.push_bind(id);
+        }
+
+        qb.push(")");
+
+        let rows: Vec<Clip> = qb.build_query_as::<Clip>().fetch_all(&*self.pool).await?;
+
+        Ok(HashMap::from_iter(
+            rows.iter().map(|c| (c.clip_id, c.count as i64)),
+        ))
     }
 
     fn map_clip(self: &DTProject, row: SqliteRow) -> ClipFrame {
