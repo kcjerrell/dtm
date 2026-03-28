@@ -53,7 +53,7 @@ export const InfoPaneContainer = chakra(
 			gap: 0,
 			alignItems: "stretch",
 			overflow: "clip",
-			bgColor: "bg.3",
+			bgColor: "bg.1",
 			right: 0,
 			marginLeft: "auto",
 		},
