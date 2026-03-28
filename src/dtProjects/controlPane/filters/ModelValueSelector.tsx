@@ -125,7 +125,7 @@ function ModelValueSelectorComponent(
                     )}
                 </VStack>
             </Box>
-            {snap.isOpen &&
+            {snap.isOpen && contentPane && 
                 createPortal(
                     <ContentPanelPopup
                         flexDirection={"row"}

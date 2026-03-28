@@ -130,6 +130,8 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         }
     }, [mvHeight, mvWidth, mvX, mvY, onClose, root])
 
+    if (!root) return null
+
     return (
         <Container
             ref={containerRef}

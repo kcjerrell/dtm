@@ -1,6 +1,6 @@
+import type { RefObject } from "react"
 import { useSnapshot } from "valtio"
 import AppStore from "./appState"
-import { RefObject } from "react"
 
 export type RootElement =
     | /** root react element, covers entire window */
@@ -35,7 +35,7 @@ export function useRootElement(rootElement: RootElement) {
     }
 
     const element = getElement(rootElement, currentView)
-    if (!element) throw new Error(`Element ${rootElementIds[rootElement]} not found`)
+    // if (!element) throw new Error(`Element ${rootElementIds[rootElement]} not found`)
     return element
 }
 
