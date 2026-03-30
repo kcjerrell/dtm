@@ -77,6 +77,18 @@ const themeConfig = defineConfig({
                 borderColor: "bg.1",
             },
         },
+        ".panel-scroll-square": {
+            // scrollbarGutter: "stable",
+            _scrollbar: { backgroundColor: "none", width: "8px", borderRadius: "2px" },
+            _scrollbarThumb: {
+                backgroundColor: "fg.2/50",
+                width: "4px",
+                borderRadius: "2px",
+                boxShadow: "pane1",
+                borderRight: "1px solid",
+                borderColor: "bg.1",
+            },
+        },
         "#root": {
             bgColor: "#73747540",
             overflow: "clip",

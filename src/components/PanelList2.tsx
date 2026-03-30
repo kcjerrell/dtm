@@ -91,37 +91,37 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                     id={"plcontiner"}
                     data-top="0"
                     data-bottom="0"
-                    css={{
-                        "--top": "0px",
-                        "--bottom": "0px",
+                    //                 css={{
+                    //                     "--top": "0px",
+                    //                     "--bottom": "0px",
 
-                        maskImage: `
-      linear-gradient(
-        to bottom,
-        transparent,
-        black var(--top),
-        black calc(100% - var(--bottom)),
-        transparent
-      )
-    `,
-                        WebkitMaskImage: `
-      linear-gradient(
-        to bottom,
-        transparent,
-        black var(--top),
-        black calc(100% - var(--bottom)),
-        transparent
-      )
-    `,
+                    //                     maskImage: `
+                    //   linear-gradient(
+                    //     to bottom,
+                    //     transparent,
+                    //     black var(--top),
+                    //     black calc(100% - var(--bottom)),
+                    //     transparent
+                    //   )
+                    // `,
+                    //                     WebkitMaskImage: `
+                    //   linear-gradient(
+                    //     to bottom,
+                    //     transparent,
+                    //     black var(--top),
+                    //     black calc(100% - var(--bottom)),
+                    //     transparent
+                    //   )
+                    // `,
 
-                        '&[data-top="1"]': {
-                            "--top": "16px",
-                        },
+                    //                     '&[data-top="1"]': {
+                    //                         "--top": "16px",
+                    //                     },
 
-                        '&[data-bottom="1"]': {
-                            "--bottom": "16px",
-                        },
-                    }}
+                    //                     '&[data-bottom="1"]': {
+                    //                         "--bottom": "16px",
+                    //                     },
+                    //                 }}
                 >
                     <PanelListScrollContent id={"plcontent"}>{children}</PanelListScrollContent>
                 </PaneListScrollContainer>

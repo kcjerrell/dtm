@@ -166,7 +166,7 @@ export const PaneListScrollContainer = chakra(
             },
         },
     },
-    { defaultProps: { className: "hide-scrollbar" } },
+    { defaultProps: { className: "panel-scroll-square" } },
 )
 
 export const PanelListScrollContent = chakra("div", {
