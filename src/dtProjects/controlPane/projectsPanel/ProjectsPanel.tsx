@@ -29,7 +29,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
         <TabContent
             className={"tc"}
             value={"projects"}
-            contentProps={{ height: "full", maxHeight: "100%", overflowY: "clip" }}
+            contentProps={{ height: "full", maxHeight: "100%", overflowY: "clip", minH: 0 }}
             height={"full"}
             {...restProps}
         >

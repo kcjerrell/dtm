@@ -2,7 +2,7 @@
   "name": "dtm",
   "author": "kcjerrell",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.2",
   "type": "module",
   "scripts": {
     "dev": "TAURI_WEBDRIVER_PORT=4445 tauri dev",
