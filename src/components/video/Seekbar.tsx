@@ -29,6 +29,7 @@ function Seekbar(props: SeekbarProps) {
                 hoverPos.set(e.clientX - rect.left)
             }}
             onPointerDown={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 pointerDownRef.current = true
                 e.currentTarget.setPointerCapture(e.pointerId)

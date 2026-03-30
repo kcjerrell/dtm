@@ -6,6 +6,7 @@ import urls from "@/commands/urls"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { everyNth } from "@/utils/helpers"
 import { AudioFrameSync, FrameSync, type IFrameSync } from "./sync"
+import { useDTP } from "@/dtProjects/state/context"
 
 export type VideoContextType = ReturnType<typeof useCreateVideoContext>
 
@@ -35,14 +36,19 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         autoStart,
     } = opts
 
+    const { settings } = useDTP()
+
     const { state, snap } = useProxyRef(() => ({
         urls: [] as string[],
         playbackState: "paused" as "playing" | "paused" | "seeking",
+        isMuted: settings.state.ui.defaultMute,
         fps: fpsProp,
         wasFpsChanged: false,
         audioSrc: null as string | null,
-        sync: null as IFrameSync | null,
+        // sync: null as IFrameSync | null,
     }))
+
+    const syncRef = useRef<IFrameSync | null>(null)
 
     const fps = halfFps ? snap.fps / 2 : snap.fps
 
@@ -76,17 +82,19 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
 
     const controls = useMemo(
         () => ({
-            play: () => snap.sync?.play(),
-            pause: () => snap.sync?.pause(),
+            play: () => syncRef.current?.play(),
+            pause: () => syncRef.current?.pause(),
             togglePlayPause: () => {
-                if (snap.playbackState === "playing") snap.sync?.pause()
-                else snap.sync?.play()
+                if (snap.playbackState === "playing") syncRef.current?.pause()
+                else syncRef.current?.play()
             },
-            seek: (pos: number) => snap.sync?.seek(pos),
-            endSeek: (resume?: boolean) => snap.sync?.endSeek(resume),
-            posMv: snap.sync?.posMv,
+            seek: (pos: number) => syncRef.current?.seek(pos),
+            endSeek: (resume?: boolean) => syncRef.current?.endSeek(resume),
+            posMv: syncRef.current?.posMv,
+            /** kind of weird, but -1 will toggle */
+            setMute: (value: boolean | -1) => syncRef.current?.setMute?.(value),
         }),
-        [snap.playbackState, snap.sync],
+        [snap.playbackState],
     )
 
     const setFps = (fps: number) => {
@@ -110,14 +118,15 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
             else state.urls = frameUrls
             await preloadImages(state.urls)
 
-            if (state.sync) state.sync.dispose()
+            if (syncRef.current) syncRef.current.dispose()
             if (state.audioSrc && audioRef.current) {
-                state.sync = ref(
+                syncRef.current = ref(
                     new AudioFrameSync({
                         fps,
                         nFrames: state.urls.length,
                         autoStart: false,
                         audio: audioRef,
+                        defaultMuted: settings.state.ui.defaultMute,
                         onFrameChanged: (frame) => {
                             frameChangedHandlersRef.current.forEach((f) => {
                                 f(frame, fps, state.urls.length)
@@ -129,10 +138,14 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
                                 f(videoState)
                             })
                         },
+                        onMutedChanged: (muted) => {
+                            state.isMuted = muted
+                            settings.updateSetting("ui", "defaultMute", muted)
+                        },
                     }),
                 )
             } else {
-                state.sync = ref(
+                syncRef.current = ref(
                     new FrameSync({
                         fps,
                         nFrames: state.urls.length,
@@ -153,8 +166,8 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
             }
         })
 
-        return () => state.sync?.dispose()
-    }, [image, state, getUrl, halfFps, fps])
+        return () => syncRef.current?.dispose()
+    }, [image, state, getUrl, halfFps, fps, settings])
 
     return {
         imgSrc,
@@ -162,6 +175,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         frameChangedHandlersRef,
         playbackStateChangedHandlersRef,
         audioSrc: snap.audioSrc,
+        isMuted: snap.isMuted,
         fps: snap.fps,
         frames: snap.urls.length,
         frameUrls: snap.urls,

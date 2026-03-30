@@ -14,6 +14,7 @@ import type { UIControllerState } from "../state/uiState"
 import { DetailsSpinnerRoot } from "./common"
 import DetailsImage from "./DetailsImage"
 import ImageFallback from "./ImageFallback"
+import MuteButton from '@/components/video/MuteButton'
 
 interface DetailsImagesProps {
     item: ImageExtra
@@ -66,7 +67,7 @@ function DetailsImages(props: DetailsImagesProps) {
                         <HStack data-solid="true" width={"100%"} paddingY={2} flexShrink={0}>
                             <PlayPauseButton />
                             <Seekbar />
-                            <FpsButton />
+                            <MuteButton />
                         </HStack>
                     </Video>
                 </Grid>
