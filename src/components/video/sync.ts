@@ -10,6 +10,7 @@ export interface IFrameSync {
     seek(pos: number): void
     endSeek(resume?: boolean): void
     dispose(): void
+    setMute?: (value: boolean | -1) => void
 }
 
 type FrameSyncOpts = {
@@ -118,6 +119,8 @@ export class FrameSync implements IFrameSync {
 
 interface AudioFrameSyncOptions extends FrameSyncOpts {
     audio: RefObject<HTMLAudioElement | null>
+    defaultMuted?: boolean
+    onMutedChanged?: (muted: boolean) => void
 }
 
 export class AudioFrameSync implements IFrameSync {
@@ -130,14 +133,19 @@ export class AudioFrameSync implements IFrameSync {
     private frame: number = 0
 
     private audio: RefObject<HTMLAudioElement | null>
+    private defaultMuted: boolean
+    private onMutedChanged?: (muted: boolean) => void
 
     constructor(opts: AudioFrameSyncOptions) {
         this.fps = opts.fps
         this.nFrames = opts.nFrames
         this.onFrameChanged = opts.onFrameChanged
         this.onStateChanged = opts.onStateChanged
+        this.onMutedChanged = opts.onMutedChanged
 
         this.audio = opts.audio
+        this.defaultMuted = opts.defaultMuted ?? false
+        this._isMuted = this.defaultMuted
         this.state = opts.autoStart ? "playing" : "paused"
         this.startLoop()
     }
@@ -192,6 +200,7 @@ export class AudioFrameSync implements IFrameSync {
     }
     private set state(state: "playing" | "paused" | "seeking" | null) {
         if (this._state === state) return
+        if (this.audio.current) this.audio.current.muted = this.isMuted
         if (state === "playing") this.audio.current?.play()
         else this.audio.current?.pause()
         this._state = state
@@ -208,6 +217,22 @@ export class AudioFrameSync implements IFrameSync {
     endSeek(resume?: boolean): void {
         if (resume) this.play()
         else this.pause()
+    }
+
+    private _isMuted: boolean
+    get isMuted(): boolean {
+        return this._isMuted
+    }
+    private set isMuted(value: boolean | -1) {
+        if (value === this._isMuted) return
+        if (value === -1) this._isMuted = !this._isMuted
+        else this._isMuted = value
+
+        if (this.audio.current) this.audio.current.muted = this._isMuted
+        this.onMutedChanged?.(this.isMuted as boolean)
+    }
+    setMute(value: boolean | -1): void {
+        this.isMuted = value
     }
 
     dispose(): void {

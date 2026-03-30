@@ -49,6 +49,8 @@ const gridImageRecipe = defineSlotRecipe({
             transition: "opacity 0.2s",
         },
         video: {
+            position: "absolute",
+            zIndex: 2,
             width: "100%",
             height: "100%",
             objectFit: "cover",
@@ -67,6 +69,7 @@ const gridImageRecipe = defineSlotRecipe({
             padding: 1,
             borderRadius: "50%",
             fontWeight: "bolder",
+            zIndex: 4,
             // "--spinner-track-color": "colors.grays.13",
         },
         icon: {
@@ -74,6 +77,7 @@ const gridImageRecipe = defineSlotRecipe({
             position: "absolute",
             bottom: 1,
             left: 1,
+            zIndex: 3,
             width: "1.5rem",
             color: "grays.14",
             boxShadow: "0 0 2px rgba(0,0,0,1)",
@@ -172,36 +176,35 @@ function GridImage(props: GridImageProps) {
             borderRadius={thumbUrl ? undefined : "lg"}
             {...rest}
         >
-            {showVideo ? (
+            {showVideo && (
                 <Video image={item} half autoStart>
                     <GridImageVideo asChild>
                         <VideoImage fit={"cover"} />
                     </GridImageVideo>
                 </Video>
-            ) : (
-                <GridImageWrapper key={thumbUrl}>
-                    {thumbUrl ? (
-                        <GridImageImage key={thumbUrl} src={thumbUrl} alt={item?.prompt} />
-                    ) : (
-                        <div
-                            style={{
-                                width: "70%",
-                                // border: "1px solid #0000ff00",
-                                aspectRatio: "1",
-                                backgroundColor: "var(--chakra-colors-grays-8)",
-                                WebkitMaskImage: "url(/img_not_available.svg)",
-                                WebkitMaskSize: "contain",
-                                WebkitMaskRepeat: "no-repeat",
-                                WebkitMaskPosition: "center",
-                                maskImage: "url(/img_not_available.svg)",
-                                maskSize: "contain",
-                                maskRepeat: "no-repeat",
-                                maskPosition: "center",
-                            }}
-                        />
-                    )}
-                </GridImageWrapper>
             )}
+            <GridImageWrapper key={thumbUrl}>
+                {thumbUrl ? (
+                    <GridImageImage key={thumbUrl} src={thumbUrl} alt={item?.prompt} />
+                ) : (
+                    <div
+                        style={{
+                            width: "70%",
+                            // border: "1px solid #0000ff00",
+                            aspectRatio: "1",
+                            backgroundColor: "var(--chakra-colors-grays-8)",
+                            WebkitMaskImage: "url(/img_not_available.svg)",
+                            WebkitMaskSize: "contain",
+                            WebkitMaskRepeat: "no-repeat",
+                            WebkitMaskPosition: "center",
+                            maskImage: "url(/img_not_available.svg)",
+                            maskSize: "contain",
+                            maskRepeat: "no-repeat",
+                            maskPosition: "center",
+                        }}
+                    />
+                )}
+            </GridImageWrapper>
             {isVideo && (
                 <GridImageIcon asChild>
                     <FrameCountIndicator count={item.num_frames ?? 0} />

@@ -38,3 +38,4 @@ export {
 } from "react-icons/tb"
 export { IoChevronForward as ChevronForward, IoChevronDown as ChevronDown } from "react-icons/io5"
 export { GiBodyBalance as PoseIcon } from "react-icons/gi"
+export { FiVolume, FiVolume2 } from "react-icons/fi"

@@ -90,7 +90,4 @@ function drawImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
     const width = ctx.canvas.width // * window.devicePixelRatio
     const height = ctx.canvas.height // * window.devicePixelRatio
     ctx.drawImage(img, 0, 0, width, height)
-    ctx.font = "12px sans-serif"
-    ctx.fillStyle = "red"
-    ctx.fillText(`${width}x${height}`, 10, 20)
 }
