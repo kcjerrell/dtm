@@ -1,4 +1,4 @@
-import { HStack } from "@chakra-ui/react"
+import { Box, HStack } from "@chakra-ui/react"
 import { useEffect, useRef } from "react"
 import type { Snapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
@@ -48,10 +48,15 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 
         const update = () => {
             const canScrollTop = el.scrollTop > 0
-            const canScrollBottom = el.scrollTop + el.clientHeight < el.scrollHeight
+            const canScrollBottom = Math.ceil(el.scrollTop + el.clientHeight) < el.scrollHeight
 
             el.dataset.top = canScrollTop ? "1" : "0"
             el.dataset.bottom = canScrollBottom ? "1" : "0"
+            
+            if (el.parentElement) {
+                el.parentElement.dataset.top = canScrollTop ? "1" : "0"
+                el.parentElement.dataset.bottom = canScrollBottom ? "1" : "0"
+            }
         }
 
         update()
@@ -86,45 +91,53 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                 </PanelSectionHeader>
             )}
             <PaneListContainer>
-                <PaneListScrollContainer
-                    ref={scrollContainerRef}
-                    id={"plcontiner"}
+                <Box
                     data-top="0"
                     data-bottom="0"
-                    //                 css={{
-                    //                     "--top": "0px",
-                    //                     "--bottom": "0px",
+                    position="relative"
+                    display="flex"
+                    flexDirection="column"
+                    flex="1 1 auto"
+                    minHeight={0}
+                    css={{
+                        "--top": "0px",
+                        "--bottom": "0px",
 
-                    //                     maskImage: `
-                    //   linear-gradient(
-                    //     to bottom,
-                    //     transparent,
-                    //     black var(--top),
-                    //     black calc(100% - var(--bottom)),
-                    //     transparent
-                    //   )
-                    // `,
-                    //                     WebkitMaskImage: `
-                    //   linear-gradient(
-                    //     to bottom,
-                    //     transparent,
-                    //     black var(--top),
-                    //     black calc(100% - var(--bottom)),
-                    //     transparent
-                    //   )
-                    // `,
+                        maskImage: `
+                          linear-gradient(
+                            to bottom,
+                            transparent,
+                            black var(--top),
+                            black calc(100% - var(--bottom)),
+                            transparent
+                          )
+                        `,
+                        WebkitMaskImage: `
+                          linear-gradient(
+                            to bottom,
+                            transparent,
+                            black var(--top),
+                            black calc(100% - var(--bottom)),
+                            transparent
+                          )
+                        `,
 
-                    //                     '&[data-top="1"]': {
-                    //                         "--top": "16px",
-                    //                     },
+                        '&[data-top="1"]': {
+                            "--top": "16px",
+                        },
 
-                    //                     '&[data-bottom="1"]': {
-                    //                         "--bottom": "16px",
-                    //                     },
-                    //                 }}
+                        '&[data-bottom="1"]': {
+                            "--bottom": "16px",
+                        },
+                    }}
                 >
-                    <PanelListScrollContent id={"plcontent"}>{children}</PanelListScrollContent>
-                </PaneListScrollContainer>
+                    <PaneListScrollContainer
+                        ref={scrollContainerRef}
+                        id={"plcontiner"}
+                    >
+                        <PanelListScrollContent id={"plcontent"}>{children}</PanelListScrollContent>
+                    </PaneListScrollContainer>
+                </Box>
 
                 {!emptyListText && (
                     <PanelListItem

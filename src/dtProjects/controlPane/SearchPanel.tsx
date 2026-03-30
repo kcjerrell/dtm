@@ -30,6 +30,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
             overflowX={"clip"}
             height={"auto"}
             padding={2}
+            justifyContent={"flex-start"}
             onKeyDown={(e) => {
                 if (e.key === "Enter") {
                     search.applySearch()
@@ -86,7 +87,8 @@ function SearchPanel(props: SearchPanelComponentProps) {
             <Button
                 unstyled
                 width={"max-content"}
-                margin={"auto"}
+                height={"auto"}
+                marginX={"auto"}
                 padding={2}
                 color={"fg.2"}
                 _hover={{ textDecoration: "underline", color: "fg.1" }}
