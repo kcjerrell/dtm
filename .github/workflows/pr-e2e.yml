@@ -7,12 +7,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-secrets:
+    name: Check secrets availability
+    runs-on: ubuntu-latest
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ] && \
+             [ -n "${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}" ]; then
+            echo "has-secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     name: Build Debug App + WDIO E2E
+    needs: check-secrets
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (secrets.TAURI_SIGNING_PRIVATE_KEY != '' &&
-       secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD != '')
+      needs.check-secrets.outputs.has-secrets == 'true'
     runs-on: macos-latest
     timeout-minutes: 45
 
