@@ -1,7 +1,6 @@
 import IconButton, { type IconButtonProps } from "../IconButton"
-import { FiVolume, FiVolume2 } from '../icons/icons'
+import { FiVolume, FiVolume2 } from "../icons/icons"
 import { useVideoContext } from "./context"
-
 
 interface MuteButtonProps extends IconButtonProps {}
 

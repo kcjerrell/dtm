@@ -14,7 +14,7 @@ import type { UIControllerState } from "../state/uiState"
 import { DetailsSpinnerRoot } from "./common"
 import DetailsImage from "./DetailsImage"
 import ImageFallback from "./ImageFallback"
-import MuteButton from '@/components/video/MuteButton'
+import MuteButton from "@/components/video/MuteButton"
 
 interface DetailsImagesProps {
     item: ImageExtra
@@ -54,6 +54,7 @@ function DetailsImages(props: DetailsImagesProps) {
                         <Extractor />
                         <VideoImage
                             clickToPause
+                            data-solid
                             naturalSize={{ width: width * 64, height: height * 64 }}
                             width={"100%"}
                             height={"100%"}

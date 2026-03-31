@@ -4,9 +4,9 @@ import type { ImageExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import urls from "@/commands/urls"
 import { useProxyRef } from "@/hooks/valtioHooks"
+import { useSettingRef } from "@/state/settings"
 import { everyNth } from "@/utils/helpers"
 import { AudioFrameSync, FrameSync, type IFrameSync } from "./sync"
-import { useDTP } from "@/dtProjects/state/context"
 
 export type VideoContextType = ReturnType<typeof useCreateVideoContext>
 
@@ -36,12 +36,12 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         autoStart,
     } = opts
 
-    const { settings } = useDTP()
+    const defaultMuteRef = useSettingRef("ui.defaultMute")
 
     const { state, snap } = useProxyRef(() => ({
         urls: [] as string[],
         playbackState: "paused" as "playing" | "paused" | "seeking",
-        isMuted: settings.state.ui.defaultMute,
+        isMuted: defaultMuteRef.current,
         fps: fpsProp,
         wasFpsChanged: false,
         audioSrc: null as string | null,
@@ -126,7 +126,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
                         nFrames: state.urls.length,
                         autoStart: false,
                         audio: audioRef,
-                        defaultMuted: settings.state.ui.defaultMute,
+                        defaultMuted: defaultMuteRef.current,
                         onFrameChanged: (frame) => {
                             frameChangedHandlersRef.current.forEach((f) => {
                                 f(frame, fps, state.urls.length)
@@ -140,7 +140,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
                         },
                         onMutedChanged: (muted) => {
                             state.isMuted = muted
-                            settings.updateSetting("ui", "defaultMute", muted)
+                            defaultMuteRef.current = muted
                         },
                     }),
                 )
@@ -167,7 +167,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
         })
 
         return () => syncRef.current?.dispose()
-    }, [image, state, getUrl, halfFps, fps, settings])
+    }, [image, state, getUrl, halfFps, fps, defaultMuteRef])
 
     return {
         imgSrc,

@@ -1,6 +1,6 @@
 import * as pathlib from "@tauri-apps/api/path"
 import plist from "plist"
-import { postMessage } from "@/context/Messages"
+import { postMessage } from "@/state/Messages"
 import {
     fetchImage,
     getClipboardBinary,
