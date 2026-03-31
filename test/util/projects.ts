@@ -1,19 +1,16 @@
 import path from "path";
 import fse from "fs-extra";
-import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import plist from "plist";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { getDtpTestDir, getTestDataStorageDir } from "./paths";
 
 // helpers for manipulating projects in test data
 
 // ./test_data/projects contains original files and should not be modified
 // ./test_data/temp contains 'live' data for tests
 
-const testDataProjectsDir = path.resolve(__dirname, "../../test_data/projects");
-const testDataTempDir = path.resolve(__dirname, "../../test_data/temp");
+const testDataProjectsDir = getTestDataStorageDir();
+const testDataTempDir = getDtpTestDir();
 
 export enum TestProject {
 	projectA = "test-project-a2",

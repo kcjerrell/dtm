@@ -18,7 +18,7 @@
     "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'",
     "update-fbs": "./scripts/update-fbs.sh",
     "version": "tsx ./scripts/version.ts",
-    "wdio": "wdio run ./test/wdio.conf.ts"
+    "wdio": "DTM_USE_DEV=false wdio run ./test/wdio.conf.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.30.0",

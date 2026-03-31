@@ -1,8 +1,5 @@
-import path from "node:path";
 import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
-import os from "node:os";
-import * as fs from "node:fs";
 import {
 	addProject,
 	removeProject,
@@ -10,11 +7,7 @@ import {
 	resetProjects,
 	TestFolder,
 	TestProject,
-} from "../helpers/projects";
-
-const testDataRoot =
-	process.env.TEST_DATA_DIR || path.join(os.homedir(), "dtm-test-data");
-const testProjectsDir = path.join(testDataRoot, "projects");
+} from "../util/projects";
 
 // these tests will not clear the app data
 // they all depend on the projects watchfolder already existing

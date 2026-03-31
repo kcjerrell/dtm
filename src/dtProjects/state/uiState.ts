@@ -72,6 +72,12 @@ export class UIController extends DTPStateController<UIControllerState> {
         this.container.on("import_started", () => this.startImport())
         this.container.on("import_progress", (progress) => this.updateImport(progress))
         this.container.on("import_completed", () => this.endImport())
+
+        this.container.once("watchFoldersLoaded", (e) => {
+            if (e?.foldersCount === 0) {
+                this.showSettings(true)
+            }
+        })
     }
 
     onItemChanged: Handler<{ item: ImageExtra | null }>[] = []

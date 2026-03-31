@@ -13,6 +13,7 @@ import "./index.css"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
+import { preloadDTP } from "./dtProjects/state/context"
 
 const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
@@ -20,6 +21,8 @@ const _global = globalThis as unknown as {
 
 async function reset_db() {
     console.log("resetting db")
+    // this ensures the db has started
+    await preloadDTP()
     await invoke("dtp_reset_db")
 }
 

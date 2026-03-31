@@ -11,9 +11,11 @@ import SearchController from "./search"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
+let _loader: PromiseWithResolvers<void> | null = null
 let _container: Container<DTPServices, DTPEvents> | null = null
 function getContainer() {
     if (!_container || _container.isDisposed) {
+        _loader = Promise.withResolvers<void>()
         _container = createContainer()
     }
     return _container
@@ -26,6 +28,12 @@ function getContainer() {
 export function useDTP() {
     const container = getContainer()
     return container.services
+}
+
+export async function preloadDTP() {
+    getContainer()
+    if (!_loader) throw new Error("Failed to create container")
+    return _loader.promise
 }
 
 // let _unwatch: () => void
@@ -78,7 +86,9 @@ function createContainer() {
                 watchFolders.assignPaths(),
                 projects.loadProjects(),
                 models.refreshModels(),
-            ])
+            ]).finally(() => {
+                _loader?.resolve()
+            })
         })
 
         const controllers = {

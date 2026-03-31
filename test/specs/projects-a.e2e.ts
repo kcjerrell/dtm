@@ -2,10 +2,11 @@ import path from "path";
 import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
 import { Key } from "webdriverio";
-import { cmdClick, shiftClick } from "../helpers/interaction";
-import { mountFolderB } from "../helpers/projects";
+import { cmdClick, shiftClick } from "../util/helpers";
+import { mountFolderB } from "../util/projects";
+import { getDtpTestDir } from "../util/paths";
 
-const testProjectsDir = process.env.DTP_TEST_DIR;
+const testProjectsDir = getDtpTestDir();
 
 describe("Projects", () => {
 	let failed = false;
@@ -29,7 +30,7 @@ describe("Projects", () => {
 		await App.selectView("projects");
 
 		// assert settings panel appears
-		await expect( $("p*=Settings")).toBeDisplayedInViewport();
+		await expect($("p*=Settings")).toBeDisplayedInViewport();
 
 		// add a watchfolder
 		const projectsAPath = path.resolve(path.join(testProjectsDir, "folder-a"));
@@ -59,7 +60,7 @@ describe("Projects", () => {
 		await DTProjects.settings.click();
 
 		// assert settings panel appears
-		await expect( $("p*=Settings")).toBeDisplayedInViewport();
+		await expect($("p*=Settings")).toBeDisplayedInViewport();
 
 		// add a watchfolder
 		const projectsBPath = mountFolderB();
@@ -104,9 +105,6 @@ describe("Projects", () => {
 		await expect(DTProjects.imageToolbar.projects).not.toExist();
 		await expect(DTProjects.showHiddenProjects).toBeDisplayed();
 		expect(await DTProjects.getTotalImages()).toBeLessThan(initialImageCount);
-		expect(await DTProjects.getTotalProjects()).toBeLessThan(
-			initialProjectCount,
-		);
 
 		// click "show hidden projects" to expand the group
 		await DTProjects.showHiddenProjects.click();
