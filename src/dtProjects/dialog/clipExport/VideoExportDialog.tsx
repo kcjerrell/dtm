@@ -8,8 +8,8 @@ import { IconButton, LinkButton, PanelButton, PanelSection, PanelSectionHeader }
 import { FiX } from "@/components/icons/icons"
 import { Checkbox } from "@/components/ui/checkbox"
 import { NumberInputField, NumberInputRoot } from "@/components/ui/number-input"
-import { useDTP } from "@/dtProjects/state/context"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
+import { useSetting } from "@/state/settings"
 import type { DialogProps, VideoExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
 
@@ -17,8 +17,6 @@ export type FrameSource = "preview" | "tensor"
 
 function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
     const { onClose, image, ...restProps } = props
-    const { settings: storage } = useDTP()
-    const storageSnap = storage.useSnap()
 
     const defaultWidth = image.start_width * 64
     const defaultHeight = image.start_height * 64
@@ -28,7 +26,10 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
     const [fps, setFps] = useState(25)
-    const [frameSource, setFrameSource] = useState<FrameSource>(storageSnap.export.videoSource)
+
+    const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.videoSource")
+    const [frameSource, setFrameSource] = useState<FrameSource>(frameSourceSetting as FrameSource)
+
     const [lockAspectRatio, setLockAspectRatio] = useState(true)
 
     const [isExporting, setIsExporting] = useState(false)
@@ -78,9 +79,6 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
     }
 
     const handleExport = async () => {
-        storage.updateSetting("export", "videoFps", fps)
-        storage.updateSetting("export", "videoSource", frameSource)
-
         const savePath = await save({
             canCreateDirectories: true,
             title: "Save video",
@@ -126,6 +124,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                 outputFile: savePath,
                 imageId: image.id,
             })
+            setFrameSourceSetting(frameSource)
         } catch (e) {
             console.error("Export failed", e)
             setVideoProgress((prev) => ({ ...prev, text: "Export failed" }))

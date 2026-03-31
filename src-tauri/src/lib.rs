@@ -16,6 +16,8 @@ use dtp_service::dtp_connect;
 use projects_db::dt_project_tensordata;
 mod vid;
 mod vid_export;
+mod migrations;
+use migrations::run_migrations;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -227,6 +229,8 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
+            let _ = tauri::async_runtime::block_on(run_migrations(app.handle().clone()));
+            
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
                 .inner_size(800.0, 600.0)

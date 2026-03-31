@@ -24,7 +24,7 @@ fpzip-sys = { path = "./fpzip-sys" }
 dtm_macros = { path = "./macros" }
 
 # Core Tauri
-tauri = { version = "2", features = ["tray-icon", "protocol-asset", "devtools"] }
+tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
 
 # Tauri Plugins (all GitHub v2 versions)
 # Ensures a single consistent dependency tree
@@ -83,6 +83,7 @@ async-trait = "0.1.89"
 notify-debouncer-mini = { version = "0.7.0", features = ["macos_fsevent"] }
 dashmap = "6.1.0"
 hound = "3.5.1"
+semver = "1.0.27"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

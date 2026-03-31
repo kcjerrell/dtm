@@ -1,5 +1,8 @@
 import { proxy, useSnapshot } from "valtio"
 
+// TODO: this needs to be scrapped or refactored to be more universal
+// avoid using for now
+
 type MessageStore = {
 	channels: Record<string, MessageChannel>
 	postMessage: (message: Omit<Message, "id">) => PostMessageReturn

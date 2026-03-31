@@ -9,7 +9,6 @@ import type ImagesController from "./images"
 import type ModelsController from "./models"
 import type ProjectsController from "./projects"
 import type SearchController from "./search"
-import type SettingsController from "./settings"
 import type { UIController } from "./uiState"
 import type {
     ListModelInfoFilesResult,
@@ -133,5 +132,4 @@ export interface DTPServices {
     images: ImagesController
     details: DetailsService
     jobs: JobQueue<DTPContainer, DTProjectsJobs>
-    settings: SettingsController
 }

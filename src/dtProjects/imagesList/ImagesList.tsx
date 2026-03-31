@@ -6,16 +6,18 @@ import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
 import { ResourceHandle } from "../util/resourceHandle"
 import GridImage from "./GridImage"
+import { useSetting } from "@/state/settings"
 
 const keyFn = (item?: ImageExtra | null) => (item ? `${item.project_id}_${item.node_id}` : item)
 
 function ImagesList(props: ChakraProps) {
-    const { images, uiState, settings } = useDTP()
+    const { images, uiState } = useDTP()
     const uiSnap = uiState.useSnap()
     const imagesSnap = images.useSnap()
-    const settingsSnap = settings.useSnap()
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
     const { snap: selectedIds, selectItem, clear } = useItemSelection<number>()
+
+    const [imageSize] = useSetting("ui.imageSize")
 
     const itemSource = images.useItemSource()
     const { selectImageMenuCommand } = useMenuContext()
@@ -74,7 +76,7 @@ function ImagesList(props: ChakraProps) {
             key={imagesSnap.searchId}
             itemComponent={GridImage}
             itemSource={itemSource}
-            maxItemSize={settingsSnap.ui.imageSize ?? 200}
+            maxItemSize={imageSize ?? 200}
             onImagesChanged={images.onImagesChanged}
             itemProps={{
                 spinnerIds: uiSnap.imageSpinner,

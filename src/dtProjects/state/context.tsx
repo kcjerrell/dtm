@@ -8,7 +8,6 @@ import ImagesController from "./images"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
 import SearchController from "./search"
-import SettingsController from "./settings"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
@@ -69,7 +68,6 @@ function createContainer() {
         const images = new ImagesController()
         const search = new SearchController()
         const details = new DetailsService(projects)
-        const settings = new SettingsController()
 
         search.onSearch = (text, filters) => {
             images.buildImageSource({ text: text ?? "", filters: filters ?? [] })
@@ -92,7 +90,6 @@ function createContainer() {
             images,
             details,
             jobs,
-            settings,
         } as DTPServices
 
         // connectDevMode(controllers)
