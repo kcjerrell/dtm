@@ -8,8 +8,9 @@ import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
 import { getDrawThingsDataFromExif } from "../helpers"
 import { ImageItem, type ImageItemConstructorOpts } from "./ImageItem"
-import { bindProxy } from '@/utils/valtio'
-import MediaItem from './mediaItem'
+import { bindProxy } from "@/utils/valtio"
+import MediaItem from "./mediaItem"
+import { VideoItem, VideoItemConstructorOpts } from "./VideoItem"
 
 function initStore() {
     const storeInstance = store(
@@ -42,19 +43,23 @@ function initStore() {
                     if (typeof state !== "object" || state === null) return state
 
                     if ("items" in state && Array.isArray(state.items)) {
-                        state.items = state.items.map((im: MediaItem | ReturnType<MediaItem["toJSON"]>) => {
-                            if (im instanceof MediaItem) return im
-                            if (isVideo(im.type)) {
-                                // return bindProxy(proxy(new VideoItem(im as VideoItemConstructorOpts)))
-                                return null as unknown as MediaItem
-                            }
-                            else {
-                                const newIm = bindProxy(proxy(new ImageItem(im as ImageItemConstructorOpts)))
-                                newIm.loadEntry()
-                                newIm.loadExif()
-                                return newIm
-                            }
-                        })
+                        state.items = state.items.map(
+                            (im: MediaItem | ReturnType<MediaItem["toJSON"]>) => {
+                                if (im instanceof MediaItem) return im
+                                if (isVideo(im.type)) {
+                                    return bindProxy(
+                                        proxy(new VideoItem(im as VideoItemConstructorOpts)),
+                                    )
+                                } else {
+                                    const newIm = bindProxy(
+                                        proxy(new ImageItem(im as ImageItemConstructorOpts)),
+                                    )
+                                    newIm.loadEntry().catch(console.warn)
+                                    newIm.loadExif().catch(console.warn)
+                                    return newIm
+                                }
+                            },
+                        )
                     }
                     return state
                 },
@@ -156,8 +161,7 @@ function reconcilePins() {
 }
 
 export async function clearAll(keepTabs = false) {
-    if (keepTabs)
-        getMetadataStore().items = getMetadataStore().items.filter((im) => im.pin != null)
+    if (keepTabs) getMetadataStore().items = getMetadataStore().items.filter((im) => im.pin != null)
     else getMetadataStore().items = []
     await syncImageStore()
 }
@@ -174,6 +178,7 @@ export async function clearCurrent() {
 }
 
 export function addImageItem(item: MediaItem) {
+    console.log("adding image item", item)
     const store = getMetadataStore()
     const itemState = bindProxy(proxy(item))
     store.items.push(itemState)
