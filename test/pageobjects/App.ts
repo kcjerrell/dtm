@@ -22,12 +22,25 @@ class App {
 
 	async clearAllData() {
 		await browser.executeAsync(async (done) => {
-			try {
-				await (window as any).__reset_db();
-				done(true);
-			} catch (e) {
-				done(false);
-			}
+			let attempts = 0;
+			const promise = Promise.withResolvers<void>();
+			const reset = async () => {
+				attempts++;
+				if ("__reset_db" in window) {
+					try {
+						await (window as any).__reset_db();
+						promise.resolve()
+						return;
+					} catch (e) {
+						console.error(e);
+					}
+				}
+				if (attempts === 3) promise.reject("couldn't reset db");
+				else setTimeout(reset, 1000);
+			};
+			reset()
+			await promise.promise
+			return done(true)
 		});
 		await browser.refresh();
 		await new Promise((resolve) => setTimeout(resolve, 3000));

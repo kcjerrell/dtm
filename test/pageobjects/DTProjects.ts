@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { TestProject } from "../helpers/projects";
+import { TestProject } from "../util/projects";
 
 class DTProjects {
 	get projectA() {

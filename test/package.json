@@ -4,9 +4,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"test": "wdio run wdio.conf.ts",
-		"test:dev": "REUSE_BUILD=true wdio run wdio.conf.ts",
-		"dev": "../src-tauri/target/debug/dtm"
+		"test": "DTM_USE_DEV=false wdio run wdio.conf.ts",
+		"test:dev": "DTM_USE_DEV=true wdio run wdio.conf.ts",
+		"dev": "npm --prefix .. run dev"
 	},
 	"dependencies": {
 		"@wdio/cli": "^9.19.0"

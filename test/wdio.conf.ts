@@ -1,36 +1,37 @@
-// import { config as dotenvConfig } from 'dotenv';
 import type { Options } from "@wdio/types";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { config as dotenvConfig } from "dotenv";
 import {
 	startApp,
 	stopApp,
-	isAppRunning,
+	checkForAppInstance,
 	startDevServer,
 	waitForServer,
-} from "./helpers/appLauncher.js";
+} from "./util/appLauncher.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const devMode = process.env.DEV_MODE === "true";
-console.log(devMode);
+dotenvConfig({ path: resolve(__dirname, ".env"), override: false });
+dotenvConfig({ path: resolve(__dirname, "dev.env"), override: false });
 
-// dotenvConfig({ path: resolve(__dirname, '.env') });
+let isAppRunning = false;
+const useDev = process.env.DTM_USE_DEV !== "false";
 
 const WEBDRIVER_PORT = 4445;
 
 export const config: Options.Testrunner = {
 	runner: "local",
 
-	// autoCompileOpts: {
-	//   autoCompile: true,
-	//   tsNodeOpts: {
-	//     project: resolve(__dirname, 'tsconfig.json'),
-	//     transpileOnly: true,
-	//     esm: true,
-	//   },
-	// },
+	autoCompileOpts: {
+		autoCompile: true,
+		tsNodeOpts: {
+			project: resolve(__dirname, "tsconfig.json"),
+			transpileOnly: true,
+			esm: true,
+		},
+	},
 
 	specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
 
@@ -73,7 +74,6 @@ export const config: Options.Testrunner = {
 
 	// Hooks
 	onPrepare: async function () {
-		// Global setup before any workers are launched
 	},
 
 	onComplete: function () {
@@ -81,30 +81,27 @@ export const config: Options.Testrunner = {
 	},
 
 	beforeSession: async function (config, capabilities, specs) {
-		if (devMode) {
-			if (!isAppRunning("DTM") && !isAppRunning("dtm")) {
-				console.log(`App not running. Starting dev server...`);
-				await startDevServer(WEBDRIVER_PORT);
-			} else {
-				console.log(
-					`App is already running. Connecting to existing session...`,
-				);
-				// Still wait for server to be ready just in case
-				await waitForServer(WEBDRIVER_PORT);
-			}
+		isAppRunning = false;
+
+		if (checkForAppInstance("DTM") || checkForAppInstance("dtm")) {
+			// use existing app
+			isAppRunning = true;
+			console.log(`App is already running. Connecting to existing session...`);
+			await waitForServer(WEBDRIVER_PORT, 10000);
 			return;
 		}
-
-		console.log("Starting Tauri application...");
+		if (useDev) {
+			console.log("Starting app in dev mode...");
+			await startDevServer(WEBDRIVER_PORT);
+			return;
+		}
+		console.log("Starting debug build...");
 		await startApp(WEBDRIVER_PORT);
-
-		// Wait a bit for any lingering state to clear
-		await new Promise((resolve) => setTimeout(resolve, 500));
 	},
 
 	afterSession: async function () {
-		if (devMode) return;
+		if (isAppRunning) return;
 		console.log("Stopping Tauri application...");
-		stopApp(WEBDRIVER_PORT);
+		stopApp();
 	},
 };
