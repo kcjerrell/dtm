@@ -20,7 +20,7 @@ import type { FilterValueSelector, ValueSelectorProps } from "./collections"
 function ModelValueSelectorComponent(
     props: ValueSelectorProps<Model[]> & { modelType?: "models" | "loras" | "controls" },
 ) {
-    const { value, onValueChange, modelType = "models", ...boxProps } = props
+    const { value, onValueChange, modelType = "models", filterIndex, ...boxProps } = props
 
     const { models, uiState } = useDTP()
     const modelsSnap = models.useSnap()
@@ -76,6 +76,8 @@ function ModelValueSelectorComponent(
     return (
         <Box padding={0} {...boxProps}>
             <Box
+                aria-label={`${modelType} filter value selector`}
+                data-testid="model-value-selector"
                 width={"full"}
                 padding={2}
                 minHeight={"min-content"}
@@ -88,7 +90,12 @@ function ModelValueSelectorComponent(
                 <VStack width={"full"} alignItems={"stretch"} overflowX={"clip"}>
                     {value && value.length > 0 ? (
                         value.map((model) => (
-                            <HStack width={"full"} className={"group"} key={model.filename}>
+                            <HStack
+                                width={"full"}
+                                className={"group"}
+                                key={model.filename}
+                                data-testid="selected-model-chip"
+                            >
                                 <Text
                                     flex={"1 1 auto"}
                                     textWrap={"nowrap"}
@@ -98,6 +105,7 @@ function ModelValueSelectorComponent(
                                     {getModelLabel(model, true)}
                                 </Text>
                                 <IconButton
+                                    aria-label={`Remove selected model ${getModelLabel(model, true)}`}
                                     flex={"0 0 auto"}
                                     margin={-2}
                                     marginLeft="auto"
@@ -125,10 +133,16 @@ function ModelValueSelectorComponent(
                     )}
                 </VStack>
             </Box>
-            {snap.isOpen && contentPane && 
+            {snap.isOpen &&
+                contentPane &&
                 createPortal(
                     <ContentPanelPopup
                         flexDirection={"row"}
+                        outsideInteractionExclusions={
+                            filterIndex !== undefined
+                                ? [`[data-filter-root="${filterIndex}"]`]
+                                : undefined
+                        }
                         onClose={() => {
                             showList(false)
                         }}
@@ -146,6 +160,7 @@ function ModelValueSelectorComponent(
                         >
                             <HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
                                 <Input
+                                    aria-label={`${modelType} filter text`}
                                     data-defctx={true}
                                     flex={"1 1 auto"}
                                     key={"modelInput"}
@@ -203,6 +218,8 @@ function ModelValueSelectorComponent(
                                 <PanelListScrollContent>
                                     {snap.versions.map(([version, info]) => (
                                         <PanelListItem
+                                            data-testid="model-version-item"
+                                            aria-label={`Model version ${info.label}`}
                                             width={"full"}
                                             key={version}
                                             selectable
@@ -234,7 +251,15 @@ function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => b
     if (filterFn && !filterFn(model)) return null
 
     return (
-        <PanelListItem key={model.id} selectable selected={isSelected} {...restProps} {...handlers}>
+        <PanelListItem
+            key={model.id}
+            data-testid="model-filter-item"
+            aria-label={`Model item ${getModelLabel(model, true)}`}
+            selectable
+            selected={isSelected}
+            {...restProps}
+            {...handlers}
+        >
             <Text title={model.filename} textOverflow="ellipsis" overflowX="hidden">
                 {getModelLabel(model, true)}
             </Text>

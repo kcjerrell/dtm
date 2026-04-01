@@ -14,7 +14,7 @@ type FfmpegProgress = {
     state: string
 }
 
-export function useFfmpeg() {
+export function useFfmpeg(hideOnComplete = false) {
     const { state, snap } = useProxyRef(() => ({
         showComponent: false,
         status: "unknown" as FfmpegStatus,
@@ -42,6 +42,7 @@ export function useFfmpeg() {
             if (event.payload.state === "done") {
                 state.progress = 1
                 state.received = state.total
+                if (hideOnComplete) state.showComponent = false
             }
             state.progressText = msg
         })
@@ -61,7 +62,7 @@ export function useFfmpeg() {
     const FfmpegComponent = memo((props: ChakraProps) => {
         if (!snap.showComponent) return null
         return (
-            <PanelSection {...props}>
+            <PanelSection data-testid="ffmpeg-section" {...props}>
                 <Grid
                     padding={4}
                     gridTemplateColumns={"auto auto"}

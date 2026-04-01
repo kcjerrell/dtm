@@ -73,6 +73,7 @@ export function VideoImage(props: VideoImageProps) {
     return (
         <Flex overflow={"hidden"} justifyContent={"center"} alignItems={"center"} {...restProps}>
             <canvas
+                aria-label={"Video preview image"}
                 ref={canvasRef}
                 style={{
                     width: "100%",

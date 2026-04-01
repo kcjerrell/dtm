@@ -18,6 +18,7 @@ function Seekbar(props: SeekbarProps) {
 
     return (
         <Box
+            aria-label={"Video seekbar"}
             ref={containerRef}
             position={"relative"}
             height={"2rem"}

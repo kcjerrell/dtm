@@ -159,4 +159,5 @@ export interface ValueSelectorProps<T> extends Omit<ChakraProps, "defaultValue" 
     value?: T
     onValueChange?: (value: T | undefined) => void
     target?: string
+    filterIndex?: number
 }

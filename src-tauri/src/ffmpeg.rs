@@ -1,5 +1,6 @@
 use futures_util::StreamExt;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_http::reqwest;
@@ -68,56 +69,73 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
 
     for (i, (name, url, sha256)) in tasks.iter().enumerate() {
         let archive_path = temp_dir.join(format!("{}.7z", name));
-        
-        let res = client
-            .get(*url)
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
+        let has_valid_cached_archive = archive_path.exists()
+            && verify_checksum(&archive_path, sha256).is_ok_and(|v| v);
 
-        let content_length = res.content_length();
-        task_sizes[i] = content_length;
+        if !has_valid_cached_archive {
+            let res = client
+                .get(*url)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
 
-        let mut stream = res.bytes_stream();
-        let mut file = std::fs::File::create(&archive_path).map_err(|e| e.to_string())?;
+            let content_length = res.content_length();
+            task_sizes[i] = content_length;
 
-        let mut last_emit = std::time::Instant::now();
-        let emit_interval = std::time::Duration::from_millis(200);
+            let mut stream = res.bytes_stream();
+            let mut file = std::fs::File::create(&archive_path).map_err(|e| e.to_string())?;
 
-        while let Some(item) = stream.next().await {
-            let chunk = item.map_err(|e| e.to_string())?;
-            file.write_all(&chunk).map_err(|e| e.to_string())?;
-            total_downloaded += chunk.len() as u64;
+            let mut last_emit = std::time::Instant::now();
+            let emit_interval = std::time::Duration::from_millis(200);
 
-            if last_emit.elapsed() >= emit_interval {
-                // Estimate total size
-                let first_known_size = task_sizes.iter().find_map(|s| *s);
-                let estimated_total: u64 = task_sizes.iter().enumerate().map(|(j, s)| {
-                    s.unwrap_or_else(|| {
-                        if j > i {
-                            first_known_size.unwrap_or(0)
-                        } else {
-                            0
-                        }
-                    })
-                }).sum();
+            while let Some(item) = stream.next().await {
+                let chunk = item.map_err(|e| e.to_string())?;
+                file.write_all(&chunk).map_err(|e| e.to_string())?;
+                total_downloaded += chunk.len() as u64;
 
-                let _ = app.emit(
-                    "ffmpeg_download_progress",
-                    DownloadProgress {
-                        progress: if estimated_total > 0 {
-                            total_downloaded as f64 / estimated_total as f64
-                        } else {
-                            0.0
+                if last_emit.elapsed() >= emit_interval {
+                    // Estimate total size
+                    let first_known_size = task_sizes.iter().find_map(|s| *s);
+                    let estimated_total: u64 = task_sizes
+                        .iter()
+                        .enumerate()
+                        .map(|(j, s)| {
+                            s.unwrap_or_else(|| {
+                                if j > i {
+                                    first_known_size.unwrap_or(0)
+                                } else {
+                                    0
+                                }
+                            })
+                        })
+                        .sum();
+
+                    let _ = app.emit(
+                        "ffmpeg_download_progress",
+                        DownloadProgress {
+                            progress: if estimated_total > 0 {
+                                total_downloaded as f64 / estimated_total as f64
+                            } else {
+                                0.0
+                            },
+                            total: Some(estimated_total),
+                            received: total_downloaded,
+                            msg: Some(format!("Downloading {}", name)),
+                            state: Some("downloading".to_string()),
                         },
-                        total: Some(estimated_total),
-                        received: total_downloaded,
-                        msg: Some(format!("Downloading {}", name)),
-                        state: Some("downloading".to_string())
-                    },
-                );
-                last_emit = std::time::Instant::now();
+                    );
+                    last_emit = std::time::Instant::now();
+                }
             }
+        } else {
+            let _ = app.emit(
+                "ffmpeg_download_progress",
+                DownloadProgress {
+                    msg: Some(format!("Using cached {}", name)),
+                    state: Some("verifying".to_string()),
+                    ..Default::default()
+                },
+            );
         }
 
         let _ = app.emit(
@@ -143,8 +161,7 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
         );
 
         sevenz_rust::decompress_file(&archive_path, &bin_dir).map_err(|e| e.to_string())?;
-        let _ = fs::remove_file(&archive_path).await;
-        
+
         // Set executable permission on Unix
         #[cfg(unix)]
         {
@@ -198,7 +215,6 @@ pub async fn call_ffmpeg(app: &AppHandle, args: Vec<String>) -> Result<String, S
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::Path;
 
 fn sha256_file(path: &Path) -> Result<String, std::io::Error> {
     let file = File::open(path)?;
