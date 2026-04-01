@@ -1,11 +1,4 @@
-import {
-    Box,
-    type BoxProps,
-    chakra,
-    OverlayOptions,
-    Portal,
-    type StackProps,
-} from "@chakra-ui/react"
+import { Box, type BoxProps, chakra, Portal, type StackProps } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ComponentProps, type ReactNode, type RefObject, useEffect, useRef } from "react"
 import { useMotionRect } from "@/hooks/motion"
@@ -73,7 +66,10 @@ export interface ContentPanelPopupProps extends StackProps {
     shadeElem?: RefObject<HTMLDivElement | null> | null
     shadeProps?: BoxProps
     panelProps?: ComponentProps<typeof Panel>
+    outsideInteractionExclusions?: string[]
 }
+
+export const CLOSE_TRANSIENT_POPUPS_EVENT = "dtp:close-transient-popups"
 
 export function ContentPanelPopup(props: ContentPanelPopupProps) {
     const {
@@ -85,6 +81,7 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         shadeElem,
         shadeProps,
         panelProps,
+        outsideInteractionExclusions = [],
         ...restProps
     } = props
     const [mvX, mvY, mvWidth, mvHeight] = useMotionRect(0, 0, 0, 0)
@@ -97,18 +94,43 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
 
     useEffect(() => {
         if (!panelRef.current || !containerRef.current || !positionerRef.current) return
-        const handler = (e: MouseEvent) => {
-            console.log("pointerdown popup")
-            if (panelRef.current === e.target || panelRef.current?.contains(e.target as Node))
-                return
-            const insidePopup = (e.target as HTMLElement).closest("[data-filter-popup]") !== null
-            if (insidePopup) return
+
+        const isExcludedTarget = (target: EventTarget | null): boolean => {
+            const elem = target instanceof Element ? target : null
+            if (!elem) return false
+            return outsideInteractionExclusions.some((selector) => elem.closest(selector) !== null)
+        }
+
+        const shouldClose = (target: EventTarget | null): boolean => {
+            const elem = target instanceof Element ? target : null
+            if (!elem) return false
+            if (panelRef.current === elem || panelRef.current?.contains(elem)) return false
+            if (elem.closest("[data-filter-popup]") !== null) return false
+            if (isExcludedTarget(elem)) return false
+            return true
+        }
+
+        const pointerHandler = (e: PointerEvent) => {
+            if (!shouldClose(e.target)) return
             e.preventDefault()
             e.stopPropagation()
             onClose()
         }
-        console.log("adding handler")
-        window.addEventListener("pointerdown", handler, { capture: true })
+
+        const keyHandler = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return
+            e.preventDefault()
+            e.stopPropagation()
+            onClose()
+        }
+
+        const forceCloseHandler = () => {
+            onClose()
+        }
+
+        window.addEventListener("pointerdown", pointerHandler, { capture: true })
+        window.addEventListener("keydown", keyHandler, { capture: true })
+        window.addEventListener(CLOSE_TRANSIENT_POPUPS_EVENT, forceCloseHandler)
 
         const ro = new ResizeObserver(() => {
             if (!panelRef.current || !containerRef.current || !positionerRef.current || !root)
@@ -125,10 +147,12 @@ export function ContentPanelPopup(props: ContentPanelPopupProps) {
         ro.observe(positionerRef.current)
         ro.observe(containerRef.current)
         return () => {
-            window.removeEventListener("pointerdown", handler, { capture: true })
+            window.removeEventListener("pointerdown", pointerHandler, true)
+            window.removeEventListener("keydown", keyHandler, true)
+            window.removeEventListener(CLOSE_TRANSIENT_POPUPS_EVENT, forceCloseHandler)
             ro.disconnect()
         }
-    }, [mvHeight, mvWidth, mvX, mvY, onClose, root])
+    }, [mvHeight, mvWidth, mvX, mvY, onClose, outsideInteractionExclusions, root])
 
     if (!root) return null
 

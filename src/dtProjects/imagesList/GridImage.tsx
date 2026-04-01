@@ -206,7 +206,11 @@ function GridImage(props: GridImageProps) {
                 )}
             </GridImageWrapper>
             {isVideo && (
-                <GridImageIcon asChild>
+                <GridImageIcon
+                    data-testid="video-frame-indicator"
+                    aria-label={`Video frame count ${item.num_frames ?? 0}`}
+                    asChild
+                >
                     <FrameCountIndicator count={item.num_frames ?? 0} />
                 </GridImageIcon>
             )}

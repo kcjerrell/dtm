@@ -1,6 +1,7 @@
 import { Box } from "@chakra-ui/react"
 import { IconButton, Panel } from "@/components"
 import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons/icons"
+import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
 import { useDTP } from "@/dtProjects/state/context"
 import Tabs from "@/metadata/infoPanel/tabs"
 import ProjectsPanel from "./projectsPanel/ProjectsPanel"
@@ -83,7 +84,13 @@ function TabList(props: ChakraProps) {
                 )
             })}
             <Tabs.Indicator />
-            <IconButton aria-label={"Settings"} onClick={() => uiState.showSettings()}>
+            <IconButton
+                aria-label={"Settings"}
+                onClick={() => {
+                    window.dispatchEvent(new Event(CLOSE_TRANSIENT_POPUPS_EVENT))
+                    uiState.showSettings()
+                }}
+            >
                 <GoGear />
             </IconButton>
         </Tabs.List>

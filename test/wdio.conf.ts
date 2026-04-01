@@ -18,6 +18,9 @@ dotenvConfig({ path: resolve(__dirname, "dev.env"), override: false });
 
 let isAppRunning = false;
 const useDev = process.env.DTM_USE_DEV !== "false";
+const isDebug = false
+	// process.execArgv.some((arg) => arg.startsWith("--inspect")) ||
+	// !!process.env.VSCODE_INSPECTOR_OPTIONS;
 
 const WEBDRIVER_PORT = 4445;
 
@@ -57,9 +60,9 @@ export const config: Options.Testrunner = {
 
 	bail: 0,
 
-	waitforTimeout: 10000,
+	waitforTimeout: isDebug ? 1000000 : 10000,
 
-	connectionRetryTimeout: 120000,
+	connectionRetryTimeout: isDebug ? 12000000 : 120000,
 
 	connectionRetryCount: 3,
 
@@ -69,7 +72,7 @@ export const config: Options.Testrunner = {
 
 	mochaOpts: {
 		ui: "bdd",
-		timeout: 60000,
+		timeout: isDebug ? 6000000 : 180000,
 	},
 
 	// Hooks

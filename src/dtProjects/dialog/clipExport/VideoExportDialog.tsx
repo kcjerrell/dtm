@@ -1,6 +1,5 @@
 import { Box, Grid, HStack, Text, VStack } from "@chakra-ui/react"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
-import { save } from "@tauri-apps/plugin-dialog"
 import { useEffect, useMemo, useState } from "react"
 import { createVideoFromFrames } from "@/commands"
 import DTPService from "@/commands/DtpService"
@@ -10,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { NumberInputField, NumberInputRoot } from "@/components/ui/number-input"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
 import { useSetting } from "@/state/settings"
+import { save } from "@/utils/tauri"
 import type { DialogProps, VideoExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
 
@@ -44,7 +44,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
         text: "",
     })
 
-    const ffmpeg = useFfmpeg()
+    const ffmpeg = useFfmpeg(true)
 
     const aspectRatio = useMemo(() => defaultWidth / defaultHeight, [defaultWidth, defaultHeight])
 
@@ -181,7 +181,11 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                     max={4096}
                                     step={8}
                                 >
-                                    <NumberInputField textAlign={"center"} paddingRight={"2rem"} />
+                                    <NumberInputField
+                                        aria-label={"Video export width"}
+                                        textAlign={"center"}
+                                        paddingRight={"2rem"}
+                                    />
                                 </NumberInputRoot>
                                 <Text fontSize={"md"}>x</Text>
                                 <NumberInputRoot
@@ -199,7 +203,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                     max={4096}
                                     step={8}
                                 >
-                                    <NumberInputField />
+                                    <NumberInputField aria-label={"Video export height"} />
                                 </NumberInputRoot>
                             </HStack>
                         </VStack>
@@ -247,7 +251,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                     max={120}
                                     step={2}
                                 >
-                                    <NumberInputField />
+                                    <NumberInputField aria-label={"Video export fps"} />
                                 </NumberInputRoot>
                             </Box>
                             <Box flex={1}>
@@ -275,6 +279,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                             layerStyle={"borderA"}
                         >
                             <PanelButton
+                                aria-label={"Preview frame source"}
                                 flex={1}
                                 size="sm"
                                 tone={frameSource === "preview" ? "selected" : "none"}
@@ -285,6 +290,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                 Preview
                             </PanelButton>
                             <PanelButton
+                                aria-label={"Tensor frame source"}
                                 flex={1}
                                 size="sm"
                                 tone={frameSource === "tensor" ? "selected" : "none"}
@@ -323,6 +329,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
             </PanelSection>
 
             <ffmpeg.FfmpegComponent />
+
             {(isExporting ||
                 videoProgress.text === "Done" ||
                 videoProgress.text === "Export failed") && (
@@ -335,8 +342,13 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                     videoProgressText={videoProgress.text || undefined}
                 />
             )}
+
             <HStack justifyContent="flex-end" gap={2} marginTop={2}>
-                <PanelButton disabled={!ffmpeg.isReady || isExporting} onClick={handleExport}>
+                <PanelButton
+                    aria-label={"Export video"}
+                    disabled={!ffmpeg.isReady || isExporting}
+                    onClick={handleExport}
+                >
                     Export
                 </PanelButton>
             </HStack>

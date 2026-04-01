@@ -54,6 +54,7 @@ function Toolbar(props: ToolbarProps) {
                     mode="zeroOrOne"
                 >
                     <IconToggle.Trigger
+                        aria-label={"Show only images"}
                         size={"sm"}
                         variant={"ghost"}
                         option="image"
@@ -62,6 +63,7 @@ function Toolbar(props: ToolbarProps) {
                         <PiImage />
                     </IconToggle.Trigger>
                     <IconToggle.Trigger
+                        aria-label={"Show only videos"}
                         size={"sm"}
                         variant={"ghost"}
                         option="video"

@@ -31,6 +31,7 @@ function ExportProgress(props: ExportProgressProps) {
             <PanelSectionHeader>Progress</PanelSectionHeader>
             <VStack alignItems="stretch" gap={4} paddingX={4} paddingY={2}>
                 <Progress
+                    ariaLabel={"Exporting frames progress"}
                     valueText={progressText}
                     labelA={progressText}
                     labelB={`${finished} / ${total}`}
@@ -40,6 +41,7 @@ function ExportProgress(props: ExportProgressProps) {
 
                 {videoProgressText !== undefined && (
                     <Progress
+                        ariaLabel={"Encoding video progress"}
                         valueText={videoProgressText}
                         labelA={videoProgressText}
                         labelB={`${videoValue}%`}

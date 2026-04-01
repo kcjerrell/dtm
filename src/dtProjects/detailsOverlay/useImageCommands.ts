@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core"
-import { save } from "@tauri-apps/plugin-dialog"
 import * as fs from "@tauri-apps/plugin-fs"
 import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
@@ -10,6 +9,7 @@ import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommand } from "@/types"
 import { showMenu } from "@/utils/menu"
+import { save } from "@/utils/tauri"
 import { useDTP } from "../state/context"
 import type { ResourceHandle } from "../util/resourceHandle"
 

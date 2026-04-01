@@ -13,6 +13,7 @@ function MuteButton(props: MuteButtonProps) {
 
     return (
         <IconButton
+            aria-label={isMuted ? "Unmute video" : "Mute video"}
             flex={"0 0 auto"}
             onClick={() => {
                 controls.setMute(-1)

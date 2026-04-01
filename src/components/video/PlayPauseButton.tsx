@@ -20,6 +20,7 @@ function PlayPauseButton(props: PlayPauseButtonProps) {
 
     return (
         <IconButton
+            aria-label={playbackState === "playing" ? "Pause video" : "Play video"}
             flex={"0 0 auto"}
             onClick={() => {
                 controls.togglePlayPause()
