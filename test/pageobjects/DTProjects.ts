@@ -117,6 +117,40 @@ class DTProjects {
 			return $("aria/Sort by date");
 		},
 	};
+
+	searchPanel = {
+		getFilter(index: number) {
+			const filter = {
+				get target() {
+					return $(`[aria-label="Search filter ${index} target"] button`);
+				},
+				async getTargetOption(option: string) {
+					// id will be something like select:_r_1v_
+					// the option id will have an id like select:_r_1v_:option:model
+					const rootId = await $(`[aria-label="Search filter ${index} target"]`).getAttribute("id")
+					const optionId = `${rootId}:option:${option}`
+					return $(`[id="${optionId}"]`)
+				},
+				get operator() {
+					return $(`[aria-label="Search filter ${index} operator"] button`);
+				},
+				async getOperatorOption(option: string) {
+					// id will be something like select:_r_1v_
+					// the option id will have an id like select:_r_1v_:option:model
+					const rootId = await $(`[aria-label="Search filter ${index} operator"]`).getAttribute("id")
+					const optionId = `${rootId}:option:${option}`
+					return $(`[id="${optionId}"]`)
+				},
+				get value() {
+					return $(`aria/Search filter ${index} value`);
+				},
+				get remove() {
+					return $(`aria/Remove search filter ${index}`);
+				},
+			}
+			return filter
+		}
+	}
 }
 
 export default new DTProjects();
