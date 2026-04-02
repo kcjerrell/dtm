@@ -1,12 +1,5 @@
 import App from "../pageobjects/App";
-
-async function clickFilterPopupOption(label: string) {
-	const option = await $(
-		`//div[@data-filter-popup]//*[@role="option" and (normalize-space()="${label}" or .//*[normalize-space()="${label}"])]`,
-	);
-	await option.waitForDisplayed({ timeout: 10000 });
-	await option.click();
-}
+import DTProjects from "../pageobjects/DTProjects";
 
 async function openModelList() {
 	await $('[aria-label="models filter value selector"]').click();
@@ -26,23 +19,25 @@ async function expectModelListClosed() {
 	});
 }
 
-async function openOperatorSelect() {
-	await $(
-		'[aria-label="Search filter operator 0"] [data-part="trigger"]',
-	).click();
-}
-
 describe("Model Selector Popup", () => {
+	beforeEach(async () => {
+		await browser.refresh();
+		await $(".loading-container").waitForDisplayed({ timeout: 15000 });
+		await $(".loading-container").waitForDisplayed({
+			reverse: true,
+			timeout: 15000,
+		});
+	});
+
 	it("keeps model selector open for related form interactions", async () => {
 		await App.selectView("projects");
 		await $("aria/Search tab").click();
 		await $("aria/Reset search").click();
 
 		await $("aria/Add search filter").click();
-		await $(
-			'[aria-label="Search filter target 0"] [data-part="trigger"]',
-		).click();
-		await clickFilterPopupOption("Model");
+		const filterForm = DTProjects.searchPanel.getFilter(0);
+		await filterForm.target.click();
+		(await filterForm.getTargetOption("model")).click();
 
 		await openModelList();
 		await expectModelListOpen();
@@ -63,10 +58,10 @@ describe("Model Selector Popup", () => {
 		await expectModelListOpen();
 
 		// interacting with operator should keep model list open consistently
-		for (const op of ["is", "is not", "is"] as const) {
-			await openOperatorSelect();
+		for (const op of ["is", "isnot", "is"] as const) {
+			await filterForm.operator.click();
 			await expectModelListOpen();
-			await clickFilterPopupOption(op);
+			await filterForm.getOperatorOption(op);
 			await expectModelListOpen();
 		}
 
@@ -84,10 +79,8 @@ describe("Model Selector Popup", () => {
 		}
 
 		// changing target should close due selector remount
-		await $(
-			'[aria-label="Search filter target 0"] [data-part="trigger"]',
-		).click();
-		await clickFilterPopupOption("Sampler");
+		await filterForm.target.click();
+		(await filterForm.getTargetOption("sampler")).click();
 		await expectModelListClosed();
 	});
 
@@ -96,11 +89,14 @@ describe("Model Selector Popup", () => {
 		await $("aria/Search tab").click();
 		await $("aria/Reset search").click();
 
+		await expect($("#root")).toBeDisplayed();
+
 		await $("aria/Add search filter").click();
-		await $(
-			'[aria-label="Search filter target 0"] [data-part="trigger"]',
-		).click();
-		await clickFilterPopupOption("Model");
+		const filterForm = DTProjects.searchPanel.getFilter(0);
+		await filterForm.target.click();
+
+		const option = await filterForm.getTargetOption("model");
+		await option.click();
 
 		await openModelList();
 		await expectModelListOpen();

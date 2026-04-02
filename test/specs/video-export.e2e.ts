@@ -229,9 +229,12 @@ describe("Video Export", () => {
 		await expect(exportButton).toBeDisabled();
 		await $("button=Install").click();
 
-		await $("[data-testid='ffmpeg-section']").waitForDisplayed({timeout: 15000, reverse: true});
+		await $("[data-testid='ffmpeg-section']").waitForDisplayed({
+			timeout: 15000,
+			reverse: true,
+		});
 
-		await exportButton.waitForEnabled({timeout: 15000})
+		await exportButton.waitForEnabled({ timeout: 15000 });
 
 		// select Preview frame source
 		await $("aria/Preview frame source").click();
@@ -246,12 +249,18 @@ describe("Video Export", () => {
 
 		// assert Progress section appears and completes
 		await expect($("body")).toHaveText(expect.stringContaining("Progress"));
-		
-		await expect($('aria/Exporting frames progress'))
-  .toHaveAttribute('aria-valuenow', '100', { wait: 15000,  });
 
-		await expect($('aria/Encoding video progress'))
-  .toHaveAttribute('aria-valuenow', '100', { wait: 15000,  });
+		await expect($("aria/Exporting frames progress")).toHaveAttribute(
+			"aria-valuenow",
+			"100",
+			{ wait: 15000 },
+		);
+
+		await expect($("aria/Encoding video progress")).toHaveAttribute(
+			"aria-valuenow",
+			"100",
+			{ wait: 15000 },
+		);
 
 		// assert file exists
 		expect(await fse.pathExists(videoOutputPath)).toBe(true);
