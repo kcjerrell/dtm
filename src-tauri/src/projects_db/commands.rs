@@ -14,7 +14,7 @@ use crate::projects_db::{
         watch_folder::WatchFolderDTO,
     },
     filters::ListImagesFilter,
-    tensors::decode_tensor,
+    tensors::{decode_tensor, DecodeTensorOptions},
     DTProject, ProjectsDb,
 };
 use dtm_macros::dtm_command;
@@ -461,7 +461,15 @@ pub async fn dt_project_decode_tensor(
         None => None,
     };
 
-    let buffer = decode_tensor(tensor, as_png, metadata, None).map_err(|e| e.to_string())?;
+    let buffer = decode_tensor(
+        tensor,
+        DecodeTensorOptions {
+            as_png,
+            history_node: metadata,
+            scale: None,
+        },
+    )
+    .map_err(|e| e.to_string())?;
     Ok(tauri::ipc::Response::new(buffer))
 }
 
