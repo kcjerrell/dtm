@@ -1,6 +1,6 @@
 import { HStack } from "@chakra-ui/react"
 import { type ComponentProps, createContext, type ReactNode, use, useCallback } from "react"
-import { IconButton, Tooltip } from "."
+import { IconButton } from "."
 
 const IconToggleContext = createContext({
     value: {} as Record<string, boolean | undefined>,
@@ -80,6 +80,7 @@ function Trigger(props: TriggerProps) {
     const { children, option, ...restProps } = props
 
     const { value, onClick } = use(IconToggleContext)
+    const isToggled = value[option] ?? false
 
     // useEffect(() => {
     //     if (!(option in context.entries)) {
@@ -93,7 +94,9 @@ function Trigger(props: TriggerProps) {
     return (
         <IconButton
             variant={"toggle"}
-            toggled={value[option] ?? false}
+            toggled={isToggled}
+            aria-pressed={isToggled}
+            data-state={isToggled ? "on" : "off"}
             onClick={() => {
                 onClick(option)
             }}

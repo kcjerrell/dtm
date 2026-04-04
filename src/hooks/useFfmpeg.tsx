@@ -11,9 +11,10 @@ type FfmpegProgress = {
     total: number
     received: number
     msg: string
+    state: string
 }
 
-export function useFfmpeg() {
+export function useFfmpeg(hideOnComplete = false) {
     const { state, snap } = useProxyRef(() => ({
         showComponent: false,
         status: "unknown" as FfmpegStatus,
@@ -32,28 +33,18 @@ export function useFfmpeg() {
 
     const installFfmpeg = async () => {
         const unlisten = await listen<FfmpegProgress>("ffmpeg_download_progress", (event) => {
-            // event msgs are progress, verifying, extracting, installing, done
-            // probably excessive
             const msg = event.payload.msg
-            switch (msg) {
-                case "progress":
-                    state.progress = event.payload.progress
-                    state.total = event.payload.total
-                    state.received = event.payload.received
-                    break
-                case "verifying":
-                    state.progressText = "Verifying..."
-                    break
-                case "extracting":
-                    state.progressText = "Extracting..."
-                    break
-                case "installing":
-                    state.progressText = "Installing..."
-                    break
-                case "done":
-                    state.progressText = "Done"
-                    break
+            if (event.payload.state === "downloading") {
+                state.progress = event.payload.progress
+                state.total = event.payload.total
+                state.received = event.payload.received
             }
+            if (event.payload.state === "done") {
+                state.progress = 1
+                state.received = state.total
+                if (hideOnComplete) state.showComponent = false
+            }
+            state.progressText = msg
         })
         state.status = "installing"
         try {
@@ -71,7 +62,7 @@ export function useFfmpeg() {
     const FfmpegComponent = memo((props: ChakraProps) => {
         if (!snap.showComponent) return null
         return (
-            <PanelSection {...props}>
+            <PanelSection data-testid="ffmpeg-section" {...props}>
                 <Grid
                     padding={4}
                     gridTemplateColumns={"auto auto"}

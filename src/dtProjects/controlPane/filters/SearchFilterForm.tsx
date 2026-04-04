@@ -80,6 +80,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
             {...boxProps}
         >
             <FilterSelect
+                aria-label={`Search filter ${index} target`}
                 className={`search-filter-form-top-left ${valueRow === "1" ? "search-filter-form-bottom-left" : ""}`}
                 ref={targetRef}
                 placeholder={"Select"}
@@ -93,6 +94,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
                 }}
             />
             <FilterSelect
+                aria-label={`Search filter ${index} operator`}
                 disabled={!target}
                 placeholder={"?"}
                 collection={operatorCollection}
@@ -114,6 +116,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
                 }
                 key={`${target}_value`}
                 value={value}
+                filterIndex={index}
                 target={target}
                 // this disables the hover style if no target is selected
                 // lazy disabled :)
@@ -128,6 +131,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
             />
 
             <IconButton
+                aria-label={`Remove search filter ${index}`}
                 className={`search-filter-form-top-right ${valueRow === "1" ? "search-filter-form-bottom-right" : ""}`}
                 {...selectStyle}
                 // color={"fg.3"}

@@ -15,6 +15,9 @@ mod projects_db;
 use dtp_service::dtp_connect;
 use projects_db::dt_project_tensordata;
 mod vid;
+mod vid_export;
+mod migrations;
+use migrations::run_migrations;
 
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
@@ -61,10 +64,17 @@ async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String,
 }
 
 #[tauri::command]
-async fn fetch_image_file(url: String) -> Result<Vec<u8>, String> {
+async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
     let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    let content_type = resp
+        .headers()
+        .get("Content-Type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-    Ok(bytes.to_vec())
+    Ok((bytes.to_vec(), content_type))
 }
 
 // #[tauri::command]
@@ -111,8 +121,7 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init());
+    let builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
 
     #[cfg(debug_assertions)]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
@@ -161,9 +170,11 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
-            vid::create_video_from_frames,
-            vid::save_all_clip_frames,
-            vid::check_pattern,
+            vid_export::create_video_from_frames,
+            vid_export::save_all_clip_frames,
+            vid_export::check_pattern,
+            vid::get_video_metadata,
+            vid::get_video_thumbnail,
             ffmpeg_check,
             ffmpeg_download,
             ffmpeg_download,
@@ -190,7 +201,9 @@ pub fn run() {
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
+            dtp_service::data::dtp_get_metadata,
             dt_project_tensordata,
+            dtp_service::dtp_service::dtp_reset_db,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
@@ -216,6 +229,8 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
+            let _ = tauri::async_runtime::block_on(run_migrations(app.handle().clone()));
+            
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
                 .inner_size(800.0, 600.0)

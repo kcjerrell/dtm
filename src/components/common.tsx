@@ -114,11 +114,12 @@ export const PaneListContainer = chakra("div", {
     base: {
         position: "relative",
 
-        height: "auto",
+        height: "100%",
         maxHeight: "100%",
         width: "100%",
         color: "fg.2",
-        flex: "1 0 auto",
+        flex: "1 1 auto",
+        minHeight: 0,
 
         paddingY: 0,
         paddingX: 0,
@@ -166,7 +167,7 @@ export const PaneListScrollContainer = chakra(
             },
         },
     },
-    { defaultProps: { className: "hide-scrollbar" } },
+    { defaultProps: { className: "panel-scroll-square" } },
 )
 
 export const PanelListScrollContent = chakra("div", {
@@ -346,6 +347,7 @@ export const PanelSection = chakra("div", {
         justifyContent: "flex-start",
         gap: "1px",
         color: "fg.2",
+        minHeight: 0,
     },
     variants: {
         variant: {

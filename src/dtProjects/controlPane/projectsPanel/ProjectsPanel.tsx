@@ -29,7 +29,7 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
         <TabContent
             className={"tc"}
             value={"projects"}
-            contentProps={{ height: "full", maxHeight: "100%", overflowY: "clip" }}
+            contentProps={{ height: "full", maxHeight: "100%", overflowY: "clip", minH: 0 }}
             height={"full"}
             {...restProps}
         >
@@ -93,11 +93,11 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 })}
             </PanelList>
 
-            <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1}>
-                <Box>{snap.projects.length} projects</Box>
+            <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1} aria-label={"Projects status bar"}>
+                <Box aria-label={"Total projects"}>{snap.projects.length} projects</Box>
 
-                <Box>{snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images</Box>
-                <Box>
+                <Box aria-label={"Total images"}>{snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images</Box>
+                <Box aria-label={"Total filesize"}>
                     <FormatByte value={snap.projects.reduce((p, c) => p + (c.filesize ?? 0), 0)} />
                 </Box>
             </HStack>

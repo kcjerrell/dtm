@@ -6,22 +6,23 @@ export interface ProgressProps extends ChakraProgress.RootProps {
     valueText?: React.ReactNode
     labelA?: React.ReactNode
     labelB?: React.ReactNode
+    ariaLabel?: string
 }
 
 const Progress = forwardRef<HTMLDivElement, ProgressProps>(function Progress(props, ref) {
-    const { showValueText, valueText, labelA, labelB, ...rest } = props
+    const { showValueText, valueText, labelA, labelB, ariaLabel, ...rest } = props
     return (
         <ChakraProgress.Root {...rest} ref={ref}>
             {labelA && (
-                <ChakraProgress.Label width={"full"} asChild>
-                    <HStack paddingX={0.5}>
-                        <Box>{labelA}</Box>
-                        <Spacer />
-                        <Box>{labelB}</Box>
-                    </HStack>
-                </ChakraProgress.Label>
+                // <ChakraProgress.Label width={"full"} asChild>
+                <HStack paddingX={0.5}>
+                    <Box>{labelA}</Box>
+                    <Spacer />
+                    <Box>{labelB}</Box>
+                </HStack>
+                // </ChakraProgress.Label>
             )}
-            <ChakraProgress.Track marginY={0.5}>
+            <ChakraProgress.Track marginY={0.5} aria-label={ariaLabel}>
                 <ChakraProgress.Range bgColor={"highlight"} />
             </ChakraProgress.Track>
             {showValueText && <ChakraProgress.ValueText>{valueText}</ChakraProgress.ValueText>}

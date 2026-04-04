@@ -1,5 +1,8 @@
 import { proxy, useSnapshot } from "valtio"
 
+// TODO: this needs to be scrapped or refactored to be more universal
+// avoid using for now
+
 type MessageStore = {
 	channels: Record<string, MessageChannel>
 	postMessage: (message: Omit<Message, "id">) => PostMessageReturn
@@ -30,7 +33,10 @@ const store: MessageStore = proxy({
 	channels: {},
 	postMessage: (message: Omit<Message, "id">) => {
 		const channel = message.channel
-		if (!store?.channels?.[channel]) throw new Error("No such channel")
+		if (!store?.channels?.[channel]) {
+			console.warn("No such channel", message.channel)
+			return { remove: () => {}, update: () => {} }
+		}
 		const id = messageIdCounter++
 		if (message.uType) {
 			const uTypeMsgs = store.channels[channel].messages.filter((m) => m.uType === message.uType)

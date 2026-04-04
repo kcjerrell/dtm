@@ -1,12 +1,12 @@
 import { Box, Spacer } from "@chakra-ui/react"
 import type { ComponentProps } from "react"
-import type { ICommandItem } from "@/types"
+import type { ICommand } from "@/types"
 import IconButton from "./IconButton"
 
 export class CancelExecute extends Error {}
 
 interface CommandButtonComponentProps<T, C = undefined> extends ComponentProps<typeof IconButton> {
-    command: ICommandItem<T, C>
+    command: ICommand<T, C>
     context?: C
     selectedItems?: T[]
     /**
@@ -73,7 +73,7 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
 
     return (
         <IconButton
-            aria-label={command.label}
+            aria-label={tipTitle}
             key={command.id}
             size={"sm"}
             onClick={async () => {

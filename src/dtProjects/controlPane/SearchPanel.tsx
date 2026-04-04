@@ -2,6 +2,7 @@ import { Box, Button, chakra, Em, HStack, Textarea, VStack } from "@chakra-ui/re
 import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
 import { PiInfo } from "@/components/icons/icons"
+import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
 import TabContent from "@/metadata/infoPanel/TabContent"
 import { useDTP } from "../state/context"
 import SearchFilterForm from "./filters/SearchFilterForm"
@@ -30,8 +31,10 @@ function SearchPanel(props: SearchPanelComponentProps) {
             overflowX={"clip"}
             height={"auto"}
             padding={2}
+            justifyContent={"flex-start"}
             onKeyDown={(e) => {
                 if (e.key === "Enter") {
+                    window.dispatchEvent(new Event(CLOSE_TRANSIENT_POPUPS_EVENT))
                     search.applySearch()
                 }
             }}
@@ -84,9 +87,11 @@ function SearchPanel(props: SearchPanelComponentProps) {
                 ))}
             </VStack>
             <Button
+                aria-label="Add search filter"
                 unstyled
                 width={"max-content"}
-                margin={"auto"}
+                height={"auto"}
+                marginX={"auto"}
                 padding={2}
                 color={"fg.2"}
                 _hover={{ textDecoration: "underline", color: "fg.1" }}
@@ -98,6 +103,7 @@ function SearchPanel(props: SearchPanelComponentProps) {
             </Button>
             <HStack marginTop={4} width={"full"} gap={0}>
                 <PanelButton
+                    aria-label="Reset search"
                     borderLeftRadius={"lg"}
                     borderRightRadius={"none"}
                     boxShadow={"xs"}
@@ -111,11 +117,15 @@ function SearchPanel(props: SearchPanelComponentProps) {
                     Reset
                 </PanelButton>
                 <PanelButton
+                    aria-label="Apply search"
                     borderLeftRadius={"none"}
                     borderRightRadius={"lg"}
                     boxShadow={"xs"}
                     flex={"1 1 auto"}
-                    onClick={() => search.applySearch()}
+                    onClick={() => {
+                        window.dispatchEvent(new Event(CLOSE_TRANSIENT_POPUPS_EVENT))
+                        search.applySearch()
+                    }}
                 >
                     Search
                 </PanelButton>

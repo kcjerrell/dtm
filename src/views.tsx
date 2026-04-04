@@ -26,6 +26,7 @@ export const viewDescription = [
     }} {...props} /> },
     { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: true },
 ].filter((item) => import.meta.env.DEV || !item.devOnly)
+// ].filter((item) => !item.devOnly)
 
 export const views = {
     metadata: lazy(() => import("./metadata/Metadata")),
@@ -33,7 +34,7 @@ export const views = {
     vid: lazy(() => import("./vid/Vid")),
     library: lazy(() => import("./library/Library")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/Versions")),
+    scratch: lazy(() => import("./scratch/Scratch3")),
 }
 
 export function getView(view: string) {

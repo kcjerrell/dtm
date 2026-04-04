@@ -18,6 +18,7 @@ function Seekbar(props: SeekbarProps) {
 
     return (
         <Box
+            aria-label={"Video seekbar"}
             ref={containerRef}
             position={"relative"}
             height={"2rem"}
@@ -29,6 +30,7 @@ function Seekbar(props: SeekbarProps) {
                 hoverPos.set(e.clientX - rect.left)
             }}
             onPointerDown={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 pointerDownRef.current = true
                 e.currentTarget.setPointerCapture(e.pointerId)

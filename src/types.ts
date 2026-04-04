@@ -247,10 +247,10 @@ export enum MediaType {
     Video = 1,
 }
 
-export type ICommandItem<T = undefined, C = undefined> = ICommand<T, C>
+// export type ICommandItem<T = undefined, C = undefined> = ICommand<T, C>
 
 let spacerCounter = 0
-export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): ICommandItem {
+export function getSpacer<T,C>(type?: "menu" | "toolbar" | "both" | undefined): ICommand<T,C> {
     let menuOnly = false
     let toolbarOnly = false
 
@@ -274,7 +274,7 @@ export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): IComm
  * @template T - The type of the items in the list
  * @template C - Optional extra arg used by various methods
  */
-export interface ICommand<T, C = undefined> {
+export interface ICommand<T = undefined, C = undefined> {
     id: string
 
     menuOnly?: boolean

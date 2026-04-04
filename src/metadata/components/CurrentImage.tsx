@@ -11,8 +11,8 @@ function CurrentImage(props: CurrentImageProps) {
     const { ...restProps } = props
 
     const snap = useSnapshot(getMetadataStore())
-    console.log("current image", snap.currentImage)
-    const { currentImage } = snap
+    console.log("current image", snap.currentItem)
+    const { currentItem: currentImage } = snap
 
     const imgRef = useRef<HTMLImageElement>(null)
 
@@ -31,16 +31,27 @@ function CurrentImage(props: CurrentImageProps) {
         >
             <AnimatePresence mode={"popLayout"}>
                 {currentImage?.url ? (
-                    <Img
-                        key={currentImage?.id}
-                        ref={imgRef}
-                        src={currentImage?.url}
-                        onClick={(e) => showPreview(e.currentTarget)}
-                        initial={{ opacity: 0, zIndex: 1 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0, zIndex: 0, transition: { duration: 0 } }}
-                        transition={{ duration: 0 }}
-                    />
+                    currentImage.isVideo ? (
+                        <Video
+                            key={currentImage?.id}
+                            src={currentImage?.url}
+                            initial={{ opacity: 0, zIndex: 1 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0, zIndex: 0, transition: { duration: 0 } }}
+                            transition={{ duration: 0 }}
+                        />
+                    ) : (
+                        <Img
+                            key={currentImage?.id}
+                            ref={imgRef}
+                            src={currentImage?.url}
+                            onClick={(e) => showPreview(e.currentTarget)}
+                            initial={{ opacity: 0, zIndex: 1 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0, zIndex: 0, transition: { duration: 0 } }}
+                            transition={{ duration: 0 }}
+                        />
+                    )
                 ) : (
                     <Flex
                         color={"fg/50"}
@@ -72,5 +83,31 @@ export const Img = motion.create(
             },
         },
         { defaultProps: { draggable: false } },
+    ),
+)
+
+export const Video = motion.create(
+    chakra(
+        "video",
+        {
+            base: {
+                maxWidth: "100%",
+                maxHeight: "100%",
+                minWidth: 0,
+                minHeight: 0,
+                borderRadius: "sm",
+                boxShadow: "pane1",
+            },
+        },
+        {
+            defaultProps: {
+                draggable: false,
+                controls: true,
+                autoPlay: true,
+                loop: true,
+                muted: true,
+                playsInline: true,
+            },
+        },
     ),
 )

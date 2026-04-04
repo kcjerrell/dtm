@@ -1,7 +1,7 @@
 import { Box } from "@chakra-ui/react"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { useSnapshot } from "valtio"
-import { useMessages } from "@/context/Messages"
+import { useMessages } from "@/state/Messages"
 import { getMetadataStore } from "../state/metadataStore"
 import { toolbarCommands } from "./commands"
 import { ContentHeaderContainer, ToolbarButtonGroup, ToolbarContainer, ToolbarRoot } from "./parts"
