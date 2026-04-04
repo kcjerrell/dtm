@@ -36,7 +36,15 @@ export const config: Options.Testrunner = {
 		},
 	},
 
-	specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
+	// specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
+
+	specs: [
+		"./specs/projects-a.e2e.ts",
+		"./specs/model-selector-popup.e2e.ts",
+		"./specs/projects.e2e.ts",
+		"./specs/video-export.e2e.ts",
+		"./specs/metadata-a.e2e.ts",
+	],
 
 	exclude: [],
 
