@@ -76,8 +76,8 @@ describe("Projects", () => {
 		await DTProjects.projectC.click();
 		await browser.waitUntil(
 			async () =>
-				(await $('[data-testid="image-grid"]').getAttribute("aria-busy")) ===
-				"false",
+				(await $('[data-testid="image-grid"]').getAttribute("aria-busy")) !==
+				"true",
 		);
 
 		// verify all images are shown again

@@ -3,10 +3,10 @@ import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
 import { Key } from "webdriverio";
 import { cmdClick, shiftClick } from "../util/helpers";
-import { mountFolderB } from "../util/projects";
-import { getDtpTestDir } from "../util/paths";
+import { mountFolderB, resetProjects } from "../util/projects";
+import { getTestDataPath } from "../util/paths";
 
-const testProjectsDir = getDtpTestDir();
+const testProjectsDir = getTestDataPath("temp");
 
 describe("Projects", () => {
 	let failed = false;
@@ -25,6 +25,8 @@ describe("Projects", () => {
 	it("can add a watchfolder", async () => {
 		// reset data
 		await App.clearAllData();
+
+		await resetProjects();
 
 		// go to projects view
 		await App.selectView("projects");
@@ -80,7 +82,7 @@ describe("Projects", () => {
 		});
 		await $("aria/Close dialog").click();
 
-		await expect($("div=test-project-e")).toBeDisplayedInViewport();
+		await expect($("div=test-project-e2")).toBeDisplayedInViewport();
 	});
 
 	it("can select, hide, show projects", async () => {

@@ -2,15 +2,15 @@ import path from "path";
 import fse from "fs-extra";
 import { execSync } from "child_process";
 import plist from "plist";
-import { getDtpTestDir, getTestDataStorageDir } from "./paths";
+import { getDtpTestDir, getTestDataPath } from "./paths";
 
 // helpers for manipulating projects in test data
 
 // ./test_data/projects contains original files and should not be modified
 // ./test_data/temp contains 'live' data for tests
 
-const testDataProjectsDir = getTestDataStorageDir();
-const testDataTempDir = getDtpTestDir();
+const testDataProjectsDir = getTestDataPath("projects");
+const testDataTempDir = getTestDataPath("temp");
 
 export enum TestProject {
 	projectA = "test-project-a2",
@@ -109,7 +109,7 @@ export async function renameProject(
 }
 
 export function mountFolderB() {
-	const dmgPath = path.join(testDataProjectsDir, "folder-b.dmg");
+	const dmgPath = path.join(testDataProjectsDir, "folderb.dmg");
 	const mountPoint = mountDmg(dmgPath);
 	return mountPoint;
 }

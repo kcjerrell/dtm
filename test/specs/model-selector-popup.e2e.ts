@@ -47,15 +47,15 @@ describe("Model Selector Popup", () => {
 		await versionItem.waitForDisplayed({ timeout: 15000 });
 		await versionItem.click();
 
-		const modelA = $('[aria-label*="Model item Wan 2.1 T2V 14B"]');
-		await modelA.waitForDisplayed({ timeout: 15000 });
+		// Model item Wan 2.2 High Noise Expert T2V A14B (6-bit, SVDQuant)
+		const modelA = $('[aria-label*="Model item Wan 2.2 High Noise"]');
 		await modelA.click();
-
-		const modelB = $('[aria-label*="Model item Wan 2.1 I2V 14B"]');
-		if (await modelB.isExisting()) {
-			await modelB.click();
-		}
 		await expectModelListOpen();
+
+		const modelB = $('[aria-label*="Model item Wan 2.2 Low Noise"]');
+		await modelB.click();
+		await expectModelListOpen();
+
 
 		// interacting with operator should keep model list open consistently
 		for (const op of ["is", "isnot", "is"] as const) {

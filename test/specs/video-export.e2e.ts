@@ -2,7 +2,7 @@
  these tests will require the default project setup
  specifically:
     folder-b (mounted as Volumes/folder-b)
-    test-project-e
+    test-project-e2
 */
 
 import { execFileSync } from "node:child_process";
@@ -12,7 +12,7 @@ import path from "node:path";
 import fse from "fs-extra";
 import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
-import { getDtpTestDir, getTestDataRootDir } from "../util/paths";
+import { getDtpTestDir, getTestDataPath, getTestDataRootDir } from "../util/paths";
 
 const ffmpegBinDir = path.join(
 	os.homedir(),
@@ -28,7 +28,7 @@ const ffmpegTempDir = path.join(
 	"com.kcjer.dtm",
 	"temp",
 );
-const ffmpegArchiveFixtureDir = path.join(getTestDataRootDir(), "ffmpeg");
+const ffmpegArchiveFixtureDir = getTestDataPath("ffmpeg");
 
 type E2EWindow = Window & {
 	__E2E_FILE_PATH__?: string;
@@ -59,8 +59,8 @@ function findFfprobePath(): string {
 async function waitForImageGridReady() {
 	await browser.waitUntil(
 		async () =>
-			(await $('[data-testid="image-grid"]').getAttribute("aria-busy")) ===
-			"false",
+			(await $('[data-testid="image-grid"]').getAttribute("aria-busy")) !==
+			"true",
 		{
 			timeout: 60000,
 			interval: 300,
@@ -79,7 +79,7 @@ async function clickFilterPopupItem(label: string) {
 
 describe("Video Export", () => {
 	it("can export a video", async () => {
-		const videoOutputPath = path.join(getDtpTestDir(), "vid-export.mp4");
+		const videoOutputPath = getTestDataPath("temp","vid-export.mp4");
 		await fse.remove(videoOutputPath);
 
 		// ensure ffmpeg has been deleted by removing the bin folder in the appdatadir
@@ -125,10 +125,10 @@ describe("Video Export", () => {
 		await $("aria/Add search filter").click();
 
 		// select Model in the filter type
-		await $(
-			'[aria-label="Search filter target 0"] [data-part="trigger"]',
-		).click();
-		await clickFilterPopupItem("Model");
+		await $("aria/Add search filter").click();
+		const filterForm = DTProjects.searchPanel.getFilter(0);
+		await filterForm.target.click();
+		(await filterForm.getTargetOption("model")).click();
 
 		// click select a model
 		await $('[aria-label="models filter value selector"]').click();
@@ -139,7 +139,7 @@ describe("Video Export", () => {
 		await versionItem.click();
 
 		// assert models list has been filtered and model version item is listed
-		const modelItem = $('[aria-label*="Model item Wan 2.1 T2V 14B"]');
+		const modelItem = $('[aria-label*="Model item Wan 2.2 High Noise Expert T2V A14B (6-bit, SVDQuant)"]');
 		await modelItem.waitForDisplayed({ timeout: 15000 });
 		await expect(modelItem).toBeDisplayed();
 
@@ -148,7 +148,7 @@ describe("Video Export", () => {
 
 		// assert model name appears in the search filter
 		await expect($('[aria-label="models filter value selector"]')).toHaveText(
-			expect.stringContaining("Wan 2.1 T2V 14B"),
+			expect.stringContaining("Wan 2.2 High Noise"),
 		);
 
 		// click search
@@ -172,10 +172,10 @@ describe("Video Export", () => {
 		// assert some details
 		await expect($("body")).toHaveText(expect.stringContaining("wan_v2.1_14b"));
 		await expect($("body")).toHaveText(
-			expect.stringContaining("Wan 2.2 Low Noise Expert T2V A14B"),
+			expect.stringContaining("Wan 2.2 High Noise Expert T2V A14B"),
 		);
 		await expect($("body")).toHaveText(expect.stringContaining("Num Frames"));
-		await expect($("body")).toHaveText(expect.stringContaining("21"));
+		await expect($("body")).toHaveText(expect.stringContaining("17"));
 
 		// assert presence of play button, video image, and seekbar
 		await expect($("aria/Play video")).toBeDisplayed();
@@ -213,7 +213,7 @@ describe("Video Export", () => {
 
 		// assert Duration: 1.3s / Source size text
 		await expect($("body")).toHaveText(expect.stringContaining("Duration"));
-		await expect($("body")).toHaveText(expect.stringContaining("1.3s"));
+		await expect($("body")).toHaveText(expect.stringContaining("1.1s"));
 		await expect($("body")).toHaveText(
 			expect.stringContaining("Source size: 512 x 512"),
 		);
@@ -305,15 +305,15 @@ describe("Video Export", () => {
 		expect(parseFps(videoStream?.r_frame_rate ?? "0/1")).toBe(16);
 
 		const duration = Number(probe.format?.duration ?? "0");
-		expect(duration).toBeGreaterThan(1.2);
-		expect(duration).toBeLessThan(1.4);
+		expect(duration).toBeGreaterThan(1);
+		expect(duration).toBeLessThan(1.2);
 
 		const bitRate = Number(probe.format?.bit_rate ?? "0");
 		expect(bitRate).toBeGreaterThan(900_000);
 
 		const comment =
 			probe.format?.tags?.comment ?? videoStream?.tags?.comment ?? "";
-		expect(comment).toContain('"c":"alien landscape, moons in the sky"');
-		expect(comment).toContain('"model":"wan_v2.1_14b_720p_q8p.ckpt"');
+		expect(comment).toContain('"c":"A moonrise on an alien planet');
+		expect(comment).toContain('"model":"wan_v2.2_a14b_hne_t2v_q6p_svd.ckpt"');
 	});
 });
