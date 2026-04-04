@@ -9,7 +9,7 @@ use crate::projects_db::{
     audio::audio_request,
     decode_audio,
     projects_db::MixedError,
-    tensors::{decode_tensor, scribble_mask_to_png},
+    tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
     DTProject, ProjectsDb,
 };
 
@@ -247,7 +247,14 @@ async fn tensor(
                 ),
                 None => None,
             };
-            let png = decode_tensor(tensor, true, metadata, scale)
+            let png = decode_tensor(
+                tensor,
+                DecodeTensorOptions {
+                    as_png: true,
+                    history_node: metadata,
+                    scale,
+                },
+            )
                 .map_err(|e| format!("Failed to decode tensor: {}", e))?;
             Some(png)
         }

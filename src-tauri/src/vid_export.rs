@@ -7,7 +7,7 @@ use std::{fs, path::PathBuf};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{DTProject, build_description, decode_tensor};
+use crate::projects_db::{DTProject, build_description, decode_tensor, DecodeTensorOptions};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,7 +73,15 @@ pub async fn save_all_clip_frames(
                     .get_tensor_raw(&frame.tensor_id)
                     .await
                     .map_err(|e| e.to_string())?;
-                let png = decode_tensor(tensor, true, None, None).map_err(|e| e.to_string())?;
+                let png = decode_tensor(
+                    tensor,
+                    DecodeTensorOptions {
+                        as_png: true,
+                        history_node: None,
+                        scale: None,
+                    },
+                )
+                .map_err(|e| e.to_string())?;
                 let file_path = output_dir.join(name);
                 fs::write(&file_path, png).map_err(|e| e.to_string())?;
 

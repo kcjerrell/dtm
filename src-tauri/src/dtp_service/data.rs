@@ -15,7 +15,7 @@ use crate::{
             watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
-        folder_cache, DrawThingsMetadata, ProjectRef,
+        folder_cache, DecodeTensorOptions, DrawThingsMetadata, ProjectRef,
     },
 };
 use dtm_macros::dtp_commands;
@@ -295,8 +295,15 @@ impl DTPService {
             None => None,
         };
 
-        let buffer = crate::projects_db::decode_tensor(tensor, as_png, metadata, None)
-            .map_err(|e| e.to_string())?;
+        let buffer = crate::projects_db::decode_tensor(
+            tensor,
+            DecodeTensorOptions {
+                as_png,
+                history_node: metadata,
+                scale: None,
+            },
+        )
+        .map_err(|e| e.to_string())?;
         Ok(tauri::ipc::Response::new(buffer))
     }
 
