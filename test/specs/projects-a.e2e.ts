@@ -103,17 +103,17 @@ describe("Projects", () => {
 		await DTProjects.hideSelectedProject();
 
 		// assert project is removed from list, statusbar entry is removed, and "show hidden projects" group appears in project list
-		await expect(DTProjects.getProject("test-project-a2")).not.toBeDisplayed();
-		await expect(DTProjects.imageToolbar.projects).not.toExist();
-		await expect(DTProjects.showHiddenProjects).toBeDisplayed();
+		await DTProjects.getProject("test-project-a2").waitForDisplayed({ reverse: true });
+		await DTProjects.imageToolbar.projects.waitForDisplayed({ reverse: true });
+		await DTProjects.showHiddenProjects.waitForDisplayed();
 		expect(await DTProjects.getTotalImages()).toBeLessThan(initialImageCount);
 
 		// click "show hidden projects" to expand the group
 		await DTProjects.showHiddenProjects.click();
 
 		// assert project name appears and "show hidden projects" changes to "hide projects"
-		await expect(DTProjects.getProject("test-project-a2")).toBeDisplayed();
-		await expect(DTProjects.hideProjects).toBeDisplayed();
+		await DTProjects.getProject("test-project-a2").waitForDisplayed();
+		await DTProjects.hideProjects.waitForDisplayed();
 
 		// select project
 		await DTProjects.selectProject("test-project-a2");
