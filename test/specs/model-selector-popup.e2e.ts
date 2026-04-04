@@ -22,7 +22,6 @@ async function expectModelListClosed() {
 describe("Model Selector Popup", () => {
 	beforeEach(async () => {
 		await browser.refresh();
-		await $(".loading-container").waitForDisplayed({ timeout: 15000 });
 		await $(".loading-container").waitForDisplayed({
 			reverse: true,
 			timeout: 15000,
