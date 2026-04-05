@@ -52,9 +52,15 @@ function initStore() {
                                 const placeholder = MediaItem.getPlaceholder(im)
 
                                 if (isVideo(im.type)) {
-                                    // return bindProxy(
-                                    //     proxy(new VideoItem(im as VideoItemConstructorOpts)),
-                                    // )
+                                    VideoItem.fromJSON(im)
+                                        .then((video) => {
+                                            console.debug("restored video item", video)
+                                            replacePlaceholder(bindProxy(proxy(video)))
+                                        })
+                                        .catch((e) => {
+                                            console.warn("failed to restore video item", im, e)
+                                            removePlaceholder(placeholder)
+                                        })
                                 } else {
                                     ImageItem.fromJSON(im)
                                         .then((im) => {

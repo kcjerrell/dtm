@@ -7,7 +7,6 @@ import { getMetadataStore } from "../state/metadataStore"
 
 function CurrentImage() {
     const snap = useSnapshot(getMetadataStore())
-    console.log("current image", snap.currentItem)
     const { currentItem: currentImage } = snap
 
     const imgRef = useRef<HTMLImageElement>(null)
