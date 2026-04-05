@@ -1,5 +1,5 @@
 import { useSnapshot } from "valtio"
-import type MediaItem from './mediaItem'
+import type MediaItem from "./MediaItem"
 import { getMetadataStore } from "./metadataStore"
 
 export function useCurrentImage(): ReadonlyState<MediaItem> | undefined {

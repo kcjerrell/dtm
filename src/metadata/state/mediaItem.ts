@@ -1,11 +1,13 @@
-import type { DrawThingsMetaData, ImageSource } from "@/types"
+import type { DrawThingsMetaData } from "@/types"
 import { isVideo } from "@/utils/imageStore"
 import type { ExifType } from "./metadataStore"
-import { TMap } from "@/utils/TMap"
-import { determineType } from "@/utils/mediaTypes"
+import { customAlphabet } from "nanoid"
+
+const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
 export type MediaItemConstructorOpts = {
-    // id: string
+    // when recreating an item from store, we will use the same id
+    id?: string
     pin?: number | null
     loadedAt?: number
     source: MediaItemSource
@@ -25,13 +27,12 @@ abstract class MediaItem {
     type: string
 
     constructor(opts: MediaItemConstructorOpts) {
-        // if (!opts.id) throw new Error("ImageItem must have an id")
         if (!opts.source) throw new Error("ImageItem must have a source")
         if (!opts.type) throw new Error("ImageItem must have a type")
 
         console.log("created media item from", opts.source)
 
-        this.id = MediaItem.getId()
+        this.id = MediaItem.getNewId(opts.id)
         this.pin = opts.pin
         this.loadedAt = opts.loadedAt ?? Date.now()
         this.source = opts.source
@@ -42,25 +43,58 @@ abstract class MediaItem {
         return isVideo(this.type)
     }
 
-    abstract get exif(): ExifType | null | undefined
+    abstract get metadata(): ExifType | null | undefined
     abstract get dtData(): DrawThingsMetaData | null | undefined
     abstract get thumbUrl(): string | undefined
     abstract get url(): string | undefined
 
     abstract hasMetadata(): Promise<boolean>
 
-    static idCounter = 0
-    protected static getId() {
-        return (MediaItem.idCounter++).toString(16).padStart(4, "0")
+    static usedIds = new Set<string>()
+    protected static getNewId(restoreId?: string) {
+        if (restoreId) {
+            MediaItem.usedIds.add(restoreId)
+            return restoreId
+        }
+
+        let id = nanoid()
+        while (MediaItem.usedIds.has(id)) {
+            id = nanoid()
+        }
+        MediaItem.usedIds.add(id)
+        return id
     }
 
     toJSON() {
         return {
+            id: this.id,
             source: this.source,
             pin: this.pin,
             loadedAt: this.loadedAt,
             type: this.type,
         }
+    }
+
+    static getPlaceholder(opts: MediaItemConstructorOpts) {
+        return new LoadingItem(opts)
+    }
+}
+
+class LoadingItem extends MediaItem {
+    get metadata(): ExifType | null | undefined {
+        return null
+    }
+    get dtData(): DrawThingsMetaData | null | undefined {
+        return null
+    }
+    get thumbUrl(): string | undefined {
+        return undefined
+    }
+    get url(): string | undefined {
+        return undefined
+    }
+    hasMetadata(): Promise<boolean> {
+        return Promise.resolve(false)
     }
 }
 

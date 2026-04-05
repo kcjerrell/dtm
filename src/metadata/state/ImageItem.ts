@@ -1,120 +1,104 @@
-import { Mutex } from "async-mutex"
 import { DtpService, getVideoMetadata } from "@/commands"
-import type { DrawThingsMetaData, ImageSource } from "@/types"
+import type { DrawThingsMetaData } from "@/types"
 import { fetchImage, getLocalImage } from "@/utils/clipboard"
 import ImageStore, { type ImageStoreEntry, isVideo } from "@/utils/imageStore"
-import { getDrawThingsDataFromExif } from "../helpers"
-import MediaItem, { MediaItemSource, type MediaItemConstructorOpts } from "./mediaItem"
-import { type ExifType, getExif } from "./metadataStore"
 import { determineType } from "@/utils/mediaTypes"
+import { getDrawThingsDataFromExif } from "../helpers"
+import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./MediaItem"
+import { type ExifType, getExif } from "./metadataStore"
 
 export interface ImageItemConstructorOpts extends MediaItemConstructorOpts {
-    exif?: ExifType | null
-    dtData?: DrawThingsMetaData | null
-    entry?: ImageStoreEntry
-    entryId: string
+    imageBuffer?: Uint8Array
 }
 
 export class ImageItem extends MediaItem {
-    private _exif?: ExifType | null
+    private _metadata?: ExifType | null
     private _dtData?: DrawThingsMetaData | null
-    private _exifStatus?: "pending" | "done"
-    private _exifPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
-    private _entry?: ImageStoreEntry
-    private _entryId: string
-    private _entryStatus?: "pending" | "done" | "error"
+    private _metadataStatus?: "pending" | "done"
+    private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
+    private _url?: string
+    private _thumbUrl?: string
 
-    constructor(opts: ImageItemConstructorOpts) {
+    private constructor(opts: ImageItemConstructorOpts) {
         super(opts)
-
-        if (opts.exif) {
-            this._exif = opts.exif
-            this._dtData = opts.dtData
-            this._exifStatus = "done"
-        }
-
-        this._entryId = opts.entryId
-        if (opts.entry) {
-            this._entry = opts.entry
-            this._entryStatus = "done"
-        }
     }
 
     get isVideo() {
         return isVideo(this.type)
     }
 
-    get exif() {
-        if (!this._exif && !this._exifStatus) this.loadExif()
+    get metadata() {
+        if (!this._metadata && !this._metadataStatus) this.loadMetadata()
 
-        return this._exif
+        return this._metadata
     }
 
     get dtData() {
-        if (!this._dtData && !this._exifStatus && !this.exif) this.loadExif()
+        if (!this._dtData && !this._metadataStatus && !this.metadata) this.loadMetadata()
 
         return this._dtData
     }
 
-    async loadExif() {
-        if (this._exifStatus) return
-        this._exifStatus = "pending"
+    async loadMetadata() {
+        if (this._metadataStatus) return
+        this._metadataStatus = "pending"
 
-        if (!this._entry) await this.loadEntry()
-        if (!this._entry?.url) return
+        if (!this._url) return
 
         try {
-            const exif = this.isVideo
-                ? await getVideoMetadata(this._entry.cachePath)
-                : await getExif(this._entry.url)
-            this._exif = exif as ExifType
-            this._dtData = getDrawThingsDataFromExif(exif as ExifType) ?? null
+            const metadata = await getExif(this._url)
+            this._metadata = metadata as ExifType
+            this._dtData = getDrawThingsDataFromExif(metadata as ExifType) ?? null
         } catch (e) {
-            console.warn("couldn't load exif from ", this._entry.url, e)
+            console.warn("couldn't load metadata from ", this._url, e)
         } finally {
-            this._exifStatus = "done"
-            this._exifPromise?.resolve()
+            this._metadataStatus = "done"
+            this._metadataPromise?.resolve()
         }
     }
 
     get thumbUrl() {
-        if (!this._entry?.thumbUrl && !this._entryStatus) this.loadEntry()
-        return this._entry?.thumbUrl
+        return this._thumbUrl
     }
 
     get url() {
-        if (!this._entry?.url && !this._entryStatus) this.loadEntry()
-        return this._entry?.url
-    }
-
-    async loadEntry() {
-        if (this._entryStatus) return
-        this._entryStatus = "pending"
-
-        for (let i = 0; i < 3; i++) {
-            const entry = await ImageStore.get(this._entryId)
-            if (entry) {
-                this._entry = entry
-                this._entryStatus = "done"
-                return
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500))
-        }
-
-        this._entryStatus = "error"
+        return this._url
     }
 
     async hasMetadata(): Promise<boolean> {
-        await this.loadExif()
-        await this._exifPromise.promise.catch(() => {})
+        await this.loadMetadata()
+        await this._metadataPromise.promise.catch(() => {})
         return !!this.dtData
+    }
+
+    private async loadEntry() {
+        const entry = await ImageStore.get(this.id)
+        console.log("load entry", entry)
+        this._url = entry?.url
+        this._thumbUrl = entry?.thumbUrl
+    }
+
+    private async saveBufferEntry(buffer: Uint8Array) {
+        try {
+            const entry = await ImageStore.save(this.id, buffer, this.type)
+            this._url = entry?.url
+            this._thumbUrl = entry?.thumbUrl
+        } catch (e) {
+            console.warn("couldn't save image item entry", e)
+        }
     }
 
     override toJSON() {
         return {
             ...super.toJSON(),
-            entryId: this._entry?.id,
         }
+    }
+
+    static async fromJSON(json: ReturnType<ImageItem["toJSON"]>) {
+        const item = new ImageItem(json)
+        // retrieve url and thumbUrl from imagestore
+        await item.loadEntry()
+        return item
     }
 
     static async fromBuffer(
@@ -122,18 +106,13 @@ export class ImageItem extends MediaItem {
         type: string,
         source: MediaItemSource,
     ) {
-        console.debug("ImageItem.fromBuffer", type, source, buffer)
         if (!buffer) return undefined
         try {
-            // save to image store
-            const entry = await ImageStore.save(buffer, type)
-            if (!entry) return
             const item = new ImageItem({
-                entryId: entry.id,
                 type,
                 source,
-                entry,
             })
+            await item.saveBufferEntry(buffer)
             return item
         } catch (e) {
             console.warn("couldn't create image item from buffer", e)

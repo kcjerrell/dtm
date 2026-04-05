@@ -2,11 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core"
 import * as path from "@tauri-apps/api/path"
 import * as fs from "@tauri-apps/plugin-fs"
 import { store as createStore } from "@tauri-store/valtio"
-import { customAlphabet } from "nanoid"
-import { getVideoThumbnail } from "@/commands"
 import { getStoreName } from "./helpers"
-
-const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
 let _appDataDir: string
 async function getAppDataDir() {
@@ -23,10 +19,12 @@ async function getImageFolder() {
     return _imageFolder
 }
 
+const _loaderPromise = Promise.withResolvers<ReturnType<typeof initStore>>()
+const _loader = _loaderPromise.promise
+
 type ImageStoreEntryBase = {
     id: string
     type: string
-    videoPath?: string
 }
 
 export type ImageStoreEntry = {
@@ -48,46 +46,37 @@ function initStore() {
             saveOnChange: true,
         },
     )
+    const unsub = storeInstance.subscribe(() => {
+        _loaderPromise.resolve(storeInstance)
+        unsub()
+    })
     window.addEventListener("unload", () => storeInstance.stop())
     return storeInstance
 }
 
 let imagesStore: ReturnType<typeof initStore> | null = null
 
-function getStore() {
+async function getStore() {
     if (!imagesStore) {
         imagesStore = initStore()
     }
+    await _loader
     return imagesStore
 }
 
 const _imageTypes = ["png", "tiff", "jpg", "webp"]
 const _videoTypes = ["mp4", "webm", "mov", "m4v"]
-const _validTypes = [..._imageTypes, ..._videoTypes]
-
-async function saveVideo(videoPath: string, type: string): Promise<ImageStoreEntry | undefined> {
-    const id = await getNewId()
-    const entry = { id, type, videoPath }
-    getStore().state.images[id] = entry
-
-    const url = convertFileSrc(videoPath)
-    const thumbUrl = isVideo(type) ? convertFileSrc(await getThumbPath(id)) : url
-    return { ...entry, url, thumbUrl, cachePath: videoPath }
-}
+const _validTypes = [..._imageTypes]
 
 async function saveMedia(
-    data: Uint8Array | string,
+    id: string,
+    data: Uint8Array,
     type: string,
 ): Promise<ImageStoreEntry | undefined> {
-    if (!type || !_validTypes.includes(type)) return
+    if (!id || !type || !_validTypes.includes(type)) return
     if (!data || data.length === 0) return
 
-    if (typeof data === "string") {
-        return await saveVideo(data, type)
-    }
-
     try {
-        const id = await getNewId()
         const fname = await getFullPath(id, type)
 
         if (!(await fs.exists(await getImageFolder()))) {
@@ -98,16 +87,12 @@ async function saveMedia(
             createNew: true,
         })
 
-        if (isVideo(type)) {
-            const thumbData = await getVideoThumbnail(fname)
-            await fs.writeFile(await getThumbPath(id), thumbData)
-        }
-
         const entry = { id, type }
-        getStore().state.images[id] = entry
+        const store = await getStore()
+        store.state.images[id] = entry
 
         const url = convertFileSrc(fname)
-        const thumbUrl = isVideo(type) ? convertFileSrc(await getThumbPath(id)) : url
+        const thumbUrl = url
         return { ...entry, url, thumbUrl, cachePath: fname }
     } catch (e) {
         console.error(e)
@@ -116,12 +101,13 @@ async function saveMedia(
 }
 
 async function getImage(id: string): Promise<ImageStoreEntry | undefined> {
-    const entry = getStore().state.images[id]
+    const store = await getStore()
+    const entry = store.state.images[id]
 
     if (!entry) return
-    const fullPath = entry.videoPath ?? (await getFullPath(id, entry.type))
+    const fullPath = await getFullPath(id, entry.type)
     const url = convertFileSrc(fullPath)
-    const thumbUrl = isVideo(entry.type) ? convertFileSrc(await getThumbPath(id)) : url
+    const thumbUrl = url
     return { ...entry, url, thumbUrl, cachePath: fullPath }
 }
 
@@ -129,32 +115,18 @@ async function getFullPath(id: string, ext: string) {
     return await path.join(await getImageFolder(), `${id}.${ext}`)
 }
 
-async function getThumbPath(id: string) {
-    return await path.join(await getImageFolder(), `${id}_thumb.png`)
-}
-
-async function getNewId() {
-    let id: string
-    const state = getStore().state
-
-    do {
-        id = nanoid()
-    } while (id in state.images)
-
-    return id
-}
-
 async function removeImage(id: string) {
-    const state = getStore().state
+    const store = await getStore()
+    const state = store.state
     const item = state.images[id]
     if (!item) return
     await removeFile(await getFullPath(id, item.type))
-    await removeFile(await getThumbPath(id))
     delete state.images[id]
 }
 
 async function syncImages(keepIds: string[] = []) {
-    const state = getStore().state
+    const store = await getStore()
+    const state = store.state
     for (const id of Object.keys(state.images)) {
         if (keepIds.includes(id)) continue
 

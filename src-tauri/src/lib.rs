@@ -14,9 +14,9 @@ mod ffmpeg;
 mod projects_db;
 use dtp_service::dtp_connect;
 use projects_db::dt_project_tensordata;
+mod migrations;
 mod vid;
 mod vid_export;
-mod migrations;
 use migrations::run_migrations;
 
 use once_cell::sync::Lazy;
@@ -140,7 +140,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_valtio::Builder::new().build())
+        .plugin(tauri_plugin_valtio::Builder::new().pretty(true).build())
         // .plugin(tauri_plugin_nspopover::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -230,7 +230,7 @@ pub fn run() {
         // })
         .setup(|app| {
             let _ = tauri::async_runtime::block_on(run_migrations(app.handle().clone()));
-            
+
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
                 .inner_size(800.0, 600.0)
