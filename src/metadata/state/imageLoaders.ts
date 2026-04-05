@@ -145,7 +145,6 @@ async function createMediaItem(
     const processedInput = preprocess(input)
     const mediaType = typeHint ?? determineType(processedInput)
     if (!mediaType) return undefined
-    console.log("createMedia", mediaType)
     if (isVideo(mediaType)) {
         if (typeof processedInput === "string")
             return await VideoItem.fromUrl(processedInput, source)

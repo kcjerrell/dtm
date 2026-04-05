@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { getVideoMetadata } from "@/commands"
 import type { DrawThingsMetaData } from "@/types"
 import { determineType } from "@/utils/mediaTypes"
@@ -5,46 +6,25 @@ import { getDrawThingsDataFromVideo } from "../helpers"
 import { isLocalUrl } from "./ImageItem"
 import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./MediaItem"
 import type { ExifType } from "./metadataStore"
-import ImageStore, { type ImageStoreEntry } from "@/utils/imageStore"
 
 export interface VideoItemConstructorOpts extends MediaItemConstructorOpts {
-    entryId?: string
-    entry?: ImageStoreEntry
-    url?: string // legacy fallback
-    filePath?: string // legacy fallback
-    metadata?: ExifType | null
+    url: string
+    filePath?: string | undefined
 }
 
 export class VideoItem extends MediaItem {
-    private _entry?: ImageStoreEntry
-    private _entryId?: string
-    private _entryStatus?: "pending" | "done" | "error"
-    private _legacyUrl?: string
-    private _legacyFilePath?: string
     private _metadata?: ExifType | null
     private _dtData?: DrawThingsMetaData | null
     private _metadataStatus?: "pending" | "done"
     private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
+    private _url?: string
+    private _filePath?: string
 
     constructor(opts: VideoItemConstructorOpts) {
         super(opts)
-        this._entryId = opts.entryId ?? opts.entry?.id
-        this._legacyUrl = opts.url
-        this._legacyFilePath = opts.filePath
-        if (opts.entry) {
-            this._entry = opts.entry
-            this._entryStatus = "done"
-        }
 
-        if (opts.metadata) {
-            this._metadata = opts.metadata
-            this._metadataStatus = "done"
-            this._dtData = getDrawThingsDataFromVideo(this._metadata) ?? null
-        }
-    }
-
-    get entryId() {
-        return this._entry?.id ?? this._entryId
+        this._url = opts.url
+        this._filePath = opts.filePath
     }
 
     get metadata() {
@@ -58,59 +38,22 @@ export class VideoItem extends MediaItem {
     }
 
     get thumbUrl() {
-        if (!this._entry?.thumbUrl && !this._entryStatus) this.loadEntry()
-        return this._entry?.thumbUrl ?? this._legacyUrl
+        return this._url
     }
 
     get url() {
-        if (!this._entry?.url && !this._entryStatus) this.loadEntry()
-        return this._entry?.url ?? this._legacyUrl
-    }
-
-    get filePath() {
-        if (!this._entry && !this._entryStatus) this.loadEntry()
-        return this._entry?.sourcePath ?? this._legacyFilePath
-    }
-
-    async loadEntry() {
-        if (this._entryStatus || !this._entryId) return
-        this._entryStatus = "pending"
-
-        for (let i = 0; i < 3; i++) {
-            const entry = await ImageStore.get(this._entryId)
-            if (entry) {
-                this._entry = entry
-                this._entryStatus = "done"
-                return
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500))
-        }
-
-        this._entryStatus = "error"
-    }
-
-    private onFrame?: (video: HTMLVideoElement) => void
-    setOnFrame(onFrame?: (video: HTMLVideoElement) => void) {
-        this.onFrame = onFrame
-    }
-
-    raiseOnFrame(video: HTMLVideoElement) {
-        this.onFrame?.(video)
+        return this._url
     }
 
     async loadMetadata() {
-        if (this._metadataStatus) return
+        if (this._metadataStatus || !this._filePath) return
         this._metadataStatus = "pending"
 
         try {
-            if (!this._entry) await this.loadEntry()
-            const path = this._entry?.sourcePath ?? this._legacyFilePath
-            if (!path) return
-
-            this._metadata = (await getVideoMetadata(path)) as ExifType
+            this._metadata = (await getVideoMetadata(this._filePath)) as ExifType
             this._dtData = getDrawThingsDataFromVideo(this._metadata) ?? null
         } catch (e) {
-            console.warn("couldn't load metadata from", this.filePath, e)
+            console.warn("couldn't load metadata from", this._filePath, e)
         } finally {
             this._metadataStatus = "done"
             this._metadataPromise.resolve()
@@ -126,10 +69,15 @@ export class VideoItem extends MediaItem {
     toJSON() {
         return {
             ...super.toJSON(),
-            entryId: this.entryId,
-            url: this._legacyUrl,
-            filePath: this._legacyFilePath,
+            url: this._url,
+            filePath: this._filePath,
         }
+    }
+
+    static async fromJSON(json: Partial<ReturnType<VideoItem["toJSON"]>>) {
+        if (!json.url || !json.filePath) throw new Error("Invalid video item json")
+        const item = new VideoItem(json as VideoItemConstructorOpts)
+        return item
     }
 
     static async fromFile(file: string, source: MediaItemSource) {
@@ -143,14 +91,11 @@ export class VideoItem extends MediaItem {
             const mediaType = determineType(filePath)
             if (!mediaType) return undefined
 
-            const entry = await ImageStore.save(filePath, mediaType)
-            if (!entry) return undefined
-
             return new VideoItem({
                 type: mediaType,
                 source,
-                entryId: entry.id,
-                entry,
+                url: convertFileSrc(filePath),
+                filePath,
             })
         } catch (e) {
             console.warn("couldn't create video item from file", e)
@@ -167,14 +112,10 @@ export class VideoItem extends MediaItem {
         const mediaType = determineType(url)
         if (!mediaType) return undefined
 
-        const entry = await ImageStore.save(url, mediaType)
-        if (!entry) return undefined
-
         return new VideoItem({
             type: mediaType,
             source: { ...source, url },
-            entryId: entry.id,
-            entry,
+            url: url,
         })
     }
 }

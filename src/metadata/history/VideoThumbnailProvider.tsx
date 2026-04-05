@@ -51,7 +51,6 @@ export function useVideoThumbnail(id: string | undefined, type: "video" | "thumb
             if (cv.videoRef.current?.current) {
                 const video = cv.videoRef.current?.current
                 const onFrame = () => {
-                    console.log("draw")
                     const canvas = cv.canvasRefs.current[id]?.current
                     if (!canvas) return
                     const ctx = canvas.getContext("2d")
