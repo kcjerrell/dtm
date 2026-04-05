@@ -305,3 +305,7 @@ export function groupMap<TKey, TIn, TOut, TGroup>(
 export function cs(...items: string[]) {
     return items.join(", ")
 }
+
+export function hasProp<K extends string>(obj: unknown, prop: K): obj is { [key in K]: unknown } {
+    return typeof obj === "object" && obj !== null && prop in obj
+}

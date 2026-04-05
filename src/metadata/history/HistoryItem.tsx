@@ -1,10 +1,11 @@
 import { type BoxProps, chakra } from "@chakra-ui/react"
-import { motion } from "motion/react"
+import { type MotionProps, motion } from "motion/react"
 import { useEffect, useRef } from "react"
-import type { getMetadataStore } from "../state/metadataStore"
+import type MediaItem from "../state/MediaItem"
+import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
 interface HistoryItemProps extends BoxProps {
-    image: ReadonlyState<ReturnType<typeof getMetadataStore>["images"][number]>
+    image: MediaItem
     isSelected: boolean
     onSelect?: () => void
     isPinned?: boolean
@@ -12,6 +13,8 @@ interface HistoryItemProps extends BoxProps {
 function HistoryItem(props: HistoryItemProps) {
     const { image, isSelected, onSelect, isPinned, ...restProps } = props
     const ref = useRef<HTMLDivElement>(null)
+
+    const Thumbnail = image?.isVideo ? VideoThumbnail : ImageThumbnail
 
     useEffect(() => {
         if (ref.current?.parentElement?.parentElement && isSelected) {
@@ -42,8 +45,8 @@ function HistoryItem(props: HistoryItemProps) {
             {...restProps}
         >
             <HistoryItemIndicator isSelected={isSelected} isPinned={isPinned} />
-            <motion.img
-                src={image?.thumbUrl}
+            <Thumbnail
+                item={image}
                 style={{
                     objectFit: "cover",
                     width: "100%",
@@ -64,6 +67,18 @@ function HistoryItem(props: HistoryItemProps) {
             />
         </HistoryItemBase>
     )
+}
+
+const ImageThumbnail = (props: MotionProps & { item: MediaItem }) => {
+    return <motion.img src={props.item?.thumbUrl} />
+}
+
+const VideoThumbnail = (props: MotionProps & { item: MediaItem }) => {
+    const { item, ...restProps } = props
+
+    const canvasRef = useVideoThumbnail(item?.id, "thumbnail")
+
+    return <motion.canvas ref={canvasRef} width={100} height={100} {...restProps} />
 }
 
 const HistoryItemBase = chakra("div", {

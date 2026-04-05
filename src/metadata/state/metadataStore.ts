@@ -9,7 +9,7 @@ import ImageStore, { isVideo } from "@/utils/imageStore"
 import { getDrawThingsDataFromExif } from "../helpers"
 import { ImageItem, type ImageItemConstructorOpts } from "./ImageItem"
 import { bindProxy } from "@/utils/valtio"
-import MediaItem from "./mediaItem"
+import MediaItem from "./MediaItem"
 import { VideoItem, VideoItemConstructorOpts } from "./VideoItem"
 
 function initStore() {
@@ -40,24 +40,34 @@ function initStore() {
 
             hooks: {
                 beforeFrontendSync(state) {
+                    // when syncing state from the store, we need to make sure pojos become classes
                     if (typeof state !== "object" || state === null) return state
 
                     if ("items" in state && Array.isArray(state.items)) {
                         state.items = state.items.map(
                             (im: MediaItem | ReturnType<MediaItem["toJSON"]>) => {
                                 if (im instanceof MediaItem) return im
+
+                                // we'll create a placeholder for the item
+                                const placeholder = MediaItem.getPlaceholder(im)
+
                                 if (isVideo(im.type)) {
-                                    return bindProxy(
-                                        proxy(new VideoItem(im as VideoItemConstructorOpts)),
-                                    )
+                                    // return bindProxy(
+                                    //     proxy(new VideoItem(im as VideoItemConstructorOpts)),
+                                    // )
                                 } else {
-                                    const newIm = bindProxy(
-                                        proxy(new ImageItem(im as ImageItemConstructorOpts)),
-                                    )
-                                    newIm.loadEntry().catch(console.warn)
-                                    newIm.loadExif().catch(console.warn)
-                                    return newIm
+                                    ImageItem.fromJSON(im)
+                                        .then((im) => {
+                                            console.debug("restored image item", im)
+                                            replacePlaceholder(bindProxy(proxy(im)))
+                                        })
+                                        .catch((e) => {
+                                            console.warn("failed to restore image item", im, e)
+                                            removePlaceholder(placeholder)
+                                        })
                                 }
+
+                                return placeholder
                             },
                         )
                     }
@@ -178,7 +188,6 @@ export async function clearCurrent() {
 }
 
 export function addImageItem(item: MediaItem) {
-    console.log("adding image item", item)
     const store = getMetadataStore()
     const itemState = bindProxy(proxy(item))
     store.items.push(itemState)
@@ -186,86 +195,18 @@ export function addImageItem(item: MediaItem) {
     return itemState
 }
 
-export async function createImageItem(
-    imageData: Uint8Array<ArrayBuffer> | string,
-    type: string,
-    source: ImageSource,
-) {
-    console.trace("create image item")
+function replacePlaceholder(item: MediaItem) {
     const store = getMetadataStore()
-
-    if (!imageData || !type || !source) return null
-    if (imageData.length === 0) return null
-
-    try {
-        // save image to image store
-        const entry = await ImageStore.save(imageData, type)
-        console.log("saved image", entry)
-        if (!entry) return null
-
-        // const exif = isVideo(type)
-        //     ? JSON.parse(await getVideoMetadata(entry.cachePath))
-        //     : await getExif(imageData.buffer)
-        // const dtData = getDrawThingsDataFromExif(exif)
-
-        const item: ImageItemConstructorOpts = {
-            id: entry.id,
-            entry,
-            source,
-            loadedAt: Date.now(),
-            pin: null,
-            type,
-            // exif,
-            // dtData,
-        }
-
-        const imageItem = bindProxy(proxy(new ImageItem(item)))
-        console.log("image item", imageItem)
-        const itemIndex = store.items.push(imageItem) - 1
-        console.log("item index", itemIndex)
-
-        selectImage(itemIndex)
-        return store.items[itemIndex]
-    } catch (e) {
-        console.error(e)
-        return null
-    }
+    const index = store.items.findIndex((im) => im.id === item.id)
+    if (index === -1) return
+    store.items[index] = item
 }
 
-/**
- * replace the given ImageItem with a new one from imageData, only if the new one has DTMetadata
- * and the original does not
- */
-async function replaceWithBetter(
-    imageItem: ImageItem,
-    imageData: Uint8Array<ArrayBuffer>,
-    imageType: string,
-    source: ImageSource,
-) {
-    const index = getMetadataStore().items.indexOf(imageItem)
+function removePlaceholder(item: MediaItem) {
+    const store = getMetadataStore()
+    const index = store.items.findIndex((im) => im.id === item.id)
     if (index === -1) return
-
-    const exif = await getExif(imageData.buffer)
-    const dtData = getDrawThingsDataFromExif(exif)
-
-    if (dtData && !imageItem.dtData) {
-        const entry = await ImageStore.save(imageData, imageType)
-        if (!entry) return
-
-        const item: ImageItemConstructorOpts = {
-            id: entry.id,
-            entry,
-            source,
-            loadedAt: imageItem.loadedAt,
-            pin: null,
-            type: imageType,
-            exif,
-            dtData,
-        }
-        getMetadataStore().items[index] = bindProxy(proxy(new ImageItem(item)))
-    }
-    await syncImageStore()
-    if (dtData) return dtData
+    store.items.splice(index, 1)
 }
 
 export type ExifType = Record<string, Record<string, unknown>>

@@ -2,7 +2,7 @@ import AppStore from "@/hooks/appState"
 import type { ImageSource } from "@/types"
 import { ImageItem } from "./ImageItem"
 import { loadImage2 } from "./imageLoaders"
-import type MediaItem from "./mediaItem"
+import type MediaItem from "./MediaItem"
 import { addImageItem, getMetadataStore, selectImage } from "./metadataStore"
 
 export async function sendToMetadata(

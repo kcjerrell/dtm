@@ -1,36 +1,34 @@
 import { chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { useRef } from "react"
 import { useSnapshot } from "valtio"
-import { showPreview } from "@/components/preview"
+import { useVideoThumbnail } from "../history/VideoThumbnailProvider"
 import { getMetadataStore } from "../state/metadataStore"
 
-function CurrentImage() {
+function CurrentVideo() {
     const snap = useSnapshot(getMetadataStore())
     console.log("current image", snap.currentItem)
     const { currentItem: currentImage } = snap
 
-    const imgRef = useRef<HTMLImageElement>(null)
+    const videoRef = useVideoThumbnail(currentImage?.id, "video")
 
     return (
-        <Img
+        <Video
             key={currentImage?.id}
-            ref={imgRef}
             src={currentImage?.url}
-            onClick={(e) => showPreview(e.currentTarget)}
             initial={{ opacity: 0, zIndex: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, zIndex: 0, transition: { duration: 0 } }}
             transition={{ duration: 0 }}
+            ref={videoRef}
         />
     )
 }
 
-export default CurrentImage
+export default CurrentVideo
 
-export const Img = motion.create(
+export const Video = motion.create(
     chakra(
-        "img",
+        "video",
         {
             base: {
                 maxWidth: "100%",
@@ -41,6 +39,15 @@ export const Img = motion.create(
                 boxShadow: "pane1",
             },
         },
-        { defaultProps: { draggable: false } },
+        {
+            defaultProps: {
+                draggable: false,
+                controls: true,
+                autoPlay: true,
+                loop: true,
+                muted: true,
+                playsInline: true,
+            },
+        },
     ),
 )

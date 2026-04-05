@@ -1,7 +1,8 @@
 import { useEffect } from "react"
 import { ContentPane, LayoutRoot } from "./Containers"
-import CurrentImage from "./components/CurrentImage"
+import CurrentItem from "./components/CurrentItem"
 import History from "./history/History"
+import { VideoThumbnailProvider } from "./history/VideoThumbnailProvider"
 import InfoPanel from "./infoPanel/InfoPanel"
 import { loadImage2 } from "./state/imageLoaders"
 import { selectImage } from "./state/metadataStore"
@@ -28,12 +29,14 @@ function Metadata(props: ChakraProps) {
 
     return (
         <LayoutRoot id={"metadata"} {...restProps}>
-            <ContentPane>
-                <Toolbar zIndex={3} />
-                <CurrentImage />
-                <History zIndex={2} />
-            </ContentPane>
-            <InfoPanel />
+            <VideoThumbnailProvider>
+                <ContentPane>
+                    <Toolbar zIndex={3} />
+                    <CurrentItem />
+                    <History zIndex={2} />
+                </ContentPane>
+                <InfoPanel />
+            </VideoThumbnailProvider>
         </LayoutRoot>
     )
 }

@@ -64,8 +64,30 @@ export async function checkPattern(
 
 export async function getVideoMetadata(path: string): Promise<Record<string, unknown>> {
     const data = await invoke("get_video_metadata", { path })
-    console.log("video metadata", data)
-    return JSON.parse(data as string)
+    const ob = JSON.parse(data as string)
+    return parseKeys(ob)
+}
+
+function parseKeys<T = Record<string, unknown>>(object: T): T | Record<string, unknown> {
+    if (typeof object !== "object" || object === null) return object
+    if (Array.isArray(object)) {
+        return object.map(parseKeys) as T
+    }
+    const ob = object as Record<string, unknown>
+    for (const key in ob) {
+        const value = ob[key]
+        if (typeof value === "object" && value !== null) {
+            ob[key] = parseKeys(value)
+        }
+        if (typeof value === "string") {
+            try {
+                ob[key] = JSON.parse(value)
+            } catch (e) {
+                console.warn("couldn't parse metadata", key, e)
+            }
+        }
+    }
+    return ob
 }
 
 export async function getVideoThumbnail(path: string): Promise<Uint8Array> {

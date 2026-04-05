@@ -1,24 +1,15 @@
-import * as pathlib from "@tauri-apps/api/path"
 import plist from "plist"
-import { postMessage } from "@/state/Messages"
-import {
-    fetchImage,
-    getClipboardBinary,
-    getClipboardText,
-    getClipboardTypes,
-    getLocalImage,
-} from "@/utils/clipboard"
+import { getClipboardBinary, getClipboardText, getClipboardTypes } from "@/utils/clipboard"
 import { settledValues } from "@/utils/helpers"
-import { drawPose } from "@/utils/pose"
-import { isOpenPose } from "@/utils/poseHelpers"
-import { ImageItem, loadDtpImage } from "./ImageItem"
-import { VideoItem } from "./VideoItem"
-import MediaItem from "./mediaItem"
-import { addImageItem, createImageItem } from "./metadataStore"
-import { determineType } from "@/utils/mediaTypes"
-import { MediaItemSource } from "./mediaItem"
-import { tryRead } from "./utiReaders"
 import { isVideo } from "@/utils/imageStore"
+import { determineType } from "@/utils/mediaTypes"
+import { isOpenPose } from "@/utils/poseHelpers"
+import { ImageItem } from "./ImageItem"
+import type MediaItem from "./MediaItem"
+import type { MediaItemSource } from "./MediaItem"
+import { addImageItem } from "./metadataStore"
+import { tryRead } from "./utiReaders"
+import { VideoItem } from "./VideoItem"
 
 const prioritizedTypes = [
     "NSFilenamesPboardType",
@@ -156,7 +147,8 @@ async function createMediaItem(
     if (!mediaType) return undefined
     console.log("createMedia", mediaType)
     if (isVideo(mediaType)) {
-        if (typeof processedInput === "string") return VideoItem.fromUrl(processedInput, source)
+        if (typeof processedInput === "string")
+            return await VideoItem.fromUrl(processedInput, source)
         // Videos are not loaded from binary data — only from paths/URLs
         console.warn(
             "Ignoring video binary data from clipboard; videos must be loaded from path/URL",
