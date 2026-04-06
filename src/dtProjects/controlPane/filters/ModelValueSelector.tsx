@@ -262,7 +262,7 @@ function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => b
             </Text>
             <HStack justifyContent={"space-between"}>
                 <Text>{model.count} images</Text>
-                <Text>{!isVersionModel(model) && getVersionLabel(model.version)}</Text>
+                <Text>{!isVersionModel(model) && getVersionLabel(model.version ?? undefined)}</Text>
             </HStack>
         </PanelListItem>
     )

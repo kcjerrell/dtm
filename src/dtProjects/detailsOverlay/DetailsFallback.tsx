@@ -1,10 +1,10 @@
-import { ImageExtra } from "@/commands"
-import { DataItem, Panel } from "@/components"
-import { Box, chakra, ChakraProps, Grid, VStack } from "@chakra-ui/react"
-import { Fragment } from "react/jsx-runtime"
-import { Snapshot } from "valtio"
-import { useDTP } from "../state/context"
+import { chakra, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
+import { Fragment } from "react/jsx-runtime"
+import type { Snapshot } from "valtio"
+import type { ImageExtra } from "@/commands"
+import { DataItem, Panel } from "@/components"
+import { useDTP } from "../state/context"
 
 interface DetailsFallbackProps extends ChakraProps {
     item: Snapshot<ImageExtra>
@@ -67,7 +67,7 @@ function DetailsFallback(props: DetailsFallbackProps) {
                             <DataItem.Seed value={{ value: item.seed }} />
                         </Row>
                         <Row>
-                            <DataItem.Model value={model?.name ?? item.model_file} />
+                            <DataItem.Model value={model?.name ?? item.model_file ?? undefined} />
                         </Row>
 
                         {/* <Row>
@@ -82,13 +82,15 @@ function DetailsFallback(props: DetailsFallbackProps) {
                         </Row> */}
 
                         <Row>
-                            <DataItem.Sampler value={item.sampler} />
+                            <DataItem.Sampler value={{ value: item.sampler }} />
                             <DataItem.Steps value={item.steps} />
                         </Row>
                         <Row>
                             <DataItem.Strength value={item.strength} />
                             <DataItem.GuidanceScale value={item.guidance_scale} />
-                            <DataItem.Shift value={item.shift} />
+                            <DataItem.Shift
+                                value={{ value: item.shift, resDependentShift: false }}
+                            />
                         </Row>
                         <DataItem label={"Prompt"} data={item.prompt} maxLines={6} />
                         <DataItem
@@ -96,7 +98,7 @@ function DetailsFallback(props: DetailsFallbackProps) {
                             data={item.negative_prompt}
                             maxLines={6}
                         />
-                        <DataItem.NumFrames value={item.num_frames} />
+                        <DataItem.NumFrames value={item.num_frames ?? undefined} />
                     </Fragment>
                 </VStack>
             </motion.div>

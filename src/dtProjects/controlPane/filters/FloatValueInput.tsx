@@ -30,7 +30,7 @@ function FloatValueInputComponent(props: ValueSelectorProps<number>) {
 const FloatValueInput = FloatValueInputComponent as FilterValueSelector<number>
 
 FloatValueInput.getValueLabel = (value) => {
-    return value?.toString() ?? ""
+    return [value?.toString() ?? ""]
 }
 
 export default FloatValueInput

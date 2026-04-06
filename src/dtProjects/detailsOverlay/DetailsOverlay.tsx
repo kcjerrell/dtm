@@ -59,7 +59,8 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                 //     else uiState.hideDetailsOverlay()
                 // }}
                 onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => {
-                    if (!e.target.closest("[data-solid]")) {
+                    const target = e.target
+                    if (!(target instanceof Element) || !target.closest("[data-solid]")) {
                         if (snap.subItem) uiState.hideSubItem()
                         else uiState.hideDetailsOverlay()
                     }
@@ -126,7 +127,11 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                                 show={isVisible}
                                 subItem={snap.subItem}
                                 addMetadata={!snap.subItem}
-                                tensorId={snap.subItem?.tensorId ?? itemDetails?.images?.tensorId}
+                                tensorId={
+                                    snap.subItem?.tensorId ??
+                                    itemDetails?.images?.tensorId ??
+                                    undefined
+                                }
                                 videoRef={videoRef}
                                 isVideo={isVideo}
                             />
