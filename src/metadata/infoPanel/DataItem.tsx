@@ -1,4 +1,4 @@
-import { Box, chakra, HStack } from "@chakra-ui/react"
+import { Box, chakra } from "@chakra-ui/react"
 import { useCallback } from "react"
 import { useMeasureGrid } from "@/components/measureGrid/useMeasureGrid"
 import { useTimedState } from "@/hooks/useTimedState"
@@ -56,19 +56,17 @@ function DataItem(props: DataItemProps<unknown>) {
 
     return (
         <Root gridColumn={gridColumn} {...rest}>
-            {/* <VStack gap={0}> */}
-            <HStack justifyContent={"space-between"}>
-                <Box
-                    paddingLeft={0.5}
-                    fontWeight={500}
-                    fontSize={"xs"}
-                    color={"fg.1"}
-                    overflow={"clip"}
-                    textOverflow={"ellipsis"}
-                >
-                    {justCopied ? "Copied!" : label}
-                </Box>
-            </HStack>
+            <Box
+                as={"dt"}
+                paddingLeft={0.5}
+                fontWeight={500}
+                fontSize={"xs"}
+                color={"fg.1"}
+                overflow={"clip"}
+                textOverflow={"ellipsis"}
+            >
+                {justCopied ? "Copied!" : label}
+            </Box>
             <Content
                 data-defctx={true}
                 className={"peer"}
@@ -117,29 +115,7 @@ const Root = chakra("div", {
     },
 })
 
-const ExpandButton = chakra("div", {
-    base: {
-        fontSize: "xs",
-        color: "fg.2",
-        position: "absolute",
-        bottom: 0,
-        right: 0,
-        pl: "2.5rem",
-        pt: "1rem",
-        fontWeight: 600,
-        bgImage:
-            "radial-gradient(farthest-side at bottom right, var(--chakra-colors-bg-1) 50%, #00000000 100%)",
-        _hover: {
-            color: "fg.1",
-        },
-        _peerHover: {
-            bgImage:
-                "radial-gradient(farthest-side at bottom right, var(--chakra-colors-bg-2) 50%, #00000000 100%)",
-        },
-    },
-})
-
-const Content = chakra("div", {
+const Content = chakra("dd", {
     base: {
         outline: "1px solid transparent",
         padding: "2px",

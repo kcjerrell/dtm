@@ -1,4 +1,4 @@
-import { lazy } from "react"
+import { type ComponentProps, lazy } from "react"
 import { BiDetail, PiCoffee, PiListMagnifyingGlassBold } from "./components/icons/icons"
 
 export const viewDescription = [
@@ -19,11 +19,19 @@ export const viewDescription = [
         icon: BiDetail,
         devOnly: true,
     },
-    { viewId: "projects", label: "Projects", icon: (props) => <PiCoffee strokeWidth={3} css={{
-        "& svg": {
-            strokeWidth: 3,
-        }
-    }} {...props} /> },
+    {
+        viewId: "projects",
+        label: "Projects",
+        icon: (props: ComponentProps<typeof PiCoffee>) => (
+            <PiCoffee
+                strokeWidth={3}
+                style={{
+                    strokeWidth: 3,
+                }}
+                {...props}
+            />
+        ),
+    },
     { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: true },
 ].filter((item) => import.meta.env.DEV || !item.devOnly)
 // ].filter((item) => !item.devOnly)

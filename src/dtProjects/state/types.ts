@@ -78,6 +78,7 @@ export type DTProjectsContainer = IContainer<DTPServices, DTPEvents>
 export type DTPEvents = {
     watch_folders_changed: () => void
     watchFoldersChanged: (payload: WatchFoldersChangedPayload) => void
+    models_changed: () => void
 
     projectFilesChanged: (payload: ProjectFilesChangedPayload) => void
     project_added: (payload: ProjectExtra) => void

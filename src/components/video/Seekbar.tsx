@@ -39,7 +39,7 @@ function Seekbar(props: SeekbarProps) {
                 const x = e.clientX - rect.left
                 const pos = Math.max(0, Math.min(1, x / rect.width))
                 controls.pause()
-                controls.seek(pos, true)
+                controls.seek(pos)
             }}
             onPointerUpCapture={(e) => {
                 if (!pointerDownRef.current) return

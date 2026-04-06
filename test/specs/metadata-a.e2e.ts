@@ -20,7 +20,9 @@ describe("Metadata", () => {
 		await $("aria/Load image from clipboard").click();
 
 		// // verify image is loaded
-		await expect($("body")).toHaveText(expect.stringContaining("astro.png"));
+		await $(
+			`//dt[.='Location']/following-sibling::dd[contains(., 'astro.png')]`
+		).waitForDisplayed();
 
 		// // confirm config was load
 		await $("aria/Config tab").click();

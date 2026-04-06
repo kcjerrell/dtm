@@ -18,7 +18,7 @@ const store = proxy({
 	labelInput: "",
 })
 
-function Empty(props) {
+function Empty(_props: Record<string, never>) {
 	const snap = useSnapshot(store)
 
 	return (

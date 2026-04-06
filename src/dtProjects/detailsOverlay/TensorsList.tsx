@@ -66,7 +66,7 @@ function TensorsList(props: TensorsListComponentProps) {
                         {moodboardIds?.map((id) => (
                             <TensorThumbnail
                                 key={id}
-                                projectId={item?.project_id}
+                                projectId={item.project_id}
                                 tensorId={id}
                                 onClick={(e) => showSubitem(e, id)}
                             />
@@ -96,11 +96,15 @@ function TensorsList(props: TensorsListComponentProps) {
                                     }
                                 >
                                     <TensorThumbnail
-                                        projectId={item?.project_id}
-                                        tensorId={prev.tensor_id}
-                                        maskId={prev.mask_id}
+                                        projectId={item.project_id}
+                                        tensorId={prev.tensor_id ?? undefined}
+                                        maskId={prev.mask_id ?? undefined}
                                         onClick={(e) =>
-                                            showSubitem(e, prev.tensor_id, prev.mask_id)
+                                            showSubitem(
+                                                e,
+                                                prev.tensor_id ?? undefined,
+                                                prev.mask_id ?? undefined,
+                                            )
                                         }
                                     />
                                 </Tooltip>
