@@ -1,4 +1,5 @@
 import type { Options } from "@wdio/types";
+import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as dotenvConfig } from "dotenv";
@@ -23,6 +24,11 @@ const isDebug = false
 	// !!process.env.VSCODE_INSPECTOR_OPTIONS;
 
 const WEBDRIVER_PORT = 4445;
+const SCREENSHOT_DIR = resolve(__dirname, "artifacts", "screenshots");
+
+function safeFileName(value: string) {
+	return value.replace(/[^a-z0-9-_]+/gi, "_").slice(0, 120);
+}
 
 export const config: Options.Testrunner = {
 	runner: "local",
@@ -85,6 +91,7 @@ export const config: Options.Testrunner = {
 
 	// Hooks
 	onPrepare: async function () {
+		mkdirSync(SCREENSHOT_DIR, { recursive: true });
 	},
 
 	onComplete: function () {
@@ -114,5 +121,22 @@ export const config: Options.Testrunner = {
 		if (isAppRunning) return;
 		console.log("Stopping Tauri application...");
 		stopApp();
+	},
+
+	afterTest: async function (test, context, result) {
+		if (result.passed) return;
+
+		try {
+			mkdirSync(SCREENSHOT_DIR, { recursive: true });
+			const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+			const suite = safeFileName(test.parent || "suite");
+			const title = safeFileName(test.title || "test");
+			const filename = `${stamp}__${suite}__${title}.png`;
+			const targetPath = resolve(SCREENSHOT_DIR, filename);
+			await browser.saveScreenshot(targetPath);
+			console.log(`Saved failure screenshot: ${targetPath}`);
+		} catch (err) {
+			console.error("Unable to save failure screenshot", err);
+		}
 	},
 };
