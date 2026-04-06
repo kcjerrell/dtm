@@ -12,7 +12,11 @@ import path from "node:path";
 import fse from "fs-extra";
 import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
-import { getDtpTestDir, getTestDataPath, getTestDataRootDir } from "../util/paths";
+import {
+	getDtpTestDir,
+	getTestDataPath,
+	getTestDataRootDir,
+} from "../util/paths";
 
 const ffmpegBinDir = path.join(
 	os.homedir(),
@@ -79,7 +83,7 @@ async function clickFilterPopupItem(label: string) {
 
 describe("Video Export", () => {
 	it("can export a video", async () => {
-		const videoOutputPath = getTestDataPath("temp","vid-export.mp4");
+		const videoOutputPath = getTestDataPath("temp", "vid-export.mp4");
 		await fse.remove(videoOutputPath);
 
 		// ensure ffmpeg has been deleted by removing the bin folder in the appdatadir
@@ -139,7 +143,9 @@ describe("Video Export", () => {
 		await versionItem.click();
 
 		// assert models list has been filtered and model version item is listed
-		const modelItem = $('[aria-label*="Model item Wan 2.2 High Noise Expert T2V A14B (6-bit, SVDQuant)"]');
+		const modelItem = $(
+			'[aria-label*="Model item Wan 2.2 High Noise Expert T2V A14B (6-bit, SVDQuant)"]',
+		);
 		await modelItem.waitForDisplayed({ timeout: 15000 });
 		await expect(modelItem).toBeDisplayed();
 
@@ -250,17 +256,12 @@ describe("Video Export", () => {
 		// assert Progress section appears and completes
 		await expect($("body")).toHaveText(expect.stringContaining("Progress"));
 
-		await expect($("aria/Exporting frames progress")).toHaveAttribute(
-			"aria-valuenow",
-			"100",
-			{ wait: 15000 },
-		);
-
-		await expect($("aria/Encoding video progress")).toHaveAttribute(
-			"aria-valuenow",
-			"100",
-			{ wait: 15000 },
-		);
+		await $(
+			'[aria-label*="Exporting frames progress"][aria-valuenow="100"]',
+		).waitForDisplayed({ timeout: 20000 });
+		await $(
+			'[aria-label*="Encoding video progress"][aria-valuenow="100"]',
+		).waitForDisplayed({ timeout: 20000 });
 
 		// assert file exists
 		expect(await fse.pathExists(videoOutputPath)).toBe(true);

@@ -103,7 +103,9 @@ describe("Projects", () => {
 		await DTProjects.hideSelectedProject();
 
 		// assert project is removed from list, statusbar entry is removed, and "show hidden projects" group appears in project list
-		await DTProjects.getProject("test-project-a2").waitForDisplayed({ reverse: true });
+		await DTProjects.getProject("test-project-a2").waitForDisplayed({
+			reverse: true,
+		});
 		await DTProjects.imageToolbar.projects.waitForDisplayed({ reverse: true });
 		await DTProjects.showHiddenProjects.waitForDisplayed();
 		expect(await DTProjects.getTotalImages()).toBeLessThan(initialImageCount);
