@@ -97,6 +97,5 @@ export function VideoThumbnailProvider(props: PropsWithChildren) {
     const activeId = useRef<string | null>(null)
 
     const cv = useMemo(() => ({ canvasRefs, videoRef, frameRequest, activeId }), [])
-    console.log(cv)
     return <Context value={cv}>{props.children}</Context>
 }

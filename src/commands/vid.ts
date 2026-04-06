@@ -79,7 +79,7 @@ function parseKeys<T = Record<string, unknown>>(object: T): T | Record<string, u
         if (typeof value === "object" && value !== null) {
             ob[key] = parseKeys(value)
         }
-        if (typeof value === "string") {
+        if (maybeJson(value)) {
             try {
                 ob[key] = JSON.parse(value)
             } catch (e) {
@@ -88,6 +88,13 @@ function parseKeys<T = Record<string, unknown>>(object: T): T | Record<string, u
         }
     }
     return ob
+}
+
+function maybeJson(value: unknown): value is string {
+    if (typeof value !== "string") return false
+    if (value.startsWith("{") && value.endsWith("}")) return true
+    if (value.startsWith("[") && value.endsWith("]")) return true
+    return false
 }
 
 export async function getVideoThumbnail(path: string): Promise<Uint8Array> {

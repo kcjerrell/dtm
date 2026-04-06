@@ -40,6 +40,7 @@ export class ImageItem extends MediaItem {
     }
 
     async loadMetadata() {
+        if (this.$isBinding) return
         if (this._metadataStatus) return
         this._metadataStatus = "pending"
 
@@ -73,7 +74,6 @@ export class ImageItem extends MediaItem {
 
     private async loadEntry() {
         const entry = await ImageStore.get(this.id)
-        console.log("load entry", entry)
         this._url = entry?.url
         this._thumbUrl = entry?.thumbUrl
     }

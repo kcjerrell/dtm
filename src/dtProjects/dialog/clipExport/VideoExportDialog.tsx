@@ -328,7 +328,9 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                 </VStack>
             </PanelSection>
 
-            <ffmpeg.FfmpegComponent />
+            <ffmpeg.FfmpegComponent>
+                FFMPEG must be downloaded before video can be exported.
+            </ffmpeg.FfmpegComponent>
 
             {(isExporting ||
                 videoProgress.text === "Done" ||

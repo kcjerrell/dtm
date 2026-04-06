@@ -15,7 +15,7 @@ export interface VideoItemConstructorOpts extends MediaItemConstructorOpts {
 export class VideoItem extends MediaItem {
     private _metadata?: ExifType | null
     private _dtData?: DrawThingsMetaData | null
-    private _metadataStatus?: "pending" | "done"
+    private _metadataStatus?: "pending" | "done" | "failed"
     private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
     private _url?: string
     private _filePath?: string
@@ -29,6 +29,7 @@ export class VideoItem extends MediaItem {
 
     get metadata() {
         if (!this._metadata && !this._metadataStatus) this.loadMetadata()
+        if (this._metadataStatus === "failed") this.loadMetadata()
         return this._metadata
     }
 
@@ -45,17 +46,24 @@ export class VideoItem extends MediaItem {
         return this._url
     }
 
-    async loadMetadata() {
-        if (this._metadataStatus || !this._filePath) return
+    async loadMetadata(force = false) {
+        if (this.$isBinding) return
+        if (!force && this._metadataStatus) return
+        if (!this._filePath) return
+        if (force) {
+            this._metadataStatus = undefined
+            this._metadataPromise = Promise.withResolvers<void>()
+        }
         this._metadataStatus = "pending"
 
         try {
             this._metadata = (await getVideoMetadata(this._filePath)) as ExifType
             this._dtData = getDrawThingsDataFromVideo(this._metadata) ?? null
+            this._metadataStatus = "done"
         } catch (e) {
+            this._metadataStatus = "failed"
             console.warn("couldn't load metadata from", this._filePath, e)
         } finally {
-            this._metadataStatus = "done"
             this._metadataPromise.resolve()
         }
     }

@@ -1,18 +1,24 @@
 import { Box, VStack } from "@chakra-ui/react"
 import MeasureGrid from "@/components/measureGrid/MeasureGrid"
+import { useFfmpeg } from "@/hooks/useFfmpeg"
 import type { ImageSource } from "@/types"
-import type { ImageItem } from "../state/ImageItem"
+import type MediaItem from "../state/MediaItem"
+import type { VideoItem } from "../state/VideoItem"
 import DataItem from "./DataItem"
 import SourceDetails from "./SourceDetails"
 
 interface DetailsProps extends ChakraProps {
-    imageSnap?: ReadonlyState<ImageItem>
+    imageSnap?: ReadonlyState<MediaItem>
     expandItems?: string[]
     onItemCollapseChanged?: (key: string, collapse: "collapsed" | "expanded") => void
 }
 
 function Details(props: DetailsProps) {
     const { imageSnap, onItemCollapseChanged, expandItems, ...rest } = props
+    const ffmpeg = useFfmpeg(true, () => {
+        if (!imageSnap?.isVideo) return
+        ;(imageSnap as VideoItem).loadMetadata(true)
+    })
 
     const exif = imageSnap?.metadata ?? {}
     const groups = groupItems(exif)
@@ -29,6 +35,11 @@ function Details(props: DetailsProps) {
             minWidth={0}
         >
             <SourceDetails imageSource={imageSource} />
+            {imageSnap?.isVideo && (
+                <ffmpeg.FfmpegComponent>
+                    FFMPEG must be downloaded to load video metadata.
+                </ffmpeg.FfmpegComponent>
+            )}
             {groups.map(({ name, items }) => {
                 return (
                     <MeasureGrid

@@ -6,13 +6,14 @@ import { getMetadataStore } from "../state/metadataStore"
 
 function CurrentVideo() {
     const snap = useSnapshot(getMetadataStore())
-    console.log("current image", snap.currentItem)
     const { currentItem: currentImage } = snap
 
     const videoRef = useVideoThumbnail(currentImage?.id, "video")
 
     return (
         <Video
+            preload={"auto"}
+            crossOrigin={"anonymous"}
             key={currentImage?.id}
             src={currentImage?.url}
             initial={{ opacity: 0, zIndex: 1 }}
