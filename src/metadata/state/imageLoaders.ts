@@ -38,7 +38,6 @@ export async function loadImage2(pasteboard: "general" | "drag") {
 
     for await (const result of loadItems(pasteboard)) {
         if (!result) continue
-        console.log("loaditem next", result)
         // Special case for NSFilenamesPboardType (array of items)
         if (Array.isArray(result)) {
             for (const item of result) {

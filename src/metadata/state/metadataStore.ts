@@ -3,14 +3,12 @@ import { store } from "@tauri-store/valtio"
 import * as exifr from "exifr"
 import { proxy } from "valtio"
 import AppStore from "@/hooks/appState"
-import type { ImageSource } from "@/types"
 import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
-import { getDrawThingsDataFromExif } from "../helpers"
-import { ImageItem, type ImageItemConstructorOpts } from "./ImageItem"
 import { bindProxy } from "@/utils/valtio"
+import { ImageItem } from "./ImageItem"
 import MediaItem from "./MediaItem"
-import { VideoItem, VideoItemConstructorOpts } from "./VideoItem"
+import { VideoItem } from "./VideoItem"
 
 function initStore() {
     const storeInstance = store(
@@ -54,7 +52,6 @@ function initStore() {
                                 if (isVideo(im.type)) {
                                     VideoItem.fromJSON(im)
                                         .then((video) => {
-                                            console.debug("restored video item", video)
                                             replacePlaceholder(bindProxy(proxy(video)))
                                         })
                                         .catch((e) => {
@@ -64,7 +61,6 @@ function initStore() {
                                 } else {
                                     ImageItem.fromJSON(im)
                                         .then((im) => {
-                                            console.debug("restored image item", im)
                                             replacePlaceholder(bindProxy(proxy(im)))
                                         })
                                         .catch((e) => {
@@ -93,7 +89,6 @@ let metadataStore: ReturnType<typeof initStore> | undefined
 
 function getStore() {
     if (!metadataStore) {
-        console.debug("METADATA: creating store")
         metadataStore = initStore()
     }
     return metadataStore
@@ -141,7 +136,6 @@ export function selectImage(item?: MediaItemParam | null) {
         state.currentIndex = index
     }
     if (state.currentIndex === null) console.log("selected no image")
-    else console.debug("selected image", state.items[state.currentIndex].id)
 }
 
 export function pinImage(image: MediaItemParam, value: number | boolean | null): void
@@ -233,7 +227,6 @@ export async function getExif(arg: ArrayBuffer | string): Promise<ExifType | nul
             iptc: true,
             mergeOutput: false,
         })
-        console.log(exif)
         return exif
     } catch (e) {
         console.warn(e)

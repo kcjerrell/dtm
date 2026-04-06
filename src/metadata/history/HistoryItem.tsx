@@ -1,6 +1,7 @@
 import { type BoxProps, chakra } from "@chakra-ui/react"
 import { type MotionProps, motion } from "motion/react"
 import { useEffect, useRef } from "react"
+import FrameCountIndicator from "@/components/FrameCountIndicator"
 import type MediaItem from "../state/MediaItem"
 import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
@@ -70,7 +71,8 @@ function HistoryItem(props: HistoryItemProps) {
 }
 
 const ImageThumbnail = (props: MotionProps & { item: MediaItem }) => {
-    return <motion.img src={props.item?.thumbUrl} />
+    const { item, ...restProps } = props
+    return <motion.img src={item?.thumbUrl} {...restProps} />
 }
 
 const VideoThumbnail = (props: MotionProps & { item: MediaItem }) => {
@@ -78,8 +80,34 @@ const VideoThumbnail = (props: MotionProps & { item: MediaItem }) => {
 
     const canvasRef = useVideoThumbnail(item?.id, "thumbnail")
 
-    return <motion.canvas ref={canvasRef} width={100} height={100} {...restProps} />
+    return (
+        <VideoThumbContainer>
+            <motion.canvas ref={canvasRef} width={100} height={100} {...restProps} />
+            <FrameCountIndicator
+                padding={3}
+                top={-2}
+                bgColor={"grays.4"}
+                color={"grays.13"}
+                zIndex={1}
+            />
+        </VideoThumbContainer>
+    )
 }
+
+const VideoThumbContainer = chakra("div", {
+    base: {
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        "& > canvas": {
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+        },
+    },
+})
 
 const HistoryItemBase = chakra("div", {
     base: {

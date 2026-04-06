@@ -18,8 +18,6 @@ function CurrentItem(props: CurrentItemProps) {
         Item = currentImage.isVideo ? CurrentVideo : CurrentImage
     }
 
-    console.log("current item", snap.currentItem)
-
     return (
         <Box
             position={"relative"}

@@ -25,12 +25,11 @@ abstract class MediaItem {
     loadedAt: number
     source: MediaItemSource
     type: string
+    $isBinding = false
 
     constructor(opts: MediaItemConstructorOpts) {
         if (!opts.source) throw new Error("ImageItem must have a source")
         if (!opts.type) throw new Error("ImageItem must have a type")
-
-        console.log("created media item from", opts.source)
 
         this.id = MediaItem.getNewId(opts.id)
         this.pin = opts.pin

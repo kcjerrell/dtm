@@ -1,6 +1,6 @@
 import { Box, FormatByte, Grid } from "@chakra-ui/react"
 import { listen } from "@tauri-apps/api/event"
-import { memo, useEffect } from "react"
+import { memo, type PropsWithChildren, useEffect } from "react"
 import { ffmpegCheck, ffmpegDownload } from "@/commands"
 import { PanelButton, PanelSection, Progress } from "@/components"
 import { useProxyRef } from "./valtioHooks"
@@ -14,7 +14,7 @@ type FfmpegProgress = {
     state: string
 }
 
-export function useFfmpeg(hideOnComplete = false) {
+export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
     const { state, snap } = useProxyRef(() => ({
         showComponent: false,
         status: "unknown" as FfmpegStatus,
@@ -51,6 +51,7 @@ export function useFfmpeg(hideOnComplete = false) {
             state.progressText = "Downloading..."
             await ffmpegDownload()
             state.status = "installed"
+            onComplete?.()
         } catch (e) {
             state.status = "error"
             state.progressText = `Something went wrong: ${e}`
@@ -59,10 +60,11 @@ export function useFfmpeg(hideOnComplete = false) {
         }
     }
 
-    const FfmpegComponent = memo((props: ChakraProps) => {
+    const FfmpegComponent = memo((props: PropsWithChildren<ChakraProps>) => {
+        const { children, ...restProps } = props
         if (!snap.showComponent) return null
         return (
-            <PanelSection data-testid="ffmpeg-section" {...props}>
+            <PanelSection data-testid="ffmpeg-section" {...restProps}>
                 <Grid
                     padding={4}
                     gridTemplateColumns={"auto auto"}
@@ -71,7 +73,7 @@ export function useFfmpeg(hideOnComplete = false) {
                     justifyContent={"center"}
                     gap={4}
                 >
-                    <Box>FFMPEG must be downloaded before video can be exported.</Box>
+                    <Box>{children}</Box>
                     <PanelButton
                         onClick={() => {
                             installFfmpeg()

@@ -35,14 +35,36 @@ export default va
  * @param proxyInstance The object to be bound - should be a proxy already
  */
 export function bindProxy<T extends object>(proxyInstance: T): T {
-    const props = Object.getOwnPropertyNames(Object.getPrototypeOf(proxyInstance))
+    if (isBindingAware(proxyInstance)) {
+        proxyInstance.$isBinding = true
+    }
+    const proto = Object.getPrototypeOf(proxyInstance)
+    const descriptors = Object.getOwnPropertyDescriptors(proto)
 
-    for (const prop of props) {
-        const method = proxyInstance[prop as keyof T]
-        if (prop === "constructor" || typeof method !== "function") continue
-        ;(proxyInstance as Record<string, unknown>)[prop] = (...args: unknown[]) =>
-            method.apply(proxyInstance, args)
+    try {
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (key === "constructor") continue
+
+            // Only bind plain methods (not getters/setters)
+            if (typeof descriptor.value === "function") {
+                const method = descriptor.value
+
+                ;(proxyInstance as Record<string, unknown>)[key] = (...args: unknown[]) =>
+                    method.apply(proxyInstance, args)
+            }
+        }
+    } finally {
+        if (isBindingAware(proxyInstance)) {
+            proxyInstance.$isBinding = false
+        }
     }
 
     return proxyInstance
+}
+
+function isBindingAware<T>(obj: T): obj is { $isBinding: boolean } & T {
+    if (obj && typeof obj === "object" && "$isBinding" in obj && obj.$isBinding) {
+        return true
+    }
+    return false
 }
