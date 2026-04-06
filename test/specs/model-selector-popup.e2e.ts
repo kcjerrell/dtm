@@ -55,7 +55,6 @@ describe("Model Selector Popup", () => {
 		await modelB.click();
 		await expectModelListOpen();
 
-
 		// interacting with operator should keep model list open consistently
 		for (const op of ["is", "isnot", "is"] as const) {
 			await filterForm.operator.click();
