@@ -59,6 +59,14 @@ jobs:
       - name: Run WDIO tests
         run: npm run wdio
 
+      - name: Upload WDIO failure screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wdio-failure-screenshots
+          path: test/artifacts/screenshots
+          if-no-files-found: ignore
+
       - name: Save Rust cache
         if: ${{ always() && !cancelled() }}
         uses: actions/cache/save@v4
