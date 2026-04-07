@@ -1,11 +1,8 @@
 import App from "../pageobjects/App";
 import {
 	assertOsaScriptClipboardAvailable,
-	clipboardHasFile,
-	clipboardHasFilePayload,
-	copyFileToClipboard,
-	getClipboardInfoTypes,
-	getClipboardFilePaths,
+	copyFilePathTextToClipboard,
+	getClipboardText,
 } from "../util/helpers";
 import { getFile } from "../util/testData";
 
@@ -23,19 +20,17 @@ describe("Metadata", () => {
 
 		// copy file to clipboard
 		const astroPath = getFile("astro.png");
-		copyFileToClipboard(astroPath);
+		copyFilePathTextToClipboard(astroPath);
 		try {
-			await browser.waitUntil(() => clipboardHasFile(astroPath), {
+			await browser.waitUntil(() => getClipboardText() === astroPath, {
 				timeout: 5000,
 				interval: 250,
-				timeoutMsg: "Expected astro.png to be present on the system clipboard.",
+				timeoutMsg: "Expected astro.png path to be present in clipboard text.",
 			});
 		} catch (error) {
-			const clipboardPaths = getClipboardFilePaths();
-			const clipboardTypes = getClipboardInfoTypes();
-			const hasFilePayload = clipboardHasFilePayload();
+			const clipboardText = getClipboardText();
 			throw new Error(
-				`Clipboard check failed for "${astroPath}". hasFilePayload=${hasFilePayload}. Clipboard types: ${JSON.stringify(clipboardTypes)}. Clipboard paths: ${JSON.stringify(clipboardPaths)}. ${String(error)}`,
+				`Clipboard check failed for "${astroPath}". Clipboard text: ${JSON.stringify(clipboardText)}. ${String(error)}`,
 			);
 		}
 

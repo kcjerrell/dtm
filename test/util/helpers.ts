@@ -29,6 +29,12 @@ export function copyFileToClipboard(filePath: string) {
 	execSync(`osascript -e 'set the clipboard to (POSIX file "${filePath}")'`);
 }
 
+/** copies a file path as plain text to clipboard (macOS only) */
+export function copyFilePathTextToClipboard(filePath: string) {
+	const escaped = filePath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+	execSync(`osascript -e 'set the clipboard to "${escaped}"'`);
+}
+
 /** copies files to the clipboard (macOS only) */
 export function copyFilesToClipboard(files: string[]) {
 	const applescript = `
@@ -161,6 +167,14 @@ export function clipboardHasFile(filePath: string) {
 		if (!expectedBase) return false;
 		return actualNorm.split("/").pop()?.toLowerCase() === expectedBase;
 	});
+}
+
+export function getClipboardText() {
+	try {
+		return execSync("osascript -e 'the clipboard as text'", { encoding: "utf8" }).trim();
+	} catch {
+		return "";
+	}
 }
 
 /** verifies osascript can write/read clipboard in this runtime (macOS only) */
