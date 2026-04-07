@@ -37,6 +37,12 @@ describe("Metadata", () => {
 		// paste file into metadata tab
 		await $("aria/Load image from clipboard").click();
 
+		await $("text=Drop image here").waitForDisplayed({ reverse: true });
+
+		// make sure we're on the details tab
+		await $("aria/Details tab").click();
+		await expect($("aria/Details tab")).toHaveAttribute("aria-selected", "true");
+
 		// // verify image is loaded
 		await $(
 			`//dt[.='Location']/following-sibling::dd[contains(., 'astro.png')]`
