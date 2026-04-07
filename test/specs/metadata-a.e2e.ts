@@ -1,9 +1,18 @@
 import App from "../pageobjects/App";
-import { copyFileToClipboard } from "../util/helpers";
+import {
+	assertOsaScriptClipboardAvailable,
+	clipboardHasFile,
+	clipboardHasFilePayload,
+	copyFileToClipboard,
+	getClipboardInfoTypes,
+	getClipboardFilePaths,
+} from "../util/helpers";
 import { getFile } from "../util/testData";
 
 describe("Metadata", () => {
 	it("loads image from clipboard", async () => {
+		assertOsaScriptClipboardAvailable();
+
 		// go to metadata tab
 		await App.selectView("metadata");
 
@@ -13,8 +22,22 @@ describe("Metadata", () => {
 		}
 
 		// copy file to clipboard
-		copyFileToClipboard(getFile("astro.png"));
-		await new Promise((resolve) => setTimeout(resolve, 1000));
+		const astroPath = getFile("astro.png");
+		copyFileToClipboard(astroPath);
+		try {
+			await browser.waitUntil(() => clipboardHasFile(astroPath), {
+				timeout: 5000,
+				interval: 250,
+				timeoutMsg: "Expected astro.png to be present on the system clipboard.",
+			});
+		} catch (error) {
+			const clipboardPaths = getClipboardFilePaths();
+			const clipboardTypes = getClipboardInfoTypes();
+			const hasFilePayload = clipboardHasFilePayload();
+			throw new Error(
+				`Clipboard check failed for "${astroPath}". hasFilePayload=${hasFilePayload}. Clipboard types: ${JSON.stringify(clipboardTypes)}. Clipboard paths: ${JSON.stringify(clipboardPaths)}. ${String(error)}`,
+			);
+		}
 
 		// paste file into metadata tab
 		await $("aria/Load image from clipboard").click();
