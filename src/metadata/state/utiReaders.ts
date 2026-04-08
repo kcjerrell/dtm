@@ -1,6 +1,7 @@
 import plist from "plist"
+import { determineType } from "@/utils/mediaTypes"
+import { isOpenPose, type OpenPose } from "@/utils/poseHelpers"
 import { extractImgSrc, extractPaths } from "./imageLoaders"
-import { determineType } from '@/utils/mediaTypes'
 
 type UtiReader<T extends string | Uint8Array = string | Uint8Array> = (
     data: T,
@@ -11,6 +12,7 @@ type ReadResult = {
     data?: { buffer: Uint8Array; type: string }
     urls?: string[]
     dtpImage?: { projectId: number; imageId: number }
+    pose?: OpenPose
 }
 
 const readers = {
@@ -34,18 +36,33 @@ const readers = {
 } as Record<string, UtiReader>
 
 function textTypeReader(uti: string, data: string): ReadResult | undefined {
+    if (isPose(uti, data)) {
+        return { uti, pose: JSON.parse(data) }
+    }
     const paths = extractPaths(data)
     if (paths.urls?.length === 0 && !paths.dtpImage) return undefined
     return {
         uti,
         urls: paths.urls,
-        dtpImage: paths.dtpImage
+        dtpImage: paths.dtpImage,
+    }
+}
+
+function isPose(type: string, data: unknown) {
+    console.log("isPose", type, data)
+    if (type !== "public.utf8-plain-text" || typeof data !== "string") return false
+
+    try {
+        const pose = JSON.parse(data)
+        return isOpenPose(pose)
+    } catch {
+        return false
     }
 }
 
 function binaryTypeReader(uti: string, data: Uint8Array) {
     if (!data || data.length === 0) return undefined
-    return { uti, data: { buffer: data, type: determineType(data)} }
+    return { uti, data: { buffer: data, type: determineType(data) } }
 }
 
 export function tryRead(uti: string, data: string | Uint8Array) {

@@ -1,9 +1,8 @@
 import plist from "plist"
+import { getOverrideOr } from "@/testHooks"
 import { getClipboardBinary, getClipboardText, getClipboardTypes } from "@/utils/clipboard"
-import { settledValues } from "@/utils/helpers"
 import { isVideo } from "@/utils/imageStore"
 import { determineType } from "@/utils/mediaTypes"
-import { isOpenPose } from "@/utils/poseHelpers"
 import { ImageItem } from "./ImageItem"
 import type MediaItem from "./MediaItem"
 import type { MediaItemSource } from "./MediaItem"
@@ -37,6 +36,7 @@ export async function loadImage2(pasteboard: "general" | "drag") {
     let firstItem: MediaItem | null = null
 
     for await (const result of loadItems(pasteboard)) {
+        console.debug("item", result)
         if (!result) continue
         // Special case for NSFilenamesPboardType (array of items)
         if (Array.isArray(result)) {
@@ -65,16 +65,33 @@ export async function loadImage2(pasteboard: "general" | "drag") {
     }
 }
 
+// let dump = [] as string[]
+// async function dumpData(text) {
+//     dump.push(text)
+//     writeTextFile(await path.join(await path.appDataDir(), "clipdump.json"), JSON.stringify(dump))
+// }
+
 async function* loadItems(
     pasteboard: "general" | "drag",
 ): AsyncGenerator<MediaItem | (MediaItem | undefined)[] | undefined> {
-    const types = await getClipboardTypes(pasteboard)
-    const text = await getClipboardText(
-        clipboardTextTypes.filter((t) => types.includes(t)),
-        pasteboard,
+    const types = await getOverrideOr(
+        "pasteboardTypes",
+        async () => await getClipboardTypes(pasteboard),
     )
 
+    const text = await getOverrideOr(
+        "pasteboardText",
+        async () =>
+            await getClipboardText(
+                clipboardTextTypes.filter((t) => types.includes(t)),
+                pasteboard,
+            ),
+    )
+
+    console.log("text", text)
+
     const getType = async (type: string) => {
+        console.log("getType", type, types.includes(type), type in text)
         if (!types.includes(type)) return null
         if (type in text) return text[type]
         return await getClipboardBinary(type, pasteboard)
@@ -96,11 +113,23 @@ async function* loadItems(
 
             const utiSource = { ...source, uti }
 
+            if (result.pose) {
+                yield await ImageItem.fromPose(data as string, utiSource)
+                return
+            }
+
             // Special handling for bulk file loading
             if (uti === "NSFilenamesPboardType" && result.urls) {
-                const items = await settledValues(
-                    result.urls.map((f) => createMediaItem(f, { ...utiSource, file: f })),
-                )
+                // const items = await settledValues(
+                //     result.urls.map((f) => createMediaItem(f, { ...utiSource, file: f })),
+                // )
+                const items = [] as MediaItem[]
+                for (const url of result.urls) {
+                    console.debug("trying url", url)
+                    const item = await createMediaItem(url, { ...utiSource, url })
+                    console.debug("item for", url, item)
+                    if (item) items.push(item)
+                }
                 yield items
                 return
             }
@@ -144,6 +173,7 @@ async function createMediaItem(
     const processedInput = preprocess(input)
     const mediaType = typeHint ?? determineType(processedInput)
     if (!mediaType) return undefined
+    console.debug("media type", mediaType)
     if (isVideo(mediaType)) {
         if (typeof processedInput === "string")
             return await VideoItem.fromUrl(processedInput, source)
@@ -278,15 +308,4 @@ export function extractPaths(text: string): {
     }
 
     return { urls }
-}
-
-function isPose(type: string, text: string) {
-    if (type !== "public.utf8-plain-text") return false
-
-    try {
-        const pose = JSON.parse(text)
-        return isOpenPose(pose)
-    } catch {}
-
-    return false
 }

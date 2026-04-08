@@ -2,7 +2,7 @@ import { chakra, type StackProps } from "@chakra-ui/react"
 import { motion, useMotionValue } from "motion/react"
 import { useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
-import type { ImageItem } from "../state/ImageItem"
+import type MediaItem from "../state/MediaItem"
 import { getMetadataStore, selectImage } from "../state/metadataStore"
 import HistoryItem from "./HistoryItem"
 
@@ -14,9 +14,9 @@ function History(props: HistoryProps) {
     const snap = useSnapshot(getMetadataStore())
     const { items: images, currentItem: currentImage } = snap
 
-    const pinned = images.filter((i) => i.pin != null) as ImageItem[]
-    const unpinned = images.filter((i) => i.pin == null) as ImageItem[]
-    const imageItems = [...pinned, ...unpinned] as ReadonlyState<ImageItem[]>
+    const pinned = images.filter((i) => i.pin != null) as MediaItem[]
+    const unpinned = images.filter((i) => i.pin == null) as MediaItem[]
+    const imageItems = [...pinned, ...unpinned] as ReadonlyState<MediaItem[]>
 
     const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -78,9 +78,13 @@ function History(props: HistoryProps) {
                 }}
                 onScroll={updateScroll}
             >
-                <HistoryContent {...restProps}>
-                    {imageItems.map((image) => (
+                <HistoryContent aria-label="Image history" role="tablist" {...restProps}>
+                    {imageItems.map((image, i) => (
                         <HistoryItem
+                            role={"tab"}
+                            aria-controls={`image-${i + 1}`}
+                            id={`image-item-${i + 1}`}
+                            aria-selected={currentImage?.id === image.id}
                             key={image.id}
                             image={image}
                             isSelected={currentImage?.id === image.id}

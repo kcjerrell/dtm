@@ -6,7 +6,7 @@ import type MediaItem from "../state/MediaItem"
 import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
 interface HistoryItemProps extends BoxProps {
-    image: MediaItem
+    image: ReadonlyState<MediaItem>
     isSelected: boolean
     onSelect?: () => void
     isPinned?: boolean
@@ -70,12 +70,12 @@ function HistoryItem(props: HistoryItemProps) {
     )
 }
 
-const ImageThumbnail = (props: MotionProps & { item: MediaItem }) => {
+const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
     const { item, ...restProps } = props
     return <motion.img src={item?.thumbUrl} {...restProps} />
 }
 
-const VideoThumbnail = (props: MotionProps & { item: MediaItem }) => {
+const VideoThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
     const { item, ...restProps } = props
 
     const canvasRef = useVideoThumbnail(item?.id, "thumbnail")

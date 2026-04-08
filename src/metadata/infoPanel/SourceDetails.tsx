@@ -1,8 +1,8 @@
 import { SimpleGrid } from "@chakra-ui/react"
-import type { ImageSource } from "@/types"
+import type { MediaItemSource } from "../state/MediaItem"
 import DataItem from "./DataItem"
 
-function SourceDetails(props: { imageSource: ImageSource }) {
+function SourceDetails(props: { imageSource: MediaItemSource }) {
     const imageSource = props.imageSource
     const source = getSourceDescription(props.imageSource)
     return (
@@ -21,7 +21,7 @@ function SourceDetails(props: { imageSource: ImageSource }) {
                 gridColumn={2}
                 gridRow={1}
                 label={"Data type"}
-                data={imageSource.pasteboardType}
+                data={imageSource.type}
                 wordBreak={"break-word"}
             />
             {/* <HStack gap={0}>
@@ -75,20 +75,31 @@ function SourceDetails(props: { imageSource: ImageSource }) {
                     )}
                 </>
             )}
+            <DataItem label={"Source"} gridColumn={"1 / span 2"} data={imageSource} />
         </SimpleGrid>
     )
 }
 
 export default SourceDetails
 
-function getSourceDescription(imageSource: ImageSource) {
+const imageUtis = [
+    "public.png",
+    "public.jpeg",
+    "public.tiff",
+    "public.bmp",
+    "public.gif",
+    "public.webp",
+]
+
+function getSourceDescription(imageSource: MediaItemSource) {
     let type = "Unknown"
 
     if (imageSource.file) type = "File"
     if (imageSource.url) type = "URL"
     if (imageSource.image || imageSource.projectFile) type = "Image"
+    if (imageSource.uti && imageUtis.includes(imageSource.uti)) type = "Image"
 
-    switch (imageSource.source) {
+    switch (imageSource.loadedFrom) {
         case "clipboard":
             return `${type} from clipboard`
         case "drop":

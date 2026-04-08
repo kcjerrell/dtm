@@ -8,7 +8,8 @@
 	"files": {
 		"ignoreUnknown": false,
 		"includes": [
-			"./src/**/*.{js,jsx,ts,tsx}"
+			"./src/**/*.{js,jsx,ts,tsx}",
+			"./test/**/*.{js,jsx,ts,tsx}"
 		],
 		"experimentalScannerIgnores": [
 			"reactDevtools.js"

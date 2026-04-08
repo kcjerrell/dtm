@@ -1,11 +1,12 @@
-import { DtpService, getVideoMetadata } from "@/commands"
+import { DtpService } from "@/commands"
 import type { DrawThingsMetaData } from "@/types"
 import { fetchImage, getLocalImage } from "@/utils/clipboard"
-import ImageStore, { type ImageStoreEntry, isVideo } from "@/utils/imageStore"
+import ImageStore, { isVideo } from "@/utils/imageStore"
 import { determineType } from "@/utils/mediaTypes"
 import { getDrawThingsDataFromExif } from "../helpers"
 import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./MediaItem"
 import { type ExifType, getExif } from "./metadataStore"
+import { drawPose } from "@/utils/pose"
 
 export interface ImageItemConstructorOpts extends MediaItemConstructorOpts {
     imageBuffer?: Uint8Array
@@ -44,7 +45,11 @@ export class ImageItem extends MediaItem {
         if (this._metadataStatus) return
         this._metadataStatus = "pending"
 
-        if (!this._url) return
+        if (!this._url) {
+            this._metadataStatus = "done"
+            this._metadataPromise?.resolve()
+            return
+        }
 
         try {
             const metadata = await getExif(this._url)
@@ -106,6 +111,7 @@ export class ImageItem extends MediaItem {
         type: string,
         source: MediaItemSource,
     ) {
+        console.debug("fromBuffer", buffer?.length, type, source)
         if (!buffer) return undefined
         try {
             const item = new ImageItem({
@@ -121,6 +127,7 @@ export class ImageItem extends MediaItem {
     }
 
     static async fromFile(file: string, source: MediaItemSource) {
+        console.debug("fromFile", file, source)
         try {
             const data = await getLocalImage(file)
             if (!data) return
@@ -140,16 +147,17 @@ export class ImageItem extends MediaItem {
      * @param source
      */
     static async fromUrl(url: string, source: MediaItemSource) {
+        console.debug("fromUrl", url, source)
         if (isLocalUrl(url)) {
             const filePath = url.startsWith("files://") ? url.replace("files://", "file://") : url
-            return ImageItem.fromFile(filePath, source)
+            return ImageItem.fromFile(filePath, { ...source, url: null, file: filePath })
         }
 
         const fetched = await fetchImage(url)
         if (!fetched) return undefined
         const type = determineType(fetched.type)
         if (!type) return undefined
-        return ImageItem.fromBuffer(fetched.data, type, {
+        return await ImageItem.fromBuffer(fetched.data, type, {
             ...source,
             url,
         })
@@ -159,8 +167,8 @@ export class ImageItem extends MediaItem {
         try {
             const dtpResult = await loadDtpImage({ projectId, imageId })
             if (dtpResult) {
-                return ImageItem.fromBuffer(dtpResult.image, "png", {
-                    source: "project",
+                return await ImageItem.fromBuffer(dtpResult.image, "png", {
+                    loadedFrom: "project",
                     projectFile: dtpResult.projectFile,
                     nodeId: dtpResult.history.row_id,
                     tensorId: dtpResult.history.tensor_id,
@@ -170,6 +178,12 @@ export class ImageItem extends MediaItem {
             console.warn("couldn't create image item from dtp image", e)
             return undefined
         }
+    }
+
+    static async fromPose(data: string, source: MediaItemSource) {
+        const pose = JSON.parse(data)
+        const buffer = await drawPose(pose)
+        return ImageItem.fromBuffer(buffer, "png", { ...source, pose })
     }
 }
 

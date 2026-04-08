@@ -2,6 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core"
 import * as path from "@tauri-apps/api/path"
 import * as fs from "@tauri-apps/plugin-fs"
 import { store as createStore } from "@tauri-store/valtio"
+import { Mutex } from "async-mutex"
 import { getStoreName } from "./helpers"
 
 let _appDataDir: string
@@ -24,9 +25,6 @@ async function getImageFolder() {
     return _imageFolder
 }
 
-const _loaderPromise = Promise.withResolvers<ReturnType<typeof initStore>>()
-const _loader = _loaderPromise.promise
-
 type ImageStoreEntryBase = {
     id: string
     type: string
@@ -45,28 +43,27 @@ function initStore() {
         getStoreName("images"),
         { images: {} as Record<string, ImageStoreEntryBase> },
         {
-            autoStart: true,
+            autoStart: false,
             syncStrategy: "debounce",
             syncInterval: 1000,
             saveOnChange: true,
         },
     )
-    const unsub = storeInstance.subscribe(() => {
-        _loaderPromise.resolve(storeInstance)
-        unsub()
-    })
     window.addEventListener("unload", () => storeInstance.stop())
     return storeInstance
 }
 
-let imagesStore: ReturnType<typeof initStore> | null = null
-
+let imageStore: ReturnType<typeof initStore> | null = null
+const mutex = new Mutex()
 async function getStore() {
-    if (!imagesStore) {
-        imagesStore = initStore()
-    }
-    await _loader
-    return imagesStore
+    await mutex.runExclusive(async () => {
+        if (!imageStore) {
+            imageStore = initStore()
+            await imageStore.start()
+        }
+    })
+    if (!imageStore) throw new Error("Failed to initialize images store")
+    return imageStore
 }
 
 const _imageTypes = ["png", "tiff", "jpg", "webp"]

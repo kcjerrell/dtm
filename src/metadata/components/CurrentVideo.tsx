@@ -1,26 +1,37 @@
 import { chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { useSnapshot } from "valtio"
+import { TMap } from "@/utils/TMap"
 import { useVideoThumbnail } from "../history/VideoThumbnailProvider"
 import { getMetadataStore } from "../state/metadataStore"
+import type { VideoItem } from "../state/VideoItem"
+
+const videoTime = TMap.withDefaultValue((_: string) => 0)
 
 function CurrentVideo() {
-    const snap = useSnapshot(getMetadataStore())
-    const { currentItem: currentImage } = snap
+    const state = getMetadataStore()
+    const snap = useSnapshot(state)
+    const currentItem = snap.currentItem as VideoItem
 
-    const videoRef = useVideoThumbnail(currentImage?.id, "video")
+    const videoRef = useVideoThumbnail(currentItem?.id, "video")
 
     return (
         <Video
-            preload={"auto"}
+            preload={"metadata"}
             crossOrigin={"anonymous"}
-            key={currentImage?.id}
-            src={currentImage?.url}
+            key={currentItem?.id}
+            src={currentItem?.url}
             initial={{ opacity: 0, zIndex: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, zIndex: 0, transition: { duration: 0 } }}
             transition={{ duration: 0 }}
             ref={videoRef}
+            onTimeUpdate={(e) => {
+                videoTime.set(currentItem?.id, e.currentTarget.currentTime)
+            }}
+            onLoadedMetadata={(e) => {
+                e.currentTarget.currentTime = videoTime.get(currentItem?.id)
+            }}
         />
     )
 }
