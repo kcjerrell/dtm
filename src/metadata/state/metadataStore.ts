@@ -10,15 +10,19 @@ import { ImageItem } from "./ImageItem"
 import MediaItem from "./MediaItem"
 import { VideoItem } from "./VideoItem"
 
+const initialStoreValues = {
+    items: [] as MediaItem[],
+    currentIndex: null as number | null,
+    zoomPreview: false,
+    showHistory: false,
+    maxHistory: 10,
+}
+
 function initStore() {
     const storeInstance = store(
         getStoreName("metadata"),
         {
-            items: [] as MediaItem[],
-            currentIndex: null as number | null,
-            zoomPreview: false,
-            showHistory: false,
-            maxHistory: 10,
+            ...initialStoreValues,
             get currentItem(): MediaItem | undefined {
                 const s = getMetadataStore()
                 if (s.currentIndex === null) return undefined
@@ -98,6 +102,13 @@ export function getMetadataStore() {
     return getStore().state
 }
 
+export function resetMetadataStore() {
+    const state = getMetadataStore() as Record<string, unknown>
+    for (const [k, v] of Object.entries(initialStoreValues)) {
+        state[k] = v
+    }
+}
+
 export type MediaItemParam = ReadonlyState<MediaItem> | MediaItem | number | null
 
 // TODO: revisit
@@ -144,6 +155,7 @@ export function pinImage(
     imageOrCurrent: MediaItemParam | true,
     value: number | boolean | null,
 ): void {
+    console.log("pinning")
     let index = -1
     if (typeof imageOrCurrent === "number") index = imageOrCurrent
     else if (imageOrCurrent === true) index = getMetadataStore().currentIndex ?? -1

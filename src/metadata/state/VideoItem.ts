@@ -114,7 +114,7 @@ export class VideoItem extends MediaItem {
     static async fromUrl(url: string, source: MediaItemSource) {
         if (isLocalUrl(url)) {
             const filePath = url.startsWith("files://") ? url.replace("files://", "file://") : url
-            return await VideoItem.fromFile(filePath, source)
+            return await VideoItem.fromFile(filePath, { ...source, url: undefined, file: url })
         }
 
         const mediaType = determineType(url)

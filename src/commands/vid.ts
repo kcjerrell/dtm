@@ -82,8 +82,8 @@ function parseKeys<T = Record<string, unknown>>(object: T): T | Record<string, u
         if (maybeJson(value)) {
             try {
                 ob[key] = JSON.parse(value)
-            } catch (e) {
-                console.warn("couldn't parse metadata", key, e)
+            } catch {
+                // ignore
             }
         }
     }

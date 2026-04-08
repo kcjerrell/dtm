@@ -1,5 +1,4 @@
 import { Box, Flex } from "@chakra-ui/react"
-import { AnimatePresence } from "motion/react"
 import { useSnapshot } from "valtio"
 import { getMetadataStore } from "../state/metadataStore"
 import CurrentImage from "./CurrentImage"
@@ -20,6 +19,9 @@ function CurrentItem(props: CurrentItemProps) {
 
     return (
         <Box
+            role={"tabpanel"}
+            id={`image-${(snap.currentIndex ?? 0) + 1}`}
+            aria-labelledby={`image-item-${(snap.currentIndex ?? 0) + 1}`}
             position={"relative"}
             flex={"1 1 auto"}
             display="flex"
@@ -31,20 +33,18 @@ function CurrentItem(props: CurrentItemProps) {
             width={"100%"}
             {...restProps}
         >
-            <AnimatePresence mode={"popLayout"}>
-                {Item ? (
-                    <Item />
-                ) : (
-                    <Flex
-                        color={"fg/50"}
-                        fontSize={"xl"}
-                        justifyContent={"center"}
-                        alignItems={"center"}
-                    >
-                        Drop image here
-                    </Flex>
-                )}
-            </AnimatePresence>
+            {Item ? (
+                <Item key={currentImage?.id} />
+            ) : (
+                <Flex
+                    color={"fg/50"}
+                    fontSize={"xl"}
+                    justifyContent={"center"}
+                    alignItems={"center"}
+                >
+                    Drop image here
+                </Flex>
+            )}
         </Box>
     )
 }

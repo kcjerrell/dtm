@@ -13,6 +13,7 @@ function CurrentImage() {
 
     return (
         <Img
+            data-testid="current-image"
             key={currentImage?.id}
             ref={imgRef}
             src={currentImage?.url}

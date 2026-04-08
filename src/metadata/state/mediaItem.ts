@@ -15,8 +15,14 @@ export type MediaItemConstructorOpts = {
 }
 
 export interface MediaItemSource extends Record<string, unknown> {
-    loadedFrom?: "clipboard" | "drop" | "open" | "dtp" | string
-    uti?: string
+    loadedFrom?: "clipboard" | "drop" | "open" | "project" | string
+    type?: string
+    uti?: string | null
+    url?: string | null
+    file?: string | null
+    projectFile?: string | null
+    nodeId?: number | null
+    tensorId?: string | null
 }
 
 abstract class MediaItem {
@@ -34,7 +40,7 @@ abstract class MediaItem {
         this.id = MediaItem.getNewId(opts.id)
         this.pin = opts.pin
         this.loadedAt = opts.loadedAt ?? Date.now()
-        this.source = opts.source
+        this.source = { type: opts.type, ...opts.source }
         this.type = opts.type
     }
 
