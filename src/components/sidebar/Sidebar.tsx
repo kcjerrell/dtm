@@ -108,6 +108,13 @@ const ButtonBase = chakra("button", {
         borderRight: "3px solid transparent",
         fontWeight: "500",
         borderRadius: "0",
+        _focus: {},
+        _focusVisible: {
+            outline: "1px solid",
+            outlineColor: "grayc.4/50",
+            outlineOffset: "-1px",
+            bgColor: "bg.0/50",
+        },
     },
     variants: {
         isActive: {
@@ -242,6 +249,7 @@ export function ColorModeToggle() {
                 _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
                 size="xs"
                 variant="ghost"
+                outlineOffset={0}
                 onClick={(e) => {
                     e.stopPropagation()
                     toggleColorMode()
@@ -262,6 +270,7 @@ export function FontSizeToggle() {
                     _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
                     size="xs"
                     variant="ghost"
+                    outlineOffset={0}
                     onClick={(e) => {
                         e.stopPropagation()
                         themeHelpers.decreaseSize()
@@ -276,6 +285,7 @@ export function FontSizeToggle() {
                     _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
                     size="xs"
                     variant="ghost"
+                    outlineOffset={0}
                     onClick={(e) => {
                         e.stopPropagation()
                         themeHelpers.increaseSize()

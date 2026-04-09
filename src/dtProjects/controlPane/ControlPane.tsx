@@ -1,4 +1,4 @@
-import { Box } from "@chakra-ui/react"
+import { Box, HStack } from "@chakra-ui/react"
 import { IconButton, Panel } from "@/components"
 import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons/icons"
 import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
@@ -52,7 +52,7 @@ function ControlPane(props: ControlPane) {
                 }}
                 aria-label="Projects tabs"
             >
-                <TabList justifyContent={"flex-end"} />
+                <TabList justifyContent={"flex-start"} marginLeft={"auto"} />
                 <SearchPanel id="projects-search-panel" aria-labelledby="projects-search-tab" />
                 <ProjectsPanel
                     id="projects-projects-panel"
@@ -67,23 +67,25 @@ function TabList(props: ChakraProps) {
     const { uiState } = useDTP()
 
     return (
-        <Tabs.List aria-label={"Projects tabs"} {...props}>
-            {tabs.map(({ value, Icon, label }) => {
-                return (
-                    <Tabs.Trigger
-                        key={value}
-                        id={`projects-${value}-tab`}
-                        aria-controls={`projects-${value}-panel`}
-                        aria-label={`${label} tab`}
-                        value={value}
-                        padding={2}
-                    >
-                        <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
-                        <Box>{label}</Box>
-                    </Tabs.Trigger>
-                )
-            })}
-            <Tabs.Indicator />
+        <HStack {...props}>
+            <Tabs.List aria-label={"Projects tabs"}>
+                {tabs.map(({ value, Icon, label }) => {
+                    return (
+                        <Tabs.Trigger
+                            key={value}
+                            id={`projects-${value}-tab`}
+                            aria-controls={`projects-${value}-panel`}
+                            aria-label={`${label} tab`}
+                            value={value}
+                            padding={2}
+                        >
+                            <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
+                            <Box>{label}</Box>
+                        </Tabs.Trigger>
+                    )
+                })}
+                <Tabs.Indicator />
+            </Tabs.List>
             <IconButton
                 aria-label={"Settings"}
                 onClick={() => {
@@ -93,7 +95,7 @@ function TabList(props: ChakraProps) {
             >
                 <GoGear />
             </IconButton>
-        </Tabs.List>
+        </HStack>
     )
 }
 
