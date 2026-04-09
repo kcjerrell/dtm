@@ -91,10 +91,6 @@ describe("Metadata", () => {
         // confirm two items are loaded
         expect(await md.history.getItemCount()).toEqual(2)
 
-        await browser.refresh()
-
-        await browser.pause(3000)
-
         browser.waitUntil(
             async () => {
                 return (await md.history.getItemCount()) === 2
@@ -108,6 +104,7 @@ describe("Metadata", () => {
 
         // verify image is loaded
         expect(await md.isImageLoaded()).toBe(true)
+        await md.selectTab("details")
         expect(await md.getDataItemValue("Location")).toContain("astro.png")
 
         // select the second item
@@ -116,6 +113,7 @@ describe("Metadata", () => {
 
         // verify image is loaded
         expect(await md.isImageLoaded()).toBe(true)
+        await md.selectTab("details")
         expect(await md.getDataItemValue("Location")).toContain("astro2.png")
 
         // pin the image
