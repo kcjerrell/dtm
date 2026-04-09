@@ -137,6 +137,8 @@ describe("Metadata", () => {
         // copy the image
         await md.toolbar.copyImage.click()
 
+        await browser.pause(3000)
+
         // paste the image
         await md.toolbar.loadFromClipboard.click()
 
