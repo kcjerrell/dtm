@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "node:child_process"
+import { exec, execFileSync, execSync } from "node:child_process"
 import { realpathSync } from "node:fs"
 import { resolve } from "node:path"
 
@@ -219,4 +219,13 @@ export async function setTestOverride(overrideData: E2ETestOverrides) {
             window.__E2E_TEST_OVERRIDE(key, data[key])
         }
     }, overrideData)
+}
+
+export async function clearClipboard() {
+    return new Promise<void>((resolve, reject) => {
+        exec("pbcopy < /dev/null", (err) => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
 }

@@ -3,7 +3,7 @@ import { join } from "path"
 import App from "../pageobjects/App"
 import Metadata from "../pageobjects/Metadata"
 import { getPasteboardData, setPasteboardOverride } from "../util/clipdump"
-import { setTestOverride, skipIfFailed } from "../util/helpers"
+import { clearClipboard, setTestOverride, skipIfFailed } from "../util/helpers"
 import { getTestDataPath } from "../util/paths"
 import { getFile, waitForFile } from "../util/testData"
 
@@ -15,11 +15,11 @@ describe("Metadata", () => {
     skipIfFailed()
 
     before(async () => {
+        await clearClipboard()
         await fse.ensureDir(tempDir)
         await fse.emptyDir(tempDir)
-        await browser.execute(async () => {
-            await window.__reset_metadata_store()
-            return true
+        await browser.execute(() => {
+            window.__reset_metadata_store()
         })
     })
 
