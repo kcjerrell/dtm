@@ -7,7 +7,7 @@ import { getStoreName } from "./helpers"
 
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
-let _appDataDir: string 
+let _appDataDir: string
 async function getAppDataDir() {
     if (_appDataDir) return _appDataDir
     _appDataDir = await path.appDataDir()
@@ -17,8 +17,13 @@ async function getAppDataDir() {
 let _imageFolder: string
 async function getImageFolder() {
     if (_imageFolder) return _imageFolder
+
     const appDataDir = await getAppDataDir()
-    _imageFolder = await path.join(appDataDir, getStoreName("images"))
+    const imageFolder = await path.join(appDataDir, getStoreName("images"))
+    if (!(await fs.exists(imageFolder))) {
+        await fs.mkdir(imageFolder, { recursive: true })
+    }
+    _imageFolder = imageFolder
     return _imageFolder
 }
 
