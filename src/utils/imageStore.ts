@@ -15,8 +15,13 @@ async function getAppDataDir() {
 let _imageFolder: string
 async function getImageFolder() {
     if (_imageFolder) return _imageFolder
+
     const appDataDir = await getAppDataDir()
-    _imageFolder = await path.join(appDataDir, getStoreName("images"))
+    const imageFolder = await path.join(appDataDir, getStoreName("images"))
+    if (!(await fs.exists(imageFolder))) {
+        await fs.mkdir(imageFolder, { recursive: true })
+    }
+    _imageFolder = imageFolder
     return _imageFolder
 }
 
