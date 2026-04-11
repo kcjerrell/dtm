@@ -16,6 +16,7 @@ export interface VideoExportOpts {
     fps: number
     width?: number
     height?: number
+    audio?: [number, string]
 }
 
 export interface NameOpts {

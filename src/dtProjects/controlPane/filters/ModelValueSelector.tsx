@@ -143,11 +143,14 @@ function ModelValueSelectorComponent(
                     onClose={() => {
                         showList(false)
                     }}
-                    maxWidth={"30rem"}
+                    maxWidth={"35rem"}
                     shadeProps={{
                         pointerEvents: "none",
                     }}
                     shadeElem={{ current: contentPane as HTMLDivElement }}
+                    panelProps={{
+                        paddingRight: 0,
+                    }}
                 >
                     <VStack
                         flex={"1 1 auto"}
@@ -199,6 +202,7 @@ function ModelValueSelectorComponent(
                             overflowX={"clip"}
                             maxHeight={"100%"}
                             selectionMode="multipleToggle"
+                            scrollContainerProps={{ layerStyle: "scrollThin" }}
                         >
                             {snap.sorted.map((model) => (
                                 <ModelItem key={model.id} model={model} filterFn={filterFn} />
@@ -208,17 +212,16 @@ function ModelValueSelectorComponent(
                     <PaneListContainer
                         flex={"0 0 auto"}
                         maxHeight={"full"}
-                        overflowY={"clip"}
                         height={"min-content"}
-                        width={"max-content"}
+                        width={"auto"}
                     >
-                        <PaneListScrollContainer>
+                        <PaneListScrollContainer layerStyle={"scrollThin"} overflowX={"hidden"}>
                             <PanelListScrollContent>
                                 {snap.versions.map(([version, info]) => (
                                     <PanelListItem
                                         data-testid="model-version-item"
                                         aria-label={`Model version ${info.label}`}
-                                        width={"full"}
+                                        width={"max-content"}
                                         key={version}
                                         selectable
                                         selected={version === snap.selectedVersion}

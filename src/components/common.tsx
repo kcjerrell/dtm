@@ -148,7 +148,7 @@ export const PaneListScrollContainer = chakra(
         base: {
             position: "relative",
             width: "100%",
-            paddingY: "1px",
+            // paddingY: "1px",
             gap: 0,
             display: "flex",
             justifyContent: "flex-start",

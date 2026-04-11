@@ -8,10 +8,7 @@ use once_cell::sync::Lazy;
 use tauri::http::{Response, StatusCode};
 
 use crate::projects_db::{
-    dtm_dtproject::DTPResource,
-    dtos::tensor::TensorRaw,
-    tensors::decompress_fzip,
-    DTProject,
+    dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, tensors::decompress_fzip, DTProject,
 };
 
 struct CachedAudio {
@@ -54,7 +51,7 @@ pub async fn audio_request(
     }
 }
 
-async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc<Vec<u8>>, String> {
+pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc<Vec<u8>>, String> {
     let key = format!("{}/{}", resource.project_id, resource.item_id);
 
     {
