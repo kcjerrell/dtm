@@ -218,6 +218,15 @@ impl DTPService {
         self.events.emit(DTPEvent::WatchFoldersChanged);
         Ok(())
     }
+
+    #[dtp_command]
+    pub async fn reset_db(&self) -> Result<(), String> {
+        let db = self.get_db().await?;
+        let folders = db.list_watch_folders().await?;
+        let ids = folders.iter().map(|f| f.id).collect::<Vec<i64>>();
+        db.remove_watch_folders(ids).await?;
+        Ok(())
+    }
 }
 
 #[dtm_command]

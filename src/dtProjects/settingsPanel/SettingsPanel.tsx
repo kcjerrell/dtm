@@ -12,6 +12,7 @@ import { FaMinus, FaPlus, FiList, FiX, LuFolderTree } from "@/components/icons/i
 import PanelList from "@/components/PanelList"
 import { Slider } from "@/components/ui/slider"
 import { useSelectable } from "@/hooks/useSelectableV"
+import { useSetting } from "@/state/settings"
 import type { ICommand } from "@/types"
 import type { DialogProps, SettingsDialogState } from "../dialog/types"
 import { useDTP } from "../state/context"
@@ -61,8 +62,9 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
 
 export function SettingsPanel(props: DialogProps<SettingsDialogState>) {
     const { ...restProps } = props
-    const { watchFolders, uiState, settings } = useDTP()
-    const settingsSnap = settings.useSnap()
+    const { watchFolders, uiState } = useDTP()
+
+    const [imageSize, setImageSize] = useSetting("ui.imageSize")
 
     const { folders } = watchFolders.useSnap()
 
@@ -153,12 +155,12 @@ export function SettingsPanel(props: DialogProps<SettingsDialogState>) {
                     <Slider
                         min={50}
                         max={400}
-                        value={[settingsSnap.ui.imageSize]}
+                        value={[imageSize]}
                         onValueChange={(value) => {
-                            settings.updateSetting("ui", "imageSize", value.value[0])
+                            setImageSize(value.value[0])
                         }}
                     />
-                    {settingsSnap.ui.imageSize < 100 && (
+                    {imageSize < 100 && (
                         <Text marginTop={4} textAlign={"center"}>
                             Performance may be reduced at low values...
                         </Text>

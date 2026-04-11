@@ -2,8 +2,9 @@ import { Grid, HStack, Spinner } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import type { DTImageFull, ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
+import VideoAudio from "@/components/video/Audio"
 import { VideoContext, type VideoContextType } from "@/components/video/context"
-import FpsButton from '@/components/video/FpsButton'
+import FpsButton from "@/components/video/FpsButton"
 import PlayPauseButton from "@/components/video/PlayPauseButton"
 import Seekbar from "@/components/video/Seekbar"
 import Video from "@/components/video/Video"
@@ -12,7 +13,8 @@ import { useGetContext } from "@/hooks/useGetContext"
 import type { UIControllerState } from "../state/uiState"
 import { DetailsSpinnerRoot } from "./common"
 import DetailsImage from "./DetailsImage"
-import ImageFallback from './ImageFallback'
+import ImageFallback from "./ImageFallback"
+import MuteButton from "@/components/video/MuteButton"
 
 interface DetailsImagesProps {
     item: ImageExtra
@@ -41,7 +43,7 @@ function DetailsImages(props: DetailsImagesProps) {
             {(itemDetails?.node.clip_id ?? -1) >= 0 ? (
                 <Grid
                     onClick={(e) => e.stopPropagation()}
-                    templateRows={"1fr auto"}
+                    templateRows={"1fr auto auto"}
                     // width={"100%"}
                     // height={"100%"}
                     maxHeight={"100%"}
@@ -50,11 +52,23 @@ function DetailsImages(props: DetailsImagesProps) {
                 >
                     <Video image={item} autoStart={false} key={item.id}>
                         <Extractor />
-                        <VideoImage clickToPause naturalSize={{ width, height }} />
+                        <VideoImage
+                            clickToPause
+                            data-solid
+                            naturalSize={{ width: width * 64, height: height * 64 }}
+                            width={"100%"}
+                            height={"100%"}
+                            maxWidth={"100%"}
+                            maxHeight={"100%"}
+                            fit={"contain"}
+                            canvasStyle={{ borderRadius: "0.5rem" }}
+                            borderRadius={"0.5rem"}
+                        />
+                        <VideoAudio />
                         <HStack data-solid="true" width={"100%"} paddingY={2} flexShrink={0}>
                             <PlayPauseButton />
                             <Seekbar />
-                            <FpsButton />
+                            <MuteButton />
                         </HStack>
                     </Video>
                 </Grid>

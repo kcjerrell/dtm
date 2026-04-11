@@ -16,6 +16,7 @@ function ProjectsWidget(props: ProjectsWidgetProps) {
 
     return (
         <SearchChip
+            ariaLabel={"Selected projects"}
             onClick={() => {
                 uiState.setSelectedTab("projects")
             }}

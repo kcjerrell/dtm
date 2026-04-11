@@ -1,119 +1,223 @@
-import type { DrawThingsMetaData, ImageSource } from "@/types"
-import ImageStore, { type ImageStoreEntry } from "@/utils/imageStore"
+import { DtpService } from "@/commands"
+import type { DrawThingsMetaData } from "@/types"
+import { fetchImage, getLocalImage } from "@/utils/clipboard"
+import ImageStore, { isVideo } from "@/utils/imageStore"
+import { determineType } from "@/utils/mediaTypes"
 import { getDrawThingsDataFromExif } from "../helpers"
+import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./MediaItem"
 import { type ExifType, getExif } from "./metadataStore"
+import { drawPose } from "@/utils/pose"
 
-export type ImageItemConstructorOpts = {
-    id: string
-    pin?: number | null
-    loadedAt: number
-    source: ImageSource
-    type: string
-    exif?: ExifType | null
-    dtData?: DrawThingsMetaData | null
-    entry?: ImageStoreEntry
+export interface ImageItemConstructorOpts extends MediaItemConstructorOpts {
+    imageBuffer?: Uint8Array
 }
 
-export class ImageItem {
-    id: string
-    pin?: number | null
-    loadedAt: number
-    source: ImageSource
-    type: string
-
-    private _exif?: ExifType | null
+export class ImageItem extends MediaItem {
+    private _metadata?: ExifType | null
     private _dtData?: DrawThingsMetaData | null
-    private _exifStatus?: "pending" | "done"
-    private _entry?: ImageStoreEntry
-    private _entryStatus?: "pending" | "done" | "error"
+    private _metadataStatus?: "pending" | "done"
+    private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
+    private _url?: string
+    private _thumbUrl?: string
 
-    constructor(opts: ImageItemConstructorOpts) {
-        if (!opts.id) throw new Error("ImageItem must have an id")
-        if (!opts.source) throw new Error("ImageItem must have a source")
-        if (!opts.type) throw new Error("ImageItem must have a type")
-        this.id = opts.id
-        this.source = opts.source
-        this.type = opts.type
-        this.pin = opts.pin
-        this.loadedAt = opts.loadedAt
-
-        if (opts.exif) {
-            this._exif = opts.exif
-            this._dtData = opts.dtData
-            this._exifStatus = "done"
-        }
-
-        if (opts.entry) {
-            this._entry = opts.entry
-            this._entryStatus = "done"
-        }
+    private constructor(opts: ImageItemConstructorOpts) {
+        super(opts)
     }
 
-    get exif() {
-        if (!this._exif && !this._exifStatus) this.loadExif()
+    get isVideo() {
+        return isVideo(this.type)
+    }
 
-        return this._exif
+    get metadata() {
+        if (!this._metadata && !this._metadataStatus) this.loadMetadata()
+
+        return this._metadata
     }
 
     get dtData() {
-        // return undefined
-        if (!this._dtData && !this._exifStatus && !this.exif) this.loadExif()
+        if (!this._dtData && !this._metadataStatus && !this.metadata) this.loadMetadata()
 
         return this._dtData
     }
 
-    async loadExif() {
-        if (this._exifStatus) return
-        this._exifStatus = "pending"
+    async loadMetadata() {
+        if (this.$isBinding) return
+        if (this._metadataStatus) return
+        this._metadataStatus = "pending"
 
-        if (!this._entry) await this.loadEntry()
-        if (!this._entry?.url) return
+        if (!this._url) {
+            this._metadataStatus = "done"
+            this._metadataPromise?.resolve()
+            return
+        }
 
         try {
-            const exif = await getExif(this._entry.url)
-            this._exif = exif
-            this._dtData = getDrawThingsDataFromExif(exif) ?? null
+            const metadata = await getExif(this._url)
+            this._metadata = metadata as ExifType
+            this._dtData = getDrawThingsDataFromExif(metadata as ExifType) ?? null
         } catch (e) {
-            console.warn("couldn't load exif from ", this._entry.url, e)
+            console.warn("couldn't load metadata from ", this._url, e)
         } finally {
-            this._exifStatus = "done"
+            this._metadataStatus = "done"
+            this._metadataPromise?.resolve()
         }
     }
 
     get thumbUrl() {
-        if (!this._entry?.thumbUrl && !this._entryStatus) this.loadEntry()
-        return this._entry?.thumbUrl
+        return this._thumbUrl
     }
 
     get url() {
-        if (!this._entry?.url && !this._entryStatus) this.loadEntry()
-        return this._entry?.url
+        return this._url
     }
 
-    async loadEntry() {
-        if (this._entryStatus) return
-        this._entryStatus = "pending"
+    async hasMetadata(): Promise<boolean> {
+        await this.loadMetadata()
+        await this._metadataPromise.promise.catch(() => {})
+        return !!this.dtData
+    }
 
-        for (let i = 0; i < 3; i++) {
-            const entry = await ImageStore.get(this.id)
-            if (entry) {
-                this._entry = entry
-                this._entryStatus = "done"
-                return
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500))
+    private async loadEntry() {
+        const entry = await ImageStore.get(this.id)
+        this._url = entry?.url
+        this._thumbUrl = entry?.thumbUrl
+    }
+
+    private async saveBufferEntry(buffer: Uint8Array) {
+        try {
+            const entry = await ImageStore.save(this.id, buffer, this.type)
+            this._url = entry?.url
+            this._thumbUrl = entry?.thumbUrl
+        } catch (e) {
+            console.warn("couldn't save image item entry", e)
         }
-
-        this._entryStatus = "error"
     }
 
-    toJSON() {
+    override toJSON() {
         return {
-            id: this.id,
-            source: this.source,
-            pin: this.pin,
-            loadedAt: this.loadedAt,
-            type: this.type,
+            ...super.toJSON(),
         }
+    }
+
+    static async fromJSON(json: ReturnType<ImageItem["toJSON"]>) {
+        const item = new ImageItem(json)
+        // retrieve url and thumbUrl from imagestore
+        await item.loadEntry()
+        return item
+    }
+
+    static async fromBuffer(
+        buffer: Uint8Array | null | undefined,
+        type: string,
+        source: MediaItemSource,
+    ) {
+        console.debug("fromBuffer", buffer?.length, type, source)
+        if (!buffer) return undefined
+        try {
+            const item = new ImageItem({
+                type,
+                source,
+            })
+            await item.saveBufferEntry(buffer)
+            return item
+        } catch (e) {
+            console.warn("couldn't create image item from buffer", e)
+            return undefined
+        }
+    }
+
+    static async fromFile(file: string, source: MediaItemSource) {
+        console.debug("fromFile", file, source)
+        try {
+            const data = await getLocalImage(file)
+            if (!data) return
+            const mediaType = determineType(file) ?? determineType(data)
+            if (!mediaType) return
+            const item = await ImageItem.fromBuffer(data, mediaType, { ...source, file })
+            return item
+        } catch (e) {
+            console.warn("couldn't create image item from file", e)
+            return undefined
+        }
+    }
+
+    /**
+     *
+     * @param url can be a web url or local file path
+     * @param source
+     */
+    static async fromUrl(url: string, source: MediaItemSource) {
+        console.debug("fromUrl", url, source)
+        if (isLocalUrl(url)) {
+            const filePath = url.startsWith("files://") ? url.replace("files://", "file://") : url
+            return ImageItem.fromFile(filePath, { ...source, url: null, file: filePath })
+        }
+
+        const fetched = await fetchImage(url)
+        if (!fetched) return undefined
+        const type = determineType(fetched.type)
+        if (!type) return undefined
+        return await ImageItem.fromBuffer(fetched.data, type, {
+            ...source,
+            url,
+        })
+    }
+
+    static async fromDtpImage(projectId: number, imageId: number) {
+        try {
+            const dtpResult = await loadDtpImage({ projectId, imageId })
+            if (dtpResult) {
+                return await ImageItem.fromBuffer(dtpResult.image, "png", {
+                    loadedFrom: "project",
+                    projectFile: dtpResult.projectFile,
+                    nodeId: dtpResult.history.row_id,
+                    tensorId: dtpResult.history.tensor_id,
+                })
+            }
+        } catch (e) {
+            console.warn("couldn't create image item from dtp image", e)
+            return undefined
+        }
+    }
+
+    static async fromPose(data: string, source: MediaItemSource) {
+        const pose = JSON.parse(data)
+        const buffer = await drawPose(pose)
+        return ImageItem.fromBuffer(buffer, "png", { ...source, pose })
+    }
+}
+
+export async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
+    const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
+    if (!imageItem) return
+    const history = await DtpService.getHistoryFull(imageItem.project_id, imageItem.node_id)
+    if (!history || !history.tensor_id) return
+    const image = await DtpService.decodeTensor(
+        imageItem.project_id,
+        history.tensor_id,
+        true,
+        imageItem.node_id,
+    )
+    return { image, projectFile: history.project_path, history }
+}
+
+export function isLocalUrl(url: string): boolean {
+    // Treat absolute paths as local
+    if (url.startsWith("/")) {
+        return true
+    }
+
+    // Handle file:// and files:// protocols
+    if (url.startsWith("file://") || url.startsWith("files://")) {
+        return true
+    }
+
+    try {
+        const parsed = new URL(url)
+        // Remote URLs are those with http or https protocol
+        return parsed.protocol !== "http:" && parsed.protocol !== "https:"
+    } catch {
+        // If it's not a valid URL, treat it as a potential local path
+        return true
     }
 }

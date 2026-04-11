@@ -1,135 +1,141 @@
 import { Mutex } from "async-mutex"
 import { proxy } from "valtio"
-import va from "./array"
+import va from "./valtio"
 
 export type PagedItem<T> = T | null | undefined
 
 type Page<T> = {
-	/** inclusive */
-	from: number
-	/** inclusive */
-	to: number
-	/** null indicates the item hasn't loaded yet
-	 * undefined indicates the item doesn't exist, or the request failed */
-	items: PagedItem<T>[]
+    /** inclusive */
+    from: number
+    /** inclusive */
+    to: number
+    /** null indicates the item hasn't loaded yet
+     * undefined indicates the item doesn't exist, or the request failed */
+    items: PagedItem<T>[]
 }
 
 type PagedItemSourceState<T> = {
-	pages: Page<T>[]
-	renderItems: PagedItem<T>[]
-	firstIndex: number
-	lastIndex: number
-	totalCount?: number
+    pages: Page<T>[]
+    renderItems: PagedItem<T>[]
+    firstIndex: number
+    lastIndex: number
+    totalCount?: number
 }
 
 type PagedItemsGetter<T> = (skip: number, take: number) => Promise<PagedItem<T>[] | undefined>
 
 export type PagedItemSource<T> = {
-		state: PagedItemSourceState<T>
-		setRenderWindow: (first: number, last: number) => void
-	}
+    state: PagedItemSourceState<T>
+    setRenderWindow: (first: number, last: number) => void
+}
 
 export function pagedItemSource<T>(
-		getItems: PagedItemsGetter<T>,
-		getCount: () => Promise<number>,
-		pageSize = 250,
-	): PagedItemSource<T> {
-		const state = proxy<PagedItemSourceState<T>>({
-			pages: [],
-			renderItems: [],
-			firstIndex: 0,
-			lastIndex: 0,
-			totalCount: 0,
-		})
+    getItems: PagedItemsGetter<T>,
+    getCount: () => Promise<number>,
+    pageSize = 250,
+): PagedItemSource<T> {
+    const state = proxy<PagedItemSourceState<T>>({
+        pages: [],
+        renderItems: [],
+        firstIndex: 0,
+        lastIndex: 0,
+        totalCount: 0,
+    })
 
-		getCount().then((count) => {
-			state.totalCount = count
-		})
+    getCount().then((count) => {
+        state.totalCount = count
+    })
 
-		const pageLoader = new Mutex()
-		let loadersWaiting = 0
+    const pageLoader = new Mutex()
+    let loadersWaiting = 0
 
-		const loadPage = async (index: number) => {
-			if (state.pages[index]) return false
-			const page = await getItems(index * pageSize, pageSize)
-			if (!page || page.length === 0) return false
-			state.pages[index] = {
-				from: index * pageSize,
-				to: (index + 1) * pageSize - 1,
-				items: [...page],
-			}
-			return true
-		}
+    const loadPage = async (index: number) => {
+        if (state.pages[index]) return false
+        const page = await getItems(index * pageSize, pageSize)
+        if (!page || page.length === 0) return false
+        state.pages[index] = {
+            from: index * pageSize,
+            to: (index + 1) * pageSize - 1,
+            items: [...page],
+        }
+        return true
+    }
 
-		const getRenderItems = (firstIndex: number, lastIndex: number) => {
-			const pages = state.pages
+    const getRenderItems = (firstIndex: number, lastIndex: number) => {
+        const pages = state.pages
 
-			function* getItems(): Generator<T | null | undefined> {
-				let index = firstIndex
-				let page: Page<T> | undefined
-				while (index <= lastIndex) {
-					// assign the current page
-					if (!page || page.to < index) {
-						page = pages.find((p) => p && p.from <= index && p.to >= index)
-					}
+        function* getItems(): Generator<T | null | undefined> {
+            let index = firstIndex
+            let page: Page<T> | undefined
+            while (index <= lastIndex) {
+                // assign the current page
+                if (!page || page.to < index) {
+                    page = pages.find((p) => p && p.from <= index && p.to >= index)
+                }
 
-					const item = page?.items[index - page?.from] ?? null
-					yield item
+                const item = page?.items[index - page?.from] ?? null
+                yield item
 
-					index++
-				}
-			}
+                index++
+            }
+        }
 
-			return [...getItems()]
-		}
+        return [...getItems()]
+    }
 
-		const updateRenderItems = () => {
-			va.set(
-				state.renderItems,
-				getRenderItems(state.firstIndex, Math.min(state.lastIndex, (state.totalCount ?? 0) - 1)),
-			)
-		}
+    const updateRenderItems = () => {
+        va.set(
+            state.renderItems,
+            getRenderItems(
+                state.firstIndex,
+                Math.min(state.lastIndex, (state.totalCount ?? 0) - 1),
+            ),
+        )
+    }
 
-		const ensurePages = () => {
-			if (!state.totalCount) return
-			loadersWaiting++
+    const ensurePages = () => {
+        if (!state.totalCount) return
+        loadersWaiting++
 
-			pageLoader.runExclusive(async () => {
-				loadersWaiting--
-				const { firstIndex, lastIndex } = state
+        pageLoader.runExclusive(async () => {
+            loadersWaiting--
+            const { firstIndex, lastIndex } = state
 
-				const firstPage = Math.floor(firstIndex / pageSize)
-				const lastPage = Math.floor(lastIndex / pageSize)
+            const firstPage = Math.floor(firstIndex / pageSize)
+            const lastPage = Math.floor(lastIndex / pageSize)
 
-				let pagesLoaded = 0
+            let pagesLoaded = 0
 
-				for (let i = firstPage; i <= lastPage; i++) {
-					if (await loadPage(i)) pagesLoaded++
-				}
+            for (let i = firstPage; i <= lastPage; i++) {
+                if (await loadPage(i)) pagesLoaded++
+            }
 
-				if (pagesLoaded) updateRenderItems()
+            if (pagesLoaded) updateRenderItems()
 
-				if (loadersWaiting) return
+            if (loadersWaiting) return
 
-				const nextPage = Math.min(lastPage + 1, Math.ceil((state.totalCount ?? 0) / pageSize) - 1)
-				await loadPage(nextPage)
+            const nextPage = Math.min(
+                lastPage + 1,
+                Math.ceil((state.totalCount ?? 0) / pageSize) - 1,
+            )
+            await loadPage(nextPage)
 
-				if (loadersWaiting) return
+            if (loadersWaiting) return
 
-				const prevPage = Math.max(firstPage - 1, 0)
-				await loadPage(prevPage)
-			})
-		}
+            const prevPage = Math.max(firstPage - 1, 0)
+            await loadPage(prevPage)
+        })
+    }
 
-		const setRenderWindow = (first: number, last: number) => {
-			state.firstIndex = first
-			state.lastIndex = last
-			updateRenderItems()
-			ensurePages()
-		}
+    const setRenderWindow = (first: number, last: number) => {
+        state.firstIndex = first
+        state.lastIndex = last
+        updateRenderItems()
+        ensurePages()
+    }
 
-		return {
-			state,
-			setRenderWindow,
-		}
-	}
+    return {
+        state,
+        setRenderWindow,
+    }
+}

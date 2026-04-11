@@ -38,6 +38,7 @@ class DetailsService extends DTPStateService {
             node: history,
             numFrames: item.num_frames ?? undefined,
             clipId: history.clip_id,
+            clip: extra.clip,
             images: {
                 tensorId: extra.tensor_id,
                 previewId: history.preview_id,

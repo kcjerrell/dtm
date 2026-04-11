@@ -69,6 +69,7 @@ export function ToolbarItem(props: ToolbarItemProps) {
             // layout={"preserve-aspect"}
         >
             <ToolbarButton
+                aria-label={tip}
                 key={command.id}
                 tip={tip}
                 onClick={() => command.action(getMetadataStore())}

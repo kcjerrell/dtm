@@ -1,6 +1,5 @@
 import { Box, HStack, Input, Text, VStack } from "@chakra-ui/react"
 import { type ComponentProps, useEffect, useState } from "react"
-import { createPortal } from "react-dom"
 import type { Model } from "@/commands"
 import { IconButton, PaneListContainer, PanelListItem } from "@/components"
 import { PaneListScrollContainer, PanelListScrollContent } from "@/components/common"
@@ -20,7 +19,7 @@ import type { FilterValueSelector, ValueSelectorProps } from "./collections"
 function ModelValueSelectorComponent(
     props: ValueSelectorProps<Model[]> & { modelType?: "models" | "loras" | "controls" },
 ) {
-    const { value, onValueChange, modelType = "models", ...boxProps } = props
+    const { value, onValueChange, modelType = "models", filterIndex, ...boxProps } = props
 
     const { models, uiState } = useDTP()
     const modelsSnap = models.useSnap()
@@ -76,6 +75,8 @@ function ModelValueSelectorComponent(
     return (
         <Box padding={0} {...boxProps}>
             <Box
+                aria-label={`${modelType} filter value selector`}
+                data-testid="model-value-selector"
                 width={"full"}
                 padding={2}
                 minHeight={"min-content"}
@@ -88,7 +89,12 @@ function ModelValueSelectorComponent(
                 <VStack width={"full"} alignItems={"stretch"} overflowX={"clip"}>
                     {value && value.length > 0 ? (
                         value.map((model) => (
-                            <HStack width={"full"} className={"group"} key={model.filename}>
+                            <HStack
+                                width={"full"}
+                                className={"group"}
+                                key={model.filename}
+                                data-testid="selected-model-chip"
+                            >
                                 <Text
                                     flex={"1 1 auto"}
                                     textWrap={"nowrap"}
@@ -98,6 +104,7 @@ function ModelValueSelectorComponent(
                                     {getModelLabel(model, true)}
                                 </Text>
                                 <IconButton
+                                    aria-label={`Remove selected model ${getModelLabel(model, true)}`}
                                     flex={"0 0 auto"}
                                     margin={-2}
                                     marginLeft="auto"
@@ -125,104 +132,114 @@ function ModelValueSelectorComponent(
                     )}
                 </VStack>
             </Box>
-            {snap.isOpen &&
-                createPortal(
-                    <ContentPanelPopup
-                        flexDirection={"row"}
-                        onClose={() => {
-                            showList(false)
-                        }}
-                        maxWidth={"30rem"}
-                        shadeProps={{
-                            pointerEvents: "none",
-                        }}
+            {snap.isOpen && contentPane && (
+                <ContentPanelPopup
+                    flexDirection={"row"}
+                    outsideInteractionExclusions={
+                        filterIndex !== undefined
+                            ? [`[data-filter-root="${filterIndex}"]`]
+                            : undefined
+                    }
+                    onClose={() => {
+                        showList(false)
+                    }}
+                    maxWidth={"35rem"}
+                    shadeProps={{
+                        pointerEvents: "none",
+                    }}
+                    shadeElem={{ current: contentPane as HTMLDivElement }}
+                    panelProps={{
+                        paddingRight: 0,
+                    }}
+                >
+                    <VStack
+                        flex={"1 1 auto"}
+                        paddingTop={2}
+                        overflow={"clip"}
+                        height={"full"}
+                        alignItems={"stretch"}
                     >
-                        <VStack
-                            flex={"1 1 auto"}
-                            paddingTop={2}
-                            overflow={"clip"}
-                            height={"full"}
-                            alignItems={"stretch"}
-                        >
-                            <HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
-                                <Input
-                                    data-defctx={true}
-                                    flex={"1 1 auto"}
-                                    key={"modelInput"}
-                                    placeholder="Filter"
-                                    value={inputValue}
-                                    onChange={(e) => {
-                                        setInputValue(e.target.value)
-                                    }}
-                                    variant="subtle"
-                                />
-                                {snap.sortType === "name" ? (
-                                    <IconButton
-                                        onClick={() => {
-                                            state.sortType = "count"
-                                        }}
-                                    >
-                                        <TbSortAscendingLetters />
-                                    </IconButton>
-                                ) : (
-                                    <IconButton
-                                        onClick={() => {
-                                            state.sortType = "name"
-                                        }}
-                                    >
-                                        <TbSortDescendingNumbers />
-                                    </IconButton>
-                                )}
-                            </HStack>
-                            <PanelList
-                                key={`${snap.selectedVersion ?? "model"}_list`}
+                        <HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
+                            <Input
+                                aria-label={`${modelType} filter text`}
+                                data-defctx={true}
                                 flex={"1 1 auto"}
-                                itemsState={() => state.sorted}
-                                keyFn={(item) => item.id}
-                                onSelectionChanged={(selected) => {
-                                    onValueChange?.(selected)
+                                key={"modelInput"}
+                                placeholder="Filter"
+                                value={inputValue}
+                                onChange={(e) => {
+                                    setInputValue(e.target.value)
                                 }}
-                                overflowY={"auto"}
-                                overflowX={"clip"}
-                                maxHeight={"100%"}
-                                selectionMode="multipleToggle"
-                            >
-                                {snap.sorted.map((model) => (
-                                    <ModelItem key={model.id} model={model} filterFn={filterFn} />
-                                ))}
-                            </PanelList>
-                        </VStack>
-                        <PaneListContainer
-                            flex={"0 0 auto"}
-                            maxHeight={"full"}
-                            overflowY={"clip"}
-                            height={"min-content"}
-                            width={"max-content"}
+                                variant="subtle"
+                            />
+                            {snap.sortType === "name" ? (
+                                <IconButton
+                                    onClick={() => {
+                                        state.sortType = "count"
+                                    }}
+                                >
+                                    <TbSortAscendingLetters />
+                                </IconButton>
+                            ) : (
+                                <IconButton
+                                    onClick={() => {
+                                        state.sortType = "name"
+                                    }}
+                                >
+                                    <TbSortDescendingNumbers />
+                                </IconButton>
+                            )}
+                        </HStack>
+                        <PanelList
+                            key={`${snap.selectedVersion ?? "model"}_list`}
+                            flex={"1 1 auto"}
+                            itemsState={() => state.sorted}
+                            keyFn={(item) => item.id}
+                            onSelectionChanged={(selected) => {
+                                onValueChange?.(selected)
+                            }}
+                            overflowY={"auto"}
+                            overflowX={"clip"}
+                            maxHeight={"100%"}
+                            selectionMode="multipleToggle"
+                            scrollContainerProps={{ layerStyle: "scrollThin" }}
                         >
-                            <PaneListScrollContainer>
-                                <PanelListScrollContent>
-                                    {snap.versions.map(([version, info]) => (
-                                        <PanelListItem
-                                            width={"full"}
-                                            key={version}
-                                            selectable
-                                            selected={version === snap.selectedVersion}
-                                            onClick={() => {
-                                                if (state.selectedVersion === version)
-                                                    state.selectedVersion = undefined
-                                                else state.selectedVersion = version
-                                            }}
-                                        >
-                                            <Text>{info.label}</Text>
-                                            <Text>{info[modelType]} models</Text>
-                                        </PanelListItem>
-                                    ))}
-                                </PanelListScrollContent>
-                            </PaneListScrollContainer>
-                        </PaneListContainer>
-                    </ContentPanelPopup>,
-                    contentPane,
-                )}
+                            {snap.sorted.map((model) => (
+                                <ModelItem key={model.id} model={model} filterFn={filterFn} />
+                            ))}
+                        </PanelList>
+                    </VStack>
+                    <PaneListContainer
+                        flex={"0 0 auto"}
+                        maxHeight={"full"}
+                        height={"min-content"}
+                        width={"auto"}
+                    >
+                        <PaneListScrollContainer layerStyle={"scrollThin"} overflowX={"hidden"}>
+                            <PanelListScrollContent>
+                                {snap.versions.map(([version, info]) => (
+                                    <PanelListItem
+                                        data-testid="model-version-item"
+                                        aria-label={`Model version ${info.label}`}
+                                        width={"max-content"}
+                                        key={version}
+                                        selectable
+                                        selected={version === snap.selectedVersion}
+                                        onClick={() => {
+                                            if (state.selectedVersion === version)
+                                                state.selectedVersion = undefined
+                                            else state.selectedVersion = version
+                                        }}
+                                    >
+                                        <Text>{info.label}</Text>
+                                        <Text>{info[modelType]} models</Text>
+                                    </PanelListItem>
+                                ))}
+                            </PanelListScrollContent>
+                        </PaneListScrollContainer>
+                    </PaneListContainer>
+                </ContentPanelPopup>
+            )}
         </Box>
     )
 }
@@ -234,13 +251,21 @@ function ModelItem(props: { model: Selectable<Model>; filterFn?: (m: Model) => b
     if (filterFn && !filterFn(model)) return null
 
     return (
-        <PanelListItem key={model.id} selectable selected={isSelected} {...restProps} {...handlers}>
+        <PanelListItem
+            key={model.id}
+            data-testid="model-filter-item"
+            aria-label={`Model item ${getModelLabel(model, true)}`}
+            selectable
+            selected={isSelected}
+            {...restProps}
+            {...handlers}
+        >
             <Text title={model.filename} textOverflow="ellipsis" overflowX="hidden">
                 {getModelLabel(model, true)}
             </Text>
             <HStack justifyContent={"space-between"}>
                 <Text>{model.count} images</Text>
-                <Text>{!isVersionModel(model) && getVersionLabel(model.version)}</Text>
+                <Text>{!isVersionModel(model) && getVersionLabel(model.version ?? undefined)}</Text>
             </HStack>
         </PanelListItem>
     )

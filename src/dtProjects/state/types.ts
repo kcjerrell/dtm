@@ -9,7 +9,6 @@ import type ImagesController from "./images"
 import type ModelsController from "./models"
 import type ProjectsController from "./projects"
 import type SearchController from "./search"
-import type SettingsController from "./settings"
 import type { UIController } from "./uiState"
 import type {
     ListModelInfoFilesResult,
@@ -79,6 +78,7 @@ export type DTProjectsContainer = IContainer<DTPServices, DTPEvents>
 export type DTPEvents = {
     watch_folders_changed: () => void
     watchFoldersChanged: (payload: WatchFoldersChangedPayload) => void
+    models_changed: () => void
 
     projectFilesChanged: (payload: ProjectFilesChangedPayload) => void
     project_added: (payload: ProjectExtra) => void
@@ -133,5 +133,4 @@ export interface DTPServices {
     images: ImagesController
     details: DetailsService
     jobs: JobQueue<DTPContainer, DTProjectsJobs>
-    settings: SettingsController
 }

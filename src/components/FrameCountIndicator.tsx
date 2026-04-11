@@ -49,6 +49,7 @@ function FrameCountIndicator(props: FrameCountIndicatorProps) {
                 />
 
                 {Array.from({ length: 4 }).map((_, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: no alternative
                     <Fragment key={i}>
                         <line
                             x1={(i * width) / 4}

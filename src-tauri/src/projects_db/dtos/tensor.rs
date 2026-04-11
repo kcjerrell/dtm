@@ -367,6 +367,7 @@ pub struct TensorRaw {
     pub tensor_type: i64,
     pub data_type: i32,
     pub format: i32,
+    pub n: i32,
     pub width: i32,
     pub height: i32,
     pub channels: i32,

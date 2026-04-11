@@ -2,10 +2,8 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core"
 import * as path from "@tauri-apps/api/path"
 import * as fs from "@tauri-apps/plugin-fs"
 import { store as createStore } from "@tauri-store/valtio"
-import { customAlphabet } from "nanoid"
+import { Mutex } from "async-mutex"
 import { getStoreName } from "./helpers"
-
-const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
 let _appDataDir: string
 async function getAppDataDir() {
@@ -37,6 +35,7 @@ export type ImageStoreEntry = {
     type: string
     url: string
     thumbUrl: string
+    cachePath: string
 }
 
 function initStore() {
@@ -44,51 +43,59 @@ function initStore() {
         getStoreName("images"),
         { images: {} as Record<string, ImageStoreEntryBase> },
         {
-            autoStart: true,
+            autoStart: false,
             syncStrategy: "debounce",
             syncInterval: 1000,
             saveOnChange: true,
-            hooks: {
-                beforeFrontendSync: (state) => {
-                    console.log("fe sync")
-                    return state
-                },
-            },
         },
     )
     window.addEventListener("unload", () => storeInstance.stop())
     return storeInstance
 }
 
-let imagesStore: ReturnType<typeof initStore> | null = null
-
-function getStore() {
-    if (!imagesStore) {
-        console.debug("IMAGES: creating store")
-        imagesStore = initStore()
-    }
-    return imagesStore
+let imageStore: ReturnType<typeof initStore> | null = null
+const mutex = new Mutex()
+async function getStore() {
+    await mutex.runExclusive(async () => {
+        if (!imageStore) {
+            imageStore = initStore()
+            await imageStore.start()
+        }
+    })
+    if (!imageStore) throw new Error("Failed to initialize images store")
+    return imageStore
 }
 
-const _validTypes = ["png", "tiff", "jpg", "webp"]
+const _imageTypes = ["png", "tiff", "jpg", "webp"]
+const _videoTypes = ["mp4", "webm", "mov", "m4v"]
+const _validTypes = [..._imageTypes]
 
-async function saveImage(image: Uint8Array, type: string): Promise<ImageStoreEntry | undefined> {
-    if (!type || !_validTypes.includes(type)) return
-    if (!image || image.length === 0) return
+async function saveMedia(
+    id: string,
+    data: Uint8Array,
+    type: string,
+): Promise<ImageStoreEntry | undefined> {
+    if (!id || !type || !_validTypes.includes(type)) return
+    if (!data || data.length === 0) return
 
     try {
-        const id = await getNewId()
         const fname = await getFullPath(id, type)
 
-        await fs.writeFile(fname, image, {
+        if (!(await fs.exists(await getImageFolder()))) {
+            await fs.mkdir(await getImageFolder(), { recursive: true })
+        }
+
+        await fs.writeFile(fname, data, {
             createNew: true,
         })
 
         const entry = { id, type }
-        getStore().state.images[id] = entry
+        const store = await getStore()
+        store.state.images[id] = entry
 
         const url = convertFileSrc(fname)
-        return { ...entry, url, thumbUrl: url }
+        const thumbUrl = url
+        return { ...entry, url, thumbUrl, cachePath: fname }
     } catch (e) {
         console.error(e)
         return
@@ -96,45 +103,32 @@ async function saveImage(image: Uint8Array, type: string): Promise<ImageStoreEnt
 }
 
 async function getImage(id: string): Promise<ImageStoreEntry | undefined> {
-    const entry = getStore().state.images[id]
+    const store = await getStore()
+    const entry = store.state.images[id]
 
     if (!entry) return
-
-    const url = convertFileSrc(await getFullPath(id, entry.type))
-    // const thumbUrl = convertFileSrc(await getThumbPath(id))
-    return { ...entry, url, thumbUrl: url }
+    const fullPath = await getFullPath(id, entry.type)
+    const url = convertFileSrc(fullPath)
+    const thumbUrl = url
+    return { ...entry, url, thumbUrl, cachePath: fullPath }
 }
 
 async function getFullPath(id: string, ext: string) {
     return await path.join(await getImageFolder(), `${id}.${ext}`)
 }
 
-async function getThumbPath(id: string) {
-    return await path.join(await getImageFolder(), `${id}_thumb.png`)
-}
-
-async function getNewId() {
-    let id: string
-    const state = getStore().state
-
-    do {
-        id = nanoid()
-    } while (id in state.images)
-
-    return id
-}
-
 async function removeImage(id: string) {
-    const state = getStore().state
+    const store = await getStore()
+    const state = store.state
     const item = state.images[id]
     if (!item) return
     await removeFile(await getFullPath(id, item.type))
-    await removeFile(await getThumbPath(id))
     delete state.images[id]
 }
 
 async function syncImages(keepIds: string[] = []) {
-    const state = getStore().state
+    const store = await getStore()
+    const state = store.state
     for (const id of Object.keys(state.images)) {
         if (keepIds.includes(id)) continue
 
@@ -170,7 +164,7 @@ async function saveCopy(id: string, dest: string) {
 }
 
 const ImageStore = {
-    save: saveImage,
+    save: saveMedia,
     get: getImage,
     remove: removeImage,
     sync: syncImages,
@@ -188,4 +182,18 @@ async function removeFile(filePath: string) {
     } catch (e) {
         console.error(e)
     }
+}
+
+export function isVideo(extension: string): boolean
+export function isVideo(filename: string): boolean
+export function isVideo(filename: string) {
+    const ext = filename.split(".").pop()?.toLowerCase()
+    return ext && _videoTypes.includes(ext)
+}
+
+export function isImage(extension: string): boolean
+export function isImage(filename: string): boolean
+export function isImage(filename: string) {
+    const ext = filename.split(".").pop()?.toLowerCase()
+    return ext && _imageTypes.includes(ext)
 }

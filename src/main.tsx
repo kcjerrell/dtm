@@ -10,6 +10,7 @@ import { ColorModeProvider } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import { Hotkey } from "./hooks/keyboard"
 import "./index.css"
+import { addTestHooks } from "./testHooks"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
@@ -18,10 +19,24 @@ const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
 }
 
+async function reset_db() {
+    const { preloadDTP } = await import("./dtProjects/state/context")
+    console.log("resetting db")
+    // this ensures the db has started
+    await preloadDTP()
+    await invoke("dtp_reset_db")
+}
+
 function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
 
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
+    window.__reset_db = reset_db
+    window.__reset_metadata_store = async () => {
+        const { resetMetadataStore } = await import("./metadata/state/metadataStore")
+        resetMetadataStore()
+    }
+    addTestHooks()
 
     const hash = document.location?.hash?.slice(1)
     if (hash === "mini") AppStore.setView("mini")

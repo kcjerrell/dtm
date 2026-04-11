@@ -30,7 +30,7 @@ function IntValueInputComponent(props: ValueSelectorProps<number>) {
 const IntValueInput = IntValueInputComponent as FilterValueSelector<number>
 
 IntValueInput.getValueLabel = (value) => {
-    return value?.toString() ?? ""
+    return [value?.toString() ?? ""]
 }
 
 export default IntValueInput

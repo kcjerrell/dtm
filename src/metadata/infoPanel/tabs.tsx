@@ -39,6 +39,12 @@ const Trigger = chakra(TabsTrigger, {
         _before: { display: "none" },
         height: "min",
         cursor: "default",
+        _focusVisible: {
+            outline: "1px solid",
+            outlineColor: "grayc.4/50",
+            outlineOffset: "-1px",
+            bgColor: "bg.0/50",
+        },
     },
 })
 const Indicator = chakra(TabsIndicator, {

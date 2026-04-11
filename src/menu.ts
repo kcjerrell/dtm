@@ -7,17 +7,16 @@ import {
     PredefinedMenuItem,
     Submenu,
 } from "@tauri-apps/api/menu"
-import * as pathLib from "@tauri-apps/api/path"
 import { open } from "@tauri-apps/plugin-dialog"
 import { exit } from "@tauri-apps/plugin-process"
 import { subscribe } from "valtio"
 import { toggleColorMode } from "./components/ui/color-mode"
-import { postMessage } from "./context/Messages"
 import AppStore from "./hooks/appState"
+import { ImageItem } from "./metadata/state/ImageItem"
 import { loadImage2 } from "./metadata/state/imageLoaders"
-import { clearAll, clearCurrent, createImageItem } from "./metadata/state/metadataStore"
+import { addImageItem, clearAll, clearCurrent } from "./metadata/state/metadataStore"
+import { postMessage } from "./state/Messages"
 import { themeHelpers } from "./theme/helpers"
-import { getLocalImage } from "./utils/clipboard"
 import { viewDescription } from "./views"
 
 const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
@@ -119,12 +118,11 @@ async function createAppMenus() {
                         ],
                     })
                     if (imagePath == null) return
-                    const image = await getLocalImage(imagePath)
-                    if (image)
-                        await createImageItem(image, await pathLib.extname(imagePath), {
-                            source: "open",
-                            file: imagePath,
-                        })
+                    const item = await ImageItem.fromFile(imagePath, {
+                        loadedFrom: "open",
+                        file: imagePath,
+                    })
+                    if (item) addImageItem(item)
                 },
             }),
             await MenuItem.new({

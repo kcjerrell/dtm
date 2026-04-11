@@ -33,6 +33,9 @@ export function useIsPreviewActive() {
 }
 
 interface PreviewProps extends BoxProps {}
+interface PreviewZoomProps extends PreviewProps {
+    onClose: () => void
+}
 
 const posTransition: ValueAnimationTransition<number> = {
     duration: 0.3,
@@ -152,7 +155,7 @@ export function Preview(props: PreviewProps) {
     )
 }
 
-function PreviewZoom(props: PreviewProps) {
+function PreviewZoom(props: PreviewZoomProps) {
     const { onClose, ...restProps } = props
 
     const snap = useSnapshot(store)

@@ -1,10 +1,12 @@
 import { type BoxProps, chakra } from "@chakra-ui/react"
-import { motion } from "motion/react"
+import { type MotionProps, motion } from "motion/react"
 import { useEffect, useRef } from "react"
-import type { getMetadataStore } from "../state/metadataStore"
+import FrameCountIndicator from "@/components/FrameCountIndicator"
+import type MediaItem from "../state/MediaItem"
+import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
 interface HistoryItemProps extends BoxProps {
-    image: ReadonlyState<ReturnType<typeof getMetadataStore>["images"][number]>
+    image: ReadonlyState<MediaItem>
     isSelected: boolean
     onSelect?: () => void
     isPinned?: boolean
@@ -12,6 +14,8 @@ interface HistoryItemProps extends BoxProps {
 function HistoryItem(props: HistoryItemProps) {
     const { image, isSelected, onSelect, isPinned, ...restProps } = props
     const ref = useRef<HTMLDivElement>(null)
+
+    const Thumbnail = image?.isVideo ? VideoThumbnail : ImageThumbnail
 
     useEffect(() => {
         if (ref.current?.parentElement?.parentElement && isSelected) {
@@ -42,8 +46,8 @@ function HistoryItem(props: HistoryItemProps) {
             {...restProps}
         >
             <HistoryItemIndicator isSelected={isSelected} isPinned={isPinned} />
-            <motion.img
-                src={image?.thumbUrl}
+            <Thumbnail
+                item={image}
                 style={{
                     objectFit: "cover",
                     width: "100%",
@@ -65,6 +69,45 @@ function HistoryItem(props: HistoryItemProps) {
         </HistoryItemBase>
     )
 }
+
+const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
+    const { item, ...restProps } = props
+    return <motion.img src={item?.thumbUrl} {...restProps} />
+}
+
+const VideoThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
+    const { item, ...restProps } = props
+
+    const canvasRef = useVideoThumbnail(item?.id, "thumbnail")
+
+    return (
+        <VideoThumbContainer>
+            <motion.canvas ref={canvasRef} width={100} height={100} {...restProps} />
+            <FrameCountIndicator
+                padding={3}
+                top={-2}
+                bgColor={"grays.4"}
+                color={"grays.13"}
+                zIndex={1}
+            />
+        </VideoThumbContainer>
+    )
+}
+
+const VideoThumbContainer = chakra("div", {
+    base: {
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        "& > canvas": {
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+        },
+    },
+})
 
 const HistoryItemBase = chakra("div", {
     base: {

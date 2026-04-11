@@ -1,16 +1,16 @@
-import { HStack, Spacer } from "@chakra-ui/react"
+import { HStack } from "@chakra-ui/react"
 import { useEffect, useMemo, useRef } from "react"
 import { proxy, type Snapshot, useSnapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
-import type { ICommandItem } from "@/types"
-import { IconButton, PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import type { ICommand } from "@/types"
+import { PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import CommandButton from "./CommandButton"
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
-import CommandButton from './CommandButton'
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     emptyListText?: string | boolean
-    commands?: ICommandItem<T, C>[]
+    commands?: ICommand<T, C>[]
     commandContext?: C
     header?: string
     headerInfo?: string
@@ -21,6 +21,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
     variant?: "flat" | "inset"
+    scrollContainerProps?: ChakraProps
 }
 
 function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
@@ -37,6 +38,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         clearSelection,
         selectionMode = "multipleModifier",
         variant = "inset",
+        scrollContainerProps,
         ...boxProps
     } = props
 
@@ -95,6 +97,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                 <PaneListScrollContainer
                     variant={variant}
                     ref={wrapperRef}
+                    {...scrollContainerProps}
                     // overflowY="clip"
                     // onWheel={(e) => {
                     // 	if (!wrapperRef.current || !contentRef.current) return

@@ -2,7 +2,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useCallback, useMemo } from "react"
 import { DtpService } from "@/commands"
 import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/icons/icons"
-import { getSpacer, type ICommandItem } from "@/types"
+import { getSpacer, type ICommand } from "@/types"
 import { plural } from "@/utils/helpers"
 import { showMenu } from "@/utils/menu"
 import { useDTP } from "../state/context"
@@ -10,12 +10,12 @@ import type { ProjectState } from "../state/projects"
 
 export function useProjectsCommands(): [
     (selected: ProjectState[]) => Promise<(() => void | Promise<void>) | null>,
-    ICommandItem<ProjectState>[],
+    ICommand<ProjectState>[],
 ] {
     const { projects } = useDTP()
     const snap = projects.useSnap()
 
-    const commands: ICommandItem<ProjectState>[] = useMemo(
+    const commands: ICommand<ProjectState>[] = useMemo(
         () => [
             {
                 id: "hideEmpty",
@@ -28,7 +28,7 @@ export function useProjectsCommands(): [
                 },
                 requiresSelection: false,
             },
-            getSpacer("toolbar"),
+            getSpacer<ProjectState, undefined>("toolbar"),
             {
                 id: "scan",
                 getLabel: (selected) => `Scan project${plural(selected.length)}`,
@@ -38,6 +38,10 @@ export function useProjectsCommands(): [
                     DtpService.syncProjects(selected.map((f) => f.id))
                 },
                 requiresSelection: true,
+                toolbarEnableMode: "hide",
+                getEnabled(selected) {
+                    return !!selected && selected.length > 0 && selected.every((p) => p && !p.excluded)
+                },
             },
             {
                 id: "exclude",
@@ -71,7 +75,7 @@ export function useProjectsCommands(): [
         async (selected: ProjectState[]) => {
             const command = await showMenu(commands, selected)
             if (!command) return null
-            return () => command.onClick(selected)
+            return () => command.onClick?.(selected)
         },
         [commands],
     )

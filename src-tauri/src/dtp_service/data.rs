@@ -1,6 +1,10 @@
 use crate::{
     bookmarks::{self, PickFolderResult},
-    dtp_service::{events::DTPEvent, jobs::SyncJob, AppHandleWrapper, DTPService},
+    dtp_service::{
+        events::DTPEvent,
+        jobs::{SyncJob, UpdateProjectJob},
+        AppHandleWrapper, DTPService,
+    },
     projects_db::{
         dtos::{
             clip::ClipExtra,
@@ -11,7 +15,7 @@ use crate::{
             watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
-        folder_cache,
+        folder_cache, DecodeTensorOptions, DrawThingsMetadata, ProjectRef,
     },
 };
 use dtm_macros::dtp_commands;
@@ -38,6 +42,9 @@ impl DTPService {
 
         if let Some(exclude_val) = exclude {
             db.update_exclude(project_id, exclude_val).await?;
+            if !exclude_val {
+                self.add_job(UpdateProjectJob::from_id(&db, project_id, true).await?)
+            }
         }
 
         let project = db.get_project(project_id).await?;
@@ -238,6 +245,19 @@ impl DTPService {
     }
 
     #[dtp_command]
+    pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
+        let pdb = self.get_db().await?;
+        let image = pdb.get_image(image_id).await?;
+        let dt_project = pdb.get_dt_project(ProjectRef::Id(image.project_id)).await?;
+        let history = dt_project
+            .get_history_full(image.node_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        let metadata = DrawThingsMetadata::try_from(&history.history).unwrap();
+        Ok(metadata)
+    }
+
+    #[dtp_command]
     pub async fn get_tensor_size(
         &self,
         project_id: i64,
@@ -275,8 +295,15 @@ impl DTPService {
             None => None,
         };
 
-        let buffer = crate::projects_db::decode_tensor(tensor, as_png, metadata, None)
-            .map_err(|e| e.to_string())?;
+        let buffer = crate::projects_db::decode_tensor(
+            tensor,
+            DecodeTensorOptions {
+                as_png,
+                history_node: metadata,
+                scale: None,
+            },
+        )
+        .map_err(|e| e.to_string())?;
         Ok(tauri::ipc::Response::new(buffer))
     }
 

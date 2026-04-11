@@ -8,7 +8,7 @@ import { FiX } from "react-icons/fi"
 import { PiInfo } from "react-icons/pi"
 import { type CheckPatternResult, checkPattern, saveAllClipFrames } from "@/commands"
 import { IconButton, PanelButton, PanelSection, PanelSectionHeader, Tooltip } from "@/components"
-import { useDTP } from "@/dtProjects/state/context"
+import { useSetting } from "@/state/settings"
 import type { DialogProps, FrameExportDialogState } from "../types"
 import ExportProgress from "./ExportProgress"
 
@@ -26,13 +26,16 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
     const scaleFactor = image.upscaler_scale_factor ?? 1
     const frameCount = image.num_frames ?? 0
 
-    const { settings: storage } = useDTP()
-
-    const [outputDir, setOutputDir] = useState(storage.state.export.framesOutputDir)
-    const [frameSource, setFrameSource] = useState<FrameSource>(storage.state.export.framesSource)
-    const [filenamePattern, setFilenamePattern] = useState(
-        storage.state.export.framesFilenamePattern,
+    const [outputDirSetting, setOutputDirSetting] = useSetting("vidExport.framesOutputDir")
+    const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.framesSource")
+    const [filenamePatternSetting, setFilenamePatternSetting] = useSetting(
+        "vidExport.framesFilenamePattern",
     )
+
+    const [outputDir, setOutputDir] = useState(outputDirSetting)
+    const [frameSource, setFrameSource] = useState<FrameSource>(frameSourceSetting as FrameSource)
+    const [filenamePattern, setFilenamePattern] = useState(filenamePatternSetting)
+
     const [checkResult, setCheckResult] = useState<CheckPatternResult | null>(null)
 
     const [isExporting, setIsExporting] = useState(false)
@@ -48,10 +51,6 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
     }
 
     const handleExport = async () => {
-        storage.updateSetting("export", "framesOutputDir", outputDir)
-        storage.updateSetting("export", "framesSource", frameSource)
-        storage.updateSetting("export", "framesFilenamePattern", filenamePattern)
-
         setIsExporting(true)
         setFinishedFrames(0)
         setTotalFrames(frameCount)
@@ -77,6 +76,10 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
                 outputDir,
             })
             setProgressText("Done")
+
+            setOutputDirSetting(outputDir)
+            setFrameSourceSetting(frameSource)
+            setFilenamePatternSetting(filenamePattern)
         } catch (e) {
             console.error("Export failed", e)
             setProgressText("Export failed")
@@ -89,12 +92,12 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
     // these settings can't be initialized by the storage controller
     // due to the way the storage controller is initialized
     useEffect(() => {
-        if (!storage.state.export.framesOutputDir) {
+        if (!outputDirSetting) {
             getDefaultOutputDir().then((dir) => {
-                storage.updateSetting("export", "framesOutputDir", dir)
+                setOutputDirSetting(dir)
             })
         }
-    }, [storage])
+    }, [outputDirSetting, setOutputDirSetting])
 
     useDebounceEffect(
         () => {
@@ -156,9 +159,14 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
                                     Browse
                                 </PanelButton>
                             </HStack>
-                            {checkResult?.outputDirDne && (
+                            {outputDir && checkResult?.outputDirDne && (
                                 <Field.HelperText color="orange.solid">
                                     Folder doesn't exist - it will be created
+                                </Field.HelperText>
+                            )}
+                            {!outputDir && (
+                                <Field.HelperText color="orange.solid">
+                                    Select an output directory
                                 </Field.HelperText>
                             )}
                         </Field.Root>

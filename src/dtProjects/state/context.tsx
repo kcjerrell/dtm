@@ -8,13 +8,14 @@ import ImagesController from "./images"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
 import SearchController from "./search"
-import SettingsController from "./settings"
 import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
+let _loader: PromiseWithResolvers<void> | null = null
 let _container: Container<DTPServices, DTPEvents> | null = null
 function getContainer() {
     if (!_container || _container.isDisposed) {
+        _loader = Promise.withResolvers<void>()
         _container = createContainer()
     }
     return _container
@@ -27,6 +28,12 @@ function getContainer() {
 export function useDTP() {
     const container = getContainer()
     return container.services
+}
+
+export async function preloadDTP() {
+    getContainer()
+    if (!_loader) throw new Error("Failed to create container")
+    return _loader.promise
 }
 
 // let _unwatch: () => void
@@ -69,7 +76,6 @@ function createContainer() {
         const images = new ImagesController()
         const search = new SearchController()
         const details = new DetailsService(projects)
-        const settings = new SettingsController()
 
         search.onSearch = (text, filters) => {
             images.buildImageSource({ text: text ?? "", filters: filters ?? [] })
@@ -80,7 +86,9 @@ function createContainer() {
                 watchFolders.assignPaths(),
                 projects.loadProjects(),
                 models.refreshModels(),
-            ])
+            ]).finally(() => {
+                _loader?.resolve()
+            })
         })
 
         const controllers = {
@@ -92,7 +100,6 @@ function createContainer() {
             images,
             details,
             jobs,
-            settings,
         } as DTPServices
 
         // connectDevMode(controllers)

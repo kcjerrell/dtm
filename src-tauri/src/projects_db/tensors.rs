@@ -12,32 +12,41 @@ use std::io::Read;
 use crate::projects_db::dtos::tensor::{TensorHistoryNode, TensorRaw};
 use crate::projects_db::metadata::DrawThingsMetadata;
 
+pub struct DecodeTensorOptions {
+    pub as_png: bool,
+    pub history_node: Option<TensorHistoryNode>,
+    pub scale: Option<u32>,
+}
+
 pub fn decode_tensor(
     tensor: TensorRaw,
-    as_png: bool,
-    history_node: Option<TensorHistoryNode>,
-    scale: Option<u32>,
+    options: DecodeTensorOptions
 ) -> Result<Vec<u8>> {
+    let DecodeTensorOptions {
+        as_png,
+        history_node,
+        scale,
+    } = options;
     if tensor.name.starts_with("pose") {
         return decode_pose(tensor);
     }
     if tensor.name.starts_with("binary_mask") || tensor.name.starts_with("scribble") {
         return scribble_mask_to_png(tensor, scale, Some(false));
     }
-    log::debug!(
-        "Decoding tensor {} ({}x{}x{})",
-        tensor.name,
-        tensor.height,
-        tensor.width,
-        tensor.channels
-    );
+    // log::debug!(
+    //     "Decoding tensor {} ({}x{}x{})",
+    //     tensor.name,
+    //     tensor.height,
+    //     tensor.width,
+    //     tensor.channels
+    // );
 
     let out = decompress_fzip(&tensor.data)?;
-    log::debug!(
-        "Compressed: {} bytes, decompressed: {} bytes",
-        &tensor.data.len(),
-        out.len()
-    );
+    // log::debug!(
+    //     "Compressed: {} bytes, decompressed: {} bytes",
+    //     &tensor.data.len(),
+    //     out.len()
+    // );
 
     let (pixels, width, height) = if let Some(target_size) = scale {
         log::debug!("Scaling to {}x{}", target_size, target_size);
@@ -343,7 +352,7 @@ fn format_desc_float(f: f64) -> String {
     }
 }
 
-fn build_description(metadata: &DrawThingsMetadata) -> String {
+pub fn build_description(metadata: &DrawThingsMetadata) -> String {
     /*
     sample description:
     this image has awesome metadata. it is a picture of a cool dude

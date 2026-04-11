@@ -9,11 +9,14 @@ export {
     FiList,
     FiRefreshCw,
     FiSave,
+    FiVolume,
+    FiVolume2,
     FiX,
     FiXCircle,
 } from "react-icons/fi"
-export { GiNeedleDrill } from "react-icons/gi"
+export { GiBodyBalance as PoseIcon, GiNeedleDrill } from "react-icons/gi"
 export { GoGear } from "react-icons/go"
+export { IoChevronDown as ChevronDown, IoChevronForward as ChevronForward } from "react-icons/io5"
 export type { IconType } from "react-icons/lib"
 export { LuFolderTree, LuMoon, LuSun, LuX } from "react-icons/lu"
 export { MdBlock, MdDoNotDisturbOn, MdImageSearch } from "react-icons/md"
@@ -36,5 +39,3 @@ export {
     TbSortDescending2,
     TbSortDescendingNumbers,
 } from "react-icons/tb"
-export { IoChevronForward as ChevronForward, IoChevronDown as ChevronDown } from "react-icons/io5"
-export { GiBodyBalance as PoseIcon } from "react-icons/gi"

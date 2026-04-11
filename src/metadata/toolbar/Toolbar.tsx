@@ -1,36 +1,42 @@
 import { Box } from "@chakra-ui/react"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { useSnapshot } from "valtio"
-import { useMessages } from "@/context/Messages"
+import CommandButton from "@/components/Command1Button"
+import { useMessages } from "@/state/Messages"
+import type MediaItem from "../state/MediaItem"
 import { getMetadataStore } from "../state/metadataStore"
-import { toolbarCommands } from "./commands"
+import { useMediaItemCommands } from "./commands"
 import { ContentHeaderContainer, ToolbarButtonGroup, ToolbarContainer, ToolbarRoot } from "./parts"
-import ToolbarItem from "./ToolbarItem"
 
 function Toolbar(props: ChakraProps) {
     const { ...restProps } = props
 
-    const snap = useSnapshot(getMetadataStore())
+    const state = getMetadataStore()
+    const snap = useSnapshot(state)
+
+    const commands = useMediaItemCommands()
 
     const messageChannel = useMessages("toolbar")
+
+    console.log("render")
 
     // used when rendering command items
     // let changedCount = 0
     // const prevState = useRef<string[]>(toolbarCommands.map((item) => "hide"))
 
-    const buttons = toolbarCommands.map((item) => {
-        if (item.separator) return () => null
-        const isVisible = item.check?.(snap) ?? true
-        const state = isVisible ? "show" : "hide"
-        // const isChanged = prevState.current[i] !== state
-        // prevState.current[i] = state
-        // const order = isChanged ? changedCount++ : undefined
+    // const buttons = toolbarCommands.map((item) => {
+    //     if (item.separator) return null
+    //     const isVisible = item.check?.(snap) ?? true
+    //     const state = isVisible ? "show" : "hide"
+    //     // const isChanged = prevState.current[i] !== state
+    //     // prevState.current[i] = state
+    //     // const order = isChanged ? changedCount++ : undefined
 
-        let key = item.id
-        if (item.slotId && isVisible) key = item.slotId
+    //     let key = item.id
+    //     if (item.slotId && isVisible) key = item.slotId
 
-        return () => <ToolbarItem key={key} command={item} state={state} />
-    })
+    //     return <ToolbarItem key={key} command={item} state={state} />
+    // })
 
     return (
         <ContentHeaderContainer data-tauri-drag-region {...restProps}>
@@ -42,7 +48,13 @@ function Toolbar(props: ChakraProps) {
                     >
                         <LayoutGroup>
                             <AnimatePresence mode={"sync"} propagate={false}>
-                                {buttons.map((render) => render())}
+                                {commands.map((command) => (
+                                    <CommandButton
+                                        key={command.id}
+                                        command={command}
+                                        selectedItem={snap.currentItem as MediaItem}
+                                    />
+                                ))}
                             </AnimatePresence>
                         </LayoutGroup>
                     </ToolbarButtonGroup>
