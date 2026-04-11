@@ -6,6 +6,7 @@ import { useTimedState } from "@/hooks/useTimedState"
 import { prepData } from "@/metadata/infoPanel/DataItem"
 import type { DrawThingsConfigGrouped } from "@/types"
 import { getSampler, getSeedMode } from "@/utils/config"
+import { getVersionLabel } from "@/utils/models"
 
 interface DataItemProps extends ComponentProps<typeof Root> {
     label?: string
@@ -69,7 +70,7 @@ function DataItem(props: DataItemProps) {
 
     return (
         <Root {...rest}>
-            <HStack justifyContent={"flex-start"}>
+            <HStack as={"dt"} justifyContent={"flex-start"}>
                 <Label
                     paddingLeft={0.5}
                     fontWeight={500}
@@ -87,6 +88,7 @@ function DataItem(props: DataItemProps) {
                 )}
             </HStack>
             <Content
+                as={"dd"}
                 data-defctx={true}
                 key={`${collapsible}`}
                 type={dataType}
@@ -406,7 +408,8 @@ const templates = {
         if (!value) return null
 
         let displayValue = value
-        if (model?.name && model?.version) displayValue = `${model.name} (${model.version})`
+        if (model?.name && model?.version)
+            displayValue = `${model.name} (${getVersionLabel(model.version)})`
         return <DataItem label={"Model"} data={displayValue} {...rest} />
     },
     Steps: (props: DataItemTemplateProps<"steps">) => {

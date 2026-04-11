@@ -26,6 +26,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
     const [fps, setFps] = useState(25)
+    const [audio, setAudio] = useState<[number, string] | undefined>(undefined)
 
     const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.videoSource")
     const [frameSource, setFrameSource] = useState<FrameSource>(frameSourceSetting as FrameSource)
@@ -61,6 +62,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
         DTPService.getClip(image.id, image.clip_id).then(async (data) => {
             if (!image) return
             setFps(data.clip.framesPerSecond)
+            if (data.clip.audioId) setAudio([image.project_id, `audio_${data.clip.audioId}`])
         })
     }, [image])
 
@@ -123,6 +125,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                 useTensor: frameSource === "tensor",
                 outputFile: savePath,
                 imageId: image.id,
+                audio: audio,
             })
             setFrameSourceSetting(frameSource)
         } catch (e) {

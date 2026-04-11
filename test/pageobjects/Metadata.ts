@@ -1,6 +1,6 @@
 import "dotenv/config"
 
-type WaitForOpts = Parameters<ChainablePromiseElement["waitForDisplayed"]>[0]
+export type WaitForOpts = Parameters<ChainablePromiseElement["waitForDisplayed"]>[0]
 
 class Metadata {
     get dropHere() {
@@ -33,7 +33,9 @@ class Metadata {
         const el = $(`//dt[.='${label}']/following-sibling::dd`)
         try {
             await el.waitForDisplayed(opts)
-            return el.getText()
+            const text = await el.getText()
+            console.debug(`Data item ${label}: ${text}`)
+            return text
         } catch (e) {
             if (opts?.noThrow) {
                 console.log(`No data item found for label: ${label}`)

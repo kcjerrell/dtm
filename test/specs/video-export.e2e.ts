@@ -91,6 +91,8 @@ describe("Video Export", () => {
         }
 
         // go to projects view
+        await browser.refresh()
+        await browser.pause(3000)
         await App.selectView("projects")
 
         // make sure we're on the projects tab
@@ -168,12 +170,11 @@ describe("Video Export", () => {
         await expect($("#details-overlay")).toBeDisplayed()
 
         // assert some details
-        await expect($("body")).toHaveText(expect.stringContaining("wan_v2.1_14b"))
-        await expect($("body")).toHaveText(
-            expect.stringContaining("Wan 2.2 High Noise Expert T2V A14B"),
+        // expect(await DTProjects.getDataItemValue("Model")).toContain("wan_v2.1_14b")
+        expect(await DTProjects.getDataItemValue("Model")).toContain(
+            "Wan 2.2 High Noise Expert T2V A14B",
         )
-        await expect($("body")).toHaveText(expect.stringContaining("Num Frames"))
-        await expect($("body")).toHaveText(expect.stringContaining("17"))
+        expect(await DTProjects.getDataItemValue("Num Frames")).toContain("17")
 
         // assert presence of play button, video image, and seekbar
         await expect($("aria/Play video")).toBeDisplayed()
@@ -298,5 +299,138 @@ describe("Video Export", () => {
         const comment = probe.format?.tags?.comment ?? videoStream?.tags?.comment ?? ""
         expect(comment).toContain('"c":"A moonrise on an alien planet')
         expect(comment).toContain('"model":"wan_v2.2_a14b_hne_t2v_q6p_svd.ckpt"')
+    })
+
+    it("can export a video with audio track", async () => {
+        const videoOutputPath = getTestDataPath("temp", "vid-export2.mp4")
+        await fse.remove(videoOutputPath)
+
+        // go to projects/search view
+        await browser.refresh()
+        await browser.pause(3000)
+        await App.selectView("projects")
+        await $("aria/Search tab").click()
+        await expect($("aria/Search tab")).toHaveAttribute("aria-selected", "true")
+        await $("aria/Reset search").click()
+
+        // search for model version: LTX-2.3 22B [distilled]
+        await $("aria/Add search filter").click()
+        const filterForm = DTProjects.searchPanel.getFilter(0)
+        await filterForm.target.click()
+        ;(await filterForm.getTargetOption("model")).click()
+
+        await $('[aria-label="models filter value selector"]').click()
+
+        const versionItem = await $('[aria-label*="Model version LTX-2.3"]')
+        await versionItem.waitForDisplayed({ timeout: 15000 })
+        await versionItem.click()
+
+        const modelItems = await $$('[aria-label^="Model item "]').getElements()
+        expect(modelItems.length).toBeGreaterThan(0)
+        await modelItems[0].click()
+
+        await $("aria/Apply search").click()
+        await waitForImageGridReady()
+
+        const filteredItems = await $$('[data-testid="image-item"]').getElements()
+        expect(filteredItems.length).toBeGreaterThan(0)
+
+        // open first item and assert details
+        await filteredItems[0].click()
+        await expect($("#details-overlay")).toBeDisplayed()
+        expect(await DTProjects.getDataItemValue("Model")).toContain(
+            "LTX-2.3 22B [distilled] (LTX-2.3)",
+        )
+        expect(await DTProjects.getDataItemValue("Num Frames")).toContain("17")
+
+        if (await $("aria/Mute video").isDisplayed()) {
+            await $("aria/Mute video").click()
+        }
+        await $("aria/Unmute video").waitForDisplayed({ timeout: 3000 })
+        await $("aria/Unmute video").click()
+        await $("aria/Mute video").waitForDisplayed({ timeout: 3000 })
+        await $("aria/Mute video").click()
+        await $("aria/Unmute video").waitForDisplayed({ timeout: 3000 })
+
+        // open save video dialog and assert export state
+        await $("aria/Save video").click()
+        await expect($("body")).toHaveText(expect.stringContaining("Export Video"))
+        await expect($("aria/Video export width")).toHaveValue("512")
+        await expect($("aria/Video export height")).toHaveValue("512")
+        await expect($("body")).toHaveText(expect.stringContaining("Duration"))
+        await expect($("body")).toHaveText(expect.stringContaining("0.7s"))
+
+        const ffmpegSection = $("[data-testid='ffmpeg-section']")
+        await expect(ffmpegSection).not.toExist()
+
+        const exportButton = $("aria/Export video")
+        await expect(exportButton).toBeEnabled()
+
+        await setTestOverride({ saveDialogPath: videoOutputPath })
+        await exportButton.click()
+
+        await browser.waitUntil(async () => await fse.pathExists(videoOutputPath), {
+            timeout: 30000,
+            interval: 250,
+            timeoutMsg: "Expected exported video file to exist",
+        })
+
+        // use ffprobe to confirm metadata/video/audio properties
+        const ffprobePath = findFfprobePath()
+        const probeRaw = execFileSync(
+            ffprobePath,
+            [
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                videoOutputPath,
+            ],
+            { encoding: "utf8" },
+        )
+        const probe = JSON.parse(probeRaw) as {
+            format?: {
+                duration?: string
+                bit_rate?: string
+                tags?: Record<string, string>
+            }
+            streams?: Array<{
+                codec_type?: string
+                codec_name?: string
+                pix_fmt?: string
+                width?: number
+                height?: number
+                r_frame_rate?: string
+                sample_rate?: string
+                duration?: string
+                tags?: Record<string, string>
+            }>
+        }
+
+        const videoStream = probe.streams?.find((s) => s.codec_type === "video")
+        expect(videoStream).toBeDefined()
+        expect(videoStream?.codec_name).toBe("h264")
+        expect(videoStream?.width).toBe(512)
+        expect(videoStream?.height).toBe(512)
+        expect(parseFps(videoStream?.r_frame_rate ?? "0/1")).toBe(25)
+
+        const audioStream = probe.streams?.find((s) => s.codec_type === "audio")
+        expect(audioStream).toBeDefined()
+        expect(audioStream?.codec_name).toBe("aac")
+        expect(audioStream?.sample_rate).toBe("48000")
+        expect(audioStream?.duration).toBe("0.650000")
+
+        const duration = Number(probe.format?.duration ?? "0")
+        expect(duration).toBeGreaterThan(0.6)
+        expect(duration).toBeLessThan(0.8)
+
+        const comment =
+            probe.format?.tags?.comment ??
+            videoStream?.tags?.comment ??
+            audioStream?.tags?.comment ??
+            ""
+        expect(comment).toContain('"model":"ltx_2.3_22b_distilled_q8p.ckpt"')
     })
 })

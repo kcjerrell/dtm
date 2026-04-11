@@ -51,8 +51,8 @@ describe("Metadata", () => {
         // // confirm config was load
         await md.selectTab("config")
 
-        await expect(await md.getDataItemValue("Prompt")).toContain("A lone astronaut")
-        await expect(await md.getDataItemValue("Model")).toContain("z_image_turbo")
+        expect(await md.getDataItemValue("Prompt")).toContain("A lone astronaut")
+        expect(await md.getDataItemValue("Model")).toContain("z_image_turbo")
     })
 
     it("loads from an image copied from finder", async () => {

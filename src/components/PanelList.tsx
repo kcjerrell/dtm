@@ -21,6 +21,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     clearSelection?: unknown
     selectionMode?: "multipleModifier" | "multipleToggle" | "single"
     variant?: "flat" | "inset"
+    scrollContainerProps?: ChakraProps
 }
 
 function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
@@ -37,6 +38,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         clearSelection,
         selectionMode = "multipleModifier",
         variant = "inset",
+        scrollContainerProps,
         ...boxProps
     } = props
 
@@ -95,6 +97,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                 <PaneListScrollContainer
                     variant={variant}
                     ref={wrapperRef}
+                    {...scrollContainerProps}
                     // overflowY="clip"
                     // onWheel={(e) => {
                     // 	if (!wrapperRef.current || !contentRef.current) return

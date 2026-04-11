@@ -7,7 +7,10 @@ use std::{fs, path::PathBuf};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{DTProject, build_description, decode_tensor, DecodeTensorOptions};
+use crate::projects_db::{
+    build_description, decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions,
+    ProjectRef,
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -151,6 +154,7 @@ pub struct VideoExportOpts {
     out_fps: Option<u8>,
     width: Option<u32>,
     height: Option<u32>,
+    audio: Option<(i64, String)>,
 }
 
 #[tauri::command]
@@ -245,6 +249,28 @@ pub async fn create_video_from_frames(
     // get metadata
     let metadata = dtp.get_metadata(opts.image_id).await.ok();
 
+    let audio_path = match opts.audio {
+        Some((project_id, audio_tensor_name)) => {
+            let project = dtp.get_db().await?.get_project(project_id).await?;
+
+            let audio_wav = get_audio(
+                &project.full_path,
+                &DTPResource {
+                    project_id,
+                    item_id: audio_tensor_name,
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+            let audio_path = temp_dir.join("audio.wav");
+            fs::write(&audio_path, &*audio_wav).map_err(|e| e.to_string())?;
+
+            Some(audio_path.to_str().unwrap().to_string())
+        }
+        None => None,
+    };
+
     // -------------------------------------------------
     // Build ffmpeg command
     // -------------------------------------------------
@@ -265,6 +291,11 @@ pub async fn create_video_from_frames(
         "-stats_period",
         "0.2",
     ]);
+
+    if let Some(audio_path) = audio_path {
+        cmd.args(["-i", &audio_path]);
+        cmd.args(["-c:a", "aac", "-b:a", "192k"]);
+    }
 
     if let Some(vf) = &vf_arg {
         cmd.args(["-vf", vf]);

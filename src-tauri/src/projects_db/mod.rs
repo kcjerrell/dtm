@@ -16,7 +16,7 @@ mod tensor_history;
 pub mod tensor_history_generated;
 
 mod dtm_dtproject;
-pub use dtm_dtproject::{extract_jpeg_slice, DtmProtocol};
+pub use dtm_dtproject::{extract_jpeg_slice, DTPResource, DtmProtocol};
 
 mod tensor_history_mod;
 
@@ -24,7 +24,7 @@ mod tensors;
 pub use tensors::{build_description, decode_tensor, DecodeTensorOptions};
 
 mod audio;
-pub use audio::decode_audio;
+pub use audio::{decode_audio, get_audio};
 
 mod metadata;
 pub use metadata::DrawThingsMetadata;
