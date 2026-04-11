@@ -42,7 +42,7 @@ export const config: Options.Testrunner = {
         },
     },
 
-    reporters: ["dot", ["json", { stdout: true }]],
+    reporters: [["json", { stdout: true }], "spec"],
 
     // specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
 

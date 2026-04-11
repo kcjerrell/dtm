@@ -1,5 +1,6 @@
+import os from "node:os"
+import { join } from "node:path"
 import fse from "fs-extra"
-import { join } from "path"
 import App from "../pageobjects/App"
 import Metadata from "../pageobjects/Metadata"
 import { getPasteboardData, setPasteboardOverride } from "../util/clipdump"
@@ -9,6 +10,9 @@ import { getFile, waitForFile } from "../util/testData"
 
 const md = Metadata
 const tempDir = getTestDataPath("temp", "md")
+const ffmpegBinDir = join(os.homedir(), "Library", "Application Support", "com.kcjer.dtm", "bin")
+const ffmpegTempDir = join(os.homedir(), "Library", "Application Support", "com.kcjer.dtm", "temp")
+const ffmpegArchiveFixtureDir = getTestDataPath("ffmpeg")
 
 // these tests depend on previous tests, and will skip if one fails
 describe("Metadata", () => {
@@ -157,5 +161,48 @@ describe("Metadata", () => {
         await md.selectTab("details")
         expect(await md.getDataItemValue("Source")).toContain("Image from clipboard")
         expect(await md.getDataItemValue("Location", { noThrow: true, timeout: 2000 })).toBeNull()
+    })
+
+    it("loads video metadata after ffmpeg install", async () => {
+        // ensure ffmpeg has been deleted by removing the bin folder in the appdatadir
+        await fse.remove(ffmpegBinDir)
+        await fse.ensureDir(ffmpegTempDir)
+        for (const archiveName of ["ffmpeg.7z", "ffprobe.7z"]) {
+            const src = join(ffmpegArchiveFixtureDir, archiveName)
+            const dest = join(ffmpegTempDir, archiveName)
+            if (await fse.pathExists(src)) {
+                await fse.copy(src, dest, { overwrite: true })
+            }
+        }
+
+        await App.selectView("metadata")
+
+        const videoPath = getFile("temp/vid-export2.mp4")
+        const pasteboardData =
+            getPasteboardData("paste", "finder", "image")?.({ path: videoPath }) ?? {}
+        if (!Object.keys(pasteboardData).length) throw new Error("No clipboard data found")
+        await setPasteboardOverride(pasteboardData)
+
+        // paste video into metadata view
+        await md.toolbar.loadFromClipboard.click()
+        await md.dropHere.waitForDisplayed({ reverse: true })
+
+        // assert the current item is a video
+        await expect($("#metadata video")).toBeDisplayed()
+
+        // verify ffmpeg component appears in info panel
+        const ffmpegSection = $("[data-testid='ffmpeg-section']")
+        await expect(ffmpegSection).toBeDisplayed()
+
+        // click install and wait for ffmpeg panel to clear
+        await ffmpegSection.$("button=Install").click()
+
+        await md.getDataItemValue("filename", { timeout: 60000 })
+
+        expect(await md.getDataItemValue("nb_streams")).toContain("2")
+        expect(parseFloat(await md.getDataItemValue("duration"))).toBeGreaterThan(0)
+        expect(await md.getDataItemValue("tags")).toContain("comment")
+        expect(await md.getDataItemValue("tags")).toContain("model")
+        expect(await md.getDataItemValue("tags")).toContain("v2")
     })
 })
