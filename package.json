@@ -21,7 +21,7 @@
     "wdio": "wdio run ./test/wdio.conf.ts"
   },
   "dependencies": {
-    "@chakra-ui/react": "^3.30.0",
+    "@chakra-ui/react": "^3.34.0",
     "@emotion/react": "^11.14.0",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-clipboard-manager": "~2",
