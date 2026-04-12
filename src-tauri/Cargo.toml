@@ -77,7 +77,7 @@ tauri-plugin-log = "2"
 sevenz-rust = "0.6.1"
 sha2 = "0.10.9"
 futures-util = "0.3.31"
-regex = "1.12.2"
+regex = "1.12.3"
 walkdir = "2.5.0"
 async-trait = "0.1.89"
 notify-debouncer-mini = { version = "0.7.0", features = ["macos_fsevent"] }
