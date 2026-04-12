@@ -98,6 +98,6 @@
     "vite-plugin-html-injection": "^1.5.2",
     "vite-plugin-wasm": "^3.5.0",
     "vite-tsconfig-paths": "^6.0.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.1.4"
   }
 }
