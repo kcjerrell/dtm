@@ -43,6 +43,11 @@ function initStore() {
     return storeInstance
 }
 
+export async function loadSettingsStore() {
+    const store = getSettingStore()
+    await store.start()
+}
+
 function getSettingStore() {
     if (!settingStore) {
         settingStore = initStore()

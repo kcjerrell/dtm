@@ -12,6 +12,7 @@ import { addTestHooks } from "./testHooks"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
+import { loadSettingsStore } from "./state/settings"
 
 const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
@@ -25,8 +26,10 @@ async function reset_db() {
     await invoke("dtp_reset_db")
 }
 
-function bootstrap() {
+async function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
+
+    await loadSettingsStore()
 
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
     window.__reset_db = reset_db
