@@ -63,7 +63,7 @@ byteorder = "1.5.0"
 half = "2"
 bytemuck = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
-anyhow = "1.0.100"
+anyhow = "1.0.102"
 num_enum = "0.7.5"
 base64 = "0.22.1"
 flate2 = "1.1.5"
