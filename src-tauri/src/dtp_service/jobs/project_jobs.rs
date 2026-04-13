@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
-use crate::{dtp_service::{
-    events::{DTPEvent, ScanProgress},
-    jobs::{Job, JobContext, JobResult, sync_folder::ProjectSync},
-}, projects_db::ProjectsDb};
+use crate::{
+    dtp_service::{
+        events::{DTPEvent, ScanProgress},
+        jobs::{sync_folder::ProjectSync, Job, JobContext, JobResult},
+    },
+    projects_db::ProjectsDb,
+};
 
 pub struct AddProjectJob {
     pub path: String,
@@ -46,7 +49,7 @@ impl Job for AddProjectJob {
 
         match result {
             Ok(added_project) => {
-                println!("Project added successfully");
+                log::debug!("Project added successfully");
                 let id = added_project.id;
                 ctx.events.emit(DTPEvent::ProjectAdded(added_project));
                 Ok(JobResult::Subtasks(vec![Arc::new(UpdateProjectJob {
@@ -113,7 +116,11 @@ impl UpdateProjectJob {
             Err("Project entity not found".to_string())
         }
     }
-    pub async fn from_id(pdb: &ProjectsDb, project_id: i64, is_import: bool) -> Result<Self, String> {
+    pub async fn from_id(
+        pdb: &ProjectsDb,
+        project_id: i64,
+        is_import: bool,
+    ) -> Result<Self, String> {
         let sync = ProjectSync::from_id(pdb, project_id).await?;
 
         UpdateProjectJob::new(&sync, is_import)

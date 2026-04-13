@@ -1,8 +1,13 @@
 use std::fs;
 use std::path::PathBuf;
 
+use entity::watch_folders::{Column, Entity as WatchFolders};
+use sea_orm::{Database, EntityTrait, ExprTrait};
+use sea_query::Expr;
 use semver::Version;
 use tauri::{AppHandle, Manager};
+
+use crate::dtp_service::{get_db_path, jobs::MaintenanceTaskKind, AppHandleWrapper};
 
 /// Public entry point (your requested API)
 pub async fn run_migrations(app: AppHandle) -> Result<(), String> {
@@ -37,7 +42,12 @@ fn version_file(app: &AppHandle) -> Result<PathBuf, String> {
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
-    path.push("version.txt");
+    let filename = if cfg!(debug_assertions) {
+        "dev_version.txt"
+    } else {
+        "version.txt"
+    };
+    path.push(filename);
     Ok(path)
 }
 
@@ -110,7 +120,7 @@ async fn run_migration(app: AppHandle, version: Versions) -> Result<(), String> 
 //
 
 async fn migrate_0_5_0(app: AppHandle) -> Result<(), String> {
-    println!("Running migration 0.5.0");
+    log::info!("Running migration 0.5.0");
 
     let store_dir = app
         .path()
@@ -133,5 +143,25 @@ async fn migrate_0_5_0(app: AppHandle) -> Result<(), String> {
         fs::remove_file(settings_file).map_err(|e| e.to_string())?;
     }
 
+    add_db_maintenance(app, MaintenanceTaskKind::RescanClipCount).await?;
+
     Ok(())
+}
+
+async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result<(), String> {
+    let wrapper = AppHandleWrapper::new(Some(app));
+    let db_path: String = get_db_path(&wrapper);
+    let db = Database::connect(db_path)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let maint_value: u32 = task as u32;
+
+    WatchFolders::update_many()
+        .col_expr(Column::Maint, Expr::col(Column::Maint).bit_or(maint_value))
+        .exec(&db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok({})
 }

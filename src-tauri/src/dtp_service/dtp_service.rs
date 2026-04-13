@@ -260,7 +260,7 @@ const PROJECT_FILE_NAME: &str = "projects4-dev.db";
 #[cfg(not(dev))]
 const PROJECT_FILE_NAME: &str = "projects4.db";
 
-fn get_db_path(app_handle: &AppHandleWrapper) -> String {
+pub fn get_db_path(app_handle: &AppHandleWrapper) -> String {
     let app_data_dir = app_handle.get_app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
