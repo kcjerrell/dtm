@@ -19,7 +19,7 @@ struct DownloadProgress {
     total: Option<u64>,
     received: u64,
     msg: Option<String>,
-    state: Option<String>
+    state: Option<String>,
 }
 
 pub async fn get_ffmpeg_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -69,15 +69,11 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
 
     for (i, (name, url, sha256)) in tasks.iter().enumerate() {
         let archive_path = temp_dir.join(format!("{}.7z", name));
-        let has_valid_cached_archive = archive_path.exists()
-            && verify_checksum(&archive_path, sha256).is_ok_and(|v| v);
+        let has_valid_cached_archive =
+            archive_path.exists() && verify_checksum(&archive_path, sha256).is_ok_and(|v| v);
 
         if !has_valid_cached_archive {
-            let res = client
-                .get(*url)
-                .send()
-                .await
-                .map_err(|e| e.to_string())?;
+            let res = client.get(*url).send().await.map_err(|e| e.to_string())?;
 
             let content_length = res.content_length();
             task_sizes[i] = content_length;
@@ -212,6 +208,7 @@ pub async fn call_ffmpeg(app: &AppHandle, args: Vec<String>) -> Result<String, S
     }
 }
 
+use hex::encode;
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -232,7 +229,7 @@ fn sha256_file(path: &Path) -> Result<String, std::io::Error> {
     }
 
     let hash = hasher.finalize();
-    Ok(format!("{:x}", hash))
+    Ok(encode(&hash))
 }
 
 fn verify_checksum(path: &Path, expected: &str) -> Result<bool, std::io::Error> {

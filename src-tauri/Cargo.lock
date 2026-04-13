@@ -1728,6 +1728,7 @@ dependencies = [
  "futures",
  "futures-util",
  "half",
+ "hex",
  "hound",
  "image",
  "little_exif",

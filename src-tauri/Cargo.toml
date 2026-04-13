@@ -84,6 +84,7 @@ notify-debouncer-mini = { version = "0.7.0", features = ["macos_fsevent"] }
 dashmap = "6.1.0"
 hound = "3.5.1"
 semver = "1.0.27"
+hex = "0.4.3"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]
