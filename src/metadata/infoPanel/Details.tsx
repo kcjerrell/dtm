@@ -1,4 +1,4 @@
-import { Box, VStack } from "@chakra-ui/react"
+import { Box, HStack, Spinner, Text, VStack } from "@chakra-ui/react"
 import MeasureGrid from "@/components/measureGrid/MeasureGrid"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
 import type { ImageSource } from "@/types"
@@ -36,9 +36,17 @@ function Details(props: DetailsProps) {
         >
             <SourceDetails imageSource={imageSource} />
             {imageSnap?.isVideo && (
-                <ffmpeg.FfmpegComponent>
-                    FFMPEG must be downloaded to load video metadata.
-                </ffmpeg.FfmpegComponent>
+                <>
+                    <ffmpeg.FfmpegComponent>
+                        FFMPEG must be downloaded to load video metadata.
+                    </ffmpeg.FfmpegComponent>
+                    {ffmpeg.isReady && (imageSnap as VideoItem)?.metadataStatus === "pending" && (
+                        <HStack justifyContent={"center"} alignItems={"center"} width={"full"}>
+                            <Spinner />
+                            <Text>Loading video metadata</Text>
+                        </HStack>
+                    )}
+                </>
             )}
             {groups.map(({ name, items }) => {
                 return (

@@ -33,6 +33,10 @@ export class VideoItem extends MediaItem {
         return this._metadata
     }
 
+    get metadataStatus() {
+        return this._metadataStatus
+    }
+
     get dtData() {
         if (!this._metadata && !this._metadataStatus) this.loadMetadata()
         return this._dtData

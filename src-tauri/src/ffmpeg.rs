@@ -174,6 +174,11 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
                     .map_err(|e| e.to_string())?;
             }
         }
+
+        // Remove archive after extraction
+        fs::remove_file(&archive_path)
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
     let _ = app.emit(
