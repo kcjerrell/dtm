@@ -1,8 +1,8 @@
 #![recursion_limit = "256"]
 
+use reqwest;
 use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
-use reqwest;
 use tauri_plugin_log::log::LevelFilter;
 use tauri_plugin_window_state::StateFlags;
 
@@ -235,7 +235,7 @@ pub fn run() {
                 .title("DTM")
                 .inner_size(800.0, 600.0)
                 .min_inner_size(600.0, 400.0)
-                .visible(true)
+                .visible(false)
                 .disable_drag_drop_handler();
 
             // set transparent title bar only when building for macOS

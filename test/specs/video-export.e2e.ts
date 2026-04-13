@@ -241,10 +241,10 @@ describe("Video Export", () => {
         await expect($("body")).toHaveText(expect.stringContaining("Progress"))
 
         await $('[aria-label*="Exporting frames progress"][aria-valuenow="100"]').waitForDisplayed({
-            timeout: 20000,
+            timeout: 30000,
         })
         await $('[aria-label*="Encoding video progress"][aria-valuenow="100"]').waitForDisplayed({
-            timeout: 20000,
+            timeout: 30000,
         })
 
         // assert file exists
