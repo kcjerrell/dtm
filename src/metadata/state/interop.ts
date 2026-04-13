@@ -1,4 +1,4 @@
-import AppStore from "@/hooks/appState"
+import { updateSetting } from "@/state/settings"
 import type { ImageSource } from "@/types"
 import { ImageItem } from "./ImageItem"
 import { loadImage2 } from "./imageLoaders"
@@ -26,13 +26,13 @@ export async function sendToMetadata(
 
     if (imageItem) {
         selectImage(imageItem)
-        AppStore.setView("metadata")
+        updateSetting("app.currentView", "metadata")
     }
 }
 
 export function handleDrop(data: unknown) {
     if (data === "drag") {
-        AppStore.setView("metadata")
+        updateSetting("app.currentView", "metadata")
         loadImage2("drag")
     }
 }

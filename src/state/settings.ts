@@ -4,6 +4,7 @@ import { useSnapshot } from "valtio"
 import { getStoreName } from "@/utils/helpers"
 
 let settingStore: ReturnType<typeof initStore> | undefined
+const subscriptions = new Map<SettingsKey, Set<(value: Settings[SettingsKey]) => void>>()
 
 const defaultSettings = {
     "vidExport.framesFilenamePattern": "clip_%%%_frame_###",
@@ -12,6 +13,10 @@ const defaultSettings = {
     "vidExport.videoSource": "preview",
     "ui.imageSize": 200,
     "ui.defaultMute": true,
+    "app.currentView": "metadata",
+    "app.isSidebarVisible": true,
+    "metadata.clearHistoryOnExit": true,
+    "metadata.clearPinsOnExit": false,
 }
 type Settings = typeof defaultSettings
 type SettingsKey = keyof Settings
@@ -38,16 +43,40 @@ function initStore() {
     return storeInstance
 }
 
-// this is to help with type issues, specifically in the initializer
-function update<K extends SettingsKey, V extends Settings[K]>(state: Settings, key: K, value: V) {
-    state[key] = value
-}
-
 function getSettingStore() {
     if (!settingStore) {
         settingStore = initStore()
     }
     return settingStore
+}
+
+// this is to help with type issues, specifically in the initializer
+function update<K extends SettingsKey, V extends Settings[K]>(state: Settings, key: K, value: V) {
+    state[key] = value
+}
+
+/** update a setting by key */
+export function updateSetting<K extends SettingsKey, V extends Settings[K]>(key: K, value: V) {
+    update(getSettingStore().state, key, value)
+}
+
+/** get a setting by key */
+export function getSetting<K extends SettingsKey>(key: K) {
+    return getSettingStore().state[key]
+}
+
+export function subscribeSetting<K extends SettingsKey>(
+    key: K,
+    callback: (value: Settings[K]) => void,
+) {
+    if (!subscriptions.has(key)) {
+        subscriptions.set(key, new Set())
+    }
+    const callbacks = subscriptions.get(key) as Set<(value: Settings[K]) => void>
+    callbacks.add(callback)
+    return () => {
+        callbacks.delete(callback)
+    }
 }
 
 /**

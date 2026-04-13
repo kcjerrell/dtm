@@ -9,6 +9,7 @@ import AppStore from "./hooks/appState"
 import { useDragWindow } from "./hooks/useDragWindow"
 import { useMetadataDrop } from "./hooks/useDrop"
 import { updateMenu } from "./menu"
+import { useSetting } from "./state/settings"
 import { getView, viewDescription } from "./views"
 
 function App() {
@@ -16,7 +17,8 @@ function App() {
     const firstRender = useRef(true)
 
     const snap = useSnapshot(AppStore.store)
-    mountedViews.current.add(snap.currentView)
+    const [currentView, setCurrentView] = useSetting("app.currentView")
+    mountedViews.current.add(currentView)
 
     const isPreviewActive = useIsPreviewActive()
     const { colorMode } = useColorMode()
@@ -53,8 +55,8 @@ function App() {
                         <Sidebar.Button
                             key={item.viewId}
                             item={item}
-                            isActive={snap.currentView === item.viewId}
-                            onClick={() => AppStore.setView(item.viewId)}
+                            isActive={currentView === item.viewId}
+                            onClick={() => setCurrentView(item.viewId)}
                         />
                     ))}
                     <Sidebar.UpgradeButton marginTop={4} />
@@ -71,7 +73,7 @@ function App() {
                 >
                     {Array.from(mountedViews.current).map((v) => {
                         const View = getView(v)
-                        const isActiveView = v === snap.currentView
+                        const isActiveView = v === currentView
                         return (
                             <ViewContainer key={v} isActiveView={isActiveView}>
                                 <View flex={"1 1 auto"} />

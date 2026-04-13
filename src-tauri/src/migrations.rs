@@ -75,19 +75,19 @@ fn should_run(last: &Option<Version>, current: &Version, target: &str) -> bool {
 
 #[derive(Debug, Clone, Copy)]
 enum Versions {
-    V0_4_3,
+    V0_5_0,
 }
 
 impl Versions {
     fn as_str(&self) -> &'static str {
         match self {
-            Versions::V0_4_3 => "0.4.3",
+            Versions::V0_5_0 => "0.5.0",
         }
     }
 
     /// Ordered list of migrations (IMPORTANT)
     fn ordered() -> Vec<Versions> {
-        vec![Versions::V0_4_3]
+        vec![Versions::V0_5_0]
     }
 }
 
@@ -99,7 +99,7 @@ impl Versions {
 
 async fn run_migration(app: AppHandle, version: Versions) -> Result<(), String> {
     match version {
-        Versions::V0_4_3 => migrate_0_4_3(app).await,
+        Versions::V0_5_0 => migrate_0_5_0(app).await,
     }
 }
 
@@ -109,16 +109,21 @@ async fn run_migration(app: AppHandle, version: Versions) -> Result<(), String> 
 // ─────────────────────────────────────
 //
 
-async fn migrate_0_4_3(app: AppHandle) -> Result<(), String> {
-    println!("Running migration 0.4.3");
+async fn migrate_0_5_0(app: AppHandle) -> Result<(), String> {
+    println!("Running migration 0.5.0");
 
     let store_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("tauri-plugin-valtio");
+    let settings_file_debug = store_dir.join("dev_dtp-settings.dev.json");
     let settings_file_dev = store_dir.join("dtp-settings.dev.json");
     let settings_file = store_dir.join("dtp-settings.json");
+
+    if settings_file_debug.exists() {
+        fs::remove_file(settings_file_debug).map_err(|e| e.to_string())?;
+    }
 
     if settings_file_dev.exists() {
         fs::remove_file(settings_file_dev).map_err(|e| e.to_string())?;

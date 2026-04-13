@@ -1,5 +1,6 @@
 import type { RefObject } from "react"
 import { useSnapshot } from "valtio"
+import { useSetting } from "@/state/settings"
 import AppStore from "./appState"
 
 export type RootElement =
@@ -28,7 +29,7 @@ function getElement(id: keyof typeof rootElementIds, view?: string) {
 }
 
 export function useRootElement(rootElement: RootElement) {
-    const { currentView } = useSnapshot(AppStore.store)
+    const [currentView] = useSetting("app.currentView")
 
     if (process.env.NODE_ENV === "test") {
         return document.getElementById("root")
@@ -40,7 +41,7 @@ export function useRootElement(rootElement: RootElement) {
 }
 
 export function useRootElementRef(rootElement?: RootElement): RefObject<HTMLDivElement | null> {
-    const { currentView } = useSnapshot(AppStore.store)
+    const [currentView] = useSetting("app.currentView")
 
     if (!rootElement) return { current: null }
 

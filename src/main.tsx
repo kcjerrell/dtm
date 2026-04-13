@@ -1,13 +1,11 @@
 import { ChakraProvider } from "@chakra-ui/react"
 import { invoke } from "@tauri-apps/api/core"
-import { getCurrentWindow } from "@tauri-apps/api/window"
 import { motion } from "motion/react"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { HotkeysProvider } from "react-hotkeys-hook"
 import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
-import AppStore from "./hooks/appState"
 import { Hotkey } from "./hooks/keyboard"
 import "./index.css"
 import { addTestHooks } from "./testHooks"
@@ -38,9 +36,9 @@ function bootstrap() {
     }
     addTestHooks()
 
-    const hash = document.location?.hash?.slice(1)
-    if (hash === "mini") AppStore.setView("mini")
-    else if (hash === "vid") AppStore.setView("vid")
+    // const hash = document.location?.hash?.slice(1)
+    // if (hash === "mini") AppStore.setView("mini")
+    // else if (hash === "vid") AppStore.setView("vid")
 
     const RootComponent = App
 
@@ -62,11 +60,11 @@ function bootstrap() {
     }
 
     // this ensures that the window appears even if an error is thrown in the initial render
-    if (hash !== "dev") {
-        setTimeout(() => {
-            getCurrentWindow().show()
-        }, 3000)
-    }
+    // if (hash !== "dev") {
+    //     setTimeout(() => {
+    //         getCurrentWindow().show()
+    //     }, 3000)
+    // }
 
     const container = document.getElementById("root")
     if (container) {

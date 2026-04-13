@@ -2,7 +2,7 @@ import { readFile } from "@tauri-apps/plugin-fs"
 import { store } from "@tauri-store/valtio"
 import * as exifr from "exifr"
 import { proxy } from "valtio"
-import AppStore from "@/hooks/appState"
+import { getSetting } from "@/state/settings"
 import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
 import { bindProxy } from "@/utils/valtio"
@@ -113,8 +113,8 @@ export type MediaItemParam = ReadonlyState<MediaItem> | MediaItem | number | nul
 
 // TODO: revisit
 async function cleanUp() {
-    const clearHistory = AppStore.store.clearHistoryOnExit
-    const clearPins = AppStore.store.clearPinsOnExit
+    const clearHistory = getSetting("metadata.clearHistoryOnExit")
+    const clearPins = getSetting("metadata.clearPinsOnExit")
 
     const saveIds = getMetadataStore()
         .items.filter((im) => {

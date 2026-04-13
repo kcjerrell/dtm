@@ -8,6 +8,7 @@ import UpgradeButton from "@/metadata/toolbar/UpgradeButton"
 import { themeHelpers } from "@/theme/helpers"
 import { cs } from "@/utils/helpers"
 import Tooltip from "../Tooltip"
+import { useSetting } from "@/state/settings"
 
 const Root = chakra(
     "nav",
@@ -78,15 +79,14 @@ export type SidebarVariant = "attached" | "float"
 interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> {}
 function SidebarComponent(props: SidebarProps) {
     const { children, ...rest } = props
-    const { isSidebarVisible } = useSnapshot(AppStore.store)
-    const { showSidebar } = AppStore
+    const [isSidebarVisible, setIsSidebarVisible] = useSetting("app.isSidebarVisible")
 
     return (
         <Root
             data-solid
             className={"group"}
             hidden={!isSidebarVisible}
-            onClick={() => showSidebar(!isSidebarVisible)}
+            onClick={() => setIsSidebarVisible(!isSidebarVisible)}
             {...rest}
         >
             {children}
@@ -211,7 +211,7 @@ interface SidebarButtonProps extends ComponentProps<typeof ButtonBase> {
 export function SidebarButton(props: SidebarButtonProps) {
     const { item, onClick, isActive = false, isUpgrade = false, ref, children, ...rest } = props
     const { label, icon: Icon } = item
-    const { isSidebarVisible } = useSnapshot(AppStore.store)
+    const [isSidebarVisible, _] = useSetting("app.isSidebarVisible")
 
     return (
         <ButtonBase

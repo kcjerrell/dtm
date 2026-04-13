@@ -16,6 +16,7 @@ import { ImageItem } from "./metadata/state/ImageItem"
 import { loadImage2 } from "./metadata/state/imageLoaders"
 import { addImageItem, clearAll, clearCurrent } from "./metadata/state/metadataStore"
 import { postMessage } from "./state/Messages"
+import { getSetting, subscribeSetting, updateSetting } from "./state/settings"
 import { themeHelpers } from "./theme/helpers"
 import { viewDescription } from "./views"
 
@@ -40,14 +41,17 @@ async function createAppMenus() {
     const _global = globalThis as unknown as { _menuUnsubscribe?: () => void }
     if (_global._menuUnsubscribe) _global._menuUnsubscribe()
 
-    _global._menuUnsubscribe = subscribe(AppStore.store, async () => {
-        if (
-            lastOpts?.clearHistoryOnExit !== AppStore.store.clearHistoryOnExit ||
-            lastOpts?.clearPinsOnExit !== AppStore.store.clearPinsOnExit
-        ) {
-            await updateMenu()
-        }
+    const clearHistoryUnsub = subscribeSetting("metadata.clearHistoryOnExit", async () => {
+        await updateMenu()
     })
+    const clearPinsUnsub = subscribeSetting("metadata.clearPinsOnExit", async () => {
+        await updateMenu()
+    })
+
+    _global._menuUnsubscribe = () => {
+        clearHistoryUnsub()
+        clearPinsUnsub()
+    }
 
     // Will become the application submenu on MacOS
     const aboutSubmenu = await Submenu.new({
@@ -184,7 +188,7 @@ async function createAppMenus() {
                         text: view.label,
                         id: `view-${view.viewId}`,
                         action: async () => {
-                            AppStore.setView(view.viewId)
+                            updateSetting("app.currentView", view.viewId)
                         },
                     })
                 }),
@@ -261,7 +265,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
                 id: "options_clearPinsOnExit",
                 checked: opts?.clearPinsOnExit,
                 action: async () => {
-                    AppStore.store.clearPinsOnExit = !opts?.clearPinsOnExit
+                    updateSetting("metadata.clearPinsOnExit", !opts?.clearPinsOnExit)
                 },
             }),
             await CheckMenuItem.new({
@@ -269,7 +273,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
                 id: "options_clearHistoryOnExit",
                 checked: opts?.clearHistoryOnExit,
                 action: async () => {
-                    AppStore.store.clearHistoryOnExit = !opts?.clearHistoryOnExit
+                    updateSetting("metadata.clearHistoryOnExit", !opts?.clearHistoryOnExit)
                 },
             }),
         ],
@@ -288,7 +292,7 @@ export async function updateMenu(opts?: CreateOptionMenuOpts) {
 
 async function createOpts(): Promise<CreateOptionMenuOpts> {
     return {
-        clearHistoryOnExit: AppStore.store.clearHistoryOnExit,
-        clearPinsOnExit: AppStore.store.clearPinsOnExit,
+        clearHistoryOnExit: getSetting("metadata.clearHistoryOnExit"),
+        clearPinsOnExit: getSetting("metadata.clearPinsOnExit"),
     }
 }
