@@ -2,7 +2,7 @@
 
 use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
-use tauri_plugin_http::reqwest;
+use reqwest;
 use tauri_plugin_log::log::LevelFilter;
 use tauri_plugin_window_state::StateFlags;
 

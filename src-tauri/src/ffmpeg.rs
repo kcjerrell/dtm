@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_http::reqwest;
+use reqwest;
 use tokio::fs;
 use tokio::process::Command;
 
