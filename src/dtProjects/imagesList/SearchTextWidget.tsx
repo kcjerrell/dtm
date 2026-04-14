@@ -14,6 +14,7 @@ function SearchTextWidget(props: SearchTextWidgetProps) {
 
     return (
         <SearchChip
+            ariaLabel={"Search text"}
             shrink
             onClick={() => {
                 uiState.setSelectedTab("search")

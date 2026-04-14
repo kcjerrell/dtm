@@ -1,31 +1,47 @@
 import { ChakraProvider } from "@chakra-ui/react"
 import { invoke } from "@tauri-apps/api/core"
-import { getCurrentWindow } from "@tauri-apps/api/window"
 import { motion } from "motion/react"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { HotkeysProvider } from "react-hotkeys-hook"
 import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
-import AppStore from "./hooks/appState"
 import { Hotkey } from "./hooks/keyboard"
 import "./index.css"
+import { addTestHooks } from "./testHooks"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
+import { loadSettingsStore } from "./state/settings"
 
 const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
 }
 
-function bootstrap() {
+async function reset_db() {
+    const { preloadDTP } = await import("./dtProjects/state/context")
+    console.log("resetting db")
+    // this ensures the db has started
+    await preloadDTP()
+    await invoke("dtp_reset_db")
+}
+
+async function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
 
-    window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
+    await loadSettingsStore()
 
-    const hash = document.location?.hash?.slice(1)
-    if (hash === "mini") AppStore.setView("mini")
-    else if (hash === "vid") AppStore.setView("vid")
+    window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
+    window.__reset_db = reset_db
+    window.__reset_metadata_store = async () => {
+        const { resetMetadataStore } = await import("./metadata/state/metadataStore")
+        resetMetadataStore()
+    }
+    addTestHooks()
+
+    // const hash = document.location?.hash?.slice(1)
+    // if (hash === "mini") AppStore.setView("mini")
+    // else if (hash === "vid") AppStore.setView("vid")
 
     const RootComponent = App
 
@@ -47,11 +63,11 @@ function bootstrap() {
     }
 
     // this ensures that the window appears even if an error is thrown in the initial render
-    if (hash !== "dev") {
-        setTimeout(() => {
-            getCurrentWindow().show()
-        }, 3000)
-    }
+    // if (hash !== "dev") {
+    //     setTimeout(() => {
+    //         getCurrentWindow().show()
+    //     }, 3000)
+    // }
 
     const container = document.getElementById("root")
     if (container) {

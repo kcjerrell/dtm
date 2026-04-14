@@ -16,6 +16,7 @@ export interface VideoExportOpts {
     fps: number
     width?: number
     height?: number
+    audio?: [number, string]
 }
 
 export interface NameOpts {
@@ -60,4 +61,43 @@ export async function checkPattern(
     numFrames: number,
 ): Promise<CheckPatternResult> {
     return await invoke("check_pattern", { pattern, dir, numFrames })
+}
+
+export async function getVideoMetadata(path: string): Promise<Record<string, unknown>> {
+    const data = await invoke("get_video_metadata", { path })
+    const ob = JSON.parse(data as string)
+    return parseKeys(ob)
+}
+
+function parseKeys<T = Record<string, unknown>>(object: T): T | Record<string, unknown> {
+    if (typeof object !== "object" || object === null) return object
+    if (Array.isArray(object)) {
+        return object.map(parseKeys) as T
+    }
+    const ob = object as Record<string, unknown>
+    for (const key in ob) {
+        const value = ob[key]
+        if (typeof value === "object" && value !== null) {
+            ob[key] = parseKeys(value)
+        }
+        if (maybeJson(value)) {
+            try {
+                ob[key] = JSON.parse(value)
+            } catch {
+                // ignore
+            }
+        }
+    }
+    return ob
+}
+
+function maybeJson(value: unknown): value is string {
+    if (typeof value !== "string") return false
+    if (value.startsWith("{") && value.endsWith("}")) return true
+    if (value.startsWith("[") && value.endsWith("]")) return true
+    return false
+}
+
+export async function getVideoThumbnail(path: string): Promise<Uint8Array> {
+    return new Uint8Array(await invoke("get_video_thumbnail", { path }))
 }

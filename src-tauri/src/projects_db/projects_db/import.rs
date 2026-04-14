@@ -7,7 +7,7 @@ use entity::{
     images,
 };
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};
@@ -47,6 +47,16 @@ impl ProjectsDb {
                 .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
                 .collect();
 
+            let clip_ids: HashSet<i64> =
+                HashSet::from_iter(histories_filtered.iter().filter_map(|h| {
+                    if h.clip_id > 0 {
+                        Some(h.clip_id)
+                    } else {
+                        None
+                    }
+                }));
+            let clip_counts = dt_project.get_clip_counts(Vec::from_iter(clip_ids)).await?;
+
             let preview_thumbs = HashMap::new();
 
             let models_lookup = self.process_models(&histories_filtered).await?;
@@ -54,6 +64,7 @@ impl ProjectsDb {
             let (images, batch_image_loras, batch_image_controls) = self.prepare_image_data(
                 project.id,
                 &histories_filtered,
+                clip_counts,
                 &models_lookup,
                 preview_thumbs,
             );
@@ -109,6 +120,7 @@ impl ProjectsDb {
         &self,
         project_id: i64,
         histories: &[TensorHistoryImport],
+        clip_counts: HashMap<i64, i64>,
         models_lookup: &HashMap<ModelTypeAndFile, i64>,
         preview_thumbs: HashMap<i64, Vec<u8>>,
     ) -> (
@@ -129,7 +141,13 @@ impl ProjectsDb {
                     preview_id: Set(h.preview_id),
                     thumbnail_half: Set(preview_thumb),
                     clip_id: Set(h.clip_id),
-                    num_frames: Set(h.num_frames.map(|n| n as i16)),
+                    num_frames: Set({
+                        if h.clip_id != 0 && clip_counts.contains_key(&h.clip_id) {
+                            Some(clip_counts[&h.clip_id] as i16)
+                        } else {
+                            None
+                        }
+                    }),
                     prompt: Set(h.prompt.trim().to_string()),
                     negative_prompt: Set(h.negative_prompt.trim().to_string()),
                     prompt_search: Set(process_prompt(&h.prompt)),

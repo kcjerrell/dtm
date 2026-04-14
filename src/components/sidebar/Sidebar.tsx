@@ -8,6 +8,7 @@ import UpgradeButton from "@/metadata/toolbar/UpgradeButton"
 import { themeHelpers } from "@/theme/helpers"
 import { cs } from "@/utils/helpers"
 import Tooltip from "../Tooltip"
+import { useSetting } from "@/state/settings"
 
 const Root = chakra(
     "nav",
@@ -78,15 +79,14 @@ export type SidebarVariant = "attached" | "float"
 interface SidebarProps extends PropsWithChildren<ComponentProps<typeof Root>> {}
 function SidebarComponent(props: SidebarProps) {
     const { children, ...rest } = props
-    const { isSidebarVisible } = useSnapshot(AppStore.store)
-    const { showSidebar } = AppStore
+    const [isSidebarVisible, setIsSidebarVisible] = useSetting("app.isSidebarVisible")
 
     return (
         <Root
             data-solid
             className={"group"}
             hidden={!isSidebarVisible}
-            onClick={() => showSidebar(!isSidebarVisible)}
+            onClick={() => setIsSidebarVisible(!isSidebarVisible)}
             {...rest}
         >
             {children}
@@ -108,6 +108,13 @@ const ButtonBase = chakra("button", {
         borderRight: "3px solid transparent",
         fontWeight: "500",
         borderRadius: "0",
+        _focus: {},
+        _focusVisible: {
+            outline: "1px solid",
+            outlineColor: "grayc.4/50",
+            outlineOffset: "-1px",
+            bgColor: "bg.0/50",
+        },
     },
     variants: {
         isActive: {
@@ -204,7 +211,7 @@ interface SidebarButtonProps extends ComponentProps<typeof ButtonBase> {
 export function SidebarButton(props: SidebarButtonProps) {
     const { item, onClick, isActive = false, isUpgrade = false, ref, children, ...rest } = props
     const { label, icon: Icon } = item
-    const { isSidebarVisible } = useSnapshot(AppStore.store)
+    const [isSidebarVisible, _] = useSetting("app.isSidebarVisible")
 
     return (
         <ButtonBase
@@ -242,6 +249,7 @@ export function ColorModeToggle() {
                 _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
                 size="xs"
                 variant="ghost"
+                outlineOffset={0}
                 onClick={(e) => {
                     e.stopPropagation()
                     toggleColorMode()
@@ -262,6 +270,7 @@ export function FontSizeToggle() {
                     _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
                     size="xs"
                     variant="ghost"
+                    outlineOffset={0}
                     onClick={(e) => {
                         e.stopPropagation()
                         themeHelpers.decreaseSize()
@@ -276,6 +285,7 @@ export function FontSizeToggle() {
                     _hover={{ color: "fg.1", bgColor: "unset", scale: 1.1 }}
                     size="xs"
                     variant="ghost"
+                    outlineOffset={0}
                     onClick={(e) => {
                         e.stopPropagation()
                         themeHelpers.increaseSize()

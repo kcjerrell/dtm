@@ -4,8 +4,8 @@ use crate::{
     dtp_service::{
         events::DTPEvent,
         jobs::{
-            maintenance::run_maintenance, sync_folder::SyncFolderJob, CheckFileJob, Job, JobContext,
-            JobResult,
+            maintenance::run_maintenance, sync_folder::SyncFolderJob, CheckFileJob, Job,
+            JobContext, JobResult,
         },
     },
     projects_db::{dtos::watch_folder::WatchFolderDTO, folder_cache, ProjectsDb},
@@ -87,8 +87,7 @@ impl Job for CheckFolderJob {
         if watchfolder.is_locked && self.reset_lock {
             locked_update = Some(false);
         }
-        println!("locked_update: {:?}", locked_update);
-        println!("missing_update: {:?}", missing_update);
+
         if locked_update.is_some() || missing_update.is_some() {
             ctx.pdb
                 .update_watch_folder(watchfolder.id, None, missing_update, locked_update)
@@ -102,6 +101,7 @@ impl Job for CheckFolderJob {
 
         // run maintenance tasks (if any) before scheduling follow-up work
         if watchfolder.maint > 0 {
+            log::info!("Required maintenance for folder {}", watchfolder.path);
             run_maintenance(watchfolder.maint, watchfolder, ctx).await?;
         }
 

@@ -1,6 +1,6 @@
 import { Box, FormatByte, Grid } from "@chakra-ui/react"
 import { listen } from "@tauri-apps/api/event"
-import { memo, useEffect } from "react"
+import { memo, type PropsWithChildren, useEffect } from "react"
 import { ffmpegCheck, ffmpegDownload } from "@/commands"
 import { PanelButton, PanelSection, Progress } from "@/components"
 import { useProxyRef } from "./valtioHooks"
@@ -11,9 +11,10 @@ type FfmpegProgress = {
     total: number
     received: number
     msg: string
+    state: string
 }
 
-export function useFfmpeg() {
+export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
     const { state, snap } = useProxyRef(() => ({
         showComponent: false,
         status: "unknown" as FfmpegStatus,
@@ -32,34 +33,25 @@ export function useFfmpeg() {
 
     const installFfmpeg = async () => {
         const unlisten = await listen<FfmpegProgress>("ffmpeg_download_progress", (event) => {
-            // event msgs are progress, verifying, extracting, installing, done
-            // probably excessive
             const msg = event.payload.msg
-            switch (msg) {
-                case "progress":
-                    state.progress = event.payload.progress
-                    state.total = event.payload.total
-                    state.received = event.payload.received
-                    break
-                case "verifying":
-                    state.progressText = "Verifying..."
-                    break
-                case "extracting":
-                    state.progressText = "Extracting..."
-                    break
-                case "installing":
-                    state.progressText = "Installing..."
-                    break
-                case "done":
-                    state.progressText = "Done"
-                    break
+            if (event.payload.state === "downloading") {
+                state.progress = event.payload.progress
+                state.total = event.payload.total
+                state.received = event.payload.received
             }
+            if (event.payload.state === "done") {
+                state.progress = 1
+                state.received = state.total
+                if (hideOnComplete) state.showComponent = false
+            }
+            state.progressText = msg
         })
         state.status = "installing"
         try {
             state.progressText = "Downloading..."
             await ffmpegDownload()
             state.status = "installed"
+            onComplete?.()
         } catch (e) {
             state.status = "error"
             state.progressText = `Something went wrong: ${e}`
@@ -68,10 +60,11 @@ export function useFfmpeg() {
         }
     }
 
-    const FfmpegComponent = memo((props: ChakraProps) => {
+    const FfmpegComponent = memo((props: PropsWithChildren<ChakraProps>) => {
+        const { children, ...restProps } = props
         if (!snap.showComponent) return null
         return (
-            <PanelSection {...props}>
+            <PanelSection data-testid="ffmpeg-section" {...restProps}>
                 <Grid
                     padding={4}
                     gridTemplateColumns={"auto auto"}
@@ -80,7 +73,7 @@ export function useFfmpeg() {
                     justifyContent={"center"}
                     gap={4}
                 >
-                    <Box>FFMPEG must be downloaded before video can be exported.</Box>
+                    <Box>{children}</Box>
                     <PanelButton
                         onClick={() => {
                             installFfmpeg()

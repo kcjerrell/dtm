@@ -1,6 +1,7 @@
+import type { RefObject } from "react"
 import { useSnapshot } from "valtio"
+import { useSetting } from "@/state/settings"
 import AppStore from "./appState"
-import { RefObject } from "react"
 
 export type RootElement =
     | /** root react element, covers entire window */
@@ -28,19 +29,19 @@ function getElement(id: keyof typeof rootElementIds, view?: string) {
 }
 
 export function useRootElement(rootElement: RootElement) {
-    const { currentView } = useSnapshot(AppStore.store)
+    const [currentView] = useSetting("app.currentView")
 
     if (process.env.NODE_ENV === "test") {
         return document.getElementById("root")
     }
 
     const element = getElement(rootElement, currentView)
-    if (!element) throw new Error(`Element ${rootElementIds[rootElement]} not found`)
+    // if (!element) throw new Error(`Element ${rootElementIds[rootElement]} not found`)
     return element
 }
 
 export function useRootElementRef(rootElement?: RootElement): RefObject<HTMLDivElement | null> {
-    const { currentView } = useSnapshot(AppStore.store)
+    const [currentView] = useSetting("app.currentView")
 
     if (!rootElement) return { current: null }
 

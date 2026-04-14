@@ -9,12 +9,13 @@ function FiltersWidget(props: FiltersWidgetProps) {
     const { images, uiState } = useDTP()
     const snap = images.useSnap()
 
-    const filtersCount = snap.imageSource.filters?.filter((f) => f.target !== "type")?.length
+    const filtersCount = snap.imageSource.filters?.length ?? 0
 
     if (!filtersCount) return null
 
     return (
         <SearchChip
+            ariaLabel={"Search filters"}
             onClick={() => {
                 uiState.setSelectedTab("search")
             }}

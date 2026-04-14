@@ -117,6 +117,19 @@ const themeConfig = defineConfig({
                     _dark: { borderColor: "grayc.13" },
                 },
             },
+            scrollThin: {
+                value: {
+                    _scrollbar: { backgroundColor: "none", width: "4px", borderRadius: "2px" },
+                    _scrollbarThumb: {
+                        backgroundColor: "fg.2/50",
+                        width: "4px",
+                        borderRadius: "2px",
+                        boxShadow: "pane1",
+                        borderRight: "1px solid",
+                        borderColor: "bg.1",
+                    },
+                },
+            },
         }),
         semanticTokens: {
             colors: {

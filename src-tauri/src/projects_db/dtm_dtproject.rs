@@ -6,8 +6,10 @@ use tauri::{
 };
 
 use crate::projects_db::{
+    audio::audio_request,
+    decode_audio,
     projects_db::MixedError,
-    tensors::{decode_tensor, scribble_mask_to_png},
+    tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
     DTProject, ProjectsDb,
 };
 
@@ -21,46 +23,77 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
 // dtm://dtm_dtproject/thumbhalf/5/82988
 // dtm://dtm_dtproject/{item type}/{project_id}/{item id}
 
+// note: while audio is technically a tensor type, it is better served from a different route
+// dtm://dtm_dtproject/audio/{project_id}/{item_id}
+
 static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
 #[derive(Default)]
-struct DTPRequest {
-    item_type: String,
-    project_id: i64,
-    item_id: String,
-    node: Option<i64>,
-    scale: Option<u32>,
-    invert: Option<bool>,
-    mask: Option<String>,
+pub struct DTPResource {
+    pub item_type: String,
+    pub project_id: i64,
+    pub item_id: String,
+    pub node: Option<i64>,
+    pub scale: Option<u32>,
+    pub invert: Option<bool>,
+    pub mask: Option<String>,
+    pub duration: Option<f64>,
+    pub range_start: Option<usize>,
+    pub range_end: Option<usize>,
 }
 
-fn parse_request(uri: &Uri) -> Option<DTPRequest> {
+fn parse_request<T>(request: &http::Request<T>) -> Option<DTPResource> {
+    let uri = request.uri();
     let path: Vec<&str> = uri.path().split('/').collect();
     if path.len() < 4 {
         return None;
     }
 
-    let mut req = DTPRequest {
+    let mut resource = DTPResource {
         item_type: path[1].to_string(),
         project_id: path[2].parse().unwrap(),
         item_id: path[3].to_string(),
         ..Default::default()
     };
 
+    if let Some(range) = request.headers().get("Range") {
+        let range = range.to_str().unwrap();
+
+        if let Some(range) = range.strip_prefix("bytes=") {
+            let mut parts = range.split('-');
+
+            let start = parts.next().unwrap();
+            let end = parts.next().unwrap_or("");
+
+            resource.range_start = if start.is_empty() {
+                None
+            } else {
+                Some(start.parse::<usize>().unwrap())
+            };
+
+            resource.range_end = if end.is_empty() {
+                None
+            } else {
+                Some(end.parse::<usize>().unwrap())
+            };
+        }
+    }
+
     if let Some(query) = uri.query() {
         for q in query.split('&') {
             let (key, value) = q.split_once('=').unwrap();
             match key {
-                "node" => req.node = Some(value.parse().unwrap()),
-                "s" => req.scale = Some(value.parse().unwrap()),
-                "invert" => req.invert = Some(value.parse().unwrap()),
-                "mask" => req.mask = Some(value.to_string()),
+                "node" => resource.node = Some(value.parse().unwrap()),
+                "s" => resource.scale = Some(value.parse().unwrap()),
+                "invert" => resource.invert = Some(value.parse().unwrap()),
+                "mask" => resource.mask = Some(value.to_string()),
+                "t" => resource.duration = Some(value.parse().unwrap()),
                 _ => (),
             }
         }
     }
 
-    Some(req)
+    Some(resource)
 }
 
 pub struct DtmProtocol {
@@ -100,7 +133,7 @@ impl DtmProtocol {
         &self,
         request: http::Request<T>,
     ) -> Result<Response<Vec<u8>>, String> {
-        let req = parse_request(request.uri());
+        let req = parse_request(&request);
 
         if req.is_none() {
             return Ok(Response::builder()
@@ -111,24 +144,27 @@ impl DtmProtocol {
 
         let req = req.unwrap();
 
-        let item_type = req.item_type;
-        let project_id: i64 = req.project_id;
-
         let project_path = self
-            .get_project_path(project_id)
+            .get_project_path(req.project_id)
             .await
             .map_err(|e| format!("Failed to get project path: {}", e))?;
 
-        let item_id = req.item_id;
-
-        let node = req.node;
-        let scale = req.scale;
-        let invert = req.invert;
-        let mask = req.mask;
-        match item_type.as_str() {
-            "thumb" => thumb(&project_path, &item_id, false).await,
-            "thumbhalf" => thumb(&project_path, &item_id, true).await,
-            "tensor" => tensor(&project_path, &item_id, node, scale, invert, mask).await,
+        match req.item_type.as_str() {
+            "thumb" => thumb(&project_path, &req.item_id, false).await,
+            "thumbhalf" => thumb(&project_path, &req.item_id, true).await,
+            "tensor" => {
+                tensor(
+                    &project_path,
+                    &req.item_id,
+                    req.node,
+                    req.scale,
+                    req.invert,
+                    req.mask.as_deref(),
+                    req.duration,
+                )
+                .await
+            }
+            "audio" => audio_request(&project_path, &req).await,
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("Not Found".as_bytes().to_vec())
@@ -182,7 +218,8 @@ async fn tensor(
     node: Option<i64>,
     scale: Option<u32>,
     invert: Option<bool>,
-    _mask: Option<String>,
+    _mask: Option<&str>,
+    duration: Option<f64>,
 ) -> Result<Response<Vec<u8>>, String> {
     let dtp = DTProject::get(full_project_path)
         .await
@@ -193,20 +230,31 @@ async fn tensor(
         .await
         .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
 
-    let metadata = match node {
-        Some(node) => Some(
-            dtp.get_history_full(node)
-                .await
-                .map_err(|e| format!("Failed to get history: {}", e))?
-                .history,
-        ),
-        None => None,
-    };
+    let tensor_type = classify_type(name).unwrap_or("");
 
-    let body = match classify_type(name).unwrap_or("") {
+    let body = match tensor_type {
         "pose" => None,
+        "audio" => {
+            panic!("audio requests should use dtm://dtm_dtproject/audio/project_id/item_id")
+        }
         "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
-            let png = decode_tensor(tensor, true, metadata, scale)
+            let metadata = match node {
+                Some(node) => Some(
+                    dtp.get_history_full(node)
+                        .await
+                        .map_err(|e| format!("Failed to get history: {}", e))?
+                        .history,
+                ),
+                None => None,
+            };
+            let png = decode_tensor(
+                tensor,
+                DecodeTensorOptions {
+                    as_png: true,
+                    history_node: metadata,
+                    scale,
+                },
+            )
                 .map_err(|e| format!("Failed to decode tensor: {}", e))?;
             Some(png)
         }
@@ -221,7 +269,14 @@ async fn tensor(
     match body {
         Some(body) => Response::builder()
             .status(StatusCode::OK)
-            .header("Content-Type", "image/png")
+            .header(
+                "Content-Type",
+                if tensor_type == "audio" {
+                    "audio/wav"
+                } else {
+                    "image/png"
+                },
+            )
             .header("Access-Control-Allow-Origin", "*")
             .header("Access-Control-Allow-Methods", "GET")
             .body(body)

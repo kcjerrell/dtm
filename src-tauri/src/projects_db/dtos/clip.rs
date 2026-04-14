@@ -31,6 +31,12 @@ impl Clip {
     }
 }
 
+impl sqlx::FromRow<'_, SqliteRow> for Clip {
+    fn from_row(row: &SqliteRow) -> Result<Self, sqlx::Error> {
+        Ok(Self::map_row(row))
+    }
+}
+
 #[derive(serde::Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipFrame {

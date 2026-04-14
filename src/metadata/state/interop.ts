@@ -1,8 +1,9 @@
-import AppStore from "@/hooks/appState"
+import { updateSetting } from "@/state/settings"
 import type { ImageSource } from "@/types"
-import type { ImageItem } from "./ImageItem"
+import { ImageItem } from "./ImageItem"
 import { loadImage2 } from "./imageLoaders"
-import { createImageItem, getMetadataStore, selectImage } from "./metadataStore"
+import type MediaItem from "./MediaItem"
+import { addImageItem, getMetadataStore, selectImage } from "./metadataStore"
 
 export async function sendToMetadata(
     imageData: Uint8Array<ArrayBuffer>,
@@ -11,20 +12,27 @@ export async function sendToMetadata(
 ) {
     // check if the item already has been sent to the store
     const state = getMetadataStore()
-    let imageItem = state.images.find((im) =>
+    let imageItem = state.items.find((im) =>
         compareImageSource(im.source, source),
-    ) as Nullable<ImageItem>
-    imageItem ??= await createImageItem(imageData, type, source)
+    ) as Nullable<MediaItem>
+
+    if (!imageItem) {
+        const image = await ImageItem.fromBuffer(imageData, type, source)
+        if (image) {
+            imageItem = image
+            imageItem = addImageItem(image)
+        }
+    }
 
     if (imageItem) {
         selectImage(imageItem)
-        AppStore.setView("metadata")
+        updateSetting("app.currentView", "metadata")
     }
 }
 
 export function handleDrop(data: unknown) {
     if (data === "drag") {
-        AppStore.setView("metadata")
+        updateSetting("app.currentView", "metadata")
         loadImage2("drag")
     }
 }

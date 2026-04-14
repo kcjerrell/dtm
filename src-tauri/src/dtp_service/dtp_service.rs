@@ -218,6 +218,15 @@ impl DTPService {
         self.events.emit(DTPEvent::WatchFoldersChanged);
         Ok(())
     }
+
+    #[dtp_command]
+    pub async fn reset_db(&self) -> Result<(), String> {
+        let db = self.get_db().await?;
+        let folders = db.list_watch_folders().await?;
+        let ids = folders.iter().map(|f| f.id).collect::<Vec<i64>>();
+        db.remove_watch_folders(ids).await?;
+        Ok(())
+    }
 }
 
 #[dtm_command]
@@ -251,7 +260,7 @@ const PROJECT_FILE_NAME: &str = "projects4-dev.db";
 #[cfg(not(dev))]
 const PROJECT_FILE_NAME: &str = "projects4.db";
 
-fn get_db_path(app_handle: &AppHandleWrapper) -> String {
+pub fn get_db_path(app_handle: &AppHandleWrapper) -> String {
     let app_data_dir = app_handle.get_app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");

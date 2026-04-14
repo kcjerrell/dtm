@@ -247,10 +247,10 @@ export enum MediaType {
     Video = 1,
 }
 
-export type ICommandItem<T = undefined, C = undefined> = ICommand<T, C>
+// export type ICommandItem<T = undefined, C = undefined> = ICommand<T, C>
 
 let spacerCounter = 0
-export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): ICommandItem {
+export function getSpacer<T, C>(type?: "menu" | "toolbar" | "both" | undefined): ICommand<T, C> {
     let menuOnly = false
     let toolbarOnly = false
 
@@ -274,7 +274,7 @@ export function getSpacer(type?: "menu" | "toolbar" | "both" | undefined): IComm
  * @template T - The type of the items in the list
  * @template C - Optional extra arg used by various methods
  */
-export interface ICommand<T, C = undefined> {
+export interface ICommand<T = undefined, C = undefined> {
     id: string
 
     menuOnly?: boolean
@@ -316,6 +316,66 @@ export interface ICommand<T, C = undefined> {
     getTipText?: (selected: T[], context?: C) => string
 
     onClick?: (selected: T[], context?: C) => void | Promise<void>
+
+    /** show ellipses on menu item */
+    ellipses?: boolean
+}
+
+/**
+ * Interface used for context menus and toolbars
+ * Specifically targeted at a single item, rather than a list
+ *
+ * Context is optional - prefer creating commands in a hook and using the
+ * dependencies directly
+ *
+ * @template T - The type of the items in the list
+ * @template C - Optional extra arg used by various methods
+ */
+export interface ICommand1<T = undefined, C = undefined> {
+    id: string
+
+    menuOnly?: boolean
+    toolbarOnly?: boolean
+    spacer?: boolean
+    separator?: boolean
+
+    accelerator?: string
+
+    icon?: IconType | ComponentType<{ item: T | undefined; context?: C }>
+    getIcon?: (
+        selected: T | undefined,
+        context?: C,
+    ) => IconType | ComponentType<{ item: T | undefined; context?: C }>
+
+    /** used to reorder items in the menu. toolbars will use items in the order they are given */
+    menuIndex?: number
+
+    /** item will be enabled if any item(s) are selected */
+    requiresSelection?: boolean
+    /** item will be enabled only if a single item is selected */
+    requiresSingleSelection?: boolean
+    /** item will be enabled only if multiple items are selected */
+    requiresMultipleSelection?: boolean
+
+    /** overrides selection options */
+    getEnabled?: (selected: T | undefined, context?: C) => boolean
+
+    /** item behavior if getEnabled returns false */
+    toolbarEnableMode?: "disable" | "hide"
+    /** item behavior if getEnabled returns false */
+    menuEnableMode?: "disable" | "hide"
+
+    /** takes precedence over tipTitle and tipText */
+    tip?: React.ReactNode
+    /** will be used as the tooltip title as well as aria-label and menu label */
+    label?: string
+    tipText?: string
+    getTip?: (selected: T | undefined, context?: C) => React.ReactNode
+    /** will be used as the tooltip title as well as aria-label and menu label */
+    getLabel?: (selected: T | undefined, context?: C) => string
+    getTipText?: (selected: T | undefined, context?: C) => string
+
+    onClick?: (selected: T | undefined, context?: C) => void | Promise<void>
 
     /** show ellipses on menu item */
     ellipses?: boolean

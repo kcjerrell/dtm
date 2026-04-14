@@ -1,17 +1,17 @@
 import { invoke } from "@tauri-apps/api/core"
-import { save } from "@tauri-apps/plugin-dialog"
 import * as fs from "@tauri-apps/plugin-fs"
 import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
+import { PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import { sendToMetadata } from "@/metadata/state/interop"
-import type { ICommandItem } from "@/types"
+import type { ICommand } from "@/types"
 import { showMenu } from "@/utils/menu"
+import { save } from "@/utils/tauri"
 import { useDTP } from "../state/context"
 import type { ResourceHandle } from "../util/resourceHandle"
-import { PoseIcon } from "@/components/icons/icons"
 
 export interface ImageCommandContext {
     isContextMenu?: boolean
@@ -35,11 +35,11 @@ export function useImageCommands(): [
         selected: ResourceHandle[],
         context: ImageCommandContext,
     ) => Promise<(() => void | Promise<void>) | null>,
-    ICommandItem<ResourceHandle, ImageCommandContext>[],
+    ICommand<ResourceHandle, ImageCommandContext>[],
 ] {
     const { uiState, projects } = useDTP()
 
-    const commands: ICommandItem<ResourceHandle, ImageCommandContext>[] = useMemo(
+    const commands: ICommand<ResourceHandle, ImageCommandContext>[] = useMemo(
         () => [
             {
                 id: "copyImage",

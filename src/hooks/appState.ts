@@ -4,14 +4,6 @@ import { store } from "@tauri-store/valtio"
 import type { SidebarVariant } from "@/components/sidebar/Sidebar"
 import { getStoreName } from "@/utils/helpers"
 
-type ViewRequest = {
-    open: {
-        projectId?: number
-        tensorId?: string
-        nodeId?: number
-    }
-}
-
 type AppStateType = {
     // update: Awaited<ReturnType<typeof check>>
     updateSize: number
@@ -26,14 +18,9 @@ type AppStateType = {
         | "installed"
         | "error"
     updateAttempts: number
-    currentView: string
-    isSidebarVisible: boolean
     sidebarStyle: {
         variant?: SidebarVariant
     }
-    viewRequests: Record<string, ViewRequest[]>
-    clearHistoryOnExit: boolean
-    clearPinsOnExit: boolean
 }
 
 let update: Awaited<ReturnType<typeof check>> = null
@@ -44,15 +31,10 @@ const appStore = store(
         updateProgress: 0,
         updateStatus: "unknown",
         updateAttempts: 0,
-        currentView: "metadata",
-        isSidebarVisible: true,
         sidebarStyle: {},
-        viewRequests: {},
-        clearHistoryOnExit: false,
-        clearPinsOnExit: false,
     } as AppStateType,
     {
-        filterKeys: ["currentView", "isSidebarVisible", "clearHistoryOnExit", "clearPinsOnExit"],
+        filterKeys: [],
         filterKeysStrategy: "pick",
         saveStrategy: "debounce",
         saveInterval: 1000,
@@ -102,34 +84,16 @@ async function retryUpdate() {
     await checkForUpdate()
 }
 
-function setView(view: string) {
-    appState.currentView = view
-    if (!appState.viewRequests[view]) appState.viewRequests[view] = []
-    localStorage.setItem("currentView", view)
-}
-
-function setShowSidebar(show: boolean) {
-    appState.isSidebarVisible = show
-}
-
 function setSidebarVariant(variant: SidebarVariant | undefined) {
     appState.sidebarStyle.variant = variant
-}
-
-async function setViewRequest(view: string, request: ViewRequest) {
-    await setView(view)
-    appState.viewRequests[view].push(request)
 }
 
 const AppStore = {
     store: appState,
     checkForUpdate,
     downloadAndInstallUpdate,
-    setView,
     retryUpdate,
-    showSidebar: setShowSidebar,
     setSidebarVariant,
-    setViewRequest,
 }
 
 export default AppStore

@@ -43,17 +43,17 @@ impl Job for CheckFileJob {
             .map_err(|e| e.to_string())?;
 
         if !fs::exists(&self.project_path).unwrap_or(false) {
-            println!("File does not exist: {}", self.project_path);
+            log::debug!("File does not exist: {}", self.project_path);
             match entity {
                 Some(entity) => {
-                    println!("Removing project: {}", entity.id);
+                    log::debug!("Removing project: {}", entity.id);
                     let job = RemoveProjectJob {
                         project_id: entity.id,
                     };
                     return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
                 }
                 None => {
-                    println!("File does not exist and no project found");
+                    log::debug!("File does not exist and no project found");
                     return Ok(JobResult::None);
                 }
             }
@@ -66,7 +66,7 @@ impl Job for CheckFileJob {
         match entity {
             // if an entity was found, compare size and modified
             Some(entity) => {
-                println!("Project found for path: {}", self.project_path);
+                log::debug!("Project found for path: {}", self.project_path);
                 if entity.filesize.unwrap_or(0) != filesize || entity.modified != modified {
                     let job = UpdateProjectJob {
                         project_id: entity.id,
@@ -78,7 +78,7 @@ impl Job for CheckFileJob {
                 }
             }
             None => {
-                println!("No project found for path: {}", self.project_path);
+                log::debug!("No project found for path: {}", self.project_path);
                 let job = AddProjectJob {
                     path: project_path.to_string(),
                     watchfolder_id: watchfolder.id,
@@ -86,7 +86,7 @@ impl Job for CheckFileJob {
                     modified: modified.unwrap_or(0),
                     is_import: false,
                 };
-                println!("Adding project: {}", self.project_path);
+                log::debug!("Adding project: {}", self.project_path);
                 return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
             }
         }

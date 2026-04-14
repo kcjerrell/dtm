@@ -1,5 +1,5 @@
 import { Collapsible, VStack } from "@chakra-ui/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { PanelListItem } from "@/components"
 import type { ProjectState } from "@/dtProjects/state/projects"
 import ProjectListItem from "./ProjectListItem"
@@ -14,10 +14,14 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
 
     const [showExcluded, setShowExcluded] = useState(false)
 
+    useEffect(() => {
+        if (projects.length === 0) setShowExcluded(false)
+    }, [projects.length])
+
     if (!projects?.length) return null
 
     return (
-        <Collapsible.Root asChild>
+        <Collapsible.Root open={showExcluded} onOpenChange={(e) => setShowExcluded(e.open)} asChild>
             <VStack
                 justifyContent={"inherit"}
                 alignItems={"inherit"}
@@ -29,6 +33,7 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
                 <Collapsible.Trigger asChild>
                     {/* <Collapsible.Indicator /> */}
                     <PanelListItem
+                        aria-label={showExcluded ? "Hide projects" : "Show hidden projects"}
                         onClick={() => setShowExcluded(!showExcluded)}
                         color="fg.3"
                         _hover={{ color: "fg.1" }}

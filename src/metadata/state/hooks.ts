@@ -1,8 +1,8 @@
 import { useSnapshot } from "valtio"
-import type { ImageItem } from "./ImageItem"
+import type MediaItem from "./MediaItem"
 import { getMetadataStore } from "./metadataStore"
 
-export function useCurrentImage(): ReadonlyState<ImageItem> | undefined {
+export function useCurrentImage(): ReadonlyState<MediaItem> | undefined {
     const snap = useSnapshot(getMetadataStore())
-    return snap.currentImage
+    return snap.currentItem
 }

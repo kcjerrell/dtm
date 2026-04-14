@@ -2,7 +2,7 @@ use crate::dtp_service::{events::DTPEvent, jobs::{Job, JobContext, JobResult}};
 use entity::enums::ModelType;
 use serde_json::Value;
 use std::sync::Arc;
-use tauri_plugin_http::reqwest;
+use reqwest;
 
 pub struct ModelInfoFile {
     pub path: String,
