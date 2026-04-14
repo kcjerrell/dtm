@@ -252,6 +252,7 @@ describe("Video Export", () => {
 
         // use ffprobe to confirm metadata/video properties
         const ffprobePath = findFfprobePath()
+        await browser.pause(500) // small buffer to ensure file is closed
         const probeRaw = execFileSync(
             ffprobePath,
             [
@@ -377,6 +378,7 @@ describe("Video Export", () => {
 
         // use ffprobe to confirm metadata/video/audio properties
         const ffprobePath = findFfprobePath()
+        await browser.pause(500) // small buffer to ensure file is closed
         const probeRaw = execFileSync(
             ffprobePath,
             [

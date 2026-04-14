@@ -60,6 +60,7 @@ export const config: Options.Testrunner = {
 
     capabilities: [
         {
+            maxInstances: 1,
             browserName: "chrome",
             "goog:chromeOptions": {
                 // We don't actually use Chrome - WebdriverIO connects to our custom WebDriver server
