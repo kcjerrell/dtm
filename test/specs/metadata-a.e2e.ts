@@ -164,11 +164,12 @@ describe("Metadata", () => {
     })
 
     it("loads video metadata after ffmpeg install", async () => {
-        // Only delete bin folder if it doesn't look right, to avoid clobbering other tests
-        // though sequential execution should prevent this.
-        if (!(await fse.pathExists(join(ffmpegBinDir, "ffprobe")))) {
-            await fse.remove(ffmpegBinDir)
+        const videoPath = getTestDataPath("temp", "vid-export2.mp4")
+        if (!(await fse.pathExists(videoPath))) {
+            throw new Error(`Video file not found: ${videoPath}`)
         }
+
+        await fse.remove(ffmpegBinDir)
         await fse.ensureDir(ffmpegTempDir)
         for (const archiveName of ["ffmpeg.7z", "ffprobe.7z"]) {
             const src = join(ffmpegArchiveFixtureDir, archiveName)
@@ -184,12 +185,6 @@ describe("Metadata", () => {
             await md.toolbar.clearUnpinned.click()
         }
 
-        const videoPath = getTestDataPath("temp", "vid-export2.mp4")
-        if (!(await fse.pathExists(videoPath))) {
-            // fallback if video-export test hasn't run
-            // This is a bit of a hack, but better than failing
-            console.warn(`Warning: ${videoPath} not found. Attempting to use astro.png as a placeholder (this will fail metadata checks)`)
-        }
         const pasteboardData =
             getPasteboardData("paste", "finder", "image")?.({ path: videoPath }) ?? {}
         if (!Object.keys(pasteboardData).length) throw new Error("No clipboard data found")
