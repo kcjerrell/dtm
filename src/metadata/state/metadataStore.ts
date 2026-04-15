@@ -16,6 +16,7 @@ const initialStoreValues = {
     zoomPreview: false,
     showHistory: false,
     maxHistory: 10,
+    isLoadingImage: false,
 }
 
 function initStore() {
@@ -31,7 +32,13 @@ function initStore() {
         },
         {
             autoStart: true,
-            filterKeys: ["currentItem", "currentIndex", "zoomPreview", "showHistory"],
+            filterKeys: [
+                "currentItem",
+                "currentIndex",
+                "zoomPreview",
+                "showHistory",
+                "isLoadingImage",
+            ],
             filterKeysStrategy: "omit",
             saveOnChange: true,
             saveOnExit: true,
@@ -219,6 +226,10 @@ function removePlaceholder(item: MediaItem) {
     const index = store.items.findIndex((im) => im.id === item.id)
     if (index === -1) return
     store.items.splice(index, 1)
+}
+
+export function setMetadataIsImageLoading(value: boolean) {
+    getMetadataStore().isLoadingImage = value
 }
 
 export type ExifType = Record<string, Record<string, unknown>>

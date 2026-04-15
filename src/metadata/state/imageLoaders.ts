@@ -6,7 +6,7 @@ import { determineType } from "@/utils/mediaTypes"
 import { ImageItem } from "./ImageItem"
 import type MediaItem from "./MediaItem"
 import type { MediaItemSource } from "./MediaItem"
-import { addImageItem } from "./metadataStore"
+import { addImageItem, setMetadataIsImageLoading } from "./metadataStore"
 import { tryRead } from "./utiReaders"
 import { VideoItem } from "./VideoItem"
 
@@ -34,34 +34,40 @@ export const clipboardTextTypes = [
 
 export async function loadImage2(pasteboard: "general" | "drag") {
     let firstItem: MediaItem | null = null
-
-    for await (const result of loadItems(pasteboard)) {
-        console.debug("item", result)
-        if (!result) continue
-        // Special case for NSFilenamesPboardType (array of items)
-        if (Array.isArray(result)) {
-            for (const item of result) {
-                if (item) addImageItem(item)
+    setMetadataIsImageLoading(true)
+    try {
+        for await (const result of loadItems(pasteboard)) {
+            console.debug("item", result)
+            if (!result) continue
+            // Special case for NSFilenamesPboardType (array of items)
+            if (Array.isArray(result)) {
+                for (const item of result) {
+                    if (item) addImageItem(item)
+                }
+                return
             }
-            return
+
+            const item = result as MediaItem
+
+            // Prioritize items with Draw Things metadata
+            if (await item.hasMetadata()) {
+                addImageItem(item)
+                return
+            }
+
+            // Fallback to the first available item if no metadata is found
+            if (!firstItem) {
+                firstItem = item
+            }
         }
 
-        const item = result as MediaItem
-
-        // Prioritize items with Draw Things metadata
-        if (await item.hasMetadata()) {
-            addImageItem(item)
-            return
+        if (firstItem) {
+            addImageItem(firstItem)
         }
-
-        // Fallback to the first available item if no metadata is found
-        if (!firstItem) {
-            firstItem = item
-        }
-    }
-
-    if (firstItem) {
-        addImageItem(firstItem)
+    } catch (e) {
+        console.error("error loading image", e)
+    } finally {
+        setMetadataIsImageLoading(false)
     }
 }
 
