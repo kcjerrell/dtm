@@ -164,7 +164,13 @@ function PreviewZoom(props: PreviewZoomProps) {
     const [contentSize, setContentSize] = useState<{ width: number; height: number }>()
 
     const containerRef = useRef<HTMLDivElement>(null)
-    const { handlers, style, reset } = useZoomable(containerRef, { contentSize })
+    const { handlers, style, reset } = useZoomable(containerRef, {
+        contentSize,
+        onZoomOutBoundary: () => {
+            reset()
+            hidePreview()
+        },
+    })
 
     // const [fromRect, setFromRect] = useState<DOMRect>()
 

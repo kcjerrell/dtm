@@ -1,5 +1,6 @@
 import { type ComponentProps, useRef } from "react"
 import { showPreview } from "@/components/preview"
+import { useThresholdDelay } from "@/hooks/useDecay"
 import { DetailsImageContainer, DetailsImageContent } from "./common"
 
 const imgTransition = { duration: 0.25, ease: "circInOut" }
@@ -32,11 +33,15 @@ function DetailsImage(props: DetailsImageProps) {
 
     const imgRef = useRef<HTMLImageElement>(null)
 
-    console.log(naturalSize)
+    const wheelBump = useThresholdDelay({
+        time: 200,
+        threshold: 100,
+        callback: () => showPreview(imgRef.current, src),
+    })
 
-    const maskProps = maskSrc
-        ? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
-        : {}
+    // const maskProps = maskSrc
+    //     ? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
+    //     : {}
 
     if (!srcHalf && !src) return null
 
@@ -69,6 +74,9 @@ function DetailsImage(props: DetailsImageProps) {
                 onClick={(e: React.MouseEvent) => {
                     e.stopPropagation()
                     showPreview(imgRef.current, src)
+                }}
+                onWheel={(e) => {
+                    if (e.deltaY < 0) wheelBump(0 - e.deltaY)
                 }}
             />
         </DetailsImageContainer>
