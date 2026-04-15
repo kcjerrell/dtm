@@ -18,10 +18,7 @@ pub struct DecodeTensorOptions {
     pub scale: Option<u32>,
 }
 
-pub fn decode_tensor(
-    tensor: TensorRaw,
-    options: DecodeTensorOptions
-) -> Result<Vec<u8>> {
+pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<Vec<u8>, String> {
     let DecodeTensorOptions {
         as_png,
         history_node,
@@ -97,66 +94,152 @@ pub fn decode_tensor(
     };
 
     match as_png {
-        true => Ok(write_png_with_usercomment(
+        true => write_png_with_usercomment(
             &pixels,
             width,
             height,
             tensor.channels as usize,
             history_node,
         )
-        .unwrap()),
+        .map_err(|e| e.to_string()),
         false => Ok(pixels),
     }
 }
 
-fn decode_pose(tensor: TensorRaw) -> std::result::Result<Vec<u8>, anyhow::Error> {
-    if tensor.data[0] == 0x66 && tensor.data[1] == 0x70 && tensor.data[2] == 0x79 {
-        let dec = decompress_fzip(&tensor.data);
-        Ok(f32_to_u8(dec.unwrap()))
+fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
+    if tensor.data.len() >= 3
+        && tensor.data[0] == 0x66
+        && tensor.data[1] == 0x70
+        && tensor.data[2] == 0x79
+    {
+        let dec = decompress_fzip(&tensor.data)?;
+        Ok(f32_to_u8(dec))
     } else {
         Ok(tensor.data)
     }
 }
 
-pub fn decompress_fzip(data: &Vec<u8>) -> Result<Vec<f32>> {
-    let mut out: Vec<f32>;
+pub fn decompress_fzip(data: &Vec<u8>) -> std::result::Result<Vec<f32>, String> {
+    let out: Vec<f32>;
+
+    // A valid FPZIP stream needs at least a few bytes for its header.
+    // This also acts as a guard against empty buffers causing issues.
+    if data.len() < 16 {
+        if data.is_empty() {
+            return Ok(vec![]);
+        }
+        return Err("Buffer is too small to contain a valid FPZIP header".to_string());
+    }
+
     unsafe {
         let fpz: *mut FPZ = fpzip_read_from_buffer(data.as_ptr() as *const c_void);
         if fpz.is_null() {
-            anyhow::bail!("Failed to create FPZIP stream (pointer is null)");
+            return Err("Failed to create FPZIP stream (pointer is null)".to_string());
         }
 
         if fpzip_read_header(fpz) == 0 {
             fpzip_read_close(fpz); // Ensure cleanup on error
-            anyhow::bail!("Failed to read FPZIP header");
+            return Err("Failed to read FPZIP header".to_string());
         }
 
         let header = fpz.read();
-        let total_values = header.nx * header.ny * header.nz * header.nf;
+
+        // Guard 1: Verify dimensions are non-negative
+        // In C, dimensions are `int` (signed). Negative dimensions will corrupt usize casts.
+        if header.nx < 0 || header.ny < 0 || header.nz < 0 || header.nf < 0 {
+            fpzip_read_close(fpz);
+            return Err("Invalid negative dimension in FPZIP header".to_string());
+        }
+
+        let nx = header.nx as usize;
+        let ny = header.ny as usize;
+        let nz = header.nz as usize;
+        let nf = header.nf as usize;
+
+        // Guard 2: Prevent integer overflow when calculating array size
+        let total_values = match nx
+            .checked_mul(ny)
+            .and_then(|v| v.checked_mul(nz))
+            .and_then(|v| v.checked_mul(nf))
+        {
+            Some(v) => v,
+            None => {
+                fpzip_read_close(fpz);
+                return Err("Tensor dimensions lead to integer overflow".to_string());
+            }
+        };
+
+        if total_values == 0 {
+            fpzip_read_close(fpz);
+            return Ok(vec![]);
+        }
+
+        // Guard 3: Prevent absurdly large tensor sizes (e.g. maxing out at ~2GB of memory usage)
+        let max_values = 512 * 1024 * 1024; // 512M elements (f32)
+        if total_values > max_values {
+            fpzip_read_close(fpz);
+            return Err(format!(
+                "Tensor size is too large (exceeds maximum allowed {} elements)",
+                max_values
+            ));
+        }
 
         // Check the type from the header (bindgen usually maps C 'type' to 'type_')
         // constants from fpzip.h: FPZIP_TYPE_FLOAT=0, FPZIP_TYPE_DOUBLE=1
         if header.type_ == FPZIP_TYPE_DOUBLE as i32 {
             // Double precision: read as f64 then convert to f32
-            let mut out_f64 = vec![0.0f64; total_values as usize];
+            let mut out_f64 = Vec::new();
+
+            // Guard 4: Use try_reserve_exact to catch OOM conditions gracefully instead of panicking
+            if out_f64.try_reserve_exact(total_values).is_err() {
+                fpzip_read_close(fpz);
+                return Err(format!(
+                    "Failed to allocate memory for tensor decompression ({} elements)",
+                    total_values
+                ));
+            }
+            out_f64.resize(total_values, 0.0f64);
+
             let n_read = fpzip_read(fpz, out_f64.as_mut_ptr() as *mut c_void);
             fpzip_read_close(fpz);
 
-            if data.len() != n_read {
-                if n_read == 0 {
-                    anyhow::bail!("FPZIP read failed (0 bytes read)");
-                }
+            // Guard 5: Ensure reading neither failed nor read past our data buffer (buffer over-read defense)
+            if n_read == 0 || n_read > data.len() {
+                return Err(format!(
+                    "FPZIP read failed or read out of bounds (n_read: {}, data.len: {})",
+                    n_read,
+                    data.len()
+                ));
             }
+
             out = out_f64.into_iter().map(|v| v as f32).collect();
         } else {
             // Assume float (FPZIP_TYPE_FLOAT=0)
-            out = vec![0.0f32; total_values as usize];
-            let n_read = fpzip_read(fpz, out.as_mut_ptr() as *mut c_void);
+            let mut out_f32 = Vec::new();
+
+            // Guard 4: Graceful OOM handling
+            if out_f32.try_reserve_exact(total_values).is_err() {
+                fpzip_read_close(fpz);
+                return Err(format!(
+                    "Failed to allocate memory for tensor decompression ({} elements)",
+                    total_values
+                ));
+            }
+            out_f32.resize(total_values, 0.0f32);
+
+            let n_read = fpzip_read(fpz, out_f32.as_mut_ptr() as *mut c_void);
             fpzip_read_close(fpz);
 
-            if n_read == 0 {
-                anyhow::bail!("FPZIP read failed (0 bytes read)");
+            // Guard 5: Ensure read bounds
+            if n_read == 0 || n_read > data.len() {
+                return Err(format!(
+                    "FPZIP read failed or read out of bounds (n_read: {}, data.len: {})",
+                    n_read,
+                    data.len()
+                ));
             }
+
+            out = out_f32;
         }
     }
 
@@ -167,19 +250,19 @@ pub fn scribble_mask_to_png(
     tensor: TensorRaw,
     scale: Option<u32>,
     invert: Option<bool>,
-) -> Result<Vec<u8>> {
-    let data = inflate_deflate(&tensor.data)?;
+) -> Result<Vec<u8>, String> {
+    let data = inflate_deflate(&tensor.data).map_err(|e| e.to_string())?;
     let should_invert = invert.unwrap_or(false);
     let bw: Vec<u8> = data
         .iter()
         .map(|&x| if (x > 0) ^ should_invert { 255 } else { 0 })
         .collect();
 
-    let height = i32::from_le_bytes(tensor.dim[0..4].try_into().ok().unwrap()) as u32;
-    let width = i32::from_le_bytes(tensor.dim[4..8].try_into().ok().unwrap()) as u32;
+    let height = i32::from_le_bytes(tensor.dim[0..4].try_into().unwrap_or_default()) as u32;
+    let width = i32::from_le_bytes(tensor.dim[4..8].try_into().unwrap_or_default()) as u32;
 
     let mut img = GrayImage::from_raw(width, height, bw)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create image from raw"))?;
+        .ok_or_else(|| "Failed to create image from raw".to_string())?;
 
     let mut out = Vec::new();
 
@@ -197,9 +280,12 @@ pub fn scribble_mask_to_png(
             image::imageops::FilterType::Nearest,
         );
 
-        resized.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+        resized
+            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
     } else {
-        img.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+        img.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(out)

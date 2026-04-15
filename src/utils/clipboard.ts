@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core"
+import { writeImage, writeText } from "@tauri-apps/plugin-clipboard-manager"
 import type { ImageSource } from "@/types"
 
 type PasteboardNames = "general" | "drag"
@@ -66,4 +67,13 @@ export async function fetchImage(
     } catch (e) {
         console.error(e)
     }
+}
+
+export async function writeClipboardText(data: object | string) {
+    const str = typeof data === "string" ? data : JSON.stringify(data)
+    await writeText(str)
+}
+
+export async function writeClipboardImage(data: Uint8Array<ArrayBuffer>) {
+    await writeImage(data)
 }
