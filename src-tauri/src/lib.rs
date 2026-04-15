@@ -202,6 +202,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
             dtp_service::data::dtp_get_metadata,
+            dtp_service::dt_data::dtp_dt_list_tensor_history_node,
             dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,
         ])

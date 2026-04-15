@@ -33,6 +33,8 @@ use tokio::sync::OnceCell;
 mod raw;
 pub use raw::dt_project_tensordata;
 pub mod maintenance;
+mod tensor_history_node;
+pub use tensor_history_node::TensorHistoryNodeRow;
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);

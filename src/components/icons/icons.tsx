@@ -1,5 +1,5 @@
 export { BiDetail } from "react-icons/bi"
-export { FaMinus, FaMoon, FaPlus, FaRegImages } from "react-icons/fa6"
+export { FaMagnifyingGlass, FaMinus, FaMoon, FaPlus, FaRegImages } from "react-icons/fa6"
 export {
     FiClipboard,
     FiCopy,

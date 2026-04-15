@@ -2,9 +2,7 @@ use chrono::{DateTime, NaiveDateTime};
 // use entity::enums::Sampler; // Unused import
 
 use super::tensor_history_mod::{Control, LoRA};
-use crate::projects_db::dtos::tensor::{
-    ModelAndWeight, TensorHistoryImport, TensorHistoryNode,
-};
+use crate::projects_db::dtos::tensor::{ModelAndWeight, TensorHistoryImport, TensorHistoryNode};
 use crate::projects_db::tensor_history_generated::root_as_tensor_history_node;
 
 impl TensorHistoryImport {
@@ -100,143 +98,6 @@ impl TensorHistoryImport {
     }
 }
 
-/**
- * TensorHistoryNode is the flatbuffer struct for the tensorhistorynode table.
- * values are exactly as they are when stored in the project files,
- * with the exception of profile data which is not implemented
- */
-
-impl TryFrom<&[u8]> for TensorHistoryNode {
-    type Error = flatbuffers::InvalidFlatbuffer;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let node = root_as_tensor_history_node(bytes)?;
-
-        let loras: Option<Vec<LoRA>> = match node.loras() {
-            Some(v) => Some(LoRA::from_fb(v)?),
-            None => None,
-        };
-
-        let controls: Option<Vec<Control>> = match node.controls() {
-            Some(v) => Some(Control::from_fb(v)?),
-            None => None,
-        };
-
-        Ok(TensorHistoryNode {
-            lineage: node.lineage(),
-            logical_time: node.logical_time(),
-            start_width: node.start_width(),
-            start_height: node.start_height(),
-            seed: node.seed(),
-            steps: node.steps(),
-            guidance_scale: node.guidance_scale(),
-            strength: node.strength(),
-            model: node.model().map(|m| m.to_string()),
-            tensor_id: node.tensor_id(),
-            mask_id: node.mask_id(),
-            wall_clock: wall_clock_to_datetime(node.wall_clock()),
-            text_edits: node.text_edits(),
-            text_lineage: node.text_lineage(),
-            batch_size: node.batch_size(),
-            sampler: node.sampler().0,
-            hires_fix: node.hires_fix(),
-            hires_fix_start_width: node.hires_fix_start_width(),
-            hires_fix_start_height: node.hires_fix_start_height(),
-            hires_fix_strength: node.hires_fix_strength(),
-            upscaler: node.upscaler().map(|m| m.to_string()),
-            scale_factor: node.scale_factor(),
-            depth_map_id: node.depth_map_id(),
-            generated: node.generated(),
-            image_guidance_scale: node.image_guidance_scale(),
-            seed_mode: node.seed_mode().0,
-            clip_skip: node.clip_skip(),
-            controls,
-            scribble_id: node.scribble_id(),
-            pose_id: node.pose_id(),
-            loras,
-            color_palette_id: node.color_palette_id(),
-            mask_blur: node.mask_blur(),
-            custom_id: node.custom_id(),
-            face_restoration: node.face_restoration().map(|m| m.to_string()),
-            clip_weight: node.clip_weight(),
-            negative_prompt_for_image_prior: node.negative_prompt_for_image_prior(),
-            image_prior_steps: node.image_prior_steps(),
-            data_stored: node.data_stored(),
-            preview_id: node.preview_id(),
-            content_offset_x: node.content_offset_x(),
-            content_offset_y: node.content_offset_y(),
-            scale_factor_by_120: node.scale_factor_by_120(),
-            refiner_model: node.refiner_model().map(|m| m.to_string()),
-            original_image_height: node.original_image_height(),
-            original_image_width: node.original_image_width(),
-            crop_top: node.crop_top(),
-            crop_left: node.crop_left(),
-            target_image_height: node.target_image_height(),
-            target_image_width: node.target_image_width(),
-            aesthetic_score: node.aesthetic_score(),
-            negative_aesthetic_score: node.negative_aesthetic_score(),
-            zero_negative_prompt: node.zero_negative_prompt(),
-            refiner_start: node.refiner_start(),
-            negative_original_image_height: node.negative_original_image_height(),
-            negative_original_image_width: node.negative_original_image_width(),
-            shuffle_data_stored: node.shuffle_data_stored(),
-            fps_id: node.fps_id(),
-            motion_bucket_id: node.motion_bucket_id(),
-            cond_aug: node.cond_aug(),
-            start_frame_cfg: node.start_frame_cfg(),
-            num_frames: node.num_frames(),
-            mask_blur_outset: node.mask_blur_outset(),
-            sharpness: node.sharpness(),
-            shift: node.shift(),
-            stage_2_steps: node.stage_2_steps(),
-            stage_2_cfg: node.stage_2_cfg(),
-            stage_2_shift: node.stage_2_shift(),
-            tiled_decoding: node.tiled_decoding(),
-            decoding_tile_width: node.decoding_tile_width(),
-            decoding_tile_height: node.decoding_tile_height(),
-            decoding_tile_overlap: node.decoding_tile_overlap(),
-            stochastic_sampling_gamma: node.stochastic_sampling_gamma(),
-            preserve_original_after_inpaint: node.preserve_original_after_inpaint(),
-            tiled_diffusion: node.tiled_diffusion(),
-            diffusion_tile_width: node.diffusion_tile_width(),
-            diffusion_tile_height: node.diffusion_tile_height(),
-            diffusion_tile_overlap: node.diffusion_tile_overlap(),
-            upscaler_scale_factor: node.upscaler_scale_factor(),
-            script_session_id: node.script_session_id(),
-            t5_text_encoder: node.t5_text_encoder(),
-            separate_clip_l: node.separate_clip_l(),
-            clip_l_text: node.clip_l_text().map(|m| m.to_string()),
-            separate_open_clip_g: node.separate_open_clip_g(),
-            open_clip_g_text: node.open_clip_g_text().map(|m| m.to_string()),
-            speed_up_with_guidance_embed: node.speed_up_with_guidance_embed(),
-            guidance_embed: node.guidance_embed(),
-            resolution_dependent_shift: node.resolution_dependent_shift(),
-            // profile_data: node.profile_data(),
-            tea_cache_start: node.tea_cache_start(),
-            tea_cache_end: node.tea_cache_end(),
-            tea_cache_threshold: node.tea_cache_threshold(),
-            tea_cache: node.tea_cache(),
-            separate_t5: node.separate_t5(),
-            t5_text: node.t5_text().map(|m| m.to_string()),
-            tea_cache_max_skip_steps: node.tea_cache_max_skip_steps(),
-            text_prompt: node.text_prompt().map(|m| m.to_string()),
-            negative_text_prompt: node.negative_text_prompt().map(|m| m.to_string()),
-            clip_id: node.clip_id(),
-            index_in_a_clip: node.index_in_a_clip(),
-            causal_inference_enabled: node.causal_inference_enabled(),
-            causal_inference: node.causal_inference(),
-            causal_inference_pad: node.causal_inference_pad(),
-            cfg_zero_star: node.cfg_zero_star(),
-            cfg_zero_init_steps: node.cfg_zero_init_steps(),
-            generation_time: node.generation_time(),
-            reason: node.reason().0,
-            compression_artifacts: node.compression_artifacts().0,
-            compression_artifacts_quality: node.compression_artifacts_quality(),
-            audio: node.audio(),
-        })
-    }
-}
-
 fn wall_clock_to_datetime(value: i64) -> Option<NaiveDateTime> {
     if value > 1_000_000_000_000_000 {
         // microseconds
@@ -250,5 +111,3 @@ fn wall_clock_to_datetime(value: i64) -> Option<NaiveDateTime> {
         None
     }
 }
-
-
