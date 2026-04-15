@@ -39,4 +39,3 @@ export {
     TbSortDescending2,
     TbSortDescendingNumbers,
 } from "react-icons/tb"
-export { default as ImageSettingsIcon } from "./ImageSettingsIcon"
