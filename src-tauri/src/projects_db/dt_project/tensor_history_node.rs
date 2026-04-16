@@ -18,7 +18,8 @@ impl<'r> FromRow<'r, SqliteRow> for TensorHistoryNodeRow {
         let logical_time: i64 = row.get("__pk1");
         let data: &[u8] = row.get("p");
 
-        let data = TensorHistoryNode::try_from(data).unwrap();
+        let data = TensorHistoryNode::try_from(data)
+            .map_err(|e| sqlx::Error::Protocol(format!("Failed to decode tensorhistorynode: {e}")))?;
 
         Ok(TensorHistoryNodeRow {
             rowid,

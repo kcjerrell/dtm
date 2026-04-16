@@ -40,9 +40,9 @@ impl DTPService {
     ) -> Result<(), String> {
         let db = self.get_db().await?;
 
-        if exclude {
-            db.update_exclude(project_id, exclude).await?;
-        } else {
+        db.update_exclude(project_id, exclude).await?;
+
+        if !exclude {
             self.add_job(UpdateProjectJob::from_id(&db, project_id, true, false).await?)
         }
 
