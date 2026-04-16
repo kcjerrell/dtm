@@ -2,12 +2,12 @@ use dashmap::DashMap;
 use notify_debouncer_mini::{
     new_debouncer,
     notify::{RecommendedWatcher, RecursiveMode},
-    DebouncedEvent, Debouncer,
+    DebounceEventResult, Debouncer,
 };
 use std::{
     collections::HashSet,
     path::Path,
-    sync::{mpsc::channel, Arc, OnceLock},
+    sync::{Arc, OnceLock},
 };
 use tokio::time::Duration;
 use tokio::{fs, sync::Mutex};
@@ -27,17 +27,17 @@ pub struct FolderWatcher {
     watcher: Mutex<Debouncer<RecommendedWatcher>>,
     path: String,
     recursive: bool,
-    task: tokio::task::JoinHandle<()>,
 }
 
 impl FolderWatcher {
     pub fn new(path: String, recursive: bool, scheduler: Arc<Scheduler>) -> Self {
-        let (tx_std, rx_std) = std::sync::mpsc::channel::<Result<Vec<DebouncedEvent>, _>>();
+        let watcher_path = path.clone();
+        let runtime_handle = tokio::runtime::Handle::current();
 
-        let watcher = new_debouncer(Duration::from_secs(2), tx_std).unwrap();
-        let folder_path = path.clone();
-        let task = tokio::task::spawn_blocking(move || {
-            for res in rx_std {
+        let watcher = new_debouncer(Duration::from_secs(2), move |res: DebounceEventResult| {
+            let path = path.clone();
+            let scheduler = scheduler.clone();
+            runtime_handle.spawn(async move {
                 match res {
                     Ok(events) => {
                         let mut projects: HashSet<String> = HashSet::new();
@@ -53,7 +53,7 @@ impl FolderWatcher {
 
                         if !projects.is_empty() {
                             let job = CheckFolderJob::new_from_path(
-                                folder_path.clone(),
+                                path.clone(),
                                 false,
                                 false,
                                 Some(projects.into_iter().collect()),
@@ -63,14 +63,14 @@ impl FolderWatcher {
                     }
                     Err(e) => eprintln!("Watch error: {:?}", e),
                 }
-            }
-        });
+            });
+        })
+        .unwrap();
 
         Self {
             watcher: Mutex::new(watcher),
-            path: path.to_string(),
+            path: watcher_path,
             recursive,
-            task,
         }
     }
 
@@ -80,12 +80,17 @@ impl FolderWatcher {
             return;
         }
 
+        let recursive_mode = match self.recursive {
+            true => RecursiveMode::Recursive,
+            false => RecursiveMode::NonRecursive,
+        };
+
         let _ = self
             .watcher
             .lock()
             .await
             .watcher()
-            .watch(Path::new(&self.path), RecursiveMode::NonRecursive);
+            .watch(Path::new(&self.path), recursive_mode);
     }
 
     pub async fn stop(&self) {
@@ -104,12 +109,11 @@ pub struct VolumeWatcher {
 
 impl VolumeWatcher {
     pub fn new(scheduler: Arc<Scheduler>) -> Self {
-        let (tx_std, rx_std) = channel::<Result<Vec<DebouncedEvent>, _>>();
+        let runtime_handle = tokio::runtime::Handle::current();
 
-        let watcher = new_debouncer(Duration::from_secs(2), tx_std).unwrap();
-
-        let task = tokio::task::spawn_blocking(move || {
-            for res in rx_std {
+        let watcher = new_debouncer(Duration::from_secs(2), move |res: DebounceEventResult| {
+            let scheduler = scheduler.clone();
+            runtime_handle.spawn(async move {
                 match res {
                     Ok(events) => {
                         let mut volumes_changed = false;
@@ -129,8 +133,9 @@ impl VolumeWatcher {
                     }
                     Err(e) => eprintln!("Watch error: {:?}", e),
                 }
-            }
-        });
+            });
+        })
+        .unwrap();
 
         Self {
             watcher: Mutex::new(watcher),

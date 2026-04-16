@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::{
     env, fs,
     sync::{Arc, RwLock},
@@ -142,7 +144,7 @@ impl Job for TestJob {
             .emit(DTPEvent::TestEventFailed(Some(self.id), None, Some(error)));
     }
 
-    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, _ctx: &JobContext) -> Result<JobResult, String> {
         println!("Executing TestJob {}", self.id);
         tokio::time::sleep(std::time::Duration::from_millis(self.delay)).await;
         if self.should_fail {
@@ -164,7 +166,10 @@ impl Job for TestJob {
     }
 }
 
-pub async fn test_fixture(auto_watch: bool, copy_db: bool) -> (DTPService, EventHelper, WatchFolderHelper, String) {
+pub async fn test_fixture(
+    auto_watch: bool,
+    copy_db: bool,
+) -> (DTPService, EventHelper, WatchFolderHelper, String) {
     let temp_dir = TempDir::new_in("test_data/temp").unwrap();
     let temp_dir_path = temp_dir.path().to_str().unwrap().to_string();
     let wfh = WatchFolderHelper::get(Watchfolder::A, temp_dir);
@@ -175,7 +180,7 @@ pub async fn test_fixture(auto_watch: bool, copy_db: bool) -> (DTPService, Event
     let app_data_dir = format!("{}/app_data_dir", temp_dir_path);
     let db_path = format!("{}/projects4.db", app_data_dir);
     fs::create_dir_all(&app_data_dir).unwrap();
-    
+
     if copy_db {
         fs::copy("test_data/testdb.db", &db_path).unwrap();
     }

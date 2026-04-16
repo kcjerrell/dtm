@@ -77,7 +77,6 @@ pub async fn run_maintenance(
 
 #[derive(Debug, FromQueryResult)]
 struct ClipCheck {
-    id: i64,
     project_id: i64,
     clip_id: i64,
 }
@@ -95,7 +94,6 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
         .filter(Expr::exists(subquery))
         .filter(images::Column::ClipId.gt(0))
         .select_only()
-        .column(images::Column::Id)
         .column(images::Column::ProjectId)
         .column(images::Column::ClipId)
         .into_model::<ClipCheck>()

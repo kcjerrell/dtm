@@ -140,7 +140,7 @@ impl Scheduler {
         }
         let parent_id = job_entry.state.parent_id.unwrap();
 
-        let (tasks_remaining, label) = {
+        let tasks_remaining = {
             let mut jobs = self.jobs.lock().await;
             let Some(parent_job) = jobs.get_mut(&parent_id) else {
                 return None;
@@ -156,7 +156,7 @@ impl Scheduler {
                 JobStatus::Failed(_) => parent_job.state.jobs_failed += 1,
                 _ => {}
             }
-            (tasks_remaining, parent_job.job.get_label())
+            tasks_remaining
         };
 
         if tasks_remaining == 0 {
