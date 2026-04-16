@@ -195,7 +195,7 @@ pub fn run() {
             dtp_service::data::dtp_list_projects,
             dtp_service::data::dtp_list_watch_folders,
             dtp_service::data::dtp_remove_watch_folder,
-            dtp_service::data::dtp_update_project,
+            dtp_service::data::dtp_update_project_exclude,
             dtp_service::data::dtp_update_watch_folder,
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,

@@ -44,4 +44,32 @@ impl DTProject {
 
         Ok(rows)
     }
+
+    /**
+     * Do not call on a cached dt_project! Only used with DTProject::open()
+     */
+    pub async fn check_id(&self, pdb_path: String, project_id: i64) -> Result<Vec<i64>, String> {
+        if self.is_shared {
+            return Err("Cannot check ids on a shared dt_project".to_string());
+        }
+
+        let missing_ids: Vec<i64> = sqlx::query_scalar(
+            r#"
+                ATTACH DATABASE ? AS pdb;
+
+                SELECT pdb.images.id
+                FROM pdb.images
+                LEFT JOIN main.tensorhistorynode node ON pdb.images.node_id = node.rowid
+                WHERE pdb.images.project_id = ?
+                AND node.rowid IS NULL;
+            "#,
+        )
+        .bind(pdb_path)
+        .bind(project_id)
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        Ok(missing_ids)
+    }
 }

@@ -119,12 +119,16 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn sync_projects(&self, project_ids: Vec<i64>) -> Result<(), String> {
+    pub async fn sync_projects(
+        &self,
+        project_ids: Vec<i64>,
+        check_deletions: bool,
+    ) -> Result<(), String> {
         for project_id in project_ids {
             let sync = ProjectSync::from_id(&self.get_db().await.unwrap(), project_id)
                 .await
                 .unwrap();
-            self.add_job(UpdateProjectJob::new(&sync, false).unwrap());
+            self.add_job(UpdateProjectJob::new(&sync, false, check_deletions).unwrap());
         }
         Ok(())
     }
@@ -249,7 +253,7 @@ pub async fn dtp_connect(
     channel: Channel<DTPEvent>,
     auto_watch: bool,
 ) -> Result<(), String> {
-    let db_path = get_db_path(&app_handle);
+    let db_path = get_db_url(&app_handle);
     check_old_path(&app_handle);
     let _ = state.connect(channel, auto_watch, db_path).await;
     Ok(())
@@ -260,13 +264,22 @@ const PROJECT_FILE_NAME: &str = "projects4-dev.db";
 #[cfg(not(dev))]
 const PROJECT_FILE_NAME: &str = "projects4.db";
 
-pub fn get_db_path(app_handle: &AppHandleWrapper) -> String {
+pub fn get_db_url(app_handle: &AppHandleWrapper) -> String {
     let app_data_dir = app_handle.get_app_data_dir().unwrap();
     if !app_data_dir.exists() {
         std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
     }
     let project_db_path = app_data_dir.join(PROJECT_FILE_NAME);
     format!("sqlite://{}?mode=rwc", project_db_path.to_str().unwrap())
+}
+
+pub fn get_db_file_path(app_handle: &AppHandleWrapper) -> String {
+    let app_data_dir = app_handle.get_app_data_dir().unwrap();
+    if !app_data_dir.exists() {
+        std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
+    }
+    let project_db_path = app_data_dir.join(PROJECT_FILE_NAME);
+    project_db_path.to_str().unwrap().to_string()
 }
 
 fn check_old_path(app_handle: &AppHandleWrapper) {

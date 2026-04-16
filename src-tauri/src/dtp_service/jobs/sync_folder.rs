@@ -109,7 +109,7 @@ impl Job for SyncFolderJob {
                 }
                 SyncAction::Update => {
                     subtasks.push(Arc::new(
-                        UpdateProjectJob::new(&sync, self.is_import.load(Ordering::Relaxed))
+                        UpdateProjectJob::new(&sync, self.is_import.load(Ordering::Relaxed), false)
                             .unwrap(),
                     ));
                 }

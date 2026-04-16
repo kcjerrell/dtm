@@ -38,8 +38,8 @@ export function useProjectsCommands(): [
             getSpacer<ProjectState, undefined>("toolbar"),
             {
                 id: "scan",
-                getLabel: (selected) => `Scan project${plural(selected.length)}`,
-                tipText: "Scan project for new images",
+                getLabel: (selected) => `Rescan project${plural(selected.length)}`,
+                tipText: "Rescan project for changes",
                 icon: FiRefreshCw,
                 onClick: async (selected) => {
                     DtpService.syncProjects(selected.map((f) => f.id))
@@ -90,7 +90,7 @@ export function useProjectsCommands(): [
                 requiresSelection: true,
             },
         ],
-        [projects, snap.showEmptyProjects],
+        [projects, snap.showEmptyProjects, uiState.showDialog],
     )
 
     const selectMenuCommand = useCallback(

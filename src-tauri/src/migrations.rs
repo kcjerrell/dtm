@@ -7,7 +7,7 @@ use sea_query::Expr;
 use semver::Version;
 use tauri::{AppHandle, Manager};
 
-use crate::dtp_service::{get_db_path, jobs::MaintenanceTaskKind, AppHandleWrapper};
+use crate::dtp_service::{get_db_url, jobs::MaintenanceTaskKind, AppHandleWrapper};
 
 /// Public entry point (your requested API)
 pub async fn run_migrations(app: AppHandle) -> Result<(), String> {
@@ -150,7 +150,7 @@ async fn migrate_0_5_0(app: AppHandle) -> Result<(), String> {
 
 async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result<(), String> {
     let wrapper = AppHandleWrapper::new(Some(app));
-    let db_path: String = get_db_path(&wrapper);
+    let db_path: String = get_db_url(&wrapper);
     let db = Database::connect(db_path)
         .await
         .map_err(|e| e.to_string())?;
