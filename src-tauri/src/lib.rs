@@ -123,7 +123,7 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
 
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
     builder
