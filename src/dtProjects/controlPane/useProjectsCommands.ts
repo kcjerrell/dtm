@@ -52,19 +52,19 @@ export function useProjectsCommands(): [
                     )
                 },
             },
-            // {
-            //     id: "explore",
-            //     label: "Explore project",
-            //     tipText: "Browse project tables and data",
-            //     icon: FaMagnifyingGlass,
-            //     requiresSingleSelection: true,
-            //     onClick: (selected) => {
-            //         uiState.showDialog({
-            //             dialogType: "explorer",
-            //             props: { projectId: selected[0].id },
-            //         })
-            //     },
-            // },
+            {
+                id: "explore",
+                label: "Explore project",
+                tipText: "Browse project tables and data",
+                icon: FaMagnifyingGlass,
+                requiresSingleSelection: true,
+                onClick: (selected) => {
+                    uiState.showDialog({
+                        dialogType: "explorer",
+                        props: { projectId: selected[0].id },
+                    })
+                },
+            },
             {
                 id: "exclude",
                 getLabel: (selected) => {

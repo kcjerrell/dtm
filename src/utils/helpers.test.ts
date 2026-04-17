@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { compareItems, groupMap, plural } from "./helpers"
+import { compareItems, getKeyPaths, groupMap, plural } from "./helpers"
 
 describe("compareItems", () => {
     const keyFn = (item: { id: number }) => item.id
@@ -175,5 +175,21 @@ describe("groupMap", () => {
             { group: "even", items: ["a", "c"] },
             { group: "odd", items: ["b"] },
         ])
+    })
+})
+
+describe("getKeyPaths", () => {
+    it("works", () => {
+        const data = {
+            a: 1,
+            b: {
+                c: 2,
+                d: {
+                    e: 3,
+                },
+            },
+        }
+        const keys = getKeyPaths(data)
+        expect(keys).toEqual(["a", "b.c", "b.d.e"])
     })
 })
