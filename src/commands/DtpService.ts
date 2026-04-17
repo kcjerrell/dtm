@@ -1,16 +1,15 @@
 import { type Channel, invoke } from "@tauri-apps/api/core"
 import type {
+    ClipExtra,
     ImageExtra,
     ImagesSource as ListImagesOpts,
     ListImagesResult,
     Model,
     ModelType,
     ProjectExtra,
-    ClipFrame,
     TensorHistoryExtra,
     TensorSize,
     WatchFolder,
-    ClipExtra,
 } from "./DtpServiceTypes"
 
 type MaybeReadonly<T> = T | Readonly<T>

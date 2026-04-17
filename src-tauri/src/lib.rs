@@ -90,7 +90,7 @@ async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
 // fn init_panel(app: tauri::AppHandle) -> Result<(), String> {
 //     let _panel = app.get_webview_window("panel").unwrap();
 //     _panel.to_popover(ToPopoverOptions {
-//         is_fullsize_content: true,
+//         is_full_size_content: true,
 //     });
 //     Ok(())
 // }

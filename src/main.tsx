@@ -8,11 +8,11 @@ import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import { Hotkey } from "./hooks/keyboard"
 import "./index.css"
+import { loadSettingsStore } from "./state/settings"
 import { addTestHooks } from "./testHooks"
 import { themeHelpers } from "./theme/helpers"
 import { system } from "./theme/theme"
 import { forwardConsoleAll } from "./utils/tauriLogger"
-import { loadSettingsStore } from "./state/settings"
 
 const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
