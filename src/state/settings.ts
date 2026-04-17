@@ -1,4 +1,6 @@
+import { invoke } from "@tauri-apps/api/core"
 import { store } from "@tauri-store/valtio"
+import { nanoid } from "nanoid"
 import { type RefObject, useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
 import { getStoreName } from "@/utils/helpers"
@@ -15,6 +17,7 @@ const defaultSettings = {
     "ui.defaultMute": true,
     "app.currentView": "metadata",
     "app.isSidebarVisible": true,
+    "app.installId": null as string | null,
     "metadata.clearHistoryOnExit": true,
     "metadata.clearPinsOnExit": false,
 }
@@ -46,6 +49,7 @@ function initStore() {
 export async function loadSettingsStore() {
     const store = getSettingStore()
     await store.start()
+    await getInstallId()
 }
 
 function getSettingStore() {
@@ -128,4 +132,24 @@ export function useSettingRef<K extends SettingsKey>(key: K): RefObject<Settings
     }
 
     return ref.current
+}
+
+export async function getInstallId(): Promise<string> {
+    const installId = getSetting("app.installId")
+    if (installId) {
+        return installId
+    }
+
+    const prefix = (await isDebugBuild()) ? "DEV_" : ""
+    const newInstallId = `${prefix}${nanoid()}`
+    updateSetting("app.installId", newInstallId)
+    return newInstallId
+}
+
+async function isDebugBuild(): Promise<boolean> {
+    try {
+        return await invoke<boolean>("is_debug_build")
+    } catch {
+        return false
+    }
 }
