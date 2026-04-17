@@ -48,7 +48,7 @@ impl TestProject {
     }
 
     pub fn copy_variant(&self) {
-        if let Some(variant) = &self.variant {
+        if self.variant.is_some() {
             let src_path = self.get_variant_src_path();
             let dest_path = self.get_dest_path();
             fs::copy(src_path, dest_path).unwrap();

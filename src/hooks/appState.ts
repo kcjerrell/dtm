@@ -1,7 +1,9 @@
+import { invoke } from "@tauri-apps/api/core"
 import { check } from "@tauri-apps/plugin-updater"
 import { store } from "@tauri-store/valtio"
 // import { check } from "@/mocks/tauri-updater"
 import type { SidebarVariant } from "@/components/sidebar/Sidebar"
+import { getInstallId } from "@/state/settings"
 import { getStoreName } from "@/utils/helpers"
 
 type AppStateType = {
@@ -47,11 +49,27 @@ window.addEventListener("unloaded", () => {
 })
 const appState: AppStateType = appStore.state
 
+async function getOsVersionHeaderValue(): Promise<string> {
+    try {
+        return await invoke<string>("get_os_version")
+    } catch (e) {
+        console.error(e)
+        return "unknown"
+    }
+}
+
 async function checkForUpdate() {
     if (appState.updateStatus !== "unknown") return
     appState.updateStatus = "checking"
     try {
-        update = await check()
+        const installId = await getInstallId()
+        const osVersionHeaderValue = await getOsVersionHeaderValue()
+        update = await check({
+            headers: {
+                "DTM-Install-Id": installId,
+                "DTM-OS-Version": osVersionHeaderValue,
+            },
+        })
         if (update) {
             appState.updateStatus = "found"
         } else appState.updateStatus = "none"

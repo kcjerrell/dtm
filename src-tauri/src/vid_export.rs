@@ -7,10 +7,7 @@ use std::{fs, path::PathBuf};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{
-    build_description, decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions,
-    ProjectRef,
-};
+use crate::projects_db::{decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -561,12 +558,6 @@ impl NameGen {
             count: opts.count as i64,
         }
     }
-
-    pub fn copy(&self) -> Self {
-        let mut copy = self.clone();
-        copy.index = self.first as i64 - 1;
-        copy
-    }
 }
 
 impl Iterator for NameGen {
@@ -724,7 +715,9 @@ mod tests {
         assert_eq!(name_gen.next(), Some("frame_0001.png".to_string()));
         assert_eq!(name_gen.next(), Some("frame_0002.png".to_string()));
 
-        let mut name_gen2 = name_gen.copy();
+        let mut name_gen2 = name_gen.clone();
+        name_gen2.index = name_gen.first as i64 - 1;
+
         assert_eq!(name_gen2.next(), Some("frame_0001.png".to_string()));
 
         assert_eq!(name_gen.next(), None);

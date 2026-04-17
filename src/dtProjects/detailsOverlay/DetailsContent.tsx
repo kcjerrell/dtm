@@ -25,7 +25,6 @@ function DetailsContent(props: DetailsContentProps) {
         return <DetailsFallback item={snap.item} />
 
     const config = snap?.itemDetails?.groupedConfig
-    console.log(snap)
     if (!snap.itemDetails || !config) return null
 
     return (

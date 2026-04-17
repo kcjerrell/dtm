@@ -1,7 +1,14 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useCallback, useMemo } from "react"
 import { DtpService } from "@/commands"
-import { FiEye, FiEyeOff, FiFolder, FiRefreshCw, MdBlock } from "@/components/icons/icons"
+import {
+    FaMagnifyingGlass,
+    FiEye,
+    FiEyeOff,
+    FiFolder,
+    FiRefreshCw,
+    MdBlock,
+} from "@/components/icons/icons"
 import { getSpacer, type ICommand } from "@/types"
 import { plural } from "@/utils/helpers"
 import { showMenu } from "@/utils/menu"
@@ -12,7 +19,7 @@ export function useProjectsCommands(): [
     (selected: ProjectState[]) => Promise<(() => void | Promise<void>) | null>,
     ICommand<ProjectState>[],
 ] {
-    const { projects } = useDTP()
+    const { projects, uiState } = useDTP()
     const snap = projects.useSnap()
 
     const commands: ICommand<ProjectState>[] = useMemo(
@@ -31,8 +38,8 @@ export function useProjectsCommands(): [
             getSpacer<ProjectState, undefined>("toolbar"),
             {
                 id: "scan",
-                getLabel: (selected) => `Scan project${plural(selected.length)}`,
-                tipText: "Scan project for new images",
+                getLabel: (selected) => `Rescan project${plural(selected.length)}`,
+                tipText: "Rescan project for changes",
                 icon: FiRefreshCw,
                 onClick: async (selected) => {
                     DtpService.syncProjects(selected.map((f) => f.id))
@@ -40,9 +47,24 @@ export function useProjectsCommands(): [
                 requiresSelection: true,
                 toolbarEnableMode: "hide",
                 getEnabled(selected) {
-                    return !!selected && selected.length > 0 && selected.every((p) => p && !p.excluded)
+                    return (
+                        !!selected && selected.length > 0 && selected.every((p) => p && !p.excluded)
+                    )
                 },
             },
+            // {
+            //     id: "explore",
+            //     label: "Explore project",
+            //     tipText: "Browse project tables and data",
+            //     icon: FaMagnifyingGlass,
+            //     requiresSingleSelection: true,
+            //     onClick: (selected) => {
+            //         uiState.showDialog({
+            //             dialogType: "explorer",
+            //             props: { projectId: selected[0].id },
+            //         })
+            //     },
+            // },
             {
                 id: "exclude",
                 getLabel: (selected) => {
@@ -68,7 +90,7 @@ export function useProjectsCommands(): [
                 requiresSelection: true,
             },
         ],
-        [projects, snap.showEmptyProjects],
+        [projects, snap.showEmptyProjects, uiState.showDialog],
     )
 
     const selectMenuCommand = useCallback(

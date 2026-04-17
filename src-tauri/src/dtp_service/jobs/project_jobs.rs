@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
+use entity::images::Column;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
 use crate::{
     dtp_service::{
+        dtp_service::get_db_file_path,
         events::{DTPEvent, ScanProgress},
         jobs::{sync_folder::ProjectSync, Job, JobContext, JobResult},
     },
-    projects_db::ProjectsDb,
+    projects_db::{DTProject, ProjectsDb},
 };
 
 pub struct AddProjectJob {
@@ -54,9 +58,11 @@ impl Job for AddProjectJob {
                 ctx.events.emit(DTPEvent::ProjectAdded(added_project));
                 Ok(JobResult::Subtasks(vec![Arc::new(UpdateProjectJob {
                     project_id: id,
+                    project_path: self.path.clone(),
                     filesize: self.filesize,
                     modified: self.modified,
                     is_import: self.is_import,
+                    check_deletions: false,
                 })]))
             }
             Err(e) => Err(e.to_string()),
@@ -98,19 +104,27 @@ impl Job for RemoveProjectJob {
 
 pub struct UpdateProjectJob {
     pub project_id: i64,
+    pub project_path: String,
     pub filesize: i64,
     pub modified: i64,
     pub is_import: bool,
+    pub check_deletions: bool,
 }
 
 impl UpdateProjectJob {
-    pub fn new(project_sync: &ProjectSync, is_import: bool) -> Result<Self, String> {
+    pub fn new(
+        project_sync: &ProjectSync,
+        is_import: bool,
+        check_deletions: bool,
+    ) -> Result<Self, String> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
+                project_path: entity.full_path.clone(),
                 filesize: project_sync.file.as_ref().unwrap().filesize as i64,
                 modified: project_sync.file.as_ref().unwrap().modified,
                 is_import,
+                check_deletions,
             })
         } else {
             Err("Project entity not found".to_string())
@@ -120,10 +134,11 @@ impl UpdateProjectJob {
         pdb: &ProjectsDb,
         project_id: i64,
         is_import: bool,
+        check_deletions: bool,
     ) -> Result<Self, String> {
         let sync = ProjectSync::from_id(pdb, project_id).await?;
 
-        UpdateProjectJob::new(&sync, is_import)
+        UpdateProjectJob::new(&sync, is_import, check_deletions)
     }
 }
 
@@ -143,6 +158,10 @@ impl Job for UpdateProjectJob {
             .scan_project(self.project_id, false)
             .await
             .map_err(|e| e.to_string());
+
+        if self.check_deletions {
+            check_deletions(&ctx, self.project_id, &self.project_path).await?;
+        }
 
         let result = match scan_result {
             Ok((_id, total)) => {
@@ -176,4 +195,31 @@ impl Job for UpdateProjectJob {
 
         result
     }
+}
+
+async fn check_deletions(
+    ctx: &JobContext,
+    project_id: i64,
+    project_path: &str,
+) -> Result<(), String> {
+    let pdb_path = get_db_file_path(&ctx.app_handle);
+
+    let dt_project = DTProject::open(project_path)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let missing_ids = dt_project.check_id(pdb_path, project_id).await?;
+
+    if missing_ids.is_empty() {
+        return Ok(());
+    }
+
+    let _result = entity::images::Entity::delete_many()
+        .filter(Column::ProjectId.eq(project_id))
+        .filter(Column::Id.is_in(missing_ids))
+        .exec(&ctx.pdb.db)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
 }

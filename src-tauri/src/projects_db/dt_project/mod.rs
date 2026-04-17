@@ -33,6 +33,8 @@ use tokio::sync::OnceCell;
 mod raw;
 pub use raw::dt_project_tensordata;
 pub mod maintenance;
+mod tensor_history_node;
+pub use tensor_history_node::TensorHistoryNodeRow;
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);
@@ -53,6 +55,7 @@ pub struct DTProject {
     path: String,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub text_history: Arc<OnceCell<TextHistory>>,
+    pub is_shared: bool,
 }
 
 pub async fn close_folder(folder_path: &str) {
@@ -123,7 +126,7 @@ pub struct DTProjectTableStatus {
 }
 
 impl DTProject {
-    pub async fn new(db_path: &str) -> Result<Self, Error> {
+    async fn new(db_path: &str, is_shared: bool) -> Result<Self, Error> {
         let connect_string = format!("sqlite:{}?mode=ro", db_path);
         let pool = SqlitePool::connect(&connect_string).await?;
 
@@ -132,6 +135,7 @@ impl DTProject {
             path: db_path.to_string(),
             tables: Arc::new(OnceCell::new()),
             text_history: Arc::new(OnceCell::new()),
+            is_shared,
         };
 
         dtp.check_tables().await?;
@@ -142,7 +146,11 @@ impl DTProject {
     /// Use this for long-running operations (e.g. scan_project) where the caller
     /// manages the lifetime directly. The pool closes when the DTProject is dropped.
     pub async fn open(path: &str) -> Result<DTProject, Error> {
-        DTProject::new(path).await
+        let mut dt_project = DTProject::new(path, false).await;
+        if let Ok(dt_project) = &mut dt_project {
+            dt_project.is_shared = false;
+        }
+        dt_project
     }
 
     pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
@@ -153,7 +161,7 @@ impl DTProject {
 
         let result = cell
             .get_or_try_init(|| async {
-                let project = Arc::new(DTProject::new(path).await?);
+                let project = Arc::new(DTProject::new(path, true).await?);
                 Ok::<Arc<CachedProject>, Error>(Arc::new(CachedProject {
                     project,
                     generation: AtomicU64::new(0),

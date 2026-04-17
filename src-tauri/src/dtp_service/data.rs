@@ -33,18 +33,17 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn update_project(
+    pub async fn update_project_exclude(
         &self,
         project_id: i64,
-        exclude: Option<bool>,
+        exclude: bool,
     ) -> Result<(), String> {
         let db = self.get_db().await?;
 
-        if let Some(exclude_val) = exclude {
-            db.update_exclude(project_id, exclude_val).await?;
-            if !exclude_val {
-                self.add_job(UpdateProjectJob::from_id(&db, project_id, true).await?)
-            }
+        db.update_exclude(project_id, exclude).await?;
+
+        if !exclude {
+            self.add_job(UpdateProjectJob::from_id(&db, project_id, true, false).await?)
         }
 
         let project = db.get_project(project_id).await?;

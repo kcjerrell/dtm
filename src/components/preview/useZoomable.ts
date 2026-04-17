@@ -1,5 +1,6 @@
 import { type SpringOptions, useSpring } from "motion/react"
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react"
+import { useElapsed } from "@/hooks/useDecay"
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 8
@@ -13,9 +14,10 @@ export function useZoomable(
     motionRef: RefObject<HTMLElement | null>,
     options: {
         contentSize?: { width: number; height: number }
+        onZoomOutBoundary?: () => void
     } = {},
 ) {
-    const { contentSize } = options
+    const { contentSize, onZoomOutBoundary } = options
     const posRef = useRef({ x: 0, y: 0, scale: 1 })
     const xMv = useSpring(posRef.current.x, SPRING)
     const yMv = useSpring(posRef.current.y, SPRING)
@@ -24,6 +26,8 @@ export function useZoomable(
     const isDragging = useRef(false)
     const lastPos = useRef({ x: 0, y: 0 })
     const hasMoved = useRef(false)
+
+    const getElapsed = useElapsed(true)
 
     const setMv = useCallback(() => {
         const { x, y, scale } = posRef.current
@@ -39,32 +43,11 @@ export function useZoomable(
             const winW = window.innerWidth
             const winH = window.innerHeight
 
-            // The content's base size (at scale 1) is passed in options.contentSize.
-            // But we need to know how it relates to the viewport.
-            // Assuming the content is centered and "contained" initially?
-            // Wait, standard behavior for this light box is that the image is initially "contain"ed.
+            // The image is initially "contain"ed.
             // So contentSize.width <= winW and contentSize.height <= winH.
 
             const scaledW = contentSize.width * currScale
             const scaledH = contentSize.height * currScale
-
-            // Max offsets allowed
-            // If scaled content is larger than viewport, allow panning until edge hits viewport edge.
-            // Edge is at: Center + Offset +/- ScaledSize/2
-            // Viewport edge: Center +/- ViewportSize/2 (relative to center)
-
-            // We work in center-relative coords for x/y.
-            // Left Edge of Image relative to Screen Center: x - scaledW / 2
-            // Left Edge of Screen relative to Screen Center: -winW / 2
-
-            // Constraint: Image Left Edge <= Screen Left Edge
-            // x - scaledW / 2 <= -winW / 2  =>  x <= (scaledW - winW) / 2
-
-            // Right Edge Constraint: Image Right Edge >= Screen Right Edge
-            // x + scaledW / 2 >= winW / 2   =>  x >= (winW - scaledW) / 2
-            // => x >= - (scaledW - winW) / 2
-
-            // So |x| <= (scaledW - winW) / 2
 
             let maxX = 0
             let maxY = 0
@@ -85,10 +68,19 @@ export function useZoomable(
     )
 
     const zoom = useCallback(
-        (delta: number, clientX: number, clientY: number) => {
+        (delta: number, clientX: number, clientY: number, pinch?: boolean) => {
             const { x, y, scale } = posRef.current
 
-            let newScale = scale * (1 - delta * ZOOM_SENSITIVITY)
+            if (delta > 4) {
+                const elapsed = getElapsed()
+                if (elapsed > 100 && scale === 1) {
+                    onZoomOutBoundary?.()
+                    return
+                }
+            }
+
+            const mult = pinch ? 2 : 1
+            let newScale = scale * (1 - delta * mult * ZOOM_SENSITIVITY)
             newScale = Math.min(Math.max(newScale, MIN_ZOOM), MAX_ZOOM)
 
             const ratio = newScale / scale
@@ -107,7 +99,7 @@ export function useZoomable(
             posRef.current = { x: clamped.x, y: clamped.y, scale: newScale }
             setMv()
         },
-        [setMv, clampPos],
+        [setMv, clampPos, getElapsed, onZoomOutBoundary],
     )
 
     useEffect(() => {
@@ -116,7 +108,7 @@ export function useZoomable(
 
         const onWheel = (e: WheelEvent) => {
             e.preventDefault()
-            zoom(e.deltaY, e.clientX, e.clientY)
+            zoom(e.deltaY, e.clientX, e.clientY, e.ctrlKey)
         }
 
         el.addEventListener("wheel", onWheel, { passive: false })

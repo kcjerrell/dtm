@@ -423,7 +423,6 @@ const templates = {
         if (!value || value.value === undefined) return null
         const samplerName = getSampler(value.value)
         const ssg = image?.config?.stochasticSamplingGamma
-        console.log(ssg, samplerName)
         let data = samplerName
         if (samplerName?.startsWith("TCD") && ssg !== undefined) {
             data += ` (${(ssg * 100).toFixed(0)}%)`

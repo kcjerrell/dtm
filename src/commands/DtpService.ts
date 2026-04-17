@@ -27,8 +27,8 @@ async function listProjects(watchfolderId?: number): Promise<ProjectExtra[]> {
     return await invoke("dtp_list_projects", { watchfolderId })
 }
 
-async function updateProject(projectId: number, exclude?: boolean): Promise<void> {
-    return await invoke("dtp_update_project", { projectId, exclude })
+async function updateProjectExclude(projectId: number, exclude: boolean): Promise<void> {
+    return await invoke("dtp_update_project_exclude", { projectId, exclude })
 }
 
 async function listImages(
@@ -133,13 +133,13 @@ async function sync() {
 }
 
 async function syncProjects(projectIds: number[]) {
-    await invoke("dtp_sync_projects", { projectIds })
+    await invoke("dtp_sync_projects", { projectIds, checkDeletions: true })
 }
 
 const DTPService = {
     connect,
     listProjects,
-    updateProject,
+    updateProjectExclude,
     listImages,
     listImagesCount,
     findImageFromPreviewId,

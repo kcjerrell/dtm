@@ -119,11 +119,77 @@ fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn is_debug_build() -> bool {
+    cfg!(debug_assertions)
+}
+
+#[tauri::command]
+fn get_os_version() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        let version = std::process::Command::new("sw_vers")
+            .arg("-productVersion")
+            .output()
+            .ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "unknown".to_string());
+        format!("macos {}", version)
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let version_from_os_release = std::fs::read_to_string("/etc/os-release")
+            .ok()
+            .and_then(|content| {
+                content
+                    .lines()
+                    .find_map(|line| line.strip_prefix("VERSION_ID="))
+                    .map(|v| v.trim_matches('"').to_string())
+            })
+            .filter(|s| !s.is_empty());
+
+        let version = version_from_os_release
+            .or_else(|| {
+                std::process::Command::new("uname")
+                    .arg("-r")
+                    .output()
+                    .ok()
+                    .and_then(|out| String::from_utf8(out.stdout).ok())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+
+        format!("linux {}", version)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let version = std::process::Command::new("cmd")
+            .args(["/C", "ver"])
+            .output()
+            .ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "unknown".to_string());
+        format!("windows {}", version)
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        format!("{} unknown", std::env::consts::OS)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
 
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
     builder
@@ -165,6 +231,8 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
+            is_debug_build,
+            get_os_version,
             read_clipboard_types,
             read_clipboard_binary,
             write_clipboard_binary,
@@ -195,13 +263,14 @@ pub fn run() {
             dtp_service::data::dtp_list_projects,
             dtp_service::data::dtp_list_watch_folders,
             dtp_service::data::dtp_remove_watch_folder,
-            dtp_service::data::dtp_update_project,
+            dtp_service::data::dtp_update_project_exclude,
             dtp_service::data::dtp_update_watch_folder,
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
             dtp_service::data::dtp_get_metadata,
+            dtp_service::dt_data::dtp_dt_list_tensor_history_node,
             dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,
         ])

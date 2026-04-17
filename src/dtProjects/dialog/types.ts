@@ -19,6 +19,11 @@ export type SettingsDialogState = {
     props: Record<string, unknown>
 }
 
+export type ExplorerDialogState = {
+    dialogType: "explorer"
+    props: Record<string, unknown>
+}
+
 type UnknownDialogState = {
     dialogType: "unknown"
     props: Record<string, unknown>
@@ -34,4 +39,5 @@ export type DialogState =
     | VideoExportDialogState
     | FrameExportDialogState
     | SettingsDialogState
+    | ExplorerDialogState
     | UnknownDialogState

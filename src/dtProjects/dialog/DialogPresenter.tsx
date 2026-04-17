@@ -1,24 +1,49 @@
 import { Flex } from "@chakra-ui/react"
 import type { JSX } from "react"
 import { Panel } from "@/components"
+import Explorer from "../explorer"
 import { SettingsPanel } from "../settingsPanel/SettingsPanel"
 import { useDTP } from "../state/context"
 import FramesExportDialog from "./clipExport/FramesExportDialog"
 import VideoExportDialog from "./clipExport/VideoExportDialog"
 import type { DialogProps, DialogState } from "./types"
 
-const _dialogs: Record<string, (props: DialogProps) => JSX.Element> = {
-    "clip-export-video": VideoExportDialog as unknown as (props: DialogProps) => JSX.Element,
-    "clip-export-frames": FramesExportDialog as unknown as (props: DialogProps) => JSX.Element,
-    settings: SettingsPanel as unknown as (props: DialogProps) => JSX.Element,
+type DialogComponent = (props: DialogProps) => JSX.Element
+type DialogType = {
+    Dialog: DialogComponent
+    panelProps?: ChakraProps
+    containerProps?: ChakraProps
+}
+
+const _dialogs: Record<string, DialogType> = {
+    "clip-export-video": {
+        Dialog: VideoExportDialog as unknown as DialogComponent,
+        panelProps: {},
+        containerProps: {},
+    },
+    "clip-export-frames": {
+        Dialog: FramesExportDialog as unknown as DialogComponent,
+        panelProps: {},
+        containerProps: {},
+    },
+    settings: {
+        Dialog: SettingsPanel as unknown as DialogComponent,
+        panelProps: {},
+        containerProps: {},
+    },
+    explorer: {
+        Dialog: Explorer as unknown as DialogComponent,
+        panelProps: { width: "full", height: "full" },
+        containerProps: { width: "full", height: "full" },
+    },
 }
 
 function getDialogComponent(dialog?: DialogState) {
     if (!dialog || !(dialog.dialogType in _dialogs)) return { Dialog: null, dialogProps: null }
     const { dialogType, props } = dialog
-    const Dialog = _dialogs[dialogType]
+    const { Dialog, panelProps, containerProps } = _dialogs[dialogType]
 
-    return { Dialog, dialogProps: props }
+    return { Dialog, dialogProps: props, panelProps, containerProps }
 }
 
 interface DialogPresenterComponentProps extends ChakraProps {}
@@ -28,7 +53,7 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
     const { uiState } = useDTP()
     const uiSnap = uiState.useSnap()
 
-    const { Dialog, dialogProps } = getDialogComponent(uiSnap.dialog)
+    const { Dialog, dialogProps, panelProps, containerProps } = getDialogComponent(uiSnap.dialog)
     if (!Dialog) return null
 
     return (
@@ -49,7 +74,7 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
                 maxHeight={"80vh"}
                 maxWidth={"80vw"}
                 onClick={(e) => e.stopPropagation()}
-                {...restProps}
+                {...containerProps}
             >
                 <Panel
                     padding={3}
@@ -59,7 +84,7 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
                     bgColor={"bg.1"}
                     role={"dialog"}
                     aria-modal="true"
-                    {...restProps}
+                    {...panelProps}
                 >
                     <Dialog onClose={() => uiState.hideDialog()} {...dialogProps} />
                 </Panel>

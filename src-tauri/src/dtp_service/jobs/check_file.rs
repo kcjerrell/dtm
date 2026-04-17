@@ -73,6 +73,8 @@ impl Job for CheckFileJob {
                         filesize: filesize,
                         modified: modified.unwrap_or(0),
                         is_import: false,
+                        check_deletions: false,
+                        project_path: entity.full_path.clone(),
                     };
                     return Ok(JobResult::Subtasks(vec![Arc::new(job)]));
                 }

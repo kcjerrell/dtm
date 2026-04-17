@@ -51,7 +51,7 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: npm run tauri build -- --debug
+        run: npm run build:debug
 
       - name: Set up test data
         run: sh scripts/test-setup.sh

@@ -1,8 +1,9 @@
-import { Box, Flex } from "@chakra-ui/react"
+import { Box, Flex, Spinner } from "@chakra-ui/react"
 import { useSnapshot } from "valtio"
 import { getMetadataStore } from "../state/metadataStore"
 import CurrentImage from "./CurrentImage"
 import CurrentVideo from "./CurrentVideo"
+import { DetailsSpinnerRoot } from "@/dtProjects/detailsOverlay/common"
 
 interface CurrentItemProps extends ChakraProps {}
 
@@ -10,7 +11,7 @@ function CurrentItem(props: CurrentItemProps) {
     const { ...restProps } = props
 
     const snap = useSnapshot(getMetadataStore())
-    const { currentItem: currentImage } = snap
+    const { currentItem: currentImage, isLoadingImage } = snap
 
     let Item: React.ComponentType | null = null
     if (currentImage?.url) {
@@ -37,13 +38,19 @@ function CurrentItem(props: CurrentItemProps) {
                 <Item key={currentImage?.id} />
             ) : (
                 <Flex
+                    position={"relative"}
                     color={"fg/50"}
                     fontSize={"xl"}
                     justifyContent={"center"}
                     alignItems={"center"}
                 >
-                    Drop image here
+                    {!isLoadingImage && "Drop image here"}
                 </Flex>
+            )}
+            {isLoadingImage && (
+                <DetailsSpinnerRoot zIndex={8}>
+                    <Spinner width={"100%"} height={"100%"} color={"white"} />
+                </DetailsSpinnerRoot>
             )}
         </Box>
     )

@@ -3,11 +3,13 @@ import * as fs from "@tauri-apps/plugin-fs"
 import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
+import { RiFileSettingsLine } from "react-icons/ri"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommand } from "@/types"
+import { writeClipboardText } from "@/utils/clipboard"
 import { showMenu } from "@/utils/menu"
 import { save } from "@/utils/tauri"
 import { useDTP } from "../state/context"
@@ -37,7 +39,7 @@ export function useImageCommands(): [
     ) => Promise<(() => void | Promise<void>) | null>,
     ICommand<ResourceHandle, ImageCommandContext>[],
 ] {
-    const { uiState, projects } = useDTP()
+    const { uiState, projects, details } = useDTP()
 
     const commands: ICommand<ResourceHandle, ImageCommandContext>[] = useMemo(
         () => [
@@ -96,6 +98,24 @@ export function useImageCommands(): [
                         await fs.writeFile(savePath, data)
                     }
                 },
+            },
+            {
+                id: "copyConfig",
+                label: "Copy config",
+                tip: "Copy config",
+                icon: RiFileSettingsLine,
+                getEnabled: (selected) => !!selected?.[0].image,
+                toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
+                onClick: async (selected) => {
+                    const image = selected[0].image
+                    if (!image) return
+                    const imageFull = await details.getDetails(image)
+                    if (!imageFull) return
+                    // await navigator.clipboard.writeText(JSON.stringify(imageFull.config, null, 2))
+                    await writeClipboardText(imageFull.config)
+                },
+                requiresSelection: true,
             },
             {
                 id: "sendToMetadata",

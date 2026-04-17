@@ -237,7 +237,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         for (const project of toUpdate) {
             const projectState = this.state.projects.find((p) => p.id === project.id)
             if (!projectState) continue
-            await DTPService.updateProject(project.id, exclude)
+            await DTPService.updateProjectExclude(project.id, exclude)
             projectState.excluded = exclude
             stateUpdate.push(projectState)
             projectState.setSelected(false)
