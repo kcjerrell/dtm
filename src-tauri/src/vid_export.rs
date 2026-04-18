@@ -42,7 +42,7 @@ pub async fn save_all_clip_frames(
     let project = projects_db.get_project(project_id).await.unwrap();
 
     // 2. Fetch Clip Frames
-    let dt_project = DTProject::get(&project.full_path)
+    let dt_project = DTProject::open(&project.full_path)
         .await
         .map_err(|e| e.to_string())?;
     let frames = dt_project
