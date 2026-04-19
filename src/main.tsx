@@ -28,9 +28,6 @@ async function reset_db() {
 
 async function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
-
-    await loadSettingsStore()
-
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
     window.__reset_db = reset_db
     window.__reset_metadata_store = async () => {
@@ -38,6 +35,10 @@ async function bootstrap() {
         resetMetadataStore()
     }
     addTestHooks()
+
+    // this store must be initialized and await so installId is determinate
+    // if allowed to lazy load, update check may run before settings have synced from storage
+    await loadSettingsStore()
 
     // const hash = document.location?.hash?.slice(1)
     // if (hash === "mini") AppStore.setView("mini")
