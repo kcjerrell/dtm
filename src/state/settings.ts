@@ -31,7 +31,7 @@ function initStore() {
             ...defaultSettings,
         },
         {
-            autoStart: true,
+            autoStart: false, // must be started manually (main.tsx)
             saveOnChange: true,
             saveStrategy: "immediate",
             syncStrategy: "immediate",
@@ -46,10 +46,12 @@ function initStore() {
     return storeInstance
 }
 
+/**
+ * Must be called as early as possible (main.tsx)
+ */
 export async function loadSettingsStore() {
     const store = getSettingStore()
     await store.start()
-    await getInstallId()
 }
 
 function getSettingStore() {
