@@ -60,23 +60,25 @@ export class ResourceHandle {
 
     private clip?: ClipExtra | null
     async getClip() {
-        if (!this.clip === undefined) {
+        if (this.clip === undefined) {
             if (this.clipId) {
-                this.clip = await DtpService.getClip(this.projectId, this.clipId)
+                this.clip = await DtpService.getClip(this.image.id, this.clipId)
+                console.log("getclip", this)
             } else this.clip = null
         }
         return this.clip
     }
 
     async getPngData(frame?: number) {
+        console.log("getpngdata for frame", frame, this.image?.prompt?.slice(0, 80))
         if (this.isPose) {
             return await this.getPoseImage()
         }
         let tensorId: Nullable<string>
         if (frame !== undefined) {
-            tensorId = (await this.getClip())?.frames.find(
-                (f) => f.indexInAClip === frame,
-            )?.tensorId
+            const clip = await this.getClip()
+            tensorId = clip?.frames.find((f) => f.indexInAClip === frame)?.tensorId
+            console.log(clip?.frames)
         } else {
             tensorId = await this.getTensorId()
         }

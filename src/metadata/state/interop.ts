@@ -11,23 +11,22 @@ export async function sendToMetadata(
     source: ImageSource,
 ) {
     // check if the item already has been sent to the store
-    const state = getMetadataStore()
-    let imageItem = state.items.find((im) =>
-        compareImageSource(im.source, source),
-    ) as Nullable<MediaItem>
+    // const state = getMetadataStore()
+    // let imageItem = state.items.find((im) =>
+    //     compareImageSource(im.source, source),
+    // ) as Nullable<MediaItem>
 
-    if (!imageItem) {
-        const image = await ImageItem.fromBuffer(imageData, type, source)
-        if (image) {
-            imageItem = image
-            imageItem = addImageItem(image)
+    // if (!imageItem) {
+    const image = await ImageItem.fromBuffer(imageData, type, source)
+    if (image) {
+        let imageItem: MediaItem = image
+        imageItem = addImageItem(image)
+        if (imageItem) {
+            selectImage(imageItem)
+            updateSetting("app.currentView", "metadata")
         }
     }
-
-    if (imageItem) {
-        selectImage(imageItem)
-        updateSetting("app.currentView", "metadata")
-    }
+    // }
 }
 
 export function handleDrop(data: unknown) {

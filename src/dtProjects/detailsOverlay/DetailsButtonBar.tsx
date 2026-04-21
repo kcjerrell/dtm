@@ -1,4 +1,4 @@
-import { type ComponentProps, useState } from "react"
+import { type ComponentProps, type RefObject, useMemo, useState } from "react"
 import type { Snapshot } from "valtio"
 import type { ImageExtra } from "@/commands"
 import CommandButton, { CancelExecute } from "@/components/CommandButton"
@@ -43,6 +43,13 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
     const { imageCommands } = useMenuContext()
     const resource = ResourceHandle.from(subItem ?? itemProp)
 
+    const context = useMemo(
+        () => ({
+            videoRef: videoRef as RefObject<VideoContextType | null>,
+        }),
+        [videoRef],
+    )
+
     if (!resource) return null
 
     const commandItem = resource ? [resource] : []
@@ -60,10 +67,14 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
             {...restProps}
         >
             {imageCommands.map((cmd) => (
-                <CommandButton
+                <CommandButton<
+                    ResourceHandle,
+                    { videoRef: React.RefObject<VideoContextType | null> }
+                >
                     key={cmd.id}
                     command={cmd}
                     selectedItems={commandItem}
+                    context={context}
                     disabled={lockButtons}
                     beforeExecute={(ctx) => {
                         if (lockButtons) throw new CancelExecute()
