@@ -7,6 +7,7 @@ import { RiFileSettingsLine } from "react-icons/ri"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
+import type { VideoContextType } from "@/components/video/context"
 import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommand } from "@/types"
 import { writeClipboardText } from "@/utils/clipboard"
@@ -17,6 +18,7 @@ import type { ResourceHandle } from "../util/resourceHandle"
 
 export interface ImageCommandContext {
     isContextMenu?: boolean
+    videoRef?: React.RefObject<VideoContextType | null>
 }
 
 /*
@@ -52,8 +54,13 @@ export function useImageCommands(): [
                 getTip: (selected, _) =>
                     selected[0].isVideo ? "Copy selected frame" : "Copy image",
                 icon: FiCopy,
-                onClick: async (selected, _) => {
-                    const data = await selected[0].getPngData()
+                onClick: async (selected, ctx) => {
+                    let frame: number | undefined
+                    if (ctx?.videoRef?.current) {
+                        ctx.videoRef?.current.controls.pause()
+                        frame = ctx.videoRef.current.controls.getFrame()
+                    }
+                    const data = await selected[0].getPngData(frame)
                     if (!data) return
                     await invoke("write_clipboard_binary", {
                         ty: `public.png`,
@@ -86,8 +93,13 @@ export function useImageCommands(): [
                 getTip: (selected, _) =>
                     selected[0].isVideo ? "Save selected frame" : "Save image",
                 icon: FiSave,
-                onClick: async (selected, _) => {
-                    const data = await selected[0].getPngData()
+                onClick: async (selected, ctx) => {
+                    let frame: number | undefined
+                    if (ctx?.videoRef?.current) {
+                        ctx.videoRef?.current.controls.pause()
+                        frame = ctx.videoRef.current.controls.getFrame()
+                    }
+                    const data = await selected[0].getPngData(frame)
                     if (!data) return
                     const savePath = await save({
                         canCreateDirectories: true,
@@ -130,8 +142,13 @@ export function useImageCommands(): [
                         ? "Send selected frame to Metadata"
                         : "Send image to Metadata",
                 icon: PiListMagnifyingGlassBold,
-                onClick: async (selected, _) => {
-                    const data = await selected[0].getPngData()
+                onClick: async (selected, ctx) => {
+                    let frame: number | undefined
+                    if (ctx?.videoRef?.current) {
+                        ctx.videoRef?.current.controls.pause()
+                        frame = ctx.videoRef.current.controls.getFrame()
+                    }
+                    const data = await selected[0].getPngData(frame)
                     if (!data) return
                     const project = projects.getProject(selected[0].projectId)
                     await sendToMetadata(data, "png", {
@@ -178,7 +195,7 @@ export function useImageCommands(): [
                 ellipses: true,
             },
         ],
-        [uiState, projects],
+        [uiState, projects, details.getDetails],
     )
 
     const selectMenuCommand = useCallback(

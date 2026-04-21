@@ -49,6 +49,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
     }))
 
     const syncRef = useRef<IFrameSync | null>(null)
+    const currentFrameRef = useRef<number | undefined>(undefined)
 
     const fps = halfFps ? snap.fps / 2 : snap.fps
 
@@ -93,6 +94,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
             posMv: syncRef.current?.posMv,
             /** kind of weird, but -1 will toggle */
             setMute: (value: boolean | -1) => syncRef.current?.setMute?.(value),
+            getFrame: () => currentFrameRef.current,
         }),
         [snap.playbackState],
     )
@@ -128,6 +130,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
                         audio: audioRef,
                         defaultMuted: defaultMuteRef.current,
                         onFrameChanged: (frame) => {
+                            currentFrameRef.current = frame
                             frameChangedHandlersRef.current.forEach((f) => {
                                 f(frame, fps, state.urls.length)
                             })
@@ -151,6 +154,7 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
                         nFrames: state.urls.length,
                         autoStart: false,
                         onFrameChanged: (frame) => {
+                            currentFrameRef.current = frame
                             frameChangedHandlersRef.current.forEach((f) => {
                                 f(frame, fps, state.urls.length)
                             })
