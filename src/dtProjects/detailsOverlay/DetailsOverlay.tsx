@@ -9,6 +9,7 @@ import DetailsContent from "./DetailsContent"
 import DetailsImages from "./DetailsImages"
 import { DTImageProvider } from "./DTImageProvider"
 import TensorsList from "./TensorsList"
+import { isCanvasStack } from "../types"
 
 const transition = { duration: 0.25, ease: "easeInOut" }
 
@@ -65,6 +66,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                         else uiState.hideDetailsOverlay()
                     }
                 }}
+                // expandImage={isCanvasStack(snap.subItem)}
                 variants={{
                     open: {
                         backgroundColor: "#00000099",

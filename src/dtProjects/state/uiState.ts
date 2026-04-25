@@ -2,12 +2,12 @@ import { proxy, useSnapshot } from "valtio"
 import { proxySet } from "valtio/utils"
 import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
-import type { ScanProgress } from "@/commands/DtpServiceTypes"
+import type { ScanProgress, TensorDataRow } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
-import type { SubItem, TensorType } from "../types"
+import type { CanvasStack, SubItem, TensorType } from "../types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
 
@@ -19,7 +19,7 @@ export type UIControllerState = {
         item?: ImageExtra
         itemDetails?: DTImageFull
         showSpinner: boolean
-        subItem?: SubItem
+        subItem?: SubItem | CanvasStack
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
         candidates?: TensorHistoryExtra[]
@@ -201,6 +201,20 @@ export class UIController extends DTPStateController<UIControllerState> {
         details.subItemSourceRect = toJSON(sourceElement.getBoundingClientRect())
         if (tensorId?.startsWith("pose")) await this.showSubItemPose(projectId, tensorId)
         else await this.showSubItemImage(projectId, tensorId)
+    }
+
+    async showCanvasStack(details: MaybeReadonly<DTImageFull>) {
+        const detailsOverlay = this.state.detailsView
+        if (!detailsOverlay.item || !details.tensorData?.length) return
+        detailsOverlay.subItem = {
+            projectId: details.project.id,
+            tensorData: details.tensorData as TensorDataRow[],
+            nodeId: details.id,
+            isLoading: false,
+            width: details.config.width,
+            height: details.config.height,
+        }
+        detailsOverlay.subItemSourceRect = null
     }
 
     toggleSubItemMask() {

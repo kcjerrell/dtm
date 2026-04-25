@@ -2,29 +2,51 @@ import { Box, type BoxProps } from "@chakra-ui/react"
 import { type MotionProps, motion, type ValueAnimationTransition } from "motion/react"
 import { createRef, useEffect, useRef, useState } from "react"
 import { proxy, ref, useSnapshot } from "valtio"
+import CanvasStackComponent from "@/dtProjects/detailsOverlay/CanvasStackComponent"
+import type { CanvasStack } from "@/dtProjects/types"
 import { Hotkey } from "@/hooks/keyboard"
 import { useSpringRect } from "@/hooks/motion"
 import { SPRING, useZoomable } from "./useZoomable"
 
 const store = proxy({
     showPreview: false,
-    sourceElement: ref(createRef<HTMLImageElement | null>()),
+    sourceElement: ref(createRef<HTMLImageElement | SVGElement | null>()),
     src: null as string | null,
     isLoaded: false,
+    stackCanvas: null as CanvasStack | null,
+    srcSize: null as { width: number; height: number } | null,
 })
 
 export function showPreview(srcElem?: HTMLImageElement | null, src?: string) {
+    store.stackCanvas = null
     store.sourceElement.current = srcElem ?? null
     const newSrc = src ?? srcElem?.src ?? null
     if (newSrc !== store.src) {
         store.src = newSrc
         store.isLoaded = false
     }
+    if (srcElem) {
+        store.srcSize = { width: srcElem.naturalWidth, height: srcElem.naturalHeight }
+    }
     if (store.src) store.showPreview = true
+}
+
+export function showStackPreview(
+    srcElem: SVGElement | null,
+    canvasStack: MaybeReadonly<CanvasStack>,
+    width: number,
+    height: number,
+) {
+    store.src = null
+    store.sourceElement.current = srcElem ?? null
+    store.stackCanvas = (canvasStack as CanvasStack) ?? null
+    store.srcSize = { width, height }
+    store.showPreview = true
 }
 
 export function hidePreview() {
     store.showPreview = false
+    store.stackCanvas = null
 }
 
 export function useIsPreviewActive() {
@@ -35,6 +57,7 @@ export function useIsPreviewActive() {
 interface PreviewProps extends BoxProps {}
 interface PreviewZoomProps extends PreviewProps {
     onClose: () => void
+    stackCanvas?: MaybeReadonly<CanvasStack | null>
 }
 
 const posTransition: ValueAnimationTransition<number> = {
@@ -45,7 +68,7 @@ const posTransition: ValueAnimationTransition<number> = {
 export function Preview(props: PreviewProps) {
     const { ...restProps } = props
     const snap = useSnapshot(store)
-    const { src, showPreview: show, sourceElement, isLoaded } = snap
+    const { src, showPreview: show, sourceElement, isLoaded, stackCanvas } = snap
 
     const [isOpen, setIsOpen] = useState(false)
 
@@ -56,7 +79,14 @@ export function Preview(props: PreviewProps) {
     if (!isOpen) return null
 
     if (sourceElement.current)
-        return <PreviewZoom key={src} onClose={() => setIsOpen(false)} {...restProps} />
+        return (
+            <PreviewZoom
+                key={src}
+                stackCanvas={stackCanvas}
+                onClose={() => setIsOpen(false)}
+                {...restProps}
+            />
+        )
 
     return (
         <>
@@ -156,10 +186,10 @@ export function Preview(props: PreviewProps) {
 }
 
 function PreviewZoom(props: PreviewZoomProps) {
-    const { onClose, ...restProps } = props
+    const { onClose, stackCanvas, ...restProps } = props
 
     const snap = useSnapshot(store)
-    const { src, showPreview: show } = snap
+    const { src, showPreview: show, srcSize } = snap
 
     const [contentSize, setContentSize] = useState<{ width: number; height: number }>()
 
@@ -171,7 +201,7 @@ function PreviewZoom(props: PreviewZoomProps) {
             hidePreview()
         },
     })
-
+    console.log(snap)
     // const [fromRect, setFromRect] = useState<DOMRect>()
 
     const imgRef = useRef<HTMLImageElement>(null)
@@ -180,10 +210,10 @@ function PreviewZoom(props: PreviewZoomProps) {
     useEffect(() => {
         const updateLayout = () => {
             const sourceElement = store.sourceElement.current
-            if (!sourceElement) return
+            if (!sourceElement || !srcSize) return
             const rect = contain(
-                sourceElement.naturalWidth,
-                sourceElement.naturalHeight,
+                srcSize.width,
+                srcSize.height,
                 window.innerWidth,
                 window.innerHeight,
             )
@@ -212,16 +242,16 @@ function PreviewZoom(props: PreviewZoomProps) {
 
         window.addEventListener("resize", handleResize)
         return () => window.removeEventListener("resize", handleResize)
-    }, [heightMv, leftMv, widthMv, topMv, show])
+    }, [heightMv, leftMv, widthMv, topMv, show, srcSize])
 
     useEffect(() => {
         const sourceElement = store.sourceElement.current
-        if (!sourceElement || !imgRef.current) return
+        if (!sourceElement || !imgRef.current || !srcSize) return
 
         const originalRect = sourceElement.getBoundingClientRect()
         const previewRect = contain(
-            sourceElement.naturalWidth,
-            sourceElement.naturalHeight,
+            srcSize.width,
+            srcSize.height,
             window.innerWidth,
             window.innerHeight,
         )
@@ -273,7 +303,7 @@ function PreviewZoom(props: PreviewZoomProps) {
             // Cleanup visibility on unmount or change
             //  if (sourceElement) sourceElement.style.visibility = "visible"
         }
-    }, [leftMv, widthMv, topMv, heightMv, show, onClose])
+    }, [leftMv, widthMv, topMv, heightMv, show, onClose, srcSize])
 
     return (
         <>
@@ -327,19 +357,23 @@ function PreviewZoom(props: PreviewZoomProps) {
                         },
                     }}
                 >
-                    <motion.img
-                        ref={imgRef}
-                        style={{
-                            position: "absolute",
-                            objectFit: "contain",
-                            left: leftMv,
-                            top: topMv,
-                            width: widthMv,
-                            height: heightMv,
-                        }}
-                        src={src ?? undefined}
-                        transition={posTransition}
-                    />
+                    {stackCanvas ? (
+                        <CanvasStackComponent stack={stackCanvas} />
+                    ) : (
+                        <motion.img
+                            ref={imgRef}
+                            style={{
+                                position: "absolute",
+                                objectFit: "contain",
+                                left: leftMv,
+                                top: topMv,
+                                width: widthMv,
+                                height: heightMv,
+                            }}
+                            src={src ?? undefined}
+                            transition={posTransition}
+                        />
+                    )}
                 </motion.div>
             </Box>
         </>

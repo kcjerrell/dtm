@@ -9,6 +9,7 @@ use crate::projects_db::{
         },
         text::TextHistoryNode,
     },
+    fbs::root_as_tensor_moodboard_data,
     tensor_history_tensor_data::TensorHistoryTensorData,
     TextHistory,
 };
@@ -30,7 +31,7 @@ use std::{
 };
 use tokio::sync::OnceCell;
 
-mod raw;
+pub mod raw;
 pub use raw::dt_project_tensordata;
 pub mod maintenance;
 mod tensor_history_node;
@@ -527,10 +528,11 @@ impl DTProject {
 
         let mut item = TensorHistoryExtra::from((result, self.path.clone()));
 
-        item.moodboard_ids = self
+        // don't worry about this for now
+        item.moodboard = self
             .get_shuffle_ids(item.lineage, item.logical_time)
             .await?;
-        // item.moodboard_ids = Some(moodboard_ids);
+        // item.moodboard = Some(moodboard);
 
         let prompt_empty = item
             .history
@@ -606,8 +608,9 @@ impl DTProject {
             pose_id,
             color_palette_id,
             custom_id,
-            moodboard_ids: Vec::new(),
+            moodboard: Vec::new(),
             project_path: self.path.clone(),
+            tensor_data: None,
             history: history.unwrap(),
         }
     }
@@ -616,21 +619,14 @@ impl DTProject {
         &self,
         lineage: i64,
         logical_time: i64,
-    ) -> Result<Vec<String>, Error> {
+    ) -> Result<Vec<(String, f32)>, Error> {
         if self.check_table(&DTProjectTable::Moodboard).await.is_err() {
             return Ok(Vec::new());
         }
 
-        let shuffle_ids = query(
-            "
-            SELECT
-            'shuffle_' || f10.f10 as shuffle_id
-			FROM tensormoodboarddata AS tmd
-			
-			LEFT JOIN tensormoodboarddata__f10 AS f10 ON tmd.rowid == f10.rowid
-
-            WHERE tmd.__pk0 == ?1 AND tmd.__pk1 == ?2
-        ",
+        let shuffle: Vec<Vec<u8>> = query(
+            "SELECT p FROM tensormoodboarddata AS tmd
+            WHERE tmd.__pk0 == ?1 AND tmd.__pk1 == ?2",
         )
         .bind(lineage)
         .bind(logical_time)
@@ -638,7 +634,14 @@ impl DTProject {
         .fetch_all(&*self.pool)
         .await?;
 
-        Ok(shuffle_ids)
+        let mut moodboard: Vec<(String, f32)> = Vec::new();
+
+        for s in shuffle {
+            let data = root_as_tensor_moodboard_data(&s).unwrap();
+            moodboard.push((format!("shuffle_{}", data.shuffle_id()), data.weight()));
+        }
+
+        Ok(moodboard)
     }
 
     pub async fn find_predecessor_candidates(

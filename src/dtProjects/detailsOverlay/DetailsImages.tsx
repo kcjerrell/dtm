@@ -4,17 +4,18 @@ import type { DTImageFull, ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
 import VideoAudio from "@/components/video/Audio"
 import { VideoContext, type VideoContextType } from "@/components/video/context"
-import FpsButton from "@/components/video/FpsButton"
+import MuteButton from "@/components/video/MuteButton"
 import PlayPauseButton from "@/components/video/PlayPauseButton"
 import Seekbar from "@/components/video/Seekbar"
 import Video from "@/components/video/Video"
 import { VideoImage } from "@/components/video/VideoImage"
 import { useGetContext } from "@/hooks/useGetContext"
 import type { UIControllerState } from "../state/uiState"
+import type { CanvasStack, SubItem } from "../types"
 import { DetailsSpinnerRoot } from "./common"
 import DetailsImage from "./DetailsImage"
 import ImageFallback from "./ImageFallback"
-import MuteButton from "@/components/video/MuteButton"
+import SubItemWrapper from "./SubItemWrapper"
 
 interface DetailsImagesProps {
     item: ImageExtra
@@ -35,8 +36,7 @@ function DetailsImages(props: DetailsImagesProps) {
     const srcHalf = urls.thumbHalf(item)
     const srcFull = urls.thumb(item)
 
-    const width = subItem?.width ?? itemDetails?.node?.start_width ?? item.start_width * 64
-    const height = subItem?.height ?? itemDetails?.node?.start_height ?? item.start_height * 64
+    const { width, height } = getSize(item, itemDetails, subItem)
 
     return (
         <>
@@ -93,23 +93,15 @@ function DetailsImages(props: DetailsImagesProps) {
                 </DetailsSpinnerRoot>
             )}
             {subItem && (
-                <DetailsImage
-                    key={"subitem_image"}
+                <SubItemWrapper
+                    subItem={subItem}
                     padding={8}
                     paddingTop={2}
                     width={"100%"}
                     height={"100%"}
                     gridArea={"image"}
                     zIndex={0}
-                    id={`${item.project_id}_${item.node_id}_${subItem.tensorId}`}
-                    pixelated={subItem.tensorId?.startsWith("color")}
-                    maskSrc={subItem.applyMask ? subItem.maskUrl : undefined}
-                    src={subItem.url}
-                    naturalSize={{
-                        width: subItem.width ?? 1,
-                        height: subItem.height ?? 1,
-                    }}
-                    subitem={true}
+                    // id={`${item.project_id}_${item.node_id}_${subItem.tensorId}`}
                 />
             )}
         </>
@@ -117,3 +109,17 @@ function DetailsImages(props: DetailsImagesProps) {
 }
 
 export default DetailsImages
+
+function getSize(
+    item: ImageExtra,
+    itemDetails: Snapshot<DTImageFull> | undefined,
+    subItem: Snapshot<SubItem | CanvasStack | null> | undefined,
+): { width: number; height: number } {
+    if (subItem && "width" in subItem && subItem.width && "height" in subItem && subItem.height) {
+        return { width: subItem.width, height: subItem.height }
+    }
+
+    const width = itemDetails?.node?.start_width ?? item.start_width * 64
+    const height = itemDetails?.node?.start_height ?? item.start_height * 64
+    return { width, height }
+}

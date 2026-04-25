@@ -5,7 +5,11 @@ export const DetailsImageContainer = chakra(
     motion.div,
     {
         base: {
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: "1fr",
+            gridTemplateRows: "1fr",
+            gridTemplateAreas: '"image"',
+
             justifyContent: "center",
             alignItems: "center",
             minHeight: "0",
@@ -21,6 +25,7 @@ export const DetailsImageContent = chakra(
     motion.img,
     {
         base: {
+            gridArea: "image",
             maxWidth: "100%",
             maxHeight: "100%",
             width: "auto",
@@ -83,6 +88,13 @@ export const DetailsOverlayContainer = chakra(
             padding: 6,
             justifyContent: "stretch",
             alignItems: "center",
+        },
+        variants: {
+            expandImage: {
+                true: {
+                    gridTemplateColumns: "1fr 5rem",
+                },
+            },
         },
     },
     { forwardProps: ["transition"] },

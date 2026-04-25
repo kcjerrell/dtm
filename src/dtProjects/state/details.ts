@@ -39,6 +39,7 @@ class DetailsService extends DTPStateService {
             numFrames: item.num_frames ?? undefined,
             clipId: history.clip_id,
             clip: extra.clip,
+            tensorData: extra.tensor_data,
             images: {
                 tensorId: extra.tensor_id,
                 previewId: history.preview_id,
@@ -48,7 +49,7 @@ class DetailsService extends DTPStateService {
                 poseId: extra.pose_id,
                 colorPaletteId: extra.color_palette_id,
                 customId: extra.custom_id,
-                moodboardIds: extra.moodboard_ids,
+                moodboard: extra.moodboard,
             },
         }
 

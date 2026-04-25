@@ -2,6 +2,7 @@ use serde::Serialize;
 use sqlx::{query, Row};
 
 use crate::projects_db::fbs::{root_as_tensor_data, TensorData};
+use crate::projects_db::TensorHistoryTensorData;
 
 use super::DTProject;
 
@@ -44,7 +45,6 @@ impl<'a> DTProjectRaw<'a> {
                 };
                 let data = root_as_tensor_data(&raw.p).unwrap();
                 TensorDataRow {
-                    raw: raw.clone(),
                     rowid: raw.rowid,
                     lineage: raw.__pk0,
                     logical_time: raw.__pk1,
@@ -69,7 +69,6 @@ impl<'a> DTProjectRaw<'a> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TensorDataRow {
-    pub raw: RawTensorDataRow,
     pub rowid: i64,
     pub lineage: i64,
     pub logical_time: i64,
@@ -102,4 +101,28 @@ pub async fn dt_project_tensordata(project_path: String) -> Result<Vec<TensorDat
     let dt_project = DTProject::get(&project_path).await.map_err(|e| e.to_string())?;
     let raw = DTProjectRaw::new(&dt_project);
     Ok(raw.tensor_data(None, None).await)
+}
+
+impl From<TensorHistoryTensorData> for TensorDataRow {
+    fn from(value: TensorHistoryTensorData) -> Self {
+        let data = root_as_tensor_data(&value.tensor_data).unwrap();
+        Self {
+            rowid: value.node_id,
+            lineage: value.lineage,
+            logical_time: value.logical_time,
+            idx: value.td_index,
+            x: data.x(),
+            y: data.y(),
+            width: data.width(),
+            height: data.height(),
+            scale_factor_by_120: data.scale_factor_by_120(),
+            tensor_id: data.tensor_id(),
+            mask_id: data.mask_id(),
+            depth_map_id: data.depth_map_id(),
+            scribble_id: data.scribble_id(),
+            pose_id: data.pose_id(),
+            color_palette_id: data.color_palette_id(),
+            custom_id: data.custom_id(),
+        }
+    }
 }

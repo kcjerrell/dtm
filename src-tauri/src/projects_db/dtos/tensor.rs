@@ -2,6 +2,7 @@ use crate::projects_db::tensor_history_generated::{
     root_as_tensor_history_node as root_as_tensor_history_node_fb, LoRA as LoRAFb, LoRAMode,
 };
 use crate::projects_db::{
+    dt_project::raw::TensorDataRow,
     fbs::{root_as_tensor_data, root_as_tensor_history_node, TensorData},
     tensor_history_mod::{Control, LoRA},
     tensor_history_tensor_data::TensorHistoryTensorData,
@@ -425,8 +426,9 @@ pub struct TensorHistoryExtra {
     pub pose_id: Option<String>,
     pub color_palette_id: Option<String>,
     pub custom_id: Option<String>,
-    pub moodboard_ids: Vec<String>,
+    pub moodboard: Vec<(String, f32)>,
     pub history: TensorHistoryNode,
+    pub tensor_data: Option<Vec<TensorDataRow>>,
     pub project_path: String,
 }
 
@@ -450,37 +452,40 @@ impl From<(Vec<TensorHistoryTensorData>, String)> for TensorHistoryExtra {
         let mut pose_id: Option<String> = None;
         let mut color_palette_id: Option<String> = None;
         let mut custom_id: Option<String> = None;
-        let moodboard_ids: Vec<String> = Vec::new();
+        let moodboard: Vec<(String, f32)> = Vec::new();
+        let mut tensor_data_rows: Vec<TensorDataRow> = Vec::with_capacity(rows.len());
 
         // Iterate all tensor rows
         for row in rows {
-            let tensor_fb = root_as_tensor_data(&row.tensor_data).unwrap();
+            let td = TensorDataRow::from(row);
 
-            if tensor_fb.tensor_id() > 0 {
-                tensor_id = Some(format!("tensor_history_{}", tensor_fb.tensor_id()));
+            if td.tensor_id > 0 {
+                tensor_id = Some(format!("tensor_history_{}", td.tensor_id));
             }
-            if tensor_fb.mask_id() > 0 {
-                mask_id = Some(format!("binary_mask_{}", tensor_fb.mask_id()));
+            if td.mask_id > 0 {
+                mask_id = Some(format!("binary_mask_{}", td.mask_id));
             }
-            if tensor_fb.depth_map_id() > 0 {
-                depth_map_id = Some(format!("depth_map_{}", tensor_fb.depth_map_id()));
+            if td.depth_map_id > 0 {
+                depth_map_id = Some(format!("depth_map_{}", td.depth_map_id));
             }
-            if tensor_fb.scribble_id() > 0 {
-                scribble_id = Some(format!("scribble_{}", tensor_fb.scribble_id()));
+            if td.scribble_id > 0 {
+                scribble_id = Some(format!("scribble_{}", td.scribble_id));
             }
-            if tensor_fb.pose_id() > 0 {
-                pose_id = Some(format!("pose_{}", tensor_fb.pose_id()));
+            if td.pose_id > 0 {
+                pose_id = Some(format!("pose_{}", td.pose_id));
             }
-            if tensor_fb.color_palette_id() > 0 {
-                color_palette_id = Some(format!("color_palette_{}", tensor_fb.color_palette_id()));
+            if td.color_palette_id > 0 {
+                color_palette_id = Some(format!("color_palette_{}", td.color_palette_id));
             }
-            if tensor_fb.custom_id() > 0 {
-                custom_id = Some(format!("custom_{}", tensor_fb.custom_id()));
+            if td.custom_id > 0 {
+                custom_id = Some(format!("custom_{}", td.custom_id));
             }
 
             // if let Some(mb_ids) = tensor_fb.() {
-            //     moodboard_ids.extend(mb_ids.iter().map(|s| s.to_string()));
+            //     moodboard.extend(mb_ids.iter().map(|s| (s.to_string(), 1.0)));
             // }
+
+            tensor_data_rows.push(td);
         }
 
         Self {
@@ -494,8 +499,9 @@ impl From<(Vec<TensorHistoryTensorData>, String)> for TensorHistoryExtra {
             pose_id,
             color_palette_id,
             custom_id,
-            moodboard_ids,
+            moodboard,
             history,
+            tensor_data: Some(tensor_data_rows),
             project_path,
         }
     }

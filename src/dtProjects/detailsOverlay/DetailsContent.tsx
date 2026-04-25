@@ -13,10 +13,11 @@ import DetailsFallback from "./DetailsFallback"
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
     details?: Snapshot<DTImageFull> | null
+    tuck?: boolean
 }
 
 function DetailsContent(props: DetailsContentProps) {
-    const { ...boxProps } = props
+    const { tuck, ...boxProps } = props
     const { uiState } = useDTP()
     const { detailsView: snap } = uiState.useSnap()
     const { loras, controls } = useDTImage()
@@ -49,9 +50,14 @@ function DetailsContent(props: DetailsContentProps) {
                         opacity: 0,
                         transition: { duration: 0.25 },
                     },
+                    tuck: {
+                        opacity: 1,
+                        x: "90%",
+                        transition: { duration: 0.25, ease: "easeInOut" },
+                    },
                 }}
                 initial={"closed"}
-                animate={"open"}
+                animate={tuck ? "tuck" : "open"}
                 exit={"closed"}
             >
                 <Tabs.Root overflowY={"auto"} defaultValue={"details"} className={"panel-scroll"}>
@@ -214,10 +220,10 @@ function DetailsContent(props: DetailsContentProps) {
                                 label={"Custom ID"}
                                 data={snap.itemDetails.images?.customId}
                             />
-                            {(snap.itemDetails?.images?.moodboardIds?.length ?? 0) > 0 && (
+                            {(snap.itemDetails?.images?.moodboard?.length ?? 0) > 0 && (
                                 <DataItem
                                     label={"Moodboard IDs"}
-                                    data={snap.itemDetails.images?.moodboardIds?.join("\n")}
+                                    data={snap.itemDetails.images?.moodboard?.map(([id]) => id).join("\n")}
                                 />
                             )}
                         </Fragment>

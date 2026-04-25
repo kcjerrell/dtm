@@ -40,7 +40,7 @@ export const invoke = async (cmd: string, args?: any) => {
         row_id: 1,
         lineage: 0,
         logical_time: 0,
-        moodboard_ids: [],
+        moodboard: [],
         history: {},
         project_path: "/mock/project",
       };

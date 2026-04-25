@@ -2,6 +2,7 @@ import { type ComponentProps, useRef } from "react"
 import { showPreview } from "@/components/preview"
 import { useThresholdDelay } from "@/hooks/useDecay"
 import { DetailsImageContainer, DetailsImageContent } from "./common"
+import { motion } from "motion/react"
 
 const imgTransition = { duration: 0.25, ease: "circInOut" }
 
@@ -39,9 +40,9 @@ function DetailsImage(props: DetailsImageProps) {
         callback: () => showPreview(imgRef.current, src),
     })
 
-    // const maskProps = maskSrc
-    //     ? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
-    //     : {}
+    const maskProps = maskSrc
+        ? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
+        : null
 
     if (!srcHalf && !src) return null
 
@@ -55,6 +56,7 @@ function DetailsImage(props: DetailsImageProps) {
             transition={{ duration: imgTransition.duration / 2, ease: "linear" }}
         >
             <DetailsImageContent
+                // display="none"
                 data-solid="true"
                 width={naturalSize.width}
                 height={naturalSize.height}
@@ -66,7 +68,6 @@ function DetailsImage(props: DetailsImageProps) {
                 subitem={subitem}
                 opacity={1}
                 {...imgStyle}
-                // {...maskProps}
                 transition={{
                     duration: imgTransition.duration,
                     ease: "linear",
@@ -79,6 +80,19 @@ function DetailsImage(props: DetailsImageProps) {
                     if (e.deltaY < 0) wheelBump(0 - e.deltaY)
                 }}
             />
+            {maskProps && (
+                <DetailsImageContent
+                    border={"3px solid red"}
+                    className={"check-bg"}
+                    pointerEvents={"none"}
+                    width={naturalSize.width}
+                    height={naturalSize.height}
+                    opacity={1}
+                    {...maskProps}
+                    {...imgStyle}
+                    as={motion.div}
+                />
+            )}
         </DetailsImageContainer>
     )
 }
