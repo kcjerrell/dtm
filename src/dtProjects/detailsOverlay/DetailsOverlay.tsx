@@ -66,7 +66,7 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                         else uiState.hideDetailsOverlay()
                     }
                 }}
-                // expandImage={isCanvasStack(snap.subItem)}
+                expandImage={snap.minimizeContent}
                 variants={{
                     open: {
                         backgroundColor: "#00000099",
@@ -153,11 +153,13 @@ function DetailsOverlay(props: DetailsOverlayProps) {
                     <DetailsContent
                         data-solid
                         gridArea={"content"}
-                        height={"100%"}
+                        height={snap.minimizeContent ? "4rem" : "10rem"}
                         overflow={"clip"}
                         zIndex={2}
                         item={item}
                         details={itemDetails}
+                        flex={"0 1 auto"}
+                        justifySelf={snap.minimizeContent ? "flex-end" : "stretch"}
                     />
                 )}
             </DetailsOverlayContainer>

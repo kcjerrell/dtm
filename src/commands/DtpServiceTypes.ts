@@ -367,6 +367,14 @@ export interface TensorHistoryExtra {
     clip: Clip | null | undefined
 }
 
+export interface TensorHistoryNodeRow {
+    projectId: number
+    rowid: number
+    lineage: number
+    logical_time: number
+    data: XTensorHistoryNode
+}
+
 export type ScanProgress = {
     projects_found: number
     projects_scanned: number

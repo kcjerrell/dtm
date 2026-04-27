@@ -10,10 +10,12 @@ export const DetailsImageContainer = chakra(
             gridTemplateRows: "1fr",
             gridTemplateAreas: '"image"',
 
-            justifyContent: "center",
-            alignItems: "center",
+            justifyContent: "stretch",
+            alignItems: "stretch",
             minHeight: "0",
             minWidth: "0",
+            maxHeight: "100%",
+            maxWidth: "100%",
             overflow: "clip",
             borderRadius: "md",
         },
@@ -36,6 +38,7 @@ export const DetailsImageContent = chakra(
             display: "block",
             transformOrigin: "center center",
             objectFit: "contain",
+            overflow: "clip",
         },
         variants: {
             pixelated: {
@@ -92,7 +95,9 @@ export const DetailsOverlayContainer = chakra(
         variants: {
             expandImage: {
                 true: {
-                    gridTemplateColumns: "1fr 5rem",
+                    gridTemplateRows: "auto 1fr auto auto",
+                    gridTemplateColumns: "1fr",
+                    gridTemplateAreas: '"content" "image" "commandBar" "tensors"',
                 },
             },
         },

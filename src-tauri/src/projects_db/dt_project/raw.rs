@@ -6,6 +6,76 @@ use crate::projects_db::TensorHistoryTensorData;
 
 use super::DTProject;
 
+pub struct TensorDataQuery {
+    lineage: Option<i64>,
+    logical_time: Option<i64>,
+    idx: Option<i64>,
+    first: Option<i64>,
+    last: Option<i64>,
+}
+
+impl TensorDataQuery {
+    pub fn new() -> Self {
+        Self {
+            lineage: None,
+            logical_time: None,
+            idx: None,
+            first: None,
+            last: None,
+        }
+    }
+
+    pub fn lineage(&mut self, lineage: i64) -> &mut Self {
+        self.lineage = Some(lineage);
+        self
+    }
+
+    pub fn logical_time(&mut self, logical_time: i64) -> &mut Self {
+        self.logical_time = Some(logical_time);
+        self
+    }
+
+    pub fn idx(&mut self, idx: i64) -> &mut Self {
+        self.idx = Some(idx);
+        self
+    }
+
+    pub fn first(&mut self, first: i64) -> &mut Self {
+        self.first = Some(first);
+        self
+    }
+
+    pub fn last(&mut self, last: i64) -> &mut Self {
+        self.last = Some(last);
+        self
+    }
+
+    pub fn build_where_clause(&self) -> String {
+        let mut conditions = Vec::new();
+        if let Some(v) = self.lineage {
+            conditions.push(format!("__pk0 = {}", v));
+        }
+        if let Some(v) = self.logical_time {
+            conditions.push(format!("__pk1 = {}", v));
+        }
+        if let Some(v) = self.idx {
+            conditions.push(format!("__pk2 = {}", v));
+        }
+        if let Some(v) = self.first {
+            conditions.push(format!("rowid >= {}", v));
+        }
+        if let Some(v) = self.last {
+            conditions.push(format!("rowid <= {}", v));
+        }
+
+        if conditions.is_empty() {
+            "".to_string()
+        } else {
+            format!("where {}", conditions.join(" and "))
+        }
+    }
+}
+
 pub struct DTProjectRaw<'a> {
     dt_project: &'a DTProject,
 }
@@ -15,23 +85,11 @@ impl<'a> DTProjectRaw<'a> {
         Self { dt_project }
     }
 
-    pub async fn tensor_data(&self, first: Option<i64>, last: Option<i64>) -> Vec<TensorDataRow> {
-        let where_clause = match (first, last) {
-            (Some(first), Some(last)) => format!("where rowid >= {} and rowid <= {}", first, last),
-            (Some(first), None) => format!("where rowid >= {}", first),
-            (None, Some(last)) => format!("where rowid <= {}", last),
-            (None, None) => "".to_string(),
-        };
+    pub async fn tensor_data(&self, query_params: TensorDataQuery) -> Vec<TensorDataRow> {
+        let where_clause = query_params.build_where_clause();
         let text = format!("select * from tensordata {}", where_clause);
 
-        let mut q = query(&text);
-
-        if first.is_some() {
-            q = q.bind(first.unwrap());
-        }
-        if last.is_some() {
-            q = q.bind(last.unwrap());
-        }
+        let q = query(&text);
 
         let rows = q.fetch_all(&*self.dt_project.pool).await.unwrap();
         rows.into_iter()
@@ -97,10 +155,37 @@ pub struct RawTensorDataRow {
 }
 
 #[tauri::command]
-pub async fn dt_project_tensordata(project_path: String) -> Result<Vec<TensorDataRow>, String> {
-    let dt_project = DTProject::get(&project_path).await.map_err(|e| e.to_string())?;
+pub async fn dt_project_tensordata(
+    project_path: String,
+    lineage: Option<i64>,
+    logical_time: Option<i64>,
+    idx: Option<i64>,
+    first: Option<i64>,
+    last: Option<i64>,
+) -> Result<Vec<TensorDataRow>, String> {
+    let dt_project = DTProject::get(&project_path)
+        .await
+        .map_err(|e| e.to_string())?;
     let raw = DTProjectRaw::new(&dt_project);
-    Ok(raw.tensor_data(None, None).await)
+
+    let mut query = TensorDataQuery::new();
+    if let Some(l) = lineage {
+        query.lineage(l);
+    }
+    if let Some(t) = logical_time {
+        query.logical_time(t);
+    }
+    if let Some(i) = idx {
+        query.idx(i);
+    }
+    if let Some(f) = first {
+        query.first(f);
+    }
+    if let Some(l) = last {
+        query.last(l);
+    }
+
+    Ok(raw.tensor_data(query).await)
 }
 
 impl From<TensorHistoryTensorData> for TensorDataRow {

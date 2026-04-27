@@ -20,6 +20,7 @@ export { IoChevronDown as ChevronDown, IoChevronForward as ChevronForward } from
 export type { IconType } from "react-icons/lib"
 export { LuFolderTree, LuMoon, LuSun, LuX, LuLayers } from "react-icons/lu"
 export { MdBlock, MdDoNotDisturbOn, MdImageSearch } from "react-icons/md"
+export { TbWindowMinimize } from "react-icons/tb"
 export {
     PiCoffee,
     PiEject,

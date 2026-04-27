@@ -26,6 +26,7 @@ export type UIControllerState = {
         sourceRect?: DOMRect | null
         width?: number
         height?: number
+        minimizeContent: boolean
     }
     isSettingsOpen: boolean
     isGridInert: boolean
@@ -57,6 +58,7 @@ export class UIController extends DTPStateController<UIControllerState> {
             sourceRect: null,
             width: 0,
             height: 0,
+            minimizeContent: false,
         },
         isSettingsOpen: false,
         isGridInert: false,
@@ -291,5 +293,9 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     hideDialog() {
         this.state.dialog = undefined
+    }
+
+    minimizeContent(value?: boolean) {
+        this.state.detailsView.minimizeContent = value ?? !this.state.detailsView.minimizeContent
     }
 }

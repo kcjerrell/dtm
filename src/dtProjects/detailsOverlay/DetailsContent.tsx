@@ -1,14 +1,16 @@
-import { chakra, Grid } from "@chakra-ui/react"
+import { chakra, Grid, Spacer } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Fragment } from "react/jsx-runtime"
 import type { Snapshot } from "valtio"
 import type { DTImageFull, ImageExtra } from "@/commands"
-import { Panel } from "@/components"
+import { IconButton, Panel } from "@/components"
 import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
 import { useDTImage } from "./DTImageContext"
 import DetailsFallback from "./DetailsFallback"
+import { TbWindowMinimize } from "react-icons/tb"
+import { PropsWithChildren } from "react"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -19,7 +21,9 @@ interface DetailsContentProps extends ChakraProps {
 function DetailsContent(props: DetailsContentProps) {
     const { tuck, ...boxProps } = props
     const { uiState } = useDTP()
-    const { detailsView: snap } = uiState.useSnap()
+    const uiSnap = uiState.useSnap()
+    const snap = uiSnap.detailsView
+
     const { loras, controls } = useDTImage()
 
     if (!snap?.itemDetails || snap.item?.is_ready === false)
@@ -34,6 +38,7 @@ function DetailsContent(props: DetailsContentProps) {
             overflow={"clip"}
             onClick={(e) => e.stopPropagation()}
             padding={0}
+            alignSelf={"flex-start"}
             {...boxProps}
             asChild
         >
@@ -45,31 +50,36 @@ function DetailsContent(props: DetailsContentProps) {
                             duration: 0.25,
                             ease: "easeInOut",
                         },
+                        height: "auto",
                     },
                     closed: {
                         opacity: 0,
                         transition: { duration: 0.25 },
                     },
-                    tuck: {
-                        opacity: 1,
-                        x: "90%",
-                        transition: { duration: 0.25, ease: "easeInOut" },
-                    },
                 }}
                 initial={"closed"}
-                animate={tuck ? "tuck" : "open"}
+                animate={"open"}
                 exit={"closed"}
             >
                 <Tabs.Root overflowY={"auto"} defaultValue={"details"} className={"panel-scroll"}>
-                    <Tabs.List>
+                    <Tabs.List flex={"0 0 auto"}>
                         <Tabs.Trigger height={"2rem"} value="details">
                             Details
                         </Tabs.Trigger>
                         <Tabs.Trigger height={"2rem"} value="raw">
                             Raw
                         </Tabs.Trigger>
+                        <Spacer />
+                        <IconButton
+                            rotate={snap.minimizeContent ? "0deg" : "180deg"}
+                            onClick={() => {
+                                uiState.minimizeContent()
+                            }}
+                        >
+                            <TbWindowMinimize />
+                        </IconButton>
                     </Tabs.List>
-                    <Tabs.Content value={"raw"} padding={2}>
+                    <Tabs.Content value={"raw"} padding={2} flex={"1 1 auto"}>
                         <DataItem
                             size={"sm"}
                             label={"Raw"}
@@ -77,7 +87,12 @@ function DetailsContent(props: DetailsContentProps) {
                         />
                     </Tabs.Content>
 
-                    <Tabs.Content value="details" padding={2}>
+                    <Tabs.Content
+                        value="details"
+                        padding={2}
+                        flex={"1 1 auto"}
+                        display={snap.minimizeContent ? "none" : undefined}
+                    >
                         {/* <Grid
                             overflowY={"auto"}
                             gridTemplateColumns={"1fr 1fr"}
@@ -223,7 +238,9 @@ function DetailsContent(props: DetailsContentProps) {
                             {(snap.itemDetails?.images?.moodboard?.length ?? 0) > 0 && (
                                 <DataItem
                                     label={"Moodboard IDs"}
-                                    data={snap.itemDetails.images?.moodboard?.map(([id]) => id).join("\n")}
+                                    data={snap.itemDetails.images?.moodboard
+                                        ?.map(([id]) => id)
+                                        .join("\n")}
                                 />
                             )}
                         </Fragment>
