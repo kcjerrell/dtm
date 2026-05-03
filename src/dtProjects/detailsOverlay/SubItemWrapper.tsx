@@ -2,6 +2,7 @@ import type { ComponentProps } from "react"
 import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
 import DetailsImage from "./DetailsImage"
 import CanvasStackComponent from "./CanvasStackComponent"
+import { useDTP } from "../state/context"
 
 interface SubItemProps extends ChakraProps {
     subItem?: ReadonlyState<SubItem | CanvasStack>

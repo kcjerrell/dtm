@@ -14,6 +14,8 @@ function DetailsFallback(props: DetailsFallbackProps) {
     const { item, ...restProps } = props
     const { projects, models } = useDTP()
 
+    if (!item) return null
+
     const model = models.getModel("Model", item.model_file)
 
     return (

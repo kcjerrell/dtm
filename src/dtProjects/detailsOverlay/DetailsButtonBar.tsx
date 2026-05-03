@@ -16,26 +16,13 @@ interface DetailsButtonBarProps
         "transition" | "color" | "translate"
     > {
     item?: ImageExtra
-    tensorId?: string
     show?: boolean
-    addMetadata?: boolean
     subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
     project?: ProjectState
     videoRef?: React.RefObject<VideoContextType | null>
-    isVideo?: boolean
 }
 function DetailsButtonBar(props: DetailsButtonBarProps) {
-    const {
-        item: itemProp,
-        tensorId,
-        show,
-        addMetadata,
-        subItem,
-        project,
-        videoRef,
-        isVideo,
-        ...restProps
-    } = props
+    const { item: itemProp, show, subItem, project, videoRef, ...restProps } = props
     const [lockButtons, setLockButtons] = useState(false)
 
     const { uiState } = useDTP()
@@ -82,6 +69,7 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
                         return ctx
                     }}
                     wrapper={async (execute, selected, ctx) => {
+                        if (cmd.noSpinner) return await execute(selected, ctx)
                         await uiState.callWithSpinner(async () => await execute(selected, ctx))
                     }}
                     afterExecute={() => {

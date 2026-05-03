@@ -1,7 +1,10 @@
 import { type ClipExtra, DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
-import type { SubItem } from "../types"
+import { isCanvasStack, type SubItem } from "../types"
 
+/**
+ * Used to represent an image for image commands
+ */
 export class ResourceHandle {
     image?: ImageExtra
     subItem?: SubItem
@@ -27,6 +30,10 @@ export class ResourceHandle {
 
     get isPose() {
         return this.subItem?.type === "pose"
+    }
+
+    get isCanvasStack() {
+        return isCanvasStack(this.subItem)
     }
 
     get nodeId() {
@@ -60,17 +67,13 @@ export class ResourceHandle {
 
     private clip?: ClipExtra | null
     async getClip() {
-        if (this.clip === undefined) {
-            if (this.clipId) {
-                this.clip = await DtpService.getClip(this.image.id, this.clipId)
-                console.log("getclip", this)
-            } else this.clip = null
+        if (this.clip === undefined && this.clipId && this.image?.id) {
+            this.clip = await DtpService.getClip(this.image.id, this.clipId)
         }
         return this.clip
     }
 
     async getPngData(frame?: number) {
-        console.log("getpngdata for frame", frame, this.image?.prompt?.slice(0, 80))
         if (this.isPose) {
             return await this.getPoseImage()
         }
@@ -78,7 +81,6 @@ export class ResourceHandle {
         if (frame !== undefined) {
             const clip = await this.getClip()
             tensorId = clip?.frames.find((f) => f.indexInAClip === frame)?.tensorId
-            console.log(clip?.frames)
         } else {
             tensorId = await this.getTensorId()
         }

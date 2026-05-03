@@ -1,3 +1,5 @@
+import { SVGProps } from "react"
+
 export { BiDetail } from "react-icons/bi"
 export { FaMagnifyingGlass, FaMinus, FaMoon, FaPlus, FaRegImages } from "react-icons/fa6"
 export {
@@ -40,3 +42,21 @@ export {
     TbSortDescending2,
     TbSortDescendingNumbers,
 } from "react-icons/tb"
+
+export const DottedOutlineIcon = (props: SVGProps<SVGElement>) => {
+    return (
+        <svg viewBox={"0 0 200 200"} {...props}>
+            <rect
+                x={20}
+                y={20}
+                width={160}
+                height={160}
+                stroke={"currentcolor"}
+                strokeWidth={20}
+                strokeDasharray={"40 40"}
+                strokeDashoffset={"60"}
+                fill={"none"}
+            />
+        </svg>
+    )
+}

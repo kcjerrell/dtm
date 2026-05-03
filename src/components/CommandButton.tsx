@@ -77,7 +77,7 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
             key={command.id}
             size={"sm"}
             onClick={async () => {
-                if (!command.onClick) return
+                if (!command.action) return
 
                 let ctx: C
                 try {
@@ -89,7 +89,7 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
 
                 let err: unknown
                 try {
-                    await wrapper(command.onClick, selectedItems, ctx)
+                    await wrapper(command.action, selectedItems, ctx)
                 } catch (e: unknown) {
                     err = e
                 }

@@ -5,7 +5,7 @@ import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import { RiFileSettingsLine } from "react-icons/ri"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
-import { PoseIcon } from "@/components/icons/icons"
+import { DottedOutlineIcon, PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import type { VideoContextType } from "@/components/video/context"
 import { sendToMetadata } from "@/metadata/state/interop"
@@ -31,7 +31,6 @@ export interface ImageCommandContext {
         Export video
         Export frames
         Select project
-
 */
 
 export function useImageCommands(): [
@@ -54,7 +53,7 @@ export function useImageCommands(): [
                 getTip: (selected, _) =>
                     selected[0].isVideo ? "Copy selected frame" : "Copy image",
                 icon: FiCopy,
-                onClick: async (selected, ctx) => {
+                action: async (selected, ctx) => {
                     let frame: number | undefined
                     if (ctx?.videoRef?.current) {
                         ctx.videoRef?.current.controls.pause()
@@ -76,8 +75,7 @@ export function useImageCommands(): [
                 toolbarEnableMode: "hide",
                 icon: PoseIcon,
                 getEnabled: (selected) => !!selected?.[0].isPose,
-                onClick: async (selected, _) => {
-                    console.log(selected[0])
+                action: async (selected, _) => {
                     if (!selected[0].isPose) return
                     const pose = await selected[0].getPoseData()
                     if (!pose) return
@@ -93,7 +91,7 @@ export function useImageCommands(): [
                 getTip: (selected, _) =>
                     selected[0].isVideo ? "Save selected frame" : "Save image",
                 icon: FiSave,
-                onClick: async (selected, ctx) => {
+                action: async (selected, ctx) => {
                     let frame: number | undefined
                     if (ctx?.videoRef?.current) {
                         ctx.videoRef?.current.controls.pause()
@@ -119,7 +117,7 @@ export function useImageCommands(): [
                 getEnabled: (selected) => !!selected?.[0].image,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                onClick: async (selected) => {
+                action: async (selected) => {
                     const image = selected[0].image
                     if (!image) return
                     const imageFull = await details.getDetails(image)
@@ -142,12 +140,13 @@ export function useImageCommands(): [
                         ? "Send selected frame to Metadata"
                         : "Send image to Metadata",
                 icon: PiListMagnifyingGlassBold,
-                onClick: async (selected, ctx) => {
+                action: async (selected, ctx) => {
                     let frame: number | undefined
                     if (ctx?.videoRef?.current) {
                         ctx.videoRef?.current.controls.pause()
                         frame = ctx.videoRef.current.controls.getFrame()
                     }
+                    console.log("here")
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
                     const project = projects.getProject(selected[0].projectId)
@@ -159,6 +158,20 @@ export function useImageCommands(): [
                     })
                 },
             },
+            {
+                id: "toggleCanvasOutlines",
+                getLabel: () => {
+                    if (uiState.state.detailsView.showCanvasOutlines) return "Hide canvas outlines"
+                    return "Show canvas outlines"
+                },
+                icon: DottedOutlineIcon,
+                getEnabled: (selected) => !!selected?.[0]?.isCanvasStack,
+                toolbarEnableMode: "hide",
+                noSpinner: true,
+                action: () => {
+                    uiState.toggleCanvasOutlines()
+                },
+            },
             { id: "separator-1", separator: true },
             {
                 id: "saveVideo",
@@ -168,7 +181,7 @@ export function useImageCommands(): [
                 getEnabled: (selected) => !!selected?.[0].isVideo,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                onClick: (selected, _) => {
+                action: (selected, _) => {
                     if (!selected[0].image) return
                     uiState.showDialog({
                         dialogType: "clip-export-video",
@@ -185,7 +198,7 @@ export function useImageCommands(): [
                 getEnabled: (selected) => !!selected?.[0].isVideo,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                onClick: async (selected, _) => {
+                action: async (selected, _) => {
                     if (!selected[0].image) return
                     uiState.showDialog({
                         dialogType: "clip-export-frames",
@@ -195,14 +208,14 @@ export function useImageCommands(): [
                 ellipses: true,
             },
         ],
-        [uiState, projects, details.getDetails],
+        [uiState, projects, details],
     )
 
     const selectMenuCommand = useCallback(
         async (selected: ResourceHandle[]) => {
             const command = await showMenu(commands, selected, { isContextMenu: true })
             if (!command) return null
-            return () => command.onClick?.(selected, { isContextMenu: true })
+            return () => command.action?.(selected, { isContextMenu: true })
         },
         [commands],
     )

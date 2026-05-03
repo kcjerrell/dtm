@@ -19,6 +19,7 @@ export type UIControllerState = {
         item?: ImageExtra
         itemDetails?: DTImageFull
         showSpinner: boolean
+        showCanvasOutlines: boolean
         subItem?: SubItem | CanvasStack
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
@@ -49,6 +50,7 @@ export class UIController extends DTPStateController<UIControllerState> {
         shouldFocus: undefined,
         detailsView: {
             showSpinner: false,
+            showCanvasOutlines: true,
             item: undefined,
             itemDetails: undefined,
             subItem: undefined,
@@ -297,5 +299,9 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     minimizeContent(value?: boolean) {
         this.state.detailsView.minimizeContent = value ?? !this.state.detailsView.minimizeContent
+    }
+
+    toggleCanvasOutlines() {
+        this.state.detailsView.showCanvasOutlines = !this.state.detailsView.showCanvasOutlines
     }
 }

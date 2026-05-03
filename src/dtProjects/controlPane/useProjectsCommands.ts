@@ -30,7 +30,7 @@ export function useProjectsCommands(): [
                 label: "Hide empty projects",
                 tipText: "Hide projects with no matches when searching",
                 icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
-                onClick: async () => {
+                action: async () => {
                     projects?.toggleShowEmptyProjects()
                 },
                 requiresSelection: false,
@@ -41,7 +41,7 @@ export function useProjectsCommands(): [
                 getLabel: (selected) => `Rescan project${plural(selected.length)}`,
                 tipText: "Rescan project for changes",
                 icon: FiRefreshCw,
-                onClick: async (selected) => {
+                action: async (selected) => {
                     DtpService.syncProjects(selected.map((f) => f.id))
                 },
                 requiresSelection: true,
@@ -57,8 +57,8 @@ export function useProjectsCommands(): [
                 label: "Explore project",
                 tipText: "Browse project tables and data",
                 icon: FaMagnifyingGlass,
-                requiresSingleSelection: true,
-                onClick: (selected) => {
+                getEnabled: (selected) => !!import.meta.env.DEV && selected?.length === 1,
+                action: (selected) => {
                     uiState.showDialog({
                         dialogType: "explorer",
                         props: { projectId: selected[0].id },
@@ -74,7 +74,7 @@ export function useProjectsCommands(): [
                 },
                 tipText: "Hidden projects will not be scanned and their images won't be listed.",
                 getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
-                onClick: (selected) => {
+                action: (selected) => {
                     projects?.setExclude(selected, !selected[0]?.excluded)
                 },
                 requiresSelection: true,
@@ -84,7 +84,7 @@ export function useProjectsCommands(): [
                 label: "Open folder",
                 tipText: "Open project folder in file manager.",
                 icon: FiFolder,
-                onClick: async (selected) => {
+                action: async (selected) => {
                     await revealItemInDir(selected.map((f) => f.full_path))
                 },
                 requiresSelection: true,
@@ -97,7 +97,7 @@ export function useProjectsCommands(): [
         async (selected: ProjectState[]) => {
             const command = await showMenu(commands, selected)
             if (!command) return null
-            return () => command.onClick?.(selected)
+            return () => command.action?.(selected)
         },
         [commands],
     )

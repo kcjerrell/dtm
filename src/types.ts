@@ -2,7 +2,7 @@ import type { FileInfo } from "@tauri-apps/plugin-fs"
 import type { Tags } from "exifreader"
 import type { ComponentType } from "react"
 import type { IconType } from "react-icons/lib"
-import type { Snapshot } from "valtio"
+import type { Control, LoRA } from "./commands"
 
 export type DrawThingsMetaData = {
     prompt: string
@@ -41,8 +41,7 @@ export type DrawThingsMetaData = {
         clipWeight: number
         compressionArtifacts: "h264" | "h265" | "jpeg"
         compressionArtifactsQuality: number
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        controls: any[]
+        controls: Control[]
         cropLeft: number
         cropTop: number
         decodingTileHeight: number
@@ -63,8 +62,7 @@ export type DrawThingsMetaData = {
         id: number
         imageGuidanceScale: number
         imagePriorSteps: number
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        loras: any[]
+        loras: LoRA[]
         maskBlur: number
         maskBlurOutset: number
         model: string
@@ -127,7 +125,7 @@ export type DrawThingsConfigGrouped = PartialPartial<{
     cfgZero: { initSteps: number; star: boolean }
     clipSkip: number
     clipWeight: number
-    controls: any[]
+    controls: Control[]
     crop: { left: number; top: number }
     diffusionTileHeight: number
     diffusionTileOverlap: number
@@ -141,7 +139,7 @@ export type DrawThingsConfigGrouped = PartialPartial<{
     imageGuidanceScale: number
     imagePrior: { steps: number; negativePrompt: boolean }
     imagePriorSteps: number
-    loras: any[][]
+    loras: LoRA[][]
     maskBlur: { value: number; outset: number }
     model: string
     motionScale: number
@@ -315,10 +313,13 @@ export interface ICommand<T = undefined, C = undefined> {
     getLabel?: (selected: T[], context?: C) => string
     getTipText?: (selected: T[], context?: C) => string
 
-    onClick?: (selected: T[], context?: C) => void | Promise<void>
+    action?: (selected: T[], context?: C) => void | Promise<void>
 
     /** show ellipses on menu item */
     ellipses?: boolean
+
+    /** indicates the command should not use a spinner animation */
+    noSpinner?: boolean
 }
 
 /**

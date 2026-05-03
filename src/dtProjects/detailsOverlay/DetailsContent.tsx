@@ -50,7 +50,7 @@ function DetailsContent(props: DetailsContentProps) {
                             duration: 0.25,
                             ease: "easeInOut",
                         },
-                        height: "auto",
+                        // height: "auto",
                     },
                     closed: {
                         opacity: 0,
@@ -63,10 +63,18 @@ function DetailsContent(props: DetailsContentProps) {
             >
                 <Tabs.Root overflowY={"auto"} defaultValue={"details"} className={"panel-scroll"}>
                     <Tabs.List flex={"0 0 auto"}>
-                        <Tabs.Trigger height={"2rem"} value="details">
+                        <Tabs.Trigger
+                            height={"2rem"}
+                            value="details"
+                            display={snap.minimizeContent ? "none" : undefined}
+                        >
                             Details
                         </Tabs.Trigger>
-                        <Tabs.Trigger height={"2rem"} value="raw">
+                        <Tabs.Trigger
+                            height={"2rem"}
+                            value="raw"
+                            display={snap.minimizeContent ? "none" : undefined}
+                        >
                             Raw
                         </Tabs.Trigger>
                         <Spacer />

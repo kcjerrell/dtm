@@ -1,19 +1,27 @@
 import urls from "@/commands/urls"
-import type { CanvasStack as CanvasStack } from "../types"
+import type { CanvasStack as CanvasStack, TensorDataRowState } from "../types"
 import { DetailsImageContainer, DetailsImageContent, DetailsSpinnerRoot } from "./common"
 import { TensorDataRow } from "@/commands"
-import { Fragment, useRef, useState } from "react"
+import { ComponentProps, Fragment, useRef, useState } from "react"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { motion } from "motion/react"
-import { Spinner } from "@chakra-ui/react"
-import { showStackPreview } from "@/components/preview"
+import { chakra, Spinner } from "@chakra-ui/react"
+import { showPreview, showStackPreview } from "@/components/preview"
+import { proxySet } from "valtio/utils"
+import { useThresholdDelay } from "@/hooks/useDecay"
+import { useDTP } from "../state/context"
 
-interface CanvasStackComponentProps extends ChakraProps {
+interface CanvasStackComponentProps extends ComponentProps<typeof DetailsImageContainer> {
     stack: MaybeReadonly<CanvasStack>
 }
 
+const Rect = chakra("rect")
+
 function CanvasStackComponent(props: CanvasStackComponentProps) {
     const { stack, ...restProps } = props
+
+    const { uiState } = useDTP()
+    const uiSnap = uiState.useSnap()
 
     const { state, snap } = useProxyRef(() => ({
         isLoaded: stack.tensorData.map(() => false) as boolean[],
@@ -22,52 +30,71 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
 
     const svgRef = useRef<SVGSVGElement>(null)
 
-    const layers = stack.tensorData.map((td, index) => getLayer(td, stack.projectId, index))
+    const layers = stack.tensorData.map((td, index) =>
+        getLayer(td as TensorDataRowState, stack.projectId, index),
+    )
     const bounds = getBounds(layers)
 
     const viewbox = `${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`
+
+    const wheelBump = useThresholdDelay({
+        time: 200,
+        threshold: 100,
+        callback: () => showStackPreview(svgRef.current, stack, bounds.width, bounds.height),
+    })
 
     return (
         <DetailsImageContainer {...restProps}>
             <DetailsImageContent
                 data-solid="true"
                 onClick={() => showStackPreview(svgRef.current, stack, bounds.width, bounds.height)}
+                onWheel={(e) => {
+                    if (e.deltaY < 0) wheelBump(0 - e.deltaY)
+                }}
                 asChild
                 subitem
             >
                 <svg ref={svgRef} viewBox={viewbox} width={bounds.width} height={bounds.height}>
-                    {layers.map((layer) => (
-                        <Fragment key={layer.index}>
-                            <rect
-                                x={layer.x - 4}
-                                y={layer.y - 4}
-                                width={layer.w + 8}
-                                height={layer.h + 8}
-                                fill={"#77777777"}
-                            />
-                            <image
-                                onLoad={() => {
-                                    state.isLoaded[layer.index] = true
-                                }}
-                                x={layer.x}
-                                y={layer.y}
-                                width={layer.w}
-                                height={layer.h}
-                                href={layer.url}
-                                display={snap.isLoaded[layer.index] ? "block" : "none"}
-                            />
-                            <rect
-                                x={layer.x - 2}
-                                y={layer.y - 2}
-                                width={layer.w + 4}
-                                height={layer.h + 4}
-                                stroke={"gray"}
-                                strokeWidth={4}
-                                strokeDasharray={"20 20"}
-                                fill={"none"}
-                            />
-                        </Fragment>
-                    ))}
+                    {layers.map((layer) => {
+                        const isLoaded = snap.isLoaded[layer.index]
+                        return (
+                            <Fragment key={layer.index}>
+                                <Rect
+                                    x={layer.x - 4}
+                                    y={layer.y - 4}
+                                    width={layer.w + 8}
+                                    height={layer.h + 8}
+                                    fill={isLoaded ? "#00000000" : "#77777777"}
+                                />
+                                {/** biome-ignore lint/a11y/noStaticElementInteractions: <explanation> */}
+                                <image
+                                    onLoad={() => {
+                                        state.isLoaded[layer.index] = true
+                                    }}
+                                    x={layer.x}
+                                    y={layer.y}
+                                    width={layer.w}
+                                    height={layer.h}
+                                    href={layer.url}
+                                    display={isLoaded ? "block" : "none"}
+                                    pointerEvents={"none"}
+                                />
+                                <Rect
+                                    x={layer.x - 2}
+                                    y={layer.y - 2}
+                                    width={layer.w + 4}
+                                    height={layer.h + 4}
+                                    stroke={"gray"}
+                                    strokeWidth={4}
+                                    strokeDasharray={"20 20"}
+                                    fill={"none"}
+                                    display={
+                                        uiSnap.detailsView.showCanvasOutlines ? "block" : "none"
+                                    }
+                                />
+                            </Fragment>
+                        )
+                    })}
                 </svg>
             </DetailsImageContent>
             {!snap.isLoaded.every((layer) => layer) && (
@@ -93,11 +120,7 @@ function getBounds(layers: { x: number; y: number; w: number; h: number }[]) {
     return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
 }
 
-function getLayer(
-    td: TensorDataRow | ReadonlyState<TensorDataRow>,
-    projectId: number,
-    index: number,
-) {
+function getLayer(td: TensorDataRowState, projectId: number, index: number) {
     const scale = td.scale_factor_by_120 / 120
     return {
         x: td.x,
@@ -106,6 +129,7 @@ function getLayer(
         h: td.height / scale,
         index,
         url: urls.tensor(projectId, `tensor_history_${td.tensor_id}`),
+        tensorData: td,
     }
 }
 
