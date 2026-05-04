@@ -109,6 +109,7 @@ fn schedule_eviction(path: String, generation: u64) {
 #[derive(Debug, Serialize)]
 enum DTProjectTable {
     TensorHistory,
+    TensorData,
     TextHistory,
     Moodboard,
     Tensors,
@@ -119,6 +120,7 @@ enum DTProjectTable {
 #[derive(Debug, Default, Clone)]
 pub struct DTProjectTableStatus {
     pub has_tensor_history: bool,
+    pub has_tensor_data: bool,
     pub has_text_history: bool,
     pub has_moodboard: bool,
     pub has_tensors: bool,
@@ -207,6 +209,7 @@ impl DTProject {
                         "thumbnailhistorynode" => status.has_thumbs = true,
                         "texthistorynode" => status.has_text_history = true,
                         "clip" => status.has_clip = true,
+                        "tensordata" => status.has_tensor_data = true,
                         _ => {}
                     }
                 }
@@ -228,6 +231,7 @@ impl DTProject {
             DTProjectTable::Tensors => status.has_tensors,
             DTProjectTable::Thumbs => status.has_thumbs,
             DTProjectTable::Clip => status.has_clip,
+            DTProjectTable::TensorData => status.has_tensor_data,
         };
 
         if !has_table {
