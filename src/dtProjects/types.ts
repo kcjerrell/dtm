@@ -41,13 +41,13 @@ export type SubItem = {
     width?: number
     height?: number
     isLoading: boolean
-    pose?: OpenPose
+    pose?: MaybeReadonly<OpenPose>
 }
 
 export type CanvasStack = {
     projectId: number
     nodeId: number
-    tensorData: TensorDataRow[]
+    tensorData: readonly MaybeReadonly<TensorDataRow>[]
     isLoading: boolean
     width?: number
     height?: number

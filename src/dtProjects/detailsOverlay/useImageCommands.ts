@@ -146,7 +146,6 @@ export function useImageCommands(): [
                         ctx.videoRef?.current.controls.pause()
                         frame = ctx.videoRef.current.controls.getFrame()
                     }
-                    console.log("here")
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
                     const project = projects.getProject(selected[0].projectId)

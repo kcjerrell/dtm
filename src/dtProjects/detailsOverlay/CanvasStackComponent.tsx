@@ -1,13 +1,13 @@
+import { chakra, Spinner } from "@chakra-ui/react"
+import { type ComponentProps, Fragment, useRef } from "react"
+import type { TensorDataRow } from "@/commands"
 import urls from "@/commands/urls"
 import { showStackPreview } from "@/components/preview"
 import { useThresholdDelay } from "@/hooks/useDecay"
 import { useProxyRef } from "@/hooks/valtioHooks"
-import { chakra, Spinner } from "@chakra-ui/react"
-import { type ComponentProps, Fragment, useRef } from "react"
 import { useDTP } from "../state/context"
 import type { CanvasStack } from "../types"
 import { DetailsImageContainer, DetailsImageContent, DetailsSpinnerRoot } from "./common"
-import { TensorDataRow } from "@/commands"
 
 interface CanvasStackComponentProps extends ComponentProps<typeof DetailsImageContainer> {
     stack: MaybeReadonly<CanvasStack>
@@ -62,7 +62,6 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
                                     height={layer.h + 8}
                                     fill={isLoaded ? "#00000000" : "#77777777"}
                                 />
-                                {/** biome-ignore lint/a11y/noStaticElementInteractions: <explanation> */}
                                 <image
                                     onLoad={() => {
                                         state.isLoaded[layer.index] = true
@@ -116,8 +115,8 @@ export function getBounds(layers: { x: number; y: number; w: number; h: number }
     return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
 }
 
-export function getLayer(td: TensorDataRow, projectId: number, index: number) {
-    const scale = td.scale_factor_by_120 / 120
+export function getLayer(td: MaybeReadonly<TensorDataRow>, projectId: number, index: number) {
+    const scale = td.scale_factor_by_120 > 0 ? td.scale_factor_by_120 / 120 : 1
     return {
         x: td.x,
         y: td.y,

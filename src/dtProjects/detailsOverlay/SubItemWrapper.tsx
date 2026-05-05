@@ -1,8 +1,7 @@
 import type { ComponentProps } from "react"
 import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
-import DetailsImage from "./DetailsImage"
 import CanvasStackComponent from "./CanvasStackComponent"
-import { useDTP } from "../state/context"
+import DetailsImage from "./DetailsImage"
 
 interface SubItemProps extends ChakraProps {
     subItem?: ReadonlyState<SubItem | CanvasStack>
@@ -14,7 +13,13 @@ function SubItemWrapper(props: SubItemProps) {
     if (!subItem) return null
 
     if (isCanvasStack(subItem)) {
-        return <CanvasStackComponent key={subItem.nodeId} stack={subItem} {...restProps} />
+        return (
+            <CanvasStackComponent
+                key={subItem.nodeId}
+                {...(restProps as ComponentProps<typeof CanvasStackComponent>)}
+                stack={subItem}
+            />
+        )
     }
 
     return (

@@ -7,7 +7,7 @@ import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
-import type { CanvasStack, SubItem, TensorType } from "../types"
+import { type CanvasStack, isCanvasStack, type SubItem, type TensorType } from "../types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
 
@@ -223,7 +223,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     toggleSubItemMask() {
         const details = this.state.detailsView
-        if (!details.subItem || !details.subItem.maskUrl) return
+        if (!details.subItem || isCanvasStack(details.subItem) || !details.subItem.maskUrl) return
         details.subItem.applyMask = !details.subItem.applyMask
     }
 
@@ -234,7 +234,7 @@ export class UIController extends DTPStateController<UIControllerState> {
         const image = await drawPose(pose, 4)
         const details = this.state.detailsView
         if (!image || !details.item) return
-        if (details.subItem) {
+        if (details.subItem && !isCanvasStack(details.subItem)) {
             details.subItem.url = `data:image/png;base64,${await uint8ArrayToBase64(image)}`
             details.subItem.isLoading = false
             details.subItem.width = 1024
@@ -251,6 +251,7 @@ export class UIController extends DTPStateController<UIControllerState> {
             if (!details.item) return
             if (
                 details.subItem &&
+                !isCanvasStack(details.subItem) &&
                 details.subItem.tensorId === tensorId &&
                 details.subItem.projectId === projectId
             ) {

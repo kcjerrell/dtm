@@ -532,11 +532,9 @@ impl DTProject {
 
         let mut item = TensorHistoryExtra::from((result, self.path.clone()));
 
-        // don't worry about this for now
         item.moodboard = self
             .get_shuffle_ids(item.lineage, item.logical_time)
             .await?;
-        // item.moodboard = Some(moodboard);
 
         let prompt_empty = item
             .history

@@ -54,7 +54,6 @@ class DetailsService extends DTPStateService {
         }
 
         this.itemDetails[key] = full as DTImageFull
-        console.log(full)
         return full as DTImageFull
     }
 

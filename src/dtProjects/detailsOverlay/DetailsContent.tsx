@@ -1,16 +1,15 @@
 import { chakra, Grid, Spacer } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Fragment } from "react/jsx-runtime"
+import { TbWindowMinimize } from "react-icons/tb"
 import type { Snapshot } from "valtio"
 import type { DTImageFull, ImageExtra } from "@/commands"
 import { IconButton, Panel } from "@/components"
 import DataItem from "@/components/DataItem"
 import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
-import { useDTImage } from "./DTImageContext"
 import DetailsFallback from "./DetailsFallback"
-import { TbWindowMinimize } from "react-icons/tb"
-import { PropsWithChildren } from "react"
+import { useDTImage } from "./DTImageContext"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -26,11 +25,13 @@ function DetailsContent(props: DetailsContentProps) {
 
     const { loras, controls } = useDTImage()
 
-    if (!snap?.itemDetails || snap.item?.is_ready === false)
-        return <DetailsFallback item={snap.item} />
+    const item = snap.item
+    const details = snap.itemDetails
 
-    const config = snap?.itemDetails?.groupedConfig
-    if (!snap.itemDetails || !config) return null
+    if (!details || item?.is_ready === false) return <DetailsFallback item={item} />
+
+    const config = details.groupedConfig
+    if (!item || !config) return null
 
     return (
         <Panel
@@ -91,7 +92,7 @@ function DetailsContent(props: DetailsContentProps) {
                         <DataItem
                             size={"sm"}
                             label={"Raw"}
-                            data={JSON.stringify(snap.itemDetails, null, 2)}
+                            data={JSON.stringify(details, null, 2)}
                         />
                     </Tabs.Content>
 
@@ -133,17 +134,19 @@ function DetailsContent(props: DetailsContentProps) {
                                     />
                                 )
                             })} */}
-                        <Fragment key={snap.itemDetails?.tensor_id || "details_content"}>
+                        <Fragment key={details.id}>
                             <Row>
                                 <DataItem
                                     label={"Project"}
-                                    data={snap.itemDetails.project.name.replace(/\.sqlite3$/, "")}
+                                    data={details.project.name.replace(/\.sqlite3$/, "")}
                                 />
                                 <DataItem
                                     label={"Created"}
-                                    data={new Date(
-                                        snap.itemDetails.node.wall_clock,
-                                    ).toLocaleString()}
+                                    data={
+                                        details.node.wall_clock
+                                            ? new Date(details.node.wall_clock).toLocaleString()
+                                            : undefined
+                                    }
                                 />
                             </Row>
                             <Row>
@@ -154,11 +157,11 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.Model value={config.model} />
                             </Row>
                             {/* LoRAs */}
-                            {(snap.itemDetails.node.loras?.length ?? 0) > 0 &&
-                                snap.itemDetails.node.loras?.map((lora, i) => {
+                            {(details.node.loras?.length ?? 0) > 0 &&
+                                details.node.loras?.map((lora, i) => {
                                     const name = loras?.[i]?.name || lora.file
                                     return (
-                                        <Row key={`lora-${i}`}>
+                                        <Row key={`lora-${lora.file}`}>
                                             <DataItem
                                                 label={"LoRA"}
                                                 data={`${name}, (Weight: ${Math.round(lora.weight * 100)}%)`}
@@ -168,11 +171,11 @@ function DetailsContent(props: DetailsContentProps) {
                                 })}
 
                             {/* Controls */}
-                            {(snap.itemDetails.node.controls?.length ?? 0) > 0 &&
-                                snap.itemDetails.node.controls?.map((control, i) => {
+                            {(details.node.controls?.length ?? 0) > 0 &&
+                                details.node.controls?.map((control, i) => {
                                     const name = controls?.[i]?.name || control.file
                                     return (
-                                        <Row key={`control-${i}`}>
+                                        <Row key={`control-${control.file}`}>
                                             <DataItem
                                                 label={"Control"}
                                                 data={`${name} (Weight: ${Math.round(control.weight * 100)}%, from ${Math.round(control.guidance_start * 100)}% to ${Math.round(control.guidance_end * 100)}%)`}
@@ -189,10 +192,10 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.GuidanceScale value={config.guidanceScale} />
                                 <DataItem.Shift value={config.shift} />
                             </Row>
-                            <DataItem label={"Prompt"} data={snap.item.prompt} maxLines={6} />
+                            <DataItem label={"Prompt"} data={item.prompt} maxLines={6} />
                             <DataItem
                                 label={"Negative Prompt"}
-                                data={snap.item.negative_prompt}
+                                data={item.negative_prompt}
                                 maxLines={6}
                             />
                             <Grid templateColumns="auto auto" gap={2} mb={2}>
@@ -202,13 +205,13 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.TiledDiffusion value={config.tiledDiffusion} />
                                 <DataItem.Upscaler value={config.upscaler} />
                                 {/* <DataItem.Batch value={config.batch} /> */}
-                                <DataItem.NumFrames value={snap.item?.num_frames} />
+                                <DataItem.NumFrames value={item.num_frames ?? undefined} />
                                 <DataItem.CausalInference value={config.causalInference} />
                                 <DataItem.CfgZero value={config.cfgZero} />
                                 <DataItem.MaskBlur value={config.maskBlur} />
                                 <DataItem
                                     label={"Mask Outset"}
-                                    data={snap.itemDetails?.groupedConfig?.maskBlur?.outset}
+                                    data={details.groupedConfig?.maskBlur?.outset}
                                 />
                                 <DataItem.Sharpness value={config.sharpness} />
                                 <DataItem.Stage2 value={config.stage2} />
@@ -216,39 +219,22 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.AestheticScore value={config.aestheticScore} />
                                 <DataItem.TeaCache value={config.teaCache} />
                             </Grid>
-                            <DataItem label={"Node ID"} data={snap.item?.node_id} />
-                            <DataItem label={"Lineage"} data={snap.itemDetails?.node.lineage} />
-                            <DataItem
-                                label={"Logical Time"}
-                                data={snap.itemDetails?.node.logical_time}
-                            />
-                            <DataItem
-                                label={"Tensor ID"}
-                                data={snap.itemDetails.images?.tensorId}
-                            />
-                            <DataItem
-                                label={"Depth Map ID"}
-                                data={snap.itemDetails.images?.depthMapId}
-                            />
-                            <DataItem label={"Pose ID"} data={snap.itemDetails.images?.poseId} />
-                            <DataItem
-                                label={"Scribble ID"}
-                                data={snap.itemDetails.images?.scribbleId}
-                            />
+                            <DataItem label={"Node ID"} data={item.node_id} />
+                            <DataItem label={"Lineage"} data={details.node.lineage} />
+                            <DataItem label={"Logical Time"} data={details.node.logical_time} />
+                            <DataItem label={"Tensor ID"} data={details.images?.tensorId} />
+                            <DataItem label={"Depth Map ID"} data={details.images?.depthMapId} />
+                            <DataItem label={"Pose ID"} data={details.images?.poseId} />
+                            <DataItem label={"Scribble ID"} data={details.images?.scribbleId} />
                             <DataItem
                                 label={"Color Palette ID"}
-                                data={snap.itemDetails.images?.colorPaletteId}
+                                data={details.images?.colorPaletteId}
                             />
-                            <DataItem
-                                label={"Custom ID"}
-                                data={snap.itemDetails.images?.customId}
-                            />
-                            {(snap.itemDetails?.images?.moodboard?.length ?? 0) > 0 && (
+                            <DataItem label={"Custom ID"} data={details.images?.customId} />
+                            {(details.images?.moodboard?.length ?? 0) > 0 && (
                                 <DataItem
                                     label={"Moodboard IDs"}
-                                    data={snap.itemDetails.images?.moodboard
-                                        ?.map(([id]) => id)
-                                        .join("\n")}
+                                    data={details.images?.moodboard?.map(([id]) => id).join("\n")}
                                 />
                             )}
                         </Fragment>

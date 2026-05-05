@@ -1,11 +1,11 @@
-import { Box, HStack, Table, Text, VStack } from "@chakra-ui/react"
+import { Box, HStack, Table, Text } from "@chakra-ui/react"
+import { motion } from "motion/react"
 import { Fragment, useCallback, useEffect, useMemo } from "react"
 import type { TensorDataRow, TensorHistoryNodeRow } from "@/commands"
 import DTProject from "@/commands/DTProject"
 import urls from "@/commands/urls"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { useDTP } from "../state/context"
-import { motion } from "motion/react"
 
 interface ExplorerProps extends ChakraProps {
     projectId: number
@@ -103,7 +103,7 @@ interface CellProps<T> extends ChakraProps {
 }
 
 function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
-    const { item, projectId, ...restProps } = props
+    const { item, projectId } = props
     const tensorName = getTensorDataTensorName(item)
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
@@ -135,7 +135,6 @@ function getTensorDataTensorName(data: TensorDataRow) {
 
 function PreviewCell(props: CellProps<TensorHistoryNodeRow>) {
     const { item, ...restProps } = props
-    console.log(item)
 
     return (
         <Table.Cell {...restProps}>
@@ -155,7 +154,6 @@ function PreviewCell(props: CellProps<TensorHistoryNodeRow>) {
 function IdsCell(props: CellProps<TensorHistoryNodeRow>) {
     const { item, ...restProps } = props
     const tensorNames: string[] = []
-    console.log(item)
     if (item.data.tensor_id) tensorNames.push(`tensor_history_${item.data.tensor_id}`)
     if (item.data.scribble_id) tensorNames.push(`scribble_${item.data.scribble_id}`)
     if (item.data.pose_id) tensorNames.push(`pose_${item.data.pose_id}`)
@@ -166,7 +164,6 @@ function IdsCell(props: CellProps<TensorHistoryNodeRow>) {
 
     return (
         <Table.Cell {...restProps}>
-            hi
             <ul>
                 {tensorNames.map((tensorName) => (
                     <li key={tensorName}>{tensorName}</li>
@@ -176,23 +173,12 @@ function IdsCell(props: CellProps<TensorHistoryNodeRow>) {
     )
 }
 
-function getColumns(data: Record<string, unknown>[]) {
-    const keys = new Set<string>()
-    for (const row of data) {
-        // const itemKeys = getKeyPaths(row)
-        // if (!itemKeys) continue
-        for (const key of Object.keys(row)) {
-            keys.add(key)
-        }
-    }
-    return Array.from(keys)
-}
-
 function getValue(data: Record<string, unknown>, key: string) {
     const keys = key.split(".")
-    let value = data
+    let value: unknown = data
     for (const k of keys) {
-        value = value[k]
+        if (!value || typeof value !== "object") return undefined
+        value = (value as Record<string, unknown>)[k]
     }
     return JSON.stringify(value, null, 2)
 }

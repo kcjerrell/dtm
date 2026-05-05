@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sqlx::{query, Row};
+use sqlx::{QueryBuilder, Row, Sqlite};
 
 use crate::projects_db::fbs::{root_as_tensor_data, TensorData};
 use crate::projects_db::TensorHistoryTensorData;
@@ -50,29 +50,12 @@ impl TensorDataQuery {
         self
     }
 
-    pub fn build_where_clause(&self) -> String {
-        let mut conditions = Vec::new();
-        if let Some(v) = self.lineage {
-            conditions.push(format!("__pk0 = {}", v));
-        }
-        if let Some(v) = self.logical_time {
-            conditions.push(format!("__pk1 = {}", v));
-        }
-        if let Some(v) = self.idx {
-            conditions.push(format!("__pk2 = {}", v));
-        }
-        if let Some(v) = self.first {
-            conditions.push(format!("rowid >= {}", v));
-        }
-        if let Some(v) = self.last {
-            conditions.push(format!("rowid <= {}", v));
-        }
-
-        if conditions.is_empty() {
-            "".to_string()
-        } else {
-            format!("where {}", conditions.join(" and "))
-        }
+    fn has_conditions(&self) -> bool {
+        self.lineage.is_some()
+            || self.logical_time.is_some()
+            || self.idx.is_some()
+            || self.first.is_some()
+            || self.last.is_some()
     }
 }
 
@@ -85,13 +68,38 @@ impl<'a> DTProjectRaw<'a> {
         Self { dt_project }
     }
 
-    pub async fn tensor_data(&self, query_params: TensorDataQuery) -> Vec<TensorDataRow> {
-        let where_clause = query_params.build_where_clause();
-        let text = format!("select * from tensordata {}", where_clause);
+    pub async fn tensor_data(
+        &self,
+        query_params: TensorDataQuery,
+    ) -> Result<Vec<TensorDataRow>, String> {
+        let mut query = QueryBuilder::<Sqlite>::new("select * from tensordata");
 
-        let q = query(&text);
+        if query_params.has_conditions() {
+            query.push(" where ");
+            let mut conditions = query.separated(" and ");
+            if let Some(lineage) = query_params.lineage {
+                conditions.push("__pk0 = ").push_bind(lineage);
+            }
+            if let Some(logical_time) = query_params.logical_time {
+                conditions.push("__pk1 = ").push_bind(logical_time);
+            }
+            if let Some(idx) = query_params.idx {
+                conditions.push("__pk2 = ").push_bind(idx);
+            }
+            if let Some(first) = query_params.first {
+                conditions.push("rowid >= ").push_bind(first);
+            }
+            if let Some(last) = query_params.last {
+                conditions.push("rowid <= ").push_bind(last);
+            }
+        }
 
-        let rows = q.fetch_all(&*self.dt_project.pool).await.unwrap();
+        let rows = query
+            .build()
+            .fetch_all(&*self.dt_project.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
         rows.into_iter()
             .map(|row| {
                 let raw = RawTensorDataRow {
@@ -101,8 +109,8 @@ impl<'a> DTProjectRaw<'a> {
                     __pk2: row.get("__pk2"),
                     p: row.get("p"),
                 };
-                let data = root_as_tensor_data(&raw.p).unwrap();
-                TensorDataRow {
+                let data = root_as_tensor_data(&raw.p).map_err(|e| e.to_string())?;
+                Ok(TensorDataRow {
                     rowid: raw.rowid,
                     lineage: raw.__pk0,
                     logical_time: raw.__pk1,
@@ -119,7 +127,7 @@ impl<'a> DTProjectRaw<'a> {
                     pose_id: data.pose_id(),
                     color_palette_id: data.color_palette_id(),
                     custom_id: data.custom_id(),
-                }
+                })
             })
             .collect()
     }
@@ -185,7 +193,7 @@ pub async fn dt_project_tensordata(
         query.last(l);
     }
 
-    Ok(raw.tensor_data(query).await)
+    raw.tensor_data(query).await
 }
 
 impl From<TensorHistoryTensorData> for TensorDataRow {

@@ -1,5 +1,6 @@
 import { type ClipExtra, DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import type { OpenPose } from "@/utils/poseHelpers"
 import { getBounds, getLayer } from "../detailsOverlay/CanvasStackComponent"
 import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
 
@@ -8,11 +9,11 @@ import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
  */
 export class ResourceHandle {
     image?: ImageExtra
-    subItem?: SubItem
+    subItem?: MaybeReadonly<SubItem> | MaybeReadonly<CanvasStack>
 
-    constructor(item: ImageExtra | SubItem) {
+    constructor(item: ImageExtra | MaybeReadonly<SubItem> | MaybeReadonly<CanvasStack>) {
         if (isImageExtra(item)) this.image = item
-        else this.subItem = item as SubItem
+        else this.subItem = item
     }
 
     get projectId() {
@@ -30,7 +31,7 @@ export class ResourceHandle {
     }
 
     get isPose() {
-        return this.subItem?.type === "pose"
+        return !isCanvasStack(this.subItem) && this.subItem?.type === "pose"
     }
 
     get isCanvasStack() {
@@ -44,8 +45,9 @@ export class ResourceHandle {
     private tensorId?: string | null
     async getTensorId() {
         if (!this.tensorId) {
-            if (this.subItem?.tensorId) this.tensorId = this.subItem.tensorId
-            else {
+            if (this.subItem && !isCanvasStack(this.subItem) && this.subItem.tensorId) {
+                this.tensorId = this.subItem.tensorId
+            } else {
                 const tHistory = await this.getHistory()
                 this.tensorId = tHistory?.tensor_id ?? null
             }
@@ -79,7 +81,6 @@ export class ResourceHandle {
             return await this.getPoseImage()
         }
         if (this.isCanvasStack) {
-            console.log("this.isCanvasStack is true", this.isCanvasStack)
             return await this.renderCanvas()
         }
         let tensorId: Nullable<string>
@@ -105,7 +106,6 @@ export class ResourceHandle {
 
         const { minX, minY, width, height } = getBounds(layers)
 
-        // create a 2d canvas
         const canvas = document.createElement("canvas")
         canvas.width = width
         canvas.height = height
@@ -137,7 +137,14 @@ export class ResourceHandle {
     }
 
     async getPoseData() {
-        if (!this.isPose || !this.subItem?.tensorId) throw new Error("Not a pose")
+        if (
+            !this.isPose ||
+            !this.subItem ||
+            isCanvasStack(this.subItem) ||
+            !this.subItem.tensorId
+        ) {
+            throw new Error("Not a pose")
+        }
         let pose = this.subItem.pose
         if (!pose) {
             const data = await DtpService.decodeTensor(this.projectId, this.subItem.tensorId, false)
@@ -149,10 +156,12 @@ export class ResourceHandle {
 
     async getPoseImage() {
         const pose = await this.getPoseData()
-        return await drawPose(pose, 4)
+        return await drawPose(pose as OpenPose, 4)
     }
 
-    static from(item: ImageExtra | SubItem | null | undefined) {
+    static from(
+        item: ImageExtra | MaybeReadonly<SubItem> | MaybeReadonly<CanvasStack> | null | undefined,
+    ) {
         if (!item) return undefined
         return new ResourceHandle(item)
     }

@@ -201,7 +201,6 @@ function PreviewZoom(props: PreviewZoomProps) {
             hidePreview()
         },
     })
-    console.log(snap)
     // const [fromRect, setFromRect] = useState<DOMRect>()
 
     const imgRef = useRef<HTMLImageElement>(null)
@@ -289,7 +288,6 @@ function PreviewZoom(props: PreviewZoomProps) {
             widthMv.set(originalRect.width)
             heightMv.set(originalRect.height)
 
-            // Visibility:
             // Visibility:
             // Switch visibility after animation duration (200ms)
             setTimeout(() => {
