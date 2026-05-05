@@ -276,10 +276,14 @@ export class UIController extends DTPStateController<UIControllerState> {
             if (execFinished) this.state.detailsView.showSpinner = false
         }, minTime)
 
-        return fn().finally(() => {
-            execFinished = true
-            if (timerFinished) this.state.detailsView.showSpinner = false
-        })
+        return fn()
+            .catch((err) => {
+                console.error(err)
+            })
+            .finally(() => {
+                execFinished = true
+                if (timerFinished) this.state.detailsView.showSpinner = false
+            })
     }
 
     callWithImageSpinner<T>(imageId: number, fn: () => Promise<T>) {

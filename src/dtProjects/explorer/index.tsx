@@ -57,7 +57,7 @@ function Explorer(props: ExplorerProps) {
 
                 <Table.Body>
                     <Table.Row key="what">
-                        {[...columns, "generated", "preview"].map((col) => (
+                        {[...columns, "generated", "ids", "preview"].map((col) => (
                             <Table.ColumnHeader key={col}>
                                 {col.split(".").pop()}
                             </Table.ColumnHeader>
@@ -74,6 +74,7 @@ function Explorer(props: ExplorerProps) {
                                     <Table.Cell key={col}>{getValue(row, col)}</Table.Cell>
                                 ))}
                                 <Table.Cell>{row.data.generated ? "✅" : "❌"}</Table.Cell>
+                                <IdsCell item={row} />
                                 <PreviewCell item={row} />
                             </Table.Row>
                             {row.tensorData?.map((t) => (
@@ -103,11 +104,11 @@ interface CellProps<T> extends ChakraProps {
 
 function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
     const { item, projectId, ...restProps } = props
-    const tensorName = getTensorName(item)
+    const tensorName = getTensorDataTensorName(item)
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
             <Table.Cell width={"5rem"} bgColor={"grayc.14"} />
-            <Table.Cell colSpan={4} bgColor={"grayc.10"}>
+            <Table.Cell colSpan={5} bgColor={"grayc.10"}>
                 <HStack width={"100%"} justifyContent={"flex-end"}>
                     <Text>{tensorName}</Text>
                     <img
@@ -121,7 +122,7 @@ function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
     )
 }
 
-function getTensorName(data: TensorDataRow) {
+function getTensorDataTensorName(data: TensorDataRow) {
     if (data.color_palette_id) return `color_palette_${data.color_palette_id}`
     if (data.custom_id) return `custom_${data.custom_id}`
     if (data.pose_id) return `pose_${data.pose_id}`
@@ -147,6 +148,30 @@ function PreviewCell(props: CellProps<TensorHistoryNodeRow>) {
                     alt={item.data.preview_id.toString()}
                 />
             )}
+        </Table.Cell>
+    )
+}
+
+function IdsCell(props: CellProps<TensorHistoryNodeRow>) {
+    const { item, ...restProps } = props
+    const tensorNames: string[] = []
+    console.log(item)
+    if (item.data.tensor_id) tensorNames.push(`tensor_history_${item.data.tensor_id}`)
+    if (item.data.scribble_id) tensorNames.push(`scribble_${item.data.scribble_id}`)
+    if (item.data.pose_id) tensorNames.push(`pose_${item.data.pose_id}`)
+    if (item.data.mask_id) tensorNames.push(`binary_mask_${item.data.mask_id}`)
+    if (item.data.depth_map_id) tensorNames.push(`depth_map_${item.data.depth_map_id}`)
+    if (item.data.color_palette_id) tensorNames.push(`color_palette_${item.data.color_palette_id}`)
+    if (item.data.custom_id) tensorNames.push(`custom_${item.data.custom_id}`)
+
+    return (
+        <Table.Cell {...restProps}>
+            hi
+            <ul>
+                {tensorNames.map((tensorName) => (
+                    <li key={tensorName}>{tensorName}</li>
+                ))}
+            </ul>
         </Table.Cell>
     )
 }

@@ -1,6 +1,7 @@
 import { type ClipExtra, DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
-import { isCanvasStack, type SubItem } from "../types"
+import { getBounds, getLayer } from "../detailsOverlay/CanvasStackComponent"
+import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
 
 /**
  * Used to represent an image for image commands
@@ -77,6 +78,10 @@ export class ResourceHandle {
         if (this.isPose) {
             return await this.getPoseImage()
         }
+        if (this.isCanvasStack) {
+            console.log("this.isCanvasStack is true", this.isCanvasStack)
+            return await this.renderCanvas()
+        }
         let tensorId: Nullable<string>
         if (frame !== undefined) {
             const clip = await this.getClip()
@@ -87,6 +92,47 @@ export class ResourceHandle {
         if (!tensorId) throw new Error("No tensor id")
 
         const data = await DtpService.decodeTensor(this.projectId, tensorId, true, this.nodeId)
+        return data
+    }
+
+    async renderCanvas() {
+        if (!isCanvasStack(this.subItem)) throw new Error("Not a canvas stack")
+        const canvasStack = this.subItem as CanvasStack
+
+        const layers = canvasStack.tensorData.map((td, index) =>
+            getLayer(td, canvasStack.projectId, index),
+        )
+
+        const { minX, minY, width, height } = getBounds(layers)
+
+        // create a 2d canvas
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) throw new Error("No canvas context")
+
+        const images = layers.map(async (layer) => {
+            const tensor = await DtpService.decodeTensor(
+                this.projectId,
+                `tensor_history_${layer.tensorData.tensor_id}`,
+                true,
+            )
+            const blob = new Blob([tensor], { type: "image/png" })
+            const imageBitmap = await createImageBitmap(blob)
+            return { imageBitmap, layer }
+        })
+        const imageBitmaps = await Promise.all(images)
+        for (const { imageBitmap, layer } of imageBitmaps) {
+            ctx.drawImage(imageBitmap, layer.x - minX, layer.y - minY, layer.w, layer.h)
+        }
+
+        const blob = await new Promise((resolve: (blob: Blob | null) => void) =>
+            canvas.toBlob(resolve, "image/png"),
+        )
+        if (!blob) throw new Error("No blob")
+        const data = new Uint8Array(await blob.arrayBuffer())
+
         return data
     }
 

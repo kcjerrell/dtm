@@ -1,15 +1,13 @@
 import urls from "@/commands/urls"
-import type { CanvasStack as CanvasStack, TensorDataRowState } from "../types"
+import { showStackPreview } from "@/components/preview"
+import { useThresholdDelay } from "@/hooks/useDecay"
+import { useProxyRef } from "@/hooks/valtioHooks"
+import { chakra, Spinner } from "@chakra-ui/react"
+import { type ComponentProps, Fragment, useRef } from "react"
+import { useDTP } from "../state/context"
+import type { CanvasStack } from "../types"
 import { DetailsImageContainer, DetailsImageContent, DetailsSpinnerRoot } from "./common"
 import { TensorDataRow } from "@/commands"
-import { ComponentProps, Fragment, useRef, useState } from "react"
-import { useProxyRef } from "@/hooks/valtioHooks"
-import { motion } from "motion/react"
-import { chakra, Spinner } from "@chakra-ui/react"
-import { showPreview, showStackPreview } from "@/components/preview"
-import { proxySet } from "valtio/utils"
-import { useThresholdDelay } from "@/hooks/useDecay"
-import { useDTP } from "../state/context"
 
 interface CanvasStackComponentProps extends ComponentProps<typeof DetailsImageContainer> {
     stack: MaybeReadonly<CanvasStack>
@@ -30,9 +28,7 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
 
     const svgRef = useRef<SVGSVGElement>(null)
 
-    const layers = stack.tensorData.map((td, index) =>
-        getLayer(td as TensorDataRowState, stack.projectId, index),
-    )
+    const layers = stack.tensorData.map((td, index) => getLayer(td, stack.projectId, index))
     const bounds = getBounds(layers)
 
     const viewbox = `${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`
@@ -106,7 +102,7 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
     )
 }
 
-function getBounds(layers: { x: number; y: number; w: number; h: number }[]) {
+export function getBounds(layers: { x: number; y: number; w: number; h: number }[]) {
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
@@ -120,7 +116,7 @@ function getBounds(layers: { x: number; y: number; w: number; h: number }[]) {
     return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
 }
 
-function getLayer(td: TensorDataRowState, projectId: number, index: number) {
+export function getLayer(td: TensorDataRow, projectId: number, index: number) {
     const scale = td.scale_factor_by_120 / 120
     return {
         x: td.x,
