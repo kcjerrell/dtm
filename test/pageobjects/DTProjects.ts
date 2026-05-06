@@ -84,10 +84,10 @@ class DTProjects {
     }
 
     async getDataItemValue(label: string, opts?: WaitForOpts & { noThrow?: boolean }) {
-        const el = $(`//dt[.='${label}']/following-sibling::dd`)
+        const selector = `//dt[.='${label}']/following-sibling::dd`
         try {
-            await el.waitForDisplayed(opts)
-            return el.getText()
+            await $(selector).waitForDisplayed(opts)
+            return $(selector).getText()
         } catch (e) {
             if (opts?.noThrow) {
                 console.log(`No data item found for label: ${label}`)
