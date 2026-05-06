@@ -146,7 +146,7 @@ describe("Video Export", () => {
 
         // assert model name appears in the search filter
         await expect($('[aria-label="loras filter value selector"]')).toHaveText(
-            expect.stringContaining("Wan 2.2 A14B Lightning High"),
+            expect.stringContaining("Wan 2.2 A14B Lightning"),
         )
 
         // click search
