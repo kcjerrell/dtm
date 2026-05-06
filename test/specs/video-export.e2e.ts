@@ -322,7 +322,7 @@ describe("Video Export", () => {
 
         await $('[aria-label="models filter value selector"]').click()
 
-        const versionItem = await $('[aria-label*="Model version LTX-2"]')
+        const versionItem = await $('[aria-label="Model version LTX-2"]')
         await versionItem.waitForDisplayed({ timeout: 15000 })
         await versionItem.click()
 
@@ -433,6 +433,6 @@ describe("Video Export", () => {
             videoStream?.tags?.comment ??
             audioStream?.tags?.comment ??
             ""
-        expect(comment).toContain('"model":"ltx_2.3_22b_distilled_q8p.ckpt"')
+        expect(comment).toContain('"model":"ltx_2_19b_distilled_q8p.ckpt"')
     })
 })
