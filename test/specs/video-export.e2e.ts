@@ -126,20 +126,18 @@ describe("Video Export", () => {
         await $("aria/Add search filter").click()
         const filterForm = DTProjects.searchPanel.getFilter(0)
         await filterForm.target.click()
-        ;(await filterForm.getTargetOption("model")).click()
+        ;(await filterForm.getTargetOption("lora")).click()
 
         // click select a model
-        await $('[aria-label="models filter value selector"]').click()
+        await $('[aria-label="loras filter value selector"]').click()
 
-        // select Wan 2.1 14b in the versions list
+        // // select Wan 2.1 14b in the versions list
         const versionItem = $('[aria-label*="Model version Wan 2.1 14b"]')
         await versionItem.waitForDisplayed({ timeout: 15000 })
         await versionItem.click()
 
         // assert models list has been filtered and model version item is listed
-        const modelItem = $(
-            '[aria-label*="Model item Wan 2.2 High Noise Expert T2V A14B (6-bit, SVDQuant)"]',
-        )
+        const modelItem = $('[aria-label*="Model item"]')
         await modelItem.waitForDisplayed({ timeout: 15000 })
         await expect(modelItem).toBeDisplayed()
 
@@ -147,8 +145,8 @@ describe("Video Export", () => {
         await modelItem.click()
 
         // assert model name appears in the search filter
-        await expect($('[aria-label="models filter value selector"]')).toHaveText(
-            expect.stringContaining("Wan 2.2 High Noise"),
+        await expect($('[aria-label="loras filter value selector"]')).toHaveText(
+            expect.stringContaining("Wan 2.2 A14B Lightning High"),
         )
 
         // click search
@@ -171,8 +169,8 @@ describe("Video Export", () => {
 
         // assert some details
         // expect(await DTProjects.getDataItemValue("Model")).toContain("wan_v2.1_14b")
-        expect(await DTProjects.getDataItemValue("Model")).toContain(
-            "Wan 2.2 High Noise Expert T2V A14B",
+        expect(await DTProjects.getDataItemValue("LoRA")).toContain(
+            "Wan 2.2 A14B Lightning High Noise Expert T2V",
         )
         expect(await DTProjects.getDataItemValue("Num Frames")).toContain("17")
 
