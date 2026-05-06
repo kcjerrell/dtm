@@ -314,7 +314,7 @@ describe("Video Export", () => {
         await expect($("aria/Search tab")).toHaveAttribute("aria-selected", "true")
         await $("aria/Reset search").click()
 
-        // search for model version: LTX-2.3 22B [distilled]
+        // search for model version: LTX-2 19B [distilled]
         await $("aria/Add search filter").click()
         const filterForm = DTProjects.searchPanel.getFilter(0)
         await filterForm.target.click()
@@ -322,7 +322,7 @@ describe("Video Export", () => {
 
         await $('[aria-label="models filter value selector"]').click()
 
-        const versionItem = await $('[aria-label*="Model version LTX-2.3"]')
+        const versionItem = await $('[aria-label*="Model version LTX-2"]')
         await versionItem.waitForDisplayed({ timeout: 15000 })
         await versionItem.click()
 
@@ -340,7 +340,7 @@ describe("Video Export", () => {
         await filteredItems[0].click()
         await expect($("#details-overlay")).toBeDisplayed()
         expect(await DTProjects.getDataItemValue("Model")).toContain(
-            "LTX-2.3 22B [distilled] (LTX-2.3)",
+            "LTX-2 19B [distilled] (LTX-2)",
         )
         expect(await DTProjects.getDataItemValue("Num Frames")).toContain("17")
 
@@ -421,7 +421,7 @@ describe("Video Export", () => {
         const audioStream = probe.streams?.find((s) => s.codec_type === "audio")
         expect(audioStream).toBeDefined()
         expect(audioStream?.codec_name).toBe("aac")
-        expect(audioStream?.sample_rate).toBe("48000")
+        expect(audioStream?.sample_rate).toBe("24000")
         expect(audioStream?.duration).toBe("0.650000")
 
         const duration = Number(probe.format?.duration ?? "0")
