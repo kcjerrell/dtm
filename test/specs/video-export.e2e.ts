@@ -320,13 +320,19 @@ describe("Video Export", () => {
 
         await $('[aria-label="models filter value selector"]').click()
 
-        const versionItem = await $('[aria-label="Model version LTX-2"]')
-        await versionItem.waitForDisplayed({ timeout: 15000 })
-        await versionItem.click()
+        // const versionItem = await $('[aria-label="Model version LTX-2"]')
+        // await versionItem.waitForDisplayed({ timeout: 15000 })
+        // await versionItem.click()
 
-        const modelItems = await $$('[aria-label^="Model item "]').getElements()
-        expect(modelItems.length).toBeGreaterThan(0)
-        await modelItems[0].click()
+        //         await $(`
+        // *[@data-testid="model-filter-item"
+        //   and contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "ltx")
+        //   and contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "2.3")
+        // ]
+        // `).click()
+
+        await $("aria/models filter text").setValue("ltx")
+        await $(`//*[@data-testid="model-filter-item" and contains(., "2.3")]`).click()
 
         await $("aria/Apply search").click()
         await waitForImageGridReady()
@@ -337,9 +343,7 @@ describe("Video Export", () => {
         // open first item and assert details
         await filteredItems[0].click()
         await expect($("#details-overlay")).toBeDisplayed()
-        expect(await DTProjects.getDataItemValue("Model")).toContain(
-            "LTX-2 19B [distilled] (LTX-2)",
-        )
+        expect(await DTProjects.getDataItemValue("Model")).toContain("2.3")
         expect(await DTProjects.getDataItemValue("Num Frames")).toContain("17")
 
         if (await $("aria/Mute video").isDisplayed()) {
@@ -419,7 +423,7 @@ describe("Video Export", () => {
         const audioStream = probe.streams?.find((s) => s.codec_type === "audio")
         expect(audioStream).toBeDefined()
         expect(audioStream?.codec_name).toBe("aac")
-        expect(audioStream?.sample_rate).toBe("24000")
+        expect(audioStream?.sample_rate).toBe("48000")
         expect(audioStream?.duration).toBe("0.650000")
 
         const duration = Number(probe.format?.duration ?? "0")
@@ -431,6 +435,6 @@ describe("Video Export", () => {
             videoStream?.tags?.comment ??
             audioStream?.tags?.comment ??
             ""
-        expect(comment).toContain('"model":"ltx_2_19b_distilled_q8p.ckpt"')
+        expect(comment).toContain('"model":"ltx_2.3_22b_distilled_q8p.ckpt"')
     })
 })
