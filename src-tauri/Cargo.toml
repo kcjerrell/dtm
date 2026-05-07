@@ -17,7 +17,7 @@ webdriver = ["tauri-plugin-webdriver"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-cc = "1.0"
+cc = "1.2"
 
 [dependencies]
 # Local Modules
