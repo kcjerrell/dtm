@@ -1,7 +1,6 @@
 import "dotenv/config"
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tsconfigPaths from "vite-tsconfig-paths"
 import { htmlInjectionPlugin } from "vite-plugin-html-injection";
 
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -40,10 +39,10 @@ export default defineConfig(async () => ({
         ],
       }
     }),
-    tsconfigPaths(),
     showVisualizer ? visualizer({ open: true }) : null,
   ],
   resolve: {
+    tsconfigPaths: true,
     alias: {
       "@": new URL("./src", import.meta.url).pathname,
       ...(isMock ? {
