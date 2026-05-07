@@ -1,14 +1,14 @@
 use serde::Serialize;
 use sqlx::{query, query_as, sqlite::SqliteRow, FromRow, Row};
 
-use crate::projects_db::{dtos::tensor::TensorHistoryNode, DTProject};
+use crate::projects_db::{dt_project::data::tensor_history_node_data::TensorHistoryNodeData, DTProject};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct TensorHistoryNodeRow {
     pub rowid: i64,
     pub lineage: i64,
     pub logical_time: i64,
-    pub data: TensorHistoryNode,
+    pub data: TensorHistoryNodeData,
 }
 
 impl<'r> FromRow<'r, SqliteRow> for TensorHistoryNodeRow {
@@ -18,7 +18,7 @@ impl<'r> FromRow<'r, SqliteRow> for TensorHistoryNodeRow {
         let logical_time: i64 = row.get("__pk1");
         let data: &[u8] = row.get("p");
 
-        let data = TensorHistoryNode::try_from(data)
+        let data = TensorHistoryNodeData::try_from(data)
             .map_err(|e| sqlx::Error::Protocol(format!("Failed to decode tensorhistorynode: {e}")))?;
 
         Ok(TensorHistoryNodeRow {

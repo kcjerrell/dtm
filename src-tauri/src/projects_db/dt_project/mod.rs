@@ -4,11 +4,11 @@ use crate::projects_db::{
         clip::{Clip, ClipExtra, ClipFrame},
         project::DTProjectInfo,
         tensor::{
-            TensorHistoryExtra, TensorHistoryImport, TensorHistoryNode, TensorNodeGrouper,
-            TensorRaw, TensorSize,
+            TensorHistoryExtra, TensorHistoryImport, TensorNodeGrouper, TensorRaw, TensorSize,
         },
         text::TextHistoryNode,
     },
+    dt_project::data::tensor_history_node_data::TensorHistoryNodeData,
     fbs::root_as_tensor_moodboard_data,
     tensor_history_tensor_data::TensorHistoryTensorData,
     TextHistory,
@@ -34,6 +34,7 @@ use tokio::sync::OnceCell;
 pub mod raw;
 pub use raw::dt_project_tensordata;
 pub mod maintenance;
+pub mod data;
 mod tensor_history_node;
 pub use tensor_history_node::TensorHistoryNodeRow;
 
