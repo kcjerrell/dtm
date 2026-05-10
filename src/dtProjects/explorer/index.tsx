@@ -26,18 +26,12 @@ function Explorer(props: ExplorerProps) {
         async (pageIndex: number) => {
             if (!project || state.pageStatus[pageIndex] !== undefined) return
             state.pageStatus[pageIndex] = "loading"
-            const rows = (await DTProject.listTensorHistoryNodes(
+            const rows = (await DTProject.listTensorHistoryNodes({
                 projectId,
-                pageIndex * 50,
-                50,
-            )) as (TensorHistoryNodeRow & { tensorData?: TensorDataRow[] })[]
-            for (const row of rows) {
-                const tensorData = await DTProject.tensorData(project.full_path, {
-                    lineage: row.lineage,
-                    logicalTime: row.logical_time,
-                })
-                row.tensorData = tensorData
-            }
+                first: pageIndex * 50,
+                take: 50,
+                select: ["tensordata"],
+            })) as TensorHistoryNodeRow[]
             state.pageStatus[pageIndex] = "loaded"
             state.data.splice(pageIndex * 50, 50, ...rows)
         },
@@ -63,33 +57,37 @@ function Explorer(props: ExplorerProps) {
                             </Table.ColumnHeader>
                         ))}
                     </Table.Row>
-                    {snap.data.map((row, rowIndex) => (
-                        <Fragment key={row.rowid}>
-                            <Table.Row
-                                key={row.rowid}
-                                bgColor={"grayc.14"}
-                                // _dark={{ bgColor: "grayc.13" }}
-                            >
-                                {columns.map((col) => (
-                                    <Table.Cell key={col}>{getValue(row, col)}</Table.Cell>
+                    {snap.data.map((row, rowIndex) => {
+                        console.log(row)
+                        return (
+                            <Fragment key={row.rowid}>
+                                <Table.Row
+                                    key={row.rowid}
+                                    bgColor={"grayc.14"}
+                                    // _dark={{ bgColor: "grayc.13" }}
+                                >
+                                    {columns.map((col) => (
+                                        <Table.Cell key={col}>{getValue(row, col)}</Table.Cell>
+                                    ))}
+                                    <Table.Cell>{row.data.generated ? "✅" : "❌"}</Table.Cell>
+                                    <IdsCell item={row} />
+                                    <PreviewCell item={row} />
+                                </Table.Row>
+                                {row.tensordata?.map((t) => (
+                                    <TensorData key={t.idx} item={t} projectId={row.projectId} />
                                 ))}
-                                <Table.Cell>{row.data.generated ? "✅" : "❌"}</Table.Cell>
-                                <IdsCell item={row} />
-                                <PreviewCell item={row} />
-                            </Table.Row>
-                            {row.tensorData?.map((t) => (
-                                <TensorData key={t.idx} item={t} projectId={row.projectId} />
-                            ))}
-                            {rowIndex % 50 === 25 &&
-                                snap.pageStatus[Math.floor(rowIndex / 50) + 1] === undefined && (
-                                    <motion.div
-                                        onViewportEnter={async () => {
-                                            await loadPage(Math.floor(rowIndex / 50) + 1)
-                                        }}
-                                    />
-                                )}
-                        </Fragment>
-                    ))}
+                                {rowIndex % 50 === 25 &&
+                                    snap.pageStatus[Math.floor(rowIndex / 50) + 1] ===
+                                        undefined && (
+                                        <motion.div
+                                            onViewportEnter={async () => {
+                                                await loadPage(Math.floor(rowIndex / 50) + 1)
+                                            }}
+                                        />
+                                    )}
+                            </Fragment>
+                        )
+                    })}
                 </Table.Body>
             </Table.Root>
         </Box>
@@ -122,7 +120,8 @@ function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
     )
 }
 
-function getTensorDataTensorName(data: TensorDataRow) {
+function getTensorDataTensorName(row: TensorDataRow) {
+    const data = row.data
     if (data.color_palette_id) return `color_palette_${data.color_palette_id}`
     if (data.custom_id) return `custom_${data.custom_id}`
     if (data.pose_id) return `pose_${data.pose_id}`

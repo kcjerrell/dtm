@@ -21,4 +21,4 @@ pub use dtp_service::{
 pub use helpers::{AppHandleWrapper, GetFolderFilesResult, ProjectFile};
 
 pub mod dt_data;
-pub use dt_data::dtp_dt_list_tensor_history_node;
+pub use dt_data::dtp_dt_get_tensor_history_nodes;

@@ -206,6 +206,7 @@ impl ProjectsDb {
                 let project = self.get_project(id).await?;
                 project.full_path
             }
+            crate::projects_db::dt_project::ProjectRef::Path(path) => path,
         };
 
         Ok(DTProject::get(&full_path).await?)

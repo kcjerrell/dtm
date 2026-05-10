@@ -11,7 +11,7 @@ mod clipboard;
 pub mod bookmarks;
 pub mod dtp_service;
 mod ffmpeg;
-mod projects_db;
+pub mod projects_db;
 use dtp_service::dtp_connect;
 use projects_db::dt_project_tensordata;
 mod migrations;
@@ -270,7 +270,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
             dtp_service::data::dtp_get_metadata,
-            dtp_service::dt_data::dtp_dt_list_tensor_history_node,
+            dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
             dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,
         ])

@@ -3,7 +3,7 @@ use sqlx::{sqlite::SqliteRow, Row};
 
 use crate::projects_db::fbs::{root_as_clip, root_as_tensor_history_node};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Clip {
     pub row_id: i64,

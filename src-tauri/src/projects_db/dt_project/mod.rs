@@ -1,14 +1,14 @@
 use crate::projects_db::{
+    dt_project::data::tensor_history_node_data::TensorHistoryNodeData,
     dt_project::raw::DTProjectRaw,
     dtos::{
-        clip::{Clip, ClipExtra, ClipFrame},
+        clip::{Clip as DtoClip, ClipExtra, ClipFrame},
         project::DTProjectInfo,
         tensor::{
             TensorHistoryExtra, TensorHistoryImport, TensorNodeGrouper, TensorRaw, TensorSize,
         },
         text::TextHistoryNode,
     },
-    dt_project::data::tensor_history_node_data::TensorHistoryNodeData,
     fbs::root_as_tensor_moodboard_data,
     tensor_history_tensor_data::TensorHistoryTensorData,
     TextHistory,
@@ -33,10 +33,16 @@ use tokio::sync::OnceCell;
 
 pub mod raw;
 pub use raw::dt_project_tensordata;
-pub mod maintenance;
+pub mod clip;
+pub use clip::{Clip, ClipFilter};
 pub mod data;
-mod tensor_history_node;
-pub use tensor_history_node::TensorHistoryNodeRow;
+pub mod maintenance;
+pub mod tensor_data;
+pub use tensor_data::{TdFilter, TensorData};
+pub mod tensor_history_node;
+pub use tensor_history_node::{TensorHistoryNode, ThnData, ThnFilter};
+pub mod tensor_moodboard_data;
+pub use tensor_moodboard_data::{TensorMoodboardData, TmdFilter};
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);
@@ -474,9 +480,9 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorHistory).await?;
         self.check_table(&DTProjectTable::Clip).await?;
 
-        let clip: Clip = query("SELECT * FROM clip where __pk0 = ?1")
+        let clip: DtoClip = query("SELECT * FROM clip where __pk0 = ?1")
             .bind(clip_id)
-            .map(|row: SqliteRow| Clip::map_row(&row))
+            .map(|row: SqliteRow| DtoClip::map_row(&row))
             .fetch_one(&*self.pool)
             .await?;
 
@@ -487,7 +493,7 @@ impl DTProject {
             .fetch_all(&*self.pool)
             .await?;
 
-        let extra = ClipExtra { clip, frames };
+        let extra = ClipExtra { clip: clip.clone(), frames };
 
         Ok(extra)
     }
@@ -511,7 +517,7 @@ impl DTProject {
 
         qb.push(")");
 
-        let rows: Vec<Clip> = qb.build_query_as::<Clip>().fetch_all(&*self.pool).await?;
+        let rows: Vec<DtoClip> = qb.build_query_as::<DtoClip>().fetch_all(&*self.pool).await?;
 
         Ok(HashMap::from_iter(
             rows.iter().map(|c| (c.clip_id, c.count as i64)),
@@ -576,14 +582,14 @@ impl DTProject {
         &self,
         row_id: i64,
         clip_id: i64,
-    ) -> Result<(TensorHistoryExtra, Clip), Error> {
+    ) -> Result<(TensorHistoryExtra, DtoClip), Error> {
         let history = self.get_history_full(row_id).await?;
 
         self.check_table(&DTProjectTable::Clip).await?;
 
-        let clip: Clip = query("SELECT * FROM clip where __pk0 = ?1")
+        let clip: DtoClip = query("SELECT * FROM clip where __pk0 = ?1")
             .bind(clip_id)
-            .map(|row: SqliteRow| Clip::map_row(&row))
+            .map(|row: SqliteRow| DtoClip::map_row(&row))
             .fetch_one(&*self.pool)
             .await?;
 
@@ -781,6 +787,7 @@ fn full_query_where(where_expr: &str) -> String {
 
 pub enum ProjectRef {
     Id(i64),
+    Path(String),
 }
 
 impl From<i64> for ProjectRef {

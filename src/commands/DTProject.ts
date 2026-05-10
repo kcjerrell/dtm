@@ -1,20 +1,45 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { TensorHistoryNodeRow, TensorDataRow } from "./DtpServiceTypes"
 
+type TensorHistoryNodeSelect = "tensordata" | "clip" | "moodboard"
+
+type ListTensorHistoryNodeOpts = {
+    select?: TensorHistoryNodeSelect | TensorHistoryNodeSelect[]
+    first?: number
+    take?: number
+    lineage?: number
+    logicalTime?: number
+    rowid?: number
+    projectId?: number
+    projectPath?: string
+}
+
 async function listTensorHistoryNodes(
-    projectId: number,
-    skip?: number,
-    take?: number,
+    opts: ListTensorHistoryNodeOpts,
 ): Promise<TensorHistoryNodeRow[]> {
-    const result = await invoke<TensorHistoryNodeRow[]>("dtp_dt_list_tensor_history_node", {
+    const { projectId, projectPath, select: selectOpt, ...rest } = opts
+    if (!projectId && !projectPath) throw new Error("projectId or projectPath is required")
+
+    const select = getSelectOpt(selectOpt)
+
+    const result = await invoke<TensorHistoryNodeRow[]>("dtp_dt_get_tensor_history_nodes", {
+        ...rest,
         projectId,
-        skip,
-        take,
+        projectPath,
+        select,
     })
-    return (result ?? []).map((row) => ({
-        ...row,
-        projectId,
-    }))
+
+    if (projectId) {
+        return result.map((r) => ({ ...r, projectId }))
+    }
+
+    return result ?? []
+}
+
+function getSelectOpt(selectOpt?: TensorHistoryNodeSelect | TensorHistoryNodeSelect[]) {
+    if (Array.isArray(selectOpt)) return selectOpt
+    if (typeof selectOpt === "string") return [selectOpt]
+    return undefined
 }
 
 export interface TensorDataOpts {
@@ -25,10 +50,7 @@ export interface TensorDataOpts {
     last?: number
 }
 
-async function tensorData(
-    projectPath: string,
-    opts?: TensorDataOpts
-): Promise<TensorDataRow[]> {
+async function tensorData(projectPath: string, opts?: TensorDataOpts): Promise<TensorDataRow[]> {
     return await invoke<TensorDataRow[]>("dt_project_tensordata", {
         projectPath,
         lineage: opts?.lineage,
