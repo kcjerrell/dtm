@@ -28,9 +28,9 @@ function Explorer(props: ExplorerProps) {
             state.pageStatus[pageIndex] = "loading"
             const rows = (await DTProject.listTensorHistoryNodes({
                 projectId,
-                first: pageIndex * 50,
+                skip: pageIndex * 50,
                 take: 50,
-                select: ["tensordata"],
+                select: ["tensordata", "moodboard", "clip"],
             })) as TensorHistoryNodeRow[]
             state.pageStatus[pageIndex] = "loaded"
             state.data.splice(pageIndex * 50, 50, ...rows)
@@ -51,11 +51,13 @@ function Explorer(props: ExplorerProps) {
 
                 <Table.Body>
                     <Table.Row key="what">
-                        {[...columns, "generated", "ids", "preview"].map((col) => (
-                            <Table.ColumnHeader key={col}>
-                                {col.split(".").pop()}
-                            </Table.ColumnHeader>
-                        ))}
+                        {[...columns, "generated", "ids", "moodboard", "clip", "preview"].map(
+                            (col) => (
+                                <Table.ColumnHeader key={col}>
+                                    {col.split(".").pop()}
+                                </Table.ColumnHeader>
+                            ),
+                        )}
                     </Table.Row>
                     {snap.data.map((row, rowIndex) => {
                         console.log(row)
@@ -71,6 +73,15 @@ function Explorer(props: ExplorerProps) {
                                     ))}
                                     <Table.Cell>{row.data.generated ? "✅" : "❌"}</Table.Cell>
                                     <IdsCell item={row} />
+                                    <Table.Cell>
+                                        {row.moodboard?.length && `${row.moodboard.length} images`}
+                                    </Table.Cell>
+                                    <Table.Cell whiteSpace={"pre"}>
+                                        {row.clip &&
+                                            JSON.stringify(row.clip, null, 1)
+                                                .replace(/["{},]/g, "")
+                                                .replace("frames_per_second", "fps")}
+                                    </Table.Cell>
                                     <PreviewCell item={row} />
                                 </Table.Row>
                                 {row.tensordata?.map((t) => (
@@ -106,12 +117,12 @@ function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
             <Table.Cell width={"5rem"} bgColor={"grayc.14"} />
-            <Table.Cell colSpan={5} bgColor={"grayc.10"}>
+            <Table.Cell colSpan={7} bgColor={"grayc.10"}>
                 <HStack width={"100%"} justifyContent={"flex-end"}>
                     <Text>{tensorName}</Text>
                     <img
                         style={{ width: "50px", height: "50px" }}
-                        src={urls.tensor(projectId, tensorName, { size: 50 })}
+                        src={urls.tensor(projectId, tensorName, { size: 25 })}
                         alt={tensorName}
                     />
                 </HStack>

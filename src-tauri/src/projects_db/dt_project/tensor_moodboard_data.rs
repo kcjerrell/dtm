@@ -1,7 +1,9 @@
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, FromRow, Row};
 
-use crate::projects_db::{fbs::root_as_tensor_moodboard_data, DTProject};
+use crate::projects_db::{
+    dt_project::DTProjectTable, fbs::root_as_tensor_moodboard_data, DTProject,
+};
 
 pub enum TmdFilter {
     None,
@@ -11,7 +13,8 @@ pub enum TmdFilter {
     LineageTime(i64, i64),
     LineageTimes(Vec<(i64, i64)>),
     LineageTimeIdx(i64, i64, i64),
-    FirstAndTake(i64, i64),
+    SkipAndTake(i64, i64),
+    Range(i64, i64),
 }
 
 #[derive(Serialize, Debug)]
@@ -22,6 +25,7 @@ pub struct TensorMoodboardData {
     pub idx: i64,
     pub shuffle_id: i64,
     pub weight: f32,
+    pub tensor_name: String,
 }
 
 impl<'r> FromRow<'r, SqliteRow> for TensorMoodboardData {
@@ -40,6 +44,7 @@ impl<'r> FromRow<'r, SqliteRow> for TensorMoodboardData {
                 idx,
                 shuffle_id: fb.shuffle_id(),
                 weight: fb.weight(),
+                tensor_name: format!("shuffle_{}", fb.shuffle_id()),
             }),
             Err(e) => Err(sqlx::Error::Decode(e.to_string().into())),
         }
@@ -51,6 +56,8 @@ impl DTProject {
         &self,
         filter: TmdFilter,
     ) -> Result<Vec<TensorMoodboardData>, sqlx::Error> {
+        self.check_table(&DTProjectTable::TensorMoodboardData)
+            .await?;
         let query = build_query(filter);
         query_as(&query).fetch_all(&*self.pool).await
     }
@@ -75,10 +82,7 @@ fn build_query(filter: TmdFilter) -> String {
                 .iter()
                 .map(|(l, lt)| format!("({}, {})", l, lt))
                 .collect();
-            format!(
-                "WHERE (tmd.__pk0, tmd.__pk1) IN ({})",
-                items_str.join(", ")
-            )
+            format!("WHERE (tmd.__pk0, tmd.__pk1) IN ({})", items_str.join(", "))
         }
         TmdFilter::LineageTimeIdx(lineage, logical_time, idx) => {
             format!(
@@ -86,9 +90,12 @@ fn build_query(filter: TmdFilter) -> String {
                 lineage, logical_time, idx
             )
         }
-        TmdFilter::FirstAndTake(first, take) => {
-            limit_str = format!("LIMIT {}", take);
-            format!("WHERE tmd.rowid >= {}", first)
+        TmdFilter::SkipAndTake(skip, take) => {
+            limit_str = format!("LIMIT {} OFFSET {}", take, skip);
+            "".to_string()
+        }
+        TmdFilter::Range(min, max) => {
+            format!("WHERE tmd.rowid >= {} AND tmd.rowid < {}", min, max)
         }
     };
 

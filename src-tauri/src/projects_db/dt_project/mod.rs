@@ -113,12 +113,12 @@ fn schedule_eviction(path: String, generation: u64) {
     });
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Copy, Clone)]
 enum DTProjectTable {
-    TensorHistory,
+    TensorHistoryNode,
     TensorData,
     TextHistory,
-    Moodboard,
+    TensorMoodboardData,
     Tensors,
     Thumbs,
     Clip,
@@ -232,9 +232,9 @@ impl DTProject {
         let status = self.check_tables().await?;
 
         let has_table = match table {
-            DTProjectTable::TensorHistory => status.has_tensor_history,
+            DTProjectTable::TensorHistoryNode => status.has_tensor_history,
             DTProjectTable::TextHistory => status.has_text_history,
-            DTProjectTable::Moodboard => status.has_moodboard,
+            DTProjectTable::TensorMoodboardData => status.has_moodboard,
             DTProjectTable::Tensors => status.has_tensors,
             DTProjectTable::Thumbs => status.has_thumbs,
             DTProjectTable::Clip => status.has_clip,
@@ -274,7 +274,7 @@ impl DTProject {
         first_id: i64,
         count: usize,
     ) -> Result<Vec<TensorHistoryImport>, Error> {
-        match self.check_table(&DTProjectTable::TensorHistory).await {
+        match self.check_table(&DTProjectTable::TensorHistoryNode).await {
             Ok(_) => {}
             Err(_) => return Ok(Vec::new()),
         }
@@ -397,7 +397,7 @@ impl DTProject {
 
     // KEEP - used to so 'top off' scans know if the project has been updated
     pub async fn get_info(&self) -> Result<DTProjectInfo, Error> {
-        match self.check_table(&DTProjectTable::TensorHistory).await {
+        match self.check_table(&DTProjectTable::TensorHistoryNode).await {
             Ok(_) => {}
             Err(_) => {
                 return Ok(DTProjectInfo {
@@ -454,7 +454,7 @@ impl DTProject {
     // returns of clip frames from the provided first frame
     // REMOVE - replace wth get_clip_and_frames
     pub async fn get_histories_from_clip(&self, node_id: i64) -> Result<Vec<ClipFrame>, Error> {
-        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
         let history = self.get_history_full(node_id).await?;
         let num_frames = history.history.num_frames;
@@ -477,7 +477,7 @@ impl DTProject {
         node_id: i64,
         clip_id: i64,
     ) -> Result<ClipExtra, Error> {
-        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         self.check_table(&DTProjectTable::Clip).await?;
 
         let clip: DtoClip = query("SELECT * FROM clip where __pk0 = ?1")
@@ -493,7 +493,10 @@ impl DTProject {
             .fetch_all(&*self.pool)
             .await?;
 
-        let extra = ClipExtra { clip: clip.clone(), frames };
+        let extra = ClipExtra {
+            clip: clip.clone(),
+            frames,
+        };
 
         Ok(extra)
     }
@@ -517,7 +520,10 @@ impl DTProject {
 
         qb.push(")");
 
-        let rows: Vec<DtoClip> = qb.build_query_as::<DtoClip>().fetch_all(&*self.pool).await?;
+        let rows: Vec<DtoClip> = qb
+            .build_query_as::<DtoClip>()
+            .fetch_all(&*self.pool)
+            .await?;
 
         Ok(HashMap::from_iter(
             rows.iter().map(|c| (c.clip_id, c.count as i64)),
@@ -530,7 +536,7 @@ impl DTProject {
 
     // REFACTOR - TensorHistoryExtra should be combined/replaced with similar types
     pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
-        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         let result: Vec<TensorHistoryTensorData> = query_as(&full_query_where("thn.rowid == ?1"))
             .bind(row_id)
             .fetch_all(&*self.pool)
@@ -603,7 +609,11 @@ impl DTProject {
         lineage: i64,
         logical_time: i64,
     ) -> Result<Vec<(String, f32)>, Error> {
-        if self.check_table(&DTProjectTable::Moodboard).await.is_err() {
+        if self
+            .check_table(&DTProjectTable::TensorMoodboardData)
+            .await
+            .is_err()
+        {
             return Ok(Vec::new());
         }
 
@@ -636,7 +646,7 @@ impl DTProject {
     ) -> Result<Vec<TensorHistoryExtra>, Error> {
         // Ok(Vec::new())
 
-        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         let q = &full_query_where("thn.__pk1 == ?1 AND thn.rowid < ?2");
         let candidates: Vec<TensorHistoryTensorData> = query_as(q)
             .bind(logical_time - 1)

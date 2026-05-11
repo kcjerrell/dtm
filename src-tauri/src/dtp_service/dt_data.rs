@@ -15,11 +15,13 @@ impl DTPService {
         &self,
         project_id: Option<i64>,
         project_path: Option<String>,
-        first: Option<i64>,
+        skip: Option<i64>,
         take: Option<i64>,
         lineage: Option<i64>,
         logical_time: Option<i64>,
         rowid: Option<i64>,
+        min_rowid: Option<i64>,
+        max_rowid: Option<i64>,
         select: Option<Vec<String>>,
     ) -> Result<Vec<TensorHistoryNode>, String> {
         let project_ref = if let Some(id) = project_id {
@@ -40,8 +42,10 @@ impl DTPService {
             Some(ThnFilter::Lineage(lin))
         } else if let Some(time) = logical_time {
             Some(ThnFilter::LogicalTime(time))
-        } else if let (Some(f), Some(t)) = (first, take) {
-            Some(ThnFilter::FirstAndTake(f, t))
+        } else if let (Some(min), Some(max)) = (min_rowid, max_rowid) {
+            Some(ThnFilter::Range(min, max))
+        } else if let (Some(s), Some(t)) = (skip, take) {
+            Some(ThnFilter::SkipAndTake(s, t))
         } else {
             None
         };

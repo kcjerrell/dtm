@@ -1,12 +1,15 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { TensorHistoryNodeRow, TensorDataRow } from "./DtpServiceTypes"
+import { TensorHistoryNode } from "./DTProjectTypes"
 
 type TensorHistoryNodeSelect = "tensordata" | "clip" | "moodboard"
 
 type ListTensorHistoryNodeOpts = {
     select?: TensorHistoryNodeSelect | TensorHistoryNodeSelect[]
-    first?: number
+    skip?: number
     take?: number
+    minRowid?: number
+    maxRowid?: number
     lineage?: number
     logicalTime?: number
     rowid?: number
@@ -16,13 +19,13 @@ type ListTensorHistoryNodeOpts = {
 
 async function listTensorHistoryNodes(
     opts: ListTensorHistoryNodeOpts,
-): Promise<TensorHistoryNodeRow[]> {
+): Promise<TensorHistoryNode[]> {
     const { projectId, projectPath, select: selectOpt, ...rest } = opts
     if (!projectId && !projectPath) throw new Error("projectId or projectPath is required")
 
     const select = getSelectOpt(selectOpt)
 
-    const result = await invoke<TensorHistoryNodeRow[]>("dtp_dt_get_tensor_history_nodes", {
+    const result = await invoke<TensorHistoryNode[]>("dtp_dt_get_tensor_history_nodes", {
         ...rest,
         projectId,
         projectPath,

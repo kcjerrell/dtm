@@ -8,7 +8,7 @@ use crate::projects_db::{
         data::tensor_history_node_data::TensorHistoryNodeData as ParsedTensorHistoryNodeData,
         raw::{RawTensorDataRow, TensorDataRow},
         tensor_data::TensorData,
-        Clip, ClipFilter, TdFilter, TensorMoodboardData, TmdFilter,
+        Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
     },
     fbs::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
@@ -24,7 +24,8 @@ pub enum ThnFilter {
     Lineage(i64),
     LogicalTime(i64),
     LineageAndLogicalTime(i64, i64),
-    FirstAndTake(i64, i64),
+    SkipAndTake(i64, i64),
+    Range(i64, i64),
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -140,6 +141,8 @@ impl DTProject {
         filter: Option<ThnFilter>,
         data: Option<ThnData>,
     ) -> Result<Vec<TensorHistoryNode>, sqlx::Error> {
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
+
         let (get_tensordata, get_moodboard, get_clip) = data.map_or((false, false, false), |d| {
             (d.tensordata, d.moodboard, d.clip)
         });
@@ -181,7 +184,8 @@ impl DTProject {
                 .collect();
             let td = self
                 .get_tensor_data(TdFilter::LineageTimes(lineage_times))
-                .await?;
+                .await
+                .unwrap_or_default();
 
             let mut td_map = td
                 .into_iter()
@@ -200,7 +204,8 @@ impl DTProject {
                 .collect();
             let moodboard = self
                 .get_tensor_moodboard_data(TmdFilter::LineageTimes(lineage_times))
-                .await?;
+                .await
+                .unwrap_or_default();
 
             let mut m_map = moodboard
                 .into_iter()
@@ -213,9 +218,11 @@ impl DTProject {
         }
 
         if get_clip && !clip_ids.is_empty() {
-            let clips = self.get_clips(ClipFilter::ClipIds(clip_ids)).await?;
-            let clip_map: HashMap<i64, Clip> =
-                clips.into_iter().map(|c| (c.clip_id, c)).collect();
+            let clips = self
+                .get_clips(ClipFilter::ClipIds(clip_ids))
+                .await
+                .unwrap_or_default();
+            let clip_map: HashMap<i64, Clip> = clips.into_iter().map(|c| (c.clip_id, c)).collect();
 
             for item in items.iter_mut() {
                 let fb = item.data();
@@ -296,9 +303,12 @@ fn build_query(filter: Option<ThnFilter>) -> String {
                 "WHERE thn.__pk0 = {} AND thn.__pk1 = {}",
                 lineage, logical_time
             ),
-            ThnFilter::FirstAndTake(first, take) => {
-                limit_str = format!("LIMIT {}", take);
-                format!("WHERE thn.rowid >= {}", first)
+            ThnFilter::SkipAndTake(skip, take) => {
+                limit_str = format!("LIMIT {} OFFSET {}", take, skip);
+                "".to_string()
+            }
+            ThnFilter::Range(min, max) => {
+                format!("WHERE thn.rowid >= {} AND thn.rowid < {}", min, max)
             }
         }
     } else {
@@ -310,71 +320,6 @@ fn build_query(filter: Option<ThnFilter>) -> String {
         select, filter_str, limit_str
     );
     println!("{query}");
-    query
-}
-
-fn build_queryx(filter: Option<ThnFilter>, data: Option<ThnData>) -> String {
-    // with all options, query looks something like
-    // let q = "SELECT
-    //            thn.rowid as thn_rowid, thn.__pk0 as thn__pk0, thn.__pk1 as thn__pk1, thn.p as thn_p,
-    //            td.rowid as td_rowid, td.__pk2 as td__pk2, td.p as td_p,
-    //            tmd.rowid as tmd_rowid, tmd.__pk2 as tmd__pk2, tmd.p as tmd_p,
-    //          FROM tensorhistorynode thn
-    //          LEFT JOIN tensordata td ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1
-    //          LEFT JOIN tensor_moodboard_data tmd ON thn.__pk0 = tmd.__pk0 AND thn.__pk1 = tmd.__pk1
-    //          WHERE
-    //            thn.rowid = ?1
-    //            AND thn.__pk0 = ?2 AND thn.__pk1 = ?3
-    //          ORDER BY thn.rowid ASC
-    //          LIMIT ?4 OFFSET ?5";
-
-    let mut select: Vec<&str> = Vec::new();
-    select.push(SELECT_THN);
-
-    let mut join: Vec<&str> = Vec::new();
-
-    if let Some(data) = data {
-        if data.moodboard {
-            select.push(SELECT_TMD);
-            join.push(JOIN_TMD);
-        }
-        if data.tensordata {
-            select.push(SELECT_TD);
-            join.push(JOIN_TD);
-        }
-    }
-
-    // conveniently all binds are i64, which means I can just stick em in the query and not bind
-    // let mut filter_str = "";
-
-    let select_str = format!("SELECT {}", select.join(", "));
-    let from_str = format!("FROM tensorhistorynode thn {}", join.join(" "));
-    let mut limit_str = "".to_string();
-
-    let filter_str: String = if let Some(filter) = filter {
-        match filter {
-            ThnFilter::None => "".to_string(),
-            ThnFilter::Rowid(rowid) => format!("WHERE thn.rowid = {}", rowid),
-            ThnFilter::Lineage(lineage) => format!("WHERE thn.__pk0 = {}", lineage),
-            ThnFilter::LogicalTime(logical_time) => format!("WHERE thn.__pk1 = {}", logical_time),
-            ThnFilter::LineageAndLogicalTime(lineage, logical_time) => format!(
-                "WHERE thn.__pk0 = {} AND thn.__pk1 = {}",
-                lineage, logical_time
-            ),
-            ThnFilter::FirstAndTake(first, take) => {
-                limit_str = format!("LIMIT {}", take);
-                format!("WHERE thn.rowid >= {}", first)
-            }
-        }
-    } else {
-        "".to_string()
-    };
-
-    let query = format!(
-        "{} {} {} ORDER BY thn.rowid ASC {}",
-        select_str, from_str, filter_str, limit_str
-    );
-    println!("{}", query);
     query
 }
 
@@ -392,5 +337,6 @@ const JOIN_TMD: &str =
     Lineage(i64),
     LogicalTime(i64),
     LineageAndLogicalTime(i64, i64),
-    SkipTake(i64, i64),
+    SkipAndTake(i64, i64),
+    Range(i64, i64),
 */
