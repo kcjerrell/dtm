@@ -25,18 +25,14 @@ async function listTensorHistoryNodes(
 
     const select = getSelectOpt(selectOpt)
 
-    let result = await invoke<TensorHistoryNodeResponse[]>("dtp_dt_get_tensor_history_nodes", {
+    const result = await invoke<TensorHistoryNodeResponse[]>("dtp_dt_get_tensor_history_nodes", {
         ...rest,
         projectId,
         projectPath,
         select,
     })
 
-    if (projectId) {
-        result = result.map((r) => ({ ...r, projectId }))
-    }
-
-    return result.map((r) => new TensorHistoryNode(r))
+    return result.map((r) => new TensorHistoryNode(r, projectId))
 }
 
 function getSelectOpt(selectOpt?: TensorHistoryNodeSelect | TensorHistoryNodeSelect[]) {

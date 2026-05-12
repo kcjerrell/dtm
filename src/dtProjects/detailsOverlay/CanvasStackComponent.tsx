@@ -8,6 +8,7 @@ import { useProxyRef } from "@/hooks/valtioHooks"
 import { useDTP } from "../state/context"
 import type { CanvasStack } from "../types"
 import { DetailsImageContainer, DetailsImageContent, DetailsSpinnerRoot } from "./common"
+import { TensorData } from "@/commands/DTProjectTypes"
 
 interface CanvasStackComponentProps extends ComponentProps<typeof DetailsImageContainer> {
     stack: MaybeReadonly<CanvasStack>
@@ -115,7 +116,8 @@ export function getBounds(layers: { x: number; y: number; w: number; h: number }
     return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY }
 }
 
-export function getLayer(td: MaybeReadonly<TensorDataRow>, projectId: number, index: number) {
+export function getLayer(tensordata: MaybeReadonly<TensorData>, projectId: number, index: number) {
+    const td = tensordata.data
     const scale = td.scale_factor_by_120 > 0 ? td.scale_factor_by_120 / 120 : 1
     return {
         x: td.x,

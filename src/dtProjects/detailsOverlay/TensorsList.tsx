@@ -96,13 +96,13 @@ function TensorsList(props: TensorsListComponentProps) {
                                     // maskId={
                                     //     ct.mask_id ? `binary_mask_${ct.mask_id}` : undefined
                                     // }
-                                    // onClick={(e) =>
-                                    //     showSubitem(
-                                    //         e,
-                                    //         ct.tensor_name,
-                                    //         ct.mask_name ? `binary_mask_${ct.mask_id}` : undefined,
-                                    //     )
-                                    // }
+                                    onClick={(e) =>
+                                        showSubitem(
+                                            e,
+                                            ct.tensor_name,
+                                            //ct.mask_name ? `binary_mask_${ct.mask_id}` : undefined,
+                                        )
+                                    }
                                 />
                             )
                         })}

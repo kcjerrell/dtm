@@ -208,16 +208,16 @@ export class UIController extends DTPStateController<UIControllerState> {
         else await this.showSubItemImage(projectId, tensorId)
     }
 
-    async showCanvasStack(details: MaybeReadonly<DTImageFull>) {
+    async showCanvasStack(details: MaybeReadonly<TensorHistoryNode>) {
         const detailsOverlay = this.state.detailsView
-        if (!detailsOverlay.item || !details.tensorData?.length) return
+        if (!detailsOverlay.item || !details.tensordata?.length) return
         detailsOverlay.subItem = {
-            projectId: details.project.id,
-            tensorData: details.tensorData as TensorDataRow[],
-            nodeId: details.id,
+            projectId: details.projectId,
+            tensorData: details.tensordata,
+            nodeId: details.rowid,
             isLoading: false,
-            width: details.config.width,
-            height: details.config.height,
+            width: details.config?.width,
+            height: details.config?.height,
         }
         detailsOverlay.subItemSourceRect = null
     }
