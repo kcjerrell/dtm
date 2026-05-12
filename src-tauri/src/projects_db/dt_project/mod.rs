@@ -496,10 +496,6 @@ impl DTProject {
         ClipFrame::new(row.get(0), row.get(1), row.get(2)).unwrap()
     }
 
-    // ~~~ get_history_full removed — use get_tensor_history_nodes(ThnFilter::Rowid, ...) ~~~
-    // ~~~ get_history_with_clip removed — use get_tensor_history_nodes with ThnData::clip ~~~
-    // ~~~ find_predecessor_candidates removed — pending rework ~~~
-
     // KEEP
     async fn get_text_history(&self) -> Result<&Arc<TextHistory>, Error> {
         let history = self

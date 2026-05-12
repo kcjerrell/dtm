@@ -11,7 +11,6 @@ import type {
     TensorSize,
     WatchFolder,
 } from "./DtpServiceTypes"
-import { TensorHistoryNodeResponse } from "./DTProjectTypes"
 
 type MaybeReadonly<T> = T | Readonly<T>
 
@@ -87,14 +86,6 @@ async function listModels(modelType?: ModelType): Promise<Model[]> {
     return await invoke("dtp_list_models", { modelType })
 }
 
-async function getHistoryFull(
-    projectId: number,
-    rowId: number,
-    clipId?: number | null,
-): Promise<TensorHistoryNodeResponse> {
-    return await invoke("dtp_get_history_full", { projectId, rowId, clipId })
-}
-
 async function getTensorSize(projectId: number, tensorId: string): Promise<TensorSize> {
     return await invoke("dtp_get_tensor_size", { projectId, tensorId })
 }
@@ -149,7 +140,6 @@ const DTPService = {
     removeWatchFolder,
     updateWatchFolder,
     listModels,
-    getHistoryFull,
     getTensorSize,
     decodeTensor,
     findPredecessor,

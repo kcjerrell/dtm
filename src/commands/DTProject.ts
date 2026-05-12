@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
-import { TensorHistoryNode, TensorHistoryNodeResponse } from "./DTProjectTypes"
+import { TensorHistoryNode, type TensorHistoryNodeResponse } from "./DTProjectTypes"
 import type { TensorDataRow } from "./DtpServiceTypes"
 
 type TensorHistoryNodeSelect = "tensordata" | "clip" | "moodboard" | "legacy_prompts"

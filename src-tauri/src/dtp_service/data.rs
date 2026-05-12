@@ -201,31 +201,6 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_history_full(
-        &self,
-        project_id: i64,
-        row_id: i64,
-    ) -> Result<TensorHistoryNode, String> {
-        let project = self.get_project(project_id).await?;
-        let mut nodes = project
-            .get_tensor_history_nodes(
-                Some(ThnFilter::Rowid(row_id)),
-                Some(
-                    ThnData::legacy_prompts()
-                        .and_clip()
-                        .and_moodboard()
-                        .and_tensordata(),
-                ),
-            )
-            .await
-            .map_err(|e| e.to_string())?;
-        nodes
-            .into_iter()
-            .next()
-            .ok_or_else(|| format!("Node {} not found", row_id))
-    }
-
-    #[dtp_command]
     pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
         let pdb = self.get_db().await?;
         let image = pdb.get_image(image_id).await?;

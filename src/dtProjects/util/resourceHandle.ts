@@ -1,4 +1,6 @@
-import { type ClipExtra, DtpService, type ImageExtra, type TensorHistoryExtra } from "@/commands"
+import { type ClipExtra, DtpService, type ImageExtra } from "@/commands"
+import DTProject from "@/commands/DTProject"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { OpenPose } from "@/utils/poseHelpers"
 import { getBounds, getLayer } from "../detailsOverlay/CanvasStackComponent"
@@ -49,18 +51,18 @@ export class ResourceHandle {
                 this.tensorId = this.subItem.tensorId
             } else {
                 const tHistory = await this.getHistory()
-                this.tensorId = tHistory?.tensor_id ?? null
+                this.tensorId = tHistory?.tensorId ?? null
             }
         }
         return this.tensorId
     }
 
-    private history?: TensorHistoryExtra | null
+    private history?: TensorHistoryNode | null
     /** Will be null if the resource doesn't come from a tensor history node */
     async getHistory() {
         if (this.history === undefined) {
             if (this.image) {
-                this.history = await DtpService.getHistoryFull(this.projectId, this.image.node_id)
+                this.history = await DTProject.getTensorHistory(this.projectId, this.image.node_id)
             } else {
                 this.history = null
             }

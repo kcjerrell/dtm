@@ -256,7 +256,6 @@ pub fn run() {
             dtp_service::data::dtp_find_image_from_preview_id,
             dtp_service::data::dtp_find_predecessor,
             dtp_service::data::dtp_get_clip,
-            dtp_service::data::dtp_get_history_full,
             dtp_service::data::dtp_get_tensor_size,
             dtp_service::data::dtp_list_images,
             dtp_service::data::dtp_list_models,
