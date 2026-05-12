@@ -58,7 +58,7 @@
     "tauri-plugin-fs-watch-api": "https://github.com/tauri-apps/tauri-plugin-fs-watch#v1",
     "tauri-plugin-nspopover": "git+https://github.com/freethinkel/tauri-nspopover-plugin",
     "valtio": "^2.3.2",
-    "valtio-reactive": "^0.1.2"
+    "valtio-reactive": "^0.2.0"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^7.29.0",
