@@ -1,8 +1,8 @@
-import type { XTensorHistoryNode as TensorHistoryNode } from "@/commands"
+import type { TensorHistoryNodeData } from "@/commands/DTProjectTypes"
 import { type DrawThingsConfigGrouped, type DrawThingsMetaData, SeedModeLabels } from "@/types"
 
 export function extractConfigFromTensorHistoryNode(
-    node: MaybeReadonly<TensorHistoryNode> | undefined | null,
+    node: MaybeReadonly<TensorHistoryNodeData> | undefined | null,
 ): DrawThingsMetaData["config"] | null {
     if (!node) return null
     return {

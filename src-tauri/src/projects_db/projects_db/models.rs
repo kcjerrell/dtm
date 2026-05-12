@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::projects_db::dtos::{model::ModelExtra, tensor::TensorHistoryImport};
+use crate::projects_db::dt_project::TensorHistoryNode;
+use crate::projects_db::dtos::model::ModelExtra;
 use entity::{enums::ModelType, image_controls, image_loras, images, models};
 use sea_orm::{sea_query::OnConflict, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set};
 use serde::Deserialize;
@@ -25,7 +26,7 @@ pub type ModelTypeAndFile = (String, ModelType);
 impl ProjectsDb {
     pub async fn process_models(
         &self,
-        histories: &[TensorHistoryImport],
+        histories: &[TensorHistoryNode],
     ) -> Result<HashMap<ModelTypeAndFile, i64>, MixedError> {
         let models: Vec<models::ActiveModel> = HashSet::<ModelTypeAndFile>::from_iter(
             histories
@@ -244,20 +245,33 @@ impl ProjectsDb {
     }
 }
 
-pub fn get_all_models_from_tensor_history(h: &TensorHistoryImport) -> Vec<ModelTypeAndFile> {
+pub fn get_all_models_from_tensor_history(h: &TensorHistoryNode) -> Vec<ModelTypeAndFile> {
     let mut all_image_models: Vec<ModelTypeAndFile> = Vec::new();
-    all_image_models.push((h.model.clone(), ModelType::Model));
-    if let Some(refiner) = &h.refiner_model {
-        all_image_models.push((refiner.clone(), ModelType::Model));
+    let fb = h.data();
+    if let Some(model) = fb.model() {
+        all_image_models.push((model.to_string(), ModelType::Model));
     }
-    if let Some(upscaler) = &h.upscaler {
-        all_image_models.push((upscaler.clone(), ModelType::Upscaler));
+    if let Some(refiner) = fb.refiner_model() {
+        all_image_models.push((refiner.to_string(), ModelType::Model));
     }
-    for lora in &h.loras {
-        all_image_models.push((lora.model.clone(), ModelType::Lora));
+    if let Some(upscaler) = fb.upscaler() {
+        all_image_models.push((upscaler.to_string(), ModelType::Upscaler));
     }
-    for control in &h.controls {
-        all_image_models.push((control.model.clone(), ModelType::Cnet));
+    if let Some(loras) = fb.loras() {
+        for i in 0..loras.len() {
+            let lora = loras.get(i);
+            if let Some(model) = lora.file() {
+                all_image_models.push((model.to_string(), ModelType::Lora));
+            }
+        }
+    }
+    if let Some(controls) = fb.controls() {
+        for i in 0..controls.len() {
+            let control = controls.get(i);
+            if let Some(model) = control.file() {
+                all_image_models.push((model.to_string(), ModelType::Cnet));
+            }
+        }
     }
     all_image_models
 }

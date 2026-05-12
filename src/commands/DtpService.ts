@@ -11,6 +11,7 @@ import type {
     TensorSize,
     WatchFolder,
 } from "./DtpServiceTypes"
+import { TensorHistoryNodeResponse } from "./DTProjectTypes"
 
 type MaybeReadonly<T> = T | Readonly<T>
 
@@ -90,7 +91,7 @@ async function getHistoryFull(
     projectId: number,
     rowId: number,
     clipId?: number | null,
-): Promise<TensorHistoryExtra> {
+): Promise<TensorHistoryNodeResponse> {
     return await invoke("dtp_get_history_full", { projectId, rowId, clipId })
 }
 

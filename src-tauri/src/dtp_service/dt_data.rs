@@ -57,6 +57,7 @@ impl DTPService {
                     "tensordata" => data.tensordata = true,
                     "clip" => data.clip = true,
                     "moodboard" => data.moodboard = true,
+                    "legacy_prompts" => data.legacy_prompts = true,
                     _ => {}
                 }
             }

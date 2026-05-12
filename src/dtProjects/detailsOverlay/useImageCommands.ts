@@ -121,9 +121,10 @@ export function useImageCommands(): [
                     const image = selected[0].image
                     if (!image) return
                     const imageFull = await details.getDetails(image)
-                    if (!imageFull) return
+                    const config = imageFull?.config
+                    if (!config) return
                     // await navigator.clipboard.writeText(JSON.stringify(imageFull.config, null, 2))
-                    await writeClipboardText(imageFull.config)
+                    await writeClipboardText(config)
                 },
                 requiresSelection: true,
             },

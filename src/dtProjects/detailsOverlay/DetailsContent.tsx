@@ -10,23 +10,21 @@ import Tabs from "@/metadata/infoPanel/tabs"
 import { useDTP } from "../state/context"
 import DetailsFallback from "./DetailsFallback"
 import { useDTImage } from "./DTImageContext"
+import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
-    details?: Snapshot<DTImageFull> | null
+    details?: Snapshot<TensorHistoryNode> | null
     tuck?: boolean
 }
 
 function DetailsContent(props: DetailsContentProps) {
-    const { tuck, ...boxProps } = props
+    const { tuck, item, details, ...boxProps } = props
     const { uiState } = useDTP()
     const uiSnap = uiState.useSnap()
     const snap = uiSnap.detailsView
 
     const { loras, controls } = useDTImage()
-
-    const item = snap.item
-    const details = snap.itemDetails
 
     if (!details || item?.is_ready === false) return <DetailsFallback item={item} />
 
@@ -134,17 +132,17 @@ function DetailsContent(props: DetailsContentProps) {
                                     />
                                 )
                             })} */}
-                        <Fragment key={details.id}>
+                        <Fragment key={details.rowid}>
                             <Row>
                                 <DataItem
                                     label={"Project"}
-                                    data={details.project.name.replace(/\.sqlite3$/, "")}
+                                    data={details.project_path.replace(/\.sqlite3$/, "")}
                                 />
                                 <DataItem
                                     label={"Created"}
                                     data={
-                                        details.node.wall_clock
-                                            ? new Date(details.node.wall_clock).toLocaleString()
+                                        details.data.wall_clock
+                                            ? new Date(details.data.wall_clock).toLocaleString()
                                             : undefined
                                     }
                                 />
@@ -157,8 +155,8 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.Model value={config.model} />
                             </Row>
                             {/* LoRAs */}
-                            {(details.node.loras?.length ?? 0) > 0 &&
-                                details.node.loras?.map((lora, i) => {
+                            {(details.data.loras?.length ?? 0) > 0 &&
+                                details.data.loras?.map((lora, i) => {
                                     const name = loras?.[i]?.name || lora.file
                                     return (
                                         <Row key={`lora-${lora.file}`}>
@@ -171,8 +169,8 @@ function DetailsContent(props: DetailsContentProps) {
                                 })}
 
                             {/* Controls */}
-                            {(details.node.controls?.length ?? 0) > 0 &&
-                                details.node.controls?.map((control, i) => {
+                            {(details.data.controls?.length ?? 0) > 0 &&
+                                details.data.controls?.map((control, i) => {
                                     const name = controls?.[i]?.name || control.file
                                     return (
                                         <Row key={`control-${control.file}`}>
@@ -220,21 +218,18 @@ function DetailsContent(props: DetailsContentProps) {
                                 <DataItem.TeaCache value={config.teaCache} />
                             </Grid>
                             <DataItem label={"Node ID"} data={item.node_id} />
-                            <DataItem label={"Lineage"} data={details.node.lineage} />
-                            <DataItem label={"Logical Time"} data={details.node.logical_time} />
-                            <DataItem label={"Tensor ID"} data={details.images?.tensorId} />
-                            <DataItem label={"Depth Map ID"} data={details.images?.depthMapId} />
-                            <DataItem label={"Pose ID"} data={details.images?.poseId} />
-                            <DataItem label={"Scribble ID"} data={details.images?.scribbleId} />
-                            <DataItem
-                                label={"Color Palette ID"}
-                                data={details.images?.colorPaletteId}
-                            />
-                            <DataItem label={"Custom ID"} data={details.images?.customId} />
-                            {(details.images?.moodboard?.length ?? 0) > 0 && (
+                            <DataItem label={"Lineage"} data={details.lineage} />
+                            <DataItem label={"Logical Time"} data={details.logicalTime} />
+                            <DataItem label={"Tensor ID"} data={details.tensorId} />
+                            <DataItem label={"Depth Map ID"} data={details.depthMapId} />
+                            <DataItem label={"Pose ID"} data={details.poseId} />
+                            <DataItem label={"Scribble ID"} data={details.scribbleId} />
+                            <DataItem label={"Color Palette ID"} data={details.colorPaletteId} />
+                            <DataItem label={"Custom ID"} data={details.customId} />
+                            {(details.moodboard?.length ?? 0) > 0 && (
                                 <DataItem
                                     label={"Moodboard IDs"}
-                                    data={details.images?.moodboard?.map(([id]) => id).join("\n")}
+                                    data={details.moodboard?.map((mb) => mb.tensor_name).join("\n")}
                                 />
                             )}
                         </Fragment>

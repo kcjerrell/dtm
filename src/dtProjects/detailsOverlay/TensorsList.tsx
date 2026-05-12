@@ -5,10 +5,11 @@ import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import { MotionBox, Tooltip } from "@/components"
 import { useDTP } from "../state/context"
 import TensorThumbnail, { CanvasCombinedButton } from "./TensorThumbnail"
+import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
     item?: ImageExtra
-    details?: MaybeReadonly<DTImageFull>
+    details?: MaybeReadonly<TensorHistoryNode>
     candidates?: MaybeReadonly<TensorHistoryExtra[]>
 }
 
@@ -27,19 +28,19 @@ function TensorsList(props: TensorsListComponentProps) {
 
     if (!item || !details) return <MotionBox height={"60px"} {...restProps} />
 
-    const { depthMapId, moodboard, customId, scribbleId, poseId, colorPaletteId, maskId } =
-        details.images ?? {}
     const tensors = {
-        Depth: depthMapId,
-        Custom: customId,
-        Scribble: scribbleId,
-        Pose: poseId,
-        Color: colorPaletteId,
-        Mask: maskId,
+        Depth: details.depthMapId,
+        Custom: details.customId,
+        Scribble: details.scribbleId,
+        Pose: details.poseId,
+        Color: details.colorPaletteId,
+        Mask: details.maskId,
     }
 
     // const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
-    const canvasTensors = details.tensorData?.filter((t) => t.tensor_id)
+    const canvasTensors = details.tensordata?.filter((t) => t.data.tensor_id)
+
+    console.log(details)
 
     return (
         <Container {...restProps}>
@@ -60,17 +61,17 @@ function TensorsList(props: TensorsListComponentProps) {
                 )
             })}
             <Spacer />
-            {(moodboard?.length ?? 0) > 0 && (
+            {(details.moodboard?.length ?? 0) > 0 && (
                 <Group>
                     <Label>Moodboard</Label>
                     <Images>
-                        {moodboard?.map(([id, weight]) => (
+                        {details.moodboard?.map((entry) => (
                             <TensorThumbnail
-                                key={id}
+                                key={entry.rowid}
                                 projectId={item.project_id}
-                                tensorId={id}
-                                onClick={(e) => showSubitem(e, id)}
-                                weight={weight}
+                                tensorId={entry.tensor_name}
+                                onClick={(e) => showSubitem(e, entry.tensor_name)}
+                                weight={entry.weight}
                             />
                         ))}
                     </Images>
@@ -85,24 +86,23 @@ function TensorsList(props: TensorsListComponentProps) {
                             onClick={() => uiState.showCanvasStack(details)}
                         />
                         {canvasTensors?.map((ct) => {
-                            if (!ct.tensor_id) return null
-                            const tensorName = `tensor_history_${ct.tensor_id}`
+                            if (!ct.tensor_name) return null
 
                             return (
                                 <TensorThumbnail
-                                    key={ct.tensor_id}
+                                    key={ct.tensor_name}
                                     projectId={item.project_id}
-                                    tensorId={tensorName}
+                                    tensorId={ct.tensor_name}
                                     // maskId={
                                     //     ct.mask_id ? `binary_mask_${ct.mask_id}` : undefined
                                     // }
-                                    onClick={(e) =>
-                                        showSubitem(
-                                            e,
-                                            tensorName,
-                                            ct.mask_id ? `binary_mask_${ct.mask_id}` : undefined,
-                                        )
-                                    }
+                                    // onClick={(e) =>
+                                    //     showSubitem(
+                                    //         e,
+                                    //         ct.tensor_name,
+                                    //         ct.mask_name ? `binary_mask_${ct.mask_id}` : undefined,
+                                    //     )
+                                    // }
                                 />
                             )
                         })}

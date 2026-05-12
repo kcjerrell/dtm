@@ -10,6 +10,7 @@ import type { DialogState } from "../dialog/types"
 import { type CanvasStack, isCanvasStack, type SubItem, type TensorType } from "../types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 export type UIControllerState = {
     selectedTab: "projects" | "search"
@@ -17,7 +18,7 @@ export type UIControllerState = {
     detailsView: {
         project?: ProjectState
         item?: ImageExtra
-        itemDetails?: DTImageFull
+        itemDetails?: TensorHistoryNode
         showSpinner: boolean
         showCanvasOutlines: boolean
         subItem?: SubItem | CanvasStack

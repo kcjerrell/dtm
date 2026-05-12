@@ -1,5 +1,7 @@
 use crate::projects_db::{
-    dtos::image::ListImagesOptions, dtos::tensor::TensorHistoryImport, search::process_prompt,
+    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
+    dtos::image::ListImagesOptions,
+    search::process_prompt,
     DTProject,
 };
 use entity::{
@@ -39,24 +41,24 @@ impl ProjectsDb {
 
         for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
             let histories = dt_project
-                .get_histories(batch_start, SCAN_BATCH_SIZE as usize)
+                .get_tensor_history_nodes(
+                    Some(ThnFilter::Range(
+                        batch_start,
+                        batch_start + SCAN_BATCH_SIZE as i64,
+                    )),
+                    Some(ThnData::tensordata().and_legacy_prompts().and_clip()),
+                )
                 .await?;
 
-            let histories_filtered: Vec<TensorHistoryImport> = histories
+            let histories_filtered: Vec<TensorHistoryNode> = histories
                 .into_iter()
-                .filter(|h| full_scan || (h.index_in_a_clip == 0 && h.generated))
+                .filter(|h| {
+                    let fb = h.data();
+                    full_scan || (fb.index_in_a_clip() == 0 && fb.generated())
+                })
                 .collect();
 
-            let clip_ids: HashSet<i64> =
-                HashSet::from_iter(histories_filtered.iter().filter_map(|h| {
-                    if h.clip_id > 0 {
-                        Some(h.clip_id)
-                    } else {
-                        None
-                    }
-                }));
-            let clip_counts = dt_project.get_clip_counts(Vec::from_iter(clip_ids)).await?;
-
+            // currently unused, but allows for storing previews in the db
             let preview_thumbs = HashMap::new();
 
             let models_lookup = self.process_models(&histories_filtered).await?;
@@ -64,7 +66,6 @@ impl ProjectsDb {
             let (images, batch_image_loras, batch_image_controls) = self.prepare_image_data(
                 project.id,
                 &histories_filtered,
-                clip_counts,
                 &models_lookup,
                 preview_thumbs,
             );
@@ -116,11 +117,11 @@ impl ProjectsDb {
         }
     }
 
+    // prepares entities for insert into db
     pub fn prepare_image_data(
         &self,
         project_id: i64,
-        histories: &[TensorHistoryImport],
-        clip_counts: HashMap<i64, i64>,
+        histories: &[TensorHistoryNode],
         models_lookup: &HashMap<ModelTypeAndFile, i64>,
         preview_thumbs: HashMap<i64, Vec<u8>>,
     ) -> (
@@ -133,92 +134,166 @@ impl ProjectsDb {
 
         let images_models: Vec<images::ActiveModel> = histories
             .iter()
-            .map(|h: &TensorHistoryImport| {
-                let preview_thumb = preview_thumbs.get(&h.preview_id).cloned();
+            .map(|h: &TensorHistoryNode| {
+                let fb = h.data();
+                let preview_id = fb.preview_id();
+                let clip_id = fb.clip_id();
+
+                // currently unused
+                let preview_thumb = preview_thumbs.get(&preview_id).cloned();
+
+                let mut has_mask = false;
+                let mut has_depth = false;
+                let mut has_pose = false;
+                let mut has_color = false;
+                let mut has_custom = false;
+                let mut has_scribble = false;
+                let mut has_shuffle = false;
+
+                if let Some(tds) = &h.tensordata {
+                    for td in tds {
+                        let tdfb = td.data();
+                        if tdfb.mask_id() != 0 {
+                            has_mask = true;
+                        }
+                        if tdfb.depth_map_id() != 0 {
+                            has_depth = true;
+                        }
+                        if tdfb.pose_id() != 0 {
+                            has_pose = true;
+                        }
+                        if tdfb.color_palette_id() != 0 {
+                            has_color = true;
+                        }
+                        if tdfb.custom_id() != 0 {
+                            has_custom = true;
+                        }
+                        if tdfb.scribble_id() != 0 {
+                            has_scribble = true;
+                        }
+                    }
+                } else {
+                    if fb.mask_id() != 0 {
+                        has_mask = true;
+                    }
+                    if fb.depth_map_id() != 0 {
+                        has_depth = true;
+                    }
+                    if fb.pose_id() != 0 {
+                        has_pose = true;
+                    }
+                    if fb.color_palette_id() != 0 {
+                        has_color = true;
+                    }
+                    if fb.custom_id() != 0 {
+                        has_custom = true;
+                    }
+                    if fb.scribble_id() != 0 {
+                        has_scribble = true;
+                    }
+                }
+
+                if h.moodboard.as_ref().is_some_and(|mb| mb.len() > 0) {
+                    has_shuffle = true;
+                }
+
+                let prompt = h.prompt().unwrap_or("").trim();
+                let negative_prompt = h.negative_prompt().unwrap_or("").trim();
+
                 let mut image = images::ActiveModel {
                     project_id: Set(project_id),
-                    node_id: Set(h.row_id),
-                    preview_id: Set(h.preview_id),
+                    node_id: Set(h.rowid),
+                    preview_id: Set(preview_id),
                     thumbnail_half: Set(preview_thumb),
-                    clip_id: Set(h.clip_id),
-                    num_frames: Set({
-                        if h.clip_id != 0 && clip_counts.contains_key(&h.clip_id) {
-                            Some(clip_counts[&h.clip_id] as i16)
-                        } else {
-                            None
-                        }
-                    }),
-                    prompt: Set(h.prompt.trim().to_string()),
-                    negative_prompt: Set(h.negative_prompt.trim().to_string()),
-                    prompt_search: Set(process_prompt(&h.prompt)),
-                    negative_prompt_search: Set(process_prompt(&h.negative_prompt)),
-                    refiner_start: Set(Some(h.refiner_start)),
-                    start_width: Set(h.width as i16),
-                    start_height: Set(h.height as i16),
-                    seed: Set(h.seed as i64),
-                    strength: Set(h.strength),
-                    steps: Set(h.steps as i16),
-                    guidance_scale: Set(h.guidance_scale),
-                    shift: Set(h.shift),
-                    hires_fix: Set(h.hires_fix),
-                    tiled_decoding: Set(h.tiled_decoding),
-                    tiled_diffusion: Set(h.tiled_diffusion),
-                    tea_cache: Set(h.tea_cache),
-                    cfg_zero_star: Set(h.cfg_zero_star),
-                    upscaler_scale_factor: Set(h.upscaler.as_ref().map(|_| {
-                        if h.upscaler_scale_factor == 2 {
+                    clip_id: Set(clip_id),
+                    num_frames: Set(h.clip.as_ref().map(|c| c.count as i16)),
+                    prompt: Set(prompt.to_string()),
+                    negative_prompt: Set(negative_prompt.to_string()),
+                    prompt_search: Set(process_prompt(prompt)),
+                    negative_prompt_search: Set(process_prompt(negative_prompt)),
+                    refiner_start: Set(Some(fb.refiner_start())),
+                    start_width: Set(fb.start_width() as i16),
+                    start_height: Set(fb.start_height() as i16),
+                    seed: Set(fb.seed() as i64),
+                    strength: Set(fb.strength()),
+                    steps: Set(fb.steps() as i16),
+                    guidance_scale: Set(fb.guidance_scale()),
+                    shift: Set(fb.shift()),
+                    hires_fix: Set(fb.hires_fix()),
+                    tiled_decoding: Set(fb.tiled_decoding()),
+                    tiled_diffusion: Set(fb.tiled_diffusion()),
+                    tea_cache: Set(fb.tea_cache()),
+                    cfg_zero_star: Set(fb.cfg_zero_star()),
+                    upscaler_scale_factor: Set(fb.upscaler().map(|_| {
+                        if fb.upscaler_scale_factor() == 2 {
                             2
                         } else {
                             4
                         }
                     })),
-                    wall_clock: Set(h.wall_clock.unwrap_or_default().and_utc()),
-                    has_mask: Set(h.has_mask),
-                    has_depth: Set(h.has_depth),
-                    has_pose: Set(h.has_pose),
-                    has_color: Set(h.has_color),
-                    has_custom: Set(h.has_custom),
-                    has_scribble: Set(h.has_scribble),
-                    has_shuffle: Set(h.has_shuffle),
-                    sampler: Set(h.sampler),
+                    wall_clock: Set({
+                        let wc = fb.wall_clock();
+                        chrono::DateTime::from_timestamp(
+                            wc / 1_000_000,
+                            (wc % 1_000_000) as u32 * 1000,
+                        )
+                        .unwrap_or_default()
+                        .into()
+                    }),
+                    has_mask: Set(has_mask),
+                    has_depth: Set(has_depth),
+                    has_pose: Set(has_pose),
+                    has_color: Set(has_color),
+                    has_custom: Set(has_custom),
+                    has_scribble: Set(has_scribble),
+                    has_shuffle: Set(has_shuffle),
+                    sampler: Set(fb.sampler().0),
                     ..Default::default()
                 };
 
-                for lora in &h.loras {
-                    if let Some(id) = models_lookup.get(&(lora.model.clone(), ModelType::Lora)) {
-                        batch_image_loras.push(NodeModelWeight {
-                            node_id: h.row_id,
-                            model_id: *id,
-                            weight: lora.weight,
-                        });
+                for lora in fb.loras().unwrap_or_default() {
+                    if let Some(model) = lora.file() {
+                        if let Some(id) = models_lookup.get(&(model.to_string(), ModelType::Lora)) {
+                            batch_image_loras.push(NodeModelWeight {
+                                node_id: h.rowid,
+                                model_id: *id,
+                                weight: lora.weight(),
+                            });
+                        }
                     }
                 }
 
-                for control in &h.controls {
-                    if let Some(id) = models_lookup.get(&(control.model.clone(), ModelType::Cnet)) {
-                        batch_image_controls.push(NodeModelWeight {
-                            node_id: h.row_id,
-                            model_id: *id,
-                            weight: control.weight,
-                        });
+                for control in fb.controls().unwrap_or_default() {
+                    if let Some(model) = control.file() {
+                        if let Some(id) = models_lookup.get(&(model.to_string(), ModelType::Cnet)) {
+                            batch_image_controls.push(NodeModelWeight {
+                                node_id: h.rowid,
+                                model_id: *id,
+                                weight: control.weight(),
+                            });
+                        }
                     }
                 }
 
-                if let Some(model_id) = models_lookup.get(&(h.model.clone(), ModelType::Model)) {
-                    image.model_id = Set(Some(*model_id));
+                if let Some(model) = fb.model() {
+                    if let Some(model_id) =
+                        models_lookup.get(&(model.to_string(), ModelType::Model))
+                    {
+                        image.model_id = Set(Some(*model_id));
+                    }
                 }
 
-                if let Some(refiner) = &h.refiner_model {
+                if let Some(refiner) = fb.refiner_model() {
                     if let Some(refiner_id) =
-                        models_lookup.get(&(refiner.clone(), ModelType::Model))
+                        models_lookup.get(&(refiner.to_string(), ModelType::Model))
                     {
                         image.refiner_id = Set(Some(*refiner_id));
                     }
                 }
 
-                if let Some(upscaler) = &h.upscaler {
+                if let Some(upscaler) = fb.upscaler() {
                     if let Some(upscaler_id) =
-                        models_lookup.get(&(upscaler.clone(), ModelType::Upscaler))
+                        models_lookup.get(&(upscaler.to_string(), ModelType::Upscaler))
                     {
                         image.upscaler_id = Set(Some(*upscaler_id));
                     }

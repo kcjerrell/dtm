@@ -3,9 +3,10 @@ import type { Snapshot } from "valtio"
 import type { DTImageFull } from "@/commands"
 import { useDTP } from "../state/context"
 import { DTImageContext } from "./DTImageContext"
+import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 type DTImageProviderProps = PropsWithChildren<{
-    image?: Snapshot<DTImageFull>
+    image?: Snapshot<TensorHistoryNode>
 }>
 
 /**
@@ -17,8 +18,8 @@ export function DTImageProvider(props: DTImageProviderProps) {
     const { children, image } = props
     const { models } = useDTP()
     const model = models.getModel("Model", image?.config?.model)
-    const loras = image?.node?.loras?.map((l) => models.getModel("Lora", l.file))
-    const controls = image?.node?.controls?.map((c) => models.getModel("Cnet", c.file))
+    const loras = image?.data?.loras?.map((l) => models.getModel("Lora", l.file))
+    const controls = image?.data?.controls?.map((c) => models.getModel("Cnet", c.file))
     const refiner = models.getModel("Model", image?.groupedConfig?.refiner?.model || undefined)
 
     return (

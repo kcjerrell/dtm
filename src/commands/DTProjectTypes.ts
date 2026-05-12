@@ -1,4 +1,6 @@
-export type TensorHistoryNode = {
+import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
+
+export type TensorHistoryNodeResponse = {
     rowid: number
     project_path: string
     /** will only be present if requested with projectId */
@@ -9,6 +11,127 @@ export type TensorHistoryNode = {
     tensordata?: TensorData[]
     clip?: Clip
     moodboard?: TensorMoodboardData[]
+    prompt: string
+    negative_prompt: string
+}
+
+export class TensorHistoryNode {
+    _node: TensorHistoryNodeResponse
+    constructor(node: TensorHistoryNodeResponse) {
+        this._node = node
+    }
+
+    get rowid(): number {
+        return this._node.rowid
+    }
+    get projectId(): number | undefined {
+        return this._node.projectId
+    }
+    get project_path(): string {
+        return this._node.project_path
+    }
+    get lineage(): number {
+        return this._node.lineage
+    }
+    get logicalTime(): number {
+        return this._node.logical_time
+    }
+    get data(): TensorHistoryNodeData {
+        return this._node.data
+    }
+    get tensordata(): TensorData[] | undefined {
+        return this._node.tensordata
+    }
+    get clip(): Clip | undefined {
+        return this._node.clip
+    }
+    get moodboard(): TensorMoodboardData[] | undefined {
+        return this._node.moodboard
+    }
+    get prompt(): string {
+        return this._node.prompt
+    }
+    get negativePrompt(): string | undefined {
+        return this._node.negative_prompt
+    }
+
+    get tensorId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.findLast((t) => t.tensor_name?.startsWith("tensor_history_"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.tensor_id
+        if (tensorId > 0) return `tensor_history_${tensorId}`
+        return undefined
+    }
+
+    get depthMapId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("depth_map"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.depth_map_id
+        if (tensorId > 0) return `depth_map_${tensorId}`
+        return undefined
+    }
+
+    get poseId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("pose"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.pose_id
+        if (tensorId > 0) return `pose_${tensorId}`
+        return undefined
+    }
+
+    get scribbleId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("scribble"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.scribble_id
+        if (tensorId > 0) return `scribble_${tensorId}`
+        return undefined
+    }
+
+    get colorPaletteId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("color_palette"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.color_palette_id
+        if (tensorId > 0) return `color_palette_${tensorId}`
+        return undefined
+    }
+
+    get customId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("custom"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.custom_id
+        if (tensorId > 0) return `custom_${tensorId}`
+        return undefined
+    }
+
+    get maskId(): string | undefined {
+        if (this.tensordata?.length) {
+            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("binary_mask"))
+            if (td) return td.tensor_name
+        }
+        const tensorId = this._node.data.mask_id
+        if (tensorId > 0) return `binary_mask_${tensorId}`
+        return undefined
+    }
+
+    get config() {
+        return extractConfigFromTensorHistoryNode(this._node.data)
+    }
+
+    get groupedConfig() {
+        return groupConfigProperties(this.config)
+    }
 }
 
 export type TensorHistoryNodeData = {

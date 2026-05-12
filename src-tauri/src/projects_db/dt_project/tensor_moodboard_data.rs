@@ -103,6 +103,5 @@ fn build_query(filter: TmdFilter) -> String {
         "{} {} ORDER BY tmd.rowid ASC {}",
         select, filter_str, limit_str
     );
-    println!("{query}");
     query
 }

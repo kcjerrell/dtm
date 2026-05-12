@@ -139,6 +139,5 @@ fn build_query(filter: TdFilter) -> String {
         "{} {} ORDER BY td.rowid ASC {}",
         select, filter_str, limit_str
     );
-    println!("{query}");
     query
 }

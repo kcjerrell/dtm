@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{ser::SerializeStruct, Serialize};
 use sqlx::{query, query_as, sqlite::SqliteRow, FromRow, Row};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
@@ -14,6 +14,7 @@ use crate::projects_db::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
         root_as_tensor_moodboard_data, TensorHistoryNode as TensorHistoryNodeData,
     },
+    text_history::TextHistory,
     DTProject,
 };
 
@@ -33,80 +34,146 @@ pub struct ThnData {
     pub tensordata: bool,
     pub clip: bool,
     pub moodboard: bool,
+    /// When true, get_tensor_history_nodes will check the texthistorynode table
+    /// for prompts if the flatbuffer's text_prompt field is empty. Requires
+    /// the project's text_history OnceCell to be initialised (done automatically).
+    pub legacy_prompts: bool,
 }
 
 impl ThnData {
+    /// include tensordata with same lineage and logical_time as returned nodes
     pub fn tensordata() -> Self {
         Self {
             tensordata: true,
             ..Default::default()
         }
     }
-
+    /// include clip data for each node (if any)
     pub fn clip() -> Self {
         Self {
             clip: true,
             ..Default::default()
         }
     }
-
+    /// include current moodboard for each node (if any)
     pub fn moodboard() -> Self {
         Self {
             moodboard: true,
             ..Default::default()
         }
     }
+    /// for older projects, ensure text prompts are properly loaded for each node
+    pub fn legacy_prompts() -> Self {
+        Self {
+            legacy_prompts: true,
+            ..Default::default()
+        }
+    }
 
+    /// include tensordata with same lineage and logical_time as returned nodes
     pub fn and_tensordata(&self) -> Self {
         Self {
             tensordata: true,
             ..*self
         }
     }
-
+    /// include clip data for each node (if any)
     pub fn and_clip(&self) -> Self {
         Self {
             clip: true,
             ..*self
         }
     }
-
+    /// include current moodboard for each node (if any)
     pub fn and_moodboard(&self) -> Self {
         Self {
             moodboard: true,
             ..*self
         }
     }
+    /// for older projects, ensure text prompts are properly loaded for each node
+    pub fn and_legacy_prompts(&self) -> Self {
+        Self {
+            legacy_prompts: true,
+            ..*self
+        }
+    }
 }
 
 /// The definitive representation of the tensorhistorynode table entity
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct TensorHistoryNode {
     pub rowid: i64,
     pub project_path: PathBuf,
     pub lineage: i64,
     pub logical_time: i64,
-    #[serde(serialize_with = "serialize_thn_data")]
     data: Arc<[u8]>,
     pub tensordata: Option<Vec<TensorData>>,
     pub clip: Option<Clip>,
     pub moodboard: Option<Vec<TensorMoodboardData>>,
+    /// Resolved positive prompt. None means fall back to the flatbuffer field.
+    /// Populated by get_tensor_history_nodes when ThnData::legacy_prompts is set.
+    prompt: Option<String>,
+    /// Resolved negative prompt. None means fall back to the flatbuffer field.
+    negative_prompt: Option<String>,
 }
 
-impl TensorHistoryNode {
-    pub fn data(&self) -> TensorHistoryNodeData {
-        unsafe { root_as_tensor_history_node_unchecked(&self.data) }
+impl Serialize for TensorHistoryNode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("TensorHistoryNode", 10)?;
+        state.serialize_field("rowid", &self.rowid)?;
+        state.serialize_field("project_path", &self.project_path)?;
+        state.serialize_field("lineage", &self.lineage)?;
+        state.serialize_field("logical_time", &self.logical_time)?;
+
+        // Serialize data by parsing it into ParsedTensorHistoryNodeData
+        let parsed_data = self.node_data();
+        state.serialize_field("data", &parsed_data)?;
+
+        state.serialize_field("tensordata", &self.tensordata)?;
+        state.serialize_field("clip", &self.clip)?;
+        state.serialize_field("moodboard", &self.moodboard)?;
+
+        // Include resolved prompts
+        state.serialize_field("prompt", &self.prompt())?;
+        state.serialize_field("negative_prompt", &self.negative_prompt())?;
+
+        state.end()
     }
 }
 
-fn serialize_thn_data<S>(data: &Arc<[u8]>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use serde::ser::Error;
-    match ParsedTensorHistoryNodeData::try_from(data.as_ref()) {
-        Ok(parsed) => parsed.serialize(serializer),
-        Err(e) => Err(S::Error::custom(e)),
+impl TensorHistoryNode {
+    /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
+    pub fn data(&self) -> TensorHistoryNodeData {
+        unsafe { root_as_tensor_history_node_unchecked(&self.data) }
+    }
+
+    /// Returns the fully parsed Rust struct. Use when the caller needs
+    /// an owned `TensorHistoryNodeData` (e.g. DrawThingsMetadata, DecodeTensorOptions).
+    pub fn node_data(&self) -> ParsedTensorHistoryNodeData {
+        ParsedTensorHistoryNodeData::try_from(self.data.as_ref())
+            .expect("flatbuffer already validated at construction")
+    }
+
+    /// Returns the positive prompt, preferring the legacy-resolved value over
+    /// the flatbuffer field. Returns None only if both are absent/empty.
+    pub fn prompt(&self) -> Option<&str> {
+        if let Some(p) = &self.prompt {
+            return Some(p.as_str());
+        }
+        self.data().text_prompt().filter(|s| !s.is_empty())
+    }
+
+    /// Returns the negative prompt, preferring the legacy-resolved value over
+    /// the flatbuffer field. Returns None only if both are absent/empty.
+    pub fn negative_prompt(&self) -> Option<&str> {
+        if let Some(p) = &self.negative_prompt {
+            return Some(p.as_str());
+        }
+        self.data().negative_text_prompt().filter(|s| !s.is_empty())
     }
 }
 
@@ -156,6 +223,8 @@ impl DTProject {
             0
         });
 
+        let get_legacy_prompts = data.map_or(false, |d| d.legacy_prompts);
+
         let mut items: Vec<TensorHistoryNode> = rows
             .into_iter()
             .map(|row| {
@@ -173,6 +242,8 @@ impl DTProject {
                     tensordata: None,
                     clip: None,
                     moodboard: None,
+                    prompt: None,
+                    negative_prompt: None,
                 }
             })
             .collect();
@@ -229,6 +300,39 @@ impl DTProject {
                 let clip_id = fb.clip_id();
                 if clip_id > 0 {
                     item.clip = clip_map.get(&clip_id).cloned();
+                }
+            }
+        }
+
+        if get_legacy_prompts
+            && self.check_table(&DTProjectTable::TextHistory).await.ok() == Some(true)
+        {
+            // Collect items that lack flatbuffer prompts and need text history lookup.
+            let needs_lookup: Vec<usize> = items
+                .iter()
+                .enumerate()
+                .filter(|(_, item)| {
+                    let fb = item.data();
+                    fb.text_prompt().map_or(true, |s| s.is_empty())
+                        && fb.negative_text_prompt().map_or(true, |s| s.is_empty())
+                })
+                .map(|(i, _)| i)
+                .collect();
+            if !needs_lookup.is_empty() {
+                for i in needs_lookup {
+                    let fb = items[i].data();
+                    if let Some(prompts) = self
+                        .get_text_edit(fb.text_lineage(), fb.text_edits())
+                        .await
+                        .ok()
+                    {
+                        if !prompts.positive.is_empty() {
+                            items[i].prompt = Some(prompts.positive);
+                        }
+                        if !prompts.negative.is_empty() {
+                            items[i].negative_prompt = Some(prompts.negative);
+                        }
+                    }
                 }
             }
         }
@@ -319,7 +423,6 @@ fn build_query(filter: Option<ThnFilter>) -> String {
         "{} {} ORDER BY thn.rowid ASC {}",
         select, filter_str, limit_str
     );
-    println!("{query}");
     query
 }
 
