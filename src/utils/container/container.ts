@@ -1,12 +1,10 @@
 import type { Channel } from "@tauri-apps/api/core"
-import { listen } from "@tauri-apps/api/event"
 import EventEmitter from "eventemitter3"
 import { type EventMap, type IContainer, type IStateService, isDisposable } from "./interfaces"
 
 type FutureServices<T extends Record<string, object> = Record<string, object>> = Partial<{
     [K in keyof T]: PromiseWithResolvers<T[K]>
 }>
-
 
 export class Container<
         T extends { [K in keyof T]: IStateService<IContainer<T>> } = object,
@@ -86,8 +84,8 @@ export class Container<
 }
 
 const _containerStack: {
-    container: IContainer
-    register: (name: string, service: object) => void
+    container: IContainer<any, any>
+    register: (name: any, service: any) => void
 }[] = []
 export function registerContainerService<C extends IContainer>(name: string, service: object) {
     const container = _containerStack.at(-1)
@@ -96,10 +94,10 @@ export function registerContainerService<C extends IContainer>(name: string, ser
     return container.container as C
 }
 
-function buildContainer<C extends Container = Container>(
+function buildContainer<C extends Container<any, any>>(
     container: C,
     servicesInit: () => C["services"],
-    register: (name: keyof C["services"], service: C["services"][keyof C["services"]]) => void,
+    register: (name: any, service: any) => void,
 ) {
     _containerStack.push({ container, register })
     const services = servicesInit()

@@ -1,7 +1,6 @@
 import type { ProjectExtra } from "@/commands"
 import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import type { IContainer } from "@/utils/container/interfaces"
-import type { JobQueue, JobResult, JobSpec, JobUnion } from "@/utils/container/queue"
 import { Service } from "@/utils/container/Service"
 import { StateController } from "@/utils/container/StateController"
 import type DetailsService from "./details"
@@ -65,14 +64,6 @@ export type SyncScope =
     | { watchFolders?: WatchFolderState[]; projects?: never }
     | Record<string, never>
 
-export type DTPJob = JobUnion<DTPContainer, DTProjectsJobs>
-export type DTPJobSpec<J extends keyof DTProjectsJobs> = JobSpec<DTPContainer, DTProjectsJobs, J>
-export type DTPJobResult<J extends keyof DTProjectsJobs> = JobResult<
-    DTProjectsJobs,
-    J,
-    DTPContainer
->
-
 export type DTProjectsContainer = IContainer<DTPServices, DTPEvents>
 
 export type DTPEvents = {
@@ -132,5 +123,4 @@ export interface DTPServices {
     search: SearchController
     images: ImagesController
     details: DetailsService
-    jobs: JobQueue<DTPContainer, DTProjectsJobs>
 }
