@@ -2,7 +2,7 @@ import { chakra, type StackProps } from "@chakra-ui/react"
 import { motion, useMotionValue } from "motion/react"
 import { useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
-import type MediaItem from "../state/MediaItem"
+import type MediaItem from "../state/mediaItem"
 import { getMetadataStore, selectImage } from "../state/metadataStore"
 import HistoryItem from "./HistoryItem"
 

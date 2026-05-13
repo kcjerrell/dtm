@@ -1,15 +1,17 @@
 import type { ImageExtra } from "./DtpServiceTypes"
 
 function thumb(image: ImageExtra): string
-function thumb(projectId: number, previewId: number): string
-function thumb(arg: ImageExtra | number, previewId?: number): string {
+function thumb(projectId?: number, previewId?: number): string
+function thumb(arg?: ImageExtra | number, previewId?: number): string {
+    if (!arg) return ""
     if (typeof arg === "number") return `dtm://dtproject/thumb/${arg}/${previewId}`
     return `dtm://dtproject/thumb/${arg.project_id}/${arg.preview_id}`
 }
 
 function thumbHalf(image: ImageExtra): string
-function thumbHalf(projectId: number, previewId: number): string
-function thumbHalf(arg: ImageExtra | number, previewId?: number): string {
+function thumbHalf(projectId?: number, previewId?: number): string
+function thumbHalf(arg?: ImageExtra | number, previewId?: number): string {
+    if (!arg) return ""
     if (typeof arg === "number") return `dtm://dtproject/thumbhalf/${arg}/${previewId}`
     return `dtm://dtproject/thumbhalf/${arg.project_id}/${arg.preview_id}`
 }

@@ -7,7 +7,7 @@ import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
 import { bindProxy } from "@/utils/valtio"
 import { ImageItem } from "./ImageItem"
-import MediaItem from "./MediaItem"
+import MediaItem from "./mediaItem"
 import { VideoItem } from "./VideoItem"
 
 const initialStoreValues = {

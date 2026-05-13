@@ -1,4 +1,5 @@
 import type { DrawThingsConfig, DrawThingsConfigGrouped } from "@/types"
+import type { Control, LoRA } from "./DTProjectTypes"
 
 export type ModelType = "None" | "Model" | "Lora" | "Cnet" | "Upscaler"
 
@@ -160,25 +161,6 @@ export interface TensorSize {
     width: number
     height: number
     channels: number
-}
-
-export interface Control {
-    file?: string
-    weight: number
-    guidance_start: number
-    guidance_end: number
-    no_prompt: boolean
-    global_average_pooling: boolean
-    down_sampling_rate: number
-    control_mode: string
-    target_blocks?: string[]
-    input_override: string
-}
-
-export interface LoRA {
-    file?: string
-    weight: number
-    mode: string
 }
 
 export interface TensorRaw {

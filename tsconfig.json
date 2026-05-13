@@ -2,10 +2,14 @@
   "compilerOptions": {
     "target": "esnext",
     "useDefineForClassFields": true,
-    "lib": ["ES2024", "ESNext.Collection", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2024",
+      "ESNext.Collection",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
-
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -13,10 +17,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-
     "experimentalDecorators": false,
     "emitDecoratorMetadata": false,
-
     /* Linting */
     "strict": true,
     // "noUnusedLocals": true,
@@ -27,9 +29,23 @@
         "./src/*"
       ]
     },
-    "types": ["node", "@wdio/globals/types", "@types/mocha"]
+    "types": [
+      "node",
+      "@wdio/globals/types",
+      "@types/mocha"
+    ]
   },
-  "include": ["./src", "./src/global.ts", "./test"],
-  // "exclude": ["src/scratch/*"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": [
+    "./src",
+    "./src/global.ts",
+    "./test"
+  ],
+  "exclude": [
+    "src/scratch/*"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

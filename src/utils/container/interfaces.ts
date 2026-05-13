@@ -10,16 +10,9 @@ export interface IContainer<
     services: T
     getService<K extends keyof T>(name: K): T[K]
     getFutureService<K extends keyof T>(name: K): Promise<T[K]>
-    addTagHandler(tagRoot: string, handler: TagHandler, formatter: TagFormatter): void
-    handleTags(tag: string, data?: Record<string, unknown>): Promise<void>
-    suppressTags(tags: string[]): void
-    stopSuppressingTags(tags: string[]): void
     get isDisposed(): boolean
     dispose(): void
 }
-
-export type TagFormatter<D = object> = (tag: string, data?: D) => string
-export type TagHandler<D = object> = (tag: string, data?: D) => boolean | Promise<boolean>
 
 export type EventMap = {
     [eventName: string]: ContainerEventHandler

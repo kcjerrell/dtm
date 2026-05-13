@@ -17,10 +17,10 @@ export type TensorHistoryNodeResponse = {
 
 export class TensorHistoryNode {
     _node: TensorHistoryNodeResponse
-    projectId: number | undefined
+    projectId: number
     constructor(node: TensorHistoryNodeResponse, projectId?: number) {
         this._node = node
-        this.projectId = projectId
+        this.projectId = projectId ?? -1
     }
 
     get rowid(): number {

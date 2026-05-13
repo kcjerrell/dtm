@@ -2,7 +2,7 @@ import type { FileInfo } from "@tauri-apps/plugin-fs"
 import type { Tags } from "exifreader"
 import type { ComponentType } from "react"
 import type { IconType } from "react-icons/lib"
-import type { Control, LoRA } from "./commands"
+import type { Control, LoRA } from "./commands/DTProjectTypes"
 
 export type DrawThingsMetaData = {
     prompt: string
@@ -28,92 +28,92 @@ export type DrawThingsMetaData = {
     steps: number
     strength: number
     negativePrompt: string
-    config: {
-        aestheticScore: number
-        batchCount: number
-        batchSize: number
-        causalInference: number
-        causalInferencePad: number
-        cfgZeroInitSteps: number
-        cfgZeroStar: boolean
-        clipLText: string
-        clipSkip: number
-        clipWeight: number
-        compressionArtifacts: "h264" | "h265" | "jpeg"
-        compressionArtifactsQuality: number
-        controls: Control[]
-        cropLeft: number
-        cropTop: number
-        decodingTileHeight: number
-        decodingTileOverlap: number
-        decodingTileWidth: number
-        diffusionTileHeight: number
-        diffusionTileOverlap: number
-        diffusionTileWidth: number
-        fps: number
-        guidanceEmbed: number
-        guidanceScale: number
-        guidingFrameNoise: number
-        height: number
-        hiresFix: boolean
-        hiresFixHeight: number
-        hiresFixStrength: number
-        hiresFixWidth: number
-        id: number
-        imageGuidanceScale: number
-        imagePriorSteps: number
-        loras: LoRA[]
-        maskBlur: number
-        maskBlurOutset: number
-        model: string
-        motionScale: number
-        negativeAestheticScore: number
-        negativeOriginalImageHeight: number
-        negativeOriginalImageWidth: number
-        negativePromptForImagePrior: boolean
-        numFrames: number
-        originalImageHeight: number
-        originalImageWidth: number
-        preserveOriginalAfterInpaint: boolean
-        refinerModel: string | null
-        refinerStart: number
-        resolutionDependentShift: boolean
-        sampler: number
-        seed: number
-        seedMode: number
-        separateClipL: boolean
-        separateOpenClipG: boolean
-        openClipGText: string | null
-        separateT5: boolean
-        t5Text: string | null
-        sharpness: number
-        shift: number
-        speedUpWithGuidanceEmbed: boolean
-        stage2Guidance: number
-        stage2Shift: number
-        stage2Steps: number
-        startFrameGuidance: number
-        steps: number
-        stochasticSamplingGamma: number
-        strength: number
-        t5TextEncoder: boolean
-        targetImageHeight: number
-        targetImageWidth: number
-        teaCache: boolean
-        teaCacheEnd: number
-        teaCacheMaxSkipSteps: number
-        teaCacheStart: number
-        teaCacheThreshold: number
-        tiledDecoding: boolean
-        tiledDiffusion: boolean
-        upscalerModel: string | null
-        upscalerScaleFactor: number
-        width: number
-        zeroNegativePrompt: boolean
-    }
+    config: DrawThingsConfig
 }
 
-export type DrawThingsConfig = Partial<DrawThingsMetaData["config"]>
+export type DrawThingsConfig = {
+    aestheticScore: number
+    batchCount: number
+    batchSize: number
+    causalInference: number
+    causalInferencePad: number
+    cfgZeroInitSteps: number
+    cfgZeroStar: boolean
+    clipLText: string
+    clipSkip: number
+    clipWeight: number
+    compressionArtifacts: number
+    compressionArtifactsQuality: number
+    controls: Control[]
+    cropLeft: number
+    cropTop: number
+    decodingTileHeight: number
+    decodingTileOverlap: number
+    decodingTileWidth: number
+    diffusionTileHeight: number
+    diffusionTileOverlap: number
+    diffusionTileWidth: number
+    fps: number
+    guidanceEmbed: number
+    guidanceScale: number
+    guidingFrameNoise: number
+    height: number
+    hiresFix: boolean
+    hiresFixHeight: number
+    hiresFixStrength: number
+    hiresFixWidth: number
+    id: number
+    imageGuidanceScale: number
+    imagePriorSteps: number
+    loras: LoRA[]
+    maskBlur: number
+    maskBlurOutset: number
+    model: string
+    motionScale: number
+    negativeAestheticScore: number
+    negativeOriginalImageHeight: number
+    negativeOriginalImageWidth: number
+    negativePromptForImagePrior: boolean
+    numFrames: number
+    originalImageHeight: number
+    originalImageWidth: number
+    preserveOriginalAfterInpaint: boolean
+    refinerModel: string | null
+    refinerStart: number
+    resolutionDependentShift: boolean
+    sampler: number
+    seed: number
+    seedMode: number
+    separateClipL: boolean
+    separateOpenClipG: boolean
+    openClipGText: string | null
+    separateT5: boolean
+    t5Text: string | null
+    sharpness: number
+    shift: number
+    speedUpWithGuidanceEmbed: boolean
+    stage2Guidance: number
+    stage2Shift: number
+    stage2Steps: number
+    startFrameGuidance: number
+    steps: number
+    stochasticSamplingGamma: number
+    strength: number
+    t5TextEncoder: boolean
+    targetImageHeight: number
+    targetImageWidth: number
+    teaCache: boolean
+    teaCacheEnd: number
+    teaCacheMaxSkipSteps: number
+    teaCacheStart: number
+    teaCacheThreshold: number
+    tiledDecoding: boolean
+    tiledDiffusion: boolean
+    upscalerModel: string | null
+    upscalerScaleFactor: number
+    width: number
+    zeroNegativePrompt: boolean
+}
 
 type PartialPartial<T> = {
     [key in keyof T]?: Partial<T[key]>
@@ -139,7 +139,7 @@ export type DrawThingsConfigGrouped = PartialPartial<{
     imageGuidanceScale: number
     imagePrior: { steps: number; negativePrompt: boolean }
     imagePriorSteps: number
-    loras: LoRA[][]
+    loras: LoRA[]
     maskBlur: { value: number; outset: number }
     model: string
     motionScale: number
@@ -175,6 +175,7 @@ export type DrawThingsConfigGrouped = PartialPartial<{
     tiledDiffusion: { value: boolean; width: number; height: number; overlap: number }
     upscaler: { value: string | null; scaleFactor: number }
     zeroNegativePrompt: boolean
+    compressionArtifacts: { value: number; quality: number }
 }>
 
 export type ImageMetadata = {

@@ -1,8 +1,8 @@
 import { Box, HStack, Table, Text } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Fragment, useCallback, useEffect, useMemo } from "react"
-import type { TensorDataRow, TensorHistoryNodeRow } from "@/commands"
 import DTProject from "@/commands/DTProject"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import urls from "@/commands/urls"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { useDTP } from "../state/context"
@@ -15,7 +15,7 @@ function Explorer(props: ExplorerProps) {
     const { projectId, ...restProps } = props
     const { projects } = useDTP()
     const { state, snap } = useProxyRef(() => ({
-        data: [] as (TensorHistoryNodeRow & { tensorData?: TensorDataRow[] })[],
+        data: [] as TensorHistoryNode[],
         pageStatus: [] as ("loading" | "loaded" | undefined)[],
     }))
     const columns = useMemo(() => ["rowid", "lineage", "logical_time"], [])
@@ -26,12 +26,12 @@ function Explorer(props: ExplorerProps) {
         async (pageIndex: number) => {
             if (!project || state.pageStatus[pageIndex] !== undefined) return
             state.pageStatus[pageIndex] = "loading"
-            const rows = (await DTProject.listTensorHistoryNodes({
+            const rows = await DTProject.listTensorHistoryNodes({
                 projectId,
                 skip: pageIndex * 50,
                 take: 50,
                 select: ["tensordata", "moodboard", "clip"],
-            })) as TensorHistoryNodeRow[]
+            })
             state.pageStatus[pageIndex] = "loaded"
             state.data.splice(pageIndex * 50, 50, ...rows)
         },
@@ -111,9 +111,11 @@ interface CellProps<T> extends ChakraProps {
     item: MaybeReadonly<T>
 }
 
-function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
+function TensorData(
+    props: CellProps<NonNullable<TensorHistoryNode["tensordata"]>[0]> & { projectId: number },
+) {
     const { item, projectId } = props
-    const tensorName = getTensorDataTensorName(item)
+    const tensorName = item.tensor_name
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
             <Table.Cell width={"5rem"} bgColor={"grayc.14"} />
@@ -131,19 +133,7 @@ function TensorData(props: CellProps<TensorDataRow> & { projectId: number }) {
     )
 }
 
-function getTensorDataTensorName(row: TensorDataRow) {
-    const data = row.data
-    if (data.color_palette_id) return `color_palette_${data.color_palette_id}`
-    if (data.custom_id) return `custom_${data.custom_id}`
-    if (data.pose_id) return `pose_${data.pose_id}`
-    if (data.scribble_id) return `scribble_${data.scribble_id}`
-    if (data.depth_map_id) return `depth_map_${data.depth_map_id}`
-    if (data.mask_id) return `binary_mask_${data.mask_id}`
-    if (data.tensor_id) return `tensor_history_${data.tensor_id}`
-    return "unknown"
-}
-
-function PreviewCell(props: CellProps<TensorHistoryNodeRow>) {
+function PreviewCell(props: CellProps<TensorHistoryNode>) {
     const { item, ...restProps } = props
 
     return (
@@ -161,7 +151,7 @@ function PreviewCell(props: CellProps<TensorHistoryNodeRow>) {
     )
 }
 
-function IdsCell(props: CellProps<TensorHistoryNodeRow>) {
+function IdsCell(props: CellProps<TensorHistoryNode>) {
     const { item, ...restProps } = props
     const tensorNames: string[] = []
     if (item.data.tensor_id) tensorNames.push(`tensor_history_${item.data.tensor_id}`)

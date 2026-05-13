@@ -1,8 +1,9 @@
 import { proxy, useSnapshot } from "valtio"
 import { proxySet } from "valtio/utils"
-import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import DTPService from "@/commands/DtpService"
-import type { ScanProgress, TensorDataRow } from "@/commands/DtpServiceTypes"
+import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
@@ -10,7 +11,6 @@ import type { DialogState } from "../dialog/types"
 import { type CanvasStack, isCanvasStack, type SubItem, type TensorType } from "../types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
-import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 export type UIControllerState = {
     selectedTab: "projects" | "search"
@@ -90,7 +90,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     raise<T>(event: "onItemChanged" | "onSubItemChanged", payload: T) {
         const handlers = this[event] as Handler<T>[]
-        if (!handlers || !handlers.length) {
+        if (!handlers?.length) {
             console.warn(`No handlers for event ${event}`)
             return
         }

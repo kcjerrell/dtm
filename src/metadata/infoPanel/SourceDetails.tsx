@@ -1,5 +1,5 @@
 import { SimpleGrid } from "@chakra-ui/react"
-import type { MediaItemSource } from "../state/MediaItem"
+import type { MediaItemSource } from "../state/mediaItem"
 import DataItem from "./DataItem"
 
 function SourceDetails(props: { imageSource: MediaItemSource }) {

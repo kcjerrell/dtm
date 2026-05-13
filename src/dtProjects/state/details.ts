@@ -1,14 +1,13 @@
-import type { DTImageFull, ImageExtra } from "@/commands"
-import DTPService from "@/commands/DtpService"
-import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
+import QuickLRU from "quick-lru"
+import type { ImageExtra } from "@/commands"
+import DTProject from "@/commands/DTProject"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import type ProjectsController from "./projects"
 import { DTPStateService } from "./types"
-import DTProject from "@/commands/DTProject"
-import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 class DetailsService extends DTPStateService {
     projects: ProjectsController
-    itemDetails: Record<string, TensorHistoryNode> = {}
+    itemDetails: QuickLRU<string, TensorHistoryNode> = new QuickLRU({ maxSize: 10 })
 
     constructor(projects: ProjectsController) {
         super("details")
@@ -18,30 +17,18 @@ class DetailsService extends DTPStateService {
     async getDetails(item: ImageExtra): Promise<TensorHistoryNode | undefined> {
         if (!item.is_ready) return
         const key = detailsKey(item.project_id, item.node_id)
-        if (this.itemDetails[key]) return this.itemDetails[key]
+        if (this.itemDetails.has(key)) return this.itemDetails.get(key)
         const project = this.projects.state.projects.find((p) => p.id === item.project_id)
         if (!project) return
 
         const node = await DTProject.getTensorHistory(item.project_id, item.node_id)
 
-        this.itemDetails[key] = node
+        this.itemDetails.set(key, node)
         return node
     }
 
-    async getPredecessorCandidates(item: ImageExtra) {
+    async getPredecessorCandidates(_item: ImageExtra) {
         return []
-        const project = this.projects.state.projects.find((p) => p.id === item.project_id)
-        if (!project) return
-
-        const history = await this.getDetails(item)
-        if (!history) return
-
-        return await DTPService.findPredecessor(
-            item.project_id,
-            item.node_id,
-            history.node.lineage,
-            history.node.logical_time,
-        )
     }
 }
 
