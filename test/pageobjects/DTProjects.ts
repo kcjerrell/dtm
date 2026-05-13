@@ -87,7 +87,7 @@ class DTProjects {
         const selector = `//dt[.='${label}']/following-sibling::dd`
         try {
             await $(selector).waitForDisplayed(opts)
-            return $(selector).getText()
+            return await $(selector).getText()
         } catch (e) {
             if (opts?.noThrow) {
                 console.log(`No data item found for label: ${label}`)

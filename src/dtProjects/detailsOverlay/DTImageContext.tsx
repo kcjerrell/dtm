@@ -1,9 +1,10 @@
 import { createContext, useContext } from "react"
 import type { DTImageFull, Model } from "@/commands"
+import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 export const DTImageContext = createContext<
     MaybeReadonly<{
-        image?: DTImageFull
+        image?: TensorHistoryNode
         model?: Model
         loras?: (Model | undefined)[]
         controls?: (Model | undefined)[]

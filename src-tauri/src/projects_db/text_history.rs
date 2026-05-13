@@ -1,8 +1,7 @@
 use super::fbs;
-use crate::projects_db::dtos::text::{TextType, TextRange, TextModification, TextHistoryNode};
+use crate::projects_db::dtos::text::{TextHistoryNode, TextModification, TextRange, TextType};
 use serde::Serialize;
-use std::sync::Mutex;
-
+use std::{collections::HashMap, sync::Mutex};
 
 impl From<fbs::TextType> for TextType {
     fn from(fb: fbs::TextType) -> Self {
@@ -14,7 +13,6 @@ impl From<fbs::TextType> for TextType {
     }
 }
 
-
 impl From<&fbs::TextRange> for TextRange {
     fn from(fb: &fbs::TextRange) -> Self {
         Self {
@@ -23,7 +21,6 @@ impl From<&fbs::TextRange> for TextRange {
         }
     }
 }
-
 
 impl TryFrom<fbs::TextModification<'_>> for TextModification {
     type Error = flatbuffers::InvalidFlatbuffer;
@@ -36,7 +33,6 @@ impl TryFrom<fbs::TextModification<'_>> for TextModification {
         })
     }
 }
-
 
 impl TryFrom<&[u8]> for TextHistoryNode {
     type Error = flatbuffers::InvalidFlatbuffer;
@@ -80,13 +76,20 @@ struct CacheEntry {
 
 pub struct TextHistory {
     pub nodes: Vec<TextHistoryNode>,
+    lineages: HashMap<i64, i64>, // (node_idx, logical_time) in ascending order
     cache: Mutex<Option<CacheEntry>>,
 }
 
 impl TextHistory {
-    pub fn new(nodes: Vec<TextHistoryNode>) -> Self {
+    pub fn new(nodes: Vec<TextHistoryNode>, lineages: Vec<(i64, i64)>) -> Self {
+        println!(
+            "TextHistory::new({} nodes, {:?} lineages)",
+            nodes.len(),
+            lineages
+        );
         Self {
             nodes,
+            lineages: lineages.into_iter().map(|(a, b)| (a, b)).collect(),
             cache: Mutex::new(None),
         }
     }
@@ -95,11 +98,18 @@ impl TextHistory {
         // 1. Find the appropriate node to start from.
         // We look for a node with the same lineage and start_edits <= text_edits.
         // We pick the one with the highest start_edits among matches.
+        let mut lineage = lineage;
+        if let Some(point_to) = self.lineages.get(&lineage) {
+            lineage = *point_to;
+        }
+
         let node = self
             .nodes
             .iter()
             .filter(|n| n.lineage == lineage && n.start_edits <= text_edits)
-            .max_by_key(|n| n.start_edits)?;
+            .max_by_key(|n| n.start_edits);
+
+        let node = node?;
 
         // 2. Determine starting point (Node or Cache).
         let mut prompts = PromptPair {
@@ -206,7 +216,7 @@ mod tests {
 
         let nodes: Vec<TextHistoryNode> =
             serde_json::from_str(&content).expect("Failed to parse JSON");
-        let history = TextHistory::new(nodes);
+        let history = TextHistory::new(nodes, Vec::new());
 
         // Test Case 1: Start of a node (Lineage 2, Edit 0)
         let res0 = history.get_edit(2, 0).unwrap();

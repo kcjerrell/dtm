@@ -8,6 +8,7 @@ use tauri::{
 use crate::projects_db::{
     audio::audio_request,
     decode_audio,
+    dt_project::ThnFilter,
     projects_db::MixedError,
     tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
     DTProject, ProjectsDb,
@@ -239,12 +240,13 @@ async fn tensor(
         }
         "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
             let metadata = match node {
-                Some(node) => Some(
-                    dtp.get_history_full(node)
+                Some(node_id) => {
+                    let nodes = dtp
+                        .get_tensor_history_nodes(Some(ThnFilter::Rowid(node_id)), None)
                         .await
-                        .map_err(|e| format!("Failed to get history: {}", e))?
-                        .history,
-                ),
+                        .map_err(|e| format!("Failed to get history: {}", e))?;
+                    nodes.into_iter().next().map(|n| n.node_data())
+                }
                 None => None,
             };
             let png = decode_tensor(

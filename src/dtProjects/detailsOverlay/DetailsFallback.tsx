@@ -7,12 +7,14 @@ import { DataItem, Panel } from "@/components"
 import { useDTP } from "../state/context"
 
 interface DetailsFallbackProps extends ChakraProps {
-    item: Snapshot<ImageExtra>
+    item?: Snapshot<ImageExtra> | null
 }
 
 function DetailsFallback(props: DetailsFallbackProps) {
     const { item, ...restProps } = props
     const { projects, models } = useDTP()
+
+    if (!item) return null
 
     const model = models.getModel("Model", item.model_file)
 

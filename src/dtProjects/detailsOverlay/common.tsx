@@ -5,13 +5,22 @@ export const DetailsImageContainer = chakra(
     motion.div,
     {
         base: {
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
+            display: "grid",
+            gridTemplateColumns: "1fr",
+            gridTemplateRows: "1fr",
+            gridTemplateAreas: '"image"',
+
+            justifyContent: "stretch",
+            alignItems: "stretch",
             minHeight: "0",
             minWidth: "0",
+            maxHeight: "100%",
+            maxWidth: "100%",
+            width: "full",
+            height: "full",
             overflow: "clip",
             borderRadius: "md",
+            "& > *": { margin: "auto" },
         },
     },
     { forwardProps: ["transition"] },
@@ -21,6 +30,7 @@ export const DetailsImageContent = chakra(
     motion.img,
     {
         base: {
+            gridArea: "image",
             maxWidth: "100%",
             maxHeight: "100%",
             width: "auto",
@@ -31,6 +41,7 @@ export const DetailsImageContent = chakra(
             display: "block",
             transformOrigin: "center center",
             objectFit: "contain",
+            overflow: "clip",
         },
         variants: {
             pixelated: {
@@ -79,10 +90,31 @@ export const DetailsOverlayContainer = chakra(
             gridTemplateAreas: '"image content" "commandBar content" "tensors content"',
             width: "100%",
             height: "100%",
+            overflow: "clip",
             gap: 6,
             padding: 6,
             justifyContent: "stretch",
-            alignItems: "center",
+            alignItems: "stretch",
+            backgroundColor: "#00000099",
+            backdropFilter: "blur(5px)",
+            visibility: "visible",
+            transition: "all 0s, opacity 0.25s ease-in-out",
+        },
+        variants: {
+            expandImage: {
+                true: {
+                    gridTemplateRows: "auto 1fr auto auto",
+                    gridTemplateColumns: "1fr",
+                    gridTemplateAreas: '"content" "image" "commandBar" "tensors"',
+                },
+            },
+            hidden: {
+                true: {
+                    backgroundColor: "#00000000",
+                    backdropFilter: "blur(0px)",
+                    // visibility: "hidden",
+                },
+            },
         },
     },
     { forwardProps: ["transition"] },
@@ -96,8 +128,10 @@ export const DetailsButtonBarRoot = chakra(
             flexDirection: "row",
             alignItems: "center",
             alignSelf: "center",
-            margin: 2,
-            zIndex: 1,
+            justifySelf: "center",
+            marginX: 2,
+            marginY: -3,
+            zIndex: 5,
             backgroundColor: "bg.2",
             justifyContent: "center",
             borderRadius: "lg",
@@ -106,5 +140,10 @@ export const DetailsButtonBarRoot = chakra(
             border: "1px solid {colors.gray.500/50}",
         },
     },
-    { forwardProps: ["transition", "initial", "animate", "exit"] },
+    {
+        defaultProps: {
+            "data-solid": "true",
+        },
+        forwardProps: ["transition", "initial", "animate", "exit"],
+    },
 )

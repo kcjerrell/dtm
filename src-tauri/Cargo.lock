@@ -1945,6 +1945,7 @@ dependencies = [
  "hex",
  "hound",
  "image",
+ "itertools 0.14.0",
  "little_exif",
  "log",
  "migration",

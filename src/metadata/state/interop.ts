@@ -2,8 +2,8 @@ import { updateSetting } from "@/state/settings"
 import type { ImageSource } from "@/types"
 import { ImageItem } from "./ImageItem"
 import { loadImage2 } from "./imageLoaders"
-import type MediaItem from "./MediaItem"
-import { addImageItem, getMetadataStore, selectImage } from "./metadataStore"
+import type MediaItem from "./mediaItem"
+import { addImageItem, getMetadataStore, selectImage, waitForMetadataStore } from "./metadataStore"
 
 export async function sendToMetadata(
     imageData: Uint8Array<ArrayBuffer>,
@@ -17,6 +17,7 @@ export async function sendToMetadata(
     // ) as Nullable<MediaItem>
 
     // if (!imageItem) {
+    await waitForMetadataStore()
     const image = await ImageItem.fromBuffer(imageData, type, source)
     if (image) {
         let imageItem: MediaItem = image

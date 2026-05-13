@@ -1,4 +1,5 @@
 import type { DrawThingsConfig, DrawThingsConfigGrouped } from "@/types"
+import type { Control, LoRA } from "./DTProjectTypes"
 
 export type ModelType = "None" | "Model" | "Lora" | "Cnet" | "Upscaler"
 
@@ -162,25 +163,6 @@ export interface TensorSize {
     channels: number
 }
 
-export interface Control {
-    file?: string
-    weight: number
-    guidance_start: number
-    guidance_end: number
-    no_prompt: boolean
-    global_average_pooling: boolean
-    down_sampling_rate: number
-    control_mode: string
-    target_blocks?: string[]
-    input_override: string
-}
-
-export interface LoRA {
-    file?: string
-    weight: number
-    mode: string
-}
-
 export interface TensorRaw {
     tensor_type: number
     data_type: number
@@ -204,6 +186,7 @@ export interface DTImageFull {
     clip?: Clip | null
     numFrames: number
     node: XTensorHistoryNode
+    tensorData: TensorDataRow[] | null
     images: {
         tensorId: string | null
         previewId: number
@@ -213,7 +196,7 @@ export interface DTImageFull {
         poseId: string | null
         colorPaletteId: string | null
         customId: string | null
-        moodboardIds: string[]
+        moodboard: [string, number][]
     } | null
 }
 
@@ -329,6 +312,25 @@ export interface XTensorHistoryNode {
     audio: boolean
 }
 
+export interface TensorDataRow {
+    rowid: number
+    lineage: number
+    logical_time: number
+    idx: number
+    x: number
+    y: number
+    width: number
+    height: number
+    scale_factor_by_120: number
+    tensor_id: number
+    mask_id: number
+    depth_map_id: number
+    scribble_id: number
+    pose_id: number
+    color_palette_id: number
+    custom_id: number
+}
+
 export interface TensorHistoryExtra {
     row_id: number
     lineage: number
@@ -340,10 +342,19 @@ export interface TensorHistoryExtra {
     pose_id: string | null
     color_palette_id: string | null
     custom_id: string | null
-    moodboard_ids: string[]
+    moodboard: [string, number][]
     history: XTensorHistoryNode
+    tensor_data: TensorDataRow[] | null
     project_path: string
     clip: Clip | null | undefined
+}
+
+export interface TensorHistoryNodeRow {
+    projectId: number
+    rowid: number
+    lineage: number
+    logical_time: number
+    data: XTensorHistoryNode
 }
 
 export type ScanProgress = {

@@ -1,8 +1,8 @@
-import type { XTensorHistoryNode as TensorHistoryNode } from "@/commands"
+import type { Control, LoRA, TensorHistoryNodeData } from "@/commands/DTProjectTypes"
 import { type DrawThingsConfigGrouped, type DrawThingsMetaData, SeedModeLabels } from "@/types"
 
 export function extractConfigFromTensorHistoryNode(
-    node: MaybeReadonly<TensorHistoryNode> | undefined | null,
+    node: MaybeReadonly<TensorHistoryNodeData> | undefined | null,
 ): DrawThingsMetaData["config"] | null {
     if (!node) return null
     return {
@@ -16,7 +16,9 @@ export function extractConfigFromTensorHistoryNode(
         clipLText: node.clip_l_text ?? "",
         clipSkip: node.clip_skip,
         clipWeight: node.clip_weight,
-        controls: (node.controls as DrawThingsMetaData["config"]["controls"]) ?? [],
+        compressionArtifacts: node.compression_artifacts,
+        compressionArtifactsQuality: node.compression_artifacts_quality,
+        controls: node.controls as Control[],
         cropLeft: node.crop_left,
         cropTop: node.crop_top,
         decodingTileHeight: node.decoding_tile_height * 64,
@@ -37,7 +39,7 @@ export function extractConfigFromTensorHistoryNode(
         id: node.tensor_id,
         imageGuidanceScale: node.image_guidance_scale,
         imagePriorSteps: node.image_prior_steps,
-        loras: (node.loras as any) ?? [], // Casting to any to avoid type mismatch with ObjectConstructor[][]
+        loras: node.loras as LoRA[],
         maskBlur: node.mask_blur,
         maskBlurOutset: node.mask_blur_outset,
         model: node.model ?? "",
@@ -132,6 +134,8 @@ export function groupConfigProperties(
         causalInferencePad,
         cfgZeroInitSteps,
         cfgZeroStar,
+        compressionArtifacts,
+        compressionArtifactsQuality,
         cropLeft,
         cropTop,
         guidanceEmbed,
@@ -233,6 +237,7 @@ export function groupConfigProperties(
         separateT5: { value: separateT5, text: t5Text },
         batch: { size: batchSize, count: batchCount },
         imagePrior: { steps: imagePriorSteps, negativePrompt: negativePromptForImagePrior },
+        compressionArtifacts: { value: compressionArtifacts, quality: compressionArtifactsQuality },
     }
 }
 

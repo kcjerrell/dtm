@@ -8,8 +8,8 @@ pub mod jobs;
 pub mod data;
 pub use data::{
     dtp_decode_tensor, dtp_find_image_from_preview_id, dtp_find_predecessor, dtp_get_clip,
-    dtp_get_history_full, dtp_get_metadata, dtp_get_tensor_size, dtp_list_images, dtp_list_models,
-    dtp_list_projects, dtp_list_watch_folders, dtp_pick_watch_folder, dtp_remove_watch_folder,
+    dtp_get_metadata, dtp_get_tensor_size, dtp_list_images, dtp_list_models, dtp_list_projects,
+    dtp_list_watch_folders, dtp_pick_watch_folder, dtp_remove_watch_folder,
     dtp_update_project_exclude, dtp_update_watch_folder,
 };
 
@@ -21,4 +21,4 @@ pub use dtp_service::{
 pub use helpers::{AppHandleWrapper, GetFolderFilesResult, ProjectFile};
 
 pub mod dt_data;
-pub use dt_data::dtp_dt_list_tensor_history_node;
+pub use dt_data::dtp_dt_get_tensor_history_nodes;

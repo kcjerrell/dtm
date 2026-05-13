@@ -15,7 +15,7 @@ import type { ICommand1 } from "@/types"
 import ImageStore from "@/utils/imageStore"
 import { save } from "@/utils/tauri"
 import { loadImage2 } from "../state/imageLoaders"
-import type MediaItem from "../state/MediaItem"
+import type MediaItem from "../state/mediaItem"
 import { clearAll, getMetadataStore, pinImage } from "../state/metadataStore"
 import PinnedIcon from "./PinnedIcon"
 

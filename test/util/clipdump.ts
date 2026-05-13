@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { setTestOverride } from "./helpers"
 
 type ClipDataType = {
@@ -130,7 +131,7 @@ export function getPasteboardData(type: string, source: string, item: string) {
     return dumps.find((d) => d.type === type && d.source === source && d.item === item)?.dump
 }
 
-export async function setPasteboardOverride(overrideData: Record<string, unknown>) {
+export async function setPasteboardOverride(overrideData?: Record<string, unknown>) {
     await setTestOverride({
         pasteboardText: overrideData,
         pasteboardTypes: Object.keys(overrideData),

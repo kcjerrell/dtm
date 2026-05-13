@@ -1,6 +1,5 @@
 import { useEffect } from "react"
-import { useHotkeys, useHotkeysContext } from "react-hotkeys-hook"
-import type { Options } from "react-hotkeys-hook/dist/types"
+import { type Options, useHotkeys, useHotkeysContext } from "react-hotkeys-hook"
 
 const scopeStack = [] as string[]
 

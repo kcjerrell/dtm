@@ -30,7 +30,7 @@ function safeFileName(value: string) {
     return value.replace(/[^a-z0-9-_]+/gi, "_").slice(0, 120)
 }
 
-export const config: Options.Testrunner = {
+export const config: Options.Testrunner & Record<string, unknown> = {
     runner: "local",
 
     autoCompileOpts: {

@@ -1,6 +1,7 @@
-import type { Model, ScanProgress } from "@/commands"
+import type { Model, ScanProgress, TensorDataRow } from "@/commands"
 import type { OpenPose } from "@/utils/poseHelpers"
 import type { BackendFilter } from "./state/search"
+import { TensorData } from "@/commands/DTProjectTypes"
 
 export type ScanProgressEvent = {
     payload: ScanProgress
@@ -41,7 +42,28 @@ export type SubItem = {
     width?: number
     height?: number
     isLoading: boolean
-    pose?: OpenPose
+    pose?: MaybeReadonly<OpenPose>
+}
+
+export type CanvasStack = {
+    projectId: number
+    nodeId: number
+    tensorData: readonly MaybeReadonly<TensorData>[]
+    isLoading: boolean
+    width?: number
+    height?: number
+}
+
+export function isCanvasStack(item: unknown): item is MaybeReadonly<CanvasStack>
+export function isCanvasStack(item: unknown): item is CanvasStack {
+    return (
+        typeof item === "object" &&
+        item !== null &&
+        "projectId" in item &&
+        typeof item.projectId === "number" &&
+        "tensorData" in item &&
+        Array.isArray(item.tensorData)
+    )
 }
 
 export type TensorType =

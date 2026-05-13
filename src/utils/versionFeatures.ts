@@ -143,6 +143,14 @@ const data: VersionData = {
             version: "z_image",
             features: ["cfgZero", "resolutionDependentShift"],
         },
+        {
+            version: "ernie_image",
+            features: ["cfgZero"],
+        },
+        {
+            version: "cosmos2.5_2b",
+            features: ["cfgZero", "resolutionDependentShift"],
+        },
     ],
     features: {
         cfgZero: {

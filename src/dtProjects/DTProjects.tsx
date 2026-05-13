@@ -1,7 +1,7 @@
 import { chakra, VStack } from "@chakra-ui/react"
 import { useSidebarStyle } from "@/components/sidebar/useSidebarStyle"
 import ControlPane from "./controlPane/ControlPane"
-import DetailsOverlay from "./detailsOverlay/DetailsOverlay"
+import Overlay from "./detailsOverlay/Overlay"
 import DialogPresenter from "./dialog/DialogPresenter"
 import EmptyGrid from "./EmptyGrid"
 import ImportProgress from "./ImportProgress"
@@ -48,7 +48,7 @@ function DTProjects(props: ChakraProps) {
                         transform={"translate(-50%, -50%)"}
                     />
                 </VStack>
-                <DetailsOverlay zIndex={10} />
+                <Overlay zIndex={10} />
                 <DialogPresenter />
             </Container>
         </MenuProvider>

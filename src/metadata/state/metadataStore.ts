@@ -1,14 +1,20 @@
 import { readFile } from "@tauri-apps/plugin-fs"
 import { store } from "@tauri-store/valtio"
 import * as exifr from "exifr"
-import { proxy } from "valtio"
+import { proxy, subscribe } from "valtio"
 import { getSetting } from "@/state/settings"
 import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
 import { bindProxy } from "@/utils/valtio"
 import { ImageItem } from "./ImageItem"
-import MediaItem from "./MediaItem"
+import MediaItem from "./mediaItem"
 import { VideoItem } from "./VideoItem"
+
+const storeReady = Promise.withResolvers<void>()
+export function waitForMetadataStore() {
+    getMetadataStore()
+    return storeReady.promise
+}
 
 const initialStoreValues = {
     items: [] as MediaItem[],
@@ -17,6 +23,7 @@ const initialStoreValues = {
     showHistory: false,
     maxHistory: 10,
     isLoadingImage: false,
+    isLoaded: false,
 }
 
 function initStore() {
@@ -38,6 +45,7 @@ function initStore() {
                 "zoomPreview",
                 "showHistory",
                 "isLoadingImage",
+                "isLoaded",
             ],
             filterKeysStrategy: "omit",
             saveOnChange: true,
@@ -51,6 +59,10 @@ function initStore() {
                 beforeFrontendSync(state) {
                     // when syncing state from the store, we need to make sure pojos become classes
                     if (typeof state !== "object" || state === null) return state
+
+                    setTimeout(() => {
+                        getStore().state.isLoaded = true
+                    }, 0)
 
                     if ("items" in state && Array.isArray(state.items)) {
                         state.items = state.items.map(
@@ -89,6 +101,13 @@ function initStore() {
             },
         },
     )
+    const loader = subscribe(storeInstance.state, () => {
+        console.log("storeInstance.state.isLoaded", storeInstance.state)
+        if (storeInstance.state.isLoaded) {
+            storeReady.resolve()
+            loader()
+        }
+    })
     window.addEventListener("unload", () => {
         cleanUp()
         getStore().stop()

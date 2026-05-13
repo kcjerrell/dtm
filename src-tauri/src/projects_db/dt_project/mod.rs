@@ -1,15 +1,14 @@
 use crate::projects_db::{
     dt_project::raw::DTProjectRaw,
     dtos::{
-        clip::{Clip, ClipExtra, ClipFrame},
+        clip::{Clip as DtoClip, ClipExtra, ClipFrame},
         project::DTProjectInfo,
-        tensor::{
-            TensorHistoryExtra, TensorHistoryImport, TensorHistoryNode, TensorNodeGrouper,
-            TensorRaw, TensorSize,
-        },
+        tensor::{TensorHistoryImport, TensorNodeGrouper, TensorRaw, TensorSize},
         text::TextHistoryNode,
     },
+    fbs::root_as_tensor_moodboard_data,
     tensor_history_tensor_data::TensorHistoryTensorData,
+    text_history::PromptPair,
     TextHistory,
 };
 use dashmap::DashMap;
@@ -30,11 +29,18 @@ use std::{
 };
 use tokio::sync::OnceCell;
 
-mod raw;
+pub mod raw;
 pub use raw::dt_project_tensordata;
+pub mod clip;
+pub use clip::{Clip, ClipFilter};
+pub mod data;
 pub mod maintenance;
-mod tensor_history_node;
-pub use tensor_history_node::TensorHistoryNodeRow;
+pub mod tensor_data;
+pub use tensor_data::{TdFilter, TensorData};
+pub mod tensor_history_node;
+pub use tensor_history_node::{TensorHistoryNode, ThnData, ThnFilter};
+pub mod tensor_moodboard_data;
+pub use tensor_moodboard_data::{TensorMoodboardData, TmdFilter};
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);
@@ -53,8 +59,8 @@ struct CachedProject {
 pub struct DTProject {
     pool: Arc<SqlitePool>,
     path: String,
+    text_history: OnceCell<Arc<TextHistory>>,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
-    pub text_history: Arc<OnceCell<TextHistory>>,
     pub is_shared: bool,
 }
 
@@ -105,11 +111,13 @@ fn schedule_eviction(path: String, generation: u64) {
     });
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Copy, Clone)]
 enum DTProjectTable {
-    TensorHistory,
+    TensorHistoryNode,
+    TensorData,
     TextHistory,
-    Moodboard,
+    TextLineage,
+    TensorMoodboardData,
     Tensors,
     Thumbs,
     Clip,
@@ -118,7 +126,9 @@ enum DTProjectTable {
 #[derive(Debug, Default, Clone)]
 pub struct DTProjectTableStatus {
     pub has_tensor_history: bool,
+    pub has_tensor_data: bool,
     pub has_text_history: bool,
+    pub has_text_lineage: bool,
     pub has_moodboard: bool,
     pub has_tensors: bool,
     pub has_thumbs: bool,
@@ -134,7 +144,7 @@ impl DTProject {
             pool: Arc::new(pool),
             path: db_path.to_string(),
             tables: Arc::new(OnceCell::new()),
-            text_history: Arc::new(OnceCell::new()),
+            text_history: OnceCell::new(),
             is_shared,
         };
 
@@ -205,7 +215,9 @@ impl DTProject {
                         "tensors" => status.has_tensors = true,
                         "thumbnailhistorynode" => status.has_thumbs = true,
                         "texthistorynode" => status.has_text_history = true,
+                        "textlineage" => status.has_text_lineage = true,
                         "clip" => status.has_clip = true,
+                        "tensordata" => status.has_tensor_data = true,
                         _ => {}
                     }
                 }
@@ -221,12 +233,14 @@ impl DTProject {
         let status = self.check_tables().await?;
 
         let has_table = match table {
-            DTProjectTable::TensorHistory => status.has_tensor_history,
+            DTProjectTable::TensorHistoryNode => status.has_tensor_history,
             DTProjectTable::TextHistory => status.has_text_history,
-            DTProjectTable::Moodboard => status.has_moodboard,
+            DTProjectTable::TextLineage => status.has_text_lineage,
+            DTProjectTable::TensorMoodboardData => status.has_moodboard,
             DTProjectTable::Tensors => status.has_tensors,
             DTProjectTable::Thumbs => status.has_thumbs,
             DTProjectTable::Clip => status.has_clip,
+            DTProjectTable::TensorData => status.has_tensor_data,
         };
 
         if !has_table {
@@ -256,83 +270,14 @@ impl DTProject {
         Ok(fingerprint.trim_end_matches(':').to_string())
     }
 
-    pub async fn get_histories(
-        &self,
-        first_id: i64,
-        count: usize,
-    ) -> Result<Vec<TensorHistoryImport>, Error> {
-        match self.check_table(&DTProjectTable::TensorHistory).await {
-            Ok(_) => {}
-            Err(_) => return Ok(Vec::new()),
-        }
+    // table: tensors
+    // columns: name, type, format, datatype, dim, data
+    // relations: indirectly with tensordata (and its index tables)
+    //            tensordata flatbuffer (and index tables) have the numeric part of the tensor name
+    //            the numeric id can be joined with the type (ie: tensor_history_, depth_map_) to get
+    //            the full tensor name
 
-        // We need to construct a query similar to full_query_where but for a range,
-        // and we need to make sure we select the f86 column (image_id) if it's available in tensorhistorynode.
-        // The original query was: "SELECT p, f86, tensorhistorynode.rowid FROM tensorhistorynode ..."
-        // full_query_where selects: rowid, lineage, logical_time, p, and then the content IDs.
-        // It does NOT select f86.
-        // We need to add f86 to the selection.
-        let result: Vec<TensorHistoryTensorData> =
-            query_as(&full_query_where("thn.rowid >= ?1 AND thn.rowid < ?2"))
-                .bind(first_id)
-                .bind(first_id + count as i64)
-                .fetch_all(&*self.pool)
-                .await?;
-
-        let grouper = TensorNodeGrouper::new(&result);
-
-        let mut items: Vec<TensorHistoryImport> = grouper.collect();
-
-        for item in &mut items {
-            if item.prompt.is_empty() && item.negative_prompt.is_empty() {
-                let history = self
-                    .text_history
-                    .get_or_try_init(|| async {
-                        let nodes = self.get_text_history().await?;
-                        Ok::<TextHistory, Error>(TextHistory::new(nodes))
-                    })
-                    .await
-                    .unwrap();
-
-                if let Some(prompts) = history.get_edit(item.text_lineage, item.text_edits) {
-                    item.prompt = prompts.positive.clone();
-                    item.negative_prompt = prompts.negative.clone();
-                }
-            }
-        }
-
-        Ok(items)
-    }
-
-    fn map_import(&self, row: SqliteRow) -> TensorHistoryImport {
-        let row_id: i64 = row.get(0);
-        let p: &[u8] = row.get(1);
-        let tensor_id: String = row.get(2);
-
-        // These are booleans from the query (MAX(val) > 0)
-        let has_mask: bool = row.get(3);
-        let has_depth: bool = row.get(4);
-        let has_scribble: bool = row.get(5);
-        let has_pose: bool = row.get(6);
-        let has_color: bool = row.get(7);
-        let has_custom: bool = row.get(8);
-        let has_shuffle: bool = row.get(8);
-
-        TensorHistoryImport::new(
-            p,
-            row_id,
-            tensor_id,
-            has_depth,
-            has_pose,
-            has_color,
-            has_custom,
-            has_scribble,
-            has_shuffle,
-            has_mask,
-        )
-        .unwrap()
-    }
-
+    // KEEP - should rename to get_tensor
     pub async fn get_tensor_raw(&self, name: &str) -> Result<TensorRaw, Error> {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT type, format, datatype, dim, data FROM tensors WHERE name = ?1")
@@ -365,6 +310,10 @@ impl DTProject {
         })
     }
 
+    // used by front end to determine subitem display size - might not be necessary though
+    // however, it might be worth keeping because it can get a tensor's size without
+    // having to allocate for the tensor data
+    // KEEP (maybe)
     pub async fn get_tensor_size(&self, name: &str) -> Result<TensorSize, Error> {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT datatype, dim FROM tensors WHERE name = ?1")
@@ -405,8 +354,9 @@ impl DTProject {
         }
     }
 
+    // KEEP - used to so 'top off' scans know if the project has been updated
     pub async fn get_info(&self) -> Result<DTProjectInfo, Error> {
-        match self.check_table(&DTProjectTable::TensorHistory).await {
+        match self.check_table(&DTProjectTable::TensorHistoryNode).await {
             Ok(_) => {}
             Err(_) => {
                 return Ok(DTProjectInfo {
@@ -429,6 +379,15 @@ impl DTProject {
         })
     }
 
+    // table: thumbnailhistorynode and thumbnailhalfhistorynode
+    // columns: __pk0 (preview_id), p (flatbuffer with jpg)
+    // relations: tensorhistorynode's flatbuffer preview_id field is __pk0
+    //            this is also indexed on tensorhistorynode__f86
+    //            select * from tensorhistorynode thn
+    //            join tensorhistorynode__f86 thn86 on thn86.rowid = thn.rowid
+    //            join thumbnailhistorynode th on th.__pk0 = thn86.f86
+    // KEEP - should probably just extract the jpg here
+    // gets the half size preview - note: this is not a jpg, but includes a jpg. use extract_jpeg_slice
     pub async fn get_thumb_half(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
         self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistoryhalfnode WHERE __pk0 = ?1")
@@ -439,6 +398,8 @@ impl DTProject {
         Ok(thumbnail)
     }
 
+    // KEEP - should probably just extract the jpg here
+    // gets the full size preview - note: this is not a jpg, but includes a jpg. use extract_jpeg_slice
     pub async fn get_thumb(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
         self.check_table(&DTProjectTable::Thumbs).await?;
         let result = query("SELECT p FROM thumbnailhistorynode WHERE __pk0 = ?1")
@@ -449,11 +410,16 @@ impl DTProject {
         Ok(thumbnail)
     }
 
+    // returns clip frames starting from the provided first frame's node_id
+    // REMOVE - replace with get_clip_and_frames
     pub async fn get_histories_from_clip(&self, node_id: i64) -> Result<Vec<ClipFrame>, Error> {
-        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
-        let history = self.get_history_full(node_id).await?;
-        let num_frames = history.history.num_frames;
+        let nodes = self
+            .get_tensor_history_nodes(Some(ThnFilter::Rowid(node_id)), None)
+            .await?;
+        let node = nodes.into_iter().next().ok_or(Error::RowNotFound)?;
+        let num_frames = node.data().num_frames();
 
         let items: Vec<ClipFrame> = query(CLIP_QUERY)
             .bind(node_id)
@@ -465,17 +431,20 @@ impl DTProject {
         Ok(items)
     }
 
+    // KEEP - however, the clip_id param should be removed, and instead obtained with an additional
+    // query for the node. this is only used for one clip at a time, and even though one usage is
+    // somewhat latency sensitive (video on hover), it should still be fast enough
     pub async fn get_clip_and_frames(
         &self,
         node_id: i64,
         clip_id: i64,
     ) -> Result<ClipExtra, Error> {
-        self.check_table(&DTProjectTable::TensorHistory).await?;
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         self.check_table(&DTProjectTable::Clip).await?;
 
-        let clip: Clip = query("SELECT * FROM clip where __pk0 = ?1")
+        let clip: DtoClip = query("SELECT * FROM clip where __pk0 = ?1")
             .bind(clip_id)
-            .map(|row: SqliteRow| Clip::map_row(&row))
+            .map(|row: SqliteRow| DtoClip::map_row(&row))
             .fetch_one(&*self.pool)
             .await?;
 
@@ -486,11 +455,17 @@ impl DTProject {
             .fetch_all(&*self.pool)
             .await?;
 
-        let extra = ClipExtra { clip, frames };
+        let extra = ClipExtra {
+            clip: clip.clone(),
+            frames,
+        };
 
         Ok(extra)
     }
 
+    // this is used when importing to get the frame count for video items
+    // KEEP - however, these are small enough that we can just return the whole table.
+    // the import process should call this once per import, instead of once per batch
     pub async fn get_clip_counts(&self, clip_ids: Vec<i64>) -> Result<HashMap<i64, i64>, Error> {
         if clip_ids.is_empty() {
             return Ok(HashMap::new());
@@ -507,7 +482,10 @@ impl DTProject {
 
         qb.push(")");
 
-        let rows: Vec<Clip> = qb.build_query_as::<Clip>().fetch_all(&*self.pool).await?;
+        let rows: Vec<DtoClip> = qb
+            .build_query_as::<DtoClip>()
+            .fetch_all(&*self.pool)
+            .await?;
 
         Ok(HashMap::from_iter(
             rows.iter().map(|c| (c.clip_id, c.count as i64)),
@@ -518,220 +496,51 @@ impl DTProject {
         ClipFrame::new(row.get(0), row.get(1), row.get(2)).unwrap()
     }
 
-    pub async fn get_history_full(&self, row_id: i64) -> Result<TensorHistoryExtra, Error> {
-        self.check_table(&DTProjectTable::TensorHistory).await?;
-        let result: Vec<TensorHistoryTensorData> = query_as(&full_query_where("thn.rowid == ?1"))
-            .bind(row_id)
-            .fetch_all(&*self.pool)
-            .await?;
+    // KEEP
+    async fn get_text_history(&self) -> Result<&Arc<TextHistory>, Error> {
+        let history = self
+            .text_history
+            .get_or_try_init(|| async {
+                if self
+                    .check_table(&DTProjectTable::TextHistory)
+                    .await
+                    .is_err()
+                {
+                    return Ok::<Arc<TextHistory>, Error>(Arc::new(TextHistory::new(
+                        Vec::new(),
+                        Vec::new(),
+                    )));
+                }
 
-        let mut item = TensorHistoryExtra::from((result, self.path.clone()));
-
-        item.moodboard_ids = self
-            .get_shuffle_ids(item.lineage, item.logical_time)
-            .await?;
-        // item.moodboard_ids = Some(moodboard_ids);
-
-        let prompt_empty = item
-            .history
-            .text_prompt
-            .as_ref()
-            .map_or(true, |s| s.is_empty());
-        let neg_prompt_empty = item
-            .history
-            .negative_text_prompt
-            .as_ref()
-            .map_or(true, |s| s.is_empty());
-
-        if prompt_empty && neg_prompt_empty {
-            let history = self
-                .text_history
-                .get_or_try_init(|| async {
-                    let nodes = self.get_text_history().await?;
-                    Ok::<TextHistory, Error>(TextHistory::new(nodes))
-                })
+                let nodes: Vec<TextHistoryNode> =
+                    query("SELECT p FROM texthistorynode ORDER BY rowid")
+                        .map(|row: SqliteRow| {
+                            let p: Vec<u8> = row.get(0);
+                            TextHistoryNode::try_from(p.as_slice()).unwrap()
+                        })
+                        .fetch_all(&*self.pool)
+                        .await?;
+                let lineages: Vec<(i64, i64)> = query(
+                    "
+                SELECT tln.__pk0, tln_f6.f6 
+                FROM textlineagenode tln 
+                JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid 
+                ORDER BY tln.rowid",
+                )
+                .map(|row: SqliteRow| (row.get(0), row.get(1)))
+                .fetch_all(&*self.pool)
                 .await?;
 
-            if let Some(prompts) =
-                history.get_edit(item.history.text_lineage, item.history.text_edits)
-            {
-                item.history.text_prompt = Some(prompts.positive);
-                item.history.negative_text_prompt = Some(prompts.negative);
-            }
-        }
-
-        Ok(item)
-    }
-
-    pub async fn get_history_with_clip(
-        &self,
-        row_id: i64,
-        clip_id: i64,
-    ) -> Result<(TensorHistoryExtra, Clip), Error> {
-        let history = self.get_history_full(row_id).await?;
-
-        self.check_table(&DTProjectTable::Clip).await?;
-
-        let clip: Clip = query("SELECT * FROM clip where __pk0 = ?1")
-            .bind(clip_id)
-            .map(|row: SqliteRow| Clip::map_row(&row))
-            .fetch_one(&*self.pool)
-            .await?;
-
-        Ok((history, clip))
-    }
-
-    fn map_full(&self, row: SqliteRow) -> TensorHistoryExtra {
-        let row_id = row.get(0);
-        let lineage = row.get(1);
-        let logical_time = row.get(2);
-        let p: &[u8] = row.get(3);
-        let tensor_id = row.get(4);
-        let mask_id = row.get(5);
-        let depth_map_id = row.get(6);
-        let scribble_id = row.get(7);
-        let pose_id = row.get(8);
-        let color_palette_id = row.get(9);
-        let custom_id = row.get(10);
-        let history = TensorHistoryNode::try_from(p);
-
-        TensorHistoryExtra {
-            row_id,
-            lineage,
-            logical_time,
-            tensor_id,
-            mask_id,
-            depth_map_id,
-            scribble_id,
-            pose_id,
-            color_palette_id,
-            custom_id,
-            moodboard_ids: Vec::new(),
-            project_path: self.path.clone(),
-            history: history.unwrap(),
-        }
-    }
-
-    pub async fn get_shuffle_ids(
-        &self,
-        lineage: i64,
-        logical_time: i64,
-    ) -> Result<Vec<String>, Error> {
-        if self.check_table(&DTProjectTable::Moodboard).await.is_err() {
-            return Ok(Vec::new());
-        }
-
-        let shuffle_ids = query(
-            "
-            SELECT
-            'shuffle_' || f10.f10 as shuffle_id
-			FROM tensormoodboarddata AS tmd
-			
-			LEFT JOIN tensormoodboarddata__f10 AS f10 ON tmd.rowid == f10.rowid
-
-            WHERE tmd.__pk0 == ?1 AND tmd.__pk1 == ?2
-        ",
-        )
-        .bind(lineage)
-        .bind(logical_time)
-        .map(|row: SqliteRow| row.get(0))
-        .fetch_all(&*self.pool)
-        .await?;
-
-        Ok(shuffle_ids)
-    }
-
-    pub async fn find_predecessor_candidates(
-        &self,
-        row_id: i64,
-        lineage: i64,
-        logical_time: i64,
-    ) -> Result<Vec<TensorHistoryExtra>, Error> {
-        // Ok(Vec::new())
-
-        self.check_table(&DTProjectTable::TensorHistory).await?;
-        let q = &full_query_where("thn.__pk1 == ?1 AND thn.rowid < ?2");
-        let candidates: Vec<TensorHistoryTensorData> = query_as(q)
-            .bind(logical_time - 1)
-            .bind(row_id)
-            .fetch_all(&*self.pool)
-            .await?;
-
-        let mut same_lineage: Option<&TensorHistoryTensorData> = None;
-        let mut one_less: Option<&TensorHistoryTensorData> = None;
-        let mut next_closest: Option<&TensorHistoryTensorData> = None;
-        let mut highest_closest: Option<&TensorHistoryTensorData> = None;
-
-        for candidate in &candidates {
-            use std::cmp::Ordering::*;
-
-            match candidate.lineage.cmp(&lineage) {
-                Equal => {
-                    same_lineage = Some(candidate);
-                    break;
-                }
-                Less => {
-                    if candidate.lineage == lineage - 1 {
-                        one_less = Some(candidate);
-                    }
-                }
-                Greater => {
-                    next_closest = match next_closest {
-                        Some(existing) if candidate.lineage < existing.lineage => Some(candidate),
-                        None => Some(candidate),
-                        other => other,
-                    };
-
-                    highest_closest = match highest_closest {
-                        Some(existing) if candidate.lineage > existing.lineage => Some(candidate),
-                        None => Some(candidate),
-                        other => other,
-                    };
-                }
-            }
-        }
-
-        if same_lineage.is_some() {
-            return Ok(vec![
-                self.get_history_full(same_lineage.unwrap().node_id).await?,
-            ]);
-        }
-
-        let mut seen = HashSet::new();
-        let mut result = Vec::new();
-
-        for item in [one_less, next_closest, highest_closest]
-            .into_iter()
-            .flatten()
-        {
-            if seen.insert(item.node_id) {
-                // or any unique field
-                result.push(item.clone());
-            }
-        }
-        let mut full_result = Vec::new();
-        for item in result {
-            full_result.push(self.get_history_full(item.node_id).await?);
-        }
-
-        Ok(full_result)
-    }
-
-    pub async fn get_text_history(&self) -> Result<Vec<TextHistoryNode>, Error> {
-        match self.check_table(&DTProjectTable::TextHistory).await {
-            Ok(_) => {}
-            Err(_) => return Ok(Vec::new()),
-        }
-
-        let items: Vec<TextHistoryNode> = query("SELECT p FROM texthistorynode ORDER BY rowid")
-            .map(|row: SqliteRow| {
-                let p: Vec<u8> = row.get(0);
-                TextHistoryNode::try_from(p.as_slice()).unwrap()
+                Ok(Arc::new(TextHistory::new(nodes, lineages)))
             })
-            .fetch_all(&*self.pool)
             .await?;
 
-        Ok(items)
+        Ok(history)
+    }
+
+    pub async fn get_text_edit(&self, lineage: i64, edit: i64) -> Result<PromptPair, Error> {
+        let history = self.get_text_history().await?;
+        history.get_edit(lineage, edit).ok_or(Error::RowNotFound)
     }
 
     pub fn raw(&'_ self) -> DTProjectRaw<'_> {
@@ -747,72 +556,6 @@ pub async fn get_last_row(path: &str) -> Result<(i64, i64), Error> {
         .await?;
     let rowid: i64 = row.get(0);
     Ok((rowid, rowid))
-}
-
-fn import_query(has_moodboard: bool) -> String {
-    let moodboard = match has_moodboard {
-        true => {
-            "EXISTS (
-                    SELECT 1
-                    FROM tensormoodboarddata AS tmd
-                    WHERE
-                        tmd.__pk0 = thn.__pk0
-                        AND tmd.__pk1 = thn.__pk1
-                ) AS has_shuffle\n"
-        }
-        false => "0 as has_shuffle\n",
-    };
-
-    format!(
-        "
-        SELECT
-            thn.rowid,
-            thn.p AS data_blob,
-
-            MAX('tensor_history_'   || NULLIF(td.f20, 0)) AS tensor_id,
-            MAX(td.f22) > 0 AS has_mask,
-            MAX(td.f24) > 0 AS has_depth,
-            MAX(td.f26) > 0 AS has_scribble,
-            MAX(td.f28) > 0 AS has_pose,
-            MAX(td.f30) > 0 AS has_color,
-            MAX(td.f32) > 0 AS has_custom,
-
-            {}
-
-        FROM tensorhistorynode AS thn
-
-        LEFT JOIN (
-            SELECT
-                td.rowid,
-                td.__pk0,
-                td.__pk1,
-                f20.f20 AS f20,
-                f22.f22 AS f22,
-                f24.f24 AS f24,
-                f26.f26 AS f26,
-                f28.f28 AS f28,
-                f30.f30 AS f30,
-                f32.f32 AS f32
-            FROM tensordata AS td
-            LEFT JOIN tensordata__f20 AS f20 ON f20.rowid = td.rowid
-            LEFT JOIN tensordata__f22 AS f22 ON f22.rowid = td.rowid
-            LEFT JOIN tensordata__f24 AS f24 ON f24.rowid = td.rowid
-            LEFT JOIN tensordata__f26 AS f26 ON f26.rowid = td.rowid
-            LEFT JOIN tensordata__f28 AS f28 ON f28.rowid = td.rowid
-            LEFT JOIN tensordata__f30 AS f30 ON f30.rowid = td.rowid
-            LEFT JOIN tensordata__f32 AS f32 ON f32.rowid = td.rowid
-        ) AS td
-        ON thn.__pk0 = td.__pk0
-        AND thn.__pk1 = td.__pk1
-
-        WHERE thn.rowid >= ?1
-        AND thn.rowid < ?2
-
-        GROUP BY thn.rowid
-        ORDER BY thn.rowid;
-        ",
-        moodboard
-    )
 }
 
 const CLIP_QUERY: &str = "
@@ -838,33 +581,11 @@ const CLIP_QUERY: &str = "
         ON td.rowid = td_f20.rowid
     WHERE thn.rowid >= ?1
     AND thn.rowid < ?2
-    ORDER BY thn.rowid;
-        ";
-
-fn full_query_where(where_expr: &str) -> String {
-    format!(
-        "
-        SELECT
-            thn.rowid,
-            thn.__pk0 as lineage,
-            thn.__pk1 as logical_time,
-            td.__pk2 as td_index,
-            thn.p AS node_data,
-            td.p AS tensor_data
-        FROM tensorhistorynode AS thn
-        LEFT JOIN tensordata AS td
-            ON td.__pk0 = thn.__pk0
-            AND td.__pk1 = thn.__pk1
-        WHERE td.__pk2 IS NOT NULL
-            AND {}
-        ORDER BY thn.rowid, td.__pk2 ASC;
-        ",
-        where_expr
-    )
-}
+    ORDER BY thn.rowid;\n        ";
 
 pub enum ProjectRef {
     Id(i64),
+    Path(String),
 }
 
 impl From<i64> for ProjectRef {

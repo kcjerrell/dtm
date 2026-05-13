@@ -309,3 +309,16 @@ export function cs(...items: string[]) {
 export function hasProp<K extends string>(obj: unknown, prop: K): obj is { [key in K]: unknown } {
     return typeof obj === "object" && obj !== null && prop in obj
 }
+
+export function getKeyPaths(data: unknown, keys: string[] = [], currentKey?: string) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        if (currentKey) keys.push(currentKey)
+        return
+    }
+
+    for (const [key, value] of Object.entries(data)) {
+        getKeyPaths(value, keys, currentKey ? `${currentKey}.${key}` : key)
+    }
+
+    return keys
+}

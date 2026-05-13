@@ -1,15 +1,17 @@
 import type { ImageExtra } from "./DtpServiceTypes"
 
 function thumb(image: ImageExtra): string
-function thumb(projectId: number, previewId: number): string
-function thumb(arg: ImageExtra | number, previewId?: number): string {
+function thumb(projectId?: number, previewId?: number): string
+function thumb(arg?: ImageExtra | number, previewId?: number): string {
+    if (!arg) return ""
     if (typeof arg === "number") return `dtm://dtproject/thumb/${arg}/${previewId}`
     return `dtm://dtproject/thumb/${arg.project_id}/${arg.preview_id}`
 }
 
 function thumbHalf(image: ImageExtra): string
-function thumbHalf(projectId: number, previewId: number): string
-function thumbHalf(arg: ImageExtra | number, previewId?: number): string {
+function thumbHalf(projectId?: number, previewId?: number): string
+function thumbHalf(arg?: ImageExtra | number, previewId?: number): string {
+    if (!arg) return ""
     if (typeof arg === "number") return `dtm://dtproject/thumbhalf/${arg}/${previewId}`
     return `dtm://dtproject/thumbhalf/${arg.project_id}/${arg.preview_id}`
 }
@@ -20,19 +22,22 @@ const urls = {
     tensor: (
         projectId: number,
         name: string,
-        opts?: { nodeId?: number | null; size?: number | null; invert?: boolean, duration?: number },
+        opts?: {
+            nodeId?: number | null
+            size?: number | null
+            mask?: string
+            duration?: number
+            invert?: boolean
+        },
     ) => {
         const url = new URL(`dtm://dtproject/tensor/${projectId}/${name}`)
         if (opts?.nodeId) url.searchParams.set("node", opts.nodeId.toString())
         if (opts?.size) url.searchParams.set("s", opts.size.toString())
-        if (opts?.invert) url.searchParams.set("mask", "invert")
+        if (opts?.mask) url.searchParams.set("mask", opts.mask)
+        if (opts?.invert) url.searchParams.set("invert", "true")
         return url.toString()
     },
-    audio: (
-        projectId: number,
-        name: string,
-        opts?: { duration?: number },
-    ) => {
+    audio: (projectId: number, name: string, opts?: { duration?: number }) => {
         const url = new URL(`dtm://dtproject/audio/${projectId}/${name}`)
         if (opts?.duration) url.searchParams.set("t", opts.duration.toString())
         return url.toString()

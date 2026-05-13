@@ -6,20 +6,16 @@ use crate::{
         AppHandleWrapper, DTPService,
     },
     projects_db::{
+        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
         dtos::{
-            clip::ClipExtra,
-            image::ListImagesResult,
-            model::ModelExtra,
-            project::ProjectExtra,
-            tensor::{TensorHistoryExtra, TensorSize},
-            watch_folder::WatchFolderDTO,
+            clip::ClipExtra, image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
+            tensor::TensorSize, watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
         folder_cache, DecodeTensorOptions, DrawThingsMetadata, ProjectRef,
     },
 };
 use dtm_macros::dtp_commands;
-use serde_json::Value;
 
 #[dtp_commands]
 impl DTPService {
@@ -205,55 +201,19 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_history_full(
-        &self,
-        project_id: i64,
-        row_id: i64,
-        clip_id: Option<i64>,
-    ) -> Result<Value, String> {
-        let project = self.get_project(project_id).await?;
-
-        let (history, clip) = match clip_id {
-            Some(cid) => {
-                let (h, c) = project
-                    .get_history_with_clip(row_id, cid)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                (h, Some(c))
-            }
-            None => {
-                let h = project
-                    .get_history_full(row_id)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                (h, None)
-            }
-        };
-
-        let mut json = serde_json::to_value(history).map_err(|e| e.to_string())?;
-        if let Some(clip) = clip {
-            if let Some(obj) = json.as_object_mut() {
-                obj.insert(
-                    "clip".to_string(),
-                    serde_json::to_value(clip).map_err(|e| e.to_string())?,
-                );
-            }
-        }
-
-        Ok(json)
-    }
-
-    #[dtp_command]
     pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
         let pdb = self.get_db().await?;
         let image = pdb.get_image(image_id).await?;
         let dt_project = pdb.get_dt_project(ProjectRef::Id(image.project_id)).await?;
-        let history = dt_project
-            .get_history_full(image.node_id)
+        let nodes = dt_project
+            .get_tensor_history_nodes(Some(ThnFilter::Rowid(image.node_id)), None)
             .await
             .map_err(|e| e.to_string())?;
-        let metadata = DrawThingsMetadata::try_from(&history.history).unwrap();
-        Ok(metadata)
+        let node = nodes
+            .into_iter()
+            .next()
+            .ok_or_else(|| "Node not found".to_string())?;
+        DrawThingsMetadata::try_from(&node.node_data()).map_err(|e| e.to_string())
     }
 
     #[dtp_command]
@@ -284,13 +244,13 @@ impl DTPService {
             .map_err(|e| e.to_string())?;
 
         let metadata = match node_id {
-            Some(node) => Some(
-                project
-                    .get_history_full(node)
+            Some(node) => {
+                let nodes = project
+                    .get_tensor_history_nodes(Some(ThnFilter::Rowid(node)), None)
                     .await
-                    .map_err(|e| e.to_string())?
-                    .history,
-            ),
+                    .map_err(|e| e.to_string())?;
+                nodes.into_iter().next().map(|n| n.node_data())
+            }
             None => None,
         };
 
@@ -309,16 +269,13 @@ impl DTPService {
     #[dtp_command]
     pub async fn find_predecessor(
         &self,
-        project_id: i64,
-        row_id: i64,
-        lineage: i64,
-        logical_time: i64,
-    ) -> Result<Vec<TensorHistoryExtra>, String> {
-        let project = self.get_project(project_id).await?;
-        Ok(project
-            .find_predecessor_candidates(row_id, lineage, logical_time)
-            .await
-            .map_err(|e| e.to_string())?)
+        _project_id: i64,
+        _row_id: i64,
+        _lineage: i64,
+        _logical_time: i64,
+    ) -> Result<Vec<TensorHistoryNode>, String> {
+        // Pending rework — returns empty until find_predecessor_candidates is reimplemented.
+        Ok(vec![])
     }
 
     // Helper method to get a DTProject instance

@@ -21,3 +21,5 @@ mod tensor_data_generated;
 pub use self::tensor_data_generated::*;
 mod clip_generated;
 pub use self::clip_generated::*;
+mod tensor_moodboard_data_generated;
+pub use self::tensor_moodboard_data_generated::*;

@@ -1,13 +1,14 @@
 import { proxy, useSnapshot } from "valtio"
 import { proxySet } from "valtio/utils"
-import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import DTPService from "@/commands/DtpService"
 import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
-import type { SubItem, TensorType } from "../types"
+import { type CanvasStack, isCanvasStack, type SubItem, type TensorType } from "../types"
 import type { ProjectState } from "./projects"
 import { DTPStateController } from "./types"
 
@@ -17,15 +18,17 @@ export type UIControllerState = {
     detailsView: {
         project?: ProjectState
         item?: ImageExtra
-        itemDetails?: DTImageFull
+        itemDetails?: TensorHistoryNode
         showSpinner: boolean
-        subItem?: SubItem
+        showCanvasOutlines: boolean
+        subItem?: SubItem | CanvasStack
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
         candidates?: TensorHistoryExtra[]
         sourceRect?: DOMRect | null
         width?: number
         height?: number
+        minimizeContent: boolean
     }
     isSettingsOpen: boolean
     isGridInert: boolean
@@ -48,6 +51,7 @@ export class UIController extends DTPStateController<UIControllerState> {
         shouldFocus: undefined,
         detailsView: {
             showSpinner: false,
+            showCanvasOutlines: true,
             item: undefined,
             itemDetails: undefined,
             subItem: undefined,
@@ -57,6 +61,7 @@ export class UIController extends DTPStateController<UIControllerState> {
             sourceRect: null,
             width: 0,
             height: 0,
+            minimizeContent: false,
         },
         isSettingsOpen: false,
         isGridInert: false,
@@ -85,7 +90,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     raise<T>(event: "onItemChanged" | "onSubItemChanged", payload: T) {
         const handlers = this[event] as Handler<T>[]
-        if (!handlers || !handlers.length) {
+        if (!handlers?.length) {
             console.warn(`No handlers for event ${event}`)
             return
         }
@@ -203,9 +208,23 @@ export class UIController extends DTPStateController<UIControllerState> {
         else await this.showSubItemImage(projectId, tensorId)
     }
 
+    async showCanvasStack(details: MaybeReadonly<TensorHistoryNode>) {
+        const detailsOverlay = this.state.detailsView
+        if (!detailsOverlay.item || !details.tensordata?.length) return
+        detailsOverlay.subItem = {
+            projectId: details.projectId,
+            tensorData: details.tensordata,
+            nodeId: details.rowid,
+            isLoading: false,
+            width: details.config?.width,
+            height: details.config?.height,
+        }
+        detailsOverlay.subItemSourceRect = null
+    }
+
     toggleSubItemMask() {
         const details = this.state.detailsView
-        if (!details.subItem || !details.subItem.maskUrl) return
+        if (!details.subItem || isCanvasStack(details.subItem) || !details.subItem.maskUrl) return
         details.subItem.applyMask = !details.subItem.applyMask
     }
 
@@ -216,7 +235,7 @@ export class UIController extends DTPStateController<UIControllerState> {
         const image = await drawPose(pose, 4)
         const details = this.state.detailsView
         if (!image || !details.item) return
-        if (details.subItem) {
+        if (details.subItem && !isCanvasStack(details.subItem)) {
             details.subItem.url = `data:image/png;base64,${await uint8ArrayToBase64(image)}`
             details.subItem.isLoading = false
             details.subItem.width = 1024
@@ -233,6 +252,7 @@ export class UIController extends DTPStateController<UIControllerState> {
             if (!details.item) return
             if (
                 details.subItem &&
+                !isCanvasStack(details.subItem) &&
                 details.subItem.tensorId === tensorId &&
                 details.subItem.projectId === projectId
             ) {
@@ -258,10 +278,14 @@ export class UIController extends DTPStateController<UIControllerState> {
             if (execFinished) this.state.detailsView.showSpinner = false
         }, minTime)
 
-        return fn().finally(() => {
-            execFinished = true
-            if (timerFinished) this.state.detailsView.showSpinner = false
-        })
+        return fn()
+            .catch((err) => {
+                console.error(err)
+            })
+            .finally(() => {
+                execFinished = true
+                if (timerFinished) this.state.detailsView.showSpinner = false
+            })
     }
 
     callWithImageSpinner<T>(imageId: number, fn: () => Promise<T>) {
@@ -277,5 +301,13 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     hideDialog() {
         this.state.dialog = undefined
+    }
+
+    minimizeContent(value?: boolean) {
+        this.state.detailsView.minimizeContent = value ?? !this.state.detailsView.minimizeContent
+    }
+
+    toggleCanvasOutlines() {
+        this.state.detailsView.showCanvasOutlines = !this.state.detailsView.showCanvasOutlines
     }
 }

@@ -1,14 +1,13 @@
 import { Channel } from "@tauri-apps/api/core"
 import DTPService from "@/commands/DtpService"
 import { UIController } from "@/dtProjects/state/uiState"
-import { JobQueue } from "@/utils/container/queue"
 import { Container } from "../../utils/container/container"
 import DetailsService from "./details"
 import ImagesController from "./images"
 import ModelsController from "./models"
 import ProjectsController from "./projects"
 import SearchController from "./search"
-import type { DTPContainer, DTPEvents, DTProjectsJobs, DTPServices } from "./types"
+import type { DTPEvents, DTPServices } from "./types"
 import WatchFoldersController from "./watchFolders"
 
 let _loader: PromiseWithResolvers<void> | null = null
@@ -68,7 +67,6 @@ function createContainer() {
     console.log("creating container")
     const channel = new Channel()
     return new Container<DTPServices, DTPEvents>(channel, () => {
-        const jobs = new JobQueue<DTPContainer, DTProjectsJobs>()
         const uiState = new UIController()
         const projects = new ProjectsController()
         const watchFolders = new WatchFoldersController()
@@ -99,7 +97,6 @@ function createContainer() {
             search,
             images,
             details,
-            jobs,
         } as DTPServices
 
         // connectDevMode(controllers)

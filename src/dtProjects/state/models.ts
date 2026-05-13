@@ -3,7 +3,7 @@ import type { Model } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import { getVersionLabel } from "@/utils/models"
 import type { ModelVersionInfo, VersionModel } from "../types"
-import { type DTPJob, DTPStateController } from "./types"
+import { DTPStateController } from "./types"
 
 type ModelsList = (Model | VersionModel)[]
 
@@ -125,17 +125,6 @@ class ModelsController extends DTPStateController<ModelsControllerState> {
         else if (modelType === "Cnet") property = "controls"
 
         return this.state[property as keyof ModelsControllerState] as ModelsList
-    }
-}
-
-export function getRefreshModelsJob(): DTPJob {
-    return {
-        type: "models-refresh",
-        data: undefined,
-        execute: async (_, container) => {
-            await container.getService("models").refreshModels()
-        },
-        merge: "last",
     }
 }
 

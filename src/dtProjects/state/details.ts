@@ -1,75 +1,34 @@
-import type { DTImageFull, ImageExtra } from "@/commands"
-import DTPService from "@/commands/DtpService"
-import { extractConfigFromTensorHistoryNode, groupConfigProperties } from "@/utils/config"
+import QuickLRU from "quick-lru"
+import type { ImageExtra } from "@/commands"
+import DTProject from "@/commands/DTProject"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import type ProjectsController from "./projects"
 import { DTPStateService } from "./types"
 
 class DetailsService extends DTPStateService {
     projects: ProjectsController
-    itemDetails: Record<string, DTImageFull> = {}
+    itemDetails: QuickLRU<string, TensorHistoryNode> = new QuickLRU({ maxSize: 10 })
 
     constructor(projects: ProjectsController) {
         super("details")
         this.projects = projects
     }
 
-    async getDetails(item: ImageExtra): Promise<DTImageFull | undefined> {
+    async getDetails(item: ImageExtra): Promise<TensorHistoryNode | undefined> {
         if (!item.is_ready) return
         const key = detailsKey(item.project_id, item.node_id)
-        if (this.itemDetails[key]) return this.itemDetails[key]
+        if (this.itemDetails.has(key)) return this.itemDetails.get(key)
         const project = this.projects.state.projects.find((p) => p.id === item.project_id)
         if (!project) return
 
-        const { history, ...extra } = await DTPService.getHistoryFull(
-            item.project_id,
-            item.node_id,
-            item.clip_id && item.clip_id > 0 ? item.clip_id : null,
-        )
-        const rawConfig = extractConfigFromTensorHistoryNode(history) ?? {}
-        const config = groupConfigProperties(rawConfig)
+        const node = await DTProject.getTensorHistory(item.project_id, item.node_id)
 
-        const full: Partial<DTImageFull> = {
-            id: item.node_id,
-            prompt: history.text_prompt,
-            negativePrompt: history.negative_text_prompt,
-            project,
-            config: rawConfig,
-            groupedConfig: config,
-            node: history,
-            numFrames: item.num_frames ?? undefined,
-            clipId: history.clip_id,
-            clip: extra.clip,
-            images: {
-                tensorId: extra.tensor_id,
-                previewId: history.preview_id,
-                maskId: extra.mask_id,
-                depthMapId: extra.depth_map_id,
-                scribbleId: extra.scribble_id,
-                poseId: extra.pose_id,
-                colorPaletteId: extra.color_palette_id,
-                customId: extra.custom_id,
-                moodboardIds: extra.moodboard_ids,
-            },
-        }
-
-        this.itemDetails[key] = full as DTImageFull
-        console.log(full)
-        return full as DTImageFull
+        this.itemDetails.set(key, node)
+        return node
     }
 
-    async getPredecessorCandidates(item: ImageExtra) {
-        const project = this.projects.state.projects.find((p) => p.id === item.project_id)
-        if (!project) return
-
-        const history = await this.getDetails(item)
-        if (!history) return
-
-        return await DTPService.findPredecessor(
-            item.project_id,
-            item.node_id,
-            history.node.lineage,
-            history.node.logical_time,
-        )
+    async getPredecessorCandidates(_item: ImageExtra) {
+        return []
     }
 }
 

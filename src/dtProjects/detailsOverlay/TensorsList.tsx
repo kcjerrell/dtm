@@ -1,14 +1,15 @@
-import { chakra, Spacer, Text, VStack } from "@chakra-ui/react"
+import { Box, chakra, Spacer, Text, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ComponentProps, useCallback } from "react"
 import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
 import { MotionBox, Tooltip } from "@/components"
 import { useDTP } from "../state/context"
-import TensorThumbnail from "./TensorThumbnail"
+import TensorThumbnail, { CanvasCombinedButton } from "./TensorThumbnail"
+import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
     item?: ImageExtra
-    details?: MaybeReadonly<DTImageFull>
+    details?: MaybeReadonly<TensorHistoryNode>
     candidates?: MaybeReadonly<TensorHistoryExtra[]>
 }
 
@@ -27,18 +28,19 @@ function TensorsList(props: TensorsListComponentProps) {
 
     if (!item || !details) return <MotionBox height={"60px"} {...restProps} />
 
-    const { depthMapId, moodboardIds, customId, scribbleId, poseId, colorPaletteId, maskId } =
-        details.images ?? {}
     const tensors = {
-        Depth: depthMapId,
-        Custom: customId,
-        Scribble: scribbleId,
-        Pose: poseId,
-        Color: colorPaletteId,
-        Mask: maskId,
+        Depth: details.depthMapId,
+        Custom: details.customId,
+        Scribble: details.scribbleId,
+        Pose: details.poseId,
+        Color: details.colorPaletteId,
+        Mask: details.maskId,
     }
 
-    const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
+    // const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
+    const canvasTensors = details.tensordata?.filter((t) => t.data.tensor_id)
+
+    console.log(details)
 
     return (
         <Container {...restProps}>
@@ -59,55 +61,49 @@ function TensorsList(props: TensorsListComponentProps) {
                 )
             })}
             <Spacer />
-            {(moodboardIds?.length ?? 0) > 0 && (
+            {(details.moodboard?.length ?? 0) > 0 && (
                 <Group>
                     <Label>Moodboard</Label>
                     <Images>
-                        {moodboardIds?.map((id) => (
+                        {details.moodboard?.map((entry) => (
                             <TensorThumbnail
-                                key={id}
+                                key={entry.rowid}
                                 projectId={item.project_id}
-                                tensorId={id}
-                                onClick={(e) => showSubitem(e, id)}
+                                tensorId={entry.tensor_name}
+                                onClick={(e) => showSubitem(e, entry.tensor_name)}
+                                weight={entry.weight}
                             />
                         ))}
                     </Images>
                 </Group>
             )}
-            {(previous?.length ?? 0) > 0 && (
+            {!!canvasTensors?.length && canvasTensors.length > 1 && (
                 <Group>
                     <Label>Canvas</Label>
                     <Images>
-                        {previous.map((prev) => {
-                            if (!prev.tensor_id) return null
+                        <CanvasCombinedButton
+                            padding={2}
+                            onClick={() => uiState.showCanvasStack(details)}
+                        />
+                        {canvasTensors?.map((ct) => {
+                            if (!ct.tensor_name) return null
 
                             return (
-                                <Tooltip
-                                    key={prev.row_id}
-                                    tip={
-                                        <VStack alignItems={"flex-start"}>
-                                            <Text>{`(${prev.row_id}) lineage: ${prev.lineage}, logical time: ${prev.logical_time}`}</Text>
-                                            <Text>
-                                                Note: It is not alway possible to identify the
-                                                canvas image, or determine if it was used in the
-                                                generation.
-                                            </Text>
-                                        </VStack>
+                                <TensorThumbnail
+                                    key={ct.tensor_name}
+                                    projectId={item.project_id}
+                                    tensorId={ct.tensor_name}
+                                    // maskId={
+                                    //     ct.mask_id ? `binary_mask_${ct.mask_id}` : undefined
+                                    // }
+                                    onClick={(e) =>
+                                        showSubitem(
+                                            e,
+                                            ct.tensor_name,
+                                            //ct.mask_name ? `binary_mask_${ct.mask_id}` : undefined,
+                                        )
                                     }
-                                >
-                                    <TensorThumbnail
-                                        projectId={item.project_id}
-                                        tensorId={prev.tensor_id ?? undefined}
-                                        maskId={prev.mask_id ?? undefined}
-                                        onClick={(e) =>
-                                            showSubitem(
-                                                e,
-                                                prev.tensor_id ?? undefined,
-                                                prev.mask_id ?? undefined,
-                                            )
-                                        }
-                                    />
-                                </Tooltip>
+                                />
                             )
                         })}
                     </Images>
@@ -120,9 +116,10 @@ function TensorsList(props: TensorsListComponentProps) {
 const Container = chakra(motion.div, {
     base: {
         display: "flex",
+        flexWrap: "wrap",
         flexDirection: "row",
         padding: 0,
-        height: "60px",
+        height: "fit-content",
         // transform: "translateY(15px)",
     },
 })
@@ -160,7 +157,7 @@ const Images = chakra(
     {
         base: {
             display: "flex",
-            bgColor: "white",
+            // bgColor: "white",
             flexDirection: "row",
             gap: 0,
             borderRadius: "lg",

@@ -28,7 +28,7 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
                 getIcon: (selected: readonly WatchFolderState[]) =>
                     selected[0]?.recursive ? FiList : LuFolderTree,
                 requiresSelection: true,
-                onClick: (selected: readonly WatchFolderState[]) => {
+                action: (selected: readonly WatchFolderState[]) => {
                     watchFolders.setRecursive(selected, !selected[0]?.recursive)
                 },
                 getTip: (selected: readonly WatchFolderState[]) =>
@@ -39,7 +39,7 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
                 label: "Remove folder",
                 icon: FaMinus,
                 requiresSelection: true,
-                onClick: (selected: readonly WatchFolderState[]) => {
+                action: (selected: readonly WatchFolderState[]) => {
                     watchFolders.removeWatchFolders(selected)
                 },
                 tip: "Remove selected folders",
@@ -48,7 +48,7 @@ function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolder
                 id: `watch-add-folder`,
                 label: "Add folder",
                 icon: FaPlus,
-                onClick: async () => {
+                action: async () => {
                     await watchFolders.pickWatchFolder()
                 },
                 tip: "Add folder",

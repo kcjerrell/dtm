@@ -24,8 +24,9 @@ class Metadata {
     }
     async isImageLoaded() {
         await this.currentImage.waitForDisplayed()
-        return this.currentImage.execute((el: HTMLImageElement) => {
-            return el.complete && el.naturalWidth > 0
+        return this.currentImage.execute((el: HTMLElement) => {
+            const img = el as HTMLImageElement
+            return img.complete && img.naturalWidth > 0
         })
     }
 
@@ -102,7 +103,7 @@ class Metadata {
         },
         async getSelectedIndex() {
             const items = await this.items
-            for (let i = 0; i < items.length; i++) {
+            for (let i = 0; i < (await items.length); i++) {
                 if ((await items[i].getAttribute("aria-selected")) === "true") {
                     return i + 1
                 }

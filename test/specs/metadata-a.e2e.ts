@@ -37,7 +37,7 @@ describe("Metadata", () => {
 
         // set pasteboard override
         const imagePath = getFile("astro.png")
-        const data = getPasteboardData("drop", "finder", "image")({ path: imagePath })
+        const data = getPasteboardData("drop", "finder", "image")?.({ path: imagePath })
         await setPasteboardOverride(data)
 
         // trigger a drop
@@ -65,7 +65,7 @@ describe("Metadata", () => {
 
         // get clipboard data
         const imagePath = getFile("astro2.png")
-        const data = getPasteboardData("paste", "finder", "image")({ path: imagePath })
+        const data = getPasteboardData("paste", "finder", "image")?.({ path: imagePath })
         if (!data) throw new Error("No clipboard data found")
 
         // set pasteboard override
@@ -207,7 +207,7 @@ describe("Metadata", () => {
         await md.getDataItemValue("filename", { timeout: 60000 })
 
         expect(await md.getDataItemValue("nb_streams")).toContain("2")
-        expect(parseFloat(await md.getDataItemValue("duration"))).toBeGreaterThan(0)
+        expect(parseFloat((await md.getDataItemValue("duration")) ?? "0")).toBeGreaterThan(0)
         expect(await md.getDataItemValue("tags")).toContain("comment")
         expect(await md.getDataItemValue("tags")).toContain("model")
         expect(await md.getDataItemValue("tags")).toContain("v2")

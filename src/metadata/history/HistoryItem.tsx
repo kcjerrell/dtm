@@ -2,7 +2,7 @@ import { type BoxProps, chakra } from "@chakra-ui/react"
 import { type MotionProps, motion } from "motion/react"
 import { useEffect, useRef } from "react"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
-import type MediaItem from "../state/MediaItem"
+import type MediaItem from "../state/mediaItem"
 import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
 interface HistoryItemProps extends BoxProps {

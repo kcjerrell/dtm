@@ -1,4 +1,4 @@
-import { type ComponentProps, lazy } from "react"
+import { type ComponentProps, type ComponentType, lazy } from "react"
 import { BiDetail, PiCoffee, PiListMagnifyingGlassBold } from "./components/icons/icons"
 
 export const viewDescription = [
@@ -10,12 +10,6 @@ export const viewDescription = [
     {
         viewId: "vid",
         label: "Video",
-        icon: BiDetail,
-        devOnly: true,
-    },
-    {
-        viewId: "library",
-        label: "Library",
         icon: BiDetail,
         devOnly: true,
     },
@@ -38,14 +32,12 @@ export const viewDescription = [
 
 export const views = {
     metadata: lazy(() => import("./metadata/Metadata")),
-    mini: lazy(() => import("./Mini")),
     vid: lazy(() => import("./vid/Vid")),
-    library: lazy(() => import("./library/Library")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
     scratch: lazy(() => import("./scratch/Scratch3")),
 }
 
-export function getView(view: string) {
+export function getView(view: string): ComponentType<ChakraProps> {
     if (isView(view)) return views[view as keyof typeof views]
     return views.metadata
 }

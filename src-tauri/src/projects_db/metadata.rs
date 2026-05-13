@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
 
-use crate::projects_db::dtos::tensor::TensorHistoryNode;
+use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 /// represents the draw things metadata as it is stored in image metadata.
 /// contains mostly data from TensorHistoryNode
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,10 +28,10 @@ pub struct DrawThingsMetadata {
     pub v2: V2,
 }
 
-impl TryFrom<&TensorHistoryNode> for DrawThingsMetadata {
+impl TryFrom<&TensorHistoryNodeData> for DrawThingsMetadata {
     type Error = serde_json::Error;
 
-    fn try_from(value: &TensorHistoryNode) -> Result<Self, Self::Error> {
+    fn try_from(value: &TensorHistoryNodeData) -> Result<Self, Self::Error> {
         let v2 = V2::try_from(value)?;
         Ok(Self {
             c: value
@@ -188,10 +188,10 @@ where
     }
 }
 
-impl TryFrom<&TensorHistoryNode> for V2 {
+impl TryFrom<&TensorHistoryNodeData> for V2 {
     type Error = serde_json::Error;
 
-    fn try_from(value: &TensorHistoryNode) -> Result<Self, Self::Error> {
+    fn try_from(value: &TensorHistoryNodeData) -> Result<Self, Self::Error> {
         Ok(V2 {
             aesthetic_score: value.aesthetic_score,
             batch_count: 1,

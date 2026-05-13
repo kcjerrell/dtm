@@ -1,12 +1,13 @@
 import { DtpService } from "@/commands"
+import DTProject from "@/commands/DTProject"
 import type { DrawThingsMetaData } from "@/types"
 import { fetchImage, getLocalImage } from "@/utils/clipboard"
 import ImageStore, { isVideo } from "@/utils/imageStore"
 import { determineType } from "@/utils/mediaTypes"
-import { getDrawThingsDataFromExif } from "../helpers"
-import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./MediaItem"
-import { type ExifType, getExif } from "./metadataStore"
 import { drawPose } from "@/utils/pose"
+import { getDrawThingsDataFromExif } from "../helpers"
+import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./mediaItem"
+import { type ExifType, getExif } from "./metadataStore"
 
 export interface ImageItemConstructorOpts extends MediaItemConstructorOpts {
     imageBuffer?: Uint8Array
@@ -170,8 +171,8 @@ export class ImageItem extends MediaItem {
                 return await ImageItem.fromBuffer(dtpResult.image, "png", {
                     loadedFrom: "project",
                     projectFile: dtpResult.projectFile,
-                    nodeId: dtpResult.history.row_id,
-                    tensorId: dtpResult.history.tensor_id,
+                    nodeId: dtpResult.history.rowid,
+                    tensorId: dtpResult.history.tensorId,
                 })
             }
         } catch (e) {
@@ -190,11 +191,11 @@ export class ImageItem extends MediaItem {
 export async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
     const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
     if (!imageItem) return
-    const history = await DtpService.getHistoryFull(imageItem.project_id, imageItem.node_id)
-    if (!history || !history.tensor_id) return
+    const history = await DTProject.getTensorHistory(imageItem.project_id, imageItem.node_id)
+    if (!history || !history.tensorId) return
     const image = await DtpService.decodeTensor(
         imageItem.project_id,
-        history.tensor_id,
+        history.tensorId,
         true,
         imageItem.node_id,
     )

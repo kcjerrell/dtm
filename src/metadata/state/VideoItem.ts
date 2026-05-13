@@ -4,7 +4,7 @@ import type { DrawThingsMetaData } from "@/types"
 import { determineType } from "@/utils/mediaTypes"
 import { getDrawThingsDataFromVideo } from "../helpers"
 import { isLocalUrl } from "./ImageItem"
-import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./MediaItem"
+import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./mediaItem"
 import type { ExifType } from "./metadataStore"
 
 export interface VideoItemConstructorOpts extends MediaItemConstructorOpts {

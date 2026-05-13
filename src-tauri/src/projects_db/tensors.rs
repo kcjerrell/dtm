@@ -9,12 +9,13 @@ use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
 
-use crate::projects_db::dtos::tensor::{TensorHistoryNode, TensorRaw};
+use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
+use crate::projects_db::dtos::tensor::TensorRaw;
 use crate::projects_db::metadata::DrawThingsMetadata;
 
 pub struct DecodeTensorOptions {
     pub as_png: bool,
-    pub history_node: Option<TensorHistoryNode>,
+    pub history_node: Option<TensorHistoryNodeData>,
     pub scale: Option<u32>,
 }
 
@@ -314,7 +315,7 @@ pub fn write_png_with_usercomment(
     width: u32,
     height: u32,
     channels: usize,
-    history_node: Option<TensorHistoryNode>,
+    history_node: Option<TensorHistoryNodeData>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut out = Vec::new();
     let cursor = Cursor::new(&mut out);
