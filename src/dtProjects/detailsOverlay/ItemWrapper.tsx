@@ -1,5 +1,6 @@
 import type { Snapshot } from "valtio"
-import type { DTImageFull, ImageExtra } from "@/commands"
+import type { ImageExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import urls from "@/commands/urls"
 import type { VideoContextType } from "@/components/video/context"
 import type { UIControllerState } from "../state/uiState"
@@ -7,7 +8,6 @@ import type { CanvasStack, SubItem } from "../types"
 import DetailsImage from "./DetailsImage"
 import ImageFallback from "./ImageFallback"
 import VideoItem from "./VideoItem"
-import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface ItemWrapperProps {
     item: ImageExtra

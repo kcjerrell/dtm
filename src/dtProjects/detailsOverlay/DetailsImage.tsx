@@ -41,7 +41,13 @@ function DetailsImage(props: DetailsImageProps) {
     })
 
     const maskProps = maskSrc
-        ? { maskImage: `url(${maskSrc})`, maskMode: "luminance", maskSize: "contain" }
+        ? {
+              maskImage: `url(${maskSrc})`,
+              maskMode: "luminance",
+              maskSize: "contain",
+              maskPosition: "center",
+              maskRepeat: "no-repeat",
+          }
         : null
 
     if (!srcHalf && !src) return null
