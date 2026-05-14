@@ -27,6 +27,7 @@ pub struct TensorData {
     pub logical_time: i64,
     pub idx: i64,
     pub tensor_name: String,
+    pub mask: Option<String>,
     #[serde(serialize_with = "serialize_tensor_data")]
     data: Arc<[u8]>,
 }
@@ -69,12 +70,18 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     format!("scribble_{}", fb.scribble_id())
                 } else if fb.depth_map_id() != 0 {
                     format!("depth_map_{}", fb.depth_map_id())
-                } else if fb.mask_id() != 0 {
-                    format!("binary_mask_{}", fb.mask_id())
                 } else if fb.tensor_id() != 0 {
                     format!("tensor_history_{}", fb.tensor_id())
+                } else if fb.mask_id() != 0 {
+                    format!("binary_mask_{}", fb.mask_id())
                 } else {
                     "unknown".to_string()
+                };
+
+                let mask = if fb.mask_id() != 0 {
+                    Some(format!("binary_mask_{}", fb.mask_id()))
+                } else {
+                    None
                 };
 
                 Ok(TensorData {
@@ -84,6 +91,7 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     idx,
                     data,
                     tensor_name,
+                    mask,
                 })
             }
             Err(e) => Err(sqlx::Error::Decode(e.to_string().into())),

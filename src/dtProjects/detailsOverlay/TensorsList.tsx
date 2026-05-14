@@ -93,16 +93,8 @@ function TensorsList(props: TensorsListComponentProps) {
                                     key={ct.tensor_name}
                                     projectId={item.project_id}
                                     tensorId={ct.tensor_name}
-                                    // maskId={
-                                    //     ct.mask_id ? `binary_mask_${ct.mask_id}` : undefined
-                                    // }
-                                    onClick={(e) =>
-                                        showSubitem(
-                                            e,
-                                            ct.tensor_name,
-                                            //ct.mask_name ? `binary_mask_${ct.mask_id}` : undefined,
-                                        )
-                                    }
+                                    maskId={ct.mask}
+                                    onClick={(e) => showSubitem(e, ct.tensor_name, ct.mask)}
                                 />
                             )
                         })}

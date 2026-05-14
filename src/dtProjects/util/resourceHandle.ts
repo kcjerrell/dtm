@@ -32,6 +32,11 @@ export class ResourceHandle {
         return this.clipId && this.clipId > 0
     }
 
+    get hasMask() {
+        if (this.subItem && "maskUrl" in this.subItem) return !!this.subItem.maskUrl
+        return false
+    }
+
     get isPose() {
         return !isCanvasStack(this.subItem) && this.subItem?.type === "pose"
     }

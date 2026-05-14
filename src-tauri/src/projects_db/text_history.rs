@@ -82,11 +82,6 @@ pub struct TextHistory {
 
 impl TextHistory {
     pub fn new(nodes: Vec<TextHistoryNode>, lineages: Vec<(i64, i64)>) -> Self {
-        println!(
-            "TextHistory::new({} nodes, {:?} lineages)",
-            nodes.len(),
-            lineages
-        );
         Self {
             nodes,
             lineages: lineages.into_iter().map(|(a, b)| (a, b)).collect(),

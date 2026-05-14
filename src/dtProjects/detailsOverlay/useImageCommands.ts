@@ -172,6 +172,20 @@ export function useImageCommands(): [
                     uiState.toggleCanvasOutlines()
                 },
             },
+            {
+                id: "showMaskedRegion",
+                getLabel: () => {
+                    if (uiState.state.detailsView.subItem?.applyMask) return "Show masked region"
+                    return "Hide masked region"
+                },
+                icon: DottedOutlineIcon,
+                getEnabled: (selected) => !!selected?.[0]?.hasMask,
+                toolbarEnableMode: "hide",
+                noSpinner: true,
+                action: () => {
+                    uiState.toggleSubItemMask()
+                },
+            },
             { id: "separator-1", separator: true },
             {
                 id: "saveVideo",

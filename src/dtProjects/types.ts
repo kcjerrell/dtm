@@ -52,6 +52,7 @@ export type CanvasStack = {
     isLoading: boolean
     width?: number
     height?: number
+    applyMask?: never
 }
 
 export function isCanvasStack(item: unknown): item is MaybeReadonly<CanvasStack>

@@ -270,6 +270,7 @@ export type TensorData = {
     logical_time: number
     idx: number
     tensor_name: string
+    mask?: string
     data: TensorDataParsed
 }
 

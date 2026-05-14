@@ -28,29 +28,33 @@ function TensorThumbnail(props: ThumbnailProps) {
     if (weight !== undefined) {
         // if (weight === 0) return null
         return (
-            <ThumbnailBase src={src} {...getMask(projectId, maskId)} {...restProps} asChild>
-                <Box position={"relative"}>
-                    <ThumbnailBase src={src} {...getMask(projectId, maskId)} />
-                    <Box
-                        position={"absolute"}
-                        top={"100%"}
-                        right={"50%"}
-                        transform={"translateX(50%)"}
-                        // bgColor={"grays.1"}
-                        fontSize={"xs"}
-                        fontWeight={"semibold"}
-                        padding={1}
-                        borderRadius={"lg"}
-                        color={"grays.12"}
-                    >
-                        {weight * 100}%
-                    </Box>
+            <ThumbnailBase position={"relative"} {...restProps}>
+                <ThumbnailImage src={src} {...getMask(projectId, maskId)} />
+                <Box
+                    position={"absolute"}
+                    bottom={"0%"}
+                    right={"50%"}
+                    transform={"translateX(50%)"}
+                    // bgColor={"grays.1"}
+                    fontSize={"xs"}
+                    fontWeight={"semibold"}
+                    padding={1}
+                    borderRadius={"lg"}
+                    color={"grays.12"}
+                    textShadow={"0px 0px 2px #000000"}
+                    zIndex={2}
+                >
+                    {weight * 100}%
                 </Box>
             </ThumbnailBase>
         )
     }
 
-    return <ThumbnailBase src={src} {...getMask(projectId, maskId)} {...restProps} />
+    return (
+        <ThumbnailBase {...restProps}>
+            <ThumbnailImage src={src} {...getMask(projectId, maskId)} />
+        </ThumbnailBase>
+    )
 }
 
 export function CanvasCombinedButton(props: ChakraProps) {
@@ -87,14 +91,14 @@ function getMask(projectId?: number, maskId?: string) {
     }
 }
 
-const ThumbnailBase = chakra("img", {
+const ThumbnailBase = chakra("div", {
     base: {
         width: _thumbnailSize,
         height: _thumbnailSize,
-        objectFit: "cover",
         bgColor: "bg.1",
         border: "1px solid gray",
         transformOrigin: "center bottom",
+        overflow: "clip",
         boxShadow:
             "0px 2px 14px -5px #00000044, 0px 1px 8px -3px #00000044, 1px 0px 3px 0px #00000044",
         zIndex: 1,
@@ -112,6 +116,12 @@ const ThumbnailBase = chakra("img", {
                 "0px 2px 14px -2px #00000055, 0px 1px 8px -2px #00000055, 1px 0px 3px 0px #00000055",
         },
         transition: "all 0.2s ease",
+    },
+})
+
+const ThumbnailImage = chakra("img", {
+    base: {
+        objectFit: "cover",
     },
 })
 
