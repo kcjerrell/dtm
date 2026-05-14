@@ -41,7 +41,7 @@ function DetailsContent(props: DetailsContentProps) {
             {...boxProps}
             asChild
         >
-            <Tabs.Root overflowY={"auto"} defaultValue={"details"}>
+            <Tabs.Root defaultValue={"details"} padding={0}>
                 <Tabs.List flex={"0 0 auto"}>
                     <Tabs.Trigger
                         height={"2rem"}
@@ -67,15 +67,26 @@ function DetailsContent(props: DetailsContentProps) {
                         <TbWindowMinimize />
                     </IconButton>
                 </Tabs.List>
-                <Tabs.Content value={"raw"} padding={2} flex={"1 1 auto"}>
+                <Tabs.Content
+                    height="auto"
+                    value={"raw"}
+                    padding={2}
+                    flex={"1 1 auto"}
+                    className="panel-scroll"
+                    display={snap.minimizeContent ? "none" : undefined}
+                    overflowY={"auto"}
+                >
                     <DataItem size={"sm"} label={"Raw"} data={JSON.stringify(details, null, 2)} />
                 </Tabs.Content>
 
                 <Tabs.Content
+                    height="auto"
                     value="details"
                     padding={2}
                     flex={"1 1 auto"}
                     display={snap.minimizeContent ? "none" : undefined}
+                    className="panel-scroll"
+                    overflowY={"auto"}
                 >
                     {/* <Grid
                             overflowY={"auto"}
