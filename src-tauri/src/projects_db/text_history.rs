@@ -97,14 +97,11 @@ impl TextHistory {
         if let Some(point_to) = self.lineages.get(&lineage) {
             lineage = *point_to;
         }
-
         let node = self
             .nodes
             .iter()
             .filter(|n| n.lineage == lineage && n.start_edits <= text_edits)
-            .max_by_key(|n| n.start_edits);
-
-        let node = node?;
+            .max_by_key(|n| n.start_edits)?;
 
         // 2. Determine starting point (Node or Cache).
         let mut prompts = PromptPair {
@@ -144,7 +141,6 @@ impl TextHistory {
             // Ensure we don't go out of bounds of the modifications vector
             let available_mods = node.modifications.len();
             let safe_end_index = end_index.min(available_mods);
-
             if start_index < safe_end_index {
                 for modification in &node.modifications[start_index..safe_end_index] {
                     match modification.modification_type {
@@ -166,7 +162,6 @@ impl TextHistory {
                 prompts: prompts.clone(),
             });
         }
-
         Some(prompts)
     }
 }

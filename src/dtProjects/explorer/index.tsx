@@ -30,7 +30,7 @@ function Explorer(props: ExplorerProps) {
                 projectId,
                 skip: pageIndex * 50,
                 take: 50,
-                select: ["tensordata", "moodboard", "clip"],
+                select: ["tensordata", "moodboard", "clip", "legacy_prompts"],
             })
             state.pageStatus[pageIndex] = "loaded"
             state.data.splice(pageIndex * 50, 50, ...rows)

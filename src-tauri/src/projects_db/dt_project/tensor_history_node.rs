@@ -14,11 +14,12 @@ use crate::projects_db::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
         root_as_tensor_moodboard_data, TensorHistoryNode as TensorHistoryNodeData,
     },
-    text_history::TextHistory,
+    text_history::{PromptPair, TextHistory},
     DTProject,
 };
 
 #[derive(Debug, Clone, Copy)]
+/// specifies the TensorHistoryNode's to be returned
 pub enum ThnFilter {
     None,
     Rowid(i64),
@@ -30,13 +31,15 @@ pub enum ThnFilter {
 }
 
 #[derive(Default, Debug, Clone, Copy)]
+/// represents TensorHistoryNode relations that can be included when requested
 pub struct ThnData {
+    /// include tensordata with same lineage and logical_time as returned nodes
     pub tensordata: bool,
+    /// include clip data for each node (if any)
     pub clip: bool,
+    /// include current moodboard for each node (if any)
     pub moodboard: bool,
-    /// When true, get_tensor_history_nodes will check the texthistorynode table
-    /// for prompts if the flatbuffer's text_prompt field is empty. Requires
-    /// the project's text_history OnceCell to be initialised (done automatically).
+    /// for older projects, ensure text prompts are properly loaded for each node
     pub legacy_prompts: bool,
 }
 
@@ -111,10 +114,9 @@ pub struct TensorHistoryNode {
     pub tensordata: Option<Vec<TensorData>>,
     pub clip: Option<Clip>,
     pub moodboard: Option<Vec<TensorMoodboardData>>,
-    /// Resolved positive prompt. None means fall back to the flatbuffer field.
-    /// Populated by get_tensor_history_nodes when ThnData::legacy_prompts is set.
+    /// will be set if legacy_prompts is true
     prompt: Option<String>,
-    /// Resolved negative prompt. None means fall back to the flatbuffer field.
+    /// will be set if legacy prompts is true
     negative_prompt: Option<String>,
 }
 
@@ -151,8 +153,7 @@ impl TensorHistoryNode {
         unsafe { root_as_tensor_history_node_unchecked(&self.data) }
     }
 
-    /// Returns the fully parsed Rust struct. Use when the caller needs
-    /// an owned `TensorHistoryNodeData` (e.g. DrawThingsMetadata, DecodeTensorOptions).
+    /// Returns the fully decoded flatbuffer
     pub fn node_data(&self) -> ParsedTensorHistoryNodeData {
         ParsedTensorHistoryNodeData::try_from(self.data.as_ref())
             .expect("flatbuffer already validated at construction")
@@ -177,11 +178,89 @@ impl TensorHistoryNode {
     }
 }
 
+fn create_nodes(
+    rows: Vec<ThnRow>,
+    tensordata: Option<Vec<TensorData>>,
+    moodboard: Option<Vec<TensorMoodboardData>>,
+    clips: Option<Vec<Clip>>,
+    prompts: Option<HashMap<i64, PromptPair>>,
+    project_path: PathBuf,
+) -> Vec<TensorHistoryNode> {
+    let mut items: Vec<TensorHistoryNode> = rows
+        .into_iter()
+        .map(|row| TensorHistoryNode {
+            rowid: row.rowid,
+            project_path: project_path.clone(),
+            lineage: row.lineage,
+            logical_time: row.logical_time,
+            data: row.data,
+            tensordata: None,
+            clip: None,
+            moodboard: None,
+            prompt: None,
+            negative_prompt: None,
+        })
+        .collect();
+
+    if let Some(td) = tensordata {
+        let mut td_map = td
+            .into_iter()
+            .into_group_map_by(|t| (t.lineage, t.logical_time));
+
+        for item in items.iter_mut() {
+            let key = (item.lineage, item.logical_time);
+            item.tensordata = Some(td_map.remove(&key).unwrap_or_default());
+        }
+    }
+
+    if let Some(mb) = moodboard {
+        let mut m_map = mb
+            .into_iter()
+            .into_group_map_by(|m| (m.lineage, m.logical_time));
+
+        for item in items.iter_mut() {
+            let key = (item.lineage, item.logical_time);
+            item.moodboard = Some(m_map.remove(&key).unwrap_or_default());
+        }
+    }
+
+    if let Some(cl) = clips {
+        let clip_map: HashMap<i64, Clip> = cl.into_iter().map(|c| (c.clip_id, c)).collect();
+
+        for item in items.iter_mut() {
+            let fb = item.data();
+            let clip_id = fb.clip_id();
+            if clip_id > 0 {
+                item.clip = clip_map.get(&clip_id).cloned();
+            }
+        }
+    }
+
+    if let Some(mut p_map) = prompts {
+        for item in items.iter_mut() {
+            if let Some(pp) = p_map.remove(&item.rowid) {
+                if !pp.positive.is_empty() {
+                    item.prompt = Some(pp.positive);
+                }
+                if !pp.negative.is_empty() {
+                    item.negative_prompt = Some(pp.negative);
+                }
+            }
+        }
+    }
+
+    items
+}
+
 #[derive(Serialize, Debug, Default)]
 pub struct ThnRow {
+    /// tensorhistorynode.rowid
     pub rowid: i64,
+    /// tensorhistorynode.__pk0
     pub lineage: i64,
+    /// tensorhistorynode.__pk1
     pub logical_time: i64,
+    /// tensorhistorynode.p
     pub data: Arc<[u8]>,
 }
 
@@ -203,6 +282,7 @@ impl<'r> FromRow<'r, SqliteRow> for ThnRow {
 }
 
 impl DTProject {
+    /// the preferred way to get tensorhistorynodes from a DTProject
     pub async fn get_tensor_history_nodes(
         &self,
         filter: Option<ThnFilter>,
@@ -210,149 +290,91 @@ impl DTProject {
     ) -> Result<Vec<TensorHistoryNode>, sqlx::Error> {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
-        let (get_tensordata, get_moodboard, get_clip) = data.map_or((false, false, false), |d| {
-            (d.tensordata, d.moodboard, d.clip)
-        });
+        let (get_tensordata, get_moodboard, get_clip, get_legacy_prompts) = data
+            .map_or((false, false, false, false), |d| {
+                (d.tensordata, d.moodboard, d.clip, d.legacy_prompts)
+            });
 
         let query = build_query(filter);
         let rows: Vec<ThnRow> = query_as(&query).fetch_all(&*self.pool).await?;
 
-        let mut clip_ids: Vec<i64> = Vec::with_capacity(if data.map_or(false, |d| d.clip) {
-            rows.len()
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut lineage_times = Vec::new();
+        let mut clip_ids = Vec::new();
+        let mut prompt_lookup_rows: HashMap<i64, (i64, i64)> = HashMap::new();
+
+        for row in &rows {
+            // must validate flatbuffer so unchecked access with .data() is safe
+            let fb = root_as_tensor_history_node(&row.data).unwrap();
+            if get_tensordata || get_moodboard {
+                lineage_times.push((row.lineage, row.logical_time));
+            }
+            if get_clip && fb.clip_id() > 0 {
+                clip_ids.push(fb.clip_id());
+            }
+            if get_legacy_prompts
+                && fb.text_prompt().map_or(true, |s| s.is_empty())
+                && fb.negative_text_prompt().map_or(true, |s| s.is_empty())
+            {
+                prompt_lookup_rows.insert(row.rowid, (fb.text_lineage(), fb.text_edits()));
+            }
+        }
+
+        let tensordata = if get_tensordata {
+            Some(
+                self.get_tensor_data(TdFilter::LineageTimes(lineage_times.clone()))
+                    .await
+                    .unwrap_or_default(),
+            )
         } else {
-            0
-        });
+            None
+        };
 
-        let get_legacy_prompts = data.map_or(false, |d| d.legacy_prompts);
+        let moodboard = if get_moodboard {
+            Some(
+                self.get_tensor_moodboard_data(TmdFilter::LineageTimes(lineage_times))
+                    .await
+                    .unwrap_or_default(),
+            )
+        } else {
+            None
+        };
 
-        let mut items: Vec<TensorHistoryNode> = rows
-            .into_iter()
-            .map(|row| {
-                // this validates the flatbuffer so that .data() can provide fast unchecked access
-                let fb = root_as_tensor_history_node(&row.data).unwrap();
-                if get_clip && fb.clip_id() > 0 {
-                    clip_ids.push(fb.clip_id())
-                }
-                TensorHistoryNode {
-                    rowid: row.rowid,
-                    project_path: PathBuf::from(&self.path),
-                    lineage: row.lineage,
-                    logical_time: row.logical_time,
-                    data: checked_flatbuffer(&row.data).unwrap(),
-                    tensordata: None,
-                    clip: None,
-                    moodboard: None,
-                    prompt: None,
-                    negative_prompt: None,
-                }
-            })
-            .collect();
+        let clips = if get_clip && !clip_ids.is_empty() {
+            Some(
+                self.get_clips(ClipFilter::ClipIds(clip_ids))
+                    .await
+                    .unwrap_or_default(),
+            )
+        } else {
+            None
+        };
 
-        if get_tensordata {
-            let lineage_times = items
-                .iter()
-                .map(|item| (item.lineage, item.logical_time))
-                .collect();
-            let td = self
-                .get_tensor_data(TdFilter::LineageTimes(lineage_times))
-                .await
-                .unwrap_or_default();
-
-            let mut td_map = td
-                .into_iter()
-                .into_group_map_by(|t| (t.lineage, t.logical_time));
-
-            for item in items.iter_mut() {
-                let key = (item.lineage, item.logical_time);
-                item.tensordata = Some(td_map.remove(&key).unwrap_or_default());
-            }
-        }
-
-        if get_moodboard {
-            let lineage_times = items
-                .iter()
-                .map(|item| (item.lineage, item.logical_time))
-                .collect();
-            let moodboard = self
-                .get_tensor_moodboard_data(TmdFilter::LineageTimes(lineage_times))
-                .await
-                .unwrap_or_default();
-
-            let mut m_map = moodboard
-                .into_iter()
-                .into_group_map_by(|m| (m.lineage, m.logical_time));
-
-            for item in items.iter_mut() {
-                let key = (item.lineage, item.logical_time);
-                item.moodboard = Some(m_map.remove(&key).unwrap_or_default());
-            }
-        }
-
-        if get_clip && !clip_ids.is_empty() {
-            let clips = self
-                .get_clips(ClipFilter::ClipIds(clip_ids))
-                .await
-                .unwrap_or_default();
-            let clip_map: HashMap<i64, Clip> = clips.into_iter().map(|c| (c.clip_id, c)).collect();
-
-            for item in items.iter_mut() {
-                let fb = item.data();
-                let clip_id = fb.clip_id();
-                if clip_id > 0 {
-                    item.clip = clip_map.get(&clip_id).cloned();
-                }
-            }
-        }
-
+        let mut prompts = None;
         if get_legacy_prompts
+            && !prompt_lookup_rows.is_empty()
             && self.check_table(&DTProjectTable::TextHistory).await.ok() == Some(true)
         {
-            // Collect items that lack flatbuffer prompts and need text history lookup.
-            let needs_lookup: Vec<usize> = items
-                .iter()
-                .enumerate()
-                .filter(|(_, item)| {
-                    let fb = item.data();
-                    fb.text_prompt().map_or(true, |s| s.is_empty())
-                        && fb.negative_text_prompt().map_or(true, |s| s.is_empty())
-                })
-                .map(|(i, _)| i)
-                .collect();
-            if !needs_lookup.is_empty() {
-                for i in needs_lookup {
-                    let fb = items[i].data();
-                    if let Some(prompts) = self
-                        .get_text_edit(fb.text_lineage(), fb.text_edits())
-                        .await
-                        .ok()
-                    {
-                        if !prompts.positive.is_empty() {
-                            items[i].prompt = Some(prompts.positive);
-                        }
-                        if !prompts.negative.is_empty() {
-                            items[i].negative_prompt = Some(prompts.negative);
-                        }
-                    }
+            let mut p_map = HashMap::new();
+            for (row_id, (text_lineage, text_edits)) in prompt_lookup_rows {
+                if let Some(pp) = self.get_text_edit(text_lineage, text_edits).await.ok() {
+                    p_map.insert(row_id, pp);
                 }
             }
+            prompts = Some(p_map);
         }
 
-        Ok(items)
-    }
-
-    pub async fn list_tensor_history_nodes(
-        &self,
-        skip: i64,
-        take: i64,
-    ) -> Result<Vec<ThnRow>, sqlx::Error> {
-        let rows: Vec<ThnRow> =
-            query_as("SELECT * FROM tensorhistorynode ORDER BY rowid ASC LIMIT ?1 OFFSET ?2")
-                .bind(take)
-                .bind(skip)
-                .fetch_all(&*self.pool)
-                .await?;
-
-        Ok(rows)
+        Ok(create_nodes(
+            rows,
+            tensordata,
+            moodboard,
+            clips,
+            prompts,
+            PathBuf::from(&self.path),
+        ))
     }
 
     /**
@@ -384,13 +406,14 @@ impl DTProject {
     }
 }
 
-fn checked_flatbuffer(data: &Arc<[u8]>) -> Option<Arc<[u8]>> {
-    if root_as_tensor_history_node(&data).is_ok() {
-        Some(data.clone())
-    } else {
-        None
-    }
-}
+const SELECT_THN: &str =
+    "thn.rowid as thn_rowid, thn.__pk0 as thn__pk0, thn.__pk1 as thn__pk1, thn.p as thn_p";
+const SELECT_TD: &str = "td.rowid as td_rowid, td.__pk2 as td__pk2, td.p as td_p";
+const SELECT_TMD: &str = "tmd.rowid as tmd_rowid, tmd.__pk2 as tmd__pk2, tmd.p as tmd_p";
+
+const JOIN_TD: &str = "LEFT JOIN tensordata td ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1";
+const JOIN_TMD: &str =
+    "LEFT JOIN tensor_moodboard_data tmd ON thn.__pk0 = tmd.__pk0 AND thn.__pk1 = tmd.__pk1";
 
 fn build_query(filter: Option<ThnFilter>) -> String {
     let select = "SELECT * FROM tensorhistorynode thn";
@@ -425,21 +448,3 @@ fn build_query(filter: Option<ThnFilter>) -> String {
     );
     query
 }
-
-const SELECT_THN: &str =
-    "thn.rowid as thn_rowid, thn.__pk0 as thn__pk0, thn.__pk1 as thn__pk1, thn.p as thn_p";
-const SELECT_TD: &str = "td.rowid as td_rowid, td.__pk2 as td__pk2, td.p as td_p";
-const SELECT_TMD: &str = "tmd.rowid as tmd_rowid, tmd.__pk2 as tmd__pk2, tmd.p as tmd_p";
-
-const JOIN_TD: &str = "LEFT JOIN tensordata td ON thn.__pk0 = td.__pk0 AND thn.__pk1 = td.__pk1";
-const JOIN_TMD: &str =
-    "LEFT JOIN tensor_moodboard_data tmd ON thn.__pk0 = tmd.__pk0 AND thn.__pk1 = tmd.__pk1";
-
-/*
-    Rowid(i64),
-    Lineage(i64),
-    LogicalTime(i64),
-    LineageAndLogicalTime(i64, i64),
-    SkipAndTake(i64, i64),
-    Range(i64, i64),
-*/

@@ -30,6 +30,7 @@ use std::{
 use tokio::sync::OnceCell;
 
 pub mod raw;
+pub mod tensor_history_node_2;
 pub use raw::dt_project_tensordata;
 pub mod clip;
 pub use clip::{Clip, ClipFilter};
@@ -520,16 +521,21 @@ impl DTProject {
                         })
                         .fetch_all(&*self.pool)
                         .await?;
-                let lineages: Vec<(i64, i64)> = query(
-                    "
-                SELECT tln.__pk0, tln_f6.f6 
-                FROM textlineagenode tln 
-                JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid 
-                ORDER BY tln.rowid",
-                )
-                .map(|row: SqliteRow| (row.get(0), row.get(1)))
-                .fetch_all(&*self.pool)
-                .await?;
+
+                let lineages: Vec<(i64, i64)> =
+                    match self.check_table(&DTProjectTable::TextLineage).await {
+                        Ok(_) => query(
+                            "SELECT tln.__pk0, tln_f6.f6 
+                                FROM textlineagenode tln 
+                                JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid 
+                                ORDER BY tln.rowid",
+                        )
+                        .map(|row: SqliteRow| (row.get(0), row.get(1)))
+                        .fetch_all(&*self.pool)
+                        .await
+                        .unwrap_or_default(),
+                        Err(_) => Vec::new(),
+                    };
 
                 Ok(Arc::new(TextHistory::new(nodes, lineages)))
             })
