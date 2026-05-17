@@ -37,7 +37,7 @@ tauri-plugin-opener = { git = "https://github.com/tauri-apps/plugins-workspace",
 tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 tauri-plugin-clipboard-manager = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 tauri-plugin-http = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
-tauri-plugin-valtio = "2"
+tauri-plugin-valtio = "3"
 tauri-plugin-process = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 tauri-plugin-shell = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 
