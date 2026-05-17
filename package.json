@@ -66,7 +66,7 @@
     "@biomejs/biome": "2.4.15",
     "@chakra-ui/cli": "^3.35.0",
     "@octokit/rest": "^22.0.1",
-    "@tauri-apps/cli": "^2.11.1",
+    "@tauri-apps/cli": "^2.11.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/fs-extra": "^11.0.4",
