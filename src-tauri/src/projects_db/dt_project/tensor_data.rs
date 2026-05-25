@@ -26,7 +26,7 @@ pub struct TensorData {
     pub lineage: i64,
     pub logical_time: i64,
     pub idx: i64,
-    pub tensor_name: String,
+    pub tensor_names: Vec<String>,
     pub mask: Option<String>,
     #[serde(serialize_with = "serialize_tensor_data")]
     data: Arc<[u8]>,
@@ -60,23 +60,28 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
 
         match root_as_tensor_data(&data) {
             Ok(fb) => {
-                let tensor_name = if fb.color_palette_id() != 0 {
-                    format!("color_palette_{}", fb.color_palette_id())
-                } else if fb.custom_id() != 0 {
-                    format!("custom_{}", fb.custom_id())
-                } else if fb.pose_id() != 0 {
-                    format!("pose_{}", fb.pose_id())
-                } else if fb.scribble_id() != 0 {
-                    format!("scribble_{}", fb.scribble_id())
-                } else if fb.depth_map_id() != 0 {
-                    format!("depth_map_{}", fb.depth_map_id())
-                } else if fb.tensor_id() != 0 {
-                    format!("tensor_history_{}", fb.tensor_id())
-                } else if fb.mask_id() != 0 {
-                    format!("binary_mask_{}", fb.mask_id())
-                } else {
-                    "unknown".to_string()
-                };
+                let mut tensor_names: Vec<String> = Vec::new();
+                if fb.color_palette_id() != 0 {
+                    tensor_names.push(format!("color_palette_{}", fb.color_palette_id()));
+                }
+                if fb.custom_id() != 0 {
+                    tensor_names.push(format!("custom_{}", fb.custom_id()));
+                }
+                if fb.pose_id() != 0 {
+                    tensor_names.push(format!("pose_{}", fb.pose_id()));
+                }
+                if fb.scribble_id() != 0 {
+                    tensor_names.push(format!("scribble_{}", fb.scribble_id()));
+                }
+                if fb.depth_map_id() != 0 {
+                    tensor_names.push(format!("depth_map_{}", fb.depth_map_id()));
+                }
+                if fb.tensor_id() != 0 {
+                    tensor_names.push(format!("tensor_history_{}", fb.tensor_id()));
+                }
+                if fb.mask_id() != 0 {
+                    tensor_names.push(format!("binary_mask_{}", fb.mask_id()));
+                }
 
                 let mask = if fb.mask_id() != 0 {
                     Some(format!("binary_mask_{}", fb.mask_id()))
@@ -90,7 +95,7 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     logical_time,
                     idx,
                     data,
-                    tensor_name,
+                    tensor_names,
                     mask,
                 })
             }

@@ -54,73 +54,112 @@ export class TensorHistoryNode {
         return this._node.negative_prompt
     }
 
-    get tensorId(): string | undefined {
+    /** returns the LAST tensor_history name - this corresponds with the generated image */
+    get tensorHistoryName(): string | undefined {
+        if (this._node.data.tensor_id > 0) return `tensor_history_${this._node.data.tensor_id}`
         if (this.tensordata?.length) {
-            const td = this.tensordata.findLast((t) => t.tensor_name?.startsWith("tensor_history_"))
-            if (td) return td.tensor_name
+            for (let i = this.tensordata.length - 1; i >= 0; i--) {
+                const name = getTensorHistoryName(this.tensordata[i])
+                if (name) return name
+            }
         }
-        const tensorId = this._node.data.tensor_id
-        if (tensorId > 0) return `tensor_history_${tensorId}`
         return undefined
     }
 
-    get depthMapId(): string | undefined {
+    /** returns all tensor history names associated with this node. use this for canvas stack  */
+    get tensorHistoryNames(): string[] {
+        const names: string[] = []
+        if (this._node.data.tensor_id > 0) names.push(`tensor_history_${this._node.data.tensor_id}`)
         if (this.tensordata?.length) {
-            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("depth_map"))
-            if (td) return td.tensor_name
+            for (const td of this.tensordata) {
+                if (this._node.data.tensor_id === td.data.tensor_id) continue
+                const name = getTensorHistoryName(td)
+                if (name) names.push(name)
+            }
         }
-        const tensorId = this._node.data.depth_map_id
-        if (tensorId > 0) return `depth_map_${tensorId}`
+        return names
+    }
+
+    /** returns the LAST binary_mask name - this is the mask used for the gen */
+    get maskName(): string | undefined {
+        if (this._node.data.mask_id > 0) return `binary_mask_${this._node.data.mask_id}`
+        if (this.tensordata?.length) {
+            for (let i = this.tensordata.length - 1; i >= 0; i--) {
+                const name = getMaskName(this.tensordata[i])
+                if (name) return name
+            }
+        }
         return undefined
     }
 
-    get poseId(): string | undefined {
+    /** returns all binary_mask names associated with this node. use this for canvas stack */
+    get maskNames(): string[] {
+        const names: string[] = []
+        if (this._node.data.mask_id > 0) names.push(`binary_mask_${this._node.data.mask_id}`)
         if (this.tensordata?.length) {
-            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("pose"))
-            if (td) return td.tensor_name
+            for (const td of this.tensordata) {
+                if (this._node.data.mask_id === td.data.mask_id) continue
+                const name = getMaskName(td)
+                if (name) names.push(name)
+            }
         }
-        const tensorId = this._node.data.pose_id
-        if (tensorId > 0) return `pose_${tensorId}`
+        return names
+    }
+
+    /** returns the depth map tensor name */
+    get depthMapName(): string | undefined {
+        if (this._node.data.depth_map_id > 0) return `depth_map_${this._node.data.depth_map_id}`
+        if (this.tensordata?.length) {
+            for (const td of this.tensordata) {
+                const name = getDepthMapName(td)
+                if (name) return name
+            }
+        }
         return undefined
     }
 
-    get scribbleId(): string | undefined {
+    get poseName(): string | undefined {
+        if (this._node.data.pose_id > 0) return `pose_${this._node.data.pose_id}`
         if (this.tensordata?.length) {
-            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("scribble"))
-            if (td) return td.tensor_name
+            for (const td of this.tensordata) {
+                const name = getPoseName(td)
+                if (name) return name
+            }
         }
-        const tensorId = this._node.data.scribble_id
-        if (tensorId > 0) return `scribble_${tensorId}`
         return undefined
     }
 
-    get colorPaletteId(): string | undefined {
+    get scribbleName(): string | undefined {
+        if (this._node.data.scribble_id > 0) return `scribble_${this._node.data.scribble_id}`
         if (this.tensordata?.length) {
-            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("color_palette"))
-            if (td) return td.tensor_name
+            for (const td of this.tensordata) {
+                const name = getScribbleName(td)
+                if (name) return name
+            }
         }
-        const tensorId = this._node.data.color_palette_id
-        if (tensorId > 0) return `color_palette_${tensorId}`
         return undefined
     }
 
-    get customId(): string | undefined {
+    get colorPaletteName(): string | undefined {
+        if (this._node.data.color_palette_id > 0)
+            return `color_palette_${this._node.data.color_palette_id}`
         if (this.tensordata?.length) {
-            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("custom"))
-            if (td) return td.tensor_name
+            for (const td of this.tensordata) {
+                const name = getColorPaletteName(td)
+                if (name) return name
+            }
         }
-        const tensorId = this._node.data.custom_id
-        if (tensorId > 0) return `custom_${tensorId}`
         return undefined
     }
 
-    get maskId(): string | undefined {
+    get customName(): string | undefined {
+        if (this._node.data.custom_id > 0) return `custom_${this._node.data.custom_id}`
         if (this.tensordata?.length) {
-            const td = this.tensordata.find((t) => t.tensor_name?.startsWith("binary_mask"))
-            if (td) return td.tensor_name
+            for (const td of this.tensordata) {
+                const name = getCustomName(td)
+                if (name) return name
+            }
         }
-        const tensorId = this._node.data.mask_id
-        if (tensorId > 0) return `binary_mask_${tensorId}`
         return undefined
     }
 
@@ -269,7 +308,7 @@ export type TensorData = {
     lineage: number
     logical_time: number
     idx: number
-    tensor_name: string
+    tensor_names: string[]
     mask?: string
     data: TensorDataParsed
 }
@@ -309,4 +348,39 @@ export type Clip = {
     width: number
     height: number
     audio_id: number
+}
+
+function getTensorHistoryName(td: TensorData) {
+    if (td.data.tensor_id) return `tensor_history_${td.data.tensor_id}`
+    return null
+}
+
+function getMaskName(td: TensorData) {
+    if (td.data.mask_id) return `binary_mask_${td.data.mask_id}`
+    return null
+}
+
+function getDepthMapName(td: TensorData) {
+    if (td.data.depth_map_id) return `depth_map_${td.data.depth_map_id}`
+    return null
+}
+
+function getScribbleName(td: TensorData) {
+    if (td.data.scribble_id) return `scribble_${td.data.scribble_id}`
+    return null
+}
+
+function getPoseName(td: TensorData) {
+    if (td.data.pose_id) return `pose_${td.data.pose_id}`
+    return null
+}
+
+function getColorPaletteName(td: TensorData) {
+    if (td.data.color_palette_id) return `color_palette_${td.data.color_palette_id}`
+    return null
+}
+
+function getCustomName(td: TensorData) {
+    if (td.data.custom_id) return `custom_${td.data.custom_id}`
+    return null
 }

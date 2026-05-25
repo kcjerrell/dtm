@@ -1,11 +1,11 @@
-import { Box, chakra, Spacer, Text, VStack } from "@chakra-ui/react"
+import { chakra, Spacer } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type ComponentProps, useCallback } from "react"
-import type { DTImageFull, ImageExtra, TensorHistoryExtra } from "@/commands"
-import { MotionBox, Tooltip } from "@/components"
+import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
+import { MotionBox } from "@/components"
 import { useDTP } from "../state/context"
 import TensorThumbnail, { CanvasCombinedButton } from "./TensorThumbnail"
-import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
     item?: ImageExtra
@@ -29,12 +29,12 @@ function TensorsList(props: TensorsListComponentProps) {
     if (!item || !details) return <MotionBox height={"60px"} {...restProps} />
 
     const tensors = {
-        Depth: details.depthMapId,
-        Custom: details.customId,
-        Scribble: details.scribbleId,
-        Pose: details.poseId,
-        Color: details.colorPaletteId,
-        Mask: details.maskId,
+        Depth: details.depthMapName,
+        Custom: details.customName,
+        Scribble: details.scribbleName,
+        Pose: details.poseName,
+        Color: details.colorPaletteName,
+        Mask: details.maskName,
     }
 
     // const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
@@ -86,15 +86,16 @@ function TensorsList(props: TensorsListComponentProps) {
                             onClick={() => uiState.showCanvasStack(details)}
                         />
                         {canvasTensors?.map((ct) => {
-                            if (!ct.tensor_name) return null
+                            if (!ct.data.tensor_id) return null
+                            const ctTensorId = `tensor_history_${ct.data.tensor_id}`
 
                             return (
                                 <TensorThumbnail
-                                    key={ct.tensor_name}
+                                    key={ct.rowid}
                                     projectId={item.project_id}
-                                    tensorId={ct.tensor_name}
+                                    tensorId={ctTensorId}
                                     maskId={ct.mask}
-                                    onClick={(e) => showSubitem(e, ct.tensor_name, ct.mask)}
+                                    onClick={(e) => showSubitem(e, ctTensorId, ct.mask)}
                                 />
                             )
                         })}

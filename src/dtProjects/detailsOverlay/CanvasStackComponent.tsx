@@ -1,6 +1,6 @@
 import { chakra, Spinner } from "@chakra-ui/react"
 import { type ComponentProps, Fragment, useRef } from "react"
-import type { TensorDataRow } from "@/commands"
+import type { TensorData } from "@/commands/DTProjectTypes"
 import urls from "@/commands/urls"
 import { showStackPreview } from "@/components/preview"
 import { useThresholdDelay } from "@/hooks/useDecay"
@@ -8,7 +8,6 @@ import { useProxyRef } from "@/hooks/valtioHooks"
 import { useDTP } from "../state/context"
 import type { CanvasStack } from "../types"
 import { DetailsImageContainer, DetailsImageContent, DetailsSpinnerRoot } from "./common"
-import { TensorData } from "@/commands/DTProjectTypes"
 
 interface CanvasStackComponentProps extends ComponentProps<typeof DetailsImageContainer> {
     stack: MaybeReadonly<CanvasStack>

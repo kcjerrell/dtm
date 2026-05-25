@@ -115,17 +115,19 @@ function TensorData(
     props: CellProps<NonNullable<TensorHistoryNode["tensordata"]>[0]> & { projectId: number },
 ) {
     const { item, projectId } = props
-    const tensorName = item.tensor_name
+    const tensorNames = item.tensor_names
+    const thumbnailName =
+        tensorNames.find((n) => n.startsWith("tensor_history_")) ?? tensorNames[0]
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
             <Table.Cell width={"5rem"} bgColor={"grayc.14"} />
             <Table.Cell colSpan={7} bgColor={"grayc.10"}>
                 <HStack width={"100%"} justifyContent={"flex-end"}>
-                    <Text>{tensorName}</Text>
+                    <Text>{tensorNames.join(", ")}</Text>
                     <img
                         style={{ width: "50px", height: "50px" }}
-                        src={urls.tensor(projectId, tensorName, { size: 25 })}
-                        alt={tensorName}
+                        src={urls.tensor(projectId, thumbnailName, { size: 25 })}
+                        alt={tensorNames.join(", ")}
                     />
                 </HStack>
             </Table.Cell>

@@ -56,7 +56,7 @@ export class ResourceHandle {
                 this.tensorId = this.subItem.tensorId
             } else {
                 const tHistory = await this.getHistory()
-                this.tensorId = tHistory?.tensorId ?? null
+                this.tensorId = tHistory?.tensorHistoryName ?? null
             }
         }
         return this.tensorId
