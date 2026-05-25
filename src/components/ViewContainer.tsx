@@ -28,7 +28,9 @@ export function ViewContainer(
     }>,
 ) {
     const { children, isActiveView } = props
-    const [mode, setMode] = useState<"hidden" | "visible">("hidden")
+    const [mode, setMode] = useState<"hidden" | "visible">(() =>
+        isActiveView ? "visible" : "hidden",
+    )
 
     useEffect(() => {
         if (isActiveView) setMode("visible")
