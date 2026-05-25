@@ -1,9 +1,9 @@
 import { Box, Flex, Spinner } from "@chakra-ui/react"
 import { useSnapshot } from "valtio"
+import { SpinnerRoot } from "@/components/common"
 import { getMetadataStore } from "../state/metadataStore"
 import CurrentImage from "./CurrentImage"
 import CurrentVideo from "./CurrentVideo"
-import { DetailsSpinnerRoot } from "@/dtProjects/detailsOverlay/common"
 
 interface CurrentItemProps extends ChakraProps {}
 
@@ -48,9 +48,9 @@ function CurrentItem(props: CurrentItemProps) {
                 </Flex>
             )}
             {isLoadingImage && (
-                <DetailsSpinnerRoot zIndex={8}>
+                <SpinnerRoot zIndex={8}>
                     <Spinner width={"100%"} height={"100%"} color={"white"} />
-                </DetailsSpinnerRoot>
+                </SpinnerRoot>
             )}
         </Box>
     )

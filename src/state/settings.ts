@@ -63,7 +63,16 @@ function getSettingStore() {
 
 // this is to help with type issues, specifically in the initializer
 function update<K extends SettingsKey, V extends Settings[K]>(state: Settings, key: K, value: V) {
+    if (state[key] === value) return
+
     state[key] = value
+
+    if (subscriptions.has(key)) {
+        const callbacks = subscriptions.get(key) as Set<(value: Settings[K]) => void>
+        callbacks.forEach((callback) => {
+            callback(value)
+        })
+    }
 }
 
 /** update a setting by key */

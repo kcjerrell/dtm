@@ -1,5 +1,4 @@
 import * as Common from "./common"
-import DataItem from "./DataItem"
 import IconButton from "./IconButton"
 import MeasureGrid from "./measureGrid/MeasureGrid"
 import { useMeasureGrid } from "./measureGrid/useMeasureGrid"
@@ -31,7 +30,6 @@ export {
     Preview,
     MeasureGrid,
     useMeasureGrid,
-    DataItem,
     Progress,
     ViewContainer,
 }

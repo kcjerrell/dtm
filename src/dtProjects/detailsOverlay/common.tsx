@@ -64,21 +64,6 @@ export const DetailsImageContent = chakra(
     { forwardProps: ["transition", "width", "height"] },
 )
 
-export const DetailsSpinnerRoot = chakra("div", {
-    base: {
-        width: "5rem",
-        height: "5rem",
-        bgColor: "#000000aa",
-        padding: 4,
-        borderRadius: "50%",
-        left: "50%",
-        top: "50%",
-        position: "absolute",
-        transform: "translate(-50%, -50%)",
-        zIndex: 30,
-    },
-})
-
 export const DetailsOverlayContainer = chakra(
     motion.div,
     {

@@ -8,7 +8,6 @@ import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { DottedOutlineIcon, PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import type { VideoContextType } from "@/components/video/context"
-import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommand } from "@/types"
 import { writeClipboardText } from "@/utils/clipboard"
 import { showMenu } from "@/utils/menu"
@@ -150,7 +149,10 @@ export function useImageCommands(): [
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
                     const project = projects.getProject(selected[0].projectId)
-                    await sendToMetadata(data, "png", {
+
+                    const interop = await import("@/metadata/state/interop")
+
+                    await interop.sendToMetadata(data, "png", {
                         source: "project",
                         projectFile: project?.path,
                         tensorId: await selected[0].getTensorId(),

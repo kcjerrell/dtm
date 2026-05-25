@@ -1,14 +1,12 @@
 import { chakra, HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
 import type { ComponentProps, PropsWithChildren } from "react"
-import { useSnapshot } from "valtio"
 import { FaMinus, FaMoon, FaPlus } from "@/components/icons/icons"
 import { toggleColorMode } from "@/components/ui/color-mode"
-import AppStore from "@/hooks/appState"
 import UpgradeButton from "@/metadata/toolbar/UpgradeButton"
+import { useSetting } from "@/state/settings"
 import { themeHelpers } from "@/theme/helpers"
 import { cs } from "@/utils/helpers"
 import Tooltip from "../Tooltip"
-import { useSetting } from "@/state/settings"
 
 const Root = chakra(
     "nav",

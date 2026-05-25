@@ -3,7 +3,8 @@ import { motion } from "motion/react"
 import { Fragment } from "react/jsx-runtime"
 import type { Snapshot } from "valtio"
 import type { ImageExtra } from "@/commands"
-import { DataItem, Panel } from "@/components"
+import { Panel } from "@/components"
+import DataItem from "@/components/DataItem"
 import { useDTP } from "../state/context"
 
 interface DetailsFallbackProps extends ChakraProps {

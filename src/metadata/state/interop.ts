@@ -3,7 +3,7 @@ import type { ImageSource } from "@/types"
 import { ImageItem } from "./ImageItem"
 import { loadImage2 } from "./imageLoaders"
 import type MediaItem from "./mediaItem"
-import { addImageItem, getMetadataStore, selectImage, waitForMetadataStore } from "./metadataStore"
+import { addImageItem, selectImage, waitForMetadataStore } from "./metadataStore"
 
 export async function sendToMetadata(
     imageData: Uint8Array<ArrayBuffer>,

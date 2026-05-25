@@ -3,7 +3,7 @@ import { IconButton, Panel } from "@/components"
 import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons/icons"
 import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
 import { useDTP } from "@/dtProjects/state/context"
-import Tabs from "@/metadata/infoPanel/tabs"
+import Tabs from "@/components/tabs"
 import ProjectsPanel from "./projectsPanel/ProjectsPanel"
 import SearchPanel from "./SearchPanel"
 

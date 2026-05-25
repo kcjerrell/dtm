@@ -14,6 +14,7 @@ const store = proxy({
     src: null as string | null,
     isLoaded: false,
     stackCanvas: null as CanvasStack | null,
+    showCanvasOutlines: false,
     srcSize: null as { width: number; height: number } | null,
 })
 
@@ -36,10 +37,12 @@ export function showStackPreview(
     canvasStack: MaybeReadonly<CanvasStack>,
     width: number,
     height: number,
+    options: { showCanvasOutlines?: boolean } = {},
 ) {
     store.src = null
     store.sourceElement.current = srcElem ?? null
     store.stackCanvas = (canvasStack as CanvasStack) ?? null
+    store.showCanvasOutlines = !!options.showCanvasOutlines
     store.srcSize = { width, height }
     store.showPreview = true
 }
@@ -47,6 +50,7 @@ export function showStackPreview(
 export function hidePreview() {
     store.showPreview = false
     store.stackCanvas = null
+    store.showCanvasOutlines = false
 }
 
 export function useIsPreviewActive() {
@@ -189,7 +193,7 @@ function PreviewZoom(props: PreviewZoomProps) {
     const { onClose, stackCanvas, ...restProps } = props
 
     const snap = useSnapshot(store)
-    const { src, showPreview: show, srcSize } = snap
+    const { src, showPreview: show, srcSize, showCanvasOutlines } = snap
 
     const [contentSize, setContentSize] = useState<{ width: number; height: number }>()
 
@@ -356,7 +360,10 @@ function PreviewZoom(props: PreviewZoomProps) {
                     }}
                 >
                     {stackCanvas ? (
-                        <CanvasStackComponent stack={stackCanvas} />
+                        <CanvasStackComponent
+                            stack={stackCanvas}
+                            showCanvasOutlines={showCanvasOutlines}
+                        />
                     ) : (
                         <motion.img
                             ref={imgRef}

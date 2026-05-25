@@ -1,16 +1,15 @@
 import { chakra, Grid, Spacer } from "@chakra-ui/react"
-import { motion } from "motion/react"
 import { Fragment } from "react/jsx-runtime"
 import { TbWindowMinimize } from "react-icons/tb"
 import type { Snapshot } from "valtio"
-import type { DTImageFull, ImageExtra } from "@/commands"
+import type { ImageExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import { IconButton, Panel } from "@/components"
 import DataItem from "@/components/DataItem"
-import Tabs from "@/metadata/infoPanel/tabs"
+import Tabs from "@/components/tabs"
 import { useDTP } from "../state/context"
 import DetailsFallback from "./DetailsFallback"
 import { useDTImage } from "./DTImageContext"
-import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null

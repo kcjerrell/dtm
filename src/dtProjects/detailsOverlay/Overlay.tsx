@@ -1,9 +1,10 @@
 import { Spinner } from "@chakra-ui/react"
 import { type ComponentProps, useMemo, useRef } from "react"
+import { SpinnerRoot } from "@/components/common"
 import type { VideoContextType } from "@/components/video/context"
 import { Hotkey } from "@/hooks/keyboard"
 import { useDTP } from "../state/context"
-import { DetailsOverlayContainer, DetailsSpinnerRoot } from "./common"
+import { DetailsOverlayContainer } from "./common"
 import DetailsButtonBar from "./DetailsButtonBar"
 import DetailsContent from "./DetailsContent"
 import { DTImageProvider } from "./DTImageProvider"
@@ -79,13 +80,14 @@ function Overlay(props: DetailsOverlayProps) {
                     />
                 )}
                 {(showSpinner || snap.subItem?.isLoading) && (
-                    <DetailsSpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
+                    <SpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
                         <Spinner width={"100%"} height={"100%"} color={"white"} />
-                    </DetailsSpinnerRoot>
+                    </SpinnerRoot>
                 )}
                 {snap.subItem && (
                     <SubItemWrapper
                         subItem={snap.subItem}
+                        showCanvasOutlines={snap.showCanvasOutlines}
                         padding={8}
                         paddingTop={2}
                         width={"100%"}
