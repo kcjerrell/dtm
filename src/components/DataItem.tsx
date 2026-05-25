@@ -3,7 +3,7 @@ import { motion } from "motion/react"
 import { type ComponentProps, useCallback, useLayoutEffect, useRef, useState } from "react"
 import { useDTImage } from "@/dtProjects/detailsOverlay/DTImageContext"
 import { useTimedState } from "@/hooks/useTimedState"
-// import { prepData } from "@/metadata/infoPanel/DataItem"
+import { prepData } from "@/metadata/infoPanel/DataItem"
 import type { DrawThingsConfigGrouped } from "@/types"
 import { getSampler, getSeedMode } from "@/utils/config"
 import { getVersionLabel } from "@/utils/models"
@@ -13,9 +13,7 @@ interface DataItemProps extends ComponentProps<typeof Root> {
     maxLines?: number
     data?: unknown
 }
-function prepData(arg) {
-    return arg
-}
+
 function DataItem(props: DataItemProps) {
     const { data, label, maxLines, ...rest } = props
 
