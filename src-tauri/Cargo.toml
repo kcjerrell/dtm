@@ -84,7 +84,7 @@ regex = "1.12.3"
 walkdir = "2.5.0"
 async-trait = "0.1.89"
 notify-debouncer-mini = { version = "0.7.0", features = ["macos_fsevent"] }
-dashmap = "6.1.0"
+dashmap = "6.2.1"
 hound = "3.5.1"
 semver = "1.0.27"
 hex = "0.4.3"
