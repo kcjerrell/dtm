@@ -128,6 +128,43 @@ export const config: Options.Testrunner & Record<string, unknown> = {
         if (result.passed) return
 
         try {
+            const diagnostics = await browser.execute(() => {
+                const appRoot = document.querySelector("[data-current-view]")
+                const viewContainers = Array.from(
+                    document.querySelectorAll<HTMLElement>("[data-view-container]"),
+                ).map((el) => {
+                    const rect = el.getBoundingClientRect()
+                    const style = window.getComputedStyle(el)
+                    return {
+                        view: el.dataset.viewContainer,
+                        active: el.dataset.activeView,
+                        mode: el.dataset.activityMode,
+                        rect: {
+                            x: rect.x,
+                            y: rect.y,
+                            width: rect.width,
+                            height: rect.height,
+                        },
+                        display: style.display,
+                        opacity: style.opacity,
+                        visibility: style.visibility,
+                    }
+                })
+
+                return {
+                    currentView: appRoot?.getAttribute("data-current-view"),
+                    mountedViews: appRoot?.getAttribute("data-mounted-views"),
+                    activeButton: document
+                        .querySelector("[aria-current='page']")
+                        ?.textContent?.trim(),
+                    metadataExists: !!document.getElementById("metadata"),
+                    projectsExists: !!document.getElementById("dt-projects"),
+                    bodyText: document.body.innerText.slice(0, 1000),
+                    viewContainers,
+                }
+            })
+            console.log(`Failure diagnostics: ${JSON.stringify(diagnostics, null, 2)}`)
+
             mkdirSync(SCREENSHOT_DIR, { recursive: true })
             const stamp = new Date().toISOString().replace(/[:.]/g, "-")
             const suite = safeFileName(test.parent || "suite")

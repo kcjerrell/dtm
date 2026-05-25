@@ -25,9 +25,10 @@ const variants: Variants = {
 export function ViewContainer(
     props: PropsWithChildren<{
         isActiveView: boolean
+        viewId?: string
     }>,
 ) {
-    const { children, isActiveView } = props
+    const { children, isActiveView, viewId } = props
     const [mode, setMode] = useState<"hidden" | "visible">(() =>
         isActiveView ? "visible" : "hidden",
     )
@@ -45,6 +46,9 @@ export function ViewContainer(
             <Suspense fallback={<Loading />}>
                 <Activity mode={mode}>
                     <motion.div
+                        data-view-container={viewId}
+                        data-active-view={isActiveView}
+                        data-activity-mode={mode}
                         layout
                         inert={!isActiveView}
                         variants={variants}
