@@ -68,6 +68,9 @@ const disableAnimationStyles: Record<string, SystemStyleObject> = disableAnimati
           },
       }
     : {}
+if (disableAnimations) {
+    console.warn("Animations have been disabled by environment")
+}
 
 const themeConfig = defineConfig({
     globalCss: {
