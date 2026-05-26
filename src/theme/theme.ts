@@ -55,21 +55,28 @@ const disableAnimationStyles: Record<string, SystemStyleObject> = disableAnimati
               transition: "none !important",
               scrollBehavior: "auto !important",
               caretColor: "auto",
+              transitionDuration: "0s !important",
+              animationDuration: "0s !important",
+              animationDelay: "0s !important",
           },
-
           "*::before": {
               animation: "none !important",
               transition: "none !important",
+              transitionDuration: "0s !important",
+              animationDuration: "0s !important",
+              animationDelay: "0s !important",
           },
-
           "*::after": {
               animation: "none !important",
               transition: "none !important",
+              transitionDuration: "0s !important",
+              animationDuration: "0s !important",
+              animationDelay: "0s !important",
           },
       }
     : {}
 if (disableAnimations) {
-    console.warn("Animations have been disabled by environment")
+    console.debug("Animations have been disabled by environment")
 }
 
 const themeConfig = defineConfig({

@@ -48,14 +48,13 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_DISABLE_ANIMATIONS: "true"
         run: npm run build:debug
 
       - name: Set up test data
         run: sh scripts/test-setup.sh
 
       - name: Run WDIO tests
-        env:
-          VITE_DISABLE_ANIMATIONS: "true"
         run: npm run wdio
 
       - name: Upload WDIO failure screenshots
