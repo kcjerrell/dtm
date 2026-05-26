@@ -1,5 +1,12 @@
-import { Box, Button, ButtonProps } from "@chakra-ui/react"
-import { createContext, PropsWithChildren, useCallback, useContext, useRef, useState } from "react"
+import { Box, Button, type ButtonProps } from "@chakra-ui/react"
+import {
+    createContext,
+    type PropsWithChildren,
+    useCallback,
+    useContext,
+    useRef,
+    useState,
+} from "react"
 
 const CollapseContext = createContext({
     isOpen: false,
