@@ -113,6 +113,7 @@ export function CollapseContent(props: PropsWithChildren<CollapseContentProps>) 
             maxHeight={maxHeight}
             transition={`max-height ${duration}s, opacity ${duration / 2}s`}
             overflow={"hidden"}
+            visibility={state === "closed" ? "hidden" : "visible"}
             {...rest}
         >
             {children}
