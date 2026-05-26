@@ -43,6 +43,10 @@ const grayc = Array.from({ length: grayValues.length }).reduce<
 
 const themeConfig = defineConfig({
     globalCss: {
+        "*": {
+            animation: "none !important",
+            transition: "none !important",
+        },
         html: {
             overscrollBehavior: "none",
             fontSize: "var(--app-base-size)",
