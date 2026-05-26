@@ -60,7 +60,7 @@ export type ListFilesResult = {
  * Takes a handler for when a full scan is required.
  * useDTP() will be responsible for assigning the handler
  */
-export class WatchFoldersController extends DTPStateController<WatchFoldersControllerState> {
+class WatchFoldersController extends DTPStateController<WatchFoldersControllerState> {
     state = proxy<WatchFoldersControllerState>({
         folders: [] as WatchFolderState[],
         isDtFolderAdded: false,

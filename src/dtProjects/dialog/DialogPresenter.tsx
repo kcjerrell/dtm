@@ -53,7 +53,9 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
     const { uiState } = useDTP()
     const uiSnap = uiState.useSnap()
 
-    const { Dialog, dialogProps, panelProps, containerProps } = getDialogComponent(uiSnap.dialog)
+    const { Dialog, dialogProps, panelProps, containerProps } = getDialogComponent(
+        uiSnap.dialog as DialogState,
+    )
     if (!Dialog) return null
 
     return (
@@ -68,6 +70,7 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
                 uiState.hideDialog()
             }}
             overflow={"hidden"}
+            {...restProps}
         >
             <Flex
                 overflow={"hidden"}
