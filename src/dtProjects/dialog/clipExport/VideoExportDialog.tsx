@@ -1,8 +1,7 @@
 import { Box, Grid, HStack, Text, VStack } from "@chakra-ui/react"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { createVideoFromFrames } from "@/commands"
-import DTPService from "@/commands/DtpService"
 import { IconButton, LinkButton, PanelButton, PanelSection, PanelSectionHeader } from "@/components"
 import { FiX } from "@/components/icons/icons"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -16,17 +15,17 @@ import ExportProgress from "./ExportProgress"
 export type FrameSource = "preview" | "tensor"
 
 function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
-    const { onClose, image, ...restProps } = props
+    const { onClose, historyNode, image, ...restProps } = props
 
-    const defaultWidth = image.start_width * 64
-    const defaultHeight = image.start_height * 64
-    const scaleFactor = image.upscaler_scale_factor ?? 1
-    const frameCount = image.num_frames ?? 0
+    const defaultWidth = historyNode.data.start_width * 64
+    const defaultHeight = historyNode.data.start_height * 64
+    const scaleFactor = historyNode.data.upscaler_scale_factor ?? 1
+    const frameCount = historyNode.clip?.count ?? 0
 
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
-    const [fps, setFps] = useState(25)
-    const [audio, setAudio] = useState<[number, string] | undefined>(undefined)
+    const [fps, setFps] = useState(historyNode.clip?.frames_per_second ?? 25)
+    const audio = historyNode.clip?.audio_id ? `audio_${historyNode.clip?.audio_id}` : undefined
 
     const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.videoSource")
     const [frameSource, setFrameSource] = useState<FrameSource>(frameSourceSetting as FrameSource)
@@ -56,15 +55,6 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
         originalH = defaultHeight * scaleFactor
     }
     const showUseSizeButton = width !== originalW || height !== originalH
-
-    useEffect(() => {
-        if (!image || !image.clip_id) return
-        DTPService.getClip(image.id, image.clip_id).then(async (data) => {
-            if (!image) return
-            setFps(data.clip.framesPerSecond)
-            if (data.clip.audioId) setAudio([image.project_id, `audio_${data.clip.audioId}`])
-        })
-    }, [image])
 
     const handleWidthChange = (val: number) => {
         setWidth(val)
@@ -125,7 +115,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                 useTensor: frameSource === "tensor",
                 outputFile: savePath,
                 imageId: image.id,
-                audio: audio,
+                audio: audio ? [image.project_id, audio] : undefined,
             })
             setFrameSourceSetting(frameSource)
         } catch (e) {
@@ -321,7 +311,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                 ? "Fast - uses the high quality, preview image for each frame.  (This uses the same images as the video preview)."
                                 : "Slow, best quality, uses original generated tensor output."}
                         </Text>
-                        {scaleFactor && scaleFactor > 1 && (
+                        {scaleFactor > 1 && (
                             <Text fontSize="sm" color="fg.1">
                                 Note: Upscaled videos must use the Tensor source for full
                                 resolution.

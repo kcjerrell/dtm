@@ -1,4 +1,4 @@
-import { type ClipExtra, DtpService, type ImageExtra } from "@/commands"
+import { DtpService, type ImageExtra } from "@/commands"
 import DTProject from "@/commands/DTProject"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
@@ -75,12 +75,9 @@ export class ResourceHandle {
         return this.history
     }
 
-    private clip?: ClipExtra | null
     async getClip() {
-        if (this.clip === undefined && this.clipId && this.image?.id) {
-            this.clip = await DtpService.getClip(this.image.id, this.clipId)
-        }
-        return this.clip
+        const history = await this.getHistory()
+        return history?.clip
     }
 
     async getPngData(frame?: number) {

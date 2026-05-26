@@ -169,6 +169,7 @@ export function useImageCommands(): [
                 icon: DottedOutlineIcon,
                 getEnabled: (selected) => !!selected?.[0]?.isCanvasStack,
                 toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
                 noSpinner: true,
                 action: () => {
                     uiState.toggleCanvasOutlines()
@@ -183,6 +184,7 @@ export function useImageCommands(): [
                 icon: DottedOutlineIcon,
                 getEnabled: (selected) => !!selected?.[0]?.hasMask,
                 toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
                 noSpinner: true,
                 action: () => {
                     uiState.toggleSubItemMask()
@@ -197,11 +199,16 @@ export function useImageCommands(): [
                 getEnabled: (selected) => !!selected?.[0].isVideo,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                action: (selected, _) => {
+                action: async (selected, _) => {
                     if (!selected[0].image) return
+                    const node = await selected[0].getHistory()
+                    if (!node) return
                     uiState.showDialog({
                         dialogType: "clip-export-video",
-                        props: { image: selected[0].image },
+                        props: {
+                            image: selected[0].image,
+                            historyNode: node,
+                        },
                     })
                 },
                 ellipses: true,
@@ -216,9 +223,11 @@ export function useImageCommands(): [
                 menuEnableMode: "hide",
                 action: async (selected, _) => {
                     if (!selected[0].image) return
+                    const historyNode = await selected[0].getHistory()
+                    if (!historyNode) return
                     uiState.showDialog({
                         dialogType: "clip-export-frames",
-                        props: { image: selected[0].image },
+                        props: { image: selected[0].image, historyNode },
                     })
                 },
                 ellipses: true,
