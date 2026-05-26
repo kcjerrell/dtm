@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     name: Build Debug App + WDIO E2E
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 45
 
     permissions:
