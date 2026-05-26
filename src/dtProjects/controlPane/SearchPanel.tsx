@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
 import { PiInfo } from "@/components/icons/icons"
 import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
-import TabContent from "@/metadata/infoPanel/TabContent"
+import TabContent from "@/components/TabContent"
 import { useDTP } from "../state/context"
 import SearchFilterForm from "./filters/SearchFilterForm"
 

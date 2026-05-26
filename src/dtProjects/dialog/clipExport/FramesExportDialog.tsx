@@ -19,12 +19,12 @@ async function getDefaultOutputDir() {
 export type FrameSource = "preview" | "tensor"
 
 function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
-    const { onClose, image, ...restProps } = props
+    const { onClose, historyNode, ...restProps } = props
 
-    const defaultWidth = image.start_width * 64
-    const defaultHeight = image.start_height * 64
-    const scaleFactor = image.upscaler_scale_factor ?? 1
-    const frameCount = image.num_frames ?? 0
+    const defaultWidth = historyNode.data.start_width * 64
+    const defaultHeight = historyNode.data.start_height * 64
+    const scaleFactor = historyNode.data?.upscaler_scale_factor ?? 1
+    const frameCount = historyNode.clip?.count ?? 0
 
     const [outputDirSetting, setOutputDirSetting] = useSetting("vidExport.framesOutputDir")
     const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.framesSource")
@@ -252,7 +252,7 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
                                 ? "Fast - uses the high quality, preview image for each frame. Generated files will be .jpg (This uses the same images as the video preview)."
                                 : "Slow, best quality, uses original generated tensor output. Generated files will be .png"}
                         </Text>
-                        {scaleFactor && scaleFactor > 1 && (
+                        {scaleFactor > 1 && (
                             <Text fontSize="sm" color="fg.1">
                                 Note: Upscaled videos must use the Tensor source for full
                                 resolution.

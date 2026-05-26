@@ -1,39 +1,24 @@
-import { motion, type Variants } from "motion/react"
 import { Activity, type PropsWithChildren, Suspense, useEffect, useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import ErrorFallback from "@/ErrorFallback"
 import { Loading } from "@/main"
-
-const variants: Variants = {
-    inactive: {
-        zIndex: 1,
-        opacity: 0,
-        transition: {
-            duration: 0.1,
-        },
-    },
-    active: {
-        zIndex: 0,
-        opacity: 1,
-        scale: 1,
-        transition: {
-            duration: 0.1,
-        },
-    },
-}
+import { chakra } from "@chakra-ui/react"
 
 export function ViewContainer(
     props: PropsWithChildren<{
         isActiveView: boolean
+        viewId?: string
     }>,
 ) {
-    const { children, isActiveView } = props
-    const [mode, setMode] = useState<"hidden" | "visible">("hidden")
+    const { children, isActiveView, viewId } = props
+    const [mode, setMode] = useState<"hidden" | "visible">(() =>
+        isActiveView ? "visible" : "hidden",
+    )
 
     useEffect(() => {
         if (isActiveView) setMode("visible")
         else {
-            const timer = setTimeout(() => setMode("hidden"), 200)
+            const timer = setTimeout(() => setMode("hidden"), 300)
             return () => clearTimeout(timer)
         }
     }, [isActiveView])
@@ -42,27 +27,43 @@ export function ViewContainer(
         <ErrorBoundary FallbackComponent={ErrorFallback}>
             <Suspense fallback={<Loading />}>
                 <Activity mode={mode}>
-                    <motion.div
-                        layout
+                    <ViewContainerBase
+                        data-view-container={viewId}
+                        data-active-view={isActiveView}
+                        data-activity-mode={mode}
                         inert={!isActiveView}
-                        variants={variants}
-                        initial={"inactive"}
-                        animate={isActiveView ? "active" : "inactive"}
-                        style={{
-                            position: "absolute",
-                            inset: "0",
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            justifyContent: "stretch",
-                            alignItems: "stretch",
-                            boxShadow: "0px 2px 4px -2px #00000099",
-                        }}
+                        isActiveView={isActiveView}
                     >
                         {children}
-                    </motion.div>
+                    </ViewContainerBase>
                 </Activity>
             </Suspense>
         </ErrorBoundary>
     )
 }
+
+const ViewContainerBase = chakra("div", {
+    base: {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        justifyContent: "stretch",
+        alignItems: "stretch",
+        boxShadow: "0px 2px 4px -2px #00000099",
+        transition: "opacity 0.2s ease",
+    },
+    variants: {
+        isActiveView: {
+            true: {
+                opacity: 1,
+                zIndex: 0,
+            },
+            false: {
+                opacity: 0,
+                zIndex: 1,
+            },
+        },
+    },
+})

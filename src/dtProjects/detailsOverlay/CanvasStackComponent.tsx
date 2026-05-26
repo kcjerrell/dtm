@@ -1,26 +1,23 @@
 import { chakra, Spinner } from "@chakra-ui/react"
 import { type ComponentProps, Fragment, useRef } from "react"
-import type { TensorDataRow } from "@/commands"
+import type { TensorData } from "@/commands/DTProjectTypes"
 import urls from "@/commands/urls"
+import { SpinnerRoot } from "@/components/common"
 import { showStackPreview } from "@/components/preview"
 import { useThresholdDelay } from "@/hooks/useDecay"
 import { useProxyRef } from "@/hooks/valtioHooks"
-import { useDTP } from "../state/context"
 import type { CanvasStack } from "../types"
-import { DetailsImageContainer, DetailsImageContent, DetailsSpinnerRoot } from "./common"
-import { TensorData } from "@/commands/DTProjectTypes"
+import { DetailsImageContainer, DetailsImageContent } from "./common"
 
 interface CanvasStackComponentProps extends ComponentProps<typeof DetailsImageContainer> {
     stack: MaybeReadonly<CanvasStack>
+    showCanvasOutlines?: boolean
 }
 
 const Rect = chakra("rect")
 
 function CanvasStackComponent(props: CanvasStackComponentProps) {
-    const { stack, ...restProps } = props
-
-    const { uiState } = useDTP()
-    const uiSnap = uiState.useSnap()
+    const { stack, showCanvasOutlines = false, ...restProps } = props
 
     const { state, snap } = useProxyRef(() => ({
         isLoaded: stack.tensorData.map(() => false) as boolean[],
@@ -37,14 +34,21 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
     const wheelBump = useThresholdDelay({
         time: 200,
         threshold: 100,
-        callback: () => showStackPreview(svgRef.current, stack, bounds.width, bounds.height),
+        callback: () =>
+            showStackPreview(svgRef.current, stack, bounds.width, bounds.height, {
+                showCanvasOutlines,
+            }),
     })
 
     return (
         <DetailsImageContainer {...restProps}>
             <DetailsImageContent
                 data-solid="true"
-                onClick={() => showStackPreview(svgRef.current, stack, bounds.width, bounds.height)}
+                onClick={() =>
+                    showStackPreview(svgRef.current, stack, bounds.width, bounds.height, {
+                        showCanvasOutlines,
+                    })
+                }
                 onWheel={(e) => {
                     if (e.deltaY < 0) wheelBump(0 - e.deltaY)
                 }}
@@ -84,9 +88,7 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
                                     strokeWidth={4}
                                     strokeDasharray={"20 20"}
                                     fill={"none"}
-                                    display={
-                                        uiSnap.detailsView.showCanvasOutlines ? "block" : "none"
-                                    }
+                                    display={showCanvasOutlines ? "block" : "none"}
                                 />
                             </Fragment>
                         )
@@ -94,9 +96,9 @@ function CanvasStackComponent(props: CanvasStackComponentProps) {
                 </svg>
             </DetailsImageContent>
             {!snap.isLoaded.every((layer) => layer) && (
-                <DetailsSpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
+                <SpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
                     <Spinner width={"100%"} height={"100%"} color={"white"} />
-                </DetailsSpinnerRoot>
+                </SpinnerRoot>
             )}
         </DetailsImageContainer>
     )

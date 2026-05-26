@@ -8,6 +8,8 @@ import { getStoreName } from "@/utils/helpers"
 let settingStore: ReturnType<typeof initStore> | undefined
 const subscriptions = new Map<SettingsKey, Set<(value: Settings[SettingsKey]) => void>>()
 
+let storeSyncedAndReady = false
+
 const defaultSettings = {
     "vidExport.framesFilenamePattern": "clip_%%%_frame_###",
     "vidExport.framesOutputDir": "",
@@ -50,11 +52,17 @@ function initStore() {
  * Must be called as early as possible (main.tsx)
  */
 export async function loadSettingsStore() {
-    const store = getSettingStore()
+    const store = getSettingStore(true)
     await store.start()
+    storeSyncedAndReady = true
 }
 
-function getSettingStore() {
+function getSettingStore(initialLoad = false) {
+    if (!initialLoad && !storeSyncedAndReady) {
+        console.warn(
+            "Settings store is being used before being loaded! loadSettingsStore must be called to guarantee values have been loaded from storage",
+        )
+    }
     if (!settingStore) {
         settingStore = initStore()
     }
@@ -63,7 +71,16 @@ function getSettingStore() {
 
 // this is to help with type issues, specifically in the initializer
 function update<K extends SettingsKey, V extends Settings[K]>(state: Settings, key: K, value: V) {
+    if (state[key] === value) return
+
     state[key] = value
+
+    if (subscriptions.has(key)) {
+        const callbacks = subscriptions.get(key) as Set<(value: Settings[K]) => void>
+        callbacks.forEach((callback) => {
+            callback(value)
+        })
+    }
 }
 
 /** update a setting by key */

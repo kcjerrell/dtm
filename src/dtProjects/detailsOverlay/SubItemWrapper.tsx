@@ -5,10 +5,11 @@ import DetailsImage from "./DetailsImage"
 
 interface SubItemProps extends ChakraProps {
     subItem?: ReadonlyState<SubItem | CanvasStack>
+    showCanvasOutlines?: boolean
 }
 
 function SubItemWrapper(props: SubItemProps) {
-    const { subItem, ...restProps } = props
+    const { subItem, showCanvasOutlines, ...restProps } = props
 
     if (!subItem) return null
 
@@ -18,6 +19,7 @@ function SubItemWrapper(props: SubItemProps) {
                 key={subItem.nodeId}
                 {...(restProps as ComponentProps<typeof CanvasStackComponent>)}
                 stack={subItem}
+                showCanvasOutlines={showCanvasOutlines}
             />
         )
     }

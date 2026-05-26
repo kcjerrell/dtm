@@ -181,7 +181,6 @@ export function pinImage(
     imageOrCurrent: MediaItemParam | true,
     value: number | boolean | null,
 ): void {
-    console.log("pinning")
     let index = -1
     if (typeof imageOrCurrent === "number") index = imageOrCurrent
     else if (imageOrCurrent === true) index = getMetadataStore().currentIndex ?? -1

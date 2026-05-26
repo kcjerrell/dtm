@@ -1,9 +1,10 @@
 import { Spinner } from "@chakra-ui/react"
 import { type ComponentProps, useMemo, useRef } from "react"
+import { SpinnerRoot } from "@/components/common"
 import type { VideoContextType } from "@/components/video/context"
 import { Hotkey } from "@/hooks/keyboard"
 import { useDTP } from "../state/context"
-import { DetailsOverlayContainer, DetailsSpinnerRoot } from "./common"
+import { DetailsOverlayContainer } from "./common"
 import DetailsButtonBar from "./DetailsButtonBar"
 import DetailsContent from "./DetailsContent"
 import { DTImageProvider } from "./DTImageProvider"
@@ -22,7 +23,7 @@ function Overlay(props: DetailsOverlayProps) {
     const snap = uiState.useDetailsOverlay()
     const { item, itemDetails } = snap
 
-    const isVisible = !!item
+    const isVisible = snap.isOpen
     const showSpinner = !!(snap.showSpinner || snap.subItem?.isLoading)
 
     // using a ref so the imagecommands (for video) can access the video context
@@ -66,6 +67,9 @@ function Overlay(props: DetailsOverlayProps) {
                 }}
                 expandImage={snap.minimizeContent}
                 hidden={!isVisible}
+                // data-state={isVisible ? "open" : "closed"}
+                // animationDuration={"moderate"}
+                // animationStyle={{ _open: "scale-fade-in", _closed: "scale-fade-out" }}
                 {...rest}
             >
                 {isVisible && <Hotkey scope="details-overlay" handlers={hotkeys} />}
@@ -79,13 +83,14 @@ function Overlay(props: DetailsOverlayProps) {
                     />
                 )}
                 {(showSpinner || snap.subItem?.isLoading) && (
-                    <DetailsSpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
+                    <SpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
                         <Spinner width={"100%"} height={"100%"} color={"white"} />
-                    </DetailsSpinnerRoot>
+                    </SpinnerRoot>
                 )}
                 {snap.subItem && (
                     <SubItemWrapper
                         subItem={snap.subItem}
+                        showCanvasOutlines={snap.showCanvasOutlines}
                         padding={8}
                         paddingTop={2}
                         width={"100%"}

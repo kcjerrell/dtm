@@ -18,22 +18,10 @@ const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
 }
 
-async function reset_db() {
-    const { preloadDTP } = await import("./dtProjects/state/context")
-    console.log("resetting db")
-    // this ensures the db has started
-    await preloadDTP()
-    await invoke("dtp_reset_db")
-}
-
 async function bootstrap() {
     if (!import.meta.env.DEV) forwardConsoleAll()
     window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
-    window.__reset_db = reset_db
-    window.__reset_metadata_store = async () => {
-        const { resetMetadataStore } = await import("./metadata/state/metadataStore")
-        resetMetadataStore()
-    }
+
     addTestHooks()
 
     // this store must be initialized and await so installId is determinate

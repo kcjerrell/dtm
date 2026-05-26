@@ -16,7 +16,7 @@ function DTProjects(props: ChakraProps) {
 
     return (
         <MenuProvider>
-            <Container position={"relative"} {...restProps}>
+            <Container id={"dt-projects"} position={"relative"} {...restProps}>
                 <ControlPane />
                 <VStack
                     id={"project-content-pane"}

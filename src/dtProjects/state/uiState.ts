@@ -16,6 +16,7 @@ export type UIControllerState = {
     selectedTab: "projects" | "search"
     shouldFocus?: string
     detailsView: {
+        isOpen: boolean
         project?: ProjectState
         item?: ImageExtra
         itemDetails?: TensorHistoryNode
@@ -50,6 +51,7 @@ export class UIController extends DTPStateController<UIControllerState> {
         selectedTab: "projects",
         shouldFocus: undefined,
         detailsView: {
+            isOpen: false,
             showSpinner: false,
             showCanvasOutlines: true,
             item: undefined,
@@ -150,6 +152,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     async showDetailsOverlay(item: ImageExtra) {
         const detailsOverlay = this.state.detailsView
+        detailsOverlay.isOpen = true
         detailsOverlay.item = item
         detailsOverlay.lastItem = item
         detailsOverlay.project = await this.container
@@ -176,14 +179,17 @@ export class UIController extends DTPStateController<UIControllerState> {
 
     hideDetailsOverlay() {
         const detailsOverlay = this.state.detailsView
-        detailsOverlay.item = undefined
-        detailsOverlay.candidates = []
-        detailsOverlay.subItem = undefined
-        detailsOverlay.subItemSourceRect = null
-        detailsOverlay.itemDetails = undefined
-        detailsOverlay.sourceRect = null
-        detailsOverlay.width = undefined
-        detailsOverlay.height = undefined
+        detailsOverlay.isOpen = false
+        setTimeout(() => {
+            detailsOverlay.item = undefined
+            detailsOverlay.candidates = []
+            detailsOverlay.subItem = undefined
+            detailsOverlay.subItemSourceRect = null
+            detailsOverlay.itemDetails = undefined
+            detailsOverlay.sourceRect = null
+            detailsOverlay.width = undefined
+            detailsOverlay.height = undefined
+        }, 300)
     }
 
     async showSubItem(

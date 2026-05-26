@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     name: Build Debug App + WDIO E2E
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 45
 
     permissions:
@@ -72,6 +72,9 @@ jobs:
           path: |
             ~/Library/Logs/com.kcjer.dtm
             ~/Library/Application Support/com.kcjer.dtm
+
+            !**/*.7z
+            !**/bin/**
           if-no-files-found: ignore
 
       - name: Save Rust cache

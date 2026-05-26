@@ -49,7 +49,6 @@ function textTypeReader(uti: string, data: string): ReadResult | undefined {
 }
 
 function isPose(type: string, data: unknown) {
-    console.log("isPose", type, data)
     if (type !== "public.utf8-plain-text" || typeof data !== "string") return false
 
     try {

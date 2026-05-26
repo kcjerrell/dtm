@@ -1,9 +1,11 @@
 import type { ImageExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 export type VideoExportDialogState = {
     dialogType: "clip-export-video"
     props: {
         image: ImageExtra
+        historyNode: TensorHistoryNode
     }
 }
 
@@ -11,6 +13,7 @@ export type FrameExportDialogState = {
     dialogType: "clip-export-frames"
     props: {
         image: ImageExtra
+        historyNode: TensorHistoryNode
     }
 }
 

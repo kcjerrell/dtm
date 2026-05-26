@@ -172,7 +172,7 @@ export class ImageItem extends MediaItem {
                     loadedFrom: "project",
                     projectFile: dtpResult.projectFile,
                     nodeId: dtpResult.history.rowid,
-                    tensorId: dtpResult.history.tensorId,
+                    tensorId: dtpResult.history.tensorHistoryName,
                 })
             }
         } catch (e) {
@@ -192,10 +192,10 @@ export async function loadDtpImage(dtpImage: { projectId: number; imageId: numbe
     const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
     if (!imageItem) return
     const history = await DTProject.getTensorHistory(imageItem.project_id, imageItem.node_id)
-    if (!history || !history.tensorId) return
+    if (!history || !history.tensorHistoryName) return
     const image = await DtpService.decodeTensor(
         imageItem.project_id,
-        history.tensorId,
+        history.tensorHistoryName,
         true,
         imageItem.node_id,
     )

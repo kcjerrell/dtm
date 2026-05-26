@@ -8,7 +8,6 @@ import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { DottedOutlineIcon, PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import type { VideoContextType } from "@/components/video/context"
-import { sendToMetadata } from "@/metadata/state/interop"
 import type { ICommand } from "@/types"
 import { writeClipboardText } from "@/utils/clipboard"
 import { showMenu } from "@/utils/menu"
@@ -150,7 +149,10 @@ export function useImageCommands(): [
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
                     const project = projects.getProject(selected[0].projectId)
-                    await sendToMetadata(data, "png", {
+
+                    const interop = await import("@/metadata/state/interop")
+
+                    await interop.sendToMetadata(data, "png", {
                         source: "project",
                         projectFile: project?.path,
                         tensorId: await selected[0].getTensorId(),
@@ -167,6 +169,7 @@ export function useImageCommands(): [
                 icon: DottedOutlineIcon,
                 getEnabled: (selected) => !!selected?.[0]?.isCanvasStack,
                 toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
                 noSpinner: true,
                 action: () => {
                     uiState.toggleCanvasOutlines()
@@ -181,6 +184,7 @@ export function useImageCommands(): [
                 icon: DottedOutlineIcon,
                 getEnabled: (selected) => !!selected?.[0]?.hasMask,
                 toolbarEnableMode: "hide",
+                menuEnableMode: "hide",
                 noSpinner: true,
                 action: () => {
                     uiState.toggleSubItemMask()
@@ -195,11 +199,16 @@ export function useImageCommands(): [
                 getEnabled: (selected) => !!selected?.[0].isVideo,
                 toolbarEnableMode: "hide",
                 menuEnableMode: "hide",
-                action: (selected, _) => {
+                action: async (selected, _) => {
                     if (!selected[0].image) return
+                    const node = await selected[0].getHistory()
+                    if (!node) return
                     uiState.showDialog({
                         dialogType: "clip-export-video",
-                        props: { image: selected[0].image },
+                        props: {
+                            image: selected[0].image,
+                            historyNode: node,
+                        },
                     })
                 },
                 ellipses: true,
@@ -214,9 +223,11 @@ export function useImageCommands(): [
                 menuEnableMode: "hide",
                 action: async (selected, _) => {
                     if (!selected[0].image) return
+                    const historyNode = await selected[0].getHistory()
+                    if (!historyNode) return
                     uiState.showDialog({
                         dialogType: "clip-export-frames",
-                        props: { image: selected[0].image },
+                        props: { image: selected[0].image, historyNode },
                     })
                 },
                 ellipses: true,

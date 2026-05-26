@@ -40,6 +40,8 @@ function App() {
 
     return (
         <AppRoot
+            data-current-view={currentView}
+            data-mounted-views={Array.from(mountedViews.current).join(",")}
             onContextMenu={(e) => {
                 if (!(e.target as HTMLElement)?.closest("[data-defctx")) e.preventDefault()
             }}
@@ -75,7 +77,7 @@ function App() {
                         const View = getView(v)
                         const isActiveView = v === currentView
                         return (
-                            <ViewContainer key={v} isActiveView={isActiveView}>
+                            <ViewContainer key={v} viewId={v} isActiveView={isActiveView}>
                                 <View flex={"1 1 auto"} />
                             </ViewContainer>
                         )

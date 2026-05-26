@@ -2,11 +2,11 @@ import { useCallback, useState } from "react"
 import type { ImageExtra } from "@/commands"
 import PVGrid from "@/components/virtualizedList/PVGrid2"
 import { useItemSelection } from "@/hooks/useIdSelection"
+import { useSetting } from "@/state/settings"
 import { useMenuContext } from "../MenuContext"
 import { useDTP } from "../state/context"
 import { ResourceHandle } from "../util/resourceHandle"
 import GridImage from "./GridImage"
-import { useSetting } from "@/state/settings"
 
 const keyFn = (item?: ImageExtra | null) => (item ? `${item.project_id}_${item.node_id}` : item)
 

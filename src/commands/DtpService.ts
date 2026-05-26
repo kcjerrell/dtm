@@ -14,8 +14,11 @@ import type {
 
 type MaybeReadonly<T> = T | Readonly<T>
 
+const dbLoader = Promise.withResolvers<void>()
+
 async function connect(channel: Channel) {
     await invoke("dtp_connect", { channel, autoWatch: true })
+    dbLoader.resolve()
 }
 
 async function lockFolder(watchfolderId: number) {
@@ -35,6 +38,7 @@ async function listImages(
     skip: number,
     take: number,
 ): Promise<ListImagesResult> {
+    await dbLoader.promise
     const result: ListImagesResult = await invoke("dtp_list_images", {
         ...source,
         skip,
@@ -44,6 +48,7 @@ async function listImages(
 }
 
 async function listImagesCount(source: MaybeReadonly<ListImagesOpts>) {
+    await dbLoader.promise
     const opts = { ...source, projectIds: undefined, count: true }
     const result: ListImagesResult = await invoke("dtp_list_images", opts)
     return result

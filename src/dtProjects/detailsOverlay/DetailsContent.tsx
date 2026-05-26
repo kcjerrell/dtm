@@ -1,16 +1,15 @@
 import { chakra, Grid, Spacer } from "@chakra-ui/react"
-import { motion } from "motion/react"
 import { Fragment } from "react/jsx-runtime"
 import { TbWindowMinimize } from "react-icons/tb"
 import type { Snapshot } from "valtio"
-import type { DTImageFull, ImageExtra } from "@/commands"
+import type { ImageExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import { IconButton, Panel } from "@/components"
 import DataItem from "@/components/DataItem"
-import Tabs from "@/metadata/infoPanel/tabs"
+import Tabs from "@/components/tabs"
 import { useDTP } from "../state/context"
 import DetailsFallback from "./DetailsFallback"
 import { useDTImage } from "./DTImageContext"
-import { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 interface DetailsContentProps extends ChakraProps {
     item?: Snapshot<ImageExtra> | null
@@ -208,12 +207,12 @@ function DetailsContent(props: DetailsContentProps) {
                         <DataItem label={"Node ID"} data={item.node_id} />
                         <DataItem label={"Lineage"} data={details.lineage} />
                         <DataItem label={"Logical Time"} data={details.logicalTime} />
-                        <DataItem label={"Tensor ID"} data={details.tensorId} />
-                        <DataItem label={"Depth Map ID"} data={details.depthMapId} />
-                        <DataItem label={"Pose ID"} data={details.poseId} />
-                        <DataItem label={"Scribble ID"} data={details.scribbleId} />
-                        <DataItem label={"Color Palette ID"} data={details.colorPaletteId} />
-                        <DataItem label={"Custom ID"} data={details.customId} />
+                        <DataItem label={"Tensor ID"} data={details.tensorHistoryName} />
+                        <DataItem label={"Depth Map ID"} data={details.depthMapName} />
+                        <DataItem label={"Pose ID"} data={details.poseName} />
+                        <DataItem label={"Scribble ID"} data={details.scribbleName} />
+                        <DataItem label={"Color Palette ID"} data={details.colorPaletteName} />
+                        <DataItem label={"Custom ID"} data={details.customName} />
                         {(details.moodboard?.length ?? 0) > 0 && (
                             <DataItem
                                 label={"Moodboard IDs"}

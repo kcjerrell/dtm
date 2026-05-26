@@ -1,5 +1,4 @@
 import * as Common from "./common"
-import DataItem from "./DataItem"
 import IconButton from "./IconButton"
 import MeasureGrid from "./measureGrid/MeasureGrid"
 import { useMeasureGrid } from "./measureGrid/useMeasureGrid"
@@ -24,14 +23,13 @@ export const {
 } = Common
 
 export {
-    Tooltip,
-    SliderWithInput,
     IconButton,
-    Sidebar,
-    Preview,
     MeasureGrid,
-    useMeasureGrid,
-    DataItem,
+    Preview,
     Progress,
+    Sidebar,
+    SliderWithInput,
+    Tooltip,
+    useMeasureGrid,
     ViewContainer,
 }

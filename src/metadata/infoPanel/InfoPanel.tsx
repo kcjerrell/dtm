@@ -6,8 +6,8 @@ import { InfoPaneContainer } from "../Containers"
 import { useCurrentImage } from "../state/hooks"
 import Config from "./Config"
 import Details from "./Details"
-import TabContent from "./TabContent"
-import Tabs from "./tabs"
+import TabContent from "../../components/TabContent"
+import Tabs from "../../components/tabs"
 
 type UIState = {
     tab: string

@@ -1,4 +1,10 @@
-import { createSystem, defaultConfig, defineConfig, defineLayerStyles } from "@chakra-ui/react"
+import {
+    createSystem,
+    defaultConfig,
+    defineConfig,
+    defineLayerStyles,
+    type SystemStyleObject,
+} from "@chakra-ui/react"
 import { buttonRecipe } from "./button"
 
 const grayValues = [
@@ -41,8 +47,41 @@ const grayc = Array.from({ length: grayValues.length }).reduce<
     return acc
 }, {})
 
+export const disableAnimations = import.meta.env.VITE_DISABLE_ANIMATIONS === "true"
+const disableAnimationStyles: Record<string, SystemStyleObject> = disableAnimations
+    ? {
+          "*": {
+              animation: "none !important",
+              transition: "none !important",
+              scrollBehavior: "auto !important",
+              caretColor: "auto",
+              transitionDuration: "0s !important",
+              animationDuration: "0s !important",
+              animationDelay: "0s !important",
+          },
+          "*::before": {
+              animation: "none !important",
+              transition: "none !important",
+              transitionDuration: "0s !important",
+              animationDuration: "0s !important",
+              animationDelay: "0s !important",
+          },
+          "*::after": {
+              animation: "none !important",
+              transition: "none !important",
+              transitionDuration: "0s !important",
+              animationDuration: "0s !important",
+              animationDelay: "0s !important",
+          },
+      }
+    : {}
+if (disableAnimations) {
+    console.debug("Animations have been disabled by environment")
+}
+
 const themeConfig = defineConfig({
     globalCss: {
+        ...disableAnimationStyles,
         html: {
             overscrollBehavior: "none",
             fontSize: "var(--app-base-size)",

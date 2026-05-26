@@ -2,6 +2,7 @@ import { Grid, HStack, Spinner } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import type { DTImageFull, ImageExtra } from "@/commands"
 import urls from "@/commands/urls"
+import { SpinnerRoot } from "@/components/common"
 import VideoAudio from "@/components/video/Audio"
 import { VideoContext, type VideoContextType } from "@/components/video/context"
 import MuteButton from "@/components/video/MuteButton"
@@ -12,7 +13,6 @@ import { VideoImage } from "@/components/video/VideoImage"
 import { useGetContext } from "@/hooks/useGetContext"
 import type { UIControllerState } from "../state/uiState"
 import type { CanvasStack, SubItem } from "../types"
-import { DetailsSpinnerRoot } from "./common"
 import DetailsImage from "./DetailsImage"
 import ImageFallback from "./ImageFallback"
 import SubItemWrapper from "./SubItemWrapper"
@@ -88,9 +88,9 @@ function DetailsImages(props: DetailsImagesProps) {
                 />
             )}
             {(showSpinner || subItem?.isLoading) && (
-                <DetailsSpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
+                <SpinnerRoot key={"subitem_spinner"} gridArea={"image"}>
                     <Spinner width={"100%"} height={"100%"} color={"white"} />
-                </DetailsSpinnerRoot>
+                </SpinnerRoot>
             )}
             {subItem && (
                 <SubItemWrapper

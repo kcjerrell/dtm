@@ -1,7 +1,7 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import PanelList from "@/components/PanelList2"
 import type { ProjectState } from "@/dtProjects/state/projects"
-import TabContent from "@/metadata/infoPanel/TabContent"
+import TabContent from "@/components/TabContent"
 import { useDTP } from "../../state/context"
 import { useProjectsCommands } from "../useProjectsCommands"
 import HiddenProjectsGroup from "./HiddenProjectsGroup"
@@ -93,10 +93,18 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                 })}
             </PanelList>
 
-            <HStack color={"fg.2"} justifyContent={"space-between"} px={3} py={1} aria-label={"Projects status bar"}>
+            <HStack
+                color={"fg.2"}
+                justifyContent={"space-between"}
+                px={3}
+                py={1}
+                aria-label={"Projects status bar"}
+            >
                 <Box aria-label={"Total projects"}>{snap.projects.length} projects</Box>
 
-                <Box aria-label={"Total images"}>{snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images</Box>
+                <Box aria-label={"Total images"}>
+                    {snap.projects.reduce((p, c) => p + (c.image_count ?? 0), 0)} images
+                </Box>
                 <Box aria-label={"Total filesize"}>
                     <FormatByte value={snap.projects.reduce((p, c) => p + (c.filesize ?? 0), 0)} />
                 </Box>

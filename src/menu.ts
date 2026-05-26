@@ -9,12 +9,8 @@ import {
 } from "@tauri-apps/api/menu"
 import { open } from "@tauri-apps/plugin-dialog"
 import { exit } from "@tauri-apps/plugin-process"
-import { subscribe } from "valtio"
 import { toggleColorMode } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
-import { ImageItem } from "./metadata/state/ImageItem"
-import { loadImage2 } from "./metadata/state/imageLoaders"
-import { addImageItem, clearAll, clearCurrent } from "./metadata/state/metadataStore"
 import { postMessage } from "./state/Messages"
 import { getSetting, subscribeSetting, updateSetting } from "./state/settings"
 import { themeHelpers } from "./theme/helpers"
@@ -122,6 +118,10 @@ async function createAppMenus() {
                         ],
                     })
                     if (imagePath == null) return
+                    const [{ ImageItem }, { addImageItem }] = await Promise.all([
+                        import("./metadata/state/ImageItem"),
+                        import("./metadata/state/metadataStore"),
+                    ])
                     const item = await ImageItem.fromFile(imagePath, {
                         loadedFrom: "open",
                         file: imagePath,
@@ -133,6 +133,7 @@ async function createAppMenus() {
                 text: "Open from pasteboard...",
                 id: "file_openPasteboard",
                 action: async () => {
+                    const { loadImage2 } = await import("./metadata/state/imageLoaders")
                     await loadImage2("general")
                 },
             }),
@@ -141,6 +142,7 @@ async function createAppMenus() {
                 text: "Close",
                 id: "file_close",
                 action: async () => {
+                    const { clearCurrent } = await import("./metadata/state/metadataStore")
                     await clearCurrent()
                 },
             }),
@@ -148,6 +150,7 @@ async function createAppMenus() {
                 text: "Close unpinned",
                 id: "file_closeUnpinned",
                 action: async () => {
+                    const { clearAll } = await import("./metadata/state/metadataStore")
                     await clearAll(true)
                 },
             }),
@@ -155,6 +158,7 @@ async function createAppMenus() {
                 text: "Close all",
                 id: "file_closeAll",
                 action: async () => {
+                    const { clearAll } = await import("./metadata/state/metadataStore")
                     await clearAll(false)
                 },
             }),

@@ -1,4 +1,4 @@
-import { Box, HStack, Table, Text } from "@chakra-ui/react"
+import { Box, HStack, Table, Text, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Fragment, useCallback, useEffect, useMemo } from "react"
 import DTProject from "@/commands/DTProject"
@@ -60,7 +60,6 @@ function Explorer(props: ExplorerProps) {
                         )}
                     </Table.Row>
                     {snap.data.map((row, rowIndex) => {
-                        console.log(row)
                         return (
                             <Fragment key={row.rowid}>
                                 <Table.Row
@@ -115,18 +114,23 @@ function TensorData(
     props: CellProps<NonNullable<TensorHistoryNode["tensordata"]>[0]> & { projectId: number },
 ) {
     const { item, projectId } = props
-    const tensorName = item.tensor_name
+    const tensorNames = item.tensor_names
+    const thumbnailName = tensorNames.find((n) => n.startsWith("tensor_history_")) ?? tensorNames[0]
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
             <Table.Cell width={"5rem"} bgColor={"grayc.14"} />
             <Table.Cell colSpan={7} bgColor={"grayc.10"}>
                 <HStack width={"100%"} justifyContent={"flex-end"}>
-                    <Text>{tensorName}</Text>
-                    <img
-                        style={{ width: "50px", height: "50px" }}
-                        src={urls.tensor(projectId, tensorName, { size: 25 })}
-                        alt={tensorName}
-                    />
+                    {tensorNames.map((tn) => (
+                        <VStack key={tn}>
+                            <img
+                                style={{ width: "50px", height: "50px" }}
+                                src={urls.tensor(projectId, tn, { size: 25 })}
+                                alt={tn}
+                            />
+                            <Text>{tn}</Text>
+                        </VStack>
+                    ))}
                 </HStack>
             </Table.Cell>
         </Table.Row>
