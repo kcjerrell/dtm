@@ -47,7 +47,7 @@ const grayc = Array.from({ length: grayValues.length }).reduce<
     return acc
 }, {})
 
-export const disableAnimations = import.meta.env.E2E_DISABLE_ANIMATIONS === "true"
+export const disableAnimations = import.meta.env.VITE_DISABLE_ANIMATIONS === "true"
 const disableAnimationStyles: Record<string, SystemStyleObject> = disableAnimations
     ? {
           "*": {

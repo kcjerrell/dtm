@@ -54,6 +54,8 @@ jobs:
         run: sh scripts/test-setup.sh
 
       - name: Run WDIO tests
+        env:
+          VITE_DISABLE_ANIMATIONS: "true"
         run: npm run wdio
 
       - name: Upload WDIO failure screenshots
