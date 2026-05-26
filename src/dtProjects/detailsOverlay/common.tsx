@@ -65,7 +65,7 @@ export const DetailsImageContent = chakra(
 )
 
 export const DetailsOverlayContainer = chakra(
-    motion.div,
+    "div",
     {
         base: {
             position: "absolute",
@@ -83,7 +83,6 @@ export const DetailsOverlayContainer = chakra(
             backgroundColor: "#00000099",
             backdropFilter: "blur(5px)",
             visibility: "visible",
-            transition: "all 0s, opacity 0.25s ease-in-out",
         },
         variants: {
             expandImage: {
@@ -98,6 +97,12 @@ export const DetailsOverlayContainer = chakra(
                     backgroundColor: "#00000000",
                     backdropFilter: "blur(0px)",
                     // visibility: "hidden",
+                    transition: "all 0.1s ease-in-out",
+                    opacity: 0,
+                },
+                false: {
+                    opacity: 1,
+                    transition: "all 0.2s ease-in-out",
                 },
             },
         },
@@ -106,7 +111,7 @@ export const DetailsOverlayContainer = chakra(
 )
 
 export const DetailsButtonBarRoot = chakra(
-    motion.div,
+    "div",
     {
         base: {
             display: "flex",
@@ -129,6 +134,6 @@ export const DetailsButtonBarRoot = chakra(
         defaultProps: {
             "data-solid": "true",
         },
-        forwardProps: ["transition", "initial", "animate", "exit"],
+        forwardProps: ["transition"],
     },
 )

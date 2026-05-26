@@ -47,10 +47,10 @@ function DetailsButtonBar(props: DetailsButtonBarProps) {
             role={"toolbar"}
             data-solid
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: show ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
             pointerEvents="auto"
+            data-state={show ? "open" : "closed"}
+            animationDuration={"slow"}
+            animationStyle={{ _open: "slide-fade-in", _closed: "slide-fade-out" }}
             {...restProps}
         >
             {imageCommands.map((cmd) => (

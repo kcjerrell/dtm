@@ -23,7 +23,7 @@ function Overlay(props: DetailsOverlayProps) {
     const snap = uiState.useDetailsOverlay()
     const { item, itemDetails } = snap
 
-    const isVisible = !!item
+    const isVisible = snap.isOpen
     const showSpinner = !!(snap.showSpinner || snap.subItem?.isLoading)
 
     // using a ref so the imagecommands (for video) can access the video context
@@ -67,6 +67,9 @@ function Overlay(props: DetailsOverlayProps) {
                 }}
                 expandImage={snap.minimizeContent}
                 hidden={!isVisible}
+                // data-state={isVisible ? "open" : "closed"}
+                // animationDuration={"moderate"}
+                // animationStyle={{ _open: "scale-fade-in", _closed: "scale-fade-out" }}
                 {...rest}
             >
                 {isVisible && <Hotkey scope="details-overlay" handlers={hotkeys} />}
