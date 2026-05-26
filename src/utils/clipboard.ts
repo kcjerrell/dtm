@@ -45,7 +45,6 @@ export async function getLocalImage(path: string): Promise<Uint8Array<ArrayBuffe
     // }
     try {
         const asset = convertFileSrc(path)
-        console.log("asset", asset)
         const data = await fetch(asset)
         if (data) return await new Uint8Array(await data.arrayBuffer())
     } catch (e) {

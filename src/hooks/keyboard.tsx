@@ -31,12 +31,12 @@ export function useScopedHotkeys(
         if (!scope) return
         enableScope(scope)
         scopeStack.push(scope)
-        console.log("sstack+", scopeStack)
+        // console.log("sstack+", scopeStack)
         return () => {
             const popped = scopeStack.pop()
             disableScope(scope)
-            console.log("sstack-", scopeStack)
-            if (popped !== scope) alert("ooops messed up")
+            // console.log("sstack-", scopeStack)
+            // if (popped !== scope) alert("ooops messed up")
         }
     }, [enableScope, disableScope, scope])
 }

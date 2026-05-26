@@ -94,10 +94,7 @@ async function* loadItems(
             ),
     )
 
-    console.log("text", text)
-
     const getType = async (type: string) => {
-        console.log("getType", type, types.includes(type), type in text)
         if (!types.includes(type)) return null
         if (type in text) return text[type]
         return await getClipboardBinary(type, pasteboard)

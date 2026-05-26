@@ -18,8 +18,6 @@ function Toolbar(props: ChakraProps) {
 
     const messageChannel = useMessages("toolbar")
 
-    console.log("render")
-
     // used when rendering command items
     // let changedCount = 0
     // const prevState = useRef<string[]>(toolbarCommands.map((item) => "hide"))

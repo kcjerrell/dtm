@@ -40,8 +40,6 @@ function TensorsList(props: TensorsListComponentProps) {
     // const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
     const canvasTensors = details.tensordata?.filter((t) => t.data.tensor_id)
 
-    console.log(details)
-
     return (
         <Container {...restProps}>
             {Object.entries(tensors).map(([label, id]) => {

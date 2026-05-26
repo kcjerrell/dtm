@@ -60,7 +60,6 @@ function Explorer(props: ExplorerProps) {
                         )}
                     </Table.Row>
                     {snap.data.map((row, rowIndex) => {
-                        console.log(row)
                         return (
                             <Fragment key={row.rowid}>
                                 <Table.Row

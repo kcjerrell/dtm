@@ -1,4 +1,10 @@
-import { createSystem, defaultConfig, defineConfig, defineLayerStyles } from "@chakra-ui/react"
+import {
+    createSystem,
+    defaultConfig,
+    defineConfig,
+    defineLayerStyles,
+    type SystemStyleObject,
+} from "@chakra-ui/react"
 import { buttonRecipe } from "./button"
 
 const grayValues = [
@@ -41,12 +47,31 @@ const grayc = Array.from({ length: grayValues.length }).reduce<
     return acc
 }, {})
 
+export const disableAnimations = import.meta.env.E2E_DISABLE_ANIMATIONS === "true"
+const disableAnimationStyles: Record<string, SystemStyleObject> = disableAnimations
+    ? {
+          "*": {
+              animation: "none !important",
+              transition: "none !important",
+              scrollBehavior: "auto !important",
+              caretColor: "auto",
+          },
+
+          "*::before": {
+              animation: "none !important",
+              transition: "none !important",
+          },
+
+          "*::after": {
+              animation: "none !important",
+              transition: "none !important",
+          },
+      }
+    : {}
+
 const themeConfig = defineConfig({
     globalCss: {
-        "*": {
-            animation: "none !important",
-            transition: "none !important",
-        },
+        ...disableAnimationStyles,
         html: {
             overscrollBehavior: "none",
             fontSize: "var(--app-base-size)",

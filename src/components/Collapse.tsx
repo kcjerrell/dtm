@@ -71,8 +71,6 @@ export function CollapseContent(props: PropsWithChildren<CollapseContentProps>) 
     if (isCollapsing) maxHeight = isOpen ? `${height}px` : "0px"
     else maxHeight = isOpen ? "unset" : "0px"
 
-    console.log(maxHeight)
-
     return (
         <Box
             ref={contentRef}
