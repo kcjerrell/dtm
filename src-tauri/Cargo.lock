@@ -4831,7 +4831,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -7283,7 +7283,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-clipboard-manager"
 version = "2.3.2"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "arboard",
  "log",
@@ -7297,7 +7297,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-dialog"
 version = "2.7.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "log",
  "raw-window-handle",
@@ -7314,7 +7314,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-fs"
 version = "2.5.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "anyhow",
  "dunce",
@@ -7339,7 +7339,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-http"
 version = "2.5.9"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "bytes",
  "cookie_store",
@@ -7400,7 +7400,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-opener"
 version = "2.5.4"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "dunce",
  "glob",
@@ -7421,7 +7421,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-process"
 version = "2.3.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "tauri",
  "tauri-plugin",
@@ -7430,7 +7430,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-shell"
 version = "2.3.5"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "encoding_rs",
  "log",
@@ -7450,7 +7450,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-store"
 version = "2.4.3"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "dunce",
  "serde",
@@ -7465,7 +7465,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-updater"
 version = "2.10.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "base64 0.22.1",
  "dirs 6.0.0",
@@ -7542,7 +7542,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-window-state"
 version = "2.4.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#114e9025377a69d6d47f6b2b54212ae98e47998e"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#e571e0be9d31df050fc502eee2b940f0580fab04"
 dependencies = [
  "bitflags 2.11.1",
  "log",
@@ -8837,7 +8837,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
