@@ -50,7 +50,7 @@ quick-xml = "0.38.3"
 chrono = { version = "0.4", features = ["serde"] }
 flatbuffers = "25.9.23"
 sqlx = { version = "0.8", features = [ "runtime-async-std", "tls-native-tls" ] }
-sea-orm = { version = "2.0.0-rc", features = [
+sea-orm = { version = "2.0.0-rc.40", features = [
   "sqlx-sqlite",
   "runtime-async-std-native-tls",
   "macros",
@@ -84,7 +84,7 @@ regex = "1.12.3"
 walkdir = "2.5.0"
 async-trait = "0.1.89"
 notify-debouncer-mini = { version = "0.7.0", features = ["macos_fsevent"] }
-dashmap = "6.1.0"
+dashmap = "6.2.1"
 hound = "3.5.1"
 semver = "1.0.27"
 hex = "0.4.3"
