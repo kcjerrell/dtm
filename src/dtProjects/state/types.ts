@@ -9,12 +9,8 @@ import type ModelsController from "./models"
 import type ProjectsController from "./projects"
 import type SearchController from "./search"
 import type { UIController } from "./uiState"
-import type {
-    ListModelInfoFilesResult,
-    ProjectFileStats,
-    WatchFolderState,
-    WatchFoldersController,
-} from "./watchFolders"
+import type WatchFoldersController from "./watchFolders"
+import type { ListModelInfoFilesResult, ProjectFileStats, WatchFolderState } from "./watchFolders"
 
 export type DTProjectsJobs = {
     "models-refresh": {

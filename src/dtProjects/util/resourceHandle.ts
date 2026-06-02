@@ -75,9 +75,11 @@ export class ResourceHandle {
         return this.history
     }
 
-    async getClip() {
+    async getFrameTensorId(frame: number) {
         const history = await this.getHistory()
-        return history?.clip
+        if (!history?.clip || !this.image?.id) return undefined
+        const clipFrames = await DtpService.getClip(this.image.id, history.clip.clip_id)
+        return clipFrames?.frames.find((f) => f.indexInAClip === frame)?.tensorId
     }
 
     async getPngData(frame?: number) {
@@ -87,13 +89,8 @@ export class ResourceHandle {
         if (this.isCanvasStack) {
             return await this.renderCanvas()
         }
-        let tensorId: Nullable<string>
-        if (frame !== undefined) {
-            const clip = await this.getClip()
-            tensorId = clip?.frames.find((f) => f.indexInAClip === frame)?.tensorId
-        } else {
-            tensorId = await this.getTensorId()
-        }
+        const tensorId =
+            frame !== undefined ? await this.getFrameTensorId(frame) : await this.getTensorId()
         if (!tensorId) throw new Error("No tensor id")
 
         const data = await DtpService.decodeTensor(this.projectId, tensorId, true, this.nodeId)

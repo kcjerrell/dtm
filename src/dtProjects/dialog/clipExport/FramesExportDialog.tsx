@@ -19,7 +19,7 @@ async function getDefaultOutputDir() {
 export type FrameSource = "preview" | "tensor"
 
 function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
-    const { onClose, historyNode, ...restProps } = props
+    const { onClose, historyNode, image, ...restProps } = props
 
     const defaultWidth = historyNode.data.start_width * 64
     const defaultHeight = historyNode.data.start_height * 64

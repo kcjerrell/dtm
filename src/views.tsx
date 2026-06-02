@@ -32,7 +32,6 @@ export const viewDescription = [
 
 export const views = {
     metadata: lazy(() => import("./metadata/Metadata")),
-    vid: lazy(() => import("./vid/Vid")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
     scratch: lazy(() => import("./scratch/Scratch3")),
 }

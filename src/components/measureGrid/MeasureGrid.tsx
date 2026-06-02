@@ -7,7 +7,7 @@ export interface MeasureGridProps extends SimpleGridProps {
     maxItemLines?: number
 }
 
-export function MeasureGrid(props: PropsWithChildren<MeasureGridProps>) {
+function MeasureGrid(props: PropsWithChildren<MeasureGridProps>) {
     const { columns = 1, children, maxItemLines = 4, ...restProps } = props
 
     const sizerRef = useRef<HTMLDivElement>(null)

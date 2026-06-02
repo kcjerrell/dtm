@@ -16,7 +16,8 @@ import { useSetting } from "@/state/settings"
 import type { ICommand } from "@/types"
 import type { DialogProps, SettingsDialogState } from "../dialog/types"
 import { useDTP } from "../state/context"
-import type { WatchFolderState, WatchFoldersController } from "../state/watchFolders"
+import type WatchFoldersController from "../state/watchFolders"
+import type { WatchFolderState } from "../state/watchFolders"
 import GrantAccess from "./GrantAccess"
 
 function useCommands(watchFolders: WatchFoldersController): ICommand<WatchFolderState>[] {
