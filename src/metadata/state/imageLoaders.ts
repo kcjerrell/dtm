@@ -202,6 +202,8 @@ function preprocess(input: string | Uint8Array) {
             const url = new URL(input)
             url.searchParams.delete("format")
             url.searchParams.delete("quality")
+            url.searchParams.delete("width")
+            url.searchParams.delete("height")
             return url.toString()
         }
     } catch (e) {
