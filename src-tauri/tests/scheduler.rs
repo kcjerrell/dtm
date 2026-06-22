@@ -70,4 +70,41 @@ mod tests {
 
         dtp_service.stop().await;
     }
+
+    #[tokio::test]
+    async fn await_job_at_front() {
+        let app_handle = AppHandleWrapper::new(None);
+        let dtp = DTPService::new(app_handle);
+
+        let (event_helper, channel) = EventHelper::new();
+        let _ = dtp
+            .connect(channel, false, "sqlite::memory:".to_string())
+            .await;
+
+        let scheduler = { dtp.scheduler.read().await.clone().unwrap() };
+
+        // it returns Ok only after the job has actually completed
+        let result = scheduler.add_job_front_and_wait(TestJob::new(1, 100)).await;
+        assert!(result.is_ok());
+        event_helper.assert_count("test_event_complete", 1).await;
+
+        // it surfaces the job's failure to the caller
+        let result = scheduler
+            .add_job_front_and_wait(TestJob::new(2, 50).with_fail())
+            .await;
+        assert_eq!(result, Err("TestJob failed".to_string()));
+        event_helper.assert_count("test_event_failed", 1).await;
+
+        // it waits for all subtasks to finish before returning
+        event_helper.reset_counts();
+        let start = std::time::Instant::now();
+        scheduler
+            .add_job_front_and_wait(TestJob::new(3, 100).with_subtask(TestJob::new(4, 300)))
+            .await
+            .unwrap();
+        assert!(start.elapsed() >= std::time::Duration::from_millis(400));
+        event_helper.assert_count("test_event_complete", 2).await;
+
+        dtp.stop().await;
+    }
 }

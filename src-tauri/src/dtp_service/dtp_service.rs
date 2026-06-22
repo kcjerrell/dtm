@@ -133,6 +133,31 @@ impl DTPService {
         Ok(())
     }
 
+    /// Syncs the given projects, inserting each update at the front of the scheduler
+    /// queue and waiting for it to finish before returning. Unlike `sync_projects`
+    /// (fire-and-forget), this resolves only once every project is up to date, so
+    /// callers can rely on the latest project state immediately afterwards.
+    #[dtp_command]
+    pub async fn sync_projects_and_wait(
+        &self,
+        project_ids: Vec<i64>,
+        check_deletions: bool,
+    ) -> Result<(), String> {
+        let db = self.get_db().await?;
+        let scheduler = self
+            .scheduler
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| "Scheduler not ready".to_string())?;
+        for project_id in project_ids {
+            let sync = ProjectSync::from_id(&db, project_id).await?;
+            let job = UpdateProjectJob::new(&sync, false, check_deletions)?;
+            scheduler.add_job_front_and_wait(job).await?;
+        }
+        Ok(())
+    }
+
     // test to compare checking rowid vs file metadata
     pub async fn check_all(&self) -> Result<(), String> {
         let start = std::time::Instant::now();

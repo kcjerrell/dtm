@@ -1,12 +1,12 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
     },
 };
 
-use tokio::sync::{mpsc, Mutex, Semaphore};
+use tokio::sync::{oneshot, Mutex, Notify, Semaphore};
 
 use crate::dtp_service::{
     events::DTPEvent,
@@ -35,15 +35,18 @@ struct JobState {
     jobs_completed: isize,
 }
 
-#[derive(Clone)]
 struct JobEntry {
     job: Arc<dyn Job>,
     state: JobState,
+    /// When set, the job's final result is reported here once it (and all of its
+    /// subtasks) resolve. Used by `add_job_front_and_wait` to await a job.
+    on_done: Option<oneshot::Sender<Result<(), String>>>,
 }
 
 #[derive(Clone)]
 pub struct Scheduler {
-    tx: Arc<mpsc::Sender<JobId>>,
+    queue: Arc<Mutex<VecDeque<JobId>>>,
+    notify: Arc<Notify>,
     jobs: Arc<Mutex<HashMap<JobId, JobEntry>>>,
     next_id: Arc<AtomicU64>,
     ctx: Arc<JobContext>,
@@ -52,11 +55,10 @@ pub struct Scheduler {
 
 impl Scheduler {
     pub fn new(ctx: Arc<JobContext>) -> Self {
-        let (tx, mut rx) = mpsc::channel::<JobId>(10000);
-
         let semaphore = Arc::new(Semaphore::new(4));
         let scheduler = Scheduler {
-            tx: Arc::new(tx),
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+            notify: Arc::new(Notify::new()),
             ctx,
             jobs: Arc::new(Mutex::new(HashMap::new())),
             next_id: Arc::new(AtomicU64::new(0)),
@@ -68,14 +70,25 @@ impl Scheduler {
             let scheduler = scheduler.clone();
 
             async move {
-                while let Some(job_id) = rx.recv().await {
-                    let permit = semaphore.clone().acquire_owned().await.unwrap();
-                    let scheduler = scheduler.clone();
+                loop {
+                    let next = { scheduler.queue.lock().await.pop_front() };
+                    match next {
+                        Some(job_id) => {
+                            let permit = semaphore.clone().acquire_owned().await.unwrap();
+                            let scheduler = scheduler.clone();
 
-                    tokio::spawn(async move {
-                        scheduler.process(job_id).await;
-                        drop(permit); // release worker slot
-                    });
+                            tokio::spawn(async move {
+                                scheduler.process(job_id).await;
+                                drop(permit); // release worker slot
+                            });
+                        }
+                        None => {
+                            // Queue is empty; wait until a job is enqueued. `notify_one`
+                            // stores a permit when called with no waiter, so a job pushed
+                            // between the pop above and this await is not missed.
+                            scheduler.notify.notified().await;
+                        }
+                    }
                 }
             }
         });
@@ -125,7 +138,7 @@ impl Scheduler {
 
         if let Some(subtasks) = subtasks {
             for subtask in subtasks {
-                self.add_job_internal(subtask, Some(job_id)).await;
+                self.add_job_internal(subtask, Some(job_id), false, None).await;
             }
         }
 
@@ -253,6 +266,11 @@ impl Scheduler {
                 }
             }
 
+            // Notify any caller awaiting this specific job (see add_job_front_and_wait).
+            if let Some(done) = entry.on_done.take() {
+                let _ = done.send(current_result.clone());
+            }
+
             current_id = self.update_parent_job(&entry, ctx).await;
 
             // Parent jobs always succeed when their subtasks finish,
@@ -274,11 +292,33 @@ impl Scheduler {
         let job = Arc::new(job);
         let this = self.clone();
         tokio::spawn(async move {
-            this.add_job_internal(job, None).await;
+            this.add_job_internal(job, None, false, None).await;
         });
     }
 
-    async fn add_job_internal(&self, job: Arc<dyn Job>, parent_id: Option<JobId>) {
+    /// Inserts a job at the front of the queue and waits until it (and all of its
+    /// subtasks) complete or fail, returning the job's final result.
+    ///
+    /// This lets callers run a normally-passive job (e.g. a project sync) on demand
+    /// and block on its completion before continuing.
+    pub async fn add_job_front_and_wait<T: Job + 'static>(
+        &self,
+        job: T,
+    ) -> Result<(), String> {
+        let (tx, rx) = oneshot::channel();
+        self.add_job_internal(Arc::new(job), None, true, Some(tx))
+            .await;
+        rx.await
+            .unwrap_or_else(|_| Err("Job was dropped before completion".to_string()))
+    }
+
+    async fn add_job_internal(
+        &self,
+        job: Arc<dyn Job>,
+        parent_id: Option<JobId>,
+        front: bool,
+        on_done: Option<oneshot::Sender<Result<(), String>>>,
+    ) {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let entry = JobEntry {
             job,
@@ -288,8 +328,18 @@ impl Scheduler {
                 status: JobStatus::Pending,
                 ..Default::default()
             },
+            on_done,
         };
+        // Insert into the job map before enqueuing so the worker always finds it.
         let _ = { self.jobs.lock().await.insert(id, entry) };
-        let _ = self.tx.send(id).await;
+        {
+            let mut queue = self.queue.lock().await;
+            if front {
+                queue.push_front(id);
+            } else {
+                queue.push_back(id);
+            }
+        }
+        self.notify.notify_one();
     }
 }
