@@ -270,6 +270,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_sync_projects,
             dtp_service::dtp_service::dtp_sync_projects_and_wait,
             dtp_service::data::dtp_get_metadata,
+            dtp_service::export::dtp_export_projects,
             dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
             dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,

@@ -6,6 +6,7 @@ import { SettingsPanel } from "../settingsPanel/SettingsPanel"
 import { useDTP } from "../state/context"
 import FramesExportDialog from "./clipExport/FramesExportDialog"
 import VideoExportDialog from "./clipExport/VideoExportDialog"
+import ProjectExportDialog from "./projectExport/ProjectExportDialog"
 import type { DialogProps, DialogState } from "./types"
 
 type DialogComponent = (props: DialogProps) => JSX.Element
@@ -23,6 +24,11 @@ const _dialogs: Record<string, DialogType> = {
     },
     "clip-export-frames": {
         Dialog: FramesExportDialog as unknown as DialogComponent,
+        panelProps: {},
+        containerProps: {},
+    },
+    "project-export": {
+        Dialog: ProjectExportDialog as unknown as DialogComponent,
         panelProps: {},
         containerProps: {},
     },

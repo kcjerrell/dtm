@@ -70,7 +70,7 @@ async function listWatchFolders(): Promise<WatchFolder[]> {
 }
 
 async function pickWatchFolder(dtFolder?: boolean): Promise<void> {
-    let testOverride = undefined
+    let testOverride
     if ((window as unknown as Record<string, string>).__E2E_FILE_PATH__) {
         testOverride = (window as unknown as Record<string, string>).__E2E_FILE_PATH__
         ;(window as unknown as Record<string, string>).__E2E_FILE_PATH__ = "" // Clear it after use
@@ -132,6 +132,15 @@ async function syncProjects(projectIds: number[]) {
     await invoke("dtp_sync_projects", { projectIds, checkDeletions: true })
 }
 
+export interface ProjectExportOptions {
+    outputFolder: string
+    useTensor: boolean
+}
+
+async function exportProjects(projectIds: number[], options: ProjectExportOptions): Promise<void> {
+    await invoke("dtp_export_projects", { projectIds, options })
+}
+
 const DTPService = {
     connect,
     listProjects,
@@ -150,6 +159,7 @@ const DTPService = {
     findPredecessor,
     sync,
     syncProjects,
+    exportProjects,
     lockFolder,
 }
 

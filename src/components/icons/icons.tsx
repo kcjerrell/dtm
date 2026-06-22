@@ -5,6 +5,7 @@ export { FaMagnifyingGlass, FaMinus, FaMoon, FaPlus, FaRegImages } from "react-i
 export {
     FiClipboard,
     FiCopy,
+    FiDownload,
     FiEye,
     FiEyeOff,
     FiFolder,

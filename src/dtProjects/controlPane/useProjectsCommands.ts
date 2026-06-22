@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react"
 import { DtpService } from "@/commands"
 import {
     FaMagnifyingGlass,
+    FiDownload,
     FiEye,
     FiEyeOff,
     FiFolder,
@@ -63,6 +64,24 @@ export function useProjectsCommands(): [
                         dialogType: "explorer",
                         props: { projectId: selected[0].id },
                     })
+                },
+            },
+            {
+                id: "export",
+                getLabel: (selected) => `Export project${plural(selected.length)}`,
+                tipText: "Export project images to zip archives",
+                icon: FiDownload,
+                action: (selected) => {
+                    uiState.showDialog({
+                        dialogType: "project-export",
+                        props: { projectIds: selected.map((p) => p.id) },
+                    })
+                },
+                requiresSelection: true,
+                getEnabled(selected) {
+                    return (
+                        !!selected && selected.length > 0 && selected.every((p) => p && !p.excluded)
+                    )
                 },
             },
             {

@@ -65,7 +65,7 @@ bytes = "1.11.1"
 byteorder = "1.5.0"
 half = "2"
 bytemuck = "1"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 anyhow = "1.0.102"
 num_enum = "0.7.5"
 base64 = "0.22.1"
@@ -90,6 +90,7 @@ semver = "1.0.27"
 hex = "0.4.3"
 reqwest = { version = "0.13", features = ["json", "stream"] }
 itertools = "0.14.0"
+zip = "4.6"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]
