@@ -13,6 +13,8 @@ pub use data::{
     dtp_update_project_exclude, dtp_update_watch_folder,
 };
 
+pub mod export;
+
 pub mod dtp_service;
 pub use dtp_service::{
     dtp_connect, dtp_lock_folder, dtp_reset_db, dtp_sync_projects, get_db_url, DTPService,
