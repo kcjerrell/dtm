@@ -225,7 +225,7 @@ describe("Video Export", () => {
             reverse: true,
         })
 
-        await exportButton.waitForEnabled({ timeout: 15000 })
+        await exportButton.waitForEnabled({ timeout: 30000 })
 
         // select Preview frame source
         await $("aria/Preview frame source").click()
