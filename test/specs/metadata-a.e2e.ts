@@ -1,18 +1,20 @@
-import os from "node:os"
 import { join } from "node:path"
 import fse from "fs-extra"
 import App from "../pageobjects/App"
 import Metadata from "../pageobjects/Metadata"
 import { getPasteboardData, setPasteboardOverride } from "../util/clipdump"
+import {
+    ensureFfmpeg,
+    ffmpegInstalled,
+    removeFfmpegBinaries,
+    stageFfmpegArchives,
+} from "../util/ffmpeg"
 import { clearClipboard, setTestOverride, skipIfFailed } from "../util/helpers"
 import { getTestDataPath } from "../util/paths"
 import { getFile, waitForFile } from "../util/testData"
 
 const md = Metadata
 const tempDir = getTestDataPath("temp", "md")
-const ffmpegBinDir = join(os.homedir(), "Library", "Application Support", "com.kcjer.dtm", "bin")
-const ffmpegTempDir = join(os.homedir(), "Library", "Application Support", "com.kcjer.dtm", "temp")
-const ffmpegArchiveFixtureDir = getTestDataPath("ffmpeg")
 
 // these tests depend on previous tests, and will skip if one fails
 describe("Metadata", () => {
@@ -163,21 +165,19 @@ describe("Metadata", () => {
         expect(await md.getDataItemValue("Location", { noThrow: true, timeout: 2000 })).toBeNull()
     })
 
-    it("loads video metadata after ffmpeg install", async () => {
+    // Isolates the (sometimes flaky) ffmpeg install from the metadata info panel
+    // into its own test. The video metadata test below assumes ffmpeg is present
+    // via ensureFfmpeg().
+    it("installs ffmpeg from the metadata panel", async () => {
         const videoPath = getTestDataPath("temp", "vid-export2.mp4")
         if (!(await fse.pathExists(videoPath))) {
             throw new Error(`Video file not found: ${videoPath}`)
         }
 
-        await fse.remove(ffmpegBinDir)
-        await fse.ensureDir(ffmpegTempDir)
-        for (const archiveName of ["ffmpeg.7z", "ffprobe.7z"]) {
-            const src = join(ffmpegArchiveFixtureDir, archiveName)
-            const dest = join(ffmpegTempDir, archiveName)
-            if (await fse.pathExists(src)) {
-                await fse.copy(src, dest, { overwrite: true })
-            }
-        }
+        // remove any installed binaries and stage the archives so the install
+        // flow extracts them from disk
+        await removeFfmpegBinaries()
+        await stageFfmpegArchives()
 
         await App.selectView("metadata")
         // clear images if there any
@@ -204,6 +204,38 @@ describe("Metadata", () => {
         // click install and wait for ffmpeg panel to clear
         await ffmpegSection.$("button=Install").click()
 
+        await md.getDataItemValue("filename", { timeout: 60000 })
+
+        expect(await ffmpegInstalled()).toBe(true)
+    })
+
+    it("loads video metadata", async () => {
+        await ensureFfmpeg()
+
+        const videoPath = getTestDataPath("temp", "vid-export2.mp4")
+        if (!(await fse.pathExists(videoPath))) {
+            throw new Error(`Video file not found: ${videoPath}`)
+        }
+
+        await App.selectView("metadata")
+        // clear images if there any
+        if (await md.toolbar.clearUnpinned.isExisting()) {
+            await md.toolbar.clearUnpinned.click()
+        }
+
+        const pasteboardData =
+            getPasteboardData("paste", "finder", "image")?.({ path: videoPath }) ?? {}
+        if (!Object.keys(pasteboardData).length) throw new Error("No clipboard data found")
+        await setPasteboardOverride(pasteboardData)
+
+        // paste video into metadata view
+        await md.toolbar.loadFromClipboard.click()
+        await md.dropHere.waitForDisplayed({ reverse: true })
+
+        // assert the current item is a video
+        await expect($("#metadata video")).toBeDisplayed()
+
+        // ffmpeg is already installed, so metadata should load without an install step
         await md.getDataItemValue("filename", { timeout: 60000 })
 
         expect(await md.getDataItemValue("nb_streams")).toContain("2")

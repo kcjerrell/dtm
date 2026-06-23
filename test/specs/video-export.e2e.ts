@@ -1,10 +1,15 @@
 import { execFileSync } from "node:child_process"
 import fs from "node:fs"
-import os from "node:os"
 import path from "node:path"
 import fse from "fs-extra"
 import App from "../pageobjects/App"
 import DTProjects from "../pageobjects/DTProjects"
+import {
+    ensureFfmpeg,
+    ffmpegBinDir,
+    removeFfmpegBinaries,
+    stageFfmpegArchives,
+} from "../util/ffmpeg"
 import { setTestOverride } from "../util/helpers"
 import { getTestDataPath } from "../util/paths"
 
@@ -14,22 +19,6 @@ import { getTestDataPath } from "../util/paths"
     folder-b (mounted as Volumes/folder-b)
     test-project-e2
 */
-
-const ffmpegBinDir = path.join(
-    os.homedir(),
-    "Library",
-    "Application Support",
-    "com.kcjer.dtm",
-    "bin",
-)
-const ffmpegTempDir = path.join(
-    os.homedir(),
-    "Library",
-    "Application Support",
-    "com.kcjer.dtm",
-    "temp",
-)
-const ffmpegArchiveFixtureDir = getTestDataPath("ffmpeg")
 
 type E2EWindow = Window & {
     __E2E_FILE_PATH__?: string
@@ -75,20 +64,64 @@ async function clickFilterPopupItem(label: string) {
 }
 
 describe("Video Export", () => {
+    // Runs first and isolates the (sometimes flaky) ffmpeg install into its own
+    // test. The remaining tests assume ffmpeg is installed via ensureFfmpeg().
+    it("installs ffmpeg", async () => {
+        // ensure ffmpeg has been deleted by removing the bin folder in the appdatadir
+        await removeFfmpegBinaries()
+        await stageFfmpegArchives()
+
+        // go to projects view
+        await browser.refresh()
+        await browser.pause(3000)
+        await App.selectView("projects")
+
+        // make sure we're on the projects tab
+        await $("aria/Projects tab").click()
+
+        // filter by video using toolbar button (idempotent)
+        const showVideosToggle = DTProjects.imageToolbar.showVideos
+        const showVideosPressed = await showVideosToggle.getAttribute("aria-pressed")
+        if (showVideosPressed !== "true") {
+            await showVideosToggle.click()
+        }
+        await waitForImageGridReady()
+
+        const items = await $$('[data-testid="image-item"]').getElements()
+        expect(items.length).toBeGreaterThan(0)
+
+        // open the first video
+        await items[0].click()
+        await expect($("#details-overlay")).toBeDisplayed()
+
+        // open the Save video dialog and run the install flow
+        await $("aria/Save video").click()
+        await expect($("body")).toHaveText(expect.stringContaining("Export Video"))
+
+        await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
+        await expect($("body")).toHaveText(
+            expect.stringContaining("FFMPEG must be downloaded before video can be exported"),
+        )
+        const exportButton = $("aria/Export video")
+        await expect(exportButton).toBeDisabled()
+        await $("button=Install").click()
+
+        await $("[data-testid='ffmpeg-section']").waitForDisplayed({
+            timeout: 25000,
+            reverse: true,
+        })
+
+        await exportButton.waitForEnabled({ timeout: 30000 })
+
+        expect(await fse.pathExists(path.join(ffmpegBinDir, "ffmpeg"))).toBe(true)
+        expect(await fse.pathExists(path.join(ffmpegBinDir, "ffprobe"))).toBe(true)
+    })
+
     it("can export a video", async () => {
+        await ensureFfmpeg()
+
         const videoOutputPath = getTestDataPath("temp", "vid-export.mp4")
         await fse.remove(videoOutputPath)
-
-        // ensure ffmpeg has been deleted by removing the bin folder in the appdatadir
-        await fse.remove(ffmpegBinDir)
-        await fse.ensureDir(ffmpegTempDir)
-        for (const archiveName of ["ffmpeg.7z", "ffprobe.7z"]) {
-            const src = path.join(ffmpegArchiveFixtureDir, archiveName)
-            const dest = path.join(ffmpegTempDir, archiveName)
-            if (await fse.pathExists(src)) {
-                await fse.copy(src, dest, { overwrite: true })
-            }
-        }
 
         // go to projects view
         await browser.refresh()
@@ -211,21 +244,11 @@ describe("Video Export", () => {
         await expect($("body")).toHaveText(expect.stringContaining("1.1s"))
         await expect($("body")).toHaveText(expect.stringContaining("Source size: 512 x 512"))
 
-        // assert ffmpeg install flow
-        await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
-        await expect($("body")).toHaveText(
-            expect.stringContaining("FFMPEG must be downloaded before video can be exported"),
-        )
+        // ffmpeg is already installed (see "installs ffmpeg"), so the section
+        // should not be present and the export button should be enabled
+        await expect($("[data-testid='ffmpeg-section']")).not.toExist()
         const exportButton = $("aria/Export video")
-        await expect(exportButton).toBeDisabled()
-        await $("button=Install").click()
-
-        await $("[data-testid='ffmpeg-section']").waitForDisplayed({
-            timeout: 25000,
-            reverse: true,
-        })
-
-        await exportButton.waitForEnabled({ timeout: 30000 })
+        await expect(exportButton).toBeEnabled()
 
         // select Preview frame source
         await $("aria/Preview frame source").click()
@@ -301,6 +324,8 @@ describe("Video Export", () => {
     })
 
     it("can export a video with audio track", async () => {
+        await ensureFfmpeg()
+
         const videoOutputPath = getTestDataPath("temp", "vid-export2.mp4")
         await fse.remove(videoOutputPath)
 
