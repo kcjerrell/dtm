@@ -23,14 +23,14 @@ const Root = chakra(
                 bgColor: "grayc.17",
             },
             flex: "0 0 auto",
-            width: "68px",
+            width: "sidebar",
             marginLeft: "0px",
             transition: "all 0.4s ease",
         },
         variants: {
             hidden: {
                 true: {
-                    marginLeft: "-60px",
+                    marginLeft: "calc(8px - var(--chakra-sizes-sidebar))",
                     "& > *:not([aria-selected='true'])": {
                         borderRightColor: "grayc.10",
                     },

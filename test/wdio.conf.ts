@@ -52,6 +52,7 @@ export const config: Options.Testrunner & Record<string, unknown> = {
         "./specs/projects.e2e.ts",
         "./specs/video-export.e2e.ts",
         "./specs/metadata-a.e2e.ts",
+        "./specs/project-export.e2e.ts",
     ],
 
     exclude: [],

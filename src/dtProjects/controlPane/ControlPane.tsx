@@ -67,7 +67,7 @@ function TabList(props: ChakraProps) {
     const { uiState } = useDTP()
 
     return (
-        <HStack {...props}>
+        <HStack gap={0} {...props}>
             <Tabs.List aria-label={"Projects tabs"}>
                 {tabs.map(({ value, Icon, label }) => {
                     return (
@@ -78,6 +78,7 @@ function TabList(props: ChakraProps) {
                             aria-label={`${label} tab`}
                             value={value}
                             padding={2}
+                            gap={0.5}
                         >
                             <Icon style={{ width: "1.25rem", height: "1.25rem" }} />
                             <Box>{label}</Box>

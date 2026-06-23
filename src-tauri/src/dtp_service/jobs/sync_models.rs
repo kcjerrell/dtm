@@ -1,8 +1,11 @@
-use crate::dtp_service::{events::DTPEvent, jobs::{Job, JobContext, JobResult}};
+use crate::dtp_service::{
+    events::DTPEvent,
+    jobs::{Job, JobContext, JobResult},
+};
 use entity::enums::ModelType;
+use reqwest;
 use serde_json::Value;
 use std::sync::Arc;
-use reqwest;
 
 pub struct ModelInfoFile {
     pub path: String,
@@ -37,8 +40,10 @@ impl Job for SyncModelsJob {
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
         let pdb = ctx.dtp.get_db().await.unwrap();
         for model_info in self.model_info.iter() {
-            pdb.scan_model_info(&model_info.path, model_info.model_type).await.unwrap();
-        };
+            pdb.scan_model_info(&model_info.path, model_info.model_type)
+                .await
+                .unwrap();
+        }
         Ok(JobResult::Event(DTPEvent::ModelsChanged))
     }
 }
@@ -52,7 +57,10 @@ impl Job for FetchModels {
     }
 
     async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        let app_data_dir = ctx.app_handle.get_app_data_dir().map_err(|e| e.to_string())?;
+        let app_data_dir = ctx
+            .app_handle
+            .get_app_data_dir()
+            .map_err(|e| e.to_string())?;
         std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
 
         let url = "https://kcjerrell.github.io/dt-models/combined_models.json";
@@ -69,11 +77,14 @@ impl Job for FetchModels {
 
                 if let Some(arr) = value.as_array() {
                     let file_path = app_data_dir.join(format!("{}.json", key));
-                    let file_content = serde_json::to_string_pretty(arr).map_err(|e| e.to_string())?;
+                    let file_content =
+                        serde_json::to_string_pretty(arr).map_err(|e| e.to_string())?;
                     std::fs::write(&file_path, file_content).map_err(|e| e.to_string())?;
 
                     let model_type = match key.as_str() {
-                        "officialModels" | "communityModels" | "uncuratedModels" => ModelType::Model,
+                        "officialModels" | "communityModels" | "uncuratedModels" => {
+                            ModelType::Model
+                        }
                         "officialLoras" | "communityLoras" => ModelType::Lora,
                         "officialCnets" | "communityCnets" => ModelType::Cnet,
                         _ => ModelType::None,

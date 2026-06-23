@@ -84,7 +84,7 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
     return (
         <PanelSection {...boxProps} variant={variant}>
             {header && (
-                <PanelSectionHeader marginY={2} variant={variant}>
+                <PanelSectionHeader marginY={1} marginX={3} variant={variant}>
                     {header}
                     {headerInfo && (
                         <Tooltip tip={headerInfo}>

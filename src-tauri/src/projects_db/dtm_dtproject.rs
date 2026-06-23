@@ -257,7 +257,7 @@ async fn tensor(
                     scale,
                 },
             )
-                .map_err(|e| format!("Failed to decode tensor: {}", e))?;
+            .map_err(|e| format!("Failed to decode tensor: {}", e))?;
             Some(png)
         }
         "scribble" | "binary_mask" => {

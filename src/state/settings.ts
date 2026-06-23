@@ -15,6 +15,8 @@ const defaultSettings = {
     "vidExport.framesOutputDir": "",
     "vidExport.framesSource": "preview",
     "vidExport.videoSource": "preview",
+    "projectExport.outputDir": "",
+    "projectExport.source": "preview",
     "ui.imageSize": 200,
     "ui.defaultMute": true,
     "app.currentView": "metadata",

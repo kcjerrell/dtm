@@ -95,7 +95,8 @@
       ],
       "identifier": "shell:allow-spawn"
     },
-    "log:default"
+    "log:default",
+    "os:default"
   ],
   "windows": [
     "main",

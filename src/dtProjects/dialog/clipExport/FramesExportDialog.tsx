@@ -129,7 +129,6 @@ function FramesExportDialog(props: DialogProps<FrameExportDialogState>) {
             </HStack>
 
             <PanelSection variant={"dialog"} gridTemplateColumns={"1fr"}>
-                {/* <PanelSectionHeader>Output Directory</PanelSectionHeader> */}
                 <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
                     <HStack gap={2} alignItems="flex-end">
                         <Field.Root width={"full"}>

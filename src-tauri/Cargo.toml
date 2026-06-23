@@ -3,7 +3,7 @@ members = ["migration", "entity", ".", "fpzip-sys", "macros"]
 
 [package]
 name = "dtm"
-version = "0.5.6"
+version = "0.6.0"
 description = "A little app for reading Draw Things Metadata"
 authors = ["kcjerrell"]
 edition = "2021"
@@ -65,7 +65,7 @@ bytes = "1.11.1"
 byteorder = "1.5.0"
 half = "2"
 bytemuck = "1"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 anyhow = "1.0.102"
 num_enum = "0.7.5"
 base64 = "0.22.1"
@@ -90,6 +90,9 @@ semver = "1.0.27"
 hex = "0.4.3"
 reqwest = { version = "0.13", features = ["json", "stream"] }
 itertools = "0.14.0"
+zip = "4.6"
+img-parts = "0.3.3"
+tauri-plugin-os = "2"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

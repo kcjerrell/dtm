@@ -1,4 +1,3 @@
-
 pub fn write_clipboard_binary(_ty: String, _data: Vec<u8>) -> Result<(), String> {
     Ok(())
 }

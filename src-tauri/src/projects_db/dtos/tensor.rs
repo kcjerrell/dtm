@@ -1,3 +1,4 @@
+use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 use crate::projects_db::tensor_history_generated::{
     root_as_tensor_history_node as root_as_tensor_history_node_fb, LoRA as LoRAFb, LoRAMode,
 };
@@ -7,7 +8,6 @@ use crate::projects_db::{
     tensor_history_mod::{Control, LoRA},
     tensor_history_tensor_data::TensorHistoryTensorData,
 };
-use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 use chrono::{DateTime, NaiveDateTime};
 
 #[derive(serde::Serialize, Debug, Clone)]
@@ -165,7 +165,6 @@ impl<'a> TensorNodeGrouper<'a> {
     }
 }
 
-
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct TensorHistoryExtra {
     pub row_id: i64,
@@ -279,4 +278,3 @@ pub struct TensorSize {
     pub height: i32,
     pub channels: i32,
 }
-

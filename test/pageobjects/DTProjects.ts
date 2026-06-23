@@ -56,6 +56,51 @@ class DTProjects {
         await expect(this.getProject(projectName)).toHaveAttribute("aria-selected", "false")
     }
 
+    /**
+     * The "Export project(s)" toolbar command button. Its aria-label is produced
+     * by the command's getLabel, so it is pluralized based on the selection count.
+     */
+    exportButton(selectedCount = 1) {
+        return $(`aria/Export ${selectedCount === 1 ? "project" : "projects"}`)
+    }
+
+    async clickExport(selectedCount = 1) {
+        await this.exportButton(selectedCount).click()
+    }
+
+    projectExportDialog = {
+        get root() {
+            return $('div[role="dialog"]')
+        },
+        get outputFolder() {
+            return $("aria/Project export output folder")
+        },
+        get browse() {
+            return $("aria/Browse output folder")
+        },
+        get previewSource() {
+            return $("aria/Preview image source")
+        },
+        get tensorSource() {
+            return $("aria/Tensor image source")
+        },
+        get export() {
+            return $("aria/Start project export")
+        },
+        get openFolder() {
+            return $("aria/Open export folder")
+        },
+        get done() {
+            return $("aria/Close export")
+        },
+        get close() {
+            return $("aria/close export dialog")
+        },
+        get progress() {
+            return $("aria/Exporting frames progress")
+        },
+    }
+
     async hideSelectedProject() {
         await this.hideButton.click()
     }

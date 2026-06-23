@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react"
 import { DtpService } from "@/commands"
 import {
     FaMagnifyingGlass,
+    FiDownload,
     FiEye,
     FiEyeOff,
     FiFolder,
@@ -37,22 +38,6 @@ export function useProjectsCommands(): [
             },
             getSpacer<ProjectState, undefined>("toolbar"),
             {
-                id: "scan",
-                getLabel: (selected) => `Rescan project${plural(selected.length)}`,
-                tipText: "Rescan project for changes",
-                icon: FiRefreshCw,
-                action: async (selected) => {
-                    DtpService.syncProjects(selected.map((f) => f.id))
-                },
-                requiresSelection: true,
-                toolbarEnableMode: "hide",
-                getEnabled(selected) {
-                    return (
-                        !!selected && selected.length > 0 && selected.every((p) => p && !p.excluded)
-                    )
-                },
-            },
-            {
                 id: "explore",
                 label: "Explore project",
                 tipText: "Browse project tables and data",
@@ -64,6 +49,24 @@ export function useProjectsCommands(): [
                         props: { projectId: selected[0].id },
                     })
                 },
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "export",
+                getLabel: (selected) => `Export project${plural(selected.length)}`,
+                tipText: "Export project images to zip archives",
+                icon: FiDownload,
+                action: (selected) => {
+                    uiState.showDialog({
+                        dialogType: "project-export",
+                        props: { projectIds: selected.map((p) => p.id) },
+                    })
+                },
+                requiresSelection: true,
+                getEnabled(selected) {
+                    return selected.length > 0 && selected.every((p) => p && !p.excluded)
+                },
+                toolbarEnableMode: "hide",
             },
             {
                 id: "exclude",
@@ -78,6 +81,7 @@ export function useProjectsCommands(): [
                     projects?.setExclude(selected, !selected[0]?.excluded)
                 },
                 requiresSelection: true,
+                toolbarEnableMode: "hide",
             },
             {
                 id: "openFolder",
@@ -88,6 +92,27 @@ export function useProjectsCommands(): [
                     await revealItemInDir(selected.map((f) => f.full_path))
                 },
                 requiresSelection: true,
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "scan",
+                getLabel: (selected) =>
+                    selected.length > 0
+                        ? `Rescan project${plural(selected.length)}`
+                        : "Rescan all projects",
+                getTipText: (selected) =>
+                    selected.length > 0
+                        ? `Rescan project${plural(selected.length)} for changes, including deletions`
+                        : "Rescan all projects for changes",
+                icon: FiRefreshCw,
+                action: async (selected) => {
+                    if (!selected?.length) {
+                        DtpService.sync()
+                    } else {
+                        DtpService.syncProjects(selected.map((f) => f.id))
+                    }
+                },
+                requiresSelection: false,
             },
         ],
         [projects, snap.showEmptyProjects, uiState.showDialog],

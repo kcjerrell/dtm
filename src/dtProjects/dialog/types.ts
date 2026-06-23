@@ -17,6 +17,13 @@ export type FrameExportDialogState = {
     }
 }
 
+export type ProjectExportDialogState = {
+    dialogType: "project-export"
+    props: {
+        projectIds: number[]
+    }
+}
+
 export type SettingsDialogState = {
     dialogType: "settings"
     props: Record<string, unknown>
@@ -41,6 +48,7 @@ export type DialogProps<T extends DialogState = UnknownDialogState> = DialogProp
 export type DialogState =
     | VideoExportDialogState
     | FrameExportDialogState
+    | ProjectExportDialogState
     | SettingsDialogState
     | ExplorerDialogState
     | UnknownDialogState

@@ -211,6 +211,24 @@ impl ProjectsDb {
 
         Ok(DTProject::get(&full_path).await?)
     }
+
+    /// Returns a persistent, standalone `DTProject` (bypassing the shared cache).
+    /// Use this for long-running operations like exports, where the caller needs
+    /// the connection to stay open for the duration of the work.
+    pub async fn open_dt_project(
+        &self,
+        project_ref: crate::projects_db::dt_project::ProjectRef,
+    ) -> Result<DTProject, MixedError> {
+        let full_path = match project_ref {
+            crate::projects_db::dt_project::ProjectRef::Id(id) => {
+                let project = self.get_project(id).await?;
+                project.full_path
+            }
+            crate::projects_db::dt_project::ProjectRef::Path(path) => path,
+        };
+
+        Ok(DTProject::open(&full_path).await?)
+    }
 }
 
 fn project_query() -> sea_orm::Select<entity::prelude::Projects> {

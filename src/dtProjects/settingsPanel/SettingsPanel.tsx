@@ -150,9 +150,9 @@ export function SettingsPanel(props: DialogProps<SettingsDialogState>) {
                 )}
             </PanelList>
 
-            <PanelSection variant={"dialog"} marginTop={4}>
-                <PanelSectionHeader marginY={2}>Image Size</PanelSectionHeader>
-                <Box paddingX={4} paddingY={4}>
+            <PanelSection variant={"dialog"} marginTop={4} paddingX={4} paddingY={2}>
+                <PanelSectionHeader>Image Size</PanelSectionHeader>
+                <Box>
                     <Slider
                         min={50}
                         max={400}
