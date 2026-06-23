@@ -29,7 +29,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install gexiv2 (rexiv2 dependency)
-        run: brew install gexiv2
+        run: |
+          brew install gexiv2
+          echo "PKG_CONFIG_PATH=$(brew --prefix gexiv2)/lib/pkgconfig:$(brew --prefix exiv2)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Restore Rust cache
         id: rust-cache-restore
