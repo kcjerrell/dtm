@@ -32,5 +32,6 @@ declare global {
             pasteboardText: Record<string, unknown>
             pasteboardTypes: string[]
             saveDialogPath: string
+            openFolderPath: string
         }>
 }

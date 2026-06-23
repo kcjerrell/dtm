@@ -1,13 +1,13 @@
 import { Field, HStack, Input, Text, VStack } from "@chakra-ui/react"
 import { path } from "@tauri-apps/api"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
-import { open } from "@tauri-apps/plugin-dialog"
 import { useEffect, useState } from "react"
 import { FiX } from "react-icons/fi"
 import { DtpService } from "@/commands"
 import { IconButton, PanelButton, PanelSection, PanelSectionHeader } from "@/components"
 import { useSetting } from "@/state/settings"
 import { plural } from "@/utils/helpers"
+import { openFolder } from "@/utils/tauri"
 import ExportProgress from "../clipExport/ExportProgress"
 import type { DialogProps, ProjectExportDialogState } from "../types"
 
@@ -96,6 +96,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                         <Field.Label>Output folder</Field.Label>
                         <HStack width={"full"} gap={1}>
                             <Input
+                                aria-label={"Project export output folder"}
                                 data-defctx={true}
                                 layerStyle={"borderA"}
                                 variant={"subtle"}
@@ -103,10 +104,10 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                                 onChange={(e) => setOutputDir(e.target.value)}
                             />
                             <PanelButton
+                                aria-label={"Browse output folder"}
                                 flex={"0 0 auto"}
                                 onClick={async () => {
-                                    const dir = await open({
-                                        directory: true,
+                                    const dir = await openFolder({
                                         defaultPath: outputDir,
                                         canCreateDirectories: true,
                                         title: "Select output folder",
@@ -140,6 +141,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                             layerStyle={"borderA"}
                         >
                             <PanelButton
+                                aria-label={"Preview image source"}
                                 flex={1}
                                 size="sm"
                                 tone={source === "preview" ? "selected" : "none"}
@@ -150,6 +152,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                                 Preview
                             </PanelButton>
                             <PanelButton
+                                aria-label={"Tensor image source"}
                                 flex={1}
                                 size="sm"
                                 tone={source === "tensor" ? "selected" : "none"}
@@ -177,6 +180,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
             ) : null}
             <HStack justifyContent="flex-end" gap={2} marginTop={2}>
                 <PanelButton
+                    aria-label={"Start project export"}
                     onClick={handleExport}
                     disabled={!outputDir || isExporting || projectIds.length === 0}
                 >
