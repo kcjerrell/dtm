@@ -158,9 +158,9 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                     // borderRadius={"lg"}
                     // variant={"inset"}
                 >
-                    <VStack alignItems="stretch" gap={3} paddingRight={4}>
+                    <VStack alignItems="stretch" gap={1} paddingRight={4}>
+                        <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
                         <VStack alignItems={"stretch"}>
-                            <PanelSectionHeader padding={0}>Size</PanelSectionHeader>
                             <HStack>
                                 <NumberInputRoot
                                     data-defctx={true}
@@ -212,7 +212,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                     </VStack>
                     <VStack
                         alignItems="stretch"
-                        gap={2}
+                        gap={1}
                         borderLeft={"1px solid"}
                         borderColor={"gray/20"}
                         paddingLeft={4}

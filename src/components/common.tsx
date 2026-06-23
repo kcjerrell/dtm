@@ -191,13 +191,14 @@ export const PanelListScrollContent = chakra("div", {
 
 export const PanelSectionHeader = chakra("h3", {
     base: {
-        paddingX: 2,
-        fontWeight: "600",
-        color: "fg.2",
+        paddingX: 0,
+        fontWeight: "medium",
+        // color: "fg.2",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         flex: "0 0 auto",
+        fontSize: "sm",
     },
     variants: {
         variant: {
@@ -340,7 +341,7 @@ export const PanelSection = chakra("div", {
     base: {
         display: "flex",
         flexDirection: "column",
-        padding: 0.5,
+        padding: 0,
         overflowY: "clip",
         overflowX: "clip",
         alignItems: "stretch",

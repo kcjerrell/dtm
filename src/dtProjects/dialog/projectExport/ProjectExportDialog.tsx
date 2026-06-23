@@ -1,4 +1,4 @@
-import { Field, HStack, Input, Text, VStack } from "@chakra-ui/react"
+import { Em, Field, HStack, Input, Text, VStack } from "@chakra-ui/react"
 import { path } from "@tauri-apps/api"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { revealItemInDir } from "@tauri-apps/plugin-opener"
@@ -106,7 +106,11 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                 </IconButton>
             </HStack>
 
-            <PanelSection variant={"dialog"} gridTemplateColumns={"1fr"}>
+            <Text color={"fg.2"} fontSize={"sm"} paddingX={2}>
+                Warning: This export currently only includes <Em>generated</Em> images. It does not
+                include all project content. A more thorough export will be added soon.
+            </Text>
+            <PanelSection variant={"dialog"} gridTemplateColumns={"1fr"} asChild>
                 <VStack alignItems="stretch" gap={1} paddingX={4} paddingY={2}>
                     <Field.Root width={"full"}>
                         <Field.Label>Output folder</Field.Label>
@@ -152,7 +156,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
             <PanelSection variant={"dialog"} asChild>
                 <VStack paddingX={4} paddingY={2} gap={1} alignItems={"stretch"}>
                     <PanelSectionHeader>Image Source</PanelSectionHeader>
-                    <VStack alignItems="stretch" gap={1} paddingX={2}>
+                    <VStack alignItems="stretch" gap={1} paddingX={0}>
                         <HStack
                             gap={0}
                             padding={0}

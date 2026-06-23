@@ -151,6 +151,7 @@ function ModelValueSelectorComponent(
                     panelProps={{
                         paddingRight: 0,
                     }}
+                    paddingRight={0}
                 >
                     <VStack
                         flex={"1 1 auto"}
@@ -158,6 +159,7 @@ function ModelValueSelectorComponent(
                         overflow={"clip"}
                         height={"full"}
                         alignItems={"stretch"}
+                        minWidth={"0px"}
                     >
                         <HStack width={"full"} justifyContent={"space-between"} paddingX={2}>
                             <Input
@@ -191,6 +193,7 @@ function ModelValueSelectorComponent(
                             )}
                         </HStack>
                         <PanelList
+                            paddingRight={0}
                             key={`${snap.selectedVersion ?? "model"}_list`}
                             flex={"1 1 auto"}
                             itemsState={() => state.sorted}
