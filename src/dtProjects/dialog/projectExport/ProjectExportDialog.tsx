@@ -35,6 +35,16 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
 
     const isDone = progressText === "Done"
 
+    // clear a finished/failed result so changing options reverts the footer
+    // back to the Export button
+    const resetExportResult = () => {
+        if (isExporting) return
+        setProgressText("")
+        setFinished(0)
+        setTotal(0)
+        setExportedPaths([])
+    }
+
     // the output dir setting can't always be initialized by the storage controller
     useEffect(() => {
         if (!outputDirSetting) {
@@ -107,7 +117,10 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                                 layerStyle={"borderA"}
                                 variant={"subtle"}
                                 value={outputDir}
-                                onChange={(e) => setOutputDir(e.target.value)}
+                                onChange={(e) => {
+                                    setOutputDir(e.target.value)
+                                    resetExportResult()
+                                }}
                             />
                             <PanelButton
                                 aria-label={"Browse output folder"}
@@ -120,6 +133,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                                     })
                                     if (dir) {
                                         setOutputDir(dir)
+                                        resetExportResult()
                                     }
                                 }}
                             >
@@ -151,7 +165,10 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                                 flex={1}
                                 size="sm"
                                 tone={source === "preview" ? "selected" : "none"}
-                                onClick={() => setSource("preview")}
+                                onClick={() => {
+                                    setSource("preview")
+                                    resetExportResult()
+                                }}
                                 borderRadius="md"
                                 borderRightRadius={0}
                             >
@@ -162,7 +179,10 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                                 flex={1}
                                 size="sm"
                                 tone={source === "tensor" ? "selected" : "none"}
-                                onClick={() => setSource("tensor")}
+                                onClick={() => {
+                                    setSource("tensor")
+                                    resetExportResult()
+                                }}
                                 borderRadius="md"
                                 borderLeftRadius={0}
                             >
