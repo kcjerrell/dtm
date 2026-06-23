@@ -12,7 +12,7 @@ use crate::{
         decode_tensor,
         dt_project::{ProjectRef, TensorHistoryNode, ThnData, ThnFilter},
         dtos::image::{ImageExtra, ListImagesOptions},
-        extract_jpeg_slice, write_jpeg_metadata, DecodeTensorOptions,
+        extract_jpeg_slice, write_jpeg_with_metadata, DecodeTensorOptions,
     },
 };
 
@@ -152,9 +152,10 @@ impl DTPService {
                         .map_err(|e| e.to_string())?;
                     let jpg = extract_jpeg_slice(&thumb)
                         .ok_or_else(|| "Failed to extract JPEG slice".to_string())?;
-                    let path = temp_dir.join(format!("{}.jpg", filename_base));
-                    fs::write(&path, jpg).map_err(|e| e.to_string())?;
-                    write_jpeg_metadata(&path, &node_data).map_err(|e| e.to_string())?;
+                    let jpg = write_jpeg_with_metadata(&jpg, &node_data)
+                        .map_err(|e| e.to_string())?;
+                    fs::write(temp_dir.join(format!("{}.jpg", filename_base)), jpg)
+                        .map_err(|e| e.to_string())?;
                 }
 
                 exported += 1;

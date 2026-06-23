@@ -8,8 +8,6 @@ use png::{BitDepth, ColorType, Encoder};
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
-use std::path::Path;
-use std::sync::Once;
 
 use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 use crate::projects_db::dtos::tensor::TensorRaw;
@@ -359,31 +357,39 @@ pub fn write_png_with_usercomment(
     Ok(out)
 }
 
-/// Writes Draw Things metadata into an existing JPEG file in place, using the
-/// same XMP layout DT itself writes (so the resulting jpg can be re-imported).
-/// Unlike the PNG path, the preview jpeg is kept as-is and only its metadata is
-/// updated.
-pub fn write_jpeg_metadata(
-    path: &Path,
+/// Embeds Draw Things metadata into a JPEG by injecting an XMP APP1 segment,
+/// using the same XMP layout DT itself writes (so the resulting jpg can be
+/// re-imported). Unlike the PNG path, the preview jpeg pixels are kept as-is;
+/// only an XMP segment is added. Pure-Rust (no exiv2/gexiv2 system deps).
+pub fn write_jpeg_with_metadata(
+    jpg: &[u8],
     history: &TensorHistoryNodeData,
-) -> Result<(), Box<dyn std::error::Error>> {
-    static INIT: Once = Once::new();
-    INIT.call_once(|| {
-        let _ = rexiv2::initialize();
-    });
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    use img_parts::jpeg::{markers, Jpeg, JpegSegment};
+    use img_parts::Bytes;
 
     let metadata = DrawThingsMetadata::try_from(history)?;
     let json_string = serde_json::to_string(&metadata)?;
-    let description = build_description(&metadata);
+    let xmp = build_drawthings_xmp(&json_string, &build_description(&metadata));
 
-    let meta = rexiv2::Metadata::new_from_path(path)?;
-    meta.set_tag_string("Xmp.dc.description", &description)?;
-    meta.set_tag_string("Xmp.xmp.CreatorTool", "Draw Things")?;
-    meta.set_tag_string("Xmp.exif.UserComment", &json_string)?;
-    meta.save_to_file(path)?;
+    let mut jpeg = Jpeg::from_bytes(Bytes::copy_from_slice(jpg))?;
 
-    Ok(())
+    // JPEG stores XMP in an APP1 segment whose payload is the Adobe XMP
+    // namespace id, a null byte, then the XMP packet.
+    let mut payload = Vec::with_capacity(XMP_APP1_HEADER.len() + xmp.len());
+    payload.extend_from_slice(XMP_APP1_HEADER);
+    payload.extend_from_slice(xmp.as_bytes());
+    let segment = JpegSegment::new_with_contents(markers::APP1, Bytes::from(payload));
+
+    // Insert right after the leading APP0/APP1 segments (index 1 is safe: the
+    // SOI is not represented as a segment, so the first segment is index 0).
+    let insert_at = jpeg.segments().len().min(1);
+    jpeg.segments_mut().insert(insert_at, segment);
+
+    Ok(jpeg.encoder().bytes().to_vec())
 }
+
+const XMP_APP1_HEADER: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
 
 fn build_itxt_chunk(keyword: &str, text: &str) -> Vec<u8> {
     let mut out = Vec::new();
@@ -493,7 +499,7 @@ Steps: {}, Sampler: {}, Guidance Scale: {}, Seed: {}, Size: {}, Model: {}, Stren
         )
 }
 
-fn build_drawthings_xmp(json: &str, description: &str) -> String {
+pub fn build_drawthings_xmp(json: &str, description: &str) -> String {
     let escaped_description = description.replace("\n", "&#xA;");
     format!(
         r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 6.0.0">

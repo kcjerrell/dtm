@@ -28,22 +28,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install gexiv2 (rexiv2 dependency)
-        run: |
-          brew install gexiv2
-          PC_DIR="$(brew --prefix)/lib/pkgconfig"
-          # gexiv2-sys probes for the unversioned `gexiv2` module, but Homebrew
-          # ships it as gexiv2-<api>.pc. Alias it so pkg-config can find it.
-          if [ ! -f "$PC_DIR/gexiv2.pc" ]; then
-            VERSIONED="$(ls "$PC_DIR"/gexiv2-*.pc 2>/dev/null | head -1)"
-            if [ -z "$VERSIONED" ]; then echo "ERROR: no gexiv2 .pc found in $PC_DIR"; exit 1; fi
-            mkdir -p "$HOME/extra-pkgconfig"
-            ln -sf "$VERSIONED" "$HOME/extra-pkgconfig/gexiv2.pc"
-            echo "PKG_CONFIG_PATH=$HOME/extra-pkgconfig:$PC_DIR:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
-          else
-            echo "PKG_CONFIG_PATH=$PC_DIR:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
-          fi
-
       - name: Restore Rust cache
         id: rust-cache-restore
         uses: actions/cache/restore@v4

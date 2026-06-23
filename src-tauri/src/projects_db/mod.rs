@@ -22,7 +22,7 @@ mod tensor_history_mod;
 
 mod tensors;
 pub use tensors::{
-    build_description, decode_tensor, write_jpeg_metadata, write_png_with_usercomment,
+    build_description, decode_tensor, write_jpeg_with_metadata, write_png_with_usercomment,
     DecodeTensorOptions,
 };
 
