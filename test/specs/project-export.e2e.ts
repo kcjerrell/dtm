@@ -117,7 +117,7 @@ describe("Project Export", () => {
         // preview export produces .jpg files
         expect(entries.every((name) => name.toLowerCase().endsWith(".jpg"))).toBe(true)
         // filenames are prefixed with an incrementing, zero-padded index
-        expect(entries.some((name) => /^\d{5}/.test(name))).toBe(true)
+        expect(entries.some((name) => /^\d+/.test(name))).toBe(true)
     })
 
     it("exports a project's tensors as a zip of pngs", async () => {

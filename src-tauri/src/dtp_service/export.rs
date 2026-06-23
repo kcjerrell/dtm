@@ -1,10 +1,13 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use dtm_macros::dtp_commands;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
+use tokio::sync::Semaphore;
 
 use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
@@ -66,14 +69,15 @@ impl DTPService {
             .await?
             .total as usize;
 
-        let mut exported = 0usize;
-        emit_progress(&self.app_handle, exported, grand_total, "Starting export…");
+        // shared, monotonically increasing count of finished images across all projects
+        let exported = Arc::new(AtomicUsize::new(0));
+        emit_progress(&self.app_handle, 0, grand_total, "Starting export…");
 
         for project_id in &project_ids {
             let project = db.get_project(*project_id).await?;
 
-            // persistent reference for the duration of this project's export
-            let dt_project = db.open_dt_project(ProjectRef::Id(*project_id)).await?;
+            // persistent reference, shared across the per-image tasks
+            let dt_project = Arc::new(db.open_dt_project(ProjectRef::Id(*project_id)).await?);
 
             // fresh temp directory per project
             let temp_dir = temp_root.join(format!("project_{}", project_id));
@@ -94,71 +98,110 @@ impl DTPService {
                 .images
                 .unwrap_or_default();
 
-            for (index, image) in images.iter().enumerate() {
-                emit_progress(
-                    &self.app_handle,
-                    exported,
-                    grand_total,
-                    &format!("Exporting {}…", project.name),
-                );
+            // the counter is zero-padded to the width of the highest index
+            let index_width = images.len().max(1).to_string().len();
 
-                // node carries the metadata and (for tensors) the output tensor name
-                let nodes = dt_project
-                    .get_tensor_history_nodes(
-                        Some(ThnFilter::Rowid(image.node_id)),
-                        Some(ThnData::tensordata()),
-                    )
+            // export images concurrently: the work mixes db io and cpu-heavy tensor
+            // decoding, so each task awaits the io then offloads the cpu work to a
+            // blocking thread. the semaphore caps how many run at once.
+            let semaphore = Arc::new(Semaphore::new(4));
+            let mut handles = Vec::with_capacity(images.len());
+
+            for (index, image) in images.into_iter().enumerate() {
+                let permit = semaphore
+                    .clone()
+                    .acquire_owned()
                     .await
                     .map_err(|e| e.to_string())?;
-                let node = match nodes.into_iter().next() {
-                    Some(node) => node,
-                    None => {
-                        exported += 1;
-                        continue;
-                    }
-                };
-                let node_data = node.node_data();
 
-                let filename_base = make_filename(index, image);
+                let dt_project = dt_project.clone();
+                let app_handle = self.app_handle.clone();
+                let exported = exported.clone();
+                let temp_dir = temp_dir.clone();
+                let project_name = project.name.clone();
+                let use_tensor = options.use_tensor;
+                let filename_base = make_filename(index, index_width, &image);
 
-                if options.use_tensor {
-                    // full quality: decode the generated tensor to png, embedding metadata
-                    let name = match resolve_tensor_name(&node) {
-                        Some(name) => name,
+                let handle = tokio::spawn(async move {
+                    // hold the permit until this image is fully written
+                    let _permit = permit;
+
+                    // node carries the metadata and (for tensors) the output tensor name
+                    let nodes = dt_project
+                        .get_tensor_history_nodes(
+                            Some(ThnFilter::Rowid(image.node_id)),
+                            Some(ThnData::tensordata()),
+                        )
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    let node = match nodes.into_iter().next() {
+                        Some(node) => node,
                         None => {
-                            exported += 1;
-                            continue;
+                            exported.fetch_add(1, Ordering::Relaxed);
+                            return Ok::<(), String>(());
                         }
                     };
-                    let tensor = dt_project
-                        .get_tensor_raw(&name)
-                        .await
-                        .map_err(|e| e.to_string())?;
-                    let png = decode_tensor(
-                        tensor,
-                        DecodeTensorOptions {
-                            as_png: true,
-                            history_node: Some(node_data.clone()),
-                            scale: None,
-                        },
-                    )?;
-                    fs::write(temp_dir.join(format!("{}.png", filename_base)), png)
-                        .map_err(|e| e.to_string())?;
-                } else {
-                    // faster: use the preview jpeg directly, writing metadata into the jpg
-                    let thumb = dt_project
-                        .get_thumb(image.preview_id)
-                        .await
-                        .map_err(|e| e.to_string())?;
-                    let jpg = extract_jpeg_slice(&thumb)
-                        .ok_or_else(|| "Failed to extract JPEG slice".to_string())?;
-                    let jpg = write_jpeg_with_metadata(&jpg, &node_data)
-                        .map_err(|e| e.to_string())?;
-                    fs::write(temp_dir.join(format!("{}.jpg", filename_base)), jpg)
-                        .map_err(|e| e.to_string())?;
-                }
+                    let node_data = node.node_data();
 
-                exported += 1;
+                    if use_tensor {
+                        // full quality: decode the generated tensor to png, embedding metadata
+                        let name = match resolve_tensor_name(&node) {
+                            Some(name) => name,
+                            None => {
+                                exported.fetch_add(1, Ordering::Relaxed);
+                                return Ok(());
+                            }
+                        };
+                        let tensor = dt_project
+                            .get_tensor_raw(&name)
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        let path = temp_dir.join(format!("{}.png", filename_base));
+                        tokio::task::spawn_blocking(move || -> Result<(), String> {
+                            let png = decode_tensor(
+                                tensor,
+                                DecodeTensorOptions {
+                                    as_png: true,
+                                    history_node: Some(node_data),
+                                    scale: None,
+                                },
+                            )?;
+                            fs::write(path, png).map_err(|e| e.to_string())
+                        })
+                        .await
+                        .map_err(|e| e.to_string())??;
+                    } else {
+                        // faster: use the preview jpeg directly, writing metadata into the jpg
+                        let thumb = dt_project
+                            .get_thumb(image.preview_id)
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        let path = temp_dir.join(format!("{}.jpg", filename_base));
+                        tokio::task::spawn_blocking(move || -> Result<(), String> {
+                            let jpg = extract_jpeg_slice(&thumb)
+                                .ok_or_else(|| "Failed to extract JPEG slice".to_string())?;
+                            let jpg = write_jpeg_with_metadata(&jpg, &node_data)
+                                .map_err(|e| e.to_string())?;
+                            fs::write(path, jpg).map_err(|e| e.to_string())
+                        })
+                        .await
+                        .map_err(|e| e.to_string())??;
+                    }
+
+                    let current = exported.fetch_add(1, Ordering::Relaxed) + 1;
+                    emit_progress(
+                        &app_handle,
+                        current,
+                        grand_total,
+                        &format!("Exporting {}…", project_name),
+                    );
+                    Ok(())
+                });
+                handles.push(handle);
+            }
+
+            for handle in handles {
+                handle.await.map_err(|e| e.to_string())??;
             }
 
             // zip the staged images into the output folder, then clean up
@@ -207,14 +250,16 @@ fn resolve_tensor_name(node: &TensorHistoryNode) -> Option<String> {
     None
 }
 
-/// Builds the extension-less base filename for an exported image.
-fn make_filename(index: usize, image: &ImageExtra) -> String {
+/// Builds the extension-less base filename for an exported image. The leading
+/// counter is zero-padded to `width` digits so all filenames in a project sort
+/// in creation order.
+fn make_filename(index: usize, width: usize, image: &ImageExtra) -> String {
     let prompt: String = sanitize(&image.prompt).chars().take(40).collect();
     let prompt = prompt.trim();
     if prompt.is_empty() {
-        format!("{:05}", index + 1)
+        format!("{:0width$}", index + 1, width = width)
     } else {
-        format!("{:05}_{}", index + 1, prompt)
+        format!("{:0width$}_{}", index + 1, prompt, width = width)
     }
 }
 
