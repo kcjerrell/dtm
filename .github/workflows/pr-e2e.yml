@@ -28,6 +28,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install gexiv2 (rexiv2 dependency)
+        run: brew install gexiv2
+
       - name: Restore Rust cache
         id: rust-cache-restore
         uses: actions/cache/restore@v4
