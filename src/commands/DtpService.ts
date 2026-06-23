@@ -137,8 +137,11 @@ export interface ProjectExportOptions {
     useTensor: boolean
 }
 
-async function exportProjects(projectIds: number[], options: ProjectExportOptions): Promise<void> {
-    await invoke("dtp_export_projects", { projectIds, options })
+async function exportProjects(
+    projectIds: number[],
+    options: ProjectExportOptions,
+): Promise<string[]> {
+    return await invoke("dtp_export_projects", { projectIds, options })
 }
 
 const DTPService = {

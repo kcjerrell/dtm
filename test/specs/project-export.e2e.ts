@@ -78,6 +78,10 @@ async function runExportAndWait() {
         timeout: 60000,
     })
     await expect($("body")).toHaveText(expect.stringContaining("Done"))
+
+    // once complete, the footer swaps to Open Folder + Close
+    await expect(DTProjects.projectExportDialog.openFolder).toBeDisplayed()
+    await expect(DTProjects.projectExportDialog.done).toBeDisplayed()
 }
 
 describe("Project Export", () => {

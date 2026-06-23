@@ -1,6 +1,7 @@
 import { Field, HStack, Input, Text, VStack } from "@chakra-ui/react"
 import { path } from "@tauri-apps/api"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
+import { revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useEffect, useState } from "react"
 import { FiX } from "react-icons/fi"
 import { DtpService } from "@/commands"
@@ -30,6 +31,9 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
     const [finished, setFinished] = useState(0)
     const [total, setTotal] = useState(0)
     const [progressText, setProgressText] = useState("")
+    const [exportedPaths, setExportedPaths] = useState<string[]>([])
+
+    const isDone = progressText === "Done"
 
     // the output dir setting can't always be initialized by the storage controller
     useEffect(() => {
@@ -44,6 +48,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
         setFinished(0)
         setTotal(0)
         setProgressText("Initializing...")
+        setExportedPaths([])
 
         let unlisten: UnlistenFn | undefined
         try {
@@ -56,10 +61,11 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                 },
             )
 
-            await DtpService.exportProjects(projectIds, {
+            const paths = await DtpService.exportProjects(projectIds, {
                 outputFolder: outputDir,
                 useTensor: source === "tensor",
             })
+            setExportedPaths(paths)
             setProgressText("Done")
 
             setOutputDirSetting(outputDir)
@@ -179,13 +185,28 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                 <ExportProgress finished={finished} total={total} progressText={progressText} />
             ) : null}
             <HStack justifyContent="flex-end" gap={2} marginTop={2}>
-                <PanelButton
-                    aria-label={"Start project export"}
-                    onClick={handleExport}
-                    disabled={!outputDir || isExporting || projectIds.length === 0}
-                >
-                    Export
-                </PanelButton>
+                {isDone ? (
+                    <>
+                        <PanelButton
+                            aria-label={"Open export folder"}
+                            onClick={() => revealItemInDir(exportedPaths)}
+                            disabled={exportedPaths.length === 0}
+                        >
+                            Open Folder
+                        </PanelButton>
+                        <PanelButton aria-label={"Close export"} onClick={() => onClose()}>
+                            Close
+                        </PanelButton>
+                    </>
+                ) : (
+                    <PanelButton
+                        aria-label={"Start project export"}
+                        onClick={handleExport}
+                        disabled={!outputDir || isExporting || projectIds.length === 0}
+                    >
+                        Export
+                    </PanelButton>
+                )}
             </HStack>
         </VStack>
     )

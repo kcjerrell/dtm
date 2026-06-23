@@ -87,6 +87,12 @@ class DTProjects {
         get export() {
             return $("aria/Start project export")
         },
+        get openFolder() {
+            return $("aria/Open export folder")
+        },
+        get done() {
+            return $("aria/Close export")
+        },
         get close() {
             return $("aria/close export dialog")
         },

@@ -41,7 +41,7 @@ impl DTPService {
         &self,
         project_ids: Vec<i64>,
         options: ProjectExportOptions,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<String>, String> {
         // rescan all referenced projects so the export reflects the latest state
         self.sync_projects_and_wait(project_ids.clone(), true).await?;
 
@@ -72,6 +72,9 @@ impl DTPService {
         // shared, monotonically increasing count of finished images across all projects
         let exported = Arc::new(AtomicUsize::new(0));
         emit_progress(&self.app_handle, 0, grand_total, "Starting export…");
+
+        // paths of the archives created, returned so the caller can reveal them
+        let mut zip_paths = Vec::with_capacity(project_ids.len());
 
         for project_id in &project_ids {
             let project = db.get_project(*project_id).await?;
@@ -204,16 +207,31 @@ impl DTPService {
                 handle.await.map_err(|e| e.to_string())??;
             }
 
-            // zip the staged images into the output folder, then clean up
-            let zip_path = output_folder.join(format!("{}.zip", sanitize(&project.name)));
+            // zip the staged images into the output folder, then clean up.
+            // a numeric suffix is added if an archive of the same name exists
+            // so an export never overwrites a previous one.
+            let zip_path = unique_path(&output_folder, &sanitize(&project.name), "zip");
             zip_dir(&temp_dir, &zip_path)?;
             let _ = fs::remove_dir_all(&temp_dir);
+            zip_paths.push(zip_path.to_string_lossy().into_owned());
         }
 
         emit_progress(&self.app_handle, grand_total, grand_total, "Done");
 
-        Ok(())
+        Ok(zip_paths)
     }
+}
+
+/// Returns a path inside `dir` for `stem.ext` that does not already exist,
+/// appending `_1`, `_2`, … to the stem until a free name is found.
+fn unique_path(dir: &Path, stem: &str, ext: &str) -> PathBuf {
+    let mut candidate = dir.join(format!("{}.{}", stem, ext));
+    let mut n = 1;
+    while candidate.exists() {
+        candidate = dir.join(format!("{}_{}.{}", stem, n, ext));
+        n += 1;
+    }
+    candidate
 }
 
 fn emit_progress(app: &AppHandleWrapper, current: usize, total: usize, msg: &str) {
