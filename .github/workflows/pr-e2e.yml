@@ -31,7 +31,12 @@ jobs:
       - name: Install gexiv2 (rexiv2 dependency)
         run: |
           brew install gexiv2
-          echo "PKG_CONFIG_PATH=$(brew --prefix gexiv2)/lib/pkgconfig:$(brew --prefix exiv2)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          echo "---- gexiv2 .pc files under $(brew --prefix) ----"
+          find "$(brew --prefix)" -name 'gexiv2*.pc' -o -name 'exiv2*.pc' 2>/dev/null || true
+          GEXIV2_PC="$(find "$(brew --prefix)" -name 'gexiv2.pc' 2>/dev/null | head -1)"
+          EXIV2_PC="$(find "$(brew --prefix)" -name 'exiv2.pc' 2>/dev/null | head -1)"
+          if [ -z "$GEXIV2_PC" ]; then echo "ERROR: gexiv2.pc not found"; exit 1; fi
+          echo "PKG_CONFIG_PATH=$(dirname "$GEXIV2_PC"):$(dirname "${EXIV2_PC:-$GEXIV2_PC}"):${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Restore Rust cache
         id: rust-cache-restore
