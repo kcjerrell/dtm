@@ -39,6 +39,7 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
             gap={"inherit"}
             padding={0}
             margin={0}
+            onStateChange={state => setShowExcluded(state === "open")}
             {...restProps}
         >
             <PanelListItem
