@@ -10,12 +10,9 @@ use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
         decode_tensor,
-        dt_project::{
-            data::tensor_history_node_data::TensorHistoryNodeData, ProjectRef, TensorHistoryNode,
-            ThnData, ThnFilter,
-        },
+        dt_project::{ProjectRef, TensorHistoryNode, ThnData, ThnFilter},
         dtos::image::{ImageExtra, ListImagesOptions},
-        extract_jpeg_slice, write_png_with_usercomment, DecodeTensorOptions,
+        extract_jpeg_slice, write_jpeg_metadata, DecodeTensorOptions,
     },
 };
 
@@ -122,41 +119,43 @@ impl DTPService {
                 };
                 let node_data = node.node_data();
 
-                let png = if options.use_tensor {
-                    // full quality: decode the generated tensor, embedding metadata
-                    match resolve_tensor_name(&node) {
-                        Some(name) => {
-                            let tensor = dt_project
-                                .get_tensor_raw(&name)
-                                .await
-                                .map_err(|e| e.to_string())?;
-                            decode_tensor(
-                                tensor,
-                                DecodeTensorOptions {
-                                    as_png: true,
-                                    history_node: Some(node_data.clone()),
-                                    scale: None,
-                                },
-                            )?
-                        }
+                let filename_base = make_filename(index, image);
+
+                if options.use_tensor {
+                    // full quality: decode the generated tensor to png, embedding metadata
+                    let name = match resolve_tensor_name(&node) {
+                        Some(name) => name,
                         None => {
                             exported += 1;
                             continue;
                         }
-                    }
+                    };
+                    let tensor = dt_project
+                        .get_tensor_raw(&name)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    let png = decode_tensor(
+                        tensor,
+                        DecodeTensorOptions {
+                            as_png: true,
+                            history_node: Some(node_data.clone()),
+                            scale: None,
+                        },
+                    )?;
+                    fs::write(temp_dir.join(format!("{}.png", filename_base)), png)
+                        .map_err(|e| e.to_string())?;
                 } else {
-                    // faster: use the preview jpeg, re-encoded as png so metadata can be embedded
+                    // faster: use the preview jpeg directly, writing metadata into the jpg
                     let thumb = dt_project
                         .get_thumb(image.preview_id)
                         .await
                         .map_err(|e| e.to_string())?;
                     let jpg = extract_jpeg_slice(&thumb)
                         .ok_or_else(|| "Failed to extract JPEG slice".to_string())?;
-                    jpeg_to_png_with_metadata(&jpg, node_data.clone())?
-                };
-
-                let filename = make_filename(index, image);
-                fs::write(temp_dir.join(filename), png).map_err(|e| e.to_string())?;
+                    let path = temp_dir.join(format!("{}.jpg", filename_base));
+                    fs::write(&path, jpg).map_err(|e| e.to_string())?;
+                    write_jpeg_metadata(&path, &node_data).map_err(|e| e.to_string())?;
+                }
 
                 exported += 1;
             }
@@ -207,25 +206,14 @@ fn resolve_tensor_name(node: &TensorHistoryNode) -> Option<String> {
     None
 }
 
-fn jpeg_to_png_with_metadata(
-    jpg: &[u8],
-    node_data: TensorHistoryNodeData,
-) -> Result<Vec<u8>, String> {
-    let img = image::load_from_memory_with_format(jpg, image::ImageFormat::Jpeg)
-        .map_err(|e| e.to_string())?
-        .to_rgb8();
-    let (width, height) = img.dimensions();
-    let pixels = img.into_raw();
-    write_png_with_usercomment(&pixels, width, height, 3, Some(node_data)).map_err(|e| e.to_string())
-}
-
+/// Builds the extension-less base filename for an exported image.
 fn make_filename(index: usize, image: &ImageExtra) -> String {
     let prompt: String = sanitize(&image.prompt).chars().take(40).collect();
     let prompt = prompt.trim();
     if prompt.is_empty() {
-        format!("{:05}.png", index + 1)
+        format!("{:05}", index + 1)
     } else {
-        format!("{:05}_{}.png", index + 1, prompt)
+        format!("{:05}_{}", index + 1, prompt)
     }
 }
 

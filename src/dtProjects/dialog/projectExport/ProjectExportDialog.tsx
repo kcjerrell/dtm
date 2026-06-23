@@ -162,7 +162,7 @@ function ProjectExportDialog(props: DialogProps<ProjectExportDialogState>) {
                         </HStack>
                         <Text fontSize="sm" color="fg.1">
                             {source === "preview"
-                                ? "Fast - uses the high quality preview image for each generation. Metadata is embedded into the exported .png files."
+                                ? "Fast - uses the high quality preview image for each generation. Exported files are .jpg with Draw Things metadata embedded."
                                 : "Slow, best quality - decodes the original generated tensor output. Exported files will be full resolution .png."}
                         </Text>
                         <Text fontSize="sm" color="fg.1">

@@ -8,6 +8,8 @@ use png::{BitDepth, ColorType, Encoder};
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
+use std::path::Path;
+use std::sync::Once;
 
 use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 use crate::projects_db::dtos::tensor::TensorRaw;
@@ -355,6 +357,32 @@ pub fn write_png_with_usercomment(
     writer.finish()?;
 
     Ok(out)
+}
+
+/// Writes Draw Things metadata into an existing JPEG file in place, using the
+/// same XMP layout DT itself writes (so the resulting jpg can be re-imported).
+/// Unlike the PNG path, the preview jpeg is kept as-is and only its metadata is
+/// updated.
+pub fn write_jpeg_metadata(
+    path: &Path,
+    history: &TensorHistoryNodeData,
+) -> Result<(), Box<dyn std::error::Error>> {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        let _ = rexiv2::initialize();
+    });
+
+    let metadata = DrawThingsMetadata::try_from(history)?;
+    let json_string = serde_json::to_string(&metadata)?;
+    let description = build_description(&metadata);
+
+    let meta = rexiv2::Metadata::new_from_path(path)?;
+    meta.set_tag_string("Xmp.dc.description", &description)?;
+    meta.set_tag_string("Xmp.xmp.CreatorTool", "Draw Things")?;
+    meta.set_tag_string("Xmp.exif.UserComment", &json_string)?;
+    meta.save_to_file(path)?;
+
+    Ok(())
 }
 
 fn build_itxt_chunk(keyword: &str, text: &str) -> Vec<u8> {
