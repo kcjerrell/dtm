@@ -187,7 +187,9 @@ fn get_os_version() -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_shell::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_shell::init());
 
     #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());

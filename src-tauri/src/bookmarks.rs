@@ -14,7 +14,6 @@ mod bookmarks_linux;
 #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
 pub use bookmarks_linux::*;
 
-
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct PickFolderResult {
     pub path: String,

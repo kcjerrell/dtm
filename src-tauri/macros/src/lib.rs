@@ -1,7 +1,9 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, FnArg, GenericArgument, ItemFn, Pat, PathArguments, ReturnType, Token, Type, parse::{Parse, ParseStream}, parse_macro_input
+    parse::{Parse, ParseStream},
+    parse_macro_input, Expr, FnArg, GenericArgument, ItemFn, Pat, PathArguments, ReturnType, Token,
+    Type,
 };
 
 struct DtmArgs {

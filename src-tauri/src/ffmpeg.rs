@@ -1,9 +1,9 @@
 use futures_util::StreamExt;
+use reqwest;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
-use reqwest;
 use tokio::fs;
 use tokio::process::Command;
 

@@ -43,7 +43,8 @@ impl DTPService {
         options: ProjectExportOptions,
     ) -> Result<Vec<String>, String> {
         // rescan all referenced projects so the export reflects the latest state
-        self.sync_projects_and_wait(project_ids.clone(), true).await?;
+        self.sync_projects_and_wait(project_ids.clone(), true)
+            .await?;
 
         let db = self.get_db().await?;
 
@@ -284,9 +285,7 @@ fn make_filename(index: usize, width: usize, image: &ImageExtra) -> String {
 fn sanitize(name: &str) -> String {
     name.chars()
         .map(|c| {
-            if c.is_control()
-                || matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*' | '/' | '\\')
-            {
+            if c.is_control() || matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*' | '/' | '\\') {
                 '_'
             } else {
                 c

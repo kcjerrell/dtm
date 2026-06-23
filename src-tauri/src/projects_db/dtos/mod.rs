@@ -1,7 +1,7 @@
-pub mod project;
+pub mod clip;
 pub mod image;
-pub mod watch_folder;
 pub mod model;
+pub mod project;
 pub mod tensor;
 pub mod text;
-pub mod clip;
+pub mod watch_folder;

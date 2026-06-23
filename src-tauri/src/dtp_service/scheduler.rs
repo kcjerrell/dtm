@@ -138,7 +138,8 @@ impl Scheduler {
 
         if let Some(subtasks) = subtasks {
             for subtask in subtasks {
-                self.add_job_internal(subtask, Some(job_id), false, None).await;
+                self.add_job_internal(subtask, Some(job_id), false, None)
+                    .await;
             }
         }
 
@@ -301,10 +302,7 @@ impl Scheduler {
     ///
     /// This lets callers run a normally-passive job (e.g. a project sync) on demand
     /// and block on its completion before continuing.
-    pub async fn add_job_front_and_wait<T: Job + 'static>(
-        &self,
-        job: T,
-    ) -> Result<(), String> {
+    pub async fn add_job_front_and_wait<T: Job + 'static>(&self, job: T) -> Result<(), String> {
         let (tx, rx) = oneshot::channel();
         self.add_job_internal(Arc::new(job), None, true, Some(tx))
             .await;
