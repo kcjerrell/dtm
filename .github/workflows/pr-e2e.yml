@@ -31,12 +31,18 @@ jobs:
       - name: Install gexiv2 (rexiv2 dependency)
         run: |
           brew install gexiv2
-          echo "---- gexiv2 .pc files under $(brew --prefix) ----"
-          find "$(brew --prefix)" -name 'gexiv2*.pc' -o -name 'exiv2*.pc' 2>/dev/null || true
-          GEXIV2_PC="$(find "$(brew --prefix)" -name 'gexiv2.pc' 2>/dev/null | head -1)"
-          EXIV2_PC="$(find "$(brew --prefix)" -name 'exiv2.pc' 2>/dev/null | head -1)"
-          if [ -z "$GEXIV2_PC" ]; then echo "ERROR: gexiv2.pc not found"; exit 1; fi
-          echo "PKG_CONFIG_PATH=$(dirname "$GEXIV2_PC"):$(dirname "${EXIV2_PC:-$GEXIV2_PC}"):${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          PC_DIR="$(brew --prefix)/lib/pkgconfig"
+          # gexiv2-sys probes for the unversioned `gexiv2` module, but Homebrew
+          # ships it as gexiv2-<api>.pc. Alias it so pkg-config can find it.
+          if [ ! -f "$PC_DIR/gexiv2.pc" ]; then
+            VERSIONED="$(ls "$PC_DIR"/gexiv2-*.pc 2>/dev/null | head -1)"
+            if [ -z "$VERSIONED" ]; then echo "ERROR: no gexiv2 .pc found in $PC_DIR"; exit 1; fi
+            mkdir -p "$HOME/extra-pkgconfig"
+            ln -sf "$VERSIONED" "$HOME/extra-pkgconfig/gexiv2.pc"
+            echo "PKG_CONFIG_PATH=$HOME/extra-pkgconfig:$PC_DIR:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          else
+            echo "PKG_CONFIG_PATH=$PC_DIR:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          fi
 
       - name: Restore Rust cache
         id: rust-cache-restore
