@@ -297,7 +297,7 @@ export interface ICommand<T = undefined, C = undefined> {
     requiresMultipleSelection?: boolean
 
     /** overrides selection options */
-    getEnabled?: (selected?: T[], context?: C) => boolean
+    getEnabled?: (selected: T[], context?: C) => boolean
 
     /** item behavior if getEnabled returns false */
     toolbarEnableMode?: "disable" | "hide"

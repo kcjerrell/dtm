@@ -5,7 +5,10 @@ import {
     defineLayerStyles,
     type SystemStyleObject,
 } from "@chakra-ui/react"
+import { version } from "@tauri-apps/plugin-os"
 import { buttonRecipe } from "./button"
+
+const IS_TAHOE = version().startsWith("26")
 
 const grayValues = [
     "#0e0f10", // 0    17
@@ -338,6 +341,11 @@ const themeConfig = defineConfig({
                 // xs: { value: "0.6rem" },
                 // sm: { value: "0.75rem" },
                 // md: { value: "0.9rem" },
+            },
+            sizes: {
+                sidebar: {
+                    value: IS_TAHOE ? "78px" : "68px",
+                },
             },
         },
         keyframes: {

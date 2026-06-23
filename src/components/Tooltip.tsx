@@ -14,8 +14,8 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
     const { tip, tipTitle, tipText, children, contentProps, ...rest } = props
 
     const Content = tip ?? (
-        <VStack gap={1} alignItems={"start"}>
-            <Text fontWeight={600} color={"fg.2"} fontSize={"md"}>
+        <VStack gap={0.5} alignItems={"start"}>
+            <Text fontWeight={600} color={"fg.2"} fontSize={"sm"}>
                 {tipTitle}
             </Text>
             <Text color={"fg.2"} fontSize={"sm"}>
@@ -33,9 +33,12 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
                 fontSize: "sm",
                 bgColor: "bg.2",
                 color: "fg.2",
-                padding: 2,
+                paddingY: 1,
+                paddingX: 2,
                 lineHeight: "1.25rem",
                 whiteSpace: "pre-line",
+                // boxShadow: "pane2",
+                border: "1px solid #77777777",
                 ...contentProps,
             }}
             positioning={{ placement: "top" }}

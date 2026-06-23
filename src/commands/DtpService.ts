@@ -70,7 +70,7 @@ async function listWatchFolders(): Promise<WatchFolder[]> {
 }
 
 async function pickWatchFolder(dtFolder?: boolean): Promise<void> {
-    let testOverride
+    let testOverride: string | undefined
     if ((window as unknown as Record<string, string>).__E2E_FILE_PATH__) {
         testOverride = (window as unknown as Record<string, string>).__E2E_FILE_PATH__
         ;(window as unknown as Record<string, string>).__E2E_FILE_PATH__ = "" // Clear it after use

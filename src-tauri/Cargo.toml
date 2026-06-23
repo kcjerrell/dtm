@@ -92,6 +92,7 @@ reqwest = { version = "0.13", features = ["json", "stream"] }
 itertools = "0.14.0"
 zip = "4.6"
 img-parts = "0.3.3"
+tauri-plugin-os = "2"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]
