@@ -3,6 +3,7 @@
 pub mod prelude;
 
 pub mod enums;
+pub mod embedding_models;
 pub mod image_controls;
 pub mod image_loras;
 pub mod images;
@@ -11,3 +12,4 @@ pub mod projects;
 pub mod seaql_migrations;
 pub mod templates;
 pub mod watch_folders;
+pub mod embeddings;

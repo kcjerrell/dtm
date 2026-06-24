@@ -173,6 +173,14 @@ impl AppHandleWrapper {
             Ok(self.get_test_path("app_data_dir"))
         }
     }
+
+    pub fn get_resource_dir(&self) -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = &self.app_handle {
+            app_handle.path().resource_dir()
+        } else {
+            Ok(self.get_test_path("resource_dir"))
+        }
+    }
 }
 
 impl From<AppHandle> for AppHandleWrapper {

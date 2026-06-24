@@ -56,10 +56,16 @@ impl DTPService {
         &self,
         channel: Channel<DTPEvent>,
         auto_watch: bool,
-        db_path: String,
+        app_handle: &AppHandleWrapper,
     ) -> Result<(), String> {
         self.auto_watch.store(auto_watch, Ordering::Relaxed);
-        let pdb = ProjectsDb::new(&db_path).await.unwrap();
+
+        let db_path = get_db_url(app_handle);
+        let ext_path = get_sqlite_ext_path(app_handle)?;
+
+        let pdb = ProjectsDb::new(&db_path, &ext_path)
+            .await
+            .map_err(|e| e.to_string())?;
         {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
@@ -278,10 +284,8 @@ pub async fn dtp_connect(
     channel: Channel<DTPEvent>,
     auto_watch: bool,
 ) -> Result<(), String> {
-    let db_path = get_db_url(&app_handle);
     check_old_path(&app_handle);
-    let _ = state.connect(channel, auto_watch, db_path).await;
-    Ok(())
+    state.connect(channel, auto_watch, &app_handle).await
 }
 
 #[cfg(dev)]
@@ -316,5 +320,16 @@ fn check_old_path(app_handle: &AppHandleWrapper) {
     let old_path = app_data_dir.join("projects3.db");
     if old_path.exists() {
         fs::remove_file(old_path).unwrap_or_default();
+    }
+}
+
+fn get_sqlite_ext_path(app: &AppHandleWrapper) -> Result<String, String> {
+    let filename = "resources/vec/vec0.dylib";
+    let path = app.get_resource_dir().unwrap().join(filename);
+
+    match path.try_exists() {
+        Ok(true) => Ok(path.to_str().unwrap().to_string()),
+        Ok(false) => Err("vec0.dylib not found".to_string()),
+        Err(e) => Err(format!("Failed to check vec0.dylib: {}", e)),
     }
 }

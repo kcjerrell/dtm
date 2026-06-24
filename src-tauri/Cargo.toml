@@ -18,6 +18,9 @@ webdriver = ["tauri-plugin-webdriver"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 cc = "1.2"
+attohttpc = "0.28"
+flate2 = "1.0"
+tar = "0.4"
 
 [dependencies]
 # Local Modules
@@ -49,7 +52,7 @@ web-image-meta = "0.2.1"
 quick-xml = "0.38.3"
 chrono = { version = "0.4", features = ["serde"] }
 flatbuffers = "25.9.23"
-sqlx = { version = "0.8", features = [ "runtime-async-std", "tls-native-tls" ] }
+sqlx = { version = "0.8", features = [ "sqlite", "runtime-async-std", "tls-native-tls" ] }
 sea-orm = { version = "2.0.0-rc", features = [
   "sqlx-sqlite",
   "runtime-async-std-native-tls",

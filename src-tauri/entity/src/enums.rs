@@ -162,3 +162,24 @@ pub enum ItemType {
     #[sea_orm(num_value = 2)]
     ModelInfo,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "i8", db_type = "TinyInteger")]
+pub enum EmbeddingType {
+    #[sea_orm(num_value = 0)]
+    Unknown,
+    #[sea_orm(num_value = 1)]
+    Image,
+    #[sea_orm(num_value = 2)]
+    Text,
+    #[sea_orm(num_value = 3)]
+    Caption,
+    #[sea_orm(num_value = 4)]
+    Face,
+    #[sea_orm(num_value = 5)]
+    Object,
+    #[sea_orm(num_value = 6)]
+    Style,
+    #[sea_orm(num_value = 7)]
+    Nsfw,
+}
