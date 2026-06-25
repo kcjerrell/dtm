@@ -74,9 +74,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true,
-    "resources": [
-      "resources/vec/vec0.dylib"
-    ]
+    "createUpdaterArtifacts": true
   }
 }

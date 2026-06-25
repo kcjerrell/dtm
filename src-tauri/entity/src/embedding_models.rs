@@ -1,6 +1,8 @@
 use sea_orm::entity::prelude::*;
+use serde::Serialize;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[sea_orm::model]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "embedding_models")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -18,15 +20,9 @@ pub struct Model {
     pub version: Option<String>,
 
     pub created_at: DateTimeUtc,
-}
 
-#[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {}
-
-impl RelationTrait for Relation {
-    fn def(&self) -> RelationDef {
-        panic!("No relation defined")
-    }
+    #[sea_orm(has_many)]
+    pub image_embeddings: HasMany<super::embeddings::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -642,19 +642,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "attohttpc"
-version = "0.28.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07a9b245ba0739fc90935094c29adbaee3f977218b5fb95e822e261cda7f56a3"
-dependencies = [
- "flate2",
- "http",
- "log",
- "native-tls",
- "url",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1957,7 +1944,6 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "attohttpc",
  "base64 0.22.1",
  "bytemuck",
  "byteorder",
@@ -1978,6 +1964,7 @@ dependencies = [
  "image",
  "img-parts",
  "itertools 0.14.0",
+ "libsqlite3-sys",
  "little_exif",
  "log",
  "migration",
@@ -1999,8 +1986,8 @@ dependencies = [
  "serde_json",
  "sevenz-rust",
  "sha2 0.11.0",
+ "sqlite-vec",
  "sqlx",
- "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
@@ -6846,6 +6833,15 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "sqlite-vec"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0ba424237a9a5db2f6071f193319e2b6a32f7f3961debb2fbbfe67067abce3f"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

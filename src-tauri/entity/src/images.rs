@@ -59,6 +59,8 @@ pub struct Model {
     pub image_controls: HasMany<super::image_controls::Entity>,
     #[sea_orm(has_many)]
     pub image_loras: HasMany<super::image_loras::Entity>,
+    #[sea_orm(has_many)]
+    pub image_embeddings: HasMany<super::embeddings::Entity>,
     #[sea_orm(
         belongs_to,
         relation_enum = "Upscalers",
