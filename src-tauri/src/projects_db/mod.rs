@@ -23,7 +23,7 @@ mod tensor_history_mod;
 mod tensors;
 pub use tensors::{
     build_description, decode_tensor, write_jpeg_with_metadata, write_png_with_usercomment,
-    DecodeTensorOptions,
+    DecodeTensorOptions, decompress_fzip,
 };
 
 mod audio;

@@ -23,7 +23,6 @@ enum ImageEmbeddings {
     EmbeddingType,
     ModelId,
     Dimension,
-    EmbeddingId,
     CreatedAt,
 }
 
@@ -68,12 +67,17 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .index(
-                        Index::create()
-                            .name("idx_embedding_models_name")
-                            .col(EmbeddingModels::Name)
-                            .unique(),
-                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_embedding_models_name")
+                    .table(EmbeddingModels::Table)
+                    .col(EmbeddingModels::Name)
+                    .unique()
                     .to_owned(),
             )
             .await?;
@@ -112,11 +116,6 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(ImageEmbeddings::EmbeddingId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
                         ColumnDef::new(ImageEmbeddings::CreatedAt)
                             .timestamp()
                             .not_null()
@@ -136,33 +135,41 @@ impl MigrationTrait for Migration {
                             .to(EmbeddingModels::Table, EmbeddingModels::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .index(
-                        Index::create()
-                            .name("idx_image_embeddings_image_id")
-                            .col(ImageEmbeddings::ImageId),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_image_embeddings_model_type")
-                            .col(ImageEmbeddings::ModelId)
-                            .col(ImageEmbeddings::EmbeddingType),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_image_embeddings_dimension_embedding_id")
-                            .col(ImageEmbeddings::Dimension)
-                            .col(ImageEmbeddings::EmbeddingId)
-                            .unique(),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_image_embeddings_unique_embedding")
-                            .col(ImageEmbeddings::ImageId)
-                            .col(ImageEmbeddings::EmbeddingType)
-                            .col(ImageEmbeddings::ModelId)
-                            .col(ImageEmbeddings::Dimension)
-                            .unique(),
-                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_image_embeddings_image_id")
+                    .table(ImageEmbeddings::Table)
+                    .col(ImageEmbeddings::ImageId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_image_embeddings_model_type")
+                    .table(ImageEmbeddings::Table)
+                    .col(ImageEmbeddings::ModelId)
+                    .col(ImageEmbeddings::EmbeddingType)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_image_embeddings_unique_embedding")
+                    .table(ImageEmbeddings::Table)
+                    .col(ImageEmbeddings::ImageId)
+                    .col(ImageEmbeddings::EmbeddingType)
+                    .col(ImageEmbeddings::ModelId)
+                    .col(ImageEmbeddings::Dimension)
+                    .unique()
                     .to_owned(),
             )
             .await?;
@@ -201,8 +208,12 @@ impl MigrationTrait for Migration {
             .await?;
 
         manager
-            .get_connection()
-            .execute_unprepared("DROP TABLE IF EXISTS embedding_models;")
+            .drop_table(
+                Table::drop()
+                    .table(EmbeddingModels::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
             .await?;
 
         Ok(())

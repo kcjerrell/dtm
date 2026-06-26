@@ -15,6 +15,8 @@ use libsqlite3_sys::{sqlite3_auto_extension, SQLITE_OK};
 use std::str::FromStr;
 use std::sync::OnceLock;
 
+use crate::projects_db::dtos::{embedding::Embeddings, embedding_model::{self, EmbeddingModels}};
+
 static REGISTER_SQLITE_VEC: OnceLock<Result<(), String>> = OnceLock::new();
 
 #[derive(Clone, Debug)]
@@ -38,6 +40,14 @@ impl ProjectsDb {
         Migrator::up(&db, None).await.map_err(|e| e.to_string())?;
 
         Ok(Self { db })
+    }
+
+    pub fn embedding_models(&self) -> EmbeddingModels<'_> {
+        EmbeddingModels::new(self)
+    }
+
+    pub fn embeddings(&self) -> Embeddings<'_> {
+        Embeddings::new(self)
     }
 }
 

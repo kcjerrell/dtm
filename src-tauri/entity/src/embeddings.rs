@@ -18,8 +18,6 @@ pub struct Model {
 
     pub dimension: i32,
 
-    pub embedding_id: i64,
-
     pub created_at: DateTimeUtc,
 
     #[sea_orm(
