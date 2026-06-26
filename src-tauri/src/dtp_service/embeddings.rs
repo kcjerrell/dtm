@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use candle_core::{shape::ShapeWithOneHole, DType, Device, Tensor};
+use candle_core::{DType, Device, MetalDevice, Tensor, shape::ShapeWithOneHole};
 use candle_nn::VarBuilder;
 use candle_transformers::models::siglip::{Config, Model as SiglipModel};
 use hf_hub::HFClient;
@@ -34,10 +34,11 @@ impl EmbeddingService {
                 "tokenizer_config.json".to_string(),
             ],
         )?;
+        let device = Device::metal_if_available(0)?;
         Ok(EmbeddingService {
             model: None,
             spec,
-            device: Device::Cpu,
+            device: device,
             dtp,
         })
     }

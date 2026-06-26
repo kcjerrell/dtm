@@ -9,7 +9,7 @@ use std::{
 use dtm_macros::{dtm_command, dtp_commands};
 use entity::enums::EmbeddingType;
 use tauri::{ipc::Channel, State};
-use tokio::sync::{OnceCell, RwLock};
+use tokio::{sync::{OnceCell, RwLock}, time::Instant};
 
 use crate::{
     dtp_service::{
@@ -238,7 +238,7 @@ impl DTPService {
                 Ok(service)
             })
             .await?;
-
+        let start = Instant::now();
         let images = self
             .list_images(
                 Some(vec![project_id]),
@@ -260,7 +260,7 @@ impl DTPService {
         let pdb = self.get_db().await?;
         let dtp = pdb.open_dt_project(ProjectRef::Id(project_id)).await?;
 
-        for batch in images.chunks(8) {
+        for batch in images.chunks(16) {
             let mut tensors: Vec<TensorRaw> = Vec::with_capacity(batch.len());
             for image in batch {
                 if let Some(tr) = dtp
@@ -292,7 +292,12 @@ impl DTPService {
                 .map_err(|e| e.to_string())?;
 
         }
-
+        println!(
+            "{} images/{}seconds ({} s/image)",
+            images.len(),
+            start.elapsed().as_secs(),
+            start.elapsed().as_secs_f64() / images.len() as f64
+        );
         Ok(())
     }
 

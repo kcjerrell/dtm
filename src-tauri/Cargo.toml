@@ -95,9 +95,9 @@ itertools = "0.14.0"
 zip = "4.6"
 img-parts = "0.3.3"
 tauri-plugin-os = "2"
-candle-transformers = { version = "0.10.2", features = ["accelerate"] }
-candle-core = { version = "0.10.2", features = ["accelerate"] }
-candle-nn = { version = "0.10.2", features = ["accelerate"] }
+candle-transformers = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-core = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-nn = { version = "0.10.2", features = ["metal", "accelerate"] }
 hf-hub = "1.0.0-rc.1"
 zerocopy = "0.8.52"
 
