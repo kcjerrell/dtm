@@ -483,7 +483,7 @@ impl ProjectsDb {
                     has_custom: Set(h.has_custom),
                     has_scribble: Set(h.has_scribble),
                     has_shuffle: Set(h.has_shuffle),
-                    sampler: Set(Sampler::try_from(h.sampler).unwrap_or(Sampler::EulerA)), // Fallback instead of panic
+                    sampler: Set(Sampler::try_from(h.sampler as i32).unwrap_or(Sampler::EulerA)), // Fallback instead of panic
                     ..Default::default()
                 };
 
@@ -620,7 +620,7 @@ impl ProjectsDb {
         };
 
         let mut query = images::Entity::find()
-            .join(JoinType::LeftJoin, images::Relation::Models.def())
+            .join(JoinType::LeftJoin, images::Relation::Model.def())
             .column_as(entity::models::Column::Filename, "model_file")
             .order_by(images::Column::WallClock, direction);
 

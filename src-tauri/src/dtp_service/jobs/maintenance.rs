@@ -28,10 +28,11 @@ static TASK_KINDS: &[MaintenanceTaskKind] = &[
 /// Runs pending maintenance tasks for a watchfolder based on its `maint` bitmask.
 /// Clears the completed bits from the watchfolder's `maint` field after each task.
 pub async fn run_maintenance(
-    maint: u32,
+    maint: Option<u32>,
     watchfolder: &WatchFolderDTO,
     ctx: &JobContext,
 ) -> Result<(), String> {
+    let maint = maint.unwrap_or(0);
     let mut remaining_maint = maint;
 
     for kind in TASK_KINDS {
@@ -64,7 +65,7 @@ pub async fn run_maintenance(
                 .unwrap();
 
             let mut model = model.into_active_model();
-            model.maint = Set(remaining_maint);
+            model.maint = Set(Some(remaining_maint as i64));
             watch_folders::Entity::update(model)
                 .exec(&ctx.pdb.db)
                 .await
@@ -174,7 +175,7 @@ async fn check_sampler_values(
         for image in images {
             if let Some(sampler) = samplers.get(&image.node_id) {
                 let mut model = image.into_active_model();
-                model.sampler = Set(*sampler);
+                model.sampler = Set((*sampler as i32).try_into().unwrap_or(entity::enums::Sampler::Unknown));
                 fix.push(model);
             }
         }

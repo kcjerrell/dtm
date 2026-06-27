@@ -247,7 +247,7 @@ impl ProjectsDb {
                     has_custom: Set(has_custom),
                     has_scribble: Set(has_scribble),
                     has_shuffle: Set(has_shuffle),
-                    sampler: Set(fb.sampler().0),
+                    sampler: Set(fb.sampler().0.try_into().unwrap_or(Sampler::Unknown)),
                     ..Default::default()
                 };
 

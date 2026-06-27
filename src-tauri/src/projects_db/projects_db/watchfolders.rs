@@ -67,11 +67,11 @@ impl ProjectsDb {
         }
 
         if let Some(is_missing) = is_missing {
-            model.is_missing = Set(is_missing);
+            model.is_missing = Set(Some(is_missing));
         }
 
         if let Some(is_locked) = is_locked {
-            model.is_locked = Set(is_locked);
+            model.is_locked = Set(Some(is_locked));
         }
 
         let model = model.update(&self.db).await?;

@@ -10,7 +10,7 @@ pub struct WatchFolderDTO {
     pub is_missing: bool,
     pub is_locked: bool,
     pub bookmark: String,
-    pub maint: u32,
+    pub maint: Option<u32>,
 }
 
 impl From<watch_folders::Model> for WatchFolderDTO {
@@ -19,10 +19,10 @@ impl From<watch_folders::Model> for WatchFolderDTO {
             id: m.id,
             path: m.path,
             recursive: m.recursive,
-            is_missing: m.is_missing,
-            is_locked: m.is_locked,
+            is_missing: m.is_missing.unwrap_or(false),
+            is_locked: m.is_locked.unwrap_or(false),
             bookmark: m.bookmark,
-            maint: m.maint,
+            maint: m.maint.map(|v| v as u32),
         }
     }
 }

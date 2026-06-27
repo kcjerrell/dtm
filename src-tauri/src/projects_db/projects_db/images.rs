@@ -22,7 +22,7 @@ impl ProjectsDb {
 
     pub async fn get_image(&self, image_id: i64) -> Result<ImageExtra, MixedError> {
         let image = images::Entity::find_by_id(image_id)
-            .join(JoinType::LeftJoin, images::Relation::Models.def())
+            .join(JoinType::LeftJoin, images::Relation::Model.def())
             .join(JoinType::LeftJoin, images::Relation::Projects.def())
             .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
             .column_as(entity::models::Column::Filename, "model_file")
@@ -49,7 +49,7 @@ impl ProjectsDb {
         };
 
         let mut query = images::Entity::find()
-            .join(JoinType::LeftJoin, images::Relation::Models.def())
+            .join(JoinType::LeftJoin, images::Relation::Model.def())
             .join(JoinType::LeftJoin, images::Relation::Projects.def())
             .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
             .column_as(entity::models::Column::Filename, "model_file")
