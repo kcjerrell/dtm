@@ -99,7 +99,6 @@ tauri-plugin-os = "2"
 objc2 = "0.6.2"
 objc2-foundation = "0.3.1"
 objc2-app-kit = "0.3.1"
-tauri-plugin-nspopover = { git = "https://github.com/freethinkel/tauri-nspopover-plugin.git", version = "4.0.0" }
 
 # Desktop-only (not mobile)
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
