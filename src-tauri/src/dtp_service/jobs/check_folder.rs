@@ -100,7 +100,7 @@ impl Job for CheckFolderJob {
         }
 
         // run maintenance tasks (if any) before scheduling follow-up work
-        if watchfolder.maint > 0 {
+        if watchfolder.maint.unwrap_or(0) > 0 {
             log::info!("Required maintenance for folder {}", watchfolder.path);
             run_maintenance(watchfolder.maint, watchfolder, ctx).await?;
         }
