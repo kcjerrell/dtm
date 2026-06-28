@@ -1,7 +1,7 @@
 use crate::projects_db::{
     dt_project::raw::DTProjectRaw,
     dtos::{
-        clip::{Clip as DtoClip, ClipExtra, ClipFrame},
+        clip::{ClipExtra, ClipFrame},
         project::DTProjectInfo,
         tensor::{TensorHistoryImport, TensorNodeGrouper, TensorRaw, TensorSize},
         text::TextHistoryNode,
@@ -442,9 +442,9 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         self.check_table(&DTProjectTable::Clip).await?;
 
-        let clip: DtoClip = query("SELECT * FROM clip where __pk0 = ?1")
+        let clip: Clip = query("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
             .bind(clip_id)
-            .map(|row: SqliteRow| DtoClip::map_row(&row))
+            .map(|row: SqliteRow| Clip::map_row(&row))
             .fetch_one(&*self.pool)
             .await?;
 
@@ -473,7 +473,7 @@ impl DTProject {
 
         self.check_table(&DTProjectTable::Clip).await?;
 
-        let mut qb = QueryBuilder::new("SELECT * FROM clip WHERE __pk0 IN (");
+        let mut qb = QueryBuilder::new("SELECT rowid, __pk0, p FROM clip WHERE __pk0 IN (");
 
         let mut separated = qb.separated(", ");
         for id in &clip_ids {
@@ -482,8 +482,9 @@ impl DTProject {
 
         qb.push(")");
 
-        let rows: Vec<DtoClip> = qb
-            .build_query_as::<DtoClip>()
+        let rows = qb
+            .build()
+            .map(|row: SqliteRow| Clip::map_row(&row))
             .fetch_all(&*self.pool)
             .await?;
 

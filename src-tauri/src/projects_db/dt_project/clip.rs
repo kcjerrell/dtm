@@ -1,16 +1,6 @@
-use crate::projects_db::{dt_project::DTProjectTable, fbs::root_as_clip, DTProject};
-use serde::Serialize;
-use sqlx::{query_as, FromRow};
-
-#[derive(Serialize, Debug, Clone)]
-pub struct Clip {
-    pub clip_id: i64,
-    pub count: i32,
-    pub frames_per_second: f64,
-    pub width: i32,
-    pub height: i32,
-    pub audio_id: i64,
-}
+pub use crate::projects_db::dtos::clip::Clip;
+use crate::projects_db::{dt_project::DTProjectTable, DTProject};
+use sqlx::FromRow;
 
 pub enum ClipFilter {
     None,
@@ -29,7 +19,7 @@ struct ClipRow {
 impl DTProject {
     pub async fn get_clips(&self, filter: ClipFilter) -> Result<Vec<Clip>, sqlx::Error> {
         self.check_table(&DTProjectTable::Clip).await?;
-        let mut query_str = "SELECT __pk0, p FROM clip".to_string();
+        let mut query_str = "SELECT rowid, __pk0, p FROM clip".to_string();
 
         match filter {
             ClipFilter::None => {}
@@ -49,22 +39,9 @@ impl DTProject {
             }
         }
 
-        let rows: Vec<ClipRow> = query_as(&query_str).fetch_all(&*self.pool).await?;
+        let rows = sqlx::query(&query_str).fetch_all(&*self.pool).await?;
 
-        let clips = rows
-            .into_iter()
-            .map(|row| {
-                let fb = root_as_clip(&row.data).unwrap();
-                Clip {
-                    clip_id: fb.clip_id(),
-                    count: fb.count(),
-                    frames_per_second: fb.frames_per_second(),
-                    width: fb.width(),
-                    height: fb.height(),
-                    audio_id: fb.audio_id(),
-                }
-            })
-            .collect();
+        let clips = rows.iter().map(Clip::map_row).collect();
 
         Ok(clips)
     }
