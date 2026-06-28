@@ -1,7 +1,4 @@
-use crate::projects_db::{
-    dtos::project::{ProjectExtra, ProjectRow},
-    folder_cache, DTProject,
-};
+use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DTProject};
 use entity::{
     images::{self, Entity as Images},
     projects::{self, ActiveModel, Entity as Projects},
@@ -62,35 +59,16 @@ impl ProjectsDb {
     }
 
     pub async fn get_project(&self, id: i64) -> Result<ProjectExtra, MixedError> {
-        let result = Projects::find_by_id(id)
-            .join(JoinType::LeftJoin, projects::Relation::Images.def())
-            .column_as(
-                Expr::col((images::Entity, images::Column::ProjectId)).count(),
-                "image_count",
-            )
-            .column_as(
-                Expr::col((images::Entity, images::Column::NodeId)).max(),
-                "last_id",
-            )
-            .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
-            .column_as(
-                Expr::col((watch_folders::Entity, watch_folders::Column::Path)),
-                "watchfolder_path",
-            )
-            .column_as(
-                Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
-                "is_missing",
-            )
-            .column_as(
-                Expr::col((watch_folders::Entity, watch_folders::Column::IsLocked)),
-                "is_locked",
-            )
-            .group_by(projects::Column::Id)
-            .into_model::<ProjectRow>()
+        let result = project_query()
+            .filter(projects::Column::Id.eq(id))
+            .into_model::<ProjectExtra>()
             .one(&self.db)
             .await?;
 
-        Ok(result.unwrap().into())
+        let mut project = result.ok_or_else(|| MixedError::Other(format!("Project {id} not found")))?;
+        project.populate();
+
+        Ok(project)
     }
 
     pub async fn get_project_by_path(
@@ -101,49 +79,35 @@ impl ProjectsDb {
         let project = project_query()
             .filter(projects::Column::WatchfolderId.eq(watchfolder_id))
             .filter(projects::Column::Path.eq(path))
-            .into_model::<ProjectRow>()
+            .into_model::<ProjectExtra>()
             .one(&self.db)
             .await?;
 
-        Ok(project.map(|r| r.into()))
+        Ok(project.map(|mut r| {
+            r.populate();
+            r
+        }))
     }
 
     pub async fn list_projects(
         &self,
         watchfolder_id: Option<i64>,
     ) -> Result<Vec<ProjectExtra>, MixedError> {
-        let mut query = Projects::find();
+        let mut query = project_query();
 
         if let Some(watchfolder_id) = watchfolder_id {
             query = query.filter(projects::Column::WatchfolderId.eq(watchfolder_id));
         }
 
-        let query = query
-            .join(JoinType::LeftJoin, projects::Relation::Images.def())
-            .column_as(
-                Expr::col((Images, images::Column::ProjectId)).count(),
-                "image_count",
-            )
-            .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
-            .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
-            .column_as(
-                Expr::col((watch_folders::Entity, watch_folders::Column::Path)),
-                "watchfolder_path",
-            )
-            .column_as(
-                Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
-                "is_missing",
-            )
-            .column_as(
-                Expr::col((watch_folders::Entity, watch_folders::Column::IsLocked)),
-                "is_locked",
-            )
-            .group_by(projects::Column::Id)
-            .into_model::<ProjectRow>();
+        let results = query.into_model::<ProjectExtra>().all(&self.db).await?;
 
-        let results = query.all(&self.db).await?;
-
-        Ok(results.into_iter().map(|r| r.into()).collect())
+        Ok(results
+            .into_iter()
+            .map(|mut r| {
+                r.populate();
+                r
+            })
+            .collect())
     }
 
     // extra calls
@@ -238,12 +202,10 @@ fn project_query() -> sea_orm::Select<entity::prelude::Projects> {
             Expr::col((Images, images::Column::ProjectId)).count(),
             "image_count",
         )
-        .column_as(Expr::col((Images, images::Column::Id)).max(), "last_id")
+        .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
         .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
-        .column_as(
-            Expr::col((watch_folders::Entity, watch_folders::Column::Path)),
-            "watchfolder_path",
-        )
+        .column_as(Expr::value(""), "name")
+        .column_as(Expr::value(""), "full_path")
         .column_as(
             Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
             "is_missing",
