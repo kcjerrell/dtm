@@ -29,10 +29,9 @@ pub struct TensorData {
     pub idx: i64,
     pub tensor_names: Vec<String>,
     pub mask: Option<String>,
-    #[serde(flatten)]
-    pub parsed: Option<ParsedTensorData>,
+    pub data: Option<ParsedTensorData>,
     #[serde(skip)]
-    data: Arc<[u8]>,
+    raw_data: Arc<[u8]>,
 }
 
 impl TensorData {
@@ -57,7 +56,7 @@ where
 
 impl TensorData {
     pub fn data(&self) -> TensorDataData {
-        unsafe { root_as_tensor_data_unchecked(&self.data) }
+        unsafe { root_as_tensor_data_unchecked(&self.raw_data) }
     }
 }
 
@@ -67,10 +66,10 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
         let lineage: i64 = row.get("__pk0");
         let logical_time: i64 = row.get("__pk1");
         let idx: i64 = row.get("__pk2");
-        let data: Vec<u8> = row.get("p");
-        let data: Arc<[u8]> = data.into();
+        let raw_data: Vec<u8> = row.get("p");
+        let raw_data: Arc<[u8]> = raw_data.into();
 
-        match root_as_tensor_data(&data) {
+        match root_as_tensor_data(&raw_data) {
             Ok(fb) => {
                 let mut tensor_names: Vec<String> = Vec::new();
                 if fb.color_palette_id() != 0 {
@@ -101,7 +100,7 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     None
                 };
 
-                let mut parsed = ParsedTensorData::try_from(data.as_ref()).ok();
+                let mut parsed = ParsedTensorData::try_from(raw_data.as_ref()).ok();
                 if let Some(p) = parsed.as_mut() {
                     p.rowid = rowid;
                 }
@@ -111,10 +110,10 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     lineage,
                     logical_time,
                     idx,
-                    data,
+                    raw_data,
                     tensor_names,
                     mask,
-                    parsed,
+                    data: parsed,
                 })
             }
             Err(e) => Err(sqlx::Error::Decode(e.to_string().into())),
