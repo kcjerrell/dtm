@@ -1,21 +1,6 @@
 use sea_orm::FromQueryResult;
 use serde::Serialize;
 
-#[derive(Debug, FromQueryResult)]
-pub struct ProjectRow {
-    pub id: i64,
-    pub fingerprint: String,
-    pub path: String,
-    pub watchfolder_id: i64,
-    pub image_count: Option<i64>,
-    pub last_id: Option<i64>,
-    pub filesize: Option<i64>,
-    pub modified: Option<i64>,
-    pub excluded: bool,
-    pub is_missing: bool,
-    pub is_locked: bool,
-}
-
 #[derive(Debug, FromQueryResult, Serialize, Clone)]
 pub struct ProjectExtra {
     pub id: i64,
@@ -33,42 +18,24 @@ pub struct ProjectExtra {
     pub is_locked: bool,
 }
 
-impl From<ProjectRow> for ProjectExtra {
-    fn from(m: ProjectRow) -> Self {
-        let name = std::path::Path::new(&m.path)
+impl ProjectExtra {
+    pub fn populate(&mut self) {
+        self.name = std::path::Path::new(&self.path)
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
 
-        let wf_path = crate::projects_db::folder_cache::get_folder(m.watchfolder_id);
+        let wf_path = crate::projects_db::folder_cache::get_folder(self.watchfolder_id);
 
-        let full_path = if let Some(ref wf) = wf_path {
+        self.full_path = if let Some(ref wf) = wf_path {
             std::path::Path::new(wf)
-                .join(&m.path)
+                .join(&self.path)
                 .to_string_lossy()
                 .to_string()
         } else {
-            m.path.clone()
+            self.path.clone()
         };
-
-        // let is_missing = m.missing_on.is_some() || wf_path.is_none();
-
-        Self {
-            id: m.id,
-            fingerprint: m.fingerprint,
-            path: m.path,
-            watchfolder_id: m.watchfolder_id,
-            image_count: m.image_count,
-            last_id: m.last_id,
-            filesize: m.filesize,
-            modified: m.modified,
-            excluded: m.excluded,
-            name,
-            full_path,
-            is_missing: m.is_missing,
-            is_locked: m.is_locked,
-        }
     }
 }
 
