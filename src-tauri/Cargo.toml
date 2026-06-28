@@ -49,7 +49,7 @@ web-image-meta = "0.2.1"
 quick-xml = "0.38.3"
 chrono = { version = "0.4", features = ["serde"] }
 flatbuffers = "25.9.23"
-sqlx = { version = "0.8", features = [ "sqlite", "runtime-async-std", "tls-native-tls" ] }
+sqlx = { version = "0.9", features = [ "sqlite","runtime-async-std", "tls-native-tls", "sqlite"] }
 sqlite-vec = "0.1.9"
 libsqlite3-sys = "0.30"
 sea-orm = { version = "2.0.0-rc.41", features = [

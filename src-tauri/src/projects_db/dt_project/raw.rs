@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sqlx::{query, QueryBuilder, Row, Sqlite};
+use sqlx::{query, AssertSqlSafe, QueryBuilder, Row, Sqlite};
 
 use crate::projects_db::fbs::root_as_tensor_data;
 use crate::projects_db::TensorHistoryTensorData;
@@ -102,7 +102,7 @@ impl<'a> DTProjectRaw<'a> {
         let where_clause = query_params.build_where_clause();
         let text = format!("select * from tensordata {}", where_clause);
 
-        let q = query(&text);
+        let q = query(AssertSqlSafe(text));
 
         let rows = q.fetch_all(&*self.dt_project.pool).await.unwrap();
 

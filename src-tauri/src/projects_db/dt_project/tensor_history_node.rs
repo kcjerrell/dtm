@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize};
-use sqlx::{query, query_as, sqlite::SqliteRow, FromRow, Row};
+use sqlx::{query, query_as, AssertSqlSafe, FromRow, Row};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::projects_db::{
@@ -191,29 +191,15 @@ impl TensorHistoryNode {
     }
 }
 
-#[derive(Serialize, Debug, Default)]
+#[derive(Serialize, Debug, Default, FromRow)]
 pub struct ThnRow {
     pub rowid: i64,
+    #[sqlx(rename = "__pk0")]
     pub lineage: i64,
+    #[sqlx(rename = "__pk1")]
     pub logical_time: i64,
+    #[sqlx(rename = "p")]
     pub data: Arc<[u8]>,
-}
-
-impl<'r> FromRow<'r, SqliteRow> for ThnRow {
-    fn from_row(row: &SqliteRow) -> Result<Self, sqlx::Error> {
-        let rowid: i64 = row.get("rowid");
-        let lineage: i64 = row.get("__pk0");
-        let logical_time: i64 = row.get("__pk1");
-        let data: Vec<u8> = row.get("p");
-        let data: Arc<[u8]> = data.into();
-
-        Ok(ThnRow {
-            rowid,
-            lineage,
-            logical_time,
-            data,
-        })
-    }
 }
 
 impl DTProject {
@@ -237,7 +223,7 @@ impl DTProject {
 
         // build and run the thn query
         let query = build_query(filter);
-        let rows: Vec<ThnRow> = query_as(&query).fetch_all(&*self.pool).await?;
+        let rows: Vec<ThnRow> = query_as(query).fetch_all(&*self.pool).await?;
 
         // make a list to hold clip ids (if needed)
         let mut clip_ids: Vec<i64> = Vec::with_capacity(if data.map_or(false, |d| d.clip) {
@@ -418,7 +404,7 @@ fn checked_flatbuffer(data: &Arc<[u8]>) -> Option<Arc<[u8]>> {
     }
 }
 
-fn build_query(filter: Option<ThnFilter>) -> String {
+fn build_query(filter: Option<ThnFilter>) -> AssertSqlSafe<String> {
     let select = "SELECT * FROM tensorhistorynode thn";
 
     let mut limit_str = "".to_string();
@@ -449,7 +435,7 @@ fn build_query(filter: Option<ThnFilter>) -> String {
         "{} {} ORDER BY thn.rowid ASC {}",
         select, filter_str, limit_str
     );
-    query
+    AssertSqlSafe(query)
 }
 
 const SELECT_THN: &str =

@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sqlx::{query_as, sqlite::SqliteRow, FromRow, Row};
+use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 
 use crate::projects_db::{
     dt_project::DTProjectTable, fbs::root_as_tensor_moodboard_data, DTProject,
@@ -59,11 +59,11 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorMoodboardData)
             .await?;
         let query = build_query(filter);
-        query_as(&query).fetch_all(&*self.pool).await
+        query_as(query).fetch_all(&*self.pool).await
     }
 }
 
-fn build_query(filter: TmdFilter) -> String {
+fn build_query(filter: TmdFilter) -> AssertSqlSafe<String> {
     let select = "SELECT * FROM tensormoodboarddata tmd";
 
     let mut limit_str = "".to_string();
@@ -103,5 +103,5 @@ fn build_query(filter: TmdFilter) -> String {
         "{} {} ORDER BY tmd.rowid ASC {}",
         select, filter_str, limit_str
     );
-    query
+    AssertSqlSafe(query)
 }
