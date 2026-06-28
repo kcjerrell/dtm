@@ -3,8 +3,8 @@ use crate::projects_db::tensor_history_generated::{
     root_as_tensor_history_node as root_as_tensor_history_node_fb, LoRA as LoRAFb, LoRAMode,
 };
 use crate::projects_db::{
-    dt_project::raw::TensorDataRow,
-    fbs::{root_as_tensor_data, root_as_tensor_history_node, TensorData},
+    dt_project::data::tensor_data::TensorData,
+    fbs::{root_as_tensor_data, root_as_tensor_history_node, TensorData as TensorDataFb},
     tensor_history_mod::{Control, LoRA},
     tensor_history_tensor_data::TensorHistoryTensorData,
 };
@@ -89,7 +89,7 @@ impl From<&TensorHistoryTensorData> for TensorHistoryImport {
     }
 }
 
-fn update_history_import_flags(history: &mut TensorHistoryImport, tensor_data: &TensorData) {
+fn update_history_import_flags(history: &mut TensorHistoryImport, tensor_data: &TensorDataFb) {
     if tensor_data.tensor_id() > 0 {
         history.tensor_id = format!("tensor_history_{}", tensor_data.tensor_id());
     }
@@ -179,7 +179,7 @@ pub struct TensorHistoryExtra {
     pub custom_id: Option<String>,
     pub moodboard: Vec<(String, f32)>,
     pub history: TensorHistoryNodeData,
-    pub tensor_data: Option<Vec<TensorDataRow>>,
+    pub tensor_data: Option<Vec<TensorData>>,
     pub project_path: String,
 }
 
@@ -204,11 +204,11 @@ impl From<(Vec<TensorHistoryTensorData>, String)> for TensorHistoryExtra {
         let mut color_palette_id: Option<String> = None;
         let mut custom_id: Option<String> = None;
         let moodboard: Vec<(String, f32)> = Vec::new();
-        let mut tensor_data_rows: Vec<TensorDataRow> = Vec::with_capacity(rows.len());
+        let mut tensor_data_rows: Vec<TensorData> = Vec::with_capacity(rows.len());
 
         // Iterate all tensor rows
         for row in rows {
-            let td = TensorDataRow::from(row);
+            let td = TensorData::from(row);
 
             if td.tensor_id > 0 {
                 tensor_id = Some(format!("tensor_history_{}", td.tensor_id));

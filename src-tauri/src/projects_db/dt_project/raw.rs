@@ -1,9 +1,10 @@
 use serde::Serialize;
 use sqlx::{query, QueryBuilder, Row, Sqlite};
 
-use crate::projects_db::fbs::{root_as_tensor_data, TensorData};
+use crate::projects_db::fbs::root_as_tensor_data;
 use crate::projects_db::TensorHistoryTensorData;
 
+use super::data::tensor_data::TensorData;
 use super::DTProject;
 
 pub struct TensorDataQuery {
@@ -96,7 +97,7 @@ impl<'a> DTProjectRaw<'a> {
     pub async fn tensor_data(
         &self,
         query_params: TensorDataQuery,
-    ) -> Result<Vec<TensorDataRow>, String> {
+    ) -> Result<Vec<TensorData>, String> {
         // as long as the only variables are numbers, this is fine.
         let where_clause = query_params.build_where_clause();
         let text = format!("select * from tensordata {}", where_clause);
@@ -107,19 +108,13 @@ impl<'a> DTProjectRaw<'a> {
 
         rows.into_iter()
             .map(|row| {
-                let raw = RawTensorDataRow {
+                let p: Vec<u8> = row.get("p");
+                let data = root_as_tensor_data(&p).map_err(|e| e.to_string())?;
+                Ok(TensorData {
                     rowid: row.get("rowid"),
-                    __pk0: row.get("__pk0"),
-                    __pk1: row.get("__pk1"),
-                    __pk2: row.get("__pk2"),
-                    p: row.get("p"),
-                };
-                let data = root_as_tensor_data(&raw.p).map_err(|e| e.to_string())?;
-                Ok(TensorDataRow {
-                    rowid: raw.rowid,
-                    lineage: raw.__pk0,
-                    logical_time: raw.__pk1,
-                    idx: raw.__pk2,
+                    lineage: row.get("__pk0"),
+                    logical_time: row.get("__pk1"),
+                    index: row.get("__pk2"),
                     x: data.x(),
                     y: data.y(),
                     width: data.width(),
@@ -138,34 +133,6 @@ impl<'a> DTProjectRaw<'a> {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct TensorDataRow {
-    pub rowid: i64,
-    pub lineage: i64,
-    pub logical_time: i64,
-    pub idx: i64,
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
-    pub scale_factor_by_120: i32,
-    pub tensor_id: i64,
-    pub mask_id: i64,
-    pub depth_map_id: i64,
-    pub scribble_id: i64,
-    pub pose_id: i64,
-    pub color_palette_id: i64,
-    pub custom_id: i64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawTensorDataRow {
-    pub rowid: i64,
-    pub __pk0: i64,
-    pub __pk1: i64,
-    pub __pk2: i64,
-    pub p: Vec<u8>,
-}
 
 #[tauri::command]
 pub async fn dt_project_tensordata(
@@ -175,7 +142,7 @@ pub async fn dt_project_tensordata(
     idx: Option<i64>,
     first: Option<i64>,
     last: Option<i64>,
-) -> Result<Vec<TensorDataRow>, String> {
+) -> Result<Vec<TensorData>, String> {
     let dt_project = DTProject::get(&project_path)
         .await
         .map_err(|e| e.to_string())?;
@@ -201,14 +168,14 @@ pub async fn dt_project_tensordata(
     raw.tensor_data(query).await
 }
 
-impl From<TensorHistoryTensorData> for TensorDataRow {
+impl From<TensorHistoryTensorData> for TensorData {
     fn from(value: TensorHistoryTensorData) -> Self {
         let data = root_as_tensor_data(&value.tensor_data).unwrap();
         Self {
             rowid: value.node_id,
             lineage: value.lineage,
             logical_time: value.logical_time,
-            idx: value.td_index,
+            index: value.td_index,
             x: data.x(),
             y: data.y(),
             width: data.width(),
