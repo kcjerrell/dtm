@@ -174,6 +174,9 @@ export interface TensorRaw {
     data: ArrayBuffer
 }
 
+import type { TensorData as TensorDataRow } from "./DTProjectTypes"
+export type { TensorDataRow }
+
 export interface DTImageFull {
     id: number
     prompt: string | null
@@ -312,24 +315,6 @@ export interface XTensorHistoryNode {
     audio: boolean
 }
 
-export interface TensorDataRow {
-    rowid: number
-    lineage: number
-    logical_time: number
-    idx: number
-    x: number
-    y: number
-    width: number
-    height: number
-    scale_factor_by_120: number
-    tensor_id: number
-    mask_id: number
-    depth_map_id: number
-    scribble_id: number
-    pose_id: number
-    color_palette_id: number
-    custom_id: number
-}
 
 export interface TensorHistoryExtra {
     row_id: number

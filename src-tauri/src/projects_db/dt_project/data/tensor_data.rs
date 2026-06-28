@@ -3,8 +3,10 @@ use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct TensorData {
+    pub rowid: i64,
     pub lineage: i64,
     pub logical_time: i64,
+    #[serde(rename = "idx", alias = "index")]
     pub index: i64,
     pub x: i32,
     pub y: i32,
@@ -27,6 +29,7 @@ impl TryFrom<&[u8]> for TensorData {
         let td = root_as_tensor_data_fb(bytes)?;
 
         Ok(TensorData {
+            rowid: 0,
             lineage: td.lineage(),
             logical_time: td.logical_time(),
             index: td.index(),

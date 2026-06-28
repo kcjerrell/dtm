@@ -29,7 +29,9 @@ pub struct TensorData {
     pub idx: i64,
     pub tensor_names: Vec<String>,
     pub mask: Option<String>,
-    #[serde(serialize_with = "serialize_tensor_data")]
+    #[serde(flatten)]
+    pub parsed: Option<ParsedTensorData>,
+    #[serde(skip)]
     data: Arc<[u8]>,
 }
 
@@ -99,6 +101,11 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     None
                 };
 
+                let mut parsed = ParsedTensorData::try_from(data.as_ref()).ok();
+                if let Some(p) = parsed.as_mut() {
+                    p.rowid = rowid;
+                }
+
                 Ok(TensorData {
                     rowid,
                     lineage,
@@ -107,6 +114,7 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
                     data,
                     tensor_names,
                     mask,
+                    parsed,
                 })
             }
             Err(e) => Err(sqlx::Error::Decode(e.to_string().into())),
