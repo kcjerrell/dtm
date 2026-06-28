@@ -174,7 +174,7 @@ export interface TensorRaw {
     data: ArrayBuffer
 }
 
-import type { TensorData as TensorDataRow } from "./DTProjectTypes"
+import type { TensorDataParsed as TensorDataRow } from "./DTProjectTypes"
 export type { TensorDataRow }
 
 export interface DTImageFull {
