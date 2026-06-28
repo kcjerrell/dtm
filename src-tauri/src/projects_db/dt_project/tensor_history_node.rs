@@ -8,8 +8,9 @@ use crate::projects_db::{
         data::tensor_history_node_data::TensorHistoryNodeData as ParsedTensorHistoryNodeData,
         raw::{RawTensorDataRow, TensorDataRow},
         tensor_data::TensorData,
-        Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
+        ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
     },
+    dtos::clip::Clip,
     fbs::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
         root_as_tensor_moodboard_data, TensorHistoryNode as TensorHistoryNodeData,
