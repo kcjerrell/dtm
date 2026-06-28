@@ -314,9 +314,10 @@ export type TensorData = {
 }
 
 export type TensorDataParsed = {
+    rowid: number
     lineage: number
     logical_time: number
-    index: number
+    idx: number
     x: number
     y: number
     width: number

@@ -6,7 +6,6 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use crate::projects_db::{
     dt_project::{
         data::tensor_history_node_data::TensorHistoryNodeData as ParsedTensorHistoryNodeData,
-        raw::{RawTensorDataRow, TensorDataRow},
         tensor_data::TensorData,
         ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
     },
