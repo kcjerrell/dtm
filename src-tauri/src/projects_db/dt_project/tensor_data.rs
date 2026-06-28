@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sqlx::{query_as, sqlite::SqliteRow, FromRow, Row};
+use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 use std::sync::Arc;
 
 use crate::projects_db::{
@@ -105,11 +105,11 @@ impl DTProject {
     pub async fn get_tensor_data(&self, filter: TdFilter) -> Result<Vec<TensorData>, sqlx::Error> {
         self.check_table(&DTProjectTable::TensorData).await?;
         let query = build_query(filter);
-        query_as(&query).fetch_all(&*self.pool).await
+        query_as(query).fetch_all(&*self.pool).await
     }
 }
 
-fn build_query(filter: TdFilter) -> String {
+fn build_query(filter: TdFilter) -> AssertSqlSafe<String> {
     let select = "SELECT * FROM tensordata td";
 
     let mut limit_str = "".to_string();
@@ -149,5 +149,5 @@ fn build_query(filter: TdFilter) -> String {
         "{} {} ORDER BY td.rowid ASC {}",
         select, filter_str, limit_str
     );
-    query
+    AssertSqlSafe(query)
 }
