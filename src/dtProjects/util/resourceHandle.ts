@@ -78,7 +78,7 @@ export class ResourceHandle {
     async getFrameTensorId(frame: number) {
         const history = await this.getHistory()
         if (!history?.clip || !this.image?.id) return undefined
-        const clipFrames = await DtpService.getClip(this.image.id, history.clip.clip_id)
+        const clipFrames = await DtpService.getClip(this.image.id, history.clip.clipId)
         return clipFrames?.frames.find((f) => f.indexInAClip === frame)?.tensorId
     }
 

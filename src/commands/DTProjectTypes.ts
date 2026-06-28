@@ -342,12 +342,13 @@ export type TensorMoodboardData = {
 }
 
 export type Clip = {
-    clip_id: number
+    rowId: number
+    clipId: number
     count: number
-    frames_per_second: number
+    framesPerSecond: number
     width: number
     height: number
-    audio_id: number
+    audioId: number
 }
 
 function getTensorHistoryName(td: TensorData) {

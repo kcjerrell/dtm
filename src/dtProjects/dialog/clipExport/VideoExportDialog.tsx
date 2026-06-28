@@ -24,8 +24,8 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
 
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
-    const [fps, setFps] = useState(historyNode.clip?.frames_per_second ?? 25)
-    const audio = historyNode.clip?.audio_id ? `audio_${historyNode.clip?.audio_id}` : undefined
+    const [fps, setFps] = useState(historyNode.clip?.framesPerSecond ?? 25)
+    const audio = historyNode.clip?.audioId ? `audio_${historyNode.clip?.audioId}` : undefined
 
     const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.videoSource")
     const [frameSource, setFrameSource] = useState<FrameSource>(frameSourceSetting as FrameSource)
