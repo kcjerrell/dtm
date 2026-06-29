@@ -26,10 +26,7 @@ impl TensorHistoryImport {
             .loras()
             .map(|v| {
                 v.iter()
-                    .map(|l| ModelAndWeight {
-                        model: l.file().unwrap().to_string(),
-                        weight: l.weight(),
-                    })
+                    .map(|l| ModelAndWeight::from_lora_fb(&l))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
@@ -38,10 +35,7 @@ impl TensorHistoryImport {
             .controls()
             .map(|v| {
                 v.iter()
-                    .map(|c| ModelAndWeight {
-                        model: c.file().unwrap().to_string(),
-                        weight: c.weight(),
-                    })
+                    .map(|c| ModelAndWeight::from_control_fb(&c))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
