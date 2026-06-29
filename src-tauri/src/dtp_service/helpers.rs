@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
@@ -138,6 +139,8 @@ pub fn system_time_to_epoch_secs(time: SystemTime) -> Option<i64> {
         .map(|d| d.as_secs() as i64)
 }
 
+static APP_HANDLE: OnceLock<Arc<AppHandle>> = OnceLock::new();
+
 #[derive(Clone)]
 pub struct AppHandleWrapper {
     pub app_handle: Option<AppHandle>,
@@ -145,6 +148,7 @@ pub struct AppHandleWrapper {
 
 impl AppHandleWrapper {
     pub fn new(app_handle: Option<AppHandle>) -> Self {
+        APP_HANDLE.get_or_init(|| Arc::new(app_handle.clone().unwrap()));
         Self { app_handle }
     }
 
@@ -171,6 +175,22 @@ impl AppHandleWrapper {
             app_handle.path().app_data_dir()
         } else {
             Ok(self.get_test_path("app_data_dir"))
+        }
+    }
+
+    pub fn get_app_data_dir_static() -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = APP_HANDLE.get() {
+            app_handle.path().app_data_dir()
+        } else {
+            Ok(PathBuf::from("app_data_dir"))
+        }
+    }
+
+    pub fn get_resource_dir(&self) -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = &self.app_handle {
+            app_handle.path().resource_dir()
+        } else {
+            Ok(self.get_test_path("resource_dir"))
         }
     }
 }

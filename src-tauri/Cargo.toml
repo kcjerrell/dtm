@@ -50,6 +50,8 @@ quick-xml = "0.38.3"
 chrono = { version = "0.4", features = ["serde"] }
 flatbuffers = "25.9.23"
 sqlx = { version = "0.9", features = ["runtime-async-std", "tls-native-tls", "sqlite"] }
+sqlite-vec = "0.1.9"
+libsqlite3-sys = "0.30"
 sea-orm = { version = "2.0.0-rc.41", features = [
   "sqlx-sqlite",
   "runtime-async-std-native-tls",
@@ -93,6 +95,11 @@ itertools = "0.14.0"
 zip = "4.6"
 img-parts = "0.3.3"
 tauri-plugin-os = "2"
+candle-transformers = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-core = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-nn = { version = "0.10.2", features = ["metal", "accelerate"] }
+hf-hub = "1.0.0-rc.1"
+zerocopy = "0.8.52"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

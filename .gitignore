@@ -33,3 +33,6 @@ src-tauri/test_data
 test_data/
 test_data*.zip
 test/artifacts/
+
+# vec0 dylib files (downloaded by build.rs if missing)
+src-tauri/resources/vec/vec0.dylib

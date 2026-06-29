@@ -2,6 +2,8 @@
 
 pub mod prelude;
 
+pub mod embedding_models;
+pub mod embeddings;
 pub mod enums;
 pub mod image_controls;
 pub mod image_loras;
