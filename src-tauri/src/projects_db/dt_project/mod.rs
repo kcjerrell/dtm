@@ -442,9 +442,8 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         self.check_table(&DTProjectTable::Clip).await?;
 
-        let clip: Clip = query("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
+        let clip: Clip = query_as("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
             .bind(clip_id)
-            .map(|row: SqliteRow| Clip::map_row(&row))
             .fetch_one(&*self.pool)
             .await?;
 
@@ -482,9 +481,9 @@ impl DTProject {
 
         qb.push(")");
 
-        let rows = qb
-            .build()
-            .map(|row: SqliteRow| Clip::map_row(&row))
+        let rows: Vec<Clip> = qb
+            .build_query_as()
+            // .map(|row: SqliteRow| Clip::map_row(&row))
             .fetch_all(&*self.pool)
             .await?;
 

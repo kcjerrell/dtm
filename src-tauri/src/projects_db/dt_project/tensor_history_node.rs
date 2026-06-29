@@ -5,11 +5,11 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::projects_db::{
     dt_project::{
+        clip::ClipFrame,
         data::tensor_history_node_data::TensorHistoryNodeData as ParsedTensorHistoryNodeData,
-        tensor_data::TensorData,
-        ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
+        tensor_data::TensorData, Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData,
+        TmdFilter,
     },
-    dtos::clip::Clip,
     fbs::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
         root_as_tensor_moodboard_data, TensorHistoryNode as TensorHistoryNodeData,
@@ -203,6 +203,11 @@ impl<'r> FromRow<'r, SqliteRow> for ThnRow {
 }
 
 impl DTProject {
+    /// Queries the DTProject for TensorHistoryNodes
+    /// # Arguments
+    /// * `filter`: The filter to use for the query. See `ThnFilter` for more information.
+    /// * `data`: Optional data to be included with the query. In general, each requested type
+    ///         will result in an additional query to the database
     pub async fn get_tensor_history_nodes(
         &self,
         filter: Option<ThnFilter>,
@@ -210,27 +215,31 @@ impl DTProject {
     ) -> Result<Vec<TensorHistoryNode>, sqlx::Error> {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
-        let (get_tensordata, get_moodboard, get_clip) = data.map_or((false, false, false), |d| {
-            (d.tensordata, d.moodboard, d.clip)
-        });
+        // set flags for the requested data
+        let (get_tensordata, get_moodboard, get_clip, get_legacy_prompts) = data
+            .map_or((false, false, false, false), |d| {
+                (d.tensordata, d.moodboard, d.clip, d.legacy_prompts)
+            });
 
+        // build and run the thn query
         let query = build_query(filter);
         let rows: Vec<ThnRow> = query_as(&query).fetch_all(&*self.pool).await?;
 
+        // make a list to hold clip ids (if needed)
         let mut clip_ids: Vec<i64> = Vec::with_capacity(if data.map_or(false, |d| d.clip) {
             rows.len()
         } else {
             0
         });
 
-        let get_legacy_prompts = data.map_or(false, |d| d.legacy_prompts);
-
+        // create TensorHistoryNodes from rows (I think this could be moved into FromRow)
         let mut items: Vec<TensorHistoryNode> = rows
             .into_iter()
             .map(|row| {
                 // this validates the flatbuffer so that .data() can provide fast unchecked access
                 let fb = root_as_tensor_history_node(&row.data).unwrap();
                 if get_clip && fb.clip_id() > 0 {
+                    // update list of clip_ids
                     clip_ids.push(fb.clip_id())
                 }
                 TensorHistoryNode {
@@ -249,6 +258,7 @@ impl DTProject {
             .collect();
 
         if get_tensordata {
+            // gather tensor_data using lineage and logical_time
             let lineage_times = items
                 .iter()
                 .map(|item| (item.lineage, item.logical_time))
@@ -269,6 +279,7 @@ impl DTProject {
         }
 
         if get_moodboard {
+            // gather moodboard using lineage and logical_time
             let lineage_times = items
                 .iter()
                 .map(|item| (item.lineage, item.logical_time))
@@ -289,6 +300,7 @@ impl DTProject {
         }
 
         if get_clip && !clip_ids.is_empty() {
+            // use clip_ids to get clip data
             let clips = self
                 .get_clips(ClipFilter::ClipIds(clip_ids))
                 .await

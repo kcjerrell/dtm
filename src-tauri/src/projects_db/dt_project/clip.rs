@@ -1,19 +1,56 @@
-pub use crate::projects_db::dtos::clip::Clip;
-use crate::projects_db::{dt_project::DTProjectTable, DTProject};
-use sqlx::FromRow;
+use crate::projects_db::{
+    dt_project::{DTProjectTable, ThnFilter},
+    fbs::root_as_clip,
+    DTProject,
+};
+use serde::Serialize;
+use sqlx::{query_as, sqlite::SqliteRow, FromRow, Row};
+
+/// The definitive representation of the clip table entity
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Clip {
+    pub row_id: i64,
+    pub clip_id: i64,
+    pub count: i32,
+    pub frames_per_second: f64,
+    pub width: i32,
+    pub height: i32,
+    pub audio_id: i64,
+    pub frames: Option<Vec<ClipFrame>>,
+}
+
+#[derive(serde::Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipFrame {
+    pub tensor_id: String,
+    pub preview_id: i64,
+    pub index_in_a_clip: i32,
+    pub row_id: i64,
+}
+
+impl<'r> FromRow<'r, SqliteRow> for Clip {
+    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        let p = row.get::<Vec<u8>, _>("p");
+        let data = root_as_clip(&p).unwrap();
+        Ok(Self {
+            row_id: row.get("rowid"),
+            clip_id: row.get("__pk0"),
+            count: data.count(),
+            frames_per_second: data.frames_per_second(),
+            width: data.width(),
+            height: data.height(),
+            audio_id: data.audio_id(),
+            frames: None,
+        })
+    }
+}
 
 pub enum ClipFilter {
     None,
+    /// Retrieves a clip by its id
     ClipId(i64),
     ClipIds(Vec<i64>),
-}
-
-#[derive(FromRow)]
-struct ClipRow {
-    #[sqlx(rename = "__pk0")]
-    clip_id: i64,
-    #[sqlx(rename = "p")]
-    data: Vec<u8>,
 }
 
 impl DTProject {
@@ -39,10 +76,8 @@ impl DTProject {
             }
         }
 
-        let rows = sqlx::query(&query_str).fetch_all(&*self.pool).await?;
+        let rows: Vec<Clip> = sqlx::query_as(&query_str).fetch_all(&*self.pool).await?;
 
-        let clips = rows.iter().map(Clip::map_row).collect();
-
-        Ok(clips)
+        Ok(rows)
     }
 }
