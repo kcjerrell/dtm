@@ -175,6 +175,20 @@ impl TensorHistoryNode {
         }
         self.data().negative_text_prompt().filter(|s| !s.is_empty())
     }
+
+    pub fn get_tensor_name(&self) -> Option<&str> {
+      if self.tensordata.is_none() {
+        return None
+      }
+
+      let tensordata = self.tensordata.as_ref().unwrap();
+      for tdd in tensordata.iter().rev() {
+        if let Some(name) = tdd.tensor_history_name() {
+          return Some(name);
+        }
+      }
+      None
+    }
 }
 
 #[derive(Serialize, Debug, Default, FromRow)]

@@ -21,6 +21,7 @@ pub enum TdFilter {
 }
 
 #[derive(Serialize, Debug)]
+/// the definitive representation of the tensor_data table entity
 pub struct TensorData {
     pub rowid: i64,
     pub lineage: i64,
@@ -33,6 +34,25 @@ pub struct TensorData {
     raw_data: Arc<[u8]>,
 }
 
+impl TensorData {
+    pub fn tensor_history_name(&self) -> Option<&str> {
+        self.tensor_names
+            .iter()
+            .find(|tn| tn.starts_with("tensor_history_"))
+            .map(|tn| tn.as_str())
+    }
+}
+
+fn serialize_tensor_data<S>(data: &Arc<[u8]>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::ser::Error;
+    match ParsedTensorData::try_from(data.as_ref()) {
+        Ok(parsed) => parsed.serialize(serializer),
+        Err(e) => Err(S::Error::custom(e)),
+    }
+}
 
 impl TensorData {
     pub fn data(&self) -> TensorDataData {

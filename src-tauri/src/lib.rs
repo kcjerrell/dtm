@@ -276,6 +276,7 @@ pub fn run() {
             dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
             dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,
+            dtp_service::dtp_service::dtp_start_embedding
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();

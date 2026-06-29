@@ -7,8 +7,9 @@ use std::{
 };
 
 use dtm_macros::{dtm_command, dtp_commands};
+use entity::enums::EmbeddingType;
 use tauri::{ipc::Channel, State};
-use tokio::sync::{OnceCell, RwLock};
+use tokio::{sync::{OnceCell, RwLock}, time::Instant};
 
 use crate::{
     dtp_service::{
@@ -16,9 +17,14 @@ use crate::{
         jobs::{FetchModels, Job, JobContext, ProjectSync, SyncJob, UpdateProjectJob},
         scheduler::Scheduler,
         watch::WatchService,
-        AppHandleWrapper,
+        AppHandleWrapper, EmbeddingService,
     },
-    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
+    projects_db::{
+        self,
+        dt_project::{ThnData, ThnFilter},
+        dtos::tensor::TensorRaw,
+        get_last_row, DtmProtocol, ProjectRef, ProjectsDb,
+    },
 };
 
 #[derive(Clone)]
@@ -30,6 +36,7 @@ pub struct DTPService {
     pub watch: Arc<RwLock<Option<WatchService>>>,
     dtm_protocol: Arc<OnceCell<DtmProtocol>>,
     pub auto_watch: Arc<AtomicBool>,
+    embedding_service: Arc<OnceCell<EmbeddingService>>,
 }
 
 #[dtp_commands]
@@ -40,6 +47,7 @@ impl DTPService {
         let scheduler = Arc::new(RwLock::new(None));
         let watch = Arc::new(RwLock::new(None));
         let dtm_protocol = Arc::new(OnceCell::new());
+        let embedding_service = Arc::new(OnceCell::new());
 
         Self {
             app_handle,
@@ -49,6 +57,7 @@ impl DTPService {
             watch,
             dtm_protocol,
             auto_watch: Arc::new(AtomicBool::new(false)),
+            embedding_service,
         }
     }
 
@@ -56,10 +65,19 @@ impl DTPService {
         &self,
         channel: Channel<DTPEvent>,
         auto_watch: bool,
-        db_path: String,
+        app_handle: &AppHandleWrapper,
     ) -> Result<(), String> {
         self.auto_watch.store(auto_watch, Ordering::Relaxed);
-        let pdb = ProjectsDb::new(&db_path).await.unwrap();
+
+        let db_path = get_db_url(app_handle);
+
+        let pdb = match ProjectsDb::new(&db_path).await.map_err(|e| e.to_string()) {
+            Ok(pdb) => pdb,
+            Err(e) => {
+                println!("pdb new did not work! {}", e);
+                return Err(e);
+            }
+        };
         {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
@@ -209,6 +227,80 @@ impl DTPService {
         });
     }
 
+    #[dtp_command]
+    pub async fn start_embedding(&self, project_id: i64) -> Result<(), String> {
+        let embedding_service = self
+            .embedding_service
+            .get_or_try_init::<String, _, _>(async || {
+                let mut service = EmbeddingService::new(self.clone()).map_err(|e| e.to_string())?;
+                service.init().await.map_err(|e| e.to_string())?;
+                println!("Embedding service initialized");
+                Ok(service)
+            })
+            .await?;
+        let start = Instant::now();
+        let images = self
+            .list_images(
+                Some(vec![project_id]),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await?
+            .images
+            .unwrap_or(Vec::new());
+
+        let pdb = self.get_db().await?;
+        let dtp = pdb.open_dt_project(ProjectRef::Id(project_id)).await?;
+
+        for batch in images.chunks(16) {
+            let mut tensors: Vec<TensorRaw> = Vec::with_capacity(batch.len());
+            for image in batch {
+                if let Some(tr) = dtp
+                    .get_tensor_history_nodes(
+                        Some(ThnFilter::Rowid(image.node_id)),
+                        Some(ThnData::tensordata()),
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .first()
+                {
+                    if let Some(tensor_name) = tr.get_tensor_name() {
+                        println!("Tensor name: {}", tensor_name);
+
+                        let tensor_raw = dtp
+                            .get_tensor_raw(tensor_name)
+                            .await
+                            .map_err(|e| e.to_string())?;
+                        tensors.push(tensor_raw);
+                    }
+                }
+            }
+            let result = embedding_service.create_embeddings(tensors).unwrap();
+            let image_ids = batch.into_iter().map(|im| im.id).collect();
+            println!("Embedding result: {:?}", &result);
+            pdb.embeddings()
+                .insert_many(image_ids, result, EmbeddingType::Image, 1)
+                .await
+                .map_err(|e| e.to_string())?;
+
+        }
+        println!(
+            "{} images/{}seconds ({} s/image)",
+            images.len(),
+            start.elapsed().as_secs(),
+            start.elapsed().as_secs_f64() / images.len() as f64
+        );
+        Ok(())
+    }
+
     pub async fn stop(&self) {
         {
             let watch = self.watch.read().await;
@@ -278,10 +370,8 @@ pub async fn dtp_connect(
     channel: Channel<DTPEvent>,
     auto_watch: bool,
 ) -> Result<(), String> {
-    let db_path = get_db_url(&app_handle);
     check_old_path(&app_handle);
-    let _ = state.connect(channel, auto_watch, db_path).await;
-    Ok(())
+    state.connect(channel, auto_watch, &app_handle).await
 }
 
 #[cfg(dev)]
