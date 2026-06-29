@@ -4,7 +4,7 @@ use crate::projects_db::{
     DTProject,
 };
 use serde::Serialize;
-use sqlx::{query_as, sqlite::SqliteRow, FromRow, Row};
+use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 
 /// The definitive representation of the clip table entity
 #[derive(Serialize, Debug, Clone)]
@@ -76,7 +76,9 @@ impl DTProject {
             }
         }
 
-        let rows: Vec<Clip> = sqlx::query_as(&query_str).fetch_all(&*self.pool).await?;
+        let rows: Vec<Clip> = query_as(AssertSqlSafe(query_str))
+            .fetch_all(&*self.pool)
+            .await?;
 
         Ok(rows)
     }

@@ -85,7 +85,7 @@ pub struct Model {
         on_update = "NoAction",
         on_delete = "SetNull"
     )]
-    pub model: HasOne<super::models::Entity>,
+    pub image_model: HasOne<super::models::Entity>,
     #[sea_orm(
         belongs_to,
         from = "project_id",

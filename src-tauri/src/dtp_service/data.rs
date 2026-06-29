@@ -6,7 +6,7 @@ use crate::{
         AppHandleWrapper, DTPService,
     },
     projects_db::{
-        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
+        dt_project::{TensorHistoryNode, ThnFilter},
         dtos::{
             clip::ClipExtra, image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
             tensor::TensorSize, watch_folder::WatchFolderDTO,
