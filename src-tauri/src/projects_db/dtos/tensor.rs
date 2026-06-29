@@ -1,6 +1,7 @@
 use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 use crate::projects_db::tensor_history_generated::{
-    root_as_tensor_history_node as root_as_tensor_history_node_fb, LoRA as LoRAFb, LoRAMode,
+    root_as_tensor_history_node as root_as_tensor_history_node_fb, Control as ControlFb,
+    LoRA as LoRAFb, LoRAMode,
 };
 use crate::projects_db::{
     dt_project::data::tensor_data::TensorData,
@@ -10,10 +11,75 @@ use crate::projects_db::{
 };
 use chrono::{DateTime, NaiveDateTime};
 
+pub const PREFIX_TENSOR: &str = "tensor_history";
+pub const PREFIX_MASK: &str = "binary_mask";
+pub const PREFIX_DEPTH: &str = "depth_map";
+pub const PREFIX_SCRIBBLE: &str = "scribble";
+pub const PREFIX_POSE: &str = "pose";
+pub const PREFIX_COLOR: &str = "color_palette";
+pub const PREFIX_CUSTOM: &str = "custom";
+
+pub fn format_resource_id(prefix: &str, id: i64) -> Option<String> {
+    if id > 0 {
+        Some(format!("{}_{}", prefix, id))
+    } else {
+        None
+    }
+}
+
+pub struct TensorFlags {
+    pub has_depth: bool,
+    pub has_pose: bool,
+    pub has_color: bool,
+    pub has_custom: bool,
+    pub has_scribble: bool,
+    pub has_mask: bool,
+}
+
+impl TensorFlags {
+    pub fn from_fb(td: &TensorDataFb) -> Self {
+        Self {
+            has_depth: td.depth_map_id() > 0,
+            has_pose: td.pose_id() > 0,
+            has_color: td.color_palette_id() > 0,
+            has_custom: td.custom_id() > 0,
+            has_scribble: td.scribble_id() > 0,
+            has_mask: td.mask_id() > 0,
+        }
+    }
+
+    pub fn from_td(td: &TensorData) -> Self {
+        Self {
+            has_depth: td.depth_map_id > 0,
+            has_pose: td.pose_id > 0,
+            has_color: td.color_palette_id > 0,
+            has_custom: td.custom_id > 0,
+            has_scribble: td.scribble_id > 0,
+            has_mask: td.mask_id > 0,
+        }
+    }
+}
+
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct ModelAndWeight {
     pub model: String,
     pub weight: f32,
+}
+
+impl ModelAndWeight {
+    pub fn from_lora_fb(lora: &LoRAFb) -> Self {
+        Self {
+            model: lora.file().unwrap_or_default().to_string(),
+            weight: lora.weight(),
+        }
+    }
+
+    pub fn from_control_fb(control: &ControlFb) -> Self {
+        Self {
+            model: control.file().unwrap_or_default().to_string(),
+            weight: control.weight(),
+        }
+    }
 }
 
 #[derive(serde::Serialize, Debug)]
@@ -90,25 +156,27 @@ impl From<&TensorHistoryTensorData> for TensorHistoryImport {
 }
 
 fn update_history_import_flags(history: &mut TensorHistoryImport, tensor_data: &TensorDataFb) {
-    if tensor_data.tensor_id() > 0 {
-        history.tensor_id = format!("tensor_history_{}", tensor_data.tensor_id());
+    if let Some(id) = format_resource_id(PREFIX_TENSOR, tensor_data.tensor_id()) {
+        history.tensor_id = id;
     }
-    if tensor_data.mask_id() > 0 {
+
+    let flags = TensorFlags::from_fb(tensor_data);
+    if flags.has_mask {
         history.has_mask = true;
     }
-    if tensor_data.depth_map_id() > 0 {
+    if flags.has_depth {
         history.has_depth = true;
     }
-    if tensor_data.scribble_id() > 0 {
+    if flags.has_scribble {
         history.has_scribble = true;
     }
-    if tensor_data.pose_id() > 0 {
+    if flags.has_pose {
         history.has_pose = true;
     }
-    if tensor_data.color_palette_id() > 0 {
+    if flags.has_color {
         history.has_color = true;
     }
-    if tensor_data.custom_id() > 0 {
+    if flags.has_custom {
         history.has_custom = true;
     }
 }
@@ -210,26 +278,26 @@ impl From<(Vec<TensorHistoryTensorData>, String)> for TensorHistoryExtra {
         for row in rows {
             let td = TensorData::from(row);
 
-            if td.tensor_id > 0 {
-                tensor_id = Some(format!("tensor_history_{}", td.tensor_id));
+            if let Some(id) = format_resource_id(PREFIX_TENSOR, td.tensor_id) {
+                tensor_id = Some(id);
             }
-            if td.mask_id > 0 {
-                mask_id = Some(format!("binary_mask_{}", td.mask_id));
+            if let Some(id) = format_resource_id(PREFIX_MASK, td.mask_id) {
+                mask_id = Some(id);
             }
-            if td.depth_map_id > 0 {
-                depth_map_id = Some(format!("depth_map_{}", td.depth_map_id));
+            if let Some(id) = format_resource_id(PREFIX_DEPTH, td.depth_map_id) {
+                depth_map_id = Some(id);
             }
-            if td.scribble_id > 0 {
-                scribble_id = Some(format!("scribble_{}", td.scribble_id));
+            if let Some(id) = format_resource_id(PREFIX_SCRIBBLE, td.scribble_id) {
+                scribble_id = Some(id);
             }
-            if td.pose_id > 0 {
-                pose_id = Some(format!("pose_{}", td.pose_id));
+            if let Some(id) = format_resource_id(PREFIX_POSE, td.pose_id) {
+                pose_id = Some(id);
             }
-            if td.color_palette_id > 0 {
-                color_palette_id = Some(format!("color_palette_{}", td.color_palette_id));
+            if let Some(id) = format_resource_id(PREFIX_COLOR, td.color_palette_id) {
+                color_palette_id = Some(id);
             }
-            if td.custom_id > 0 {
-                custom_id = Some(format!("custom_{}", td.custom_id));
+            if let Some(id) = format_resource_id(PREFIX_CUSTOM, td.custom_id) {
+                custom_id = Some(id);
             }
 
             // if let Some(mb_ids) = tensor_fb.() {
