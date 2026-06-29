@@ -583,6 +583,7 @@ const CLIP_QUERY: &str = "
     AND thn.rowid < ?2
     ORDER BY thn.rowid;\n        ";
 
+#[derive(Debug, Clone)]
 pub enum ProjectRef {
     Id(i64),
     Path(String),
@@ -591,6 +592,18 @@ pub enum ProjectRef {
 impl From<i64> for ProjectRef {
     fn from(value: i64) -> Self {
         ProjectRef::Id(value)
+    }
+}
+
+impl From<String> for ProjectRef {
+    fn from(value: String) -> Self {
+        ProjectRef::Path(value)
+    }
+}
+
+impl From<&str> for ProjectRef {
+    fn from(value: &str) -> Self {
+        ProjectRef::Path(value.to_string())
     }
 }
 
