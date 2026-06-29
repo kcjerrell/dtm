@@ -1,7 +1,7 @@
 import { Box, Dialog, Portal } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { Progress } from "@/components"
-import { useDTP } from './state/context'
+import { useDTP } from "./state/context"
 
 type ImportProgressProps = {
     open: boolean
@@ -20,7 +20,14 @@ const ImportProgressInner = (props: ImportProgressProps) => {
     const { found, scanned, imageCount } = progress
 
     return (
-        <Dialog.Root lazyMount open={open} size={"sm"} placement={"center"}>
+        <Dialog.Root
+            lazyMount
+            open={open}
+            size={"sm"}
+            placement={"center"}
+            modal={false}
+            preventScroll={false}
+        >
             <Portal>
                 <Dialog.Backdrop />
                 <Dialog.Positioner>
