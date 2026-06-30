@@ -163,14 +163,14 @@ impl ProjectsDb {
 
     pub async fn get_dt_project(
         &self,
-        project_ref: crate::projects_db::dt_project::ProjectRef,
+        project_ref: crate::projects_db::DtProjectRef,
     ) -> Result<std::sync::Arc<DTProject>, MixedError> {
         let full_path = match project_ref {
-            crate::projects_db::dt_project::ProjectRef::Id(id) => {
+            crate::projects_db::DtProjectRef::Id(id) => {
                 let project = self.get_project(id).await?;
                 project.full_path
             }
-            crate::projects_db::dt_project::ProjectRef::Path(path) => path,
+            crate::projects_db::DtProjectRef::Path(path) => path,
         };
 
         Ok(DTProject::get(&full_path).await?)
@@ -181,14 +181,14 @@ impl ProjectsDb {
     /// the connection to stay open for the duration of the work.
     pub async fn open_dt_project(
         &self,
-        project_ref: crate::projects_db::dt_project::ProjectRef,
+        project_ref: crate::projects_db::DtProjectRef,
     ) -> Result<DTProject, MixedError> {
         let full_path = match project_ref {
-            crate::projects_db::dt_project::ProjectRef::Id(id) => {
+            crate::projects_db::DtProjectRef::Id(id) => {
                 let project = self.get_project(id).await?;
                 project.full_path
             }
-            crate::projects_db::dt_project::ProjectRef::Path(path) => path,
+            crate::projects_db::DtProjectRef::Path(path) => path,
         };
 
         Ok(DTProject::open(&full_path).await?)

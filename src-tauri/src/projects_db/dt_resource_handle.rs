@@ -1,65 +1,21 @@
+use std::sync::Arc;
+
+use tokio::sync::OnceCell;
+
 use crate::{
-    projects_db::{dtos::tensor::TensorRaw, ProjectRef},
+    projects_db::{
+        dt_project::TensorHistoryNode, dtos::tensor::TensorRaw, DtProjectRef, DtResourceRef,
+    },
     ResourceHandle,
 };
 
-/// Reference to a `tensordata` row, mirroring the relevant `TdFilter` variants
-/// in `dt_project/tensor_data.rs`.
-#[derive(Debug, Clone)]
-pub enum TensorDataRef {
-    Rowid(i64),
-    LineageTimeIdx(i64, i64, i64),
-}
-
-/// Reference to a `tensorhistorynode` row, mirroring `ThnFilter::Rowid` and
-/// `ThnFilter::LineageAndLogicalTime` in `dt_project/tensor_history_node.rs`.
-#[derive(Debug, Clone)]
-pub enum ThnRef {
-    RowId(i64),
-    LineageTime(i64, i64),
-}
-
-/// The specific resource derived from a tensor history node.
-///
-/// Indexed variants carry a `u8` index; the remaining variants are singletons.
-#[derive(Debug, Clone)]
-pub enum ThnResource {
-    None,
-    Thumb,
-    ThumbHalf,
-    Canvas(u8),
-    Mask(u8),
-    Moodboard(u8),
-    DepthMap,
-    Pose,
-    Scribble,
-    Custom,
-    ColorPalette,
-}
-
-/// A reference to a particular resource within a project.
-#[derive(Debug, Clone)]
-pub enum DtResourceRef {
-    Tensor(String),
-    TensorData(TensorDataRef),
-    Thumb(i64),
-    ThumbHalf(i64),
-    TensorHistoryNode(ThnRef, ThnResource),
-}
-
-/// A backend-agnostic handle to a resource within a project.
-///
-/// Constructible as a trivial literal, e.g.:
-/// ```ignore
-/// DtResourceHandle {
-///     project: ProjectRef::Id(1),
-///     resource: DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Thumb),
-/// }
-/// ```
+/// Handle to a resource in a Draw Things project
 #[derive(Debug, Clone)]
 pub struct DtResourceHandle {
-    pub project: ProjectRef,
+    pub project: DtProjectRef,
     pub resource: DtResourceRef,
+
+    tensor_history_node: Arc<OnceCell<Option<TensorHistoryNode>>>,
 }
 
 #[async_trait::async_trait]
@@ -90,5 +46,15 @@ impl ResourceHandle for DtResourceHandle {
     ) -> Result<Option<Vec<Box<dyn ResourceHandle>>>, String> {
         // TODO(plan 2/3)
         Ok(None)
+    }
+}
+
+impl DtResourceHandle {
+    pub fn new(project: DtProjectRef, resource: DtResourceRef) -> Self {
+        Self {
+            project,
+            resource,
+            tensor_history_node: Arc::new(OnceCell::new()),
+        }
     }
 }

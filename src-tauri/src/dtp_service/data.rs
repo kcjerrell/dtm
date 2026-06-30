@@ -12,7 +12,7 @@ use crate::{
             tensor::TensorSize, watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
-        folder_cache, DecodeTensorOptions, DrawThingsMetadata, ProjectRef,
+        folder_cache, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
     },
 };
 use dtm_macros::dtp_commands;
@@ -204,7 +204,7 @@ impl DTPService {
     pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
         let pdb = self.get_db().await?;
         let image = pdb.get_image(image_id).await?;
-        let dt_project = pdb.get_dt_project(ProjectRef::Id(image.project_id)).await?;
+        let dt_project = pdb.get_dt_project(DtProjectRef::Id(image.project_id)).await?;
         let nodes = dt_project
             .get_tensor_history_nodes(Some(ThnFilter::Rowid(image.node_id)), None)
             .await
@@ -284,7 +284,7 @@ impl DTPService {
         project_id: i64,
     ) -> Result<std::sync::Arc<crate::projects_db::DTProject>, String> {
         let db = self.get_db().await?;
-        let project_ref = crate::projects_db::ProjectRef::Id(project_id);
+        let project_ref = crate::projects_db::DtProjectRef::Id(project_id);
         Ok(db.get_dt_project(project_ref).await?)
     }
 }

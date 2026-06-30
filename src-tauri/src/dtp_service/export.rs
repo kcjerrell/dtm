@@ -13,9 +13,9 @@ use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
         decode_tensor,
-        dt_project::{ProjectRef, TensorHistoryNode, ThnData, ThnFilter},
+        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
         dtos::image::{ImageExtra, ListImagesOptions},
-        extract_jpeg_slice, write_jpeg_with_metadata, DecodeTensorOptions,
+        extract_jpeg_slice, write_jpeg_with_metadata, DecodeTensorOptions, DtProjectRef,
     },
 };
 
@@ -81,7 +81,7 @@ impl DTPService {
             let project = db.get_project(*project_id).await?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = Arc::new(db.open_dt_project(ProjectRef::Id(*project_id)).await?);
+            let dt_project = Arc::new(db.open_dt_project(DtProjectRef::Id(*project_id)).await?);
 
             // fresh temp directory per project
             let temp_dir = temp_root.join(format!("project_{}", project_id));

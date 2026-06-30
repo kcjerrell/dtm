@@ -6,14 +6,12 @@
 #![allow(mismatched_lifetime_syntaxes)]
 
 pub mod dt_project;
-pub use dt_project::{
-    close_folder, dt_project_tensordata, get_last_row, maintenance, DTProject, ProjectRef,
-};
+pub use dt_project::{close_folder, dt_project_tensordata, get_last_row, maintenance, DTProject};
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 
 pub mod dt_resource_handle;
-pub use dt_resource_handle::{DtResourceHandle, DtResourceRef, TensorDataRef, ThnRef, ThnResource};
+pub use dt_resource_handle::DtResourceHandle;
 
 mod tensor_history;
 pub mod tensor_history_generated;
@@ -49,3 +47,6 @@ mod tensor_history_tensor_data;
 pub use tensor_history_tensor_data::TensorHistoryTensorData;
 
 pub mod folder_cache;
+
+mod enums;
+pub use enums::{DtProjectRef, DtResourceRef, TensorDataRef, ThnRef, ThnResource};

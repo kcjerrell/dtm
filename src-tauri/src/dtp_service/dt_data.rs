@@ -4,7 +4,7 @@ use crate::{
     dtp_service::DTPService,
     projects_db::{
         dt_project::{TensorHistoryNode, ThnData, ThnFilter},
-        ProjectRef,
+        DtProjectRef,
     },
 };
 
@@ -25,9 +25,9 @@ impl DTPService {
         select: Option<Vec<String>>,
     ) -> Result<Vec<TensorHistoryNode>, String> {
         let project_ref = if let Some(id) = project_id {
-            ProjectRef::Id(id)
+            DtProjectRef::Id(id)
         } else if let Some(path) = project_path {
-            ProjectRef::Path(path)
+            DtProjectRef::Path(path)
         } else {
             return Err("project_id or project_path is required".to_string());
         };
