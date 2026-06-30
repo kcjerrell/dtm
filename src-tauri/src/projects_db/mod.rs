@@ -12,10 +12,8 @@ pub use dt_project::{
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 
-pub mod resource_handle;
-pub use resource_handle::{
-    DtResourceHandle, DtResourceRef, ResourceHandle, TensorDataRef, ThnRef, ThnResource,
-};
+pub mod dt_resource_handle;
+pub use dt_resource_handle::{DtResourceHandle, DtResourceRef, TensorDataRef, ThnRef, ThnResource};
 
 mod tensor_history;
 pub mod tensor_history_generated;
