@@ -154,6 +154,8 @@ impl Serialize for TensorHistoryNode {
 
 impl TensorHistoryNode {
     /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
+    /// This method is safe - the flatbuffer was validated at construction
+    /// and can be accessed unchecked
     pub fn data(&self) -> TensorHistoryNodeData {
         unsafe { root_as_tensor_history_node_unchecked(&self.data) }
     }

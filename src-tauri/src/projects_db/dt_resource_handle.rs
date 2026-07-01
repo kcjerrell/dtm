@@ -147,20 +147,6 @@ impl DtResourceHandle {
         }
     }
 
-    /// Gets the preview_id (thumb or thumb_half rowid) for the resource, if it has one
-    pub async fn preview_id(&self) -> Result<Option<i64>> {
-        let preview_id = match &self.resource {
-            RR::Thumb(id) => Some(*id),
-            RR::Tensor(id) => None,
-            RR::TensorData(_, _) => None,
-            RR::TensorHistoryNode(node_id, thn_resource) => {
-                // TODO
-                None
-            }
-        };
-        Ok(preview_id)
-    }
-
     pub async fn get_tensor_data(&self) -> Result<Option<Vec<TensorData>>> {
         match &self.resource {
             DtResourceRef::Thumb(_) => Ok(None),
@@ -199,7 +185,7 @@ impl DtResourceHandle {
         let res = match &self.resource {
             RR::TensorData(_, res) => res,
             RR::TensorHistoryNode(_, res) => res,
-            _ => panic!("Invalid resource type"),
+            RR::Thumb(_) | RR::Tensor(_) => panic!("impossible code path"),
         };
 
         // return the first (last) tensor name that matches the type

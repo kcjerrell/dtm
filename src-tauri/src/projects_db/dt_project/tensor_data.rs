@@ -34,8 +34,10 @@ pub struct TensorData {
     raw_data: Arc<[u8]>,
 }
 
-
 impl TensorData {
+    /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
+    /// This method is safe - the flatbuffer was validated at construction
+    /// and can be accessed unchecked
     pub fn data(&self) -> TensorDataData {
         unsafe { root_as_tensor_data_unchecked(&self.raw_data) }
     }
