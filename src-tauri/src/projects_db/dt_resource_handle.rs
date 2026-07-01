@@ -120,18 +120,21 @@ impl DtResourceHandle {
         Ok(DTProject::get(project_path).await?)
     }
 
-    pub async fn get_history_node(&self) -> Result<Option<TensorHistoryNode>> {
+    async fn get_history_node(&self) -> Result<Option<TensorHistoryNode>> {
         let dtp = self.get_project().await?;
-        let (filter, thn_data) = self.get_get_thn_params();
-        let node = dtp
-            .get_tensor_history_nodes(filter, thn_data)
-            .await?
-            .into_iter()
-            .next();
-        Ok(node)
+        if let Some((filter, thn_data)) = self.get_get_thn_params() {
+            let node = dtp
+                .get_tensor_history_nodes(Some(filter), Some(thn_data))
+                .await?
+                .into_iter()
+                .next();
+            Ok(node)
+        } else {
+            Ok(None)
+        }
     }
 
-    fn get_get_thn_params(&self) -> (Option<ThnFilter>, Option<ThnData>) {
+    fn get_get_thn_params(&self) -> Option<(ThnFilter, ThnData)> {
         match &self.resource {
             DtResourceRef::TensorHistoryNode(thn_ref, thn_resource) => {
                 let mut thn_data = ThnData::default();
@@ -141,13 +144,13 @@ impl DtResourceHandle {
                         thn_data = thn_data.and_tensordata().and_moodboard();
                     }
                 };
-                (Some(thn_ref.into()), Some(thn_data))
+                Some((thn_ref.into(), thn_data))
             }
-            _ => (None, None),
+            _ => None,
         }
     }
 
-    pub async fn get_tensor_data(&self) -> Result<Option<Vec<TensorData>>> {
+    async fn get_tensor_data(&self) -> Result<Option<Vec<TensorData>>> {
         match &self.resource {
             DtResourceRef::Thumb(_) => Ok(None),
             DtResourceRef::Tensor(_) => Ok(None),
@@ -161,7 +164,7 @@ impl DtResourceHandle {
         }
     }
 
-    pub async fn get_tensor_name(&self) -> Result<Option<String>> {
+    async fn get_tensor_name(&self) -> Result<Option<String>> {
         // thumbs do not have a tensor name
         if self.resource.is_thumb() {
             return Ok(None);

@@ -165,16 +165,14 @@ impl ProjectsDb {
         &self,
         project_ref: crate::projects_db::DtProjectRef,
     ) -> Result<std::sync::Arc<DTProject>, MixedError> {
-        let full_path = match project_ref {
+        match project_ref {
+            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
             crate::projects_db::DtProjectRef::Id(id) => {
                 let project = self.get_project(id).await?;
-                project.full_path
+                Ok(DTProject::get(&project.full_path).await?)
             }
-            crate::projects_db::DtProjectRef::Path(path) => path,
-            crate::projects_db::DtProjectRef::Db(project) => project.path.clone(),
-        };
-
-        Ok(DTProject::get(&full_path).await?)
+            crate::projects_db::DtProjectRef::Path(path) => Ok(DTProject::get(&path).await?),
+        }
     }
 
     /// Returns a persistent, standalone `DTProject` (bypassing the shared cache).
@@ -183,17 +181,17 @@ impl ProjectsDb {
     pub async fn open_dt_project(
         &self,
         project_ref: crate::projects_db::DtProjectRef,
-    ) -> Result<DTProject, MixedError> {
-        let full_path = match project_ref {
+    ) -> Result<std::sync::Arc<DTProject>, MixedError> {
+        match project_ref {
+            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
             crate::projects_db::DtProjectRef::Id(id) => {
                 let project = self.get_project(id).await?;
-                project.full_path
+                Ok(std::sync::Arc::new(DTProject::open(&project.full_path).await?))
             }
-            crate::projects_db::DtProjectRef::Path(path) => path,
-            crate::projects_db::DtProjectRef::Db(project) => project.path.clone(),
-        };
-
-        Ok(DTProject::open(&full_path).await?)
+            crate::projects_db::DtProjectRef::Path(path) => {
+                Ok(std::sync::Arc::new(DTProject::open(&path).await?))
+            }
+        }
     }
 }
 
