@@ -60,3 +60,9 @@ impl From<MixedError> for String {
         err.to_string()
     }
 }
+
+impl Into<anyhow::Error> for MixedError {
+    fn into(self) -> anyhow::Error {
+        anyhow::Error::msg(self)
+    }
+}

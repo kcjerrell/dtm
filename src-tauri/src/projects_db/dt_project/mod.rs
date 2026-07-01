@@ -56,9 +56,10 @@ struct CachedProject {
     generation: AtomicU64,
 }
 
+#[derive(Debug)]
 pub struct DTProject {
     pool: Arc<SqlitePool>,
-    path: String,
+    pub path: String,
     text_history: OnceCell<Arc<TextHistory>>,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub is_shared: bool,

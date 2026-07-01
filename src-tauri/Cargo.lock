@@ -1847,6 +1847,7 @@ dependencies = [
  "sevenz-rust",
  "sha2 0.11.0",
  "sqlx",
+ "strum",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
@@ -4450,14 +4451,13 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "open"
-version = "5.3.5"
+version = "5.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fbaa89d2ddc8473c78a3adf69eea8cffa28c483b8e02a971ef31527cd0fc92c"
+checksum = "cd8d3b65c44123a56e0133d2cd06ce4361bd3ca99d41198b2f25e3c3db9b8b4a"
 dependencies = [
  "dunce",
  "is-wsl",
  "libc",
- "pathdiff",
 ]
 
 [[package]]
@@ -4651,12 +4651,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pathdiff"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pbkdf2"
@@ -6582,6 +6576,21 @@ name = "strum"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
+]
 
 [[package]]
 name = "subtle"
@@ -6911,7 +6920,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-clipboard-manager"
 version = "2.3.2"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "arboard",
  "log",
@@ -6925,7 +6934,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-dialog"
 version = "2.7.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "log",
  "raw-window-handle",
@@ -6942,7 +6951,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-fs"
 version = "2.5.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "anyhow",
  "dunce",
@@ -6967,7 +6976,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-http"
 version = "2.5.9"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "bytes",
  "cookie_store",
@@ -7012,7 +7021,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-opener"
 version = "2.5.4"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "dunce",
  "glob",
@@ -7051,7 +7060,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-process"
 version = "2.3.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "tauri",
  "tauri-plugin",
@@ -7060,7 +7069,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-shell"
 version = "2.3.5"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "encoding_rs",
  "log",
@@ -7080,7 +7089,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-store"
 version = "2.4.3"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "dunce",
  "serde",
@@ -7095,7 +7104,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-updater"
 version = "2.10.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "base64 0.22.1",
  "dirs",
@@ -7172,7 +7181,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-window-state"
 version = "2.4.1"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#41f62742703071ae69c2ec9b605efd51375a52c5"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#d1573877226e609461761aa538cd0ca4f24d22be"
 dependencies = [
  "bitflags 2.13.0",
  "log",

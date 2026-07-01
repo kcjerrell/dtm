@@ -20,12 +20,19 @@ use crate::projects_db::{
 
 #[derive(Debug, Clone, Copy)]
 pub enum ThnFilter {
+    // return all history nodes
     None,
+    // return history node with rowid
     Rowid(i64),
+    // return all history nodes with lineage
     Lineage(i64),
+    // return all history nodes with logical time
     LogicalTime(i64),
+    // return history node with lineage and logical time
     LineageAndLogicalTime(i64, i64),
+    // return a slice of all of history nodes (ordered by row id)
     SkipAndTake(i64, i64),
+    // return all history nodes with rowid in range
     Range(i64, i64),
 }
 

@@ -49,4 +49,4 @@ pub use tensor_history_tensor_data::TensorHistoryTensorData;
 pub mod folder_cache;
 
 mod enums;
-pub use enums::{DtProjectRef, DtResourceRef, TensorDataRef, ThnRef, ThnResource};
+pub use enums::{DtProjectRef, DtResourceRef, TdRef, ThnRef, ThnResource};

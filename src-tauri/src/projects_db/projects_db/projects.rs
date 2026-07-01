@@ -171,6 +171,7 @@ impl ProjectsDb {
                 project.full_path
             }
             crate::projects_db::DtProjectRef::Path(path) => path,
+            crate::projects_db::DtProjectRef::Db(project) => project.path.clone(),
         };
 
         Ok(DTProject::get(&full_path).await?)
@@ -189,6 +190,7 @@ impl ProjectsDb {
                 project.full_path
             }
             crate::projects_db::DtProjectRef::Path(path) => path,
+            crate::projects_db::DtProjectRef::Db(project) => project.path.clone(),
         };
 
         Ok(DTProject::open(&full_path).await?)

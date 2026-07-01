@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 /// Resolves a resource handle into concrete bytes/tensors.
 ///
 /// All methods return `Result<Option<T>, String>`: `Ok(None)` means the
@@ -8,17 +10,17 @@
 #[async_trait::async_trait]
 pub trait ResourceHandle {
     /// Decompressed tensor + header.
-    async fn get_tensor(&self) -> Result<Option<Vec<f32>>, String>;
+    async fn get_tensor(&self) -> Result<Option<ImageTensor>>;
 
     /// PNG bytes from the highest-quality source available.
-    async fn get_lossless(&self) -> Result<Option<Vec<u8>>, String>;
+    async fn get_lossless(&self) -> Result<Option<Vec<u8>>>;
 
     /// Preview-quality image bytes.
     /// If half is true, half-size preview is returned if available, falling back to full-size
-    async fn get_preview(&self, half: bool) -> Result<Option<Vec<u8>>, String>;
+    async fn get_preview(&self, half: bool) -> Result<Option<Vec<u8>>>;
 
     /// Audio bytes.
-    async fn get_audio(&self) -> Result<Option<Vec<u8>>, String>;
+    async fn get_audio(&self) -> Result<Option<Vec<u8>>>;
 
     /// Frames (e.g. for clip/video resources), as further resource handles.
     /// Returned handles should be directly resolvable without extra lookups
@@ -26,5 +28,14 @@ pub trait ResourceHandle {
     async fn get_frames(
         &self,
         preview: bool,
-    ) -> Result<Option<Vec<Box<dyn ResourceHandle>>>, String>;
+    ) -> Result<Option<Vec<Box<dyn ResourceHandle>>>>;
+}
+
+#[derive(serde::Serialize, Debug, Clone)]
+pub struct ImageTensor {
+    pub n: i32,
+    pub width: i32,
+    pub height: i32,
+    pub channels: i32,
+    pub data: Vec<f32>,
 }

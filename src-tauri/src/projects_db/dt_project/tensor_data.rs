@@ -20,6 +20,7 @@ pub enum TdFilter {
     Range(i64, i64),
 }
 
+/// The definitive representation of a tensor data row in a Draw Things project.
 #[derive(Serialize, Debug)]
 pub struct TensorData {
     pub rowid: i64,
