@@ -16,6 +16,7 @@ use tempfile::TempDir;
 use crate::common::projects::{WatchFolderHelper, Watchfolder};
 
 pub mod projects;
+pub mod util;
 
 pub struct EventHelper {
     received: Arc<RwLock<Vec<String>>>,
@@ -201,3 +202,4 @@ pub async fn test_fixture(
 
     (dtps, event_helper, wfh, db_path)
 }
+

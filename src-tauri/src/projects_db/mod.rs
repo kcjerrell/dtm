@@ -24,7 +24,7 @@ mod tensor_history_mod;
 mod tensors;
 pub use tensors::{
     build_description, decode_tensor, write_jpeg_with_metadata, write_png_with_usercomment,
-    DecodeTensorOptions,
+    DecodeTensorOptions, decode_pose, scribble_mask_to_png, inflate_deflate, decompress_fzip,
 };
 
 mod audio;

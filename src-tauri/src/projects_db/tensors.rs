@@ -107,7 +107,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
     }
 }
 
-fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
+pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
     if tensor.data.len() >= 3
         && tensor.data[0] == 0x66
         && tensor.data[1] == 0x70
@@ -292,7 +292,7 @@ pub fn scribble_mask_to_png(
     Ok(out)
 }
 
-fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
+pub fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     let mut decoder = DeflateDecoder::new(data);
     let mut out = Vec::new();
     decoder.read_to_end(&mut out)?;
@@ -316,7 +316,7 @@ pub fn write_png_with_usercomment(
     height: u32,
     channels: usize,
     history_node: Option<TensorHistoryNodeData>,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let cursor = Cursor::new(&mut out);
 
@@ -327,7 +327,7 @@ pub fn write_png_with_usercomment(
         2 => ColorType::GrayscaleAlpha,
         3 => ColorType::Rgb,
         4 => ColorType::Rgba,
-        _ => return Err("Unsupported channel count".into()),
+        _ => return Err(anyhow::anyhow!("Unsupported channel count")),
     });
 
     let mut writer = encoder.write_header()?;

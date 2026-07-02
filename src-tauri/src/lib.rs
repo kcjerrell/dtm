@@ -25,6 +25,9 @@ use tokio::runtime::Runtime;
 mod resource_handle;
 pub use resource_handle::ResourceHandle;
 
+mod tensor;
+pub use tensor::{Tensor, TensorValue};
+
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 

@@ -115,9 +115,9 @@ pub struct TensorHistoryNode {
     pub lineage: i64,
     pub logical_time: i64,
     data: Arc<[u8]>,
-    pub tensordata: Option<Vec<TensorData>>,
+    pub tensordata: Option<Arc<[TensorData]>>,
     pub clip: Option<Clip>,
-    pub moodboard: Option<Vec<TensorMoodboardData>>,
+    pub moodboard: Option<Arc<[TensorMoodboardData]>>,
     /// Resolved positive prompt. None means fall back to the flatbuffer field.
     /// Populated by get_tensor_history_nodes when ThnData::legacy_prompts is set.
     prompt: Option<String>,
@@ -269,7 +269,7 @@ impl DTProject {
 
             for item in items.iter_mut() {
                 let key = (item.lineage, item.logical_time);
-                item.tensordata = Some(td_map.remove(&key).unwrap_or_default());
+                item.tensordata = Some(td_map.remove(&key).unwrap_or_default().into());
             }
         }
 
@@ -290,7 +290,7 @@ impl DTProject {
 
             for item in items.iter_mut() {
                 let key = (item.lineage, item.logical_time);
-                item.moodboard = Some(m_map.remove(&key).unwrap_or_default());
+                item.moodboard = Some(m_map.remove(&key).unwrap_or_default().into());
             }
         }
 

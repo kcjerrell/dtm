@@ -1,16 +1,16 @@
 use anyhow::{anyhow, Result};
+use std::convert::TryInto;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
     projects_db::{
-        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter},
+        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
         dtos::tensor::TensorRaw,
         tensors::decompress_fzip,
         DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
-    resource_handle::ImageTensor,
-    ResourceHandle,
+    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
@@ -24,11 +24,12 @@ pub struct DtResourceHandle {
     pub resource: DtResourceRef,
 
     project_path: Arc<OnceCell<String>>,
+    history_node: Arc<OnceCell<Option<TensorHistoryNode>>>,
 }
 
 #[async_trait::async_trait]
 impl ResourceHandle for DtResourceHandle {
-    async fn get_tensor(&self) -> Result<Option<ImageTensor>> {
+    async fn get_tensor(&self) -> Result<Option<Tensor>> {
         if self.resource.is_thumb() {
             return Ok(None);
         }
@@ -36,13 +37,7 @@ impl ResourceHandle for DtResourceHandle {
         if let Some(name) = self.get_tensor_name().await? {
             let dtp = self.get_project().await?;
             let tensor_raw = dtp.get_tensor_raw(&name).await?;
-            let tensor = ImageTensor {
-                n: tensor_raw.n,
-                width: tensor_raw.width,
-                height: tensor_raw.height,
-                channels: tensor_raw.channels,
-                data: decompress_fzip(&tensor_raw.data).map_err(|e| anyhow::anyhow!(e))?,
-            };
+            let tensor: Tensor = tensor_raw.try_into()?;
             return Ok(Some(tensor));
         }
 
@@ -50,8 +45,13 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_lossless(&self) -> Result<Option<Vec<u8>>> {
-        // TODO(plan 2/3)
-        Ok(None)
+        if let Some(tensor) = self.get_tensor().await? {
+            let history_node = self.get_history_node().await?;
+            let png = tensor.to_png(history_node, None)?;
+            Ok(Some(png))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn get_preview(&self, half: bool) -> Result<Option<Vec<u8>>> {
@@ -77,13 +77,11 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_audio(&self) -> Result<Option<Vec<u8>>> {
-        // TODO(plan 2/3)
-        Ok(None)
+        return Err(anyhow::anyhow!("Audio not yet implemented"));
     }
 
     async fn get_frames(&self, preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
-        // TODO(plan 2/3)
-        Ok(None)
+        return Err(anyhow::anyhow!("Frames not yet implemented"));
     }
 }
 
@@ -93,6 +91,7 @@ impl DtResourceHandle {
             project,
             resource,
             project_path: Arc::new(OnceCell::new()),
+            history_node: Arc::new(OnceCell::new()),
         }
     }
 
@@ -120,18 +119,25 @@ impl DtResourceHandle {
         Ok(DTProject::get(project_path).await?)
     }
 
-    async fn get_history_node(&self) -> Result<Option<TensorHistoryNode>> {
-        let dtp = self.get_project().await?;
-        if let Some((filter, thn_data)) = self.get_get_thn_params() {
-            let node = dtp
-                .get_tensor_history_nodes(Some(filter), Some(thn_data))
-                .await?
-                .into_iter()
-                .next();
-            Ok(node)
-        } else {
-            Ok(None)
-        }
+    async fn get_history_node(&self) -> Result<Option<&TensorHistoryNode>> {
+        let node = self
+            .history_node
+            .get_or_try_init(|| async {
+                let dtp = self.get_project().await?;
+                if let Some((filter, thn_data)) = self.get_get_thn_params() {
+                    let node = dtp
+                        .get_tensor_history_nodes(Some(filter), Some(thn_data))
+                        .await?
+                        .into_iter()
+                        .next();
+                    Ok::<_, anyhow::Error>(node)
+                } else {
+                    Ok::<_, anyhow::Error>(None)
+                }
+            })
+            .await?;
+
+        Ok(node.as_ref())
     }
 
     fn get_get_thn_params(&self) -> Option<(ThnFilter, ThnData)> {
@@ -150,17 +156,19 @@ impl DtResourceHandle {
         }
     }
 
-    async fn get_tensor_data(&self) -> Result<Option<Vec<TensorData>>> {
+    async fn get_tensor_data(&self) -> Result<Option<Arc<[TensorData]>>> {
         match &self.resource {
             DtResourceRef::Thumb(_) => Ok(None),
             DtResourceRef::Tensor(_) => Ok(None),
             DtResourceRef::TensorData(tensor_data_ref, thn_resource) => {
                 let dtp = self.get_project().await?;
-                Ok(Some(dtp.get_tensor_data(tensor_data_ref.into()).await?))
+                let td = dtp.get_tensor_data(tensor_data_ref.into()).await?;
+                Ok(Some(td.into()))
             }
-            DtResourceRef::TensorHistoryNode(thn_ref, thn_resource) => {
-                Ok(self.get_history_node().await?.and_then(|n| n.tensordata))
-            }
+            DtResourceRef::TensorHistoryNode(thn_ref, thn_resource) => Ok(self
+                .get_history_node()
+                .await?
+                .and_then(|n| n.tensordata.clone())),
         }
     }
 
@@ -175,7 +183,33 @@ impl DtResourceHandle {
             return Ok(Some(name.clone()));
         }
 
+        // get the resource type
+        let res = match &self.resource {
+            RR::TensorData(_, res) => res,
+            RR::TensorHistoryNode(_, res) => res,
+            RR::Thumb(_) | RR::Tensor(_) => panic!("impossible code path"),
+        };
+
         let dtp = self.get_project().await?;
+
+        // handle moodboard case
+        if self.resource.is_tensor_history_node() && res.is_moodboard() {
+            if let Some(history_node) = self.get_history_node().await? {
+                let moodboard_data = dtp
+                    .get_tensor_moodboard_data(TmdFilter::LineageTime(
+                        history_node.lineage,
+                        history_node.logical_time,
+                    ))
+                    .await?;
+
+                if let ThnR::Moodboard(idx) = res {
+                    return Ok(moodboard_data
+                        .iter()
+                        .find(|mbd| mbd.idx == *idx as i64)
+                        .map(|mbd| mbd.tensor_name.clone()));
+                }
+            }
+        }
 
         // resolve to a list of tensordata
         let tensordata = self.get_tensor_data().await?;
@@ -183,13 +217,6 @@ impl DtResourceHandle {
             return Ok(None);
         }
         let tensordata = tensordata.unwrap();
-
-        // get the resource type
-        let res = match &self.resource {
-            RR::TensorData(_, res) => res,
-            RR::TensorHistoryNode(_, res) => res,
-            RR::Thumb(_) | RR::Tensor(_) => panic!("impossible code path"),
-        };
 
         // return the first (last) tensor name that matches the type
         match &res {

@@ -1,5 +1,7 @@
 use anyhow::Result;
 
+use crate::Tensor;
+
 /// Resolves a resource handle into concrete bytes/tensors.
 ///
 /// All methods return `Result<Option<T>, String>`: `Ok(None)` means the
@@ -10,7 +12,7 @@ use anyhow::Result;
 #[async_trait::async_trait]
 pub trait ResourceHandle {
     /// Decompressed tensor + header.
-    async fn get_tensor(&self) -> Result<Option<ImageTensor>>;
+    async fn get_tensor(&self) -> Result<Option<Tensor>>;
 
     /// PNG bytes from the highest-quality source available.
     async fn get_lossless(&self) -> Result<Option<Vec<u8>>>;
@@ -31,11 +33,3 @@ pub trait ResourceHandle {
     ) -> Result<Option<Vec<Box<dyn ResourceHandle>>>>;
 }
 
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct ImageTensor {
-    pub n: i32,
-    pub width: i32,
-    pub height: i32,
-    pub channels: i32,
-    pub data: Vec<f32>,
-}
