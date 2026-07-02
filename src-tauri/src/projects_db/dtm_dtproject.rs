@@ -3,12 +3,17 @@ use tauri::{
     UriSchemeResponder,
 };
 
-use crate::projects_db::{
-    audio::audio_request,
-    decode_audio,
-    dt_project::ThnFilter,
-    tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
-    DTProject, ProjectsDb,
+use crate::{
+    ResourceHandle,
+    projects_db::{
+        audio::audio_request,
+        decode_audio,
+        dt_project::ThnFilter,
+        dt_resource_handle::DtResourceHandle,
+        enums::{DtProjectRef, DtResourceRef},
+        tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
+        DTProject, ProjectsDb,
+    },
 };
 
 const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
@@ -147,8 +152,8 @@ impl DtmProtocol {
             .map_err(|e| format!("Failed to get project path: {}", e))?;
 
         match req.item_type.as_str() {
-            "thumb" => thumb(&project_path, &req.item_id, false).await,
-            "thumbhalf" => thumb(&project_path, &req.item_id, true).await,
+            "thumb" => thumb(req.project_id, &req.item_id, false).await,
+            "thumbhalf" => thumb(req.project_id, &req.item_id, true).await,
             "tensor" => {
                 tensor(
                     &project_path,
@@ -171,24 +176,22 @@ impl DtmProtocol {
 }
 
 async fn thumb(
-    full_project_path: &str,
+    project_id: i64,
     item_id: &str,
     half: bool,
 ) -> Result<Response<Vec<u8>>, String> {
-    let id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
+    let preview_id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
-    let dtp = DTProject::get(full_project_path)
+    let project_ref = DtProjectRef::Id(project_id);
+    let resource_ref = DtResourceRef::Thumb(preview_id);
+    let handle = DtResourceHandle::new(project_ref, resource_ref);
+
+    let thumb = handle
+        .get_preview(half)
         .await
-        .map_err(|e| format!("Failed to open project: {}", e))?;
+        .map_err(|e| format!("Failed to get preview: {}", e))?;
 
-    let thumb = match half {
-        true => dtp.get_thumb_half(id).await,
-        false => dtp.get_thumb(id).await,
-    };
-
-    let thumb = thumb.map_err(|e| format!("Failed to get thumb: {}", e))?;
-
-    let thumb = extract_jpeg_slice(&thumb).ok_or("Failed to extract JPEG slice".to_string())?;
+    let thumb = thumb.ok_or("Failed to get preview".to_string())?;
 
     Response::builder()
         .status(StatusCode::OK)

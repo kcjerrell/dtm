@@ -4,13 +4,9 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
-    projects_db::{
-        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
-        dtos::tensor::TensorRaw,
-        tensors::decompress_fzip,
-        DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
+    ResourceHandle, Tensor, projects_db::{
+        DTProject, DtProjectRef, DtResourceRef, ProjectsDb, dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter}, dtos::tensor::TensorRaw, extract_jpeg_slice, tensors::decompress_fzip,
     },
-    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
@@ -70,7 +66,7 @@ impl ResourceHandle for DtResourceHandle {
             } else {
                 dtp.get_thumb(preview_id).await?
             };
-            Ok(Some(thumb))
+            Ok(extract_jpeg_slice(&thumb))
         } else {
             Ok(None)
         }
