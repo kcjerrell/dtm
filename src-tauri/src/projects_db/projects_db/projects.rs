@@ -1,9 +1,11 @@
 use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DTProject};
+use dashmap::DashMap;
 use entity::{
     images::{self, Entity as Images},
     projects::{self, ActiveModel, Entity as Projects},
     watch_folders,
 };
+use once_cell::sync::Lazy;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, ExprTrait, JoinType, QueryFilter, QuerySelect,
     RelationTrait, Set,
@@ -11,6 +13,8 @@ use sea_orm::{
 use sea_query::{Expr, OnConflict};
 
 use super::{MixedError, ProjectsDb};
+
+static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
 impl ProjectsDb {
     pub async fn add_project(
@@ -69,6 +73,16 @@ impl ProjectsDb {
         project.populate();
 
         Ok(project)
+    }
+
+    pub async fn get_project_path(&self, id: i64) -> Result<String, MixedError> {
+        if let Some(path) = PROJECT_PATH_CACHE.get(&id) {
+            return Ok(path.clone());
+        }
+
+        let project = self.get_project(id).await?;
+        PROJECT_PATH_CACHE.insert(id, project.full_path.clone());
+        Ok(project.full_path)
     }
 
     pub async fn get_project_by_path(

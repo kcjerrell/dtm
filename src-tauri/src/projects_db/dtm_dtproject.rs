@@ -1,5 +1,3 @@
-use dashmap::DashMap;
-use once_cell::sync::Lazy;
 use tauri::{
     http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
@@ -9,7 +7,6 @@ use crate::projects_db::{
     audio::audio_request,
     decode_audio,
     dt_project::ThnFilter,
-    projects_db::MixedError,
     tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
     DTProject, ProjectsDb,
 };
@@ -26,8 +23,6 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
 
 // note: while audio is technically a tensor type, it is better served from a different route
 // dtm://dtm_dtproject/audio/{project_id}/{item_id}
-
-static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
 #[derive(Default)]
 pub struct DTPResource {
@@ -146,6 +141,7 @@ impl DtmProtocol {
         let req = req.unwrap();
 
         let project_path = self
+            .pdb
             .get_project_path(req.project_id)
             .await
             .map_err(|e| format!("Failed to get project path: {}", e))?;
@@ -171,16 +167,6 @@ impl DtmProtocol {
                 .body("Not Found".as_bytes().to_vec())
                 .map_err(|e| e.to_string())?),
         }
-    }
-
-    async fn get_project_path(&self, project_id: i64) -> Result<String, MixedError> {
-        if let Some(path) = PROJECT_PATH_CACHE.get(&project_id) {
-            return Ok(path.clone());
-        }
-
-        let project = self.pdb.get_project(project_id).await?;
-        PROJECT_PATH_CACHE.insert(project_id, project.full_path.clone());
-        Ok(project.full_path)
     }
 }
 

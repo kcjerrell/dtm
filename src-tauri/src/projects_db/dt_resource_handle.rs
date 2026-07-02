@@ -241,7 +241,8 @@ impl DtResourceHandle {
                     .nth(*index);
                 return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().mask_id())));
             }
-            ThnR::Moodboard(index) => panic!("Moodboard resources are not yet implemented"),
+            // tensordata can't reference moodboard...
+            ThnR::Moodboard(index) => Ok(None),
             ThnR::DepthMap => {
                 let td = tensordata
                     .iter()

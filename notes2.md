@@ -1,5 +1,3 @@
-kcjer@Kellys-MacBook-Pro dt-metadata % tree -d -I 'target|build|dist|node_modules|cargo'
-.
 ├── public - front end images
 ├── scripts - various scripts
 ├── src
@@ -79,4 +77,3 @@ kcjer@Kellys-MacBook-Pro dt-metadata % tree -d -I 'target|build|dist|node_module
         └── project-export-out
 
 99 directories
-kcjer@Kellys-MacBook-Pro dt-metadata % 
