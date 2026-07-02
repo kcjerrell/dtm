@@ -128,8 +128,11 @@ impl Tensor {
         scale: Option<i32>,
     ) -> Result<Vec<u8>> {
         let pixels = self.to_pixel_data(scale)?;
-        let width = self.width;
-        let height = self.height;
+        let (width, height) = if let Some(target_size) = scale {
+            (target_size as u32, target_size as u32)
+        } else {
+            (self.width, self.height)
+        };
         let channels = self.channels;
 
         let metadata = history_node.map(|n| n.node_data());
