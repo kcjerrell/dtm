@@ -7,7 +7,11 @@ use std::{fs, path::PathBuf};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions};
+use crate::projects_db::{
+    decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions, DtProjectRef,
+    DtResourceHandle, DtResourceRef,
+};
+use crate::ResourceHandle;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,13 +102,15 @@ pub async fn save_all_clip_frames(
         false => {
             for (i, frame) in frames.iter().enumerate() {
                 let name = name_gen.next().unwrap();
-                let thumb_data = dt_project
-                    .get_thumb(frame.preview_id)
+                let handle = DtResourceHandle::new(
+                    DtProjectRef::Id(project_id),
+                    DtResourceRef::Thumb(frame.preview_id),
+                );
+                let thumb_data = handle
+                    .get_preview(false)
                     .await
-                    .map_err(|e| e.to_string())?;
-
-                let thumb_data = crate::projects_db::extract_jpeg_slice(&thumb_data)
-                    .ok_or("Failed to extract JPEG slice".to_string())?;
+                    .map_err(|e| e.to_string())?
+                    .ok_or("Failed to get preview".to_string())?;
 
                 let file_path = output_dir.join(name);
                 fs::write(&file_path, thumb_data).map_err(|e| e.to_string())?;
