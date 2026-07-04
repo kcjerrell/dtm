@@ -4,9 +4,14 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
-    ResourceHandle, Tensor, projects_db::{
-        DTProject, DtProjectRef, DtResourceRef, ProjectsDb, dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter}, dtos::tensor::TensorRaw, extract_jpeg_slice, tensors::decompress_fzip,
+    projects_db::{
+        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
+        dtos::tensor::TensorRaw,
+        extract_jpeg_slice,
+        tensors::decompress_fzip,
+        DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
+    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
@@ -34,16 +39,21 @@ impl ResourceHandle for DtResourceHandle {
             let dtp = self.get_project().await?;
             let tensor_raw = dtp.get_tensor_raw(&name).await?;
             let tensor: Tensor = tensor_raw.try_into()?;
+            println!(
+                "got tensor ({},{},{},{})",
+                tensor.n, tensor.height, tensor.width, tensor.channels
+            );
+
             return Ok(Some(tensor));
         }
 
         Ok(None)
     }
 
-    async fn get_lossless(&self) -> Result<Option<Vec<u8>>> {
+    async fn get_lossless(&self, scale: Option<i32>) -> Result<Option<Vec<u8>>> {
         if let Some(tensor) = self.get_tensor().await? {
             let history_node = self.get_history_node().await?;
-            let png = tensor.to_png(history_node, None)?;
+            let png = tensor.to_png(history_node, scale)?;
             Ok(Some(png))
         } else {
             Ok(None)
@@ -126,6 +136,10 @@ impl DtResourceHandle {
                         .await?
                         .into_iter()
                         .next();
+                    println!(
+                        "got history node: {}",
+                        node.as_ref().map(|n| n.rowid).unwrap_or_default()
+                    );
                     Ok::<_, anyhow::Error>(node)
                 } else {
                     Ok::<_, anyhow::Error>(None)

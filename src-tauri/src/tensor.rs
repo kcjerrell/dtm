@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use strum::EnumIs;
 
 use crate::projects_db::{
     decompress_fzip, dt_project::TensorHistoryNode, dtos::tensor::TensorRaw, inflate_deflate,
@@ -37,13 +38,13 @@ pub struct Tensor {
     pub data: TensorValue,
 }
 
-#[derive(serde::Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, Debug, Clone, Copy, PartialEq, Eq, EnumIs)]
 pub enum TensorDType {
     F32,
     U8,
 }
 
-#[derive(serde::Serialize, Debug, Clone, PartialEq)]
+#[derive(serde::Serialize, Debug, Clone, PartialEq, EnumIs)]
 pub enum TensorValue {
     F32(Vec<f32>),
     U8(Vec<u8>),
@@ -64,62 +65,103 @@ impl Tensor {
         }
     }
 
-    pub fn to_pixel_data(&self, scale: Option<i32>) -> Result<Vec<u8>> {
-        let data = match self.dtype {
-            TensorDType::F32 => {
-                let out = self.as_f32().ok_or(anyhow::anyhow!("Tensor is not F32"))?;
-                let pixels = if let Some(target_size) = scale {
-                    log::debug!("Scaling to {}x{}", target_size, target_size);
-                    let width = self.width as usize;
-                    let height = self.height as usize;
-                    let channels = self.channels as usize;
-                    let target_size = target_size as usize;
+    pub fn to_pixel_data(&self, scale: Option<i32>) -> anyhow::Result<Vec<u8>> {
+        let w = self.width as usize;
+        let h = self.height as usize;
+        let c = self.channels as usize;
 
-                    // Calculate center crop
-                    let crop_size = width.min(height);
-                    let start_x = (width - crop_size) / 2;
-                    let start_y = (height - crop_size) / 2;
+        let scale = match scale {
+            Some(s) => s as usize,
+            None => {
+                // full-res fast path
+                let mut out = vec![0u8; w * h * c];
 
-                    // Calculate sampling step
-                    // We want to sample `target_size` pixels from `crop_size`
-                    // step = crop_size / target_size
-                    let step = crop_size as f32 / target_size as f32;
+                match &self.data {
+                    TensorValue::U8(src) => {
+                        let mut i = 0usize;
+                        while i < src.len() {
+                            out[i] = if src[i] > 0 { 255 } else { 0 };
+                            i += 1;
+                        }
+                    }
+                    TensorValue::F32(src) => {
+                        let mut i = 0usize;
+                        while i < src.len() {
+                            let v = src[i];
+                            let v = ((v + 1.0) * 0.5 * 255.0).clamp(0.0, 255.0);
+                            out[i] = v as u8;
+                            i += 1;
+                        }
+                    }
+                }
 
-                    let mut pixels = Vec::with_capacity(target_size * target_size * channels);
+                return Ok(out);
+            }
+        };
 
-                    for y in 0..target_size {
-                        for x in 0..target_size {
-                            let src_y = start_y + (y as f32 * step) as usize;
-                            let src_x = start_x + (x as f32 * step) as usize;
+        let side = w.min(h);
+        let x0 = (w - side) / 2;
+        let y0 = (h - side) / 2;
 
-                            if src_y < height && src_x < width {
-                                let pixel_idx = (src_y * width + src_x) * channels;
-                                for c in 0..channels {
-                                    let v = out[pixel_idx + c];
-                                    let f = v.clamp(-1.0, 1.0);
-                                    pixels.push(((f * 0.5 + 0.5) * 255.0).round() as u8);
-                                }
-                            } else {
-                                // Should not happen with correct math, but safe fallback
-                                for _ in 0..channels {
-                                    pixels.push(0);
-                                }
+        let mut out = vec![0u8; scale * scale * c];
+
+        match &self.data {
+            TensorValue::U8(src) => {
+                let src_ptr = src.as_ptr();
+
+                for oy in 0..scale {
+                    let sy = (oy * side) / scale + y0;
+                    let row_base_out = oy * scale * c;
+
+                    for ox in 0..scale {
+                        let sx = (ox * side) / scale + x0;
+
+                        let src_base = (sy * w + sx) * c;
+                        let dst_base = row_base_out + ox * c;
+
+                        unsafe {
+                            std::ptr::copy_nonoverlapping(
+                                src_ptr.add(src_base),
+                                out.as_mut_ptr().add(dst_base),
+                                c,
+                            );
+                        }
+
+                        // threshold in-place (small loop, still cheap)
+                        let dst_slice = &mut out[dst_base..dst_base + c];
+                        for v in dst_slice {
+                            *v = if *v > 0 { 255 } else { 0 };
+                        }
+                    }
+                }
+            }
+
+            TensorValue::F32(src) => {
+                let src_ptr = src.as_ptr();
+
+                for oy in 0..scale {
+                    let sy = (oy * side) / scale + y0;
+                    let row_base_out = oy * scale * c;
+
+                    for ox in 0..scale {
+                        let sx = (ox * side) / scale + x0;
+
+                        let src_base = (sy * w + sx) * c;
+                        let dst_base = row_base_out + ox * c;
+
+                        for ch in 0..c {
+                            unsafe {
+                                let v = *src_ptr.add(src_base + ch);
+                                let v = ((v + 1.0) * 0.5 * 255.0).clamp(0.0, 255.0);
+                                *out.get_unchecked_mut(dst_base + ch) = v as u8;
                             }
                         }
                     }
-                    Ok(pixels)
-                } else {
-                    let mut pixels = vec![0u8; out.len()];
-                    for i in 0..out.len() {
-                        pixels[i] = ((out[i] * 0.5 + 0.5) * 255.0).round() as u8;
-                    }
-                    Ok(pixels)
-                };
-                pixels
+                }
             }
-            TensorDType::U8 => Err(anyhow::anyhow!("Tensor is not F32")),
-        };
-        data
+        }
+
+        Ok(out)
     }
 
     pub fn to_png(
@@ -137,9 +179,8 @@ impl Tensor {
 
         let metadata = history_node.map(|n| n.node_data());
 
-        let png =
-            write_png_with_usercomment(&pixels, width, height, channels as usize, metadata)?;
-        
+        let png = write_png_with_usercomment(&pixels, width, height, channels as usize, metadata)?;
+
         Ok(png)
     }
 }
@@ -147,35 +188,73 @@ impl Tensor {
 impl TryFrom<TensorRaw> for Tensor {
     type Error = anyhow::Error;
 
-    fn try_from(tensor: TensorRaw) -> anyhow::Result<Self> {
-        let (dtype, data) =
-            if tensor.name.starts_with("binary_mask") || tensor.name.starts_with("scribble") {
-                (
-                    TensorDType::U8,
-                    TensorValue::U8(inflate_deflate(&tensor.data)?),
-                )
-            } else if is_fpz_stream(&tensor.data) {
-                (
-                    TensorDType::F32,
-                    TensorValue::F32(
-                        decompress_fzip(&tensor.data).map_err(|e| anyhow!(e.to_string()))?,
-                    ),
-                )
-            } else {
-                (
-                    TensorDType::F32,
-                    TensorValue::F32(bytes_to_f32(tensor.data)?),
-                )
-            };
+    fn try_from(tensor_raw: TensorRaw) -> anyhow::Result<Tensor, anyhow::Error> {
+        let tensor_data = get_decompressed(&tensor_raw)?;
+        let dtype = if tensor_data.is_f_32() {
+                    TensorDType::F32
+                } else {
+                    TensorDType::U8
+                };
 
-        Ok(Self {
-            n: tensor.n as u32,
-            width: tensor.width as u32,
-            height: tensor.height as u32,
-            channels: tensor.channels as u32,
-            dtype,
-            data,
-        })
+        let tensor = if tensor_raw.name.starts_with("binary_mask")
+            || tensor_raw.name.starts_with("scribble")
+            || tensor_raw.name.starts_with("audio")
+        {
+            let n = 1;
+            let channels = 1;
+            let height = tensor_raw.n as u32;
+            let width = tensor_raw.height as u32;
+
+            Tensor {
+                n,
+                width,
+                height,
+                channels,
+                dtype: dtype,
+                data: tensor_data,
+            }
+        } else {
+            let n = (tensor_raw.n as u32).max(1);
+            let width = tensor_raw.width as u32;
+            let height = tensor_raw.height as u32;
+            let channels = (tensor_raw.channels as u32).max(1);
+            
+            Tensor {
+                n,
+                width,
+                height,
+                channels,
+                dtype: dtype,
+                data: tensor_data,
+            }
+        };
+        
+        Ok(tensor)
+    }
+}
+
+fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
+    // this is easiest to check. If it's an fpz stream, it will definitely be f32 as well
+    if is_fpz_stream(&tensor.data) {
+        if let Ok(data) = decompress_fzip(&tensor.data).map_err(|e| anyhow!(e.to_string())) {
+            return Ok(TensorValue::F32(data));
+        }
+    }
+    // as far as i know, all tensors are either fpzipped or deflate u8, but that might not be correct.
+    // so we'll check the data length first, return if even, and then finally try deflate
+    let buffer_len = tensor.n.max(1) * tensor.height.max(1) * tensor.width.max(1) * tensor.channels.max(1);
+
+    // buffer must be 4 bytes per element
+    if tensor.data.len() == (buffer_len as usize * 4) {
+        return Ok(TensorValue::F32(bytes_to_f32(&tensor.data)?));
+    }
+    // buffer must be 1 byte per element
+    else if tensor.data.len() == (buffer_len as usize) {
+        return Ok(TensorValue::U8(tensor.data.to_vec()));
+    }
+    // only option left is deflate
+    else {
+        Ok(TensorValue::U8(inflate_deflate(&tensor.data)?))
     }
 }
 
@@ -183,7 +262,7 @@ fn is_fpz_stream(buf: &[u8]) -> bool {
     matches!(buf.get(..3), Some(b"fpy"))
 }
 
-fn bytes_to_f32(bytes: Vec<u8>) -> anyhow::Result<Vec<f32>> {
+fn bytes_to_f32(bytes: &[u8]) -> anyhow::Result<Vec<f32>> {
     if bytes.len() % std::mem::size_of::<f32>() != 0 {
         anyhow::bail!(
             "Byte array length is not a multiple of {}",
@@ -191,6 +270,7 @@ fn bytes_to_f32(bytes: Vec<u8>) -> anyhow::Result<Vec<f32>> {
         );
     }
 
-    bytemuck::try_cast_vec(bytes)
+    bytemuck::try_cast_slice(bytes)
+        .map(|slice| slice.to_vec())
         .map_err(|e| anyhow::anyhow!("Failed to convert bytes to f32: {:?}", e))
 }

@@ -8,10 +8,8 @@ use crate::{
     projects_db::{
         audio::audio_request,
         decode_audio,
-        dt_project::ThnFilter,
         dt_resource_handle::DtResourceHandle,
         enums::{DtProjectRef, DtResourceRef},
-        tensors::{decode_tensor, scribble_mask_to_png, DecodeTensorOptions},
         DTProject, ProjectsDb,
     },
 };
@@ -35,7 +33,7 @@ pub struct DTPResource {
     pub project_id: i64,
     pub item_id: String,
     pub node: Option<i64>,
-    pub scale: Option<u32>,
+    pub scale: Option<i32>,
     pub invert: Option<bool>,
     pub mask: Option<String>,
     pub duration: Option<f64>,
@@ -111,10 +109,11 @@ impl DtmProtocol {
         request: http::Request<T>,
         responder: UriSchemeResponder,
     ) {
+        let uri = &request.uri().to_string();
         let response = match self.handle_request(request).await {
             Ok(r) => r,
             Err(e) => {
-                log::error!("DTM Protocol Error: {}", e);
+                log::error!("DTM Protocol Error for ({}): {}", uri, e);
                 // Response::builder()
                 //     .status(StatusCode::INTERNAL_SERVER_ERROR)
                 //     .body(e.into_bytes())
@@ -145,18 +144,12 @@ impl DtmProtocol {
 
         let req = req.unwrap();
 
-        let project_path = self
-            .pdb
-            .get_project_path(req.project_id)
-            .await
-            .map_err(|e| format!("Failed to get project path: {}", e))?;
-
         match req.item_type.as_str() {
             "thumb" => thumb(req.project_id, &req.item_id, false).await,
             "thumbhalf" => thumb(req.project_id, &req.item_id, true).await,
             "tensor" => {
                 tensor(
-                    &project_path,
+                    req.project_id,
                     &req.item_id,
                     req.node,
                     req.scale,
@@ -166,7 +159,14 @@ impl DtmProtocol {
                 )
                 .await
             }
-            "audio" => audio_request(&project_path, &req).await,
+            "audio" => {
+                let project_path = self
+                    .pdb
+                    .get_project_path(req.project_id)
+                    .await
+                    .map_err(|e| format!("Failed to get project path: {}", e))?;
+                audio_request(&project_path, &req).await
+            }
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("Not Found".as_bytes().to_vec())
@@ -202,85 +202,52 @@ async fn thumb(
         .map_err(|e| e.to_string())
 }
 
+// Unsupported options by DtResourceHandle API:
+// - scale: NOT supported - get_lossless() doesn't support scaling
+// - invert: NOT supported - mask inversion not available through DtResourceHandle
+// - mask: NOT supported - mask parameter not available through DtResourceHandle
+// - duration: NOT supported - duration parameter not available through DtResourceHandle
+// - node: NOT supported - history node retrieval requires private method
 async fn tensor(
-    full_project_path: &str,
+    project_id: i64,
     name: &str,
-    node: Option<i64>,
-    scale: Option<u32>,
-    invert: Option<bool>,
+    _node: Option<i64>,
+    scale: Option<i32>,
+    _invert: Option<bool>,
     _mask: Option<&str>,
-    duration: Option<f64>,
+    _duration: Option<f64>,
 ) -> Result<Response<Vec<u8>>, String> {
-    let dtp = DTProject::get(full_project_path)
-        .await
-        .map_err(|e| format!("Failed to open project: {}", e))?;
-
-    let tensor = dtp
-        .get_tensor_raw(name)
-        .await
-        .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
+    let project_ref = DtProjectRef::Id(project_id);
+    let resource_ref = DtResourceRef::Tensor(name.to_string());
+    let handle = DtResourceHandle::new(project_ref, resource_ref);
 
     let tensor_type = classify_type(name).unwrap_or("");
 
-    let body = match tensor_type {
-        "pose" => None,
-        "audio" => {
-            panic!("audio requests should use dtm://dtm_dtproject/audio/project_id/item_id")
-        }
-        "tensor_history" | "custom" | "shuffle" | "depth_map" | "color_palette" => {
-            let metadata = match node {
-                Some(node_id) => {
-                    let nodes = dtp
-                        .get_tensor_history_nodes(Some(ThnFilter::Rowid(node_id)), None)
-                        .await
-                        .map_err(|e| format!("Failed to get history: {}", e))?;
-                    nodes.into_iter().next().map(|n| n.node_data())
-                }
-                None => None,
-            };
-            let png = decode_tensor(
-                tensor,
-                DecodeTensorOptions {
-                    as_png: true,
-                    history_node: metadata,
-                    scale,
-                },
-            )
-            .map_err(|e| format!("Failed to decode tensor: {}", e))?;
-            Some(png)
-        }
-        "scribble" | "binary_mask" => {
-            let png = scribble_mask_to_png(tensor, scale, invert)
-                .map_err(|e| format!("Failed to convert mask to png: {}", e))?;
-            Some(png)
-        }
-        _ => None,
-    };
-
-    match body {
-        Some(body) => Response::builder()
-            .status(StatusCode::OK)
-            .header(
-                "Content-Type",
-                if tensor_type == "audio" {
-                    "audio/wav"
-                } else {
-                    "image/png"
-                },
-            )
-            .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Methods", "GET")
-            .body(body)
-            .map_err(|e| e.to_string()),
-        None => Response::builder()
+    // Handle pose type separately as it doesn't return PNG
+    if tensor_type == "pose" {
+        return Ok(Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body(
-                "Unsupported tensor type or decoding failed"
-                    .as_bytes()
-                    .to_vec(),
-            )
-            .map_err(|e| e.to_string()),
+            .body("Unsupported tensor type or decoding failed".as_bytes().to_vec())
+            .map_err(|e| e.to_string())?);
     }
+
+    if tensor_type == "audio" {
+        panic!("audio requests should use dtm://dtm_dtproject/audio/project_id/item_id")
+    }
+
+    let body = handle
+        .get_lossless(scale)
+        .await
+        .map_err(|e| format!("Failed to get lossless: {}", e))?
+        .ok_or("Failed to get lossless".to_string())?;
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "image/png")
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Methods", "GET")
+        .body(body)
+        .map_err(|e| e.to_string())
 }
 
 fn classify_type(s: &str) -> Option<&str> {

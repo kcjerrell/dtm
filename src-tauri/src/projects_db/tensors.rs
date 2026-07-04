@@ -327,7 +327,7 @@ pub fn write_png_with_usercomment(
         2 => ColorType::GrayscaleAlpha,
         3 => ColorType::Rgb,
         4 => ColorType::Rgba,
-        _ => return Err(anyhow::anyhow!("Unsupported channel count")),
+        _ => return Err(anyhow::anyhow!("Unsupported channel count ({})", channels)),
     });
 
     let mut writer = encoder.write_header()?;
