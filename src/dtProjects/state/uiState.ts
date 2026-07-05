@@ -204,7 +204,7 @@ export class UIController extends DTPStateController<UIControllerState> {
             projectId,
             tensorId,
             type: tensorId.split("_")[0] as TensorType,
-            maskUrl: maskId ? urls.tensor(projectId, maskId, { invert: false }) : undefined,
+            maskUrl: maskId ? urls.tensor(projectId, maskId) : undefined,
             applyMask: !!maskId,
             thumbUrl: urls.tensor(projectId, tensorId, { size: 100 }),
             isLoading: true,

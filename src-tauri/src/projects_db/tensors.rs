@@ -29,7 +29,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
         return decode_pose(tensor);
     }
     if tensor.name.starts_with("binary_mask") || tensor.name.starts_with("scribble") {
-        return scribble_mask_to_png(tensor, scale, Some(false));
+        return scribble_mask_to_png(tensor, scale);
     }
     // log::debug!(
     //     "Decoding tensor {} ({}x{}x{})",
@@ -250,13 +250,11 @@ pub fn decompress_fzip(data: &Vec<u8>) -> std::result::Result<Vec<f32>, String> 
 pub fn scribble_mask_to_png(
     tensor: TensorRaw,
     scale: Option<u32>,
-    invert: Option<bool>,
 ) -> Result<Vec<u8>, String> {
     let data = inflate_deflate(&tensor.data).map_err(|e| e.to_string())?;
-    let should_invert = invert.unwrap_or(false);
     let bw: Vec<u8> = data
         .iter()
-        .map(|&x| if (x > 0) ^ should_invert { 255 } else { 0 })
+        .map(|&x| if x > 0 { 255 } else { 0 })
         .collect();
 
     let height = i32::from_le_bytes(tensor.dim[0..4].try_into().unwrap_or_default()) as u32;

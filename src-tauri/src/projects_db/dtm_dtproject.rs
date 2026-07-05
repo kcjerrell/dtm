@@ -34,7 +34,6 @@ pub struct DTPResource {
     pub item_id: String,
     pub node: Option<i64>,
     pub scale: Option<i32>,
-    pub invert: Option<bool>,
     pub mask: Option<String>,
     pub duration: Option<f64>,
     pub range_start: Option<usize>,
@@ -84,7 +83,6 @@ fn parse_request<T>(request: &http::Request<T>) -> Option<DTPResource> {
             match key {
                 "node" => resource.node = Some(value.parse().unwrap()),
                 "s" => resource.scale = Some(value.parse().unwrap()),
-                "invert" => resource.invert = Some(value.parse().unwrap()),
                 "mask" => resource.mask = Some(value.to_string()),
                 "t" => resource.duration = Some(value.parse().unwrap()),
                 _ => (),
@@ -153,7 +151,6 @@ impl DtmProtocol {
                     &req.item_id,
                     req.node,
                     req.scale,
-                    req.invert,
                     req.mask.as_deref(),
                     req.duration,
                 )
@@ -200,7 +197,6 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Ve
 
 // Unsupported options by DtResourceHandle API:
 // - scale: NOT supported - get_lossless() doesn't support scaling
-// - invert: NOT supported - mask inversion not available through DtResourceHandle
 // - mask: NOT supported - mask parameter not available through DtResourceHandle
 // - duration: NOT supported - duration parameter not available through DtResourceHandle
 async fn tensor(
@@ -208,7 +204,6 @@ async fn tensor(
     name: &str,
     node: Option<i64>,
     scale: Option<i32>,
-    _invert: Option<bool>,
     _mask: Option<&str>,
     _duration: Option<f64>,
 ) -> Result<Response<Vec<u8>>, String> {
