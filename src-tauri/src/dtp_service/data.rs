@@ -259,7 +259,7 @@ impl DTPService {
             DecodeTensorOptions {
                 as_png,
                 history_node: metadata,
-                scale: None,
+                size: None,
             },
         )
         .map_err(|e| e.to_string())?;

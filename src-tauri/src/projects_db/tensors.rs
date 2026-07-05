@@ -16,20 +16,20 @@ use crate::projects_db::metadata::DrawThingsMetadata;
 pub struct DecodeTensorOptions {
     pub as_png: bool,
     pub history_node: Option<TensorHistoryNodeData>,
-    pub scale: Option<u32>,
+    pub size: Option<u32>,
 }
 
 pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<Vec<u8>, String> {
     let DecodeTensorOptions {
         as_png,
         history_node,
-        scale,
+        size,
     } = options;
     if tensor.name.starts_with("pose") {
         return decode_pose(tensor);
     }
     if tensor.name.starts_with("binary_mask") || tensor.name.starts_with("scribble") {
-        return scribble_mask_to_png(tensor, scale);
+        return scribble_mask_to_png(tensor, size);
     }
     // log::debug!(
     //     "Decoding tensor {} ({}x{}x{})",
@@ -46,7 +46,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
     //     out.len()
     // );
 
-    let (pixels, width, height) = if let Some(target_size) = scale {
+    let (pixels, width, height) = if let Some(target_size) = size {
         log::debug!("Scaling to {}x{}", target_size, target_size);
         let width = tensor.width as usize;
         let height = tensor.height as usize;
@@ -249,7 +249,7 @@ pub fn decompress_fzip(data: &Vec<u8>) -> std::result::Result<Vec<f32>, String> 
 
 pub fn scribble_mask_to_png(
     tensor: TensorRaw,
-    scale: Option<u32>,
+    size: Option<u32>,
 ) -> Result<Vec<u8>, String> {
     let data = inflate_deflate(&tensor.data).map_err(|e| e.to_string())?;
     let bw: Vec<u8> = data
@@ -265,7 +265,7 @@ pub fn scribble_mask_to_png(
 
     let mut out = Vec::new();
 
-    if let Some(target_size) = scale {
+    if let Some(target_size) = size {
         let crop_size = width.min(height);
         let start_x = (width - crop_size) / 2;
         let start_y = (height - crop_size) / 2;

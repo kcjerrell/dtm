@@ -65,12 +65,12 @@ impl Tensor {
         }
     }
 
-    pub fn to_pixel_data(&self, scale: Option<i32>) -> anyhow::Result<Vec<u8>> {
+    pub fn to_pixel_data(&self, size: Option<u32>) -> anyhow::Result<Vec<u8>> {
         let w = self.width as usize;
         let h = self.height as usize;
         let c = self.channels as usize;
 
-        let scale = match scale {
+        let size = match size {
             Some(s) => s as usize,
             None => {
                 // full-res fast path
@@ -103,18 +103,18 @@ impl Tensor {
         let x0 = (w - side) / 2;
         let y0 = (h - side) / 2;
 
-        let mut out = vec![0u8; scale * scale * c];
+        let mut out = vec![0u8; size * size * c];
 
         match &self.data {
             TensorValue::U8(src) => {
                 let src_ptr = src.as_ptr();
 
-                for oy in 0..scale {
-                    let sy = (oy * side) / scale + y0;
-                    let row_base_out = oy * scale * c;
+                for oy in 0..size {
+                    let sy = (oy * side) / size + y0;
+                    let row_base_out = oy * size * c;
 
-                    for ox in 0..scale {
-                        let sx = (ox * side) / scale + x0;
+                    for ox in 0..size {
+                        let sx = (ox * side) / size + x0;
 
                         let src_base = (sy * w + sx) * c;
                         let dst_base = row_base_out + ox * c;
@@ -139,12 +139,12 @@ impl Tensor {
             TensorValue::F32(src) => {
                 let src_ptr = src.as_ptr();
 
-                for oy in 0..scale {
-                    let sy = (oy * side) / scale + y0;
-                    let row_base_out = oy * scale * c;
+                for oy in 0..size {
+                    let sy = (oy * side) / size + y0;
+                    let row_base_out = oy * size * c;
 
-                    for ox in 0..scale {
-                        let sx = (ox * side) / scale + x0;
+                    for ox in 0..size {
+                        let sx = (ox * side) / size + x0;
 
                         let src_base = (sy * w + sx) * c;
                         let dst_base = row_base_out + ox * c;
@@ -167,11 +167,11 @@ impl Tensor {
     pub fn to_png(
         &self,
         history_node: Option<&TensorHistoryNode>,
-        scale: Option<i32>,
+        size: Option<u32>,
     ) -> Result<Vec<u8>> {
-        let pixels = self.to_pixel_data(scale)?;
-        let (width, height) = if let Some(target_size) = scale {
-            (target_size as u32, target_size as u32)
+        let pixels = self.to_pixel_data(size)?;
+        let (width, height) = if let Some(target_size) = size {
+            (target_size, target_size)
         } else {
             (self.width, self.height)
         };

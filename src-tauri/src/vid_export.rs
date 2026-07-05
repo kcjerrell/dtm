@@ -82,7 +82,7 @@ pub async fn save_all_clip_frames(
                     DecodeTensorOptions {
                         as_png: true,
                         history_node: None,
-                        scale: None,
+                        size: None,
                     },
                 )
                 .map_err(|e| e.to_string())?;

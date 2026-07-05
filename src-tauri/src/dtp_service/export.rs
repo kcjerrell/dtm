@@ -170,7 +170,7 @@ impl DTPService {
                                 DecodeTensorOptions {
                                     as_png: true,
                                     history_node: Some(node_data),
-                                    scale: None,
+                                    size: None,
                                 },
                             )?;
                             fs::write(path, png).map_err(|e| e.to_string())

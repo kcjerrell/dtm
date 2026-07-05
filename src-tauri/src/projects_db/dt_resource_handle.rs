@@ -50,10 +50,10 @@ impl ResourceHandle for DtResourceHandle {
         Ok(None)
     }
 
-    async fn get_lossless(&self, scale: Option<i32>) -> Result<Option<Vec<u8>>> {
+    async fn get_lossless(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
         if let Some(tensor) = self.get_tensor().await? {
             let history_node = self.get_history_node().await?;
-            let png = tensor.to_png(history_node, scale)?;
+            let png = tensor.to_png(history_node, size)?;
             Ok(Some(png))
         } else {
             Ok(None)

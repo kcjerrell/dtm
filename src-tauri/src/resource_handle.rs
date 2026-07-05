@@ -15,7 +15,7 @@ pub trait ResourceHandle {
     async fn get_tensor(&self) -> Result<Option<Tensor>>;
 
     /// PNG bytes from the highest-quality source available.
-    async fn get_lossless(&self, scale: Option<i32>) -> Result<Option<Vec<u8>>>;
+    async fn get_lossless(&self, size: Option<u32>) -> Result<Option<Vec<u8>>>;
 
     /// Preview-quality image bytes.
     /// If half is true, half-size preview is returned if available, falling back to full-size
