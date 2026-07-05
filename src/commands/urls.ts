@@ -25,14 +25,11 @@ const urls = {
         opts?: {
             nodeId?: number | null
             size?: number | null
-            mask?: string
-            duration?: number
         },
     ) => {
         const url = new URL(`dtm://dtproject/tensor/${projectId}/${name}`)
         if (opts?.nodeId) url.searchParams.set("node", opts.nodeId.toString())
         if (opts?.size) url.searchParams.set("s", opts.size.toString())
-        if (opts?.mask) url.searchParams.set("mask", opts.mask)
         return url.toString()
     },
     audio: (projectId: number, name: string, opts?: { duration?: number }) => {

@@ -35,7 +35,6 @@ pub struct DTPResource {
     pub node: Option<i64>,
     pub size: Option<u32>,
     pub mask: Option<String>,
-    pub duration: Option<f64>,
     pub range_start: Option<usize>,
     pub range_end: Option<usize>,
 }
@@ -84,7 +83,6 @@ fn parse_request<T>(request: &http::Request<T>) -> Option<DTPResource> {
                 "node" => resource.node = Some(value.parse().unwrap()),
                 "s" => resource.size = Some(value.parse().unwrap()),
                 "mask" => resource.mask = Some(value.to_string()),
-                "t" => resource.duration = Some(value.parse().unwrap()),
                 _ => (),
             }
         }
@@ -152,7 +150,6 @@ impl DtmProtocol {
                     req.node,
                     req.size,
                     req.mask.as_deref(),
-                    req.duration,
                 )
                 .await
             }
@@ -197,7 +194,6 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Ve
 
 // Unsupported options by DtResourceHandle API:
 // - mask: NOT supported - mask parameter not available through DtResourceHandle
-// - duration: NOT supported - duration parameter not available through DtResourceHandle
 // Note: size parameter IS supported through get_lossless()
 async fn tensor(
     project_id: i64,
@@ -205,7 +201,6 @@ async fn tensor(
     node: Option<i64>,
     size: Option<u32>,
     _mask: Option<&str>,
-    _duration: Option<f64>,
 ) -> Result<Response<Vec<u8>>, String> {
     let project_ref = DtProjectRef::Id(project_id);
 
