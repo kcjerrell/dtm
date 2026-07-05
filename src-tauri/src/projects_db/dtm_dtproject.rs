@@ -4,14 +4,14 @@ use tauri::{
 };
 
 use crate::{
-    ResourceHandle,
     projects_db::{
         audio::audio_request,
         decode_audio,
         dt_resource_handle::DtResourceHandle,
-        enums::{DtProjectRef, DtResourceRef},
+        enums::{DtProjectRef, DtResourceRef, ThnRef, ThnResource},
         DTProject, ProjectsDb,
     },
+    ResourceHandle,
 };
 
 const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
@@ -175,11 +175,7 @@ impl DtmProtocol {
     }
 }
 
-async fn thumb(
-    project_id: i64,
-    item_id: &str,
-    half: bool,
-) -> Result<Response<Vec<u8>>, String> {
+async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
     let preview_id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
     let project_ref = DtProjectRef::Id(project_id);
@@ -207,18 +203,27 @@ async fn thumb(
 // - invert: NOT supported - mask inversion not available through DtResourceHandle
 // - mask: NOT supported - mask parameter not available through DtResourceHandle
 // - duration: NOT supported - duration parameter not available through DtResourceHandle
-// - node: NOT supported - history node retrieval requires private method
 async fn tensor(
     project_id: i64,
     name: &str,
-    _node: Option<i64>,
+    node: Option<i64>,
     scale: Option<i32>,
     _invert: Option<bool>,
     _mask: Option<&str>,
     _duration: Option<f64>,
 ) -> Result<Response<Vec<u8>>, String> {
     let project_ref = DtProjectRef::Id(project_id);
-    let resource_ref = DtResourceRef::Tensor(name.to_string());
+
+    let resource_ref = if let Some(node_id) = node {
+        // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
+        DtResourceRef::TensorHistoryNode(
+            ThnRef::RowId(node_id),
+            ThnResource::Tensor(name.to_string()),
+        )
+    } else {
+        DtResourceRef::Tensor(name.to_string())
+    };
+
     let handle = DtResourceHandle::new(project_ref, resource_ref);
 
     let tensor_type = classify_type(name).unwrap_or("");
@@ -227,7 +232,11 @@ async fn tensor(
     if tensor_type == "pose" {
         return Ok(Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body("Unsupported tensor type or decoding failed".as_bytes().to_vec())
+            .body(
+                "Unsupported tensor type or decoding failed"
+                    .as_bytes()
+                    .to_vec(),
+            )
             .map_err(|e| e.to_string())?);
     }
 

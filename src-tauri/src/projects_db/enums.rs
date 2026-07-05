@@ -7,13 +7,18 @@ use crate::projects_db::{
     DTProject,
 };
 
+/// References a Draw Things project database file, either by its id in DTM's ProjectsDb, 
+/// its file path, or with a direct reference to the DTProject struct.
+/// 
+/// Note: The Db variant should only be used with DTProject.open(). Do not use with a DTProject
+/// that lives in the cache (DTProject.get())
 #[derive(Debug, Clone, EnumIs)]
 pub enum DtProjectRef {
-    // references a Draw Things project using its ID in DTM's ProjectsDb
+    /// references a Draw Things project using its ID in DTM's ProjectsDb
     Id(i64),
-    // references a Draw Thing project by absolute file path
+    /// references a Draw Thing project by absolute file path
     Path(String),
-    // direct reference to a Draw Things project database. Only use with DTProject.open()
+    /// direct reference to a Draw Things project database. Only use with DTProject.open()
     Db(Arc<DTProject>)
 }
 
@@ -35,7 +40,7 @@ impl From<&str> for DtProjectRef {
     }
 }
 
-/// Reference to a `tensordata` row, mirroring the relevant `TdFilter` variants
+/// Reference to one or more `tensordata` rows, mirroring the relevant `TdFilter` variants
 /// in `dt_project/tensor_data.rs`.
 #[derive(Debug, Clone, EnumIs)]
 pub enum TdRef {
@@ -63,11 +68,12 @@ impl From<&TdRef> for TdFilter {
     }
 }
 
-/// Reference to a `tensorhistorynode` row, mirroring `ThnFilter::Rowid` and
-/// `ThnFilter::LineageAndLogicalTime` in `dt_project/tensor_history_node.rs`.
+/// Reference to a `tensorhistorynode` row, mirroring `ThnFilter` variants
 #[derive(Debug, Clone, EnumIs)]
 pub enum ThnRef {
+    /// references a specific tensorhistorynode row by id
     RowId(i64),
+    /// references a specific tensorhistorynode row by lineage/logical_time
     LineageTime(i64, i64),
 }
 
@@ -82,9 +88,9 @@ impl From<&ThnRef> for ThnFilter {
     }
 }
 
-/// The specific resource derived from a tensor history node.
-///
-/// Indexed variants carry a `u8` index; the remaining variants are singletons.
+/// Represents a specific resource related to a tensor history node or referenced by tensordata.
+/// 
+/// Note: some combinations are always impossible, for example TensorData will never have a Thumb
 #[derive(Debug, Clone, EnumIs)]
 pub enum ThnResource {
     None,
@@ -97,6 +103,7 @@ pub enum ThnResource {
     Scribble,
     Custom,
     ColorPalette,
+    Tensor(String),
 }
 
 impl ThnResource {
@@ -106,6 +113,7 @@ impl ThnResource {
         match self {
             ThnResource::None => "invalid_",
             ThnResource::Thumb => "invalid_",
+            ThnResource::Tensor(_) => "invalid_",
             ThnResource::Canvas(_) => "tensor_history_",
             ThnResource::Mask(_) => "binary_mask_",
             ThnResource::Moodboard(_) => "shuffle_",
@@ -118,11 +126,15 @@ impl ThnResource {
     }
 }
 
-/// A reference to a particular resource within a project.
+/// A reference to a specific resource within a project.
 #[derive(Debug, Clone, EnumIs)]
 pub enum DtResourceRef {
+    // References a specific tensor by name
     Tensor(String),
+    // References a specific thumb by its ids (TensorHistoryNode.preview_id)
     Thumb(i64),
+    // References tensors indirectly through TensorData entries that reference it
     TensorData(TdRef, ThnResource),
+    // References tensors and thumbs indirectly through a related TensorHistoryNode
     TensorHistoryNode(ThnRef, ThnResource),
 }

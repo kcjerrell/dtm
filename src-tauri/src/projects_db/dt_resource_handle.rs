@@ -155,7 +155,10 @@ impl DtResourceHandle {
             DtResourceRef::TensorHistoryNode(thn_ref, thn_resource) => {
                 let mut thn_data = ThnData::default();
                 match thn_resource {
+                    // for thumb lookup, all we need is the node itself
                     ThnR::Thumb => {}
+                    // we do not need tensordata, since Tensor has its own tensor_name included
+                    ThnR::Tensor(_) => {}
                     _ => {
                         thn_data = thn_data.and_tensordata().and_moodboard();
                     }
@@ -199,6 +202,11 @@ impl DtResourceHandle {
             RR::TensorHistoryNode(_, res) => res,
             RR::Thumb(_) | RR::Tensor(_) => panic!("impossible code path"),
         };
+
+        // Handle ThnResource::Tensor by returning the tensor name directly
+        if let ThnR::Tensor(name) = res {
+            return Ok(Some(name.clone()));
+        }
 
         let dtp = self.get_project().await?;
 
@@ -289,6 +297,11 @@ impl DtResourceHandle {
                 return Ok(
                     td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().color_palette_id()))
                 );
+            }
+            ThnR::Tensor(name) => {
+                return Err(anyhow::anyhow!(
+                    "Impossible code path: ThnResource::Tensor should have been handled earlier"
+                ));
             }
         }
     }
