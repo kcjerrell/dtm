@@ -259,6 +259,7 @@ fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
 }
 
 fn is_fpz_stream(buf: &[u8]) -> bool {
+    // note: "fpy" is not a typo
     matches!(buf.get(..3), Some(b"fpy"))
 }
 
