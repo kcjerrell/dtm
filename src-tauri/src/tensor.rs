@@ -200,6 +200,9 @@ impl TryFrom<TensorRaw> for Tensor {
             || tensor_raw.name.starts_with("scribble")
             || tensor_raw.name.starts_with("audio")
         {
+            // these tensor types are handled differently by draw things
+            // with the first 8 bytes of the dim blob as height and width
+            // rather than the first 16 bytes as NHWC as with the image tensors
             let n = 1;
             let channels = 1;
             let height = tensor_raw.n as u32;
