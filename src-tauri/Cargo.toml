@@ -89,7 +89,7 @@ hound = "3.5.1"
 semver = "1.0.28"
 hex = "0.4.3"
 reqwest = { version = "0.13", features = ["json", "stream"] }
-itertools = "0.14.0"
+itertools = "0.15.0"
 zip = "4.6"
 img-parts = "0.3.3"
 tauri-plugin-os = "2"
