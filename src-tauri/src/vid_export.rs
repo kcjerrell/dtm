@@ -157,7 +157,6 @@ pub struct VideoExportOpts {
     out_fps: Option<u8>,
     width: Option<u32>,
     height: Option<u32>,
-    audio: Option<(i64, String)>,
 }
 
 #[tauri::command]
