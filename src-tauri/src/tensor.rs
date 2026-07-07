@@ -79,10 +79,11 @@ impl Tensor {
                 match &self.data {
                     TensorValue::U8(src) => {
                         let mut i = 0usize;
-                        while i < src.len() {
+                        while i < out.len().min(src.len()) {
                             out[i] = if src[i] > 0 { 255 } else { 0 };
                             i += 1;
                         }
+                    }
                     }
                     TensorValue::F32(src) => {
                         let mut i = 0usize;
