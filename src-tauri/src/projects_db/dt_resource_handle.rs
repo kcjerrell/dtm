@@ -86,6 +86,9 @@ impl ResourceHandle for DtResourceHandle {
     async fn get_audio(&self) -> Result<Option<Vec<u8>>> {
         if let Some(node) = self.get_history_node().await? {
             if let Some(clip) = &node.clip {
+                if clip.audio_id <= 0 {
+                    return Ok(None);
+                }
                 let audio_id = format!("audio_{}", clip.audio_id);
                 let dtp = self.get_project().await?;
                 let tensor_raw = dtp.get_tensor_raw(&audio_id).await?;
