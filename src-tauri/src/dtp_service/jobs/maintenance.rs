@@ -10,7 +10,7 @@ use sea_query::{Expr, Query};
 
 use crate::{
     dtp_service::jobs::JobContext,
-    projects_db::{dtos::watch_folder::WatchFolderDTO, maintenance::Maintenance, ProjectRef},
+    projects_db::{dtos::watch_folder::WatchFolderDTO, maintenance::Maintenance, DtProjectRef},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive)]
@@ -112,7 +112,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
     }
 
     for (project_id, images) in projects.drain() {
-        let dt_project = ctx.pdb.get_dt_project(ProjectRef::Id(project_id)).await?;
+        let dt_project = ctx.pdb.get_dt_project(DtProjectRef::Id(project_id)).await?;
 
         log::debug!(
             "Checking {} videos for project {}",

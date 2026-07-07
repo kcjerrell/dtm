@@ -56,9 +56,10 @@ struct CachedProject {
     generation: AtomicU64,
 }
 
+#[derive(Debug)]
 pub struct DTProject {
     pool: Arc<SqlitePool>,
-    path: String,
+    pub path: String,
     text_history: OnceCell<Arc<TextHistory>>,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub is_shared: bool,
@@ -583,16 +584,7 @@ const CLIP_QUERY: &str = "
     AND thn.rowid < ?2
     ORDER BY thn.rowid;\n        ";
 
-pub enum ProjectRef {
-    Id(i64),
-    Path(String),
-}
 
-impl From<i64> for ProjectRef {
-    fn from(value: i64) -> Self {
-        ProjectRef::Id(value)
-    }
-}
 
 /*
 SELECT

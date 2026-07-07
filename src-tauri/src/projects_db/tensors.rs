@@ -16,20 +16,20 @@ use crate::projects_db::metadata::DrawThingsMetadata;
 pub struct DecodeTensorOptions {
     pub as_png: bool,
     pub history_node: Option<TensorHistoryNodeData>,
-    pub scale: Option<u32>,
+    pub size: Option<u32>,
 }
 
 pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<Vec<u8>, String> {
     let DecodeTensorOptions {
         as_png,
         history_node,
-        scale,
+        size,
     } = options;
     if tensor.name.starts_with("pose") {
         return decode_pose(tensor);
     }
     if tensor.name.starts_with("binary_mask") || tensor.name.starts_with("scribble") {
-        return scribble_mask_to_png(tensor, scale, Some(false));
+        return scribble_mask_to_png(tensor, size);
     }
     // log::debug!(
     //     "Decoding tensor {} ({}x{}x{})",
@@ -46,7 +46,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
     //     out.len()
     // );
 
-    let (pixels, width, height) = if let Some(target_size) = scale {
+    let (pixels, width, height) = if let Some(target_size) = size {
         log::debug!("Scaling to {}x{}", target_size, target_size);
         let width = tensor.width as usize;
         let height = tensor.height as usize;
@@ -107,7 +107,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
     }
 }
 
-fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
+pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
     if tensor.data.len() >= 3
         && tensor.data[0] == 0x66
         && tensor.data[1] == 0x70
@@ -249,14 +249,12 @@ pub fn decompress_fzip(data: &Vec<u8>) -> std::result::Result<Vec<f32>, String> 
 
 pub fn scribble_mask_to_png(
     tensor: TensorRaw,
-    scale: Option<u32>,
-    invert: Option<bool>,
+    size: Option<u32>,
 ) -> Result<Vec<u8>, String> {
     let data = inflate_deflate(&tensor.data).map_err(|e| e.to_string())?;
-    let should_invert = invert.unwrap_or(false);
     let bw: Vec<u8> = data
         .iter()
-        .map(|&x| if (x > 0) ^ should_invert { 255 } else { 0 })
+        .map(|&x| if x > 0 { 255 } else { 0 })
         .collect();
 
     let height = i32::from_le_bytes(tensor.dim[0..4].try_into().unwrap_or_default()) as u32;
@@ -267,7 +265,7 @@ pub fn scribble_mask_to_png(
 
     let mut out = Vec::new();
 
-    if let Some(target_size) = scale {
+    if let Some(target_size) = size {
         let crop_size = width.min(height);
         let start_x = (width - crop_size) / 2;
         let start_y = (height - crop_size) / 2;
@@ -292,7 +290,7 @@ pub fn scribble_mask_to_png(
     Ok(out)
 }
 
-fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
+pub fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     let mut decoder = DeflateDecoder::new(data);
     let mut out = Vec::new();
     decoder.read_to_end(&mut out)?;
@@ -316,7 +314,7 @@ pub fn write_png_with_usercomment(
     height: u32,
     channels: usize,
     history_node: Option<TensorHistoryNodeData>,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let cursor = Cursor::new(&mut out);
 
@@ -327,7 +325,7 @@ pub fn write_png_with_usercomment(
         2 => ColorType::GrayscaleAlpha,
         3 => ColorType::Rgb,
         4 => ColorType::Rgba,
-        _ => return Err("Unsupported channel count".into()),
+        _ => return Err(anyhow::anyhow!("Unsupported channel count ({})", channels)),
     });
 
     let mut writer = encoder.write_header()?;

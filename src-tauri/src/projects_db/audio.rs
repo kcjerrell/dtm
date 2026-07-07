@@ -7,8 +7,12 @@ use std::{
 use once_cell::sync::Lazy;
 use tauri::http::{Response, StatusCode};
 
-use crate::projects_db::{
-    dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, tensors::decompress_fzip, DTProject,
+use crate::{
+    projects_db::{
+        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, tensors::decompress_fzip, DTProject,
+        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
+    },
+    ResourceHandle,
 };
 
 struct CachedAudio {
@@ -63,27 +67,31 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
         }
     }
 
-    let dtp = DTProject::get(project_path)
-        .await
-        .map_err(|e| format!("Failed to open project: {}", e))?;
+    let item_id: i64 = resource.item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
-    let tensor = dtp
-        .get_tensor_raw(&resource.item_id)
-        .await
-        .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
+    let res = DtResourceHandle::new(
+        DtProjectRef::Path(project_path.to_string()),
+        DtResourceRef::TensorHistoryNode(
+            ThnRef::RowId(item_id),
+            ThnResource::None,
+        ),
+    );
 
-    let audio = decode_audio(tensor, resource.duration.unwrap_or(0.0)).await?;
-    let audio_arc = Arc::new(audio);
+    if let Some(audio) = res.get_audio().await.map_err(|e| e.to_string())? {
+        let audio_arc = Arc::new(audio);
 
-    {
-        let mut cache = AUDIO_CACHE.lock().unwrap();
-        *cache = Some(CachedAudio {
-            key: key.clone(),
-            data: audio_arc.clone(),
-        });
+        {
+            let mut cache = AUDIO_CACHE.lock().unwrap();
+            *cache = Some(CachedAudio {
+                key: key.clone(),
+                data: audio_arc.clone(),
+            });
+        }
+
+        Ok(audio_arc)
+    } else {
+        Err("Audio not found".to_string())
     }
-
-    Ok(audio_arc)
 }
 
 pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, String> {

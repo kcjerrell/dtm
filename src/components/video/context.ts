@@ -105,15 +105,13 @@ export function useCreateVideoContext(opts: UseCreateVideoContextOpts) {
     }
 
     useEffect(() => {
-        if (!image || !image.clip_id) return
+        if (!image?.clip_id) return
 
         DTPService.getClip(image.id, image.clip_id).then(async (data) => {
             if (!state.wasFpsChanged) state.fps = data.clip.framesPerSecond
 
             if (data.clip.audioId && data.clip.count && data.clip.framesPerSecond)
-                state.audioSrc = urls.audio(image.project_id, `audio_${data.clip.audioId}`, {
-                    duration: data.clip.count / data.clip.framesPerSecond,
-                })
+                state.audioSrc = urls.audio(image.project_id, image.node_id)
 
             const frameUrls = data.frames.map((d) => getUrl(image.project_id, d.previewId))
             if (halfFps) state.urls = everyNth(frameUrls, 2)

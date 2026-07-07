@@ -20,12 +20,19 @@ use crate::projects_db::{
 
 #[derive(Debug, Clone, Copy)]
 pub enum ThnFilter {
+    // return all history nodes
     None,
+    // return history node with rowid
     Rowid(i64),
+    // return all history nodes with lineage
     Lineage(i64),
+    // return all history nodes with logical time
     LogicalTime(i64),
+    // return history node with lineage and logical time
     LineageAndLogicalTime(i64, i64),
+    // return a slice of all of history nodes (ordered by row id)
     SkipAndTake(i64, i64),
+    // return all history nodes with rowid in range
     Range(i64, i64),
 }
 
@@ -108,9 +115,9 @@ pub struct TensorHistoryNode {
     pub lineage: i64,
     pub logical_time: i64,
     data: Arc<[u8]>,
-    pub tensordata: Option<Vec<TensorData>>,
+    pub tensordata: Option<Arc<[TensorData]>>,
     pub clip: Option<Clip>,
-    pub moodboard: Option<Vec<TensorMoodboardData>>,
+    pub moodboard: Option<Arc<[TensorMoodboardData]>>,
     /// Resolved positive prompt. None means fall back to the flatbuffer field.
     /// Populated by get_tensor_history_nodes when ThnData::legacy_prompts is set.
     prompt: Option<String>,
@@ -147,6 +154,8 @@ impl Serialize for TensorHistoryNode {
 
 impl TensorHistoryNode {
     /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
+    /// This method is safe - the flatbuffer was validated at construction
+    /// and can be accessed unchecked
     pub fn data(&self) -> TensorHistoryNodeData {
         unsafe { root_as_tensor_history_node_unchecked(&self.data) }
     }
@@ -260,7 +269,7 @@ impl DTProject {
 
             for item in items.iter_mut() {
                 let key = (item.lineage, item.logical_time);
-                item.tensordata = Some(td_map.remove(&key).unwrap_or_default());
+                item.tensordata = Some(td_map.remove(&key).unwrap_or_default().into());
             }
         }
 
@@ -281,7 +290,7 @@ impl DTProject {
 
             for item in items.iter_mut() {
                 let key = (item.lineage, item.logical_time);
-                item.moodboard = Some(m_map.remove(&key).unwrap_or_default());
+                item.moodboard = Some(m_map.remove(&key).unwrap_or_default().into());
             }
         }
 

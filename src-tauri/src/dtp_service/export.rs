@@ -13,10 +13,12 @@ use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
         decode_tensor,
-        dt_project::{ProjectRef, TensorHistoryNode, ThnData, ThnFilter},
+        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
         dtos::image::{ImageExtra, ListImagesOptions},
-        extract_jpeg_slice, write_jpeg_with_metadata, DecodeTensorOptions,
+        write_jpeg_with_metadata, DecodeTensorOptions, DtProjectRef, DtResourceHandle,
+        DtResourceRef,
     },
+    ResourceHandle,
 };
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +83,7 @@ impl DTPService {
             let project = db.get_project(*project_id).await?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = Arc::new(db.open_dt_project(ProjectRef::Id(*project_id)).await?);
+            let dt_project = db.open_dt_project(DtProjectRef::Id(*project_id)).await?;
 
             // fresh temp directory per project
             let temp_dir = temp_root.join(format!("project_{}", project_id));
@@ -125,6 +127,7 @@ impl DTPService {
                 let project_name = project.name.clone();
                 let use_tensor = options.use_tensor;
                 let filename_base = make_filename(index, index_width, &image);
+                let project_id = *project_id;
 
                 let handle = tokio::spawn(async move {
                     // hold the permit until this image is fully written
@@ -167,7 +170,7 @@ impl DTPService {
                                 DecodeTensorOptions {
                                     as_png: true,
                                     history_node: Some(node_data),
-                                    scale: None,
+                                    size: None,
                                 },
                             )?;
                             fs::write(path, png).map_err(|e| e.to_string())
@@ -176,14 +179,17 @@ impl DTPService {
                         .map_err(|e| e.to_string())??;
                     } else {
                         // faster: use the preview jpeg directly, writing metadata into the jpg
-                        let thumb = dt_project
-                            .get_thumb(image.preview_id)
+                        let handle = DtResourceHandle::new(
+                            DtProjectRef::Id(project_id),
+                            DtResourceRef::Thumb(image.preview_id),
+                        );
+                        let jpg = handle
+                            .get_preview(false)
                             .await
-                            .map_err(|e| e.to_string())?;
+                            .map_err(|e| e.to_string())?
+                            .ok_or_else(|| "Failed to get preview".to_string())?;
                         let path = temp_dir.join(format!("{}.jpg", filename_base));
                         tokio::task::spawn_blocking(move || -> Result<(), String> {
-                            let jpg = extract_jpeg_slice(&thumb)
-                                .ok_or_else(|| "Failed to extract JPEG slice".to_string())?;
                             let jpg = write_jpeg_with_metadata(&jpg, &node_data)
                                 .map_err(|e| e.to_string())?;
                             fs::write(path, jpg).map_err(|e| e.to_string())

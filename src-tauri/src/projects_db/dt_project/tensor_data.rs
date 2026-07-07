@@ -20,6 +20,7 @@ pub enum TdFilter {
     Range(i64, i64),
 }
 
+/// The definitive representation of a tensor data row in a Draw Things project.
 #[derive(Serialize, Debug)]
 pub struct TensorData {
     pub rowid: i64,
@@ -33,8 +34,10 @@ pub struct TensorData {
     raw_data: Arc<[u8]>,
 }
 
-
 impl TensorData {
+    /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
+    /// This method is safe - the flatbuffer was validated at construction
+    /// and can be accessed unchecked
     pub fn data(&self) -> TensorDataData {
         unsafe { root_as_tensor_data_unchecked(&self.raw_data) }
     }

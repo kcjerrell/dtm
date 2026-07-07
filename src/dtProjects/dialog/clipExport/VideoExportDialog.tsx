@@ -115,7 +115,6 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                 useTensor: frameSource === "tensor",
                 outputFile: savePath,
                 imageId: image.id,
-                audio: audio ? [image.project_id, audio] : undefined,
             })
             setFrameSourceSetting(frameSource)
         } catch (e) {
