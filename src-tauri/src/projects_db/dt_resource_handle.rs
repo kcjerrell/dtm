@@ -5,6 +5,7 @@ use tokio::sync::OnceCell;
 
 use crate::{
     projects_db::{
+        decode_audio,
         dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
         dtos::tensor::TensorRaw,
         extract_jpeg_slice,
@@ -83,7 +84,20 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_audio(&self) -> Result<Option<Vec<u8>>> {
-        return Err(anyhow::anyhow!("Audio not yet implemented"));
+        if let Some(node) = self.get_history_node().await? {
+            if let Some(clip) = &node.clip {
+                let audio_id = format!("audio_{}", clip.audio_id);
+                let dtp = self.get_project().await?;
+                let tensor_raw = dtp.get_tensor_raw(&audio_id).await?;
+                // to determine the sample rate we need the duration of the clip
+                let duration = clip.count as f64 / clip.frames_per_second as f64;
+                let audio = decode_audio(tensor_raw, duration)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?;
+                return Ok(Some(audio));
+            }
+        }
+        Ok(None)
     }
 
     async fn get_frames(&self, preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
@@ -125,7 +139,7 @@ impl DtResourceHandle {
         Ok(DTProject::get(project_path).await?)
     }
 
-    async fn get_history_node(&self) -> Result<Option<&TensorHistoryNode>> {
+    pub async fn get_history_node(&self) -> Result<Option<&TensorHistoryNode>> {
         let node = self
             .history_node
             .get_or_try_init(|| async {
@@ -160,7 +174,7 @@ impl DtResourceHandle {
                     // we do not need tensordata, since Tensor has its own tensor_name included
                     ThnR::Tensor(_) => {}
                     _ => {
-                        thn_data = thn_data.and_tensordata().and_moodboard();
+                        thn_data = thn_data.and_tensordata().and_moodboard().and_clip();
                     }
                 };
                 Some((thn_ref.into(), thn_data))
@@ -304,5 +318,13 @@ impl DtResourceHandle {
                 ));
             }
         }
+    }
+
+    pub async fn from_image_id(image_id: i64) -> Result<Option<Self>> {
+        let pdb = ProjectsDb::get().await?;
+        pdb.get_image(image_id)
+            .await
+            .and_then(|image| Ok(Some(DtProjectRef::Id(image.project_id).node(image.node_id))))
+            .map_err(|e| anyhow::anyhow!(e))
     }
 }

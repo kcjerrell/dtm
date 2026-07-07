@@ -8,8 +8,8 @@ use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
 use crate::projects_db::{
-    decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions, DtProjectRef,
-    DtResourceHandle, DtResourceRef,
+    decode_tensor, DTProject, DecodeTensorOptions, DrawThingsMetadata,
+    DtProjectRef, DtResourceHandle, DtResourceRef,
 };
 use crate::ResourceHandle;
 
@@ -249,30 +249,24 @@ pub async fn create_video_from_frames(
         None
     };
 
-    // get metadata
-    let metadata = dtp.get_metadata(opts.image_id).await.ok();
+    let mut metadata: Option<DrawThingsMetadata> = None;
+    let mut audio_path: Option<String> = None;
 
-    let audio_path = match opts.audio {
-        Some((project_id, audio_tensor_name)) => {
-            let project = dtp.get_db().await?.get_project(project_id).await?;
+    // metadata and audio come from the node
+    if let Some(handle) = DtResourceHandle::from_image_id(opts.image_id)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        if let Some(node) = handle.get_history_node().await.map_err(|e| e.to_string())? {
+            metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
 
-            let audio_wav = get_audio(
-                &project.full_path,
-                &DTPResource {
-                    project_id,
-                    item_id: audio_tensor_name,
-                    ..Default::default()
-                },
-            )
-            .await?;
-
-            let audio_path = temp_dir.join("audio.wav");
-            fs::write(&audio_path, &*audio_wav).map_err(|e| e.to_string())?;
-
-            Some(audio_path.to_str().unwrap().to_string())
+            if let Some(audio_wav) = handle.get_audio().await.map_err(|e| e.to_string())? {
+                let temp_audio_path = temp_dir.join("audio.wav");
+                fs::write(&temp_audio_path, &audio_wav).map_err(|e| e.to_string())?;
+                audio_path = Some(temp_audio_path.to_string_lossy().to_string());
+            }
         }
-        None => None,
-    };
+    }
 
     // -------------------------------------------------
     // Build ffmpeg command

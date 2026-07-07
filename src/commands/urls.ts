@@ -32,9 +32,8 @@ const urls = {
         if (opts?.size) url.searchParams.set("s", opts.size.toString())
         return url.toString()
     },
-    audio: (projectId: number, name: string, opts?: { duration?: number }) => {
-        const url = new URL(`dtm://dtproject/audio/${projectId}/${name}`)
-        if (opts?.duration) url.searchParams.set("t", opts.duration.toString())
+    audio: (projectId: number, nodeId: number) => {
+        const url = new URL(`dtm://dtproject/audio/${projectId}/${nodeId}`)
         return url.toString()
     },
 }

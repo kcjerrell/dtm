@@ -26,6 +26,7 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
 
 // note: while audio is technically a tensor type, it is better served from a different route
 // dtm://dtm_dtproject/audio/{project_id}/{item_id}
+// for audio, item_id is the node_id
 
 #[derive(Default)]
 pub struct DTPResource {
@@ -172,9 +173,7 @@ impl DtmProtocol {
 async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
     let preview_id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
-    let project_ref = DtProjectRef::Id(project_id);
-    let resource_ref = DtResourceRef::Thumb(preview_id);
-    let handle = DtResourceHandle::new(project_ref, resource_ref);
+    let handle = DtProjectRef::Id(project_id).thumb(preview_id);
 
     let thumb = handle
         .get_preview(half)
@@ -204,17 +203,12 @@ async fn tensor(
 ) -> Result<Response<Vec<u8>>, String> {
     let project_ref = DtProjectRef::Id(project_id);
 
-    let resource_ref = if let Some(node_id) = node {
+    let handle = if let Some(node_id) = node {
         // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
-        DtResourceRef::TensorHistoryNode(
-            ThnRef::RowId(node_id),
-            ThnResource::Tensor(name.to_string()),
-        )
+        project_ref.node_with(node_id).tensor(name)
     } else {
-        DtResourceRef::Tensor(name.to_string())
+        project_ref.tensor(name)
     };
-
-    let handle = DtResourceHandle::new(project_ref, resource_ref);
 
     let tensor_type = classify_type(name).unwrap_or("");
 
