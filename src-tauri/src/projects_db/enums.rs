@@ -53,12 +53,6 @@ impl DtProjectRef {
             DtResourceRef::TensorHistoryNode(node.into(), ThnResource::None),
         )
     }
-    pub fn node_with(self, node: impl Into<ThnRef>) -> PartialThnDtResourceHandle {
-        PartialThnDtResourceHandle {
-            project: self,
-            node: node.into(),
-        }
-    }
 }
 
 /// Reference to one or more `tensordata` rows, mirroring the relevant `TdFilter` variants
@@ -172,12 +166,29 @@ pub enum DtResourceRef {
     TensorHistoryNode(ThnRef, ThnResource),
 }
 
-pub struct PartialThnDtResourceHandle {
+pub struct PartialThnDtResourceHandle<'a> {
     project: DtProjectRef,
     node: ThnRef,
+    source: &'a DtResourceHandle,
 }
 
-impl PartialThnDtResourceHandle {
+impl<'a> TryFrom<&'a DtResourceHandle> for PartialThnDtResourceHandle<'a> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &'a DtResourceHandle) -> Result<Self, Self::Error> {
+        if let DtResourceRef::TensorHistoryNode(node, _) = &value.resource {
+            return Ok(PartialThnDtResourceHandle {
+                project: value.project.clone(),
+                node: node.clone(),
+                source: value,
+            });
+        } else {
+            return Err(anyhow::anyhow!("Resource is not a tensor history node"));
+        }
+    }
+}
+
+impl<'a> PartialThnDtResourceHandle<'a> {
     pub fn Thumb(self) -> DtResourceHandle {
         DtResourceHandle::new(
             self.project,
@@ -220,7 +231,10 @@ impl PartialThnDtResourceHandle {
     pub fn tensor(self, tensor_name: &str) -> DtResourceHandle {
         DtResourceHandle::new(
             self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::Tensor(tensor_name.to_string())),
+            DtResourceRef::TensorHistoryNode(
+                self.node,
+                ThnResource::Tensor(tensor_name.to_string()),
+            ),
         )
     }
 }

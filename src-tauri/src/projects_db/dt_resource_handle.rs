@@ -4,15 +4,9 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
-    projects_db::{
-        decode_audio,
-        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
-        dtos::tensor::TensorRaw,
-        extract_jpeg_slice,
-        tensors::decompress_fzip,
-        DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
+    ResourceHandle, Tensor, projects_db::{
+        DTProject, DtProjectRef, DtResourceRef, ProjectsDb, decode_audio, dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter}, dtos::tensor::TensorRaw, enums::PartialThnDtResourceHandle, extract_jpeg_slice, tensors::decompress_fzip,
     },
-    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
@@ -321,6 +315,10 @@ impl DtResourceHandle {
                 ));
             }
         }
+    }
+
+    pub fn sub(&self) -> Result<PartialThnDtResourceHandle> {
+        PartialThnDtResourceHandle::try_from(self)
     }
 
     pub async fn from_image_id(image_id: i64) -> Result<Option<Self>> {

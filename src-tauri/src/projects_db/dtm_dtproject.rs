@@ -205,7 +205,11 @@ async fn tensor(
 
     let handle = if let Some(node_id) = node {
         // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
-        project_ref.node_with(node_id).tensor(name)
+        project_ref
+            .node(node_id)
+            .sub()
+            .map_err(|e| e.to_string())?
+            .tensor(name)
     } else {
         project_ref.tensor(name)
     };
