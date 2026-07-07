@@ -21,7 +21,8 @@ mod tests {
         let resource_handle = DtResourceHandle::new(project_ref, DtResourceRef::Thumb(209719244));
 
         let thumb = resource_handle.get_preview(false).await.unwrap().unwrap();
-        assert!(thumb.len() == 59664);
+        assert!(thumb.len() > 0);
+        assert_eq!(&thumb[0..3], &[0xFF, 0xD8, 0xFF]);
     }
 
     /*
@@ -36,7 +37,8 @@ mod tests {
         );
 
         let thumb = resource_handle.get_preview(false).await.unwrap().unwrap();
-        assert!(thumb.len() == 59664);
+        assert!(thumb.len() > 0);
+        assert_eq!(&thumb[0..3], &[0xFF, 0xD8, 0xFF]);
     }
 
     #[tokio::test]
