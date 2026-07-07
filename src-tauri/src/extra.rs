@@ -6,6 +6,7 @@ use tauri::Emitter;
 use tokio::sync::OnceCell;
 
 use crate::projects_db::{self, ListImagesOptions, ListImagesResult};
+use crate::{IntoTAResult, TAResult};
 
 #[derive(Serialize, Clone, Debug)]
 pub struct WordEntry {
@@ -33,15 +34,15 @@ impl WordInfo {
 static CELL: OnceCell<Vec<WordEntry>> = OnceCell::const_new();
 
 #[tauri::command]
-pub async fn stem_all(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn stem_all(app: tauri::AppHandle) -> TAResult<()> {
     // if CELL.initialized() {
     //     return Ok(CELL.get().unwrap().to_vec());
     // }
 
     let mut updates = 0;
 
-    let db = projects_db::ProjectsDb::get().map_err(|e| e.to_string())?;
-    let image_count = db.get_image_count().await.map_err(|e| e.to_string())?;
+    let db = projects_db::ProjectsDb::get().map_err(anyhow::Error::msg).into_ta_result()?;
+    let image_count = db.get_image_count().await.map_err(anyhow::Error::msg).into_ta_result()?;
 
     let stemmer = Stemmer::create(Algorithm::English);
     let mut all_words: HashMap<String, WordInfo> = HashMap::new();
@@ -54,10 +55,10 @@ pub async fn stem_all(app: tauri::AppHandle) -> Result<(), String> {
                 ..Default::default()
             })
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg).into_ta_result()?;
 
         let ListImagesResult::Images(page) = images else {
-            return Err("failed to list images".into());
+            return Err(anyhow::anyhow!("failed to list images").into());
         };
 
         for image in page.items {
@@ -89,7 +90,7 @@ pub async fn stem_all(app: tauri::AppHandle) -> Result<(), String> {
 
         if updates % 10 == 0 {
             let word_entries = get_top_words(all_words.clone(), 40);
-            app.emit("stem_all_progress", word_entries).unwrap();
+            app.emit("stem_all_progress", word_entries).map_err(anyhow::Error::msg).into_ta_result()?;
         }
 
         let progress = (batch_start as f64 / image_count as f64) * 100.0;

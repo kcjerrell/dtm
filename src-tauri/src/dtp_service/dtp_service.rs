@@ -6,6 +6,7 @@ use std::{
     },
 };
 
+use anyhow::Context;
 use dtm_macros::{dtm_command, dtp_commands};
 use tauri::{ipc::Channel, State};
 use tokio::sync::{OnceCell, RwLock};
@@ -19,6 +20,7 @@ use crate::{
         AppHandleWrapper,
     },
     projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
+    IntoTAResult, TAResult,
 };
 
 #[derive(Clone)]
@@ -57,9 +59,9 @@ impl DTPService {
         channel: Channel<DTPEvent>,
         auto_watch: bool,
         db_path: String,
-    ) -> Result<(), String> {
+    ) -> anyhow::Result<()> {
         self.auto_watch.store(auto_watch, Ordering::Relaxed);
-        let pdb = ProjectsDb::new(&db_path).await.unwrap();
+        let pdb = ProjectsDb::new(&db_path).await.context("Failed to create ProjectsDb")?;
         {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
@@ -81,7 +83,7 @@ impl DTPService {
         }
 
         let watch = WatchService::new(scheduler.clone());
-        watch.watch_volumes().await.unwrap();
+        watch.watch_volumes().await.context("Failed to watch volumes")?;
         {
             let mut guard = self.watch.write().await;
             *guard = Some(watch);
@@ -95,12 +97,12 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn get_db(&self) -> Result<ProjectsDb, String> {
+    pub async fn get_db(&self) -> anyhow::Result<ProjectsDb> {
         self.pdb
             .read()
             .await
             .clone()
-            .ok_or_else(|| "DB not ready".to_string())
+            .context("DB not ready")
     }
 
     pub async fn dtm_protocol(&self) -> &DtmProtocol {
@@ -110,9 +112,9 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn sync(&self) -> Result<(), String> {
+    pub async fn sync(&self) -> TAResult<()> {
         let scheduler = self.scheduler.read().await;
-        let scheduler = scheduler.as_ref().unwrap();
+        let scheduler = scheduler.as_ref().ok_or_else(|| anyhow::anyhow!("Scheduler not ready")).into_ta_result()?;
         scheduler.add_job(SyncJob::new(false));
 
         Ok(())
@@ -123,12 +125,12 @@ impl DTPService {
         &self,
         project_ids: Vec<i64>,
         check_deletions: bool,
-    ) -> Result<(), String> {
+    ) -> TAResult<()> {
         for project_id in project_ids {
-            let sync = ProjectSync::from_id(&self.get_db().await.unwrap(), project_id)
+            let sync = ProjectSync::from_id(&self.get_db().await.map_err(anyhow::Error::msg).into_ta_result()?, project_id)
                 .await
-                .unwrap();
-            self.add_job(UpdateProjectJob::new(&sync, false, check_deletions).unwrap());
+                .map_err(anyhow::Error::msg).into_ta_result()?;
+            self.add_job(UpdateProjectJob::new(&sync, false, check_deletions).map_err(anyhow::Error::msg).into_ta_result()?);
         }
         Ok(())
     }
@@ -142,29 +144,29 @@ impl DTPService {
         &self,
         project_ids: Vec<i64>,
         check_deletions: bool,
-    ) -> Result<(), String> {
-        let db = self.get_db().await?;
+    ) -> TAResult<()> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg).into_ta_result()?;
         let scheduler = self
             .scheduler
             .read()
             .await
             .clone()
-            .ok_or_else(|| "Scheduler not ready".to_string())?;
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready")).into_ta_result()?;
         for project_id in project_ids {
-            let sync = ProjectSync::from_id(&db, project_id).await?;
-            let job = UpdateProjectJob::new(&sync, false, check_deletions)?;
-            scheduler.add_job_front_and_wait(job).await?;
+            let sync = ProjectSync::from_id(&db, project_id).await.map_err(anyhow::Error::msg).into_ta_result()?;
+            let job = UpdateProjectJob::new(&sync, false, check_deletions).map_err(anyhow::Error::msg).into_ta_result()?;
+            scheduler.add_job_front_and_wait(job).await.map_err(anyhow::Error::msg).into_ta_result()?;
         }
         Ok(())
     }
 
     // test to compare checking rowid vs file metadata
-    pub async fn check_all(&self) -> Result<(), String> {
+    pub async fn check_all(&self) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
-        let projects = self.list_projects(None).await.unwrap();
+        let projects = self.list_projects(None).await.map_err(anyhow::Error::msg)?;
         let mut last_rows: Vec<(i64, i64)> = Vec::new();
         for project in projects {
-            let last_row = get_last_row(&project.full_path).await.unwrap();
+            let last_row = get_last_row(&project.full_path).await.map_err(anyhow::Error::msg)?;
             last_rows.push((project.id, last_row.0));
         }
 
@@ -172,9 +174,9 @@ impl DTPService {
         println!("Checked all projects: {}", start.elapsed().as_millis());
         Ok(())
     }
-    pub async fn check_all_2(&self) -> Result<(), String> {
+    pub async fn check_all_2(&self) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
-        let projects = self.list_projects(None).await.unwrap();
+        let projects = self.list_projects(None).await.map_err(anyhow::Error::msg)?;
         let mut data: Vec<(i64, i64)> = Vec::new();
         for project in projects {
             let base = fs::metadata(&project.full_path).map_or(0, |m| m.len() as i64);
@@ -188,16 +190,16 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn resume_watch(&self, path: &str, recursive: bool) {
+    pub async fn resume_watch(&self, path: &str, recursive: bool) -> anyhow::Result<()> {
         let watch = self.watch.read().await;
-        let watch = watch.as_ref().unwrap();
-        watch.watch_folder(path, recursive).await.unwrap();
+        let watch = watch.as_ref().context("Watch not ready")?;
+        watch.watch_folder(path, recursive).await.map_err(anyhow::Error::msg)
     }
 
-    pub async fn stop_watch(&self, path: &str) {
+    pub async fn stop_watch(&self, path: &str) -> anyhow::Result<()> {
         let watch = self.watch.read().await;
-        let watch = watch.as_ref().unwrap();
-        watch.stop_watch_folder(path).await.unwrap();
+        let watch = watch.as_ref().context("Watch not ready")?;
+        watch.stop_watch_folder(path).await.map_err(anyhow::Error::msg)
     }
 
     pub fn add_job<T: Job + 'static>(&self, job: T) {
@@ -209,11 +211,11 @@ impl DTPService {
         });
     }
 
-    pub async fn stop(&self) {
+    pub async fn stop(&self) -> anyhow::Result<()> {
         {
             let watch = self.watch.read().await;
-            let watch = watch.as_ref().unwrap();
-            watch.stop_all().await.unwrap();
+            let watch = watch.as_ref().context("Watch not ready")?;
+            watch.stop_all().await.map_err(anyhow::Error::msg)?;
         }
         {
             let mut guard = self.pdb.write().await;
@@ -222,7 +224,7 @@ impl DTPService {
 
         {
             let scheduler = self.scheduler.read().await.clone();
-            scheduler.unwrap().stop().await;
+            scheduler.context("Scheduler not ready")?.stop().await;
         }
         {
             let mut guard = self.scheduler.write().await;
@@ -232,37 +234,37 @@ impl DTPService {
             let mut guard = self.watch.write().await;
             *guard = None;
         }
+        Ok(())
     }
 
     #[dtp_command]
-    pub async fn lock_folder(&self, watchfolder_id: i64) -> Result<(), String> {
+    pub async fn lock_folder(&self, watchfolder_id: i64) -> TAResult<()> {
         let folder = self
             .get_db()
-            .await
-            .unwrap()
+            .await.map_err(anyhow::Error::msg).into_ta_result()?
             .update_watch_folder(watchfolder_id, None, None, Some(true))
-            .await?;
-        self.stop_watch(&folder.path).await;
+            .await.map_err(anyhow::Error::msg).into_ta_result()?;
+        self.stop_watch(&folder.path).await.map_err(anyhow::Error::msg).into_ta_result()?;
         projects_db::close_folder(&folder.path).await;
         self.events.emit(DTPEvent::WatchFoldersChanged);
         Ok(())
     }
 
     #[dtp_command]
-    pub async fn reset_db(&self) -> Result<(), String> {
-        let db = self.get_db().await?;
-        let folders = db.list_watch_folders().await?;
+    pub async fn reset_db(&self) -> TAResult<()> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg).into_ta_result()?;
+        let folders = db.list_watch_folders().await.map_err(anyhow::Error::msg).into_ta_result()?;
         let ids = folders.iter().map(|f| f.id).collect::<Vec<i64>>();
-        db.remove_watch_folders(ids).await?;
+        db.remove_watch_folders(ids).await.map_err(anyhow::Error::msg).into_ta_result()?;
         Ok(())
     }
 }
 
 #[dtm_command]
-pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> Result<(), String> {
+pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> TAResult<()> {
     println!(
         "dtp test bla bla {}",
-        state.get_home_dir().unwrap().to_string_lossy()
+        state.get_home_dir().context("Failed to get home dir").into_ta_result()?.to_string_lossy()
     );
     Ok(())
 }
@@ -277,10 +279,10 @@ pub async fn dtp_connect(
     state: State<'_, DTPService>,
     channel: Channel<DTPEvent>,
     auto_watch: bool,
-) -> Result<(), String> {
+) -> TAResult<()> {
     let db_path = get_db_url(&app_handle);
     check_old_path(&app_handle);
-    let _ = state.connect(channel, auto_watch, db_path).await;
+    let _ = state.connect(channel, auto_watch, db_path).await.into_ta_result();
     Ok(())
 }
 

@@ -3,6 +3,7 @@ use std::sync::{
     Arc,
 };
 
+use anyhow::Context;
 use tokio::fs;
 
 use crate::{
@@ -49,7 +50,7 @@ impl Job for SyncFolderJob {
     fn start_event(self: &Self) -> Option<DTPEvent> {
         Some(DTPEvent::FolderSyncStarted(self.watchfolder_id))
     }
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
         let files = get_folder_files(&self.watchfolder_path, self.watchfolder_id).await;
         let mut project_files = files.projects;
         let mut sync_projects: Vec<ProjectSync> = Vec::new();
@@ -57,7 +58,7 @@ impl Job for SyncFolderJob {
             .pdb
             .list_projects(Some(self.watchfolder_id))
             .await
-            .unwrap();
+            .map_err(anyhow::Error::msg)?;
 
         // detect if this is a new folder import
         let is_import = entities.is_empty() && !project_files.is_empty();
@@ -110,7 +111,7 @@ impl Job for SyncFolderJob {
                 SyncAction::Update => {
                     subtasks.push(Arc::new(
                         UpdateProjectJob::new(&sync, self.is_import.load(Ordering::Relaxed), false)
-                            .unwrap(),
+                            .map_err(anyhow::Error::msg)?,
                     ));
                 }
                 _ => {}
@@ -170,11 +171,11 @@ impl ProjectSync {
         sync
     }
 
-    pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> Result<Self, String> {
+    pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> anyhow::Result<Self> {
         let entity = pdb
             .get_project(project_id)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg)?;
 
         let mut project = None;
         if let Ok(metadata) = fs::metadata(&entity.full_path).await {
@@ -197,9 +198,13 @@ impl ProjectSync {
 
         let watchfolder_path = full_path
             .strip_suffix(&entity.path)
-            .unwrap()
+            .context("Failed to strip entity path from full path")?
             .strip_suffix("/")
-            .unwrap();
+            .unwrap_or_else(|| {
+                // If stripping "/" fails, it might be at the root or already stripped.
+                // We'll proceed with what we have.
+                full_path.strip_suffix(&entity.path).unwrap()
+            });
 
         Ok(Self {
             watchfolder_id: entity.watchfolder_id,

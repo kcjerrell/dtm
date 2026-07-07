@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use entity::images::Column;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
@@ -39,7 +40,7 @@ impl Job for AddProjectJob {
         format!("AddProjectJob for {}", self.path)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
         let result = ctx.pdb.add_project(self.watchfolder_id, &self.path).await;
 
         if self.is_import {
@@ -65,7 +66,7 @@ impl Job for AddProjectJob {
                     check_deletions: false,
                 })]))
             }
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(anyhow::Error::msg(e)),
         }
     }
 }
@@ -75,13 +76,13 @@ pub struct RemoveProjectJob {
 }
 
 impl RemoveProjectJob {
-    pub fn new(project_sync: &ProjectSync) -> Result<Self, String> {
+    pub fn new(project_sync: &ProjectSync) -> anyhow::Result<Self> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
             })
         } else {
-            Err("Project entity not found".to_string())
+            anyhow::bail!("Project entity not found")
         }
     }
 }
@@ -92,13 +93,13 @@ impl Job for RemoveProjectJob {
         format!("RemoveProjectJob for {}", self.project_id)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
         let result = ctx
             .pdb
             .remove_project(self.project_id)
             .await
-            .map_err(|e| e.to_string())?;
-        Ok(JobResult::Event(DTPEvent::ProjectRemoved(result.unwrap())))
+            .map_err(anyhow::Error::msg)?;
+        Ok(JobResult::Event(DTPEvent::ProjectRemoved(result.context("Failed to remove project")?)))
     }
 }
 
@@ -116,7 +117,7 @@ impl UpdateProjectJob {
         project_sync: &ProjectSync,
         is_import: bool,
         check_deletions: bool,
-    ) -> Result<Self, String> {
+    ) -> anyhow::Result<Self> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
@@ -127,7 +128,7 @@ impl UpdateProjectJob {
                 check_deletions,
             })
         } else {
-            Err("Project entity not found".to_string())
+            anyhow::bail!("Project entity not found")
         }
     }
     pub async fn from_id(
@@ -135,8 +136,8 @@ impl UpdateProjectJob {
         project_id: i64,
         is_import: bool,
         check_deletions: bool,
-    ) -> Result<Self, String> {
-        let sync = ProjectSync::from_id(pdb, project_id).await?;
+    ) -> anyhow::Result<Self> {
+        let sync = ProjectSync::from_id(pdb, project_id).await.map_err(anyhow::Error::msg)?;
 
         UpdateProjectJob::new(&sync, is_import, check_deletions)
     }
@@ -152,12 +153,12 @@ impl Job for UpdateProjectJob {
         Some(DTPEvent::ProjectSyncStarted(self.project_id))
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        let scan_result: Result<(i64, u64), String> = ctx
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
+        let scan_result: anyhow::Result<(i64, u64)> = ctx
             .pdb
             .scan_project(self.project_id, false)
             .await
-            .map_err(|e| e.to_string());
+            .map_err(anyhow::Error::msg);
 
         if self.check_deletions {
             check_deletions(&ctx, self.project_id, &self.project_path).await?;
@@ -165,13 +166,13 @@ impl Job for UpdateProjectJob {
 
         let result = match scan_result {
             Ok((_id, total)) => {
-                let project = ctx.pdb.get_project(_id).await.map_err(|e| e.to_string())?;
+                let project = ctx.pdb.get_project(_id).await.map_err(anyhow::Error::msg)?;
 
                 let _ = ctx
                     .pdb
                     .update_project(project.id, Some(self.filesize), Some(self.modified))
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(anyhow::Error::msg)?;
 
                 if self.is_import {
                     ctx.events.emit(DTPEvent::ImportProgress(ScanProgress {
@@ -186,7 +187,7 @@ impl Job for UpdateProjectJob {
             }
             Err(err) => {
                 log::error!("Error scanning project {}: {}", self.project_id, err);
-                Err(err.to_string())
+                Err(err)
             }
         };
 
@@ -201,14 +202,14 @@ async fn check_deletions(
     ctx: &JobContext,
     project_id: i64,
     project_path: &str,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     let pdb_path = get_db_file_path(&ctx.app_handle);
 
     let dt_project = DTProject::open(project_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(anyhow::Error::msg)?;
 
-    let missing_ids = dt_project.check_id(pdb_path, project_id).await?;
+    let missing_ids = dt_project.check_id(pdb_path, project_id).await.map_err(anyhow::Error::msg)?;
 
     if missing_ids.is_empty() {
         return Ok(());
@@ -219,7 +220,7 @@ async fn check_deletions(
         .filter(Column::Id.is_in(missing_ids))
         .exec(&ctx.pdb.db)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(anyhow::Error::msg)?;
 
     Ok(())
 }

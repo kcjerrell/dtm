@@ -365,9 +365,9 @@ impl DTProject {
     /**
      * Do not call on a cached dt_project! Only used with DTProject::open()
      */
-    pub async fn check_id(&self, pdb_path: String, project_id: i64) -> Result<Vec<i64>, String> {
+    pub async fn check_id(&self, pdb_path: String, project_id: i64) -> anyhow::Result<Vec<i64>> {
         if self.is_shared {
-            return Err("Cannot check ids on a shared dt_project".to_string());
+            anyhow::bail!("Cannot check ids on a shared dt_project");
         }
 
         let missing_ids: Vec<i64> = sqlx::query_scalar(
@@ -385,7 +385,7 @@ impl DTProject {
         .bind(project_id)
         .fetch_all(&*self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(anyhow::Error::msg)?;
 
         Ok(missing_ids)
     }

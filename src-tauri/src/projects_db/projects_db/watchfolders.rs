@@ -35,8 +35,8 @@ impl ProjectsDb {
         Ok(model.into())
     }
 
-    pub async fn something(&self) -> Result<(), String> {
-        self.remove_watch_folders(vec![1]).await?;
+    pub async fn something(&self) -> anyhow::Result<()> {
+        self.remove_watch_folders(vec![1]).await.map_err(anyhow::Error::msg)?;
         Ok(())
     }
 

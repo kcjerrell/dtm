@@ -143,21 +143,19 @@ impl VolumeWatcher {
     }
 
     pub async fn start(&self) {
-        self.watcher
+        let _ = self.watcher
             .lock()
             .await
             .watcher()
-            .watch(Path::new("/Volumes"), RecursiveMode::NonRecursive)
-            .unwrap();
+            .watch(Path::new("/Volumes"), RecursiveMode::NonRecursive);
     }
 
     pub async fn stop(&self) {
-        self.watcher
+        let _ = self.watcher
             .lock()
             .await
             .watcher()
-            .unwatch(Path::new("/Volumes"))
-            .unwrap();
+            .unwatch(Path::new("/Volumes"));
     }
 }
 
@@ -173,7 +171,7 @@ impl WatchService {
         }
     }
 
-    pub async fn watch_volumes(&self) -> Result<(), String> {
+    pub async fn watch_volumes(&self) -> anyhow::Result<()> {
         let volume_watcher = self
             .volume_watcher
             .get_or_init(|| VolumeWatcher::new(self.scheduler.clone()));
@@ -181,13 +179,13 @@ impl WatchService {
         Ok(())
     }
 
-    pub async fn stop_watch_volumes(&self) -> Result<(), String> {
-        let volume_watcher = self.volume_watcher.get().unwrap();
+    pub async fn stop_watch_volumes(&self) -> anyhow::Result<()> {
+        let volume_watcher = self.volume_watcher.get().ok_or_else(|| anyhow::anyhow!("Volume watcher not initialized"))?;
         volume_watcher.stop().await;
         Ok(())
     }
 
-    pub async fn watch_folder(&self, path: &str, recursive: bool) -> Result<(), String> {
+    pub async fn watch_folder(&self, path: &str, recursive: bool) -> anyhow::Result<()> {
         let watcher = self.watchers.entry(path.to_string()).or_insert_with(|| {
             FolderWatcher::new(path.to_string(), recursive, self.scheduler.clone())
         });
@@ -195,7 +193,7 @@ impl WatchService {
         Ok(())
     }
 
-    pub async fn stop_watch_folder(&self, path: &str) -> Result<(), String> {
+    pub async fn stop_watch_folder(&self, path: &str) -> anyhow::Result<()> {
         let watcher = match self.watchers.get(path) {
             Some(watcher) => watcher,
             None => return Ok(()),
@@ -205,7 +203,7 @@ impl WatchService {
     }
 
     #[allow(dead_code)]
-    pub async fn stop_all(&self) -> Result<(), String> {
+    pub async fn stop_all(&self) -> anyhow::Result<()> {
         Ok(())
     }
 }

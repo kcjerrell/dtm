@@ -6,6 +6,7 @@ use crate::{
         dt_project::{TensorHistoryNode, ThnData, ThnFilter},
         DtProjectRef,
     },
+    TAResult,
 };
 
 #[dtp_commands]
@@ -23,16 +24,16 @@ impl DTPService {
         min_rowid: Option<i64>,
         max_rowid: Option<i64>,
         select: Option<Vec<String>>,
-    ) -> Result<Vec<TensorHistoryNode>, String> {
+    ) -> TAResult<Vec<TensorHistoryNode>> {
         let project_ref = if let Some(id) = project_id {
             DtProjectRef::Id(id)
         } else if let Some(path) = project_path {
             DtProjectRef::Path(path)
         } else {
-            return Err("project_id or project_path is required".to_string());
+            return Err(anyhow::anyhow!("project_id or project_path is required").into());
         };
 
-        let dt_project = self.get_db().await?.get_dt_project(project_ref).await?;
+        let dt_project = self.get_db().await.map_err(anyhow::Error::msg)?.get_dt_project(project_ref).await.map_err(anyhow::Error::msg)?;
 
         let filter = if let Some(r) = rowid {
             Some(ThnFilter::Rowid(r))
@@ -66,7 +67,7 @@ impl DTPService {
         let rows = dt_project
             .get_tensor_history_nodes(filter, Some(data))
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg)?;
 
         Ok(rows)
     }

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use futures_util::StreamExt;
 use reqwest;
 use std::io::Write;
@@ -22,41 +23,41 @@ struct DownloadProgress {
     state: Option<String>,
 }
 
-pub async fn get_ffmpeg_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub async fn get_ffmpeg_path(app: &AppHandle) -> anyhow::Result<PathBuf> {
     Ok(app
         .path()
         .app_data_dir()
-        .map_err(|e| e.to_string())?
+        .context("Failed to get app data dir")?
         .join("bin")
         .join("ffmpeg"))
 }
 
-pub async fn get_ffprobe_path(app: &AppHandle) -> Result<PathBuf, String> {
+pub async fn get_ffprobe_path(app: &AppHandle) -> anyhow::Result<PathBuf> {
     Ok(app
         .path()
         .app_data_dir()
-        .map_err(|e| e.to_string())?
+        .context("Failed to get app data dir")?
         .join("bin")
         .join("ffprobe"))
 }
 
-pub async fn check_ffmpeg(app: &AppHandle) -> Result<bool, String> {
+pub async fn check_ffmpeg(app: &AppHandle) -> anyhow::Result<bool> {
     let ffmpeg_path = get_ffmpeg_path(app).await?;
     let ffprobe_path = get_ffprobe_path(app).await?;
     Ok(ffmpeg_path.exists() && ffprobe_path.exists())
 }
 
-pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
-    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+pub async fn download_ffmpeg(app: AppHandle) -> anyhow::Result<()> {
+    let app_data_dir = app.path().app_data_dir().context("Failed to get app data dir")?;
     let temp_dir = app_data_dir.join("temp");
     fs::create_dir_all(&temp_dir)
         .await
-        .map_err(|e| e.to_string())?;
+        .context("Failed to create temp dir")?;
 
     let bin_dir = app_data_dir.join("bin");
     fs::create_dir_all(&bin_dir)
         .await
-        .map_err(|e| e.to_string())?;
+        .context("Failed to create bin dir")?;
 
     let tasks = vec![
         ("ffmpeg", FFMPEG_URL, FFMPEG_SHA256),
@@ -73,20 +74,20 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
             archive_path.exists() && verify_checksum(&archive_path, sha256).is_ok_and(|v| v);
 
         if !has_valid_cached_archive {
-            let res = client.get(*url).send().await.map_err(|e| e.to_string())?;
+            let res = client.get(*url).send().await.context("Failed to send request")?;
 
             let content_length = res.content_length();
             task_sizes[i] = content_length;
 
             let mut stream = res.bytes_stream();
-            let mut file = std::fs::File::create(&archive_path).map_err(|e| e.to_string())?;
+            let mut file = std::fs::File::create(&archive_path).context("Failed to create archive file")?;
 
             let mut last_emit = std::time::Instant::now();
             let emit_interval = std::time::Duration::from_millis(200);
 
             while let Some(item) = stream.next().await {
-                let chunk = item.map_err(|e| e.to_string())?;
-                file.write_all(&chunk).map_err(|e| e.to_string())?;
+                let chunk = item.context("Failed to read chunk")?;
+                file.write_all(&chunk).context("Failed to write to archive file")?;
                 total_downloaded += chunk.len() as u64;
 
                 if last_emit.elapsed() >= emit_interval {
@@ -144,7 +145,7 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
         );
 
         if !verify_checksum(&archive_path, sha256).is_ok_and(|v| v) {
-            return Err(format!("Signature verification failed for {}", name));
+            anyhow::bail!("Signature verification failed for {}", name);
         }
 
         let _ = app.emit(
@@ -156,7 +157,7 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
             },
         );
 
-        sevenz_rust::decompress_file(&archive_path, &bin_dir).map_err(|e| e.to_string())?;
+        sevenz_rust::decompress_file(&archive_path, &bin_dir).map_err(anyhow::Error::msg)?;
 
         // Set executable permission on Unix
         #[cfg(unix)]
@@ -166,19 +167,19 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
             if binary_path.exists() {
                 let mut perms = fs::metadata(&binary_path)
                     .await
-                    .map_err(|e| e.to_string())?
+                    .context("Failed to get binary metadata")?
                     .permissions();
                 perms.set_mode(0o755);
                 fs::set_permissions(&binary_path, perms)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .context("Failed to set binary permissions")?;
             }
         }
 
         // Remove archive after extraction
         fs::remove_file(&archive_path)
             .await
-            .map_err(|e| e.to_string())?;
+            .context("Failed to remove archive file")?;
     }
 
     let _ = app.emit(
@@ -193,23 +194,23 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn call_ffmpeg(app: &AppHandle, args: Vec<String>) -> Result<String, String> {
+pub async fn call_ffmpeg(app: &AppHandle, args: Vec<String>) -> anyhow::Result<String> {
     let ffmpeg_path = get_ffmpeg_path(app).await?;
 
     if !ffmpeg_path.exists() {
-        return Err("FFmpeg not found. Please download it first.".to_string());
+        anyhow::bail!("FFmpeg not found. Please download it first.");
     }
 
     let output = Command::new(ffmpeg_path)
         .args(args)
         .output()
         .await
-        .map_err(|e| e.to_string())?;
+        .context("Failed to execute ffmpeg")?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        anyhow::bail!(String::from_utf8_lossy(&output.stderr).to_string())
     }
 }
 

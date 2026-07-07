@@ -25,7 +25,7 @@ static AUDIO_CACHE: Lazy<Mutex<Option<CachedAudio>>> = Lazy::new(|| Mutex::new(N
 pub async fn audio_request(
     project_path: &str,
     resource: &DTPResource,
-) -> Result<Response<Vec<u8>>, String> {
+) -> anyhow::Result<Response<Vec<u8>>> {
     let audio = get_audio(project_path, resource).await?;
 
     if resource.range_start.is_none() && resource.range_end.is_none() {
@@ -55,7 +55,7 @@ pub async fn audio_request(
     }
 }
 
-pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc<Vec<u8>>, String> {
+pub async fn get_audio(project_path: &str, resource: &DTPResource) -> anyhow::Result<Arc<Vec<u8>>> {
     let key = format!("{}/{}", resource.project_id, resource.item_id);
 
     {
@@ -67,7 +67,7 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
         }
     }
 
-    let item_id: i64 = resource.item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
+    let item_id: i64 = resource.item_id.parse().map_err(|_| anyhow::anyhow!("Invalid item ID"))?;
 
     let res = DtResourceHandle::new(
         DtProjectRef::Path(project_path.to_string()),
@@ -77,7 +77,7 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
         ),
     );
 
-    if let Some(audio) = res.get_audio().await.map_err(|e| e.to_string())? {
+    if let Some(audio) = res.get_audio().await.map_err(anyhow::Error::msg)? {
         let audio_arc = Arc::new(audio);
 
         {
@@ -90,11 +90,11 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
 
         Ok(audio_arc)
     } else {
-        Err("Audio not found".to_string())
+        anyhow::bail!("Audio not found")
     }
 }
 
-pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, String> {
+pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> anyhow::Result<Vec<u8>> {
     let channels = tensor.n;
     let length = tensor.height as usize;
 
@@ -110,18 +110,18 @@ pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, S
     let mut buffer = Vec::new();
     let buf_writer = BufWriter::new(Cursor::new(&mut buffer));
 
-    let mut writer = hound::WavWriter::new(buf_writer, spec).unwrap();
+    let mut writer = hound::WavWriter::new(buf_writer, spec).map_err(anyhow::Error::msg)?;
 
-    let decompressed = decompress_fzip(&tensor.data).unwrap();
+    let decompressed = decompress_fzip(&tensor.data).map_err(anyhow::Error::msg)?;
     let left = &decompressed[0..length];
     let right = &decompressed[length..];
 
     for i in 0..length {
-        writer.write_sample(left[i]).unwrap();
-        writer.write_sample(right[i]).unwrap();
+        writer.write_sample(left[i]).map_err(anyhow::Error::msg)?;
+        writer.write_sample(right[i]).map_err(anyhow::Error::msg)?;
     }
 
-    writer.finalize().unwrap();
+    writer.finalize().map_err(anyhow::Error::msg)?;
 
     Ok(buffer)
 }

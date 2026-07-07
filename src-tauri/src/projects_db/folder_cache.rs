@@ -1,4 +1,4 @@
-use crate::bookmarks;
+use crate::{bookmarks, IntoTAResult};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -6,8 +6,8 @@ use std::sync::RwLock;
 
 pub static CACHE: Lazy<RwLock<HashMap<i64, PathBuf>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
-pub async fn resolve_bookmark(id: i64, bookmark: &str) -> Result<bookmarks::ResolveResult, String> {
-    let result = bookmarks::resolve_bookmark(bookmark.to_string()).await?;
+pub async fn resolve_bookmark(id: i64, bookmark: &str) -> anyhow::Result<bookmarks::ResolveResult> {
+    let result = bookmarks::resolve_bookmark(bookmark.to_string()).await.map_err(|e| anyhow::anyhow!("{:#}", e))?;
 
     match &result {
         bookmarks::ResolveResult::Resolved(path) => {

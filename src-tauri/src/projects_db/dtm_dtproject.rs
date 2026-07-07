@@ -129,21 +129,21 @@ impl DtmProtocol {
     async fn handle_request<T>(
         &self,
         request: http::Request<T>,
-    ) -> Result<Response<Vec<u8>>, String> {
+    ) -> anyhow::Result<Response<Vec<u8>>> {
         let req = parse_request(&request);
 
         if req.is_none() {
             return Ok(Response::builder()
                 .status(StatusCode::BAD_REQUEST)
                 .body("Invalid path format".as_bytes().to_vec())
-                .map_err(|e| e.to_string())?);
+                .map_err(anyhow::Error::msg)?);
         }
 
         let req = req.unwrap();
 
         match req.item_type.as_str() {
-            "thumb" => thumb(req.project_id, &req.item_id, false).await,
-            "thumbhalf" => thumb(req.project_id, &req.item_id, true).await,
+            "thumb" => thumb(req.project_id, &req.item_id, false).await.map_err(anyhow::Error::msg),
+            "thumbhalf" => thumb(req.project_id, &req.item_id, true).await.map_err(anyhow::Error::msg),
             "tensor" => {
                 tensor(
                     req.project_id,
@@ -152,25 +152,25 @@ impl DtmProtocol {
                     req.size,
                     req.mask.as_deref(),
                 )
-                .await
+                .await.map_err(anyhow::Error::msg)
             }
             "audio" => {
                 let project_path = self
                     .pdb
                     .get_project_path(req.project_id)
                     .await
-                    .map_err(|e| format!("Failed to get project path: {}", e))?;
-                audio_request(&project_path, &req).await
+                    .map_err(|e| anyhow::anyhow!("Failed to get project path: {}", e))?;
+                audio_request(&project_path, &req).await.map_err(anyhow::Error::msg)
             }
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("Not Found".as_bytes().to_vec())
-                .map_err(|e| e.to_string())?),
+                .map_err(anyhow::Error::msg)?),
         }
     }
 }
 
-async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
+async fn thumb(project_id: i64, item_id: &str, half: bool) -> anyhow::Result<Response<Vec<u8>>> {
     let preview_id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
     let handle = DtProjectRef::Id(project_id).thumb(preview_id);
@@ -178,7 +178,7 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Ve
     let thumb = handle
         .get_preview(half)
         .await
-        .map_err(|e| format!("Failed to get preview: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to get preview: {}", e))?;
 
     let thumb = thumb.ok_or("Failed to get preview".to_string())?;
 
@@ -188,7 +188,7 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Ve
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(thumb)
-        .map_err(|e| e.to_string())
+        .map_err(anyhow::Error::msg)
 }
 
 // Unsupported options by DtResourceHandle API:
@@ -200,7 +200,7 @@ async fn tensor(
     node: Option<i64>,
     size: Option<u32>,
     _mask: Option<&str>,
-) -> Result<Response<Vec<u8>>, String> {
+) -> anyhow::Result<Response<Vec<u8>>> {
     let project_ref = DtProjectRef::Id(project_id);
 
     let handle = if let Some(node_id) = node {
@@ -208,7 +208,7 @@ async fn tensor(
         project_ref
             .node(node_id)
             .sub()
-            .map_err(|e| e.to_string())?
+            .map_err(anyhow::Error::msg)?
             .tensor(name)
     } else {
         project_ref.tensor(name)
@@ -225,7 +225,7 @@ async fn tensor(
                     .as_bytes()
                     .to_vec(),
             )
-            .map_err(|e| e.to_string())?);
+            .map_err(anyhow::Error::msg)?);
     }
 
     if tensor_type == "audio" {
@@ -235,7 +235,7 @@ async fn tensor(
     let body = handle
         .get_lossless(size)
         .await
-        .map_err(|e| format!("Failed to get lossless: {}", e))?
+        .map_err(|e| anyhow::anyhow!("Failed to get lossless: {}", e))?
         .ok_or("Failed to get lossless".to_string())?;
 
     Response::builder()
@@ -244,7 +244,7 @@ async fn tensor(
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(body)
-        .map_err(|e| e.to_string())
+        .map_err(anyhow::Error::msg)
 }
 
 fn classify_type(s: &str) -> Option<&str> {

@@ -15,7 +15,7 @@ where
     Self: Send + Sync,
 {
     fn get_label(&self) -> String;
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String>;
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult>;
     fn start_event(self: &Self) -> Option<DTPEvent> {
         None
     }

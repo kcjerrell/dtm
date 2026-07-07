@@ -1,4 +1,4 @@
-use crate::dtp_service::AppHandleWrapper;
+use crate::{dtp_service::AppHandleWrapper, IntoTAResult, TAResult};
 
 use super::{PickFolderResult, ResolveResult};
 use tauri::{command, State};
@@ -30,14 +30,16 @@ pub async fn pick_folder_command(
     app: State<'_, AppHandleWrapper>,
     default_path: Option<String>,
     button_text: Option<String>,
-) -> Result<Option<PickFolderResult>, String> {
-    pick_folder(&app, default_path, button_text).await
+) -> TAResult<Option<PickFolderResult>> {
+    pick_folder(&app, default_path, button_text)
+        .await
+        .into_ta_result()
 }
 pub async fn pick_folder(
     app: &AppHandleWrapper,
     default_path: Option<String>,
     button_text: Option<String>,
-) -> Result<Option<PickFolderResult>, String> {
+) -> anyhow::Result<Option<PickFolderResult>> {
     use std::ffi::{CStr, CString};
 
     let target_path = match default_path {
@@ -46,15 +48,15 @@ pub async fn pick_folder(
             // Default to home directory
             match app.get_home_dir() {
                 Ok(path) => path.to_string_lossy().into_owned(),
-                Err(_) => return Err("Failed to get home directory".to_string()),
+                Err(_) => anyhow::bail!("Failed to get home directory"),
             }
         }
     };
 
-    let c_default_path = CString::new(target_path).map_err(|e| e.to_string())?;
+    let c_default_path = CString::new(target_path).map_err(anyhow::Error::msg)?;
 
     let display_button_text = button_text.unwrap_or_else(|| "Select folder".to_string());
-    let c_button_text = CString::new(display_button_text).map_err(|e| e.to_string())?;
+    let c_button_text = CString::new(display_button_text).map_err(anyhow::Error::msg)?;
 
     let ptr =
         unsafe { ffi::open_dt_folder_picker(c_default_path.as_ptr(), c_button_text.as_ptr()) };
@@ -70,13 +72,13 @@ pub async fn pick_folder(
 
     // Parse JSON result
     let result: PickFolderResult = serde_json::from_str(&json_result)
-        .map_err(|e| format!("Failed to parse picker result: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse picker result: {}", e))?;
 
     Ok(Some(result))
 }
 
 #[command]
-pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String> {
+pub async fn resolve_bookmark(bookmark: String) -> TAResult<ResolveResult> {
     use std::ffi::{CStr, CString};
 
     if bookmark.starts_with("TESTBOOKMARK::") {
@@ -85,7 +87,7 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
         ));
     }
 
-    let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
+    let c_bookmark = CString::new(bookmark).map_err(anyhow::Error::msg).into_ta_result()?;
 
     let ptr = unsafe { ffi::start_accessing_security_scoped_resource(c_bookmark.as_ptr()) };
 
@@ -100,7 +102,7 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
 
     // Parse JSON result from FFI
     let ffi_result: FfiResolveResult = serde_json::from_str(&json_result)
-        .map_err(|e| format!("Failed to parse resolve result: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to parse resolve result: {}", e)).into_ta_result()?;
 
     match ffi_result.status.as_str() {
         "resolved" => {
@@ -131,10 +133,10 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
 }
 
 #[command]
-pub async fn stop_accessing_bookmark(bookmark: String) -> Result<(), String> {
+pub async fn stop_accessing_bookmark(bookmark: String) -> TAResult<()> {
     use std::ffi::CString;
 
-    let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
+    let c_bookmark = CString::new(bookmark).map_err(anyhow::Error::msg).into_ta_result()?;
 
     unsafe {
         ffi::stop_accessing_security_scoped_resource(c_bookmark.as_ptr());

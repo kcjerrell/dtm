@@ -35,55 +35,55 @@ pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
 #[tauri::command]
-fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
-    clipboard::read_clipboard_types(pasteboard)
+fn read_clipboard_types(pasteboard: Option<String>) -> TAResult<Vec<String>> {
+    clipboard::read_clipboard_types(pasteboard).into_ta_result()
 }
 
 #[tauri::command]
 fn read_clipboard_strings(
     types: Vec<String>,
     pasteboard: Option<String>,
-) -> Result<std::collections::HashMap<String, String>, String> {
-    clipboard::read_clipboard_strings(types, pasteboard)
+) -> TAResult<std::collections::HashMap<String, String>> {
+    clipboard::read_clipboard_strings(types, pasteboard).into_ta_result()
 }
 
 #[tauri::command]
-fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<Vec<u8>, String> {
-    clipboard::read_clipboard_binary(ty, pasteboard)
+fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> TAResult<Vec<u8>> {
+    clipboard::read_clipboard_binary(ty, pasteboard).into_ta_result()
 }
 
 #[tauri::command]
-fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
-    clipboard::write_clipboard_binary(ty, data)
+fn write_clipboard_binary(ty: String, data: Vec<u8>) -> TAResult<()> {
+    clipboard::write_clipboard_binary(ty, data).into_ta_result()
 }
 
 #[tauri::command]
-async fn ffmpeg_check(app: tauri::AppHandle) -> Result<bool, String> {
-    ffmpeg::check_ffmpeg(&app).await
+async fn ffmpeg_check(app: tauri::AppHandle) -> TAResult<bool> {
+    ffmpeg::check_ffmpeg(&app).await.into_ta_result()
 }
 
 #[tauri::command]
-async fn ffmpeg_download(app: tauri::AppHandle) -> Result<(), String> {
-    ffmpeg::download_ffmpeg(app).await
+async fn ffmpeg_download(app: tauri::AppHandle) -> TAResult<()> {
+    ffmpeg::download_ffmpeg(app).await.into_ta_result()
 }
 
 #[tauri::command]
-async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String, String> {
-    ffmpeg::call_ffmpeg(&app, args).await
+async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> TAResult<String> {
+    ffmpeg::call_ffmpeg(&app, args).await.into_ta_result()
 }
 
 #[tauri::command]
-async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
-    let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+async fn fetch_image_file(url: String) -> TAResult<(Vec<u8>, String)> {
+    let resp = reqwest::get(&url).await.map_err(anyhow::Error::msg)?;
     let content_type = resp
         .headers()
         .get("Content-Type")
-        .unwrap()
+        .ok_or_else(|| anyhow::anyhow!("No Content-Type header"))?
         .to_str()
-        .unwrap()
+        .map_err(anyhow::Error::msg)?
         .to_string();
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-    Ok((bytes.to_vec(), content_type))
+    let bytes = resp.bytes().await.map_err(anyhow::Error::msg)?;
+    Ok((bytes.to_vec(), content_type)).into_ta_result()
 }
 
 // #[tauri::command]
@@ -105,7 +105,7 @@ async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
 // }
 
 #[tauri::command]
-fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
+fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
     match app.get_webview_window("dev") {
         Some(dev_window) => {
             dev_window.close().unwrap();

@@ -30,7 +30,7 @@ pub async fn save_all_clip_frames(
     dtp: State<'_, DTPService>,
     opts: FramesExportOpts,
 ) -> TAResult<(usize, String)> {
-    let projects_db = dtp.get_db().await.unwrap();
+    let projects_db = dtp.get_db().await.map_err(anyhow::Error::msg).into_ta_result()?;
 
     let result: Option<(i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
         .select_only()
@@ -41,9 +41,9 @@ pub async fn save_all_clip_frames(
         .await
         .into_ta_result()?;
 
-    let (node_id, project_id) = result.ok_or(anyhow::anyhow!("Image or Project not found"))?;
+    let (node_id, project_id) = result.ok_or(anyhow::anyhow!("Image or Project not found")).into_ta_result()?;
 
-    let project = projects_db.get_project(project_id).await.unwrap();
+    let project = projects_db.get_project(project_id).await.map_err(anyhow::Error::msg).into_ta_result()?;
 
     // 2. Fetch Clip Frames
     let dt_project = DTProject::open(&project.full_path).await.into_ta_result()?;
@@ -108,7 +108,7 @@ pub async fn save_all_clip_frames(
                     .get_preview(false)
                     .await
                     .into_ta_result()?
-                    .ok_or(anyhow::anyhow!("Failed to get preview"))?;
+                    .ok_or(anyhow::anyhow!("Failed to get preview")).into_ta_result()?;
 
                 let file_path = output_dir.join(name);
                 fs::write(&file_path, thumb_data).into_ta_result()?;
@@ -166,7 +166,7 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Prepare temp dir
     // -------------------------------------------------
-    let app_data_dir = app.path().app_data_dir().unwrap();
+    let app_data_dir = app.path().app_data_dir().map_err(anyhow::Error::msg).into_ta_result()?;
     let ffmpeg_path = app_data_dir.join("bin").join("ffmpeg");
     let temp_dir = app_data_dir.join("temp_video_frames");
 
@@ -175,9 +175,9 @@ pub async fn create_video_from_frames(
     }
 
     if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
+        fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg).into_ta_result()?;
     }
-    fs::create_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
+    fs::create_dir_all(&temp_dir).map_err(anyhow::Error::msg).into_ta_result()?;
 
     // -------------------------------------------------
     // Ensure output directory exists
@@ -185,7 +185,7 @@ pub async fn create_video_from_frames(
     let output_file = PathBuf::from(&opts.output_file);
 
     if let Some(parent) = output_file.parent() {
-        fs::create_dir_all(parent).map_err(anyhow::Error::msg)?;
+        fs::create_dir_all(parent).map_err(anyhow::Error::msg).into_ta_result()?;
     }
 
     let extension = if opts.use_tensor { "png" } else { "jpg" };
@@ -252,14 +252,14 @@ pub async fn create_video_from_frames(
     // metadata and audio come from the node
     if let Some(handle) = DtResourceHandle::from_image_id(opts.image_id)
         .await
-        .map_err(anyhow::Error::msg)?
+        .map_err(anyhow::Error::msg).into_ta_result()?
     {
-        if let Some(node) = handle.get_history_node().await.map_err(anyhow::Error::msg)? {
+        if let Some(node) = handle.get_history_node().await.map_err(anyhow::Error::msg).into_ta_result()? {
             metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
 
-            if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {
+            if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg).into_ta_result()? {
                 let temp_audio_path = temp_dir.join("audio.wav");
-                fs::write(&temp_audio_path, &audio_wav).map_err(anyhow::Error::msg)?;
+                fs::write(&temp_audio_path, &audio_wav).map_err(anyhow::Error::msg).into_ta_result()?;
                 audio_path = Some(temp_audio_path.to_string_lossy().to_string());
             }
         }
@@ -311,7 +311,7 @@ pub async fn create_video_from_frames(
     ]);
 
     if let Some(metadata) = metadata {
-        let json = serde_json::to_string(&metadata).map_err(anyhow::Error::msg)?;
+        let json = serde_json::to_string(&metadata).map_err(anyhow::Error::msg).into_ta_result()?;
         cmd.args(["-metadata", &format!("comment={}", json)]);
     }
 
@@ -322,13 +322,13 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Spawn and read progress
     // -------------------------------------------------
-    let mut child = cmd.spawn().map_err(anyhow::Error::msg)?;
+    let mut child = cmd.spawn().map_err(anyhow::Error::msg).into_ta_result()?;
 
     let stdout = child.stdout.take().unwrap();
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
-        let line = line.map_err(anyhow::Error::msg)?;
+        let line = line.map_err(anyhow::Error::msg).into_ta_result()?;
 
         // frame=###
         if let Some(f) = line.strip_prefix("frame=") {
@@ -351,7 +351,7 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Wait for finish
     // -------------------------------------------------
-    let status = child.wait().map_err(anyhow::Error::msg)?;
+    let status = child.wait().map_err(anyhow::Error::msg).into_ta_result()?;
 
     if !status.success() {
         return Err(anyhow::anyhow!("FFmpeg failed to generate video").into());
@@ -434,7 +434,7 @@ pub fn check_pattern(
     pattern: String,
     dir: String,
     num_frames: u32,
-) -> Result<CheckPatternResult, String> {
+) -> TAResult<CheckPatternResult> {
     let mut result = CheckPatternResult {
         valid: false,
         clip_id: 1,
@@ -475,7 +475,7 @@ pub fn check_pattern(
     match PathBuf::from(&dir).exists() {
         false => result.output_dir_dne = true,
         true => {
-            let (max_clip, max_frame) = check_files(&dir, &pattern).unwrap();
+            let (max_clip, max_frame) = check_files(&dir, &pattern).into_ta_result()?;
             result.clip_id = (max_clip.max(0) + 1) as u32;
             result.first_safe_index = match clip_token.is_some() {
                 true => 1,

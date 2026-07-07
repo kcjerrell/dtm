@@ -25,7 +25,7 @@ impl Job for ExampleJob {
     // optional
     // async fn on_failed(&self, _ctx: &JobContext, _error: String) {}
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, _ctx: &JobContext) -> anyhow::Result<JobResult> {
         Ok(JobResult::None)
     }
 }

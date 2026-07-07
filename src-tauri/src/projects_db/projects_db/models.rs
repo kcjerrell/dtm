@@ -117,7 +117,7 @@ impl ProjectsDb {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
         let models_list: Vec<ModelInfoImport> =
-            serde_json::from_reader(reader).map_err(|e| e.to_string())?;
+            serde_json::from_reader(reader).map_err(anyhow::Error::msg)?;
         let kvs = models_list.into_iter().map(|m| (m.file.clone(), m));
 
         let models_map: HashMap<String, ModelInfoImport> = HashMap::from_iter(kvs);

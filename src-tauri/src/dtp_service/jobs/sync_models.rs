@@ -2,6 +2,7 @@ use crate::dtp_service::{
     events::DTPEvent,
     jobs::{Job, JobContext, JobResult},
 };
+use anyhow::Context;
 use entity::enums::ModelType;
 use reqwest;
 use serde_json::Value;
@@ -37,12 +38,12 @@ impl Job for SyncModelsJob {
         format!("SyncModelsJob")
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        let pdb = ctx.dtp.get_db().await.unwrap();
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
+        let pdb = ctx.dtp.get_db().await.map_err(anyhow::Error::msg)?;
         for model_info in self.model_info.iter() {
             pdb.scan_model_info(&model_info.path, model_info.model_type)
                 .await
-                .unwrap();
+                .map_err(anyhow::Error::msg)?;
         }
         Ok(JobResult::Event(DTPEvent::ModelsChanged))
     }
@@ -56,16 +57,16 @@ impl Job for FetchModels {
         format!("FetchModels")
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
         let app_data_dir = ctx
             .app_handle
             .get_app_data_dir()
-            .map_err(|e| e.to_string())?;
-        std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+            .context("Failed to get app data dir")?;
+        std::fs::create_dir_all(&app_data_dir).map_err(anyhow::Error::msg)?;
 
         let url = "https://kcjerrell.github.io/dt-models/combined_models.json";
-        let response = reqwest::get(url).await.map_err(|e| e.to_string())?;
-        let json: Value = response.json().await.map_err(|e| e.to_string())?;
+        let response = reqwest::get(url).await.map_err(anyhow::Error::msg)?;
+        let json: Value = response.json().await.map_err(anyhow::Error::msg)?;
 
         let mut model_files = Vec::new();
 
@@ -78,8 +79,8 @@ impl Job for FetchModels {
                 if let Some(arr) = value.as_array() {
                     let file_path = app_data_dir.join(format!("{}.json", key));
                     let file_content =
-                        serde_json::to_string_pretty(arr).map_err(|e| e.to_string())?;
-                    std::fs::write(&file_path, file_content).map_err(|e| e.to_string())?;
+                        serde_json::to_string_pretty(arr).map_err(anyhow::Error::msg)?;
+                    std::fs::write(&file_path, file_content).map_err(anyhow::Error::msg)?;
 
                     let model_type = match key.as_str() {
                         "officialModels" | "communityModels" | "uncuratedModels" => {

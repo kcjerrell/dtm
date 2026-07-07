@@ -14,6 +14,7 @@ use crate::{
         filters::ListImagesFilter,
         folder_cache, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
     },
+    IntoTAResult, TAResult,
 };
 use dtm_macros::dtp_commands;
 
@@ -23,9 +24,9 @@ impl DTPService {
     pub async fn list_projects(
         &self,
         watchfolder_id: Option<i64>,
-    ) -> Result<Vec<ProjectExtra>, String> {
-        let db = self.get_db().await?;
-        Ok(db.list_projects(watchfolder_id).await?)
+    ) -> TAResult<Vec<ProjectExtra>> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        Ok(db.list_projects(watchfolder_id).await.map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
@@ -33,16 +34,16 @@ impl DTPService {
         &self,
         project_id: i64,
         exclude: bool,
-    ) -> Result<(), String> {
-        let db = self.get_db().await?;
+    ) -> TAResult<()> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
 
-        db.update_exclude(project_id, exclude).await?;
+        db.update_exclude(project_id, exclude).await.map_err(anyhow::Error::msg)?;
 
         if !exclude {
-            self.add_job(UpdateProjectJob::from_id(&db, project_id, true, false).await?)
+            self.add_job(UpdateProjectJob::from_id(&db, project_id, true, false).await.map_err(anyhow::Error::msg)?)
         }
 
-        let project = db.get_project(project_id).await?;
+        let project = db.get_project(project_id).await.map_err(anyhow::Error::msg)?;
         self.events
             .emit(crate::dtp_service::events::DTPEvent::ProjectUpdated(
                 project,
@@ -65,8 +66,8 @@ impl DTPService {
         show_video: Option<bool>,
         show_image: Option<bool>,
         show_disconnected: Option<bool>,
-    ) -> Result<ListImagesResult, String> {
-        let db = self.get_db().await?;
+    ) -> TAResult<ListImagesResult> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
         let opts = crate::projects_db::dtos::image::ListImagesOptions {
             project_ids,
             search,
@@ -81,7 +82,7 @@ impl DTPService {
             show_disconnected,
         };
 
-        Ok(db.list_images(opts).await?)
+        Ok(db.list_images(opts).await.map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
@@ -89,21 +90,21 @@ impl DTPService {
         &self,
         project_id: i64,
         preview_id: i64,
-    ) -> Result<Option<crate::projects_db::dtos::image::ImageExtra>, String> {
-        let db = self.get_db().await?;
-        Ok(db.find_image_by_preview_id(project_id, preview_id).await?)
+    ) -> TAResult<Option<crate::projects_db::dtos::image::ImageExtra>> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        Ok(db.find_image_by_preview_id(project_id, preview_id).await.map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
-    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> Result<ClipExtra, String> {
-        let db = self.get_db().await?;
-        Ok(db.get_clip(image_id, clip_id).await?)
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> TAResult<ClipExtra> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        Ok(db.get_clip(image_id, clip_id).await.map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
-    pub async fn list_watch_folders(&self) -> Result<Vec<WatchFolderDTO>, String> {
-        let db = self.get_db().await?;
-        Ok(db.list_watch_folders().await?)
+    pub async fn list_watch_folders(&self) -> TAResult<Vec<WatchFolderDTO>> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        Ok(db.list_watch_folders().await.map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
@@ -111,17 +112,17 @@ impl DTPService {
         &self,
         dt_folder: Option<bool>,
         test_override: Option<String>,
-    ) -> Result<(), String> {
-        let result = get_folder(&self.app_handle, dt_folder, test_override).await?;
+    ) -> TAResult<()> {
+        let result = get_folder(&self.app_handle, dt_folder, test_override).await.into_ta_result()?;
         self.internal_add_watch_folder(result.path, result.bookmark)
-            .await
+            .await.into_ta_result()
     }
 
     pub async fn add_watchfolder(
         self: &Self,
         path: String,
         bookmark: String,
-    ) -> Result<(), String> {
+    ) -> anyhow::Result<()> {
         self.internal_add_watch_folder(path, bookmark).await
     }
 
@@ -129,9 +130,9 @@ impl DTPService {
         &self,
         path: String,
         bookmark: String,
-    ) -> Result<(), String> {
-        let db = self.get_db().await?;
-        let folder = db.add_watch_folder(&path, &bookmark, false).await?;
+    ) -> anyhow::Result<()> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        let folder = db.add_watch_folder(&path, &bookmark, false).await.map_err(anyhow::Error::msg)?;
 
         // Resolve the bookmark and update if needed
         let resolved = folder_cache::resolve_bookmark(folder.id, &bookmark).await;
@@ -140,7 +141,7 @@ impl DTPService {
                 crate::bookmarks::ResolveResult::Resolved(updated_path) => {
                     if updated_path != path {
                         db.update_bookmark_path(folder.id, &bookmark, &updated_path)
-                            .await?;
+                            .await.map_err(anyhow::Error::msg)?;
                     }
                 }
                 crate::bookmarks::ResolveResult::StaleRefreshed {
@@ -148,7 +149,7 @@ impl DTPService {
                     resolved_path,
                 } => {
                     db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
-                        .await?;
+                        .await.map_err(anyhow::Error::msg)?;
                 }
                 crate::bookmarks::ResolveResult::CannotResolve => {
                     // TODO: Mark as missing in DB?
@@ -166,9 +167,9 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn remove_watch_folder(&self, id: i64) -> Result<(), String> {
-        let db = self.get_db().await?;
-        db.remove_watch_folders(vec![id]).await?;
+    pub async fn remove_watch_folder(&self, id: i64) -> TAResult<()> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        db.remove_watch_folders(vec![id]).await.map_err(anyhow::Error::msg)?;
 
         self.events
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
@@ -180,10 +181,10 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> Result<(), String> {
-        let db = self.get_db().await?;
+    pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> TAResult<()> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
         db.update_watch_folder(id, Some(recursive), None, None)
-            .await?;
+            .await.map_err(anyhow::Error::msg)?;
 
         self.events
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
@@ -195,25 +196,25 @@ impl DTPService {
     pub async fn list_models(
         &self,
         model_type: Option<entity::enums::ModelType>,
-    ) -> Result<Vec<ModelExtra>, String> {
-        let db = self.get_db().await?;
-        Ok(db.list_models(model_type).await?)
+    ) -> TAResult<Vec<ModelExtra>> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
+        Ok(db.list_models(model_type).await.map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
-    pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
-        let pdb = self.get_db().await?;
-        let image = pdb.get_image(image_id).await?;
-        let dt_project = pdb.get_dt_project(DtProjectRef::Id(image.project_id)).await?;
+    pub async fn get_metadata(&self, image_id: i64) -> TAResult<DrawThingsMetadata> {
+        let pdb = self.get_db().await.map_err(anyhow::Error::msg)?;
+        let image = pdb.get_image(image_id).await.map_err(anyhow::Error::msg)?;
+        let dt_project = pdb.get_dt_project(DtProjectRef::Id(image.project_id)).await.map_err(anyhow::Error::msg)?;
         let nodes = dt_project
             .get_tensor_history_nodes(Some(ThnFilter::Rowid(image.node_id)), None)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg)?;
         let node = nodes
             .into_iter()
             .next()
-            .ok_or_else(|| "Node not found".to_string())?;
-        DrawThingsMetadata::try_from(&node.node_data()).map_err(|e| e.to_string())
+            .ok_or_else(|| anyhow::anyhow!("Node not found"))?;
+        DrawThingsMetadata::try_from(&node.node_data()).map_err(anyhow::Error::msg).into_ta_result()
     }
 
     #[dtp_command]
@@ -221,12 +222,12 @@ impl DTPService {
         &self,
         project_id: i64,
         tensor_id: String,
-    ) -> Result<TensorSize, String> {
-        let project = self.get_project(project_id).await?;
+    ) -> TAResult<TensorSize> {
+        let project = self.get_project(project_id).await.into_ta_result()?;
         Ok(project
             .get_tensor_size(&tensor_id)
             .await
-            .map_err(|e| e.to_string())?)
+            .map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
@@ -236,19 +237,19 @@ impl DTPService {
         node_id: Option<i64>,
         tensor_id: String,
         as_png: bool,
-    ) -> Result<tauri::ipc::Response, String> {
-        let project = self.get_project(project_id).await?;
+    ) -> TAResult<tauri::ipc::Response> {
+        let project = self.get_project(project_id).await.into_ta_result()?;
         let tensor = project
             .get_tensor_raw(&tensor_id)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg)?;
 
         let metadata = match node_id {
             Some(node) => {
                 let nodes = project
                     .get_tensor_history_nodes(Some(ThnFilter::Rowid(node)), None)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(anyhow::Error::msg)?;
                 nodes.into_iter().next().map(|n| n.node_data())
             }
             None => None,
@@ -262,7 +263,7 @@ impl DTPService {
                 size: None,
             },
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(anyhow::Error::msg)?;
         Ok(tauri::ipc::Response::new(buffer))
     }
 
@@ -273,7 +274,7 @@ impl DTPService {
         _row_id: i64,
         _lineage: i64,
         _logical_time: i64,
-    ) -> Result<Vec<TensorHistoryNode>, String> {
+    ) -> TAResult<Vec<TensorHistoryNode>> {
         // Pending rework — returns empty until find_predecessor_candidates is reimplemented.
         Ok(vec![])
     }
@@ -282,25 +283,25 @@ impl DTPService {
     async fn get_project(
         &self,
         project_id: i64,
-    ) -> Result<std::sync::Arc<crate::projects_db::DTProject>, String> {
-        let db = self.get_db().await?;
+    ) -> anyhow::Result<std::sync::Arc<crate::projects_db::DTProject>> {
+        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
         let project_ref = crate::projects_db::DtProjectRef::Id(project_id);
-        Ok(db.get_dt_project(project_ref).await?)
+        Ok(db.get_dt_project(project_ref).await.map_err(anyhow::Error::msg)?)
     }
 }
 
-async fn get_dt_container(app_handle: &AppHandleWrapper) -> Result<String, String> {
+async fn get_dt_container(app_handle: &AppHandleWrapper) -> anyhow::Result<String> {
     let path = app_handle
         .get_home_dir()
-        .unwrap()
+        .context("Failed to get home dir")?
         .join("Library/Containers/com.liuliu.draw-things/Data");
     Ok(path.to_string_lossy().to_string())
 }
 
-async fn get_dt_data_folder(app_handle: &AppHandleWrapper) -> Result<String, String> {
+async fn get_dt_data_folder(app_handle: &AppHandleWrapper) -> anyhow::Result<String> {
     let path = app_handle
         .get_home_dir()
-        .unwrap()
+        .context("Failed to get home dir")?
         .join("Library/Containers/com.liuliu.draw-things/Data/Documents");
     Ok(path.to_string_lossy().to_string())
 }
@@ -309,7 +310,7 @@ async fn get_folder(
     app_handle: &AppHandleWrapper,
     dt_folder: Option<bool>,
     test_override: Option<String>,
-) -> Result<PickFolderResult, String> {
+) -> anyhow::Result<PickFolderResult> {
     if let Some(test_override) = test_override {
         return Ok(PickFolderResult {
             path: test_override.clone(),
@@ -329,12 +330,12 @@ async fn get_folder(
             match result {
                 Some(result) => {
                     if result.path != get_dt_data_folder(app_handle).await? {
-                        return Err("Must select Documents folder".to_string());
+                        anyhow::bail!("Must select Documents folder");
                     }
                     result
                 }
                 None => {
-                    return Err("Failed to select a folder".to_string());
+                    anyhow::bail!("Failed to select a folder");
                 }
             }
         }
@@ -344,7 +345,7 @@ async fn get_folder(
             match result {
                 Some(result) => result,
                 None => {
-                    return Err("Failed to select a folder".to_string());
+                    anyhow::bail!("Failed to select a folder");
                 }
             }
         }

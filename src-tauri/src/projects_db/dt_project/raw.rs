@@ -3,6 +3,7 @@ use sqlx::{query, AssertSqlSafe, QueryBuilder, Row, Sqlite};
 
 use crate::projects_db::fbs::root_as_tensor_data;
 use crate::projects_db::TensorHistoryTensorData;
+use crate::{IntoTAResult, TAResult};
 
 use super::data::tensor_data::TensorData;
 use super::DTProject;
@@ -97,19 +98,19 @@ impl<'a> DTProjectRaw<'a> {
     pub async fn tensor_data(
         &self,
         query_params: TensorDataQuery,
-    ) -> Result<Vec<TensorData>, String> {
+    ) -> anyhow::Result<Vec<TensorData>> {
         // as long as the only variables are numbers, this is fine.
         let where_clause = query_params.build_where_clause();
         let text = format!("select * from tensordata {}", where_clause);
 
         let q = query(AssertSqlSafe(text));
 
-        let rows = q.fetch_all(&*self.dt_project.pool).await.unwrap();
+        let rows = q.fetch_all(&*self.dt_project.pool).await.map_err(anyhow::Error::msg)?;
 
         rows.into_iter()
             .map(|row| {
                 let p: Vec<u8> = row.get("p");
-                let data = root_as_tensor_data(&p).map_err(|e| e.to_string())?;
+                let data = root_as_tensor_data(&p).map_err(anyhow::Error::msg)?;
                 Ok(TensorData {
                     rowid: row.get("rowid"),
                     lineage: row.get("__pk0"),
@@ -142,10 +143,10 @@ pub async fn dt_project_tensordata(
     idx: Option<i64>,
     first: Option<i64>,
     last: Option<i64>,
-) -> Result<Vec<TensorData>, String> {
+) -> TAResult<Vec<TensorData>> {
     let dt_project = DTProject::get(&project_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(anyhow::Error::msg).into_ta_result()?;
     let raw = DTProjectRaw::new(&dt_project);
 
     let mut query = TensorDataQuery::new();
@@ -165,7 +166,7 @@ pub async fn dt_project_tensordata(
         query.last(l);
     }
 
-    raw.tensor_data(query).await
+    raw.tensor_data(query).await.into_ta_result()
 }
 
 impl From<TensorHistoryTensorData> for TensorData {

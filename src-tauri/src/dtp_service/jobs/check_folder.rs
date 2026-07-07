@@ -61,15 +61,19 @@ impl Job for CheckFolderJob {
         format!("CheckFolderJob for {}", self.path)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
-        ctx.dtp.stop_watch(&self.path).await;
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
+        let _ = ctx.dtp.stop_watch(&self.path).await;
 
         let mut locked_update: Option<bool> = None;
         let mut missing_update: Option<bool> = None;
 
+        let watchfolder_owned;
         let watchfolder = match &self.watchfolder {
             Some(wf) => wf,
-            None => &ctx.pdb.get_watch_folder_by_path(&self.path).await?.unwrap(),
+            None => {
+                watchfolder_owned = ctx.pdb.get_watch_folder_by_path(&self.path).await.map_err(anyhow::Error::msg)?.context("Watch folder not found")?;
+                &watchfolder_owned
+            }
         };
 
         let resolved = resolve_folder(&watchfolder, &ctx.pdb)
@@ -91,7 +95,7 @@ impl Job for CheckFolderJob {
         if locked_update.is_some() || missing_update.is_some() {
             ctx.pdb
                 .update_watch_folder(watchfolder.id, None, missing_update, locked_update)
-                .await?;
+                .await.map_err(anyhow::Error::msg)?;
             ctx.events.emit(DTPEvent::ProjectsChanged);
         }
 
@@ -102,7 +106,7 @@ impl Job for CheckFolderJob {
         // run maintenance tasks (if any) before scheduling follow-up work
         if watchfolder.maint > 0 {
             log::info!("Required maintenance for folder {}", watchfolder.path);
-            run_maintenance(watchfolder.maint, watchfolder, ctx).await?;
+            run_maintenance(watchfolder.maint, watchfolder, ctx).await.map_err(anyhow::Error::msg)?;
         }
 
         if self.sync {
@@ -123,11 +127,11 @@ impl Job for CheckFolderJob {
     }
 
     async fn on_complete(&self, ctx: &JobContext) {
-        ctx.dtp.resume_watch(&self.path, true).await;
+        let _ = ctx.dtp.resume_watch(&self.path, true).await;
     }
 
     async fn on_failed(&self, ctx: &JobContext, _error: String) {
-        ctx.dtp.resume_watch(&self.path, true).await;
+        let _ = ctx.dtp.resume_watch(&self.path, true).await;
     }
 }
 
@@ -137,7 +141,7 @@ impl Into<Arc<dyn Job>> for CheckFolderJob {
     }
 }
 
-async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool, String> {
+async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> anyhow::Result<bool> {
     let cached = folder_cache::get_folder(folder.id);
     if let Some(cached) = cached {
         if cached == folder.path {
@@ -151,7 +155,7 @@ async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool
                 if updated_path != folder.path {
                     db.update_bookmark_path(folder.id, &folder.bookmark, &updated_path)
                         .await
-                        .unwrap();
+                        .map_err(anyhow::Error::msg)?;
                 }
             }
             crate::bookmarks::ResolveResult::StaleRefreshed {
@@ -160,7 +164,7 @@ async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool
             } => {
                 db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
                     .await
-                    .unwrap();
+                    .map_err(anyhow::Error::msg)?;
             }
             crate::bookmarks::ResolveResult::CannotResolve => {
                 // TODO: Mark as missing in DB?

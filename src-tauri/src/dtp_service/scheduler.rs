@@ -40,7 +40,7 @@ struct JobEntry {
     state: JobState,
     /// When set, the job's final result is reported here once it (and all of its
     /// subtasks) resolve. Used by `add_job_front_and_wait` to await a job.
-    on_done: Option<oneshot::Sender<Result<(), String>>>,
+    on_done: Option<oneshot::Sender<anyhow::Result<()>>>,
 }
 
 #[derive(Clone)]
@@ -132,7 +132,7 @@ impl Scheduler {
         match &next_status {
             JobStatus::WaitingForSubtasks(count) => self.shelve_job(job_id, count).await,
             JobStatus::Complete => self.resolve_job(job_id, &self.ctx, Ok(())).await,
-            JobStatus::Failed(e) => self.resolve_job(job_id, &self.ctx, Err(e.clone())).await,
+            JobStatus::Failed(e) => self.resolve_job(job_id, &self.ctx, Err(anyhow::anyhow!(e.clone()))).await,
             _ => {}
         };
 
@@ -199,12 +199,12 @@ impl Scheduler {
 
     async fn handle_result(
         &self,
-        result: Result<JobResult, String>,
+        result: anyhow::Result<JobResult>,
     ) -> (JobStatus, Option<DTPEvent>, Option<Vec<Arc<dyn Job>>>) {
         let result = match result {
             Ok(r) => r,
             Err(e) => {
-                return (JobStatus::Failed(e.clone()), None, None);
+                return (JobStatus::Failed(format!("{:#}", e)), None, None);
             }
         };
 
@@ -227,7 +227,7 @@ impl Scheduler {
     /// Resolves a job, calling on_complete or on_failed, and updates its parent.
     /// If a parent completes all subtasks, it always resolves as successful,
     /// even if some subtasks failed.
-    async fn resolve_job(&self, job_id: JobId, ctx: &JobContext, result: Result<(), String>) {
+    async fn resolve_job(&self, job_id: JobId, ctx: &JobContext, result: anyhow::Result<()>) {
         let mut current_id = Some(job_id);
         let mut current_result = result;
 
@@ -256,20 +256,21 @@ impl Scheduler {
                     }
                 }
                 Err(error) => {
-                    entry.state.status = JobStatus::Failed(error.clone());
+                    let error_str = format!("{:#}", error);
+                    entry.state.status = JobStatus::Failed(error_str.clone());
                     log::warn!(
                         "[Scheduler] Failed job: {} ({}) {}",
                         entry.job.get_label(),
                         entry.state.id,
-                        error
+                        error_str
                     );
-                    entry.job.on_failed(ctx, error.clone()).await;
+                    entry.job.on_failed(ctx, error_str.clone()).await;
                 }
             }
 
             // Notify any caller awaiting this specific job (see add_job_front_and_wait).
             if let Some(done) = entry.on_done.take() {
-                let _ = done.send(current_result.clone());
+                let _ = done.send(current_result);
             }
 
             current_id = self.update_parent_job(&entry, ctx).await;
@@ -302,12 +303,12 @@ impl Scheduler {
     ///
     /// This lets callers run a normally-passive job (e.g. a project sync) on demand
     /// and block on its completion before continuing.
-    pub async fn add_job_front_and_wait<T: Job + 'static>(&self, job: T) -> Result<(), String> {
+    pub async fn add_job_front_and_wait<T: Job + 'static>(&self, job: T) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
         self.add_job_internal(Arc::new(job), None, true, Some(tx))
             .await;
         rx.await
-            .unwrap_or_else(|_| Err("Job was dropped before completion".to_string()))
+            .context("Job was dropped before completion")?
     }
 
     async fn add_job_internal(
@@ -315,7 +316,7 @@ impl Scheduler {
         job: Arc<dyn Job>,
         parent_id: Option<JobId>,
         front: bool,
-        on_done: Option<oneshot::Sender<Result<(), String>>>,
+        on_done: Option<oneshot::Sender<anyhow::Result<()>>>,
     ) {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let entry = JobEntry {

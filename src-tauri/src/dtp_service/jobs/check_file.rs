@@ -21,14 +21,14 @@ impl Job for CheckFileJob {
         "Check file".to_string()
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
         let watchfolder = ctx
             .pdb
             .get_watch_folder_for_path(&self.project_path)
             .await
-            .unwrap();
+            .map_err(anyhow::Error::msg)?;
         if watchfolder.is_none() {
-            return Err("Watch folder not found".to_string());
+            anyhow::bail!("Watch folder not found");
         }
         let watchfolder = watchfolder.unwrap();
         let project_path = self
@@ -40,7 +40,7 @@ impl Job for CheckFileJob {
             .pdb
             .get_project_by_path(watchfolder.id, &project_path)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg)?;
 
         if !fs::exists(&self.project_path).unwrap_or(false) {
             log::debug!("File does not exist: {}", self.project_path);
@@ -59,15 +59,15 @@ impl Job for CheckFileJob {
             }
         }
 
-        let metadata = fs::metadata(&self.project_path).unwrap();
+        let metadata = fs::metadata(&self.project_path).map_err(anyhow::Error::msg)?;
         let filesize = metadata.len() as i64;
-        let modified = system_time_to_epoch_secs(metadata.modified().unwrap());
+        let modified = system_time_to_epoch_secs(metadata.modified().map_err(anyhow::Error::msg)?);
 
         match entity {
             // if an entity was found, compare size and modified
             Some(entity) => {
                 log::debug!("Project found for path: {}", self.project_path);
-                if entity.filesize.unwrap_or(0) != filesize || entity.modified != modified {
+                if entity.filesize.unwrap_or(0) != filesize || entity.modified != (modified.unwrap_or(0)) {
                     let job = UpdateProjectJob {
                         project_id: entity.id,
                         filesize: filesize,

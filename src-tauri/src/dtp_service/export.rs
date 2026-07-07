@@ -18,7 +18,7 @@ use crate::{
         write_jpeg_with_metadata, DecodeTensorOptions, DtProjectRef, DtResourceHandle,
         DtResourceRef,
     },
-    ResourceHandle,
+    IntoTAResult, ResourceHandle, TAResult,
 };
 
 #[derive(Debug, Deserialize)]
@@ -43,22 +43,22 @@ impl DTPService {
         &self,
         project_ids: Vec<i64>,
         options: ProjectExportOptions,
-    ) -> Result<Vec<String>, String> {
+    ) -> TAResult<Vec<String>> {
         // rescan all referenced projects so the export reflects the latest state
         self.sync_projects_and_wait(project_ids.clone(), true)
             .await?;
 
-        let db = self.get_db().await?;
+        let db = self.get_db().await.map_err(anyhow::Error::msg).into_ta_result()?;
 
         // make sure the destination exists
         let output_folder = PathBuf::from(&options.output_folder);
-        fs::create_dir_all(&output_folder).map_err(|e| e.to_string())?;
+        fs::create_dir_all(&output_folder).map_err(anyhow::Error::msg).into_ta_result()?;
 
         // root temp directory for staging exported images before zipping
         let temp_root = self
             .app_handle
             .get_app_data_dir()
-            .map_err(|e| e.to_string())?
+            .map_err(anyhow::Error::msg).into_ta_result()?
             .join("temp_project_export");
 
         // total image count across all projects, used for the progress bar
@@ -69,7 +69,7 @@ impl DTPService {
                 show_disconnected: Some(true),
                 ..Default::default()
             })
-            .await?
+            .await.map_err(anyhow::Error::msg).into_ta_result()?
             .total as usize;
 
         // shared, monotonically increasing count of finished images across all projects
@@ -80,17 +80,17 @@ impl DTPService {
         let mut zip_paths = Vec::with_capacity(project_ids.len());
 
         for project_id in &project_ids {
-            let project = db.get_project(*project_id).await?;
+            let project = db.get_project(*project_id).await.map_err(anyhow::Error::msg).into_ta_result()?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = db.open_dt_project(DtProjectRef::Id(*project_id)).await?;
+            let dt_project = db.open_dt_project(DtProjectRef::Id(*project_id)).await.map_err(anyhow::Error::msg).into_ta_result()?;
 
             // fresh temp directory per project
             let temp_dir = temp_root.join(format!("project_{}", project_id));
             if temp_dir.exists() {
-                fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+                fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg).into_ta_result()?;
             }
-            fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+            fs::create_dir_all(&temp_dir).map_err(anyhow::Error::msg).into_ta_result()?;
 
             // images for this project, oldest first so the file ordering matches creation order
             let images = db
@@ -100,7 +100,7 @@ impl DTPService {
                     show_disconnected: Some(true),
                     ..Default::default()
                 })
-                .await?
+                .await.map_err(anyhow::Error::msg).into_ta_result()?
                 .images
                 .unwrap_or_default();
 
@@ -118,7 +118,7 @@ impl DTPService {
                     .clone()
                     .acquire_owned()
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(anyhow::Error::msg).into_ta_result()?;
 
                 let dt_project = dt_project.clone();
                 let app_handle = self.app_handle.clone();
@@ -140,12 +140,12 @@ impl DTPService {
                             Some(ThnData::tensordata()),
                         )
                         .await
-                        .map_err(|e| e.to_string())?;
+                        .map_err(anyhow::Error::msg)?;
                     let node = match nodes.into_iter().next() {
                         Some(node) => node,
                         None => {
                             exported.fetch_add(1, Ordering::Relaxed);
-                            return Ok::<(), String>(());
+                            return Ok::<(), anyhow::Error>(());
                         }
                     };
                     let node_data = node.node_data();
@@ -162,9 +162,9 @@ impl DTPService {
                         let tensor = dt_project
                             .get_tensor_raw(&name)
                             .await
-                            .map_err(|e| e.to_string())?;
+                            .map_err(anyhow::Error::msg)?;
                         let path = temp_dir.join(format!("{}.png", filename_base));
-                        tokio::task::spawn_blocking(move || -> Result<(), String> {
+                        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
                             let png = decode_tensor(
                                 tensor,
                                 DecodeTensorOptions {
@@ -173,11 +173,11 @@ impl DTPService {
                                     size: None,
                                 },
                             )
-                            .map_err(|e| e.to_string())?;
-                            fs::write(path, png).map_err(|e| e.to_string())
+                            .map_err(anyhow::Error::msg)?;
+                            fs::write(path, png).map_err(anyhow::Error::msg)
                         })
                         .await
-                        .map_err(|e| e.to_string())??;
+                        .map_err(anyhow::Error::msg)??;
                     } else {
                         // faster: use the preview jpeg directly, writing metadata into the jpg
                         let handle = DtResourceHandle::new(
@@ -187,16 +187,16 @@ impl DTPService {
                         let jpg = handle
                             .get_preview(false)
                             .await
-                            .map_err(|e| e.to_string())?
-                            .ok_or_else(|| "Failed to get preview".to_string())?;
+                            .map_err(anyhow::Error::msg)?
+                            .ok_or_else(|| anyhow::anyhow!("Failed to get preview"))?;
                         let path = temp_dir.join(format!("{}.jpg", filename_base));
-                        tokio::task::spawn_blocking(move || -> Result<(), String> {
+                        tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
                             let jpg = write_jpeg_with_metadata(&jpg, &node_data)
-                                .map_err(|e| e.to_string())?;
-                            fs::write(path, jpg).map_err(|e| e.to_string())
+                                .map_err(anyhow::Error::msg)?;
+                            fs::write(path, jpg).map_err(anyhow::Error::msg)
                         })
                         .await
-                        .map_err(|e| e.to_string())??;
+                        .map_err(anyhow::Error::msg)??;
                     }
 
                     let current = exported.fetch_add(1, Ordering::Relaxed) + 1;
@@ -212,14 +212,14 @@ impl DTPService {
             }
 
             for handle in handles {
-                handle.await.map_err(|e| e.to_string())??;
+                handle.await.map_err(anyhow::Error::msg).into_ta_result()??;
             }
 
             // zip the staged images into the output folder, then clean up.
             // a numeric suffix is added if an archive of the same name exists
             // so an export never overwrites a previous one.
             let zip_path = unique_path(&output_folder, &sanitize(&project.name), "zip");
-            zip_dir(&temp_dir, &zip_path)?;
+            zip_dir(&temp_dir, &zip_path).map_err(anyhow::Error::msg).into_ta_result()?;
             let _ = fs::remove_dir_all(&temp_dir);
             zip_paths.push(zip_path.to_string_lossy().into_owned());
         }
@@ -303,14 +303,14 @@ fn sanitize(name: &str) -> String {
         .to_string()
 }
 
-fn zip_dir(src: &Path, dest: &Path) -> Result<(), String> {
-    let file = fs::File::create(dest).map_err(|e| e.to_string())?;
+fn zip_dir(src: &Path, dest: &Path) -> anyhow::Result<()> {
+    let file = fs::File::create(dest).map_err(anyhow::Error::msg)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
 
     let mut entries: Vec<PathBuf> = fs::read_dir(src)
-        .map_err(|e| e.to_string())?
+        .map_err(anyhow::Error::msg)?
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.is_file())
         .collect();
@@ -320,12 +320,12 @@ fn zip_dir(src: &Path, dest: &Path) -> Result<(), String> {
         let name = path
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| "Invalid file name".to_string())?;
-        zip.start_file(name, options).map_err(|e| e.to_string())?;
-        let data = fs::read(&path).map_err(|e| e.to_string())?;
-        zip.write_all(&data).map_err(|e| e.to_string())?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?;
+        zip.start_file(name, options).map_err(anyhow::Error::msg)?;
+        let data = fs::read(&path).map_err(anyhow::Error::msg)?;
+        zip.write_all(&data).map_err(anyhow::Error::msg)?;
     }
 
-    zip.finish().map_err(|e| e.to_string())?;
+    zip.finish().map_err(anyhow::Error::msg)?;
     Ok(())
 }

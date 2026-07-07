@@ -26,12 +26,12 @@ impl Job for SyncJob {
     async fn on_complete(self: &Self, ctx: &JobContext) {
         ctx.events.emit(DTPEvent::SyncComplete);
     }
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(self: &Self, ctx: &JobContext) -> anyhow::Result<JobResult> {
         let folders = ctx
             .pdb
             .list_watch_folders()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(anyhow::Error::msg)?;
 
         let mut subtasks: Vec<Arc<dyn Job>> = Vec::new();
 
