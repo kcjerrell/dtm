@@ -84,7 +84,6 @@ impl Tensor {
                             i += 1;
                         }
                     }
-                    }
                     TensorValue::F32(src) => {
                         let mut i = 0usize;
                         while i < src.len() {
@@ -192,10 +191,10 @@ impl TryFrom<TensorRaw> for Tensor {
     fn try_from(tensor_raw: TensorRaw) -> anyhow::Result<Tensor, anyhow::Error> {
         let tensor_data = get_decompressed(&tensor_raw)?;
         let dtype = if tensor_data.is_f_32() {
-                    TensorDType::F32
-                } else {
-                    TensorDType::U8
-                };
+            TensorDType::F32
+        } else {
+            TensorDType::U8
+        };
 
         let tensor = if tensor_raw.name.starts_with("binary_mask")
             || tensor_raw.name.starts_with("scribble")
@@ -222,7 +221,7 @@ impl TryFrom<TensorRaw> for Tensor {
             let width = tensor_raw.width as u32;
             let height = tensor_raw.height as u32;
             let channels = (tensor_raw.channels as u32).max(1);
-            
+
             Tensor {
                 n,
                 width,
@@ -232,7 +231,7 @@ impl TryFrom<TensorRaw> for Tensor {
                 data: tensor_data,
             }
         };
-        
+
         Ok(tensor)
     }
 }
@@ -246,7 +245,8 @@ fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
     }
     // as far as i know, all tensors are either fpzipped or deflate u8, but that might not be correct.
     // so we'll check the data length first, return if even, and then finally try deflate
-    let buffer_len = tensor.n.max(1) * tensor.height.max(1) * tensor.width.max(1) * tensor.channels.max(1);
+    let buffer_len =
+        tensor.n.max(1) * tensor.height.max(1) * tensor.width.max(1) * tensor.channels.max(1);
 
     // buffer must be 4 bytes per element
     if tensor.data.len() == (buffer_len as usize * 4) {
