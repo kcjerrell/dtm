@@ -172,7 +172,8 @@ impl DTPService {
                                     history_node: Some(node_data),
                                     size: None,
                                 },
-                            )?;
+                            )
+                            .map_err(|e| e.to_string())?;
                             fs::write(path, png).map_err(|e| e.to_string())
                         })
                         .await
