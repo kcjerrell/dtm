@@ -8,11 +8,12 @@ use semver::Version;
 use tauri::{AppHandle, Manager};
 
 use crate::dtp_service::{get_db_url, jobs::MaintenanceTaskKind, AppHandleWrapper};
+use anyhow::{Context, Result};
 
 /// Public entry point (your requested API)
-pub async fn run_migrations(app: AppHandle) -> Result<(), String> {
+pub async fn run_migrations(app: AppHandle) -> Result<()> {
     let current_version =
-        Version::parse(&app.package_info().version.to_string()).map_err(|e| e.to_string())?;
+        Version::parse(&app.package_info().version.to_string()).context("Failed to parse current version")?;
 
     let path = version_file(&app)?;
 
@@ -37,10 +38,10 @@ pub async fn run_migrations(app: AppHandle) -> Result<(), String> {
 // ─────────────────────────────────────
 //
 
-fn version_file(app: &AppHandle) -> Result<PathBuf, String> {
-    let mut path = app.path().app_data_dir().map_err(|e| e.to_string())?;
+fn version_file(app: &AppHandle) -> Result<PathBuf> {
+    let mut path = app.path().app_data_dir().context("Failed to get app data dir")?;
 
-    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&path).context("Failed to create app data dir")?;
 
     let filename = if cfg!(debug_assertions) {
         "dev_version.txt"
@@ -55,8 +56,8 @@ fn read_last_version(path: &PathBuf) -> Option<String> {
     fs::read_to_string(path).ok().map(|s| s.trim().to_string())
 }
 
-fn write_version(path: &PathBuf, version: &str) -> Result<(), String> {
-    fs::write(path, version).map_err(|e| e.to_string())
+fn write_version(path: &PathBuf, version: &str) -> Result<()> {
+    fs::write(path, version).context("Failed to write version file")
 }
 
 //
@@ -107,7 +108,7 @@ impl Versions {
 // ─────────────────────────────────────
 //
 
-async fn run_migration(app: AppHandle, version: Versions) -> Result<(), String> {
+async fn run_migration(app: AppHandle, version: Versions) -> Result<()> {
     match version {
         Versions::V0_5_0 => migrate_0_5_0(app).await,
     }
@@ -119,28 +120,28 @@ async fn run_migration(app: AppHandle, version: Versions) -> Result<(), String> 
 // ─────────────────────────────────────
 //
 
-async fn migrate_0_5_0(app: AppHandle) -> Result<(), String> {
+async fn migrate_0_5_0(app: AppHandle) -> Result<()> {
     log::info!("Running migration 0.5.0");
 
     let store_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| e.to_string())?
+        .context("Failed to get app data dir")?
         .join("tauri-plugin-valtio");
     let settings_file_debug = store_dir.join("dev_dtp-settings.dev.json");
     let settings_file_dev = store_dir.join("dtp-settings.dev.json");
     let settings_file = store_dir.join("dtp-settings.json");
 
     if settings_file_debug.exists() {
-        fs::remove_file(settings_file_debug).map_err(|e| e.to_string())?;
+        fs::remove_file(settings_file_debug).context("Failed to remove dev settings file")?;
     }
 
     if settings_file_dev.exists() {
-        fs::remove_file(settings_file_dev).map_err(|e| e.to_string())?;
+        fs::remove_file(settings_file_dev).context("Failed to remove dev settings file")?;
     }
 
     if settings_file.exists() {
-        fs::remove_file(settings_file).map_err(|e| e.to_string())?;
+        fs::remove_file(settings_file).context("Failed to remove settings file")?;
     }
 
     add_db_maintenance(app, MaintenanceTaskKind::RescanClipCount).await?;
@@ -148,12 +149,12 @@ async fn migrate_0_5_0(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result<(), String> {
+async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result<()> {
     let wrapper = AppHandleWrapper::new(Some(app));
     let db_path: String = get_db_url(&wrapper);
     let db = Database::connect(db_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .context("Failed to connect to database for migration")?;
 
     let maint_value: u32 = task as u32;
 
@@ -161,7 +162,7 @@ async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result
         .col_expr(Column::Maint, Expr::col(Column::Maint).bit_or(maint_value))
         .exec(&db)
         .await
-        .map_err(|e| e.to_string())?;
+        .context("Failed to update watch folders for maintenance")?;
 
-    Ok({})
+    Ok(())
 }

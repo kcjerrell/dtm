@@ -434,7 +434,7 @@ pub fn check_pattern(
     pattern: String,
     dir: String,
     num_frames: u32,
-) -> Result<CheckPatternResult, String> {
+) -> crate::TAResult<CheckPatternResult> {
     let mut result = CheckPatternResult {
         valid: false,
         clip_id: 1,

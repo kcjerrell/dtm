@@ -360,7 +360,7 @@ pub fn write_png_with_usercomment(
 pub fn write_jpeg_with_metadata(
     jpg: &[u8],
     history: &TensorHistoryNodeData,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> anyhow::Result<Vec<u8>> {
     use img_parts::jpeg::{markers, Jpeg, JpegSegment};
     use img_parts::Bytes;
 

@@ -63,7 +63,17 @@ pub fn dtm_command(args: TokenStream, input: TokenStream) -> TokenStream {
     if let ReturnType::Type(_, ty) = &signature.output {
         if let Type::Path(tp) = &**ty {
             if let Some(last) = tp.path.segments.last() {
-                if last.ident == "Result" {
+                if last.ident == "TAResult" {
+                    // TAResult<T> is Result<T, TACommandError> — single generic arg
+                    if let PathArguments::AngleBracketed(args) = &last.arguments {
+                        if args.args.len() >= 1 {
+                            if let GenericArgument::Type(inner_ty) = &args.args[0] {
+                                success_type = quote! { #inner_ty };
+                            }
+                        }
+                    }
+                    error_type = quote! { crate::error::TACommandError };
+                } else if last.ident == "Result" {
                     if let PathArguments::AngleBracketed(args) = &last.arguments {
                         if args.args.len() >= 1 {
                             if let GenericArgument::Type(inner_ty) = &args.args[0] {

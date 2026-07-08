@@ -12,6 +12,7 @@ use crate::{
     dtp_service::jobs::JobContext,
     projects_db::{dtos::watch_folder::WatchFolderDTO, maintenance::Maintenance, DtProjectRef},
 };
+use anyhow::{Context, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u32)]
@@ -31,7 +32,7 @@ pub async fn run_maintenance(
     maint: u32,
     watchfolder: &WatchFolderDTO,
     ctx: &JobContext,
-) -> Result<(), String> {
+) -> Result<()> {
     let mut remaining_maint = maint;
 
     for kind in TASK_KINDS {
@@ -59,16 +60,14 @@ pub async fn run_maintenance(
             let model: watch_folders::Model = watch_folders::Entity::find_by_id(watchfolder.id)
                 .into_model()
                 .one(&ctx.pdb.db)
-                .await
-                .map_err(|e| e.to_string())?
-                .unwrap();
+                .await?
+                .context("Watch folder not found")?;
 
             let mut model = model.into_active_model();
             model.maint = Set(remaining_maint);
             watch_folders::Entity::update(model)
                 .exec(&ctx.pdb.db)
-                .await
-                .map_err(|e| e.to_string())?;
+                .await?;
         }
     }
 
@@ -80,7 +79,7 @@ struct ClipCheck {
     project_id: i64,
     clip_id: i64,
 }
-async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Result<(), String> {
+async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Result<()> {
     let subquery = Query::select()
         .expr(Expr::val(1))
         .from(projects::Entity)
@@ -98,8 +97,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
         .column(images::Column::ClipId)
         .into_model::<ClipCheck>()
         .all(&ctx.pdb.db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
 
     log::debug!(
         "Found {} videos with potentially incorrect num_frames",
@@ -112,6 +110,8 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
     }
 
     for (project_id, images) in projects.drain() {
+        // Here, ctx.pdb.get_dt_project returns Result<Arc<DTProject>, MixedError>
+        // MixedError implements Into<anyhow::Error>, so ? works.
         let dt_project = ctx.pdb.get_dt_project(DtProjectRef::Id(project_id)).await?;
 
         log::debug!(
@@ -123,8 +123,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
         let clip_ids = images.iter().map(|im| im.clip_id).collect();
         let clip_counts = dt_project
             .get_clip_counts(clip_ids)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
 
         // update images.num_frames with correct counts
         for image in images {
@@ -134,8 +133,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
                 .filter(images::Column::ProjectId.eq(project_id))
                 .filter(images::Column::ClipId.eq(image.clip_id))
                 .exec(&ctx.pdb.db)
-                .await
-                .map_err(|e| e.to_string())?;
+                .await?;
         }
     }
 
@@ -145,7 +143,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
 async fn check_sampler_values(
     watchfolder: &WatchFolderDTO,
     ctx: &JobContext,
-) -> Result<(), String> {
+) -> Result<()> {
     let images: Vec<images::Model> = images::Entity::find()
         .join(JoinType::InnerJoin, images::Relation::Projects.def())
         .filter(projects::Column::WatchfolderId.eq(watchfolder.id))
@@ -153,8 +151,7 @@ async fn check_sampler_values(
         .filter(images::Column::Sampler.eq(1))
         .into_model()
         .all(&ctx.pdb.db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
 
     let mut projects: HashMap<i64, Vec<images::Model>> = HashMap::new();
     for image in images {
@@ -168,8 +165,7 @@ async fn check_sampler_values(
 
         let samplers = &dt_project
             .get_samplers(&images.iter().map(|im| im.node_id).collect())
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
 
         for image in images {
             if let Some(sampler) = samplers.get(&image.node_id) {
@@ -183,8 +179,7 @@ async fn check_sampler_values(
     for model in fix {
         images::Entity::update(model)
             .exec(&ctx.pdb.db)
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
     }
 
     Ok(())

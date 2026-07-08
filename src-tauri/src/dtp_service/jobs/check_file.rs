@@ -26,7 +26,7 @@ impl Job for CheckFileJob {
             .pdb
             .get_watch_folder_for_path(&self.project_path)
             .await
-            .unwrap();
+            .map_err(|e| e.to_string())?;
         if watchfolder.is_none() {
             return Err("Watch folder not found".to_string());
         }

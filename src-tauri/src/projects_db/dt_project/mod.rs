@@ -164,7 +164,7 @@ impl DTProject {
         dt_project
     }
 
-    pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
+    pub async fn get(path: &str) -> anyhow::Result<Arc<DTProject>> {
         let cell = PROJECT_CACHE
             .entry(path.to_string())
             .or_insert_with(|| Arc::new(OnceCell::new()))
@@ -189,7 +189,7 @@ impl DTProject {
             Err(e) => {
                 // Remove the empty OnceCell so the next caller retries fresh
                 PROJECT_CACHE.remove(path);
-                Err(e)
+                Err(e.into())
             }
         }
     }
