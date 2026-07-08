@@ -17,10 +17,10 @@ impl TensorHistoryImport {
         has_scribble: bool,
         has_shuffle: bool,
         has_mask: bool,
-    ) -> Result<Self, String> {
+    ) -> anyhow::Result<Self> {
         // root_as_tensor_history_node returns a table accessor borrowed from blob
         let node = root_as_tensor_history_node(blob)
-            .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("flatbuffers parse error: {:?}", e))?;
 
         let loras: Vec<ModelAndWeight> = node
             .loras()

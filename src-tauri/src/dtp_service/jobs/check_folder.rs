@@ -10,6 +10,7 @@ use crate::{
     },
     projects_db::{dtos::watch_folder::WatchFolderDTO, folder_cache, ProjectsDb},
 };
+use anyhow::{Context, Result};
 
 #[derive(Debug, Clone)]
 pub struct CheckFolderJob {
@@ -68,8 +69,11 @@ impl Job for CheckFolderJob {
         let mut missing_update: Option<bool> = None;
 
         let watchfolder = match &self.watchfolder {
-            Some(wf) => wf,
-            None => &ctx.pdb.get_watch_folder_by_path(&self.path).await?.unwrap(),
+            Some(wf) => wf.clone(),
+            None => ctx.pdb.get_watch_folder_by_path(&self.path)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "Watch folder not found".to_string())?,
         };
 
         let resolved = resolve_folder(&watchfolder, &ctx.pdb)
@@ -91,7 +95,8 @@ impl Job for CheckFolderJob {
         if locked_update.is_some() || missing_update.is_some() {
             ctx.pdb
                 .update_watch_folder(watchfolder.id, None, missing_update, locked_update)
-                .await?;
+                .await
+                .map_err(|e| e.to_string())?;
             ctx.events.emit(DTPEvent::ProjectsChanged);
         }
 
@@ -102,7 +107,9 @@ impl Job for CheckFolderJob {
         // run maintenance tasks (if any) before scheduling follow-up work
         if watchfolder.maint > 0 {
             log::info!("Required maintenance for folder {}", watchfolder.path);
-            run_maintenance(watchfolder.maint, watchfolder, ctx).await?;
+            run_maintenance(watchfolder.maint, &watchfolder, ctx)
+                .await
+                .map_err(|e| e.to_string())?;
         }
 
         if self.sync {
@@ -137,7 +144,7 @@ impl Into<Arc<dyn Job>> for CheckFolderJob {
     }
 }
 
-async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool, String> {
+async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool> {
     let cached = folder_cache::get_folder(folder.id);
     if let Some(cached) = cached {
         if cached == folder.path {
@@ -150,8 +157,7 @@ async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool
             crate::bookmarks::ResolveResult::Resolved(updated_path) => {
                 if updated_path != folder.path {
                     db.update_bookmark_path(folder.id, &folder.bookmark, &updated_path)
-                        .await
-                        .unwrap();
+                        .await?;
                 }
             }
             crate::bookmarks::ResolveResult::StaleRefreshed {
@@ -159,8 +165,7 @@ async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool
                 resolved_path,
             } => {
                 db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
-                    .await
-                    .unwrap();
+                    .await?;
             }
             crate::bookmarks::ResolveResult::CannotResolve => {
                 // TODO: Mark as missing in DB?

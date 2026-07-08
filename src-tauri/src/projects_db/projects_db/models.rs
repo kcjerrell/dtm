@@ -5,6 +5,7 @@ use crate::projects_db::dtos::model::ModelExtra;
 use entity::{enums::ModelType, image_controls, image_loras, images, models};
 use sea_orm::{sea_query::OnConflict, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set};
 use serde::Deserialize;
+use anyhow::Result;
 
 use super::{MixedError, ProjectsDb};
 
@@ -113,11 +114,11 @@ impl ProjectsDb {
         &self,
         path: &str,
         model_type: ModelType,
-    ) -> Result<usize, MixedError> {
+    ) -> Result<usize> {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
         let models_list: Vec<ModelInfoImport> =
-            serde_json::from_reader(reader).map_err(|e| e.to_string())?;
+            serde_json::from_reader(reader)?;
         let kvs = models_list.into_iter().map(|m| (m.file.clone(), m));
 
         let models_map: HashMap<String, ModelInfoImport> = HashMap::from_iter(kvs);

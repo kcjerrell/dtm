@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::str::FromStr;
 
 use crate::dtp_service::AppHandleWrapper;
@@ -11,15 +12,15 @@ pub async fn pick_folder_command(
     app: State<'_, AppHandleWrapper>,
     default_path: Option<String>,
     button_text: Option<String>,
-) -> Result<Option<PickFolderResult>, String> {
-    pick_folder(&app, default_path, button_text).await
+) -> crate::TAResult<Option<PickFolderResult>> {
+    Ok(pick_folder(&app, default_path, button_text).await?)
 }
 
 pub async fn pick_folder(
     app: &AppHandleWrapper,
     default_path: Option<String>,
-    button_text: Option<String>,
-) -> Result<Option<PickFolderResult>, String> {
+    _button_text: Option<String>,
+) -> Result<Option<PickFolderResult>> {
     let app = app.app_handle.clone().unwrap();
     let folder_override = match default_path {
         Some(path) => match path.starts_with("TESTPATH::") {
@@ -50,7 +51,11 @@ pub async fn pick_folder(
 }
 
 #[command]
-pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String> {
+pub async fn resolve_bookmark(bookmark: String) -> crate::TAResult<ResolveResult> {
+    Ok(resolve_bookmark_impl(bookmark).await?)
+}
+
+pub async fn resolve_bookmark_impl(bookmark: String) -> anyhow::Result<ResolveResult> {
     if bookmark.starts_with("TESTBOOKMARK::") {
         return Ok(ResolveResult::Resolved(
             bookmark.split("::").last().unwrap().to_string(),
@@ -62,7 +67,7 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
 }
 
 #[command]
-pub async fn stop_accessing_bookmark(_bookmark: String) -> Result<(), String> {
+pub async fn stop_accessing_bookmark(_bookmark: String) -> crate::TAResult<()> {
     // No-op on Linux
     Ok(())
 }

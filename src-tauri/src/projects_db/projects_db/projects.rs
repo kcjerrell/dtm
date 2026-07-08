@@ -21,13 +21,13 @@ impl ProjectsDb {
         &self,
         watch_folder_id: i64,
         relative_path: &str,
-    ) -> Result<ProjectExtra, MixedError> {
+    ) -> anyhow::Result<ProjectExtra> {
         let watch_folder_path = folder_cache::get_folder(watch_folder_id)
-            .ok_or_else(|| "Watch folder not found in cache".to_string())?;
+            .ok_or_else(|| anyhow::anyhow!("Watch folder not found in cache"))?;
         let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
         let full_path_str = full_path
             .to_str()
-            .ok_or_else(|| "Invalid path".to_string())?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid path"))?;
 
         let dt_project = DTProject::get(full_path_str).await?;
         let fingerprint = dt_project.get_fingerprint().await?;
@@ -69,7 +69,8 @@ impl ProjectsDb {
             .one(&self.db)
             .await?;
 
-        let mut project = result.ok_or_else(|| MixedError::Other(format!("Project {id} not found")))?;
+        let mut project =
+            result.ok_or_else(|| MixedError::Other(format!("Project {id} not found")))?;
         project.populate();
 
         Ok(project)
@@ -178,7 +179,7 @@ impl ProjectsDb {
     pub async fn get_dt_project(
         &self,
         project_ref: crate::projects_db::DtProjectRef,
-    ) -> Result<std::sync::Arc<DTProject>, MixedError> {
+    ) -> anyhow::Result<std::sync::Arc<DTProject>> {
         match project_ref {
             crate::projects_db::DtProjectRef::Db(project) => Ok(project),
             crate::projects_db::DtProjectRef::Id(id) => {
@@ -200,7 +201,9 @@ impl ProjectsDb {
             crate::projects_db::DtProjectRef::Db(project) => Ok(project),
             crate::projects_db::DtProjectRef::Id(id) => {
                 let project = self.get_project(id).await?;
-                Ok(std::sync::Arc::new(DTProject::open(&project.full_path).await?))
+                Ok(std::sync::Arc::new(
+                    DTProject::open(&project.full_path).await?,
+                ))
             }
             crate::projects_db::DtProjectRef::Path(path) => {
                 Ok(std::sync::Arc::new(DTProject::open(&path).await?))
