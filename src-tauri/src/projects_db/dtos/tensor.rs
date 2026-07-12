@@ -10,6 +10,8 @@ use crate::projects_db::{
     tensor_history_tensor_data::TensorHistoryTensorData,
 };
 use chrono::{DateTime, NaiveDateTime};
+use sqlx::{FromRow, Row};
+use sqlx::sqlite::SqliteRow;
 
 pub const PREFIX_TENSOR: &str = "tensor_history";
 pub const PREFIX_MASK: &str = "binary_mask";
@@ -338,6 +340,35 @@ pub struct TensorRaw {
     pub channels: i32,
     pub dim: Vec<u8>,
     pub data: Vec<u8>,
+}
+
+impl FromRow<'_, SqliteRow> for TensorRaw {
+    fn from_row(row: &SqliteRow) -> Result<Self, sqlx::Error> {
+        let name: String = row.get("name");
+        let tensor_type: i64 = row.get("type");
+        let format: i32 = row.get("format");
+        let data_type: i32 = row.get("datatype");
+        let dim: Vec<u8> = row.get("dim");
+        let data: Vec<u8> = row.get("data");
+
+        let n = i32::from_le_bytes(dim[0..4].try_into().ok().unwrap());
+        let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
+        let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
+        let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
+
+        Ok(Self {
+            name,
+            tensor_type,
+            format,
+            data_type,
+            n,
+            height,
+            width,
+            channels,
+            dim,
+            data,
+        })
+    }
 }
 
 #[derive(serde::Serialize, Debug, Clone)]

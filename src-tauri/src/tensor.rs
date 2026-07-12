@@ -78,6 +78,9 @@ impl Tensor {
 
                 match &self.data {
                     TensorValue::U8(src) => {
+                        if out.len() != src.len() {
+                            return Err(anyhow::anyhow!("Tensor data length mismatch: expected {}, got {}", out.len(), src.len()));
+                        }
                         let mut i = 0usize;
                         while i < out.len().min(src.len()) {
                             out[i] = if src[i] > 0 { 255 } else { 0 };
@@ -85,6 +88,9 @@ impl Tensor {
                         }
                     }
                     TensorValue::F32(src) => {
+                        if out.len() != src.len() {
+                            return Err(anyhow::anyhow!("Tensor data length mismatch: expected {}, got {}", out.len(), src.len()));
+                        }
                         let mut i = 0usize;
                         while i < src.len() {
                             let v = src[i];

@@ -95,6 +95,7 @@ img-parts = "0.3.3"
 tauri-plugin-os = "2"
 strum = { version = "0.28.0", features = ["derive"] }
 fpzip-rs = "0.1.0"
+tempfile = "3.27.0"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

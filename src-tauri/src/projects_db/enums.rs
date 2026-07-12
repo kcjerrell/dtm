@@ -41,15 +41,15 @@ impl From<&str> for DtProjectRef {
 }
 
 impl DtProjectRef {
-    pub fn thumb(self, preview_id: i64) -> DtResourceHandle {
-        DtResourceHandle::new(self, DtResourceRef::Thumb(preview_id))
+    pub fn thumb(&self, preview_id: i64) -> DtResourceHandle {
+        DtResourceHandle::new(self.clone(), DtResourceRef::Thumb(preview_id))
     }
-    pub fn tensor(self, name: &str) -> DtResourceHandle {
-        DtResourceHandle::new(self, DtResourceRef::Tensor(String::from(name)))
+    pub fn tensor(&self, name: &str) -> DtResourceHandle {
+        DtResourceHandle::new(self.clone(), DtResourceRef::Tensor(String::from(name)))
     }
-    pub fn node(self, node: impl Into<ThnRef>) -> DtResourceHandle {
+    pub fn node(&self, node: impl Into<ThnRef>) -> DtResourceHandle {
         DtResourceHandle::new(
-            self,
+            self.clone(),
             DtResourceRef::TensorHistoryNode(node.into(), ThnResource::None),
         )
     }

@@ -12,6 +12,7 @@ use crate::projects_db::{
     TextHistory,
 };
 use dashmap::DashMap;
+use futures::Stream;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use sqlx::{
@@ -41,6 +42,7 @@ pub mod tensor_history_node;
 pub use tensor_history_node::{TensorHistoryNode, ThnData, ThnFilter};
 pub mod tensor_moodboard_data;
 pub use tensor_moodboard_data::{TensorMoodboardData, TmdFilter};
+pub mod mutate;
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);
@@ -63,6 +65,7 @@ pub struct DTProject {
     text_history: OnceCell<Arc<TextHistory>>,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub is_shared: bool,
+    allow_mutate: bool,
 }
 
 pub async fn close_folder(folder_path: &str) {
@@ -147,6 +150,7 @@ impl DTProject {
             tables: Arc::new(OnceCell::new()),
             text_history: OnceCell::new(),
             is_shared,
+            allow_mutate: false,
         };
 
         dtp.check_tables().await?;
@@ -162,6 +166,12 @@ impl DTProject {
             dt_project.is_shared = false;
         }
         dt_project
+    }
+
+    pub async fn open_mut(path: &str) -> anyhow::Result<DTProject> {
+        let mut dt_project = DTProject::open(path).await?;
+        dt_project.allow_mutate = true;
+        Ok(dt_project)
     }
 
     pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
@@ -281,16 +291,18 @@ impl DTProject {
     // KEEP - should rename to get_tensor
     pub async fn get_tensor_raw(&self, name: &str) -> Result<TensorRaw, Error> {
         self.check_table(&DTProjectTable::Tensors).await?;
-        let row = query("SELECT type, format, datatype, dim, data FROM tensors WHERE name = ?1")
-            .bind(name)
-            .fetch_one(&*self.pool)
-            .await?;
+        let row =
+            query("SELECT name, type, format, datatype, dim, data FROM tensors WHERE name = ?1")
+                .bind(name)
+                .fetch_one(&*self.pool)
+                .await?;
 
-        let tensor_type: i64 = row.get(0);
-        let format: i32 = row.get(1);
-        let data_type: i32 = row.get(2);
-        let dim: Vec<u8> = row.get(3);
-        let data: Vec<u8> = row.get(4);
+        let name: String = row.get(0);
+        let tensor_type: i64 = row.get(1);
+        let format: i32 = row.get(2);
+        let data_type: i32 = row.get(3);
+        let dim: Vec<u8> = row.get(4);
+        let data: Vec<u8> = row.get(5);
 
         let n = i32::from_le_bytes(dim[0..4].try_into().ok().unwrap());
         let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
@@ -298,7 +310,7 @@ impl DTProject {
         let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
 
         Ok(TensorRaw {
-            name: name.to_string(),
+            name,
             tensor_type,
             format,
             data_type,
@@ -309,6 +321,15 @@ impl DTProject {
             dim,
             data,
         })
+    }
+
+    pub async fn list_tensors(&self) -> anyhow::Result<Vec<(i64, String)>> {
+        self.check_table(&DTProjectTable::Tensors).await?;
+        let tensors = query("select rowid, name from tensors")
+            .map(|row: SqliteRow| (row.get("rowid"), row.get("name")))
+            .fetch_all(&*self.pool)
+            .await?;
+        Ok(tensors)
     }
 
     // used by front end to determine subitem display size - might not be necessary though
@@ -583,8 +604,6 @@ const CLIP_QUERY: &str = "
     WHERE thn.rowid >= ?1
     AND thn.rowid < ?2
     ORDER BY thn.rowid;\n        ";
-
-
 
 /*
 SELECT
