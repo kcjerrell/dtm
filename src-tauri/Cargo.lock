@@ -942,9 +942,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.25.0"
+version = "1.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
+checksum = "d6aedf8ae72766347502cf3cb4f41cf5e9cc37d28bee90f1fdaaae15f9cf9424"
 
 [[package]]
 name = "byteorder"
@@ -960,9 +960,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
 ]
@@ -1045,9 +1045,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.65"
+version = "1.2.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e228eec9be7c17ccb640b59b36a5cd805ea2a564a4c5e162c2f659fea30d3b96"
+checksum = "e17dd265a7d0f31ef544e1b20e03add05d3b45b491b633b10d67145d2acc1a38"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -5288,9 +5288,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.12.4"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1292b7759ae1cb9ec195452d1390a074f0cd8541ab7a5a8c31cd6db45d4a6ba"
+checksum = "2a0e75113e14dc5acb068cd0786884f214f1312650a3d36d269f5c4f3cdee8a2"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -5700,9 +5700,9 @@ dependencies = [
 
 [[package]]
 name = "sea-orm"
-version = "2.0.0-rc.41"
+version = "2.0.0-rc.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd6f5a9c10d95ca8c4331692c9d3b30a578c3500d72b08f6350b89031e78f884"
+checksum = "a1db0850846a673d7819a8120bae1df3c2cc0c020bd7cbe50eb7b2f74b9efabb"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -5747,9 +5747,9 @@ dependencies = [
 
 [[package]]
 name = "sea-orm-cli"
-version = "2.0.0-rc.41"
+version = "2.0.0-rc.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7396d668fd1b45f7f0bc1837819f8d359dd5c0ef8383e0cf1abf8b31230f332a"
+checksum = "3a7866322316019d24e892e5dfcc155c691e32460c699fd2787c4c4ac7fc84a0"
 dependencies = [
  "chrono",
  "clap",
@@ -5767,9 +5767,9 @@ dependencies = [
 
 [[package]]
 name = "sea-orm-macros"
-version = "2.0.0-rc.41"
+version = "2.0.0-rc.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df86f2a6570c3169681af1035f8b159e8d5a1c034b72c19ee74c4858e4b6ec9e"
+checksum = "8e166e50db6f9992fc65c488ef089e50072a31253588e3aa863aa6a9f34f2851"
 dependencies = [
  "heck 0.5.0",
  "itertools 0.14.0",
@@ -5783,9 +5783,9 @@ dependencies = [
 
 [[package]]
 name = "sea-orm-migration"
-version = "2.0.0-rc.41"
+version = "2.0.0-rc.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1987e95367941bdabd0b3e126292395ee0adf6417fe26b83b574c6c986e8c1f8"
+checksum = "728f9f6b5423588acafea092a4c07b4ca993fea20e10aa08c9083fc22a42d741"
 dependencies = [
  "async-trait",
  "clap",
@@ -5839,9 +5839,9 @@ dependencies = [
 
 [[package]]
 name = "sea-schema"
-version = "0.18.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f88267b43c127956a079895d864fc8318ee37c7f280a7aa33805b714c31995f0"
+checksum = "3553c77dceed56e95bece9ea876c4dd67ca879ef51055a0b97a7bb89a8ae4fed"
 dependencies = [
  "async-trait",
  "sea-query",
@@ -6799,9 +6799,9 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "tauri"
-version = "2.11.3"
+version = "2.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2616f96cb644bf2c5c456d9de4d5d5100e592d7424c74d8b55c5cb96e359e93"
+checksum = "667b20e2726d572dea2de7370da16e188eb06008faf9a92fab7cdc46791190b5"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7229,9 +7229,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime-wry"
-version = "2.11.3"
+version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe41e015bf8fc4d6477ff4926a0ef769dc64ff34c7b0038b6f7cacae892acb5c"
+checksum = "4e6fac707727b7a2f48e4ded90976324267371073edbb415ffb73bb0458d203f"
 dependencies = [
  "gtk",
  "http",
