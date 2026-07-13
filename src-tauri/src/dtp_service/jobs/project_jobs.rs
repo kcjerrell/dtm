@@ -11,6 +11,7 @@ use crate::{
     },
     projects_db::{DTProject, ProjectsDb},
 };
+use anyhow::{Context, Result};
 
 pub struct AddProjectJob {
     pub path: String,
@@ -75,13 +76,13 @@ pub struct RemoveProjectJob {
 }
 
 impl RemoveProjectJob {
-    pub fn new(project_sync: &ProjectSync) -> Result<Self, String> {
+    pub fn new(project_sync: &ProjectSync) -> Result<Self> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
             })
         } else {
-            Err("Project entity not found".to_string())
+            anyhow::bail!("Project entity not found")
         }
     }
 }
@@ -116,7 +117,7 @@ impl UpdateProjectJob {
         project_sync: &ProjectSync,
         is_import: bool,
         check_deletions: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
@@ -127,7 +128,7 @@ impl UpdateProjectJob {
                 check_deletions,
             })
         } else {
-            Err("Project entity not found".to_string())
+            anyhow::bail!("Project entity not found")
         }
     }
     pub async fn from_id(
@@ -135,7 +136,7 @@ impl UpdateProjectJob {
         project_id: i64,
         is_import: bool,
         check_deletions: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         let sync = ProjectSync::from_id(pdb, project_id).await?;
 
         UpdateProjectJob::new(&sync, is_import, check_deletions)
@@ -160,7 +161,9 @@ impl Job for UpdateProjectJob {
             .map_err(|e| e.to_string());
 
         if self.check_deletions {
-            check_deletions(&ctx, self.project_id, &self.project_path).await?;
+            check_deletions(&ctx, self.project_id, &self.project_path)
+                .await
+                .map_err(|e| e.to_string())?;
         }
 
         let result = match scan_result {
@@ -201,12 +204,10 @@ async fn check_deletions(
     ctx: &JobContext,
     project_id: i64,
     project_path: &str,
-) -> Result<(), String> {
+) -> Result<()> {
     let pdb_path = get_db_file_path(&ctx.app_handle);
 
-    let dt_project = DTProject::open(project_path)
-        .await
-        .map_err(|e| e.to_string())?;
+    let dt_project = DTProject::open(project_path).await?;
 
     let missing_ids = dt_project.check_id(pdb_path, project_id).await?;
 
@@ -218,8 +219,7 @@ async fn check_deletions(
         .filter(Column::ProjectId.eq(project_id))
         .filter(Column::Id.is_in(missing_ids))
         .exec(&ctx.pdb.db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
 
     Ok(())
 }

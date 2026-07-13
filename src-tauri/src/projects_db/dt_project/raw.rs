@@ -97,7 +97,7 @@ impl<'a> DTProjectRaw<'a> {
     pub async fn tensor_data(
         &self,
         query_params: TensorDataQuery,
-    ) -> Result<Vec<TensorData>, String> {
+    ) -> anyhow::Result<Vec<TensorData>> {
         // as long as the only variables are numbers, this is fine.
         let where_clause = query_params.build_where_clause();
         let text = format!("select * from tensordata {}", where_clause);
@@ -109,7 +109,7 @@ impl<'a> DTProjectRaw<'a> {
         rows.into_iter()
             .map(|row| {
                 let p: Vec<u8> = row.get("p");
-                let data = root_as_tensor_data(&p).map_err(|e| e.to_string())?;
+                let data = root_as_tensor_data(&p).map_err(|e| anyhow::anyhow!("{:?}", e))?;
                 Ok(TensorData {
                     rowid: row.get("rowid"),
                     lineage: row.get("__pk0"),
@@ -142,10 +142,9 @@ pub async fn dt_project_tensordata(
     idx: Option<i64>,
     first: Option<i64>,
     last: Option<i64>,
-) -> Result<Vec<TensorData>, String> {
+) -> crate::TAResult<Vec<TensorData>> {
     let dt_project = DTProject::get(&project_path)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
     let raw = DTProjectRaw::new(&dt_project);
 
     let mut query = TensorDataQuery::new();
@@ -165,7 +164,7 @@ pub async fn dt_project_tensordata(
         query.last(l);
     }
 
-    raw.tensor_data(query).await
+    Ok(raw.tensor_data(query).await?)
 }
 
 impl From<TensorHistoryTensorData> for TensorData {

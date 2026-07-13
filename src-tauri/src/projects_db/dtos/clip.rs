@@ -16,9 +16,9 @@ pub struct ClipFrame {
 }
 
 impl ClipFrame {
-    pub fn new(row_id: i64, blob: &[u8], tensor_id: String) -> Result<Self, String> {
+    pub fn new(row_id: i64, blob: &[u8], tensor_id: String) -> anyhow::Result<Self> {
         let node = root_as_tensor_history_node(blob)
-            .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("flatbuffers parse error: {:?}", e))?;
         Ok(Self {
             tensor_id,
             preview_id: node.preview_id(),

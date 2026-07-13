@@ -151,7 +151,7 @@ impl ProjectsDb {
                 let mut has_shuffle = false;
 
                 if let Some(tds) = &h.tensordata {
-                    for td in tds {
+                    for td in tds.iter() {
                         let tdfb = td.data();
                         if tdfb.mask_id() != 0 {
                             has_mask = true;

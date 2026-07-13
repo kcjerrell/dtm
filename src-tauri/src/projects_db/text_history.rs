@@ -74,6 +74,7 @@ struct CacheEntry {
     prompts: PromptPair,
 }
 
+#[derive(Debug)]
 pub struct TextHistory {
     pub nodes: Vec<TextHistoryNode>,
     lineages: HashMap<i64, i64>, // (node_idx, logical_time) in ascending order

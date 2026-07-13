@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use candle_core::{DType, Device, MetalDevice, Tensor, shape::ShapeWithOneHole};
+use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::siglip::{Config, Model as SiglipModel};
 use hf_hub::HFClient;
@@ -8,7 +8,7 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
-    projects_db::dtos::tensor::TensorRaw,
+    Tensor as DtmTensor
 };
 
 pub struct EmbeddingService {
@@ -48,16 +48,15 @@ impl EmbeddingService {
         self.spec.check_or_download().await?;
         println!("embedding model files present...");
 
-        let models = helperr(self.dtp.get_db().await)?
-            .embedding_models()
-            .list()
-            .await?;
+        let models = self.dtp.get_db().await?.embedding_models().list().await?;
         if !models
             .iter()
             .any(|m| m.name == "google/siglip-base-patch16-224")
         {
             println!("embedding model not found, adding it...");
-            helperr(self.dtp.get_db().await)?
+            self.dtp
+                .get_db()
+                .await?
                 .embedding_models()
                 .create(
                     "google/siglip-base-patch16-224".to_string(),
@@ -87,7 +86,7 @@ impl EmbeddingService {
         Ok(())
     }
 
-    pub fn create_embeddings(&self, tensors: Vec<TensorRaw>) -> Result<Tensor> {
+    pub fn create_embeddings(&self, tensors: Vec<DtmTensor>) -> Result<Tensor> {
         let model = self
             .model
             .as_ref()
@@ -105,10 +104,8 @@ impl EmbeddingService {
         Ok(output)
     }
 
-    pub fn preprocess_tensor(&self, tensor: TensorRaw) -> Result<Tensor> {
-        use crate::projects_db::decompress_fzip;
-
-        let out = decompress_fzip(&tensor.data).or_else(|e| Err(anyhow::anyhow!(e)))?;
+    pub fn preprocess_tensor(&self, tensor: DtmTensor) -> Result<Tensor> {
+        let out = tensor.as_f32().ok_or(anyhow!("Tensor has no data"))?;
 
         let width = tensor.width as usize;
         let height = tensor.height as usize;
@@ -270,3 +267,19 @@ impl ModelSpec {
         Ok(())
     }
 }
+
+pub struct EmbeddingProcessor {
+
+}
+
+/*
+some kind of streaming pipeline?
+
+I like the idea of creating n workers and having them keep processing items until None
+vs creating 100 tasks that have semaphore.
+
+can do it with a channel if the receiver is wrapped in a mutex.
+
+but there's got to be a faster way than 
+
+*/

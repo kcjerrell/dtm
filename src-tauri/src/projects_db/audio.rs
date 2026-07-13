@@ -7,8 +7,12 @@ use std::{
 use once_cell::sync::Lazy;
 use tauri::http::{Response, StatusCode};
 
-use crate::projects_db::{
-    dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, tensors::decompress_fzip, DTProject,
+use crate::{
+    projects_db::{
+        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, tensors::decompress_fzip, DTProject,
+        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
+    },
+    ResourceHandle,
 };
 
 struct CachedAudio {
@@ -21,7 +25,7 @@ static AUDIO_CACHE: Lazy<Mutex<Option<CachedAudio>>> = Lazy::new(|| Mutex::new(N
 pub async fn audio_request(
     project_path: &str,
     resource: &DTPResource,
-) -> Result<Response<Vec<u8>>, String> {
+) -> anyhow::Result<Response<Vec<u8>>> {
     let audio = get_audio(project_path, resource).await?;
 
     if resource.range_start.is_none() && resource.range_end.is_none() {
@@ -51,7 +55,7 @@ pub async fn audio_request(
     }
 }
 
-pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc<Vec<u8>>, String> {
+pub async fn get_audio(project_path: &str, resource: &DTPResource) -> anyhow::Result<Arc<Vec<u8>>> {
     let key = format!("{}/{}", resource.project_id, resource.item_id);
 
     {
@@ -63,30 +67,34 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
         }
     }
 
-    let dtp = DTProject::get(project_path)
-        .await
-        .map_err(|e| format!("Failed to open project: {}", e))?;
+    let item_id: i64 = resource.item_id.parse().map_err(|_| anyhow::anyhow!("Invalid item ID"))?;
 
-    let tensor = dtp
-        .get_tensor_raw(&resource.item_id)
-        .await
-        .map_err(|e| format!("Failed to get tensor raw: {}", e))?;
+    let res = DtResourceHandle::new(
+        DtProjectRef::Path(project_path.to_string()),
+        DtResourceRef::TensorHistoryNode(
+            ThnRef::RowId(item_id),
+            ThnResource::None,
+        ),
+    );
 
-    let audio = decode_audio(tensor, resource.duration.unwrap_or(0.0)).await?;
-    let audio_arc = Arc::new(audio);
+    if let Some(audio) = res.get_audio().await? {
+        let audio_arc = Arc::new(audio);
 
-    {
-        let mut cache = AUDIO_CACHE.lock().unwrap();
-        *cache = Some(CachedAudio {
-            key: key.clone(),
-            data: audio_arc.clone(),
-        });
+        {
+            let mut cache = AUDIO_CACHE.lock().unwrap();
+            *cache = Some(CachedAudio {
+                key: key.clone(),
+                data: audio_arc.clone(),
+            });
+        }
+
+        Ok(audio_arc)
+    } else {
+        anyhow::bail!("Audio not found")
     }
-
-    Ok(audio_arc)
 }
 
-pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, String> {
+pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> anyhow::Result<Vec<u8>> {
     let channels = tensor.n;
     let length = tensor.height as usize;
 

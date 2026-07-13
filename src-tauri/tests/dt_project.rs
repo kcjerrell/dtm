@@ -10,7 +10,7 @@ mod tests {
 
         let nodes = dt_project
             .get_tensor_history_nodes(
-                Some(ThnFilter::FirstAndTake(0, 5)),
+                Some(ThnFilter::SkipAndTake(0, 5)),
                 Some(ThnData::tensordata()),
             )
             .await?;

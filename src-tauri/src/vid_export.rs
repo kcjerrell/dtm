@@ -7,7 +7,11 @@ use std::{fs, path::PathBuf};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{decode_tensor, get_audio, DTPResource, DTProject, DecodeTensorOptions};
+use crate::projects_db::{
+    decode_tensor, DTProject, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
+    DtResourceHandle, DtResourceRef,
+};
+use crate::{IntoTAResult, ResourceHandle, TAResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,7 +29,7 @@ pub async fn save_all_clip_frames(
     app: tauri::AppHandle,
     dtp: State<'_, DTPService>,
     opts: FramesExportOpts,
-) -> Result<(usize, String), String> {
+) -> TAResult<(usize, String)> {
     let projects_db = dtp.get_db().await.unwrap();
 
     let result: Option<(i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
@@ -35,27 +39,25 @@ pub async fn save_all_clip_frames(
         .into_tuple()
         .one(&projects_db.db)
         .await
-        .map_err(|e| e.to_string())?;
+        .into_ta_result()?;
 
-    let (node_id, project_id) = result.ok_or("Image or Project not found")?;
+    let (node_id, project_id) = result.ok_or(anyhow::anyhow!("Image or Project not found"))?;
 
     let project = projects_db.get_project(project_id).await.unwrap();
 
     // 2. Fetch Clip Frames
-    let dt_project = DTProject::open(&project.full_path)
-        .await
-        .map_err(|e| e.to_string())?;
+    let dt_project = DTProject::open(&project.full_path).await.into_ta_result()?;
     let frames = dt_project
         .get_histories_from_clip(node_id)
         .await
-        .map_err(|e| e.to_string())?;
+        .into_ta_result()?;
 
     if frames.is_empty() {
-        return Err("No frames found for this clip".to_string());
+        return anyhow::anyhow!("No frames found for this clip").into_ta_result();
     }
 
     let output_dir = PathBuf::from(&opts.output_dir);
-    fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&output_dir).into_ta_result()?;
 
     let mut name_gen = NameGen::new(NameOpts {
         pattern: opts.filename_pattern,
@@ -72,18 +74,18 @@ pub async fn save_all_clip_frames(
                 let tensor = dt_project
                     .get_tensor_raw(&frame.tensor_id)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .into_ta_result()?;
                 let png = decode_tensor(
                     tensor,
                     DecodeTensorOptions {
                         as_png: true,
                         history_node: None,
-                        scale: None,
+                        size: None,
                     },
                 )
-                .map_err(|e| e.to_string())?;
+                .into_ta_result()?;
                 let file_path = output_dir.join(name);
-                fs::write(&file_path, png).map_err(|e| e.to_string())?;
+                fs::write(&file_path, png).into_ta_result()?;
 
                 let _ = app.emit(
                     "export_frames_progress",
@@ -98,16 +100,18 @@ pub async fn save_all_clip_frames(
         false => {
             for (i, frame) in frames.iter().enumerate() {
                 let name = name_gen.next().unwrap();
-                let thumb_data = dt_project
-                    .get_thumb(frame.preview_id)
+                let handle = DtResourceHandle::new(
+                    DtProjectRef::Id(project_id),
+                    DtResourceRef::Thumb(frame.preview_id),
+                );
+                let thumb_data = handle
+                    .get_preview(false)
                     .await
-                    .map_err(|e| e.to_string())?;
-
-                let thumb_data = crate::projects_db::extract_jpeg_slice(&thumb_data)
-                    .ok_or("Failed to extract JPEG slice".to_string())?;
+                    .into_ta_result()?
+                    .ok_or(anyhow::anyhow!("Failed to get preview"))?;
 
                 let file_path = output_dir.join(name);
-                fs::write(&file_path, thumb_data).map_err(|e| e.to_string())?;
+                fs::write(&file_path, thumb_data).into_ta_result()?;
 
                 let _ = app.emit(
                     "export_frames_progress",
@@ -151,7 +155,6 @@ pub struct VideoExportOpts {
     out_fps: Option<u8>,
     width: Option<u32>,
     height: Option<u32>,
-    audio: Option<(i64, String)>,
 }
 
 #[tauri::command]
@@ -159,7 +162,7 @@ pub async fn create_video_from_frames(
     app: tauri::AppHandle,
     dtp: State<'_, DTPService>,
     opts: VideoExportOpts,
-) -> Result<String, String> {
+) -> TAResult<String> {
     // -------------------------------------------------
     // Prepare temp dir
     // -------------------------------------------------
@@ -168,13 +171,13 @@ pub async fn create_video_from_frames(
     let temp_dir = app_data_dir.join("temp_video_frames");
 
     if !ffmpeg_path.exists() {
-        return Err("ffmpeg not found".to_string());
+        return Err(anyhow::anyhow!("ffmpeg not found").into());
     }
 
     if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+        fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
     }
-    fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
 
     // -------------------------------------------------
     // Ensure output directory exists
@@ -182,7 +185,7 @@ pub async fn create_video_from_frames(
     let output_file = PathBuf::from(&opts.output_file);
 
     if let Some(parent) = output_file.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        fs::create_dir_all(parent).map_err(anyhow::Error::msg)?;
     }
 
     let extension = if opts.use_tensor { "png" } else { "jpg" };
@@ -243,30 +246,24 @@ pub async fn create_video_from_frames(
         None
     };
 
-    // get metadata
-    let metadata = dtp.get_metadata(opts.image_id).await.ok();
+    let mut metadata: Option<DrawThingsMetadata> = None;
+    let mut audio_path: Option<String> = None;
 
-    let audio_path = match opts.audio {
-        Some((project_id, audio_tensor_name)) => {
-            let project = dtp.get_db().await?.get_project(project_id).await?;
+    // metadata and audio come from the node
+    if let Some(handle) = DtResourceHandle::from_image_id(opts.image_id)
+        .await
+        .map_err(anyhow::Error::msg)?
+    {
+        if let Some(node) = handle.get_history_node().await.map_err(anyhow::Error::msg)? {
+            metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
 
-            let audio_wav = get_audio(
-                &project.full_path,
-                &DTPResource {
-                    project_id,
-                    item_id: audio_tensor_name,
-                    ..Default::default()
-                },
-            )
-            .await?;
-
-            let audio_path = temp_dir.join("audio.wav");
-            fs::write(&audio_path, &*audio_wav).map_err(|e| e.to_string())?;
-
-            Some(audio_path.to_str().unwrap().to_string())
+            if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {
+                let temp_audio_path = temp_dir.join("audio.wav");
+                fs::write(&temp_audio_path, &audio_wav).map_err(anyhow::Error::msg)?;
+                audio_path = Some(temp_audio_path.to_string_lossy().to_string());
+            }
         }
-        None => None,
-    };
+    }
 
     // -------------------------------------------------
     // Build ffmpeg command
@@ -314,7 +311,7 @@ pub async fn create_video_from_frames(
     ]);
 
     if let Some(metadata) = metadata {
-        let json = serde_json::to_string(&metadata).map_err(|e| e.to_string())?;
+        let json = serde_json::to_string(&metadata).map_err(anyhow::Error::msg)?;
         cmd.args(["-metadata", &format!("comment={}", json)]);
     }
 
@@ -325,13 +322,13 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Spawn and read progress
     // -------------------------------------------------
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = cmd.spawn().map_err(anyhow::Error::msg)?;
 
     let stdout = child.stdout.take().unwrap();
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
+        let line = line.map_err(anyhow::Error::msg)?;
 
         // frame=###
         if let Some(f) = line.strip_prefix("frame=") {
@@ -354,10 +351,10 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Wait for finish
     // -------------------------------------------------
-    let status = child.wait().map_err(|e| e.to_string())?;
+    let status = child.wait().map_err(anyhow::Error::msg)?;
 
     if !status.success() {
-        return Err("FFmpeg failed to generate video".to_string());
+        return Err(anyhow::anyhow!("FFmpeg failed to generate video").into());
     }
 
     let _ = app.emit(
@@ -374,14 +371,14 @@ pub async fn create_video_from_frames(
 
 /// returns the highest existing clip id and frame number for the given pattern
 /// -1 indicates no matches
-pub fn check_files(dir: &str, pattern: &str) -> Result<(i32, i32), String> {
+pub fn check_files(dir: &str, pattern: &str) -> anyhow::Result<(i32, i32)> {
     log::debug!("checking {} for {}", dir, pattern);
     let matcher = get_matcher(pattern);
 
     let mut max_clip: i32 = -1;
     let mut max_frame: i32 = -1;
 
-    let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+    let entries = fs::read_dir(dir).map_err(anyhow::Error::msg)?;
 
     for entry in entries {
         if let Ok(entry) = entry {
@@ -437,7 +434,7 @@ pub fn check_pattern(
     pattern: String,
     dir: String,
     num_frames: u32,
-) -> Result<CheckPatternResult, String> {
+) -> crate::TAResult<CheckPatternResult> {
     let mut result = CheckPatternResult {
         valid: false,
         clip_id: 1,

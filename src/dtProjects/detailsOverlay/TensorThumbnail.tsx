@@ -29,7 +29,8 @@ function TensorThumbnail(props: ThumbnailProps) {
         // if (weight === 0) return null
         return (
             <ThumbnailBase position={"relative"} {...restProps}>
-                <ThumbnailImage src={src} {...getMask(projectId, maskId)} />
+                <ThumbnailImage src={src} />
+                <Mask projectId={projectId} maskId={maskId} />
                 <Box
                     position={"absolute"}
                     bottom={"0%"}
@@ -42,7 +43,7 @@ function TensorThumbnail(props: ThumbnailProps) {
                     borderRadius={"lg"}
                     color={"grays.12"}
                     textShadow={"0px 0px 2px #000000"}
-                    zIndex={2}
+                    zIndex={3}
                 >
                     {weight * 100}%
                 </Box>
@@ -51,8 +52,9 @@ function TensorThumbnail(props: ThumbnailProps) {
     }
 
     return (
-        <ThumbnailBase {...restProps}>
-            <ThumbnailImage src={src} {...getMask(projectId, maskId)} />
+        <ThumbnailBase position={"relative"} {...restProps}>
+            <ThumbnailImage src={src} />
+            <Mask projectId={projectId} maskId={maskId} />
         </ThumbnailBase>
     )
 }
@@ -81,14 +83,27 @@ export function CanvasCombinedButton(props: ChakraProps) {
     )
 }
 
-function getMask(projectId?: number, maskId?: string) {
-    if (!projectId || !maskId) return {}
-    const maskSrc = urls.tensor(projectId, maskId, { size: 100, invert: true })
-    return {
-        maskImage: `url(${maskSrc})`,
-        maskMode: "luminance",
-        maskSize: "contain",
-    }
+interface MaskProps extends ChakraProps {
+    projectId?: number
+    maskId?: string
+}
+
+function Mask(props: MaskProps) {
+    const { projectId, maskId, ...rest } = props
+    if (!projectId || !maskId) return null
+    return (
+        <Box
+            maskImage={`url(${urls.tensor(projectId, maskId, { size: 100 })})`}
+            maskMode="luminance"
+            maskSize="contain"
+            backgroundColor="grays.12"
+            position={"absolute"}
+            inset={0}
+            pointerEvents={"none"}
+            zIndex={2}
+            {...rest}
+        />
+    )
 }
 
 const ThumbnailBase = chakra("div", {

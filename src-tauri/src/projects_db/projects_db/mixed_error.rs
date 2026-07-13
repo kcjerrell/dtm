@@ -9,9 +9,25 @@ pub enum MixedError {
     Transaction(sea_orm::TransactionError<DbErr>),
 }
 
+// Ensure MixedError is Send + Sync + 'static for automatic conversion to anyhow::Error
+unsafe impl Send for MixedError {}
+unsafe impl Sync for MixedError {}
+
 impl std::fmt::Display for MixedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", mixed_error_to_string(&self))
+    }
+}
+
+impl std::error::Error for MixedError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            MixedError::SeaOrm(e) => Some(e),
+            MixedError::Io(e) => Some(e),
+            MixedError::Sqlx(e) => Some(e),
+            MixedError::Transaction(e) => Some(e),
+            MixedError::Other(_) => None,
+        }
     }
 }
 

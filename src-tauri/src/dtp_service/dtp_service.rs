@@ -9,7 +9,10 @@ use std::{
 use dtm_macros::{dtm_command, dtp_commands};
 use entity::enums::EmbeddingType;
 use tauri::{ipc::Channel, State};
-use tokio::{sync::{OnceCell, RwLock}, time::Instant};
+use tokio::{
+    sync::{OnceCell, RwLock},
+    time::Instant,
+};
 
 use crate::{
     dtp_service::{
@@ -23,8 +26,9 @@ use crate::{
         self,
         dt_project::{ThnData, ThnFilter},
         dtos::tensor::TensorRaw,
-        get_last_row, DtmProtocol, ProjectRef, ProjectsDb,
+        get_last_row, DtProjectRef, DtResourceHandle, DtmProtocol, ProjectsDb,
     },
+    IntoTAResult, ResourceHandle, Tensor as DtmTensor,
 };
 
 #[derive(Clone)]
@@ -65,19 +69,10 @@ impl DTPService {
         &self,
         channel: Channel<DTPEvent>,
         auto_watch: bool,
-        app_handle: &AppHandleWrapper,
-    ) -> Result<(), String> {
+        db_path: String,
+    ) -> anyhow::Result<()> {
         self.auto_watch.store(auto_watch, Ordering::Relaxed);
-
-        let db_path = get_db_url(app_handle);
-
-        let pdb = match ProjectsDb::new(&db_path).await.map_err(|e| e.to_string()) {
-            Ok(pdb) => pdb,
-            Err(e) => {
-                println!("pdb new did not work! {}", e);
-                return Err(e);
-            }
-        };
+        let pdb = ProjectsDb::new(&db_path).await?;
         {
             let mut guard = self.pdb.write().await;
             *guard = Some(pdb.clone());
@@ -99,7 +94,7 @@ impl DTPService {
         }
 
         let watch = WatchService::new(scheduler.clone());
-        watch.watch_volumes().await.unwrap();
+        watch.watch_volumes().await?;
         {
             let mut guard = self.watch.write().await;
             *guard = Some(watch);
@@ -113,12 +108,12 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn get_db(&self) -> Result<ProjectsDb, String> {
+    pub async fn get_db(&self) -> anyhow::Result<ProjectsDb> {
         self.pdb
             .read()
             .await
             .clone()
-            .ok_or_else(|| "DB not ready".to_string())
+            .ok_or_else(|| anyhow::anyhow!("DB not ready"))
     }
 
     pub async fn dtm_protocol(&self) -> &DtmProtocol {
@@ -128,7 +123,7 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn sync(&self) -> Result<(), String> {
+    pub async fn sync(&self) -> crate::TAResult<()> {
         let scheduler = self.scheduler.read().await;
         let scheduler = scheduler.as_ref().unwrap();
         scheduler.add_job(SyncJob::new(false));
@@ -141,12 +136,10 @@ impl DTPService {
         &self,
         project_ids: Vec<i64>,
         check_deletions: bool,
-    ) -> Result<(), String> {
+    ) -> crate::TAResult<()> {
         for project_id in project_ids {
-            let sync = ProjectSync::from_id(&self.get_db().await.unwrap(), project_id)
-                .await
-                .unwrap();
-            self.add_job(UpdateProjectJob::new(&sync, false, check_deletions).unwrap());
+            let sync = ProjectSync::from_id(&self.get_db().await?, project_id).await?;
+            self.add_job(UpdateProjectJob::new(&sync, false, check_deletions)?);
         }
         Ok(())
     }
@@ -160,29 +153,32 @@ impl DTPService {
         &self,
         project_ids: Vec<i64>,
         check_deletions: bool,
-    ) -> Result<(), String> {
+    ) -> crate::TAResult<()> {
         let db = self.get_db().await?;
         let scheduler = self
             .scheduler
             .read()
             .await
             .clone()
-            .ok_or_else(|| "Scheduler not ready".to_string())?;
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready"))?;
         for project_id in project_ids {
             let sync = ProjectSync::from_id(&db, project_id).await?;
             let job = UpdateProjectJob::new(&sync, false, check_deletions)?;
-            scheduler.add_job_front_and_wait(job).await?;
+            scheduler
+                .add_job_front_and_wait(job)
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
         }
         Ok(())
     }
 
     // test to compare checking rowid vs file metadata
-    pub async fn check_all(&self) -> Result<(), String> {
+    pub async fn check_all(&self) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
-        let projects = self.list_projects(None).await.unwrap();
+        let projects = self.list_projects(None).await?;
         let mut last_rows: Vec<(i64, i64)> = Vec::new();
         for project in projects {
-            let last_row = get_last_row(&project.full_path).await.unwrap();
+            let last_row = get_last_row(&project.full_path).await?;
             last_rows.push((project.id, last_row.0));
         }
 
@@ -190,9 +186,10 @@ impl DTPService {
         println!("Checked all projects: {}", start.elapsed().as_millis());
         Ok(())
     }
-    pub async fn check_all_2(&self) -> Result<(), String> {
+
+    pub async fn check_all_2(&self) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
-        let projects = self.list_projects(None).await.unwrap();
+        let projects = self.list_projects(None).await?;
         let mut data: Vec<(i64, i64)> = Vec::new();
         for project in projects {
             let base = fs::metadata(&project.full_path).map_or(0, |m| m.len() as i64);
@@ -228,18 +225,27 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn start_embedding(&self, project_id: i64) -> Result<(), String> {
+    pub async fn start_embedding(&self, project_id: i64) -> crate::TAResult<()> {
         let embedding_service = self
             .embedding_service
-            .get_or_try_init::<String, _, _>(async || {
-                let mut service = EmbeddingService::new(self.clone()).map_err(|e| e.to_string())?;
-                service.init().await.map_err(|e| e.to_string())?;
+            .get_or_try_init::<anyhow::Error, _, _>(async || {
+                let mut service = EmbeddingService::new(self.clone())?;
+                service.init().await?;
                 println!("Embedding service initialized");
                 Ok(service)
             })
             .await?;
+
         let start = Instant::now();
-        let images = self
+
+        let pdb = self.get_db().await?;
+        let dtp = pdb
+            .open_dt_project(DtProjectRef::Id(project_id))
+            .await
+            .into_ta_result()?;
+
+        let project = DtProjectRef::Db(dtp);
+        let images: Vec<(i64, DtResourceHandle)> = self
             .list_images(
                 Some(vec![project_id]),
                 None,
@@ -255,42 +261,26 @@ impl DTPService {
             )
             .await?
             .images
-            .unwrap_or(Vec::new());
-
-        let pdb = self.get_db().await?;
-        let dtp = pdb.open_dt_project(ProjectRef::Id(project_id)).await?;
+            .unwrap_or(Vec::new())
+            .iter()
+            .map(|img| (img.id, (&project).node(img.node_id)))
+            .collect();
 
         for batch in images.chunks(16) {
-            let mut tensors: Vec<TensorRaw> = Vec::with_capacity(batch.len());
-            for image in batch {
-                if let Some(tr) = dtp
-                    .get_tensor_history_nodes(
-                        Some(ThnFilter::Rowid(image.node_id)),
-                        Some(ThnData::tensordata()),
-                    )
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .first()
-                {
-                    if let Some(tensor_name) = tr.get_tensor_name() {
-                        println!("Tensor name: {}", tensor_name);
-
-                        let tensor_raw = dtp
-                            .get_tensor_raw(tensor_name)
-                            .await
-                            .map_err(|e| e.to_string())?;
-                        tensors.push(tensor_raw);
-                    }
+            let mut tensors: Vec<DtmTensor> = Vec::with_capacity(batch.len());
+            let mut image_ids: Vec<i64> = Vec::with_capacity(batch.len());
+            for (image_id, node_ref) in batch {
+                if let Some(tensor) = node_ref.get_tensor().await? {
+                    image_ids.push(*image_id);
+                    tensors.push(tensor);
                 }
             }
-            let result = embedding_service.create_embeddings(tensors).unwrap();
-            let image_ids = batch.into_iter().map(|im| im.id).collect();
+            let result = embedding_service.create_embeddings(tensors)?;
+            let image_ids = batch.into_iter().map(|(image_id, _)| *image_id).collect();
             println!("Embedding result: {:?}", &result);
             pdb.embeddings()
                 .insert_many(image_ids, result, EmbeddingType::Image, 1)
-                .await
-                .map_err(|e| e.to_string())?;
-
+                .await?;
         }
         println!(
             "{} images/{}seconds ({} s/image)",
@@ -327,13 +317,13 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn lock_folder(&self, watchfolder_id: i64) -> Result<(), String> {
+    pub async fn lock_folder(&self, watchfolder_id: i64) -> crate::TAResult<()> {
         let folder = self
             .get_db()
-            .await
-            .unwrap()
+            .await?
             .update_watch_folder(watchfolder_id, None, None, Some(true))
-            .await?;
+            .await
+            .into_ta_result()?;
         self.stop_watch(&folder.path).await;
         projects_db::close_folder(&folder.path).await;
         self.events.emit(DTPEvent::WatchFoldersChanged);
@@ -341,17 +331,17 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn reset_db(&self) -> Result<(), String> {
+    pub async fn reset_db(&self) -> crate::TAResult<()> {
         let db = self.get_db().await?;
-        let folders = db.list_watch_folders().await?;
+        let folders = db.list_watch_folders().await.into_ta_result()?;
         let ids = folders.iter().map(|f| f.id).collect::<Vec<i64>>();
-        db.remove_watch_folders(ids).await?;
+        db.remove_watch_folders(ids).await.into_ta_result()?;
         Ok(())
     }
 }
 
 #[dtm_command]
-pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> Result<(), String> {
+pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> crate::TAResult<()> {
     println!(
         "dtp test bla bla {}",
         state.get_home_dir().unwrap().to_string_lossy()
@@ -369,9 +359,11 @@ pub async fn dtp_connect(
     state: State<'_, DTPService>,
     channel: Channel<DTPEvent>,
     auto_watch: bool,
-) -> Result<(), String> {
+) -> crate::TAResult<()> {
+    let db_path = get_db_url(&app_handle);
     check_old_path(&app_handle);
-    state.connect(channel, auto_watch, &app_handle).await
+    state.connect(channel, auto_watch, db_path).await?;
+    Ok(())
 }
 
 #[cfg(dev)]
