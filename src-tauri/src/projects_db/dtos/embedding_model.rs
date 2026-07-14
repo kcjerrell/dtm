@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait, FromQueryResult, prelude::DateTimeUtc};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, FromQueryResult, QueryFilter, prelude::DateTimeUtc,
+};
 use serde::Serialize;
 
-use crate::projects_db::{ProjectsDb, dtos::embedding_model};
+use crate::projects_db::{dtos::embedding_model, ProjectsDb};
 use anyhow::Result;
 
 pub struct EmbeddingModels<'a> {
@@ -23,7 +25,26 @@ impl<'a> EmbeddingModels<'a> {
         Ok(models)
     }
 
-    pub async fn create(&self, name: String, model_type: String, dimension: i32, encoder: String, version: Option<String>) -> Result<EmbeddingModel> {
+    pub async fn get(&self, model_ref: impl Into<EmbeddingModelRef>) -> Result<Option<EmbeddingModel>> {
+        let model = match model_ref.into() {
+            EmbeddingModelRef::Id(id) => entity::embedding_models::Entity::find_by_id(id),
+            EmbeddingModelRef::Name(name) => entity::embedding_models::Entity::find()
+                .filter(entity::embedding_models::Column::Name.eq(name)),
+        }
+        .into_model()
+        .one(&self.pdb.db)
+        .await?;
+        Ok(model)
+    }
+
+    pub async fn create(
+        &self,
+        name: String,
+        model_type: String,
+        dimension: i32,
+        encoder: String,
+        version: Option<String>,
+    ) -> Result<EmbeddingModel> {
         let model = entity::embedding_models::ActiveModel {
             name: Set(name),
             model_type: Set(model_type),
@@ -32,10 +53,27 @@ impl<'a> EmbeddingModels<'a> {
             version: Set(version),
             ..Default::default()
         };
-        
+
         let model = model.insert(&self.pdb.db).await?;
-        
+
         Ok(EmbeddingModel::from(model))
+    }
+}
+
+enum EmbeddingModelRef {
+    Id(i64),
+    Name(String),
+}
+
+impl Into<EmbeddingModelRef> for i64 {
+    fn into(self) -> EmbeddingModelRef {
+        EmbeddingModelRef::Id(self)
+    }
+}
+
+impl Into<EmbeddingModelRef> for &str {
+    fn into(self) -> EmbeddingModelRef {
+        EmbeddingModelRef::Name(self.to_string())
     }
 }
 

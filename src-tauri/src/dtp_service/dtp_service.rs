@@ -8,6 +8,8 @@ use std::{
 
 use dtm_macros::{dtm_command, dtp_commands};
 use entity::enums::EmbeddingType;
+use sea_orm::ConnectionTrait;
+use sqlx::{sqlite::SqliteRow, Column, Row};
 use tauri::{ipc::Channel, State};
 use tokio::{
     sync::{OnceCell, RwLock},
@@ -229,7 +231,7 @@ impl DTPService {
         let embedding_service = self
             .embedding_service
             .get_or_try_init::<anyhow::Error, _, _>(async || {
-                let mut service = EmbeddingService::new(self.clone())?;
+                let service = EmbeddingService::new(self.clone())?;
                 service.init().await?;
                 println!("Embedding service initialized");
                 Ok(service)
@@ -266,28 +268,63 @@ impl DTPService {
             .map(|img| (img.id, (&project).node(img.node_id)))
             .collect();
 
-        for batch in images.chunks(16) {
-            let mut tensors: Vec<DtmTensor> = Vec::with_capacity(batch.len());
-            let mut image_ids: Vec<i64> = Vec::with_capacity(batch.len());
-            for (image_id, node_ref) in batch {
-                if let Some(tensor) = node_ref.get_tensor().await? {
-                    image_ids.push(*image_id);
-                    tensors.push(tensor);
-                }
-            }
-            let result = embedding_service.create_embeddings(tensors)?;
-            let image_ids = batch.into_iter().map(|(image_id, _)| *image_id).collect();
-            println!("Embedding result: {:?}", &result);
-            pdb.embeddings()
-                .insert_many(image_ids, result, EmbeddingType::Image, 1)
-                .await?;
-        }
+        let total = images.len();
+        embedding_service.clone().process_images(images).await?;
+
         println!(
             "{} images/{}seconds ({} s/image)",
-            images.len(),
+            total,
             start.elapsed().as_secs(),
-            start.elapsed().as_secs_f64() / images.len() as f64
+            start.elapsed().as_secs_f64() / total as f64
         );
+        Ok(())
+    }
+
+    #[dtp_command]
+    pub async fn get_embedding(&self, image_id: i64) -> crate::TAResult<()> {
+        let result = self.get_db().await?.embeddings().get(image_id).await?;
+        let similar = self.get_db().await?.embeddings().find(result.1, 10, EmbeddingType::Image).await?;
+        println!("similar: {:#?}", similar);
+        Ok(())
+    }
+
+    #[dtp_command]
+    pub async fn query(&self, query: String) -> crate::TAResult<()> {
+        let pdb = self.get_db().await?;
+        let rows = pdb
+            .db
+            .query_all_raw(sea_orm::Statement::from_string(
+                pdb.db.get_database_backend(),
+                query,
+            ))
+            .await
+            .into_ta_result()?;
+
+        for row in rows {
+            if let Some(sqlx_row) = row.try_as_sqlite_row() {
+                for column in sqlx_row.columns() {
+                    print!("{} = ", column.name());
+
+                    if let Ok(v) = sqlx_row.try_get::<Option<i64>, usize>(column.ordinal()) {
+                        println!("{v:?}");
+                    } else if let Ok(v) = sqlx_row.try_get::<Option<f64>, usize>(column.ordinal()) {
+                        println!("{v:?}");
+                    } else if let Ok(v) =
+                        sqlx_row.try_get::<Option<String>, usize>(column.ordinal())
+                    {
+                        println!("{v:?}");
+                    } else if let Ok(v) =
+                        sqlx_row.try_get::<Option<Vec<u8>>, usize>(column.ordinal())
+                    {
+                        println!("<blob {} bytes>", v.map_or(0, |b| b.len()));
+                    } else {
+                        println!("<unknown>");
+                    }
+                }
+            }
+
+            println!();
+        }
         Ok(())
     }
 

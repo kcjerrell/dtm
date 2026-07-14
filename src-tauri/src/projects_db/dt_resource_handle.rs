@@ -4,9 +4,16 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
-    ResourceHandle, Tensor, projects_db::{
-        DTProject, DtProjectRef, DtResourceRef, ProjectsDb, decode_audio, dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter}, dtos::tensor::TensorRaw, enums::PartialThnDtResourceHandle, extract_jpeg_slice, tensors::decompress_fzip,
+    projects_db::{
+        decode_audio,
+        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
+        dtos::tensor::TensorRaw,
+        enums::PartialThnDtResourceHandle,
+        extract_jpeg_slice,
+        tensors::decompress_fzip,
+        DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
+    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
@@ -245,7 +252,7 @@ impl DtResourceHandle {
 
         let res2 = match res {
             ThnR::None => ThnR::Canvas(0),
-            _ => res.clone()
+            _ => res.clone(),
         };
 
         // return the first (last) tensor name that matches the type
@@ -328,5 +335,23 @@ impl DtResourceHandle {
             .await
             .and_then(|image| Ok(Some(DtProjectRef::Id(image.project_id).node(image.node_id))))
             .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    /// This exists to make pipelining easier - to help split up io bound and cpu bound parts of
+    /// loading a vector. Tensors return by this method will likely have compressed data. You can
+    /// decompress by...
+    /// let tensor: DtmTensor = tensor_raw.into();
+    pub async fn get_tensor_raw(&self) -> Result<Option<TensorRaw>> {
+        if self.resource.is_thumb() {
+            return Ok(None);
+        }
+
+        if let Some(name) = self.get_tensor_name().await? {
+            let dtp = self.get_project().await?;
+            let tensor_raw = dtp.get_tensor_raw(&name).await?;
+            return Ok(Some(tensor_raw));
+        }
+
+        Ok(None)
     }
 }

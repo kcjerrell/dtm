@@ -151,6 +151,7 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showDetailsOverlay(item: ImageExtra) {
+        console.log(item.id)
         const detailsOverlay = this.state.detailsView
         detailsOverlay.isOpen = true
         detailsOverlay.item = item

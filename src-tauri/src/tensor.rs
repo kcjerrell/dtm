@@ -65,6 +65,13 @@ impl Tensor {
         }
     }
 
+    pub fn into_f32(self) -> Option<Vec<f32>> {
+        match self.data {
+            TensorValue::F32(data) => Some(data),
+            TensorValue::U8(_) => None,
+        }
+    }
+
     pub fn to_pixel_data(&self, size: Option<u32>) -> anyhow::Result<Vec<u8>> {
         let w = self.width as usize;
         let h = self.height as usize;
