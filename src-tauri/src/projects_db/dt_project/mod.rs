@@ -1,18 +1,14 @@
 use crate::projects_db::{
-    dt_project::raw::DTProjectRaw,
     dtos::{
         clip::{ClipExtra, ClipFrame},
         project::DTProjectInfo,
-        tensor::{TensorHistoryImport, TensorNodeGrouper, TensorRaw, TensorSize},
+        tensor::{TensorRaw, TensorSize},
         text::TextHistoryNode,
     },
-    fbs::root_as_tensor_moodboard_data,
-    tensor_history_tensor_data::TensorHistoryTensorData,
     text_history::PromptPair,
     TextHistory,
 };
 use dashmap::DashMap;
-use futures::Stream;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use sqlx::{
@@ -21,7 +17,7 @@ use sqlx::{
     Connection, Error, QueryBuilder, Row, SqlitePool,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -60,7 +56,7 @@ struct CachedProject {
 
 #[derive(Debug)]
 pub struct DTProject {
-    pool: Arc<SqlitePool>,
+    pub pool: Arc<SqlitePool>,
     pub path: String,
     text_history: OnceCell<Arc<TextHistory>>,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
@@ -565,8 +561,14 @@ impl DTProject {
         history.get_edit(lineage, edit).ok_or(Error::RowNotFound)
     }
 
-    pub fn raw(&'_ self) -> DTProjectRaw<'_> {
-        DTProjectRaw::new(self)
+    pub async fn get_schema(&self) -> anyhow::Result<Vec<(String, String)>> {
+        let result: Vec<(String, String)> =
+            sqlx::query("SELECT name, sql FROM sqlite_schema WHERE type = 'table' AND name != 'sqlite_sequence';")
+                .map(|row: SqliteRow| (row.get("name"), row.get("sql")))
+                .fetch_all(&*self.pool)
+                .await?;
+
+        Ok(result)
     }
 }
 

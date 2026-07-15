@@ -1,20 +1,18 @@
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize};
-use sqlx::{query, query_as, AssertSqlSafe, FromRow, Row};
+use sqlx::{query_as, AssertSqlSafe, FromRow};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::projects_db::{
     dt_project::{
-        clip::ClipFrame,
         data::tensor_history_node_data::TensorHistoryNodeData as ParsedTensorHistoryNodeData,
         tensor_data::TensorData, Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData,
         TmdFilter,
     },
     fbs::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
-        root_as_tensor_moodboard_data, TensorHistoryNode as TensorHistoryNodeData,
+        TensorHistoryNode as TensorHistoryNodeData,
     },
-    text_history::TextHistory,
     DTProject,
 };
 
@@ -197,6 +195,53 @@ pub struct ThnRow {
     pub data: Arc<[u8]>,
 }
 
+fn map_thn_row(row: ThnRow, project_path: PathBuf) -> TensorHistoryNode {
+    TensorHistoryNode {
+        rowid: row.rowid,
+        project_path,
+        lineage: row.lineage,
+        logical_time: row.logical_time,
+        data: row.data,
+        tensordata: None,
+        clip: None,
+        moodboard: None,
+        prompt: None,
+        negative_prompt: None,
+    }
+}
+
+pub struct NodesBatcher<'a> {
+    batch_index: i64,
+    batch_size: i64,
+    project: &'a DTProject,
+    data: ThnData,
+}
+
+impl<'a> NodesBatcher<'a> {
+    fn new(project: &'a DTProject, data: ThnData) -> Self {
+        Self {
+            batch_index: 0,
+            batch_size: 100,
+            project,
+            data,
+        }
+    }
+    pub async fn next(&mut self) -> anyhow::Result<Option<Vec<TensorHistoryNode>>> {
+        let filter = ThnFilter::SkipAndTake(self.batch_index * self.batch_size, self.batch_size);
+        let nodes = self
+            .project
+            .get_tensor_history_nodes(Some(filter), Some(self.data))
+            .await?;
+        self.batch_index += 1;
+
+        if nodes.len() > 0 {
+            Ok(Some(nodes))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 impl DTProject {
     /// Queries the DTProject for TensorHistoryNodes
     /// # Arguments
@@ -347,19 +392,8 @@ impl DTProject {
         Ok(items)
     }
 
-    pub async fn list_tensor_history_nodes(
-        &self,
-        skip: i64,
-        take: i64,
-    ) -> Result<Vec<ThnRow>, sqlx::Error> {
-        let rows: Vec<ThnRow> =
-            query_as("SELECT * FROM tensorhistorynode ORDER BY rowid ASC LIMIT ?1 OFFSET ?2")
-                .bind(take)
-                .bind(skip)
-                .fetch_all(&*self.pool)
-                .await?;
-
-        Ok(rows)
+    pub fn batch_tensor_history_nodes(&self, data: ThnData) -> NodesBatcher {
+        NodesBatcher::new(self, data)
     }
 
     /**

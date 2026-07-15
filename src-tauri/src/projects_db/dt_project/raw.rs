@@ -1,3 +1,4 @@
+// FLAG: for removal (whole file)
 use serde::Serialize;
 use sqlx::{query, AssertSqlSafe, QueryBuilder, Row, Sqlite};
 
@@ -134,6 +135,7 @@ impl<'a> DTProjectRaw<'a> {
 }
 
 
+// FLAG: for removal
 #[tauri::command]
 pub async fn dt_project_tensordata(
     project_path: String,

@@ -1,23 +1,91 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 use futures::StreamExt;
 use tauri::State;
 use tokio::{sync::Semaphore, task::JoinSet};
 
 use crate::{
-    dtp_service::AppHandleWrapper,
-    projects_db::{DTProject, DtProjectRef},
-    ResourceHandle, TAResult, Tensor,
+    dtp_service::{AppHandleWrapper, DTPService},
+    projects_db::{
+        archive::copy::copy_project,
+        dt_project::{ThnData, ThnFilter},
+        DTProject, DtProjectRef,
+    },
+    IntoTAResult, ResourceHandle, TAResult, Tensor,
 };
+
+mod copy;
 
 #[tauri::command]
 pub async fn create_dt_archive(
     app: State<'_, AppHandleWrapper>,
-    project_path: &str,
+    dtp: State<'_, DTPService>,
+    project_id: i64,
 ) -> TAResult<()> {
-    let archiver = Archiver::new(app, project_path, project_path).await?;
-    archiver.proc_tensors().await?;
+    copy_project(app.inner().clone(), DtProjectRef::Id(project_id)).await?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn create_dt_archivex(
+    app: State<'_, AppHandleWrapper>,
+    dtp: State<'_, DTPService>,
+    project_id: i64,
+) -> TAResult<Vec<String>> {
+    // let archiver = Archiver::new(app, project_path, project_path).await?;
+    // archiver.proc_tensors().await?;
+    // Ok(())
+    let db = dtp.get_db().await.map_err(|e| anyhow::anyhow!(e))?;
+    let project = db
+        .open_dt_project(DtProjectRef::Id(project_id))
+        .await
+        .into_ta_result()?;
+    let project = Arc::new(project);
+
+    let mut node_ids: Vec<i64> = Vec::new();
+    let mut tensor_names: HashSet<String> = HashSet::new();
+
+    let mut total_nodes = 0;
+
+    let mut batcher = project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard());
+
+    while let Some(nodes) = batcher.next().await? {
+        for node in nodes {
+            total_nodes += 1;
+            if !node.data().generated() {
+                continue;
+            }
+            node_ids.push(node.rowid);
+            if let Some(tensordata) = node.tensordata {
+                for td in tensordata.into_iter() {
+                    for tensor_name in td.tensor_names.iter() {
+                        tensor_names.insert(tensor_name.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    let all_tensors = project.list_tensors().await?;
+    let all_tensor_names = HashSet::from_iter(
+        all_tensors
+            .iter()
+            .map(|(_, tensor_name)| tensor_name.clone()),
+    );
+    let left_behind = all_tensor_names
+        .difference(&tensor_names)
+        .map(|tn| tn.clone())
+        .collect::<Vec<_>>();
+
+    println!("Take {} nodes out of {}", node_ids.len(), total_nodes);
+    println!(
+        "Take {} tensors out of {}",
+        tensor_names.len(),
+        all_tensors.len()
+    );
+    println!("Left behind: {:?}", left_behind);
+
+    Ok(left_behind)
 }
 
 struct ProcItem {
@@ -87,12 +155,8 @@ impl Archiver {
         })
     }
 
-    async fn proc_nodes(&self) -> Anyhow::Result<()> {
-        
-    }
-
     async fn proc_tensors(&self) -> anyhow::Result<()> {
-        let mut tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
+        let mut tasks: JoinSet<anyhow::Result<(String, String)>> = JoinSet::new();
         let semaphore = Arc::new(Semaphore::new(8));
 
         let tensors = self.project.list_tensors().await?;
@@ -125,19 +189,41 @@ impl Archiver {
                 if let Ok(png) = png {
                     tokio::fs::write(&dest_path, png).await?;
                 }
-                Ok(())
+
+                Ok((tensor_name, format!("tensors/{}", filename)))
             });
         }
 
         let mut count = 0;
+        let mut tensor_files: Vec<(String, String)> = Vec::new();
         while let Some(result) = tasks.join_next().await {
-            if let Err(e) = result {
-                log::error!("Failed to process tensor: {}", e);
+            match result {
+                Ok(result) => {
+                    tensor_files.push(result?);
+                }
+                Err(e) => {
+                    log::error!("Failed to process tensor: {:?}", e);
+                }
             }
+
             count += 1;
             if count % 20 == 0 {
                 log::info!("Processed {} tensors of {}", count, total);
             }
+        }
+
+        for batch in tensor_files.chunks(100) {
+            let values = batch
+                .into_iter()
+                .map(|(tensor_name, path)| {
+                    let data = path.as_bytes().to_vec();
+                    (tensor_name.clone(), data)
+                })
+                .collect::<Vec<_>>();
+
+            self.project.set_tensor_data(values).await?;
+
+            // TODO: Insert into database
         }
 
         log::info!("Processed {} tensors of {}", count, total);

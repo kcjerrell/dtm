@@ -49,6 +49,7 @@ export interface TensorDataOpts {
     last?: number
 }
 
+// FLAG: for removal
 async function tensorData(projectPath: string, opts?: TensorDataOpts): Promise<TensorDataRow[]> {
     return await invoke<TensorDataRow[]>("dt_project_tensordata", {
         projectPath,
