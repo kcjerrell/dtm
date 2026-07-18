@@ -41,7 +41,7 @@
     "./test"
   ],
   "exclude": [
-    "src/scratch/*"
+
   ],
   "references": [
     {

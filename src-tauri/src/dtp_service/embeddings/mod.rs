@@ -1,223 +1,38 @@
-use anyhow::{anyhow, Result};
-use candle_core::{DType, Device, Tensor};
-use candle_nn::VarBuilder;
-use candle_transformers::models::siglip::{Config, Model as SiglipModel};
+use anyhow::Result;
 use hf_hub::HFClient;
-use std::{
-    fs,
-    path::PathBuf,
-    sync::{Arc, OnceLock},
-};
+use std::{fs, path::PathBuf, sync::Arc};
 use tokio::{sync::Semaphore, task::JoinHandle};
 
-use crate::{
-    dtp_service::{AppHandleWrapper, DTPService},
-    projects_db::dtos::embedding_model::EmbeddingModel,
-    Tensor as DtmTensor,
-};
+use crate::dtp_service::{AppHandleWrapper, DTPService};
 
-mod task;
+mod siglip;
+pub mod task;
+pub mod color;
 
 #[derive(Clone)]
 pub struct EmbeddingService {
-    model: Arc<OnceLock<SiglipModel>>,
-    model_id: Arc<OnceLock<i64>>,
-    spec: Arc<ModelSpec>,
-    device: Device,
     dtp: Arc<DTPService>,
 }
 
 impl EmbeddingService {
     pub fn new(dtp: DTPService) -> Result<Self> {
-        let spec = ModelSpec::new(
-            "google".to_string(),
-            "siglip-base-patch16-224".to_string(),
-            vec![
-                "README.md".to_string(),
-                "config.json".to_string(),
-                "model.safetensors".to_string(),
-                "preprocessor_config.json".to_string(),
-                "special_tokens_map.json".to_string(),
-                "spiece.model".to_string(),
-                "tokenizer.json".to_string(),
-                "tokenizer_config.json".to_string(),
-            ],
-        )?;
-        let device = Device::metal_if_available(0)?;
-        Ok(EmbeddingService {
-            model: Arc::new(OnceLock::new()),
-            model_id: Arc::new(OnceLock::new()),
-            spec: Arc::new(spec),
-            device: device,
-            dtp: Arc::new(dtp),
-        })
+        Ok(Self { dtp: Arc::new(dtp) })
     }
 
-    pub async fn init(&self) -> Result<()> {
-        println!("prepping embedding service...");
-        self.spec.check_or_download().await?;
-        println!("embedding model files present...");
-
-        let embed_model = self.get_siglip().await?;
-
-        let config_path = self.spec.config_path();
-        let weights_path = self.spec.weights_path();
-
-        println!("loading config: {}", config_path.display());
-        let cfg: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
-        println!("cfg loaded, {:#?}", cfg);
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path], DType::F32, &self.device)?
-        };
-
-        let model = SiglipModel::new(&cfg, vb)?;
-        println!("model loaded");
-
-        self.model
-            .set(model)
-            .map_err(|_| anyhow!("Model already set"))?;
-        self.model_id
-            .set(embed_model.id)
-            .map_err(|_| anyhow!("Model ID already set"))?;
-        println!("embedding model loaded");
-        Ok(())
-    }
-
-    pub fn get_model(&self) -> Result<(i64, SiglipModel)> {
-        let model = self
-            .model
-            .get()
-            .cloned()
-            .ok_or(anyhow!("Model not initialized"))?;
-        let model_id = self
-            .model_id
-            .get()
-            .cloned()
-            .ok_or(anyhow!("Model ID not initialized"))?;
-        Ok((model_id, model))
-    }
-
-    async fn get_siglip(&self) -> Result<EmbeddingModel> {
-        if let Some(model) = self
-            .dtp
-            .get_db()
-            .await?
-            .embedding_models()
-            .get("google/siglip-base-patch16-224")
-            .await?
-        {
-            return Ok(model);
-        } else {
-            let model = self
-                .dtp
-                .get_db()
-                .await?
-                .embedding_models()
-                .create(
-                    "google/siglip-base-patch16-224".to_string(),
-                    "siglip".to_string(),
-                    768,
-                    "I dunno".to_string(),
-                    None,
-                )
-                .await?;
-            return Ok(model);
-        }
-    }
-
-    pub fn create_embeddings(&self, tensors: Vec<DtmTensor>) -> Result<Tensor> {
-        let model = self
-            .model
-            .get()
-            .ok_or(anyhow!("Embedding model not initialized"))?;
-
-        let prepped = tensors
-            .into_iter()
-            .map(|t| self.preprocess_tensor(t))
-            .collect::<Result<Vec<_>>>()?;
-
-        let batch = Tensor::cat(&prepped, 0)?;
-
-        let output = model.get_image_features(&batch)?;
-
-        Ok(output)
-    }
-
-    pub fn preprocess_tensor(&self, tensor: DtmTensor) -> Result<Tensor> {
-        let width = tensor.width as usize;
-        let height = tensor.height as usize;
-        let channels = tensor.channels as usize;
-        let target_size = 224;
-
-        // Calculate center crop
-        let crop_size = width.min(height);
-        let start_x = (width - crop_size) / 2;
-        let start_y = (height - crop_size) / 2;
-
-        if let Some(tensor) = tensor.into_f32() {
-            let resized = Tensor::from_vec(tensor, (height, width, channels), &self.device)?
-                .narrow(0, start_y, crop_size)?
-                .narrow(1, start_x, crop_size)?
-                .permute((2, 0, 1))?
-                .unsqueeze(0)?
-                .interpolate2d(target_size, target_size)?
-                .affine(0.5, 0.5)?;
-
-            return Ok(resized);
-        }
-
-        anyhow::bail!("Tensor has no data");
-
-        // Calculate sampling step
-        // let step = crop_size as f32 / target_size as f32;
-
-        // let mut resized = Vec::with_capacity(target_size * target_size * channels);
-
-        // for y in 0..target_size {
-        //     let fy = start_y as f32 + (y as f32 + 0.5) * step - 0.5;
-        //     for x in 0..target_size {
-        //         let fx = start_x as f32 + (x as f32 + 0.5) * step - 0.5;
-        //         for c in 0..channels {
-        //             let v = get_pixel(&out, fx, fy, width, height, c, channels);
-        //             resized.push(v);
-        //         }
-        //     }
-        // }
-
-        // let hwc = Tensor::from_vec(resized, (224, 224, 3), &self.device)?;
-        // let chw = hwc.permute((2, 0, 1))?.unsqueeze(0)?;
-        // Ok(chw)
-    }
-}
-
-#[inline]
-fn get_pixel(img: &[f32], x: f32, y: f32, w: usize, h: usize, c: usize, channels: usize) -> f32 {
-    let x = x.clamp(0.0, (w - 1) as f32);
-    let y = y.clamp(0.0, (h - 1) as f32);
-
-    let x0 = x.floor() as usize;
-    let y0 = y.floor() as usize;
-    let x1 = (x0 + 1).min(w - 1);
-    let y1 = (y0 + 1).min(h - 1);
-
-    let dx = x - x0 as f32;
-    let dy = y - y0 as f32;
-
-    let idx = |xx: usize, yy: usize| -> usize { (yy * w + xx) * channels + c };
-
-    let p00 = img[idx(x0, y0)];
-    let p10 = img[idx(x1, y0)];
-    let p01 = img[idx(x0, y1)];
-    let p11 = img[idx(x1, y1)];
-
-    let top = p00 * (1.0 - dx) + p10 * dx;
-    let bottom = p01 * (1.0 - dx) + p11 * dx;
-
-    top * (1.0 - dy) + bottom * dy
-}
-
-pub fn helperr<T>(result: std::result::Result<T, String>) -> anyhow::Result<T> {
-    result.map_err(|e| anyhow::anyhow!(e))
+    // pub fn create_text_embeddding(&self, text: String) -> Result<Vec<f32>> {
+    //     let model = self
+    //         .model
+    //         .get()
+    //         .ok_or(anyhow!("Embedding model not initialized"))?;
+    //     let tokenizer = tokenizers::Tokenizer::from_file(self.spec.folder.join("tokenizer.json"))
+    //         .map_err(|e| anyhow!(e.to_string()))?;
+    //     let encoding = tokenizer
+    //         .encode(text, false)
+    //         .map_err(|e| anyhow!(e.to_string()))?;
+    //     let input_ids = encoding.get_ids();
+    //     // TODO: Convert input_ids to tensor and pass to model
+    //     todo!()
+    // }
 }
 
 pub struct ModelSpec {
@@ -318,17 +133,3 @@ impl ModelSpec {
         Ok(())
     }
 }
-
-pub struct EmbeddingProcessor {}
-
-/*
-some kind of streaming pipeline?
-
-I like the idea of creating n workers and having them keep processing items until None
-vs creating 100 tasks that have semaphore.
-
-can do it with a channel if the receiver is wrapped in a mutex.
-
-but there's got to be a faster way than
-
-*/

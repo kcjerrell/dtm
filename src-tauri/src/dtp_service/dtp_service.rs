@@ -17,20 +17,11 @@ use tokio::{
 };
 
 use crate::{
-    dtp_service::{
-        events::{self, DTPEvent},
-        jobs::{FetchModels, Job, JobContext, ProjectSync, SyncJob, UpdateProjectJob},
-        scheduler::Scheduler,
-        watch::WatchService,
-        AppHandleWrapper, EmbeddingService,
+    IntoTAResult, ResourceHandle, Tensor as DtmTensor, dtp_service::{
+        AppHandleWrapper, EmbeddingService, events::{self, DTPEvent}, jobs::{FetchModels, Job, JobContext, ProjectSync, SyncJob, UpdateProjectJob}, scheduler::Scheduler, watch::WatchService,
+    }, projects_db::{
+        self, DtProjectRef, DtResourceHandle, DtmProtocol, ProjectsDb, dt_project::{ThnData, ThnFilter}, dtos::{embedding::EmbeddingMatch, tensor::TensorRaw}, get_last_row,
     },
-    projects_db::{
-        self,
-        dt_project::{ThnData, ThnFilter},
-        dtos::tensor::TensorRaw,
-        get_last_row, DtProjectRef, DtResourceHandle, DtmProtocol, ProjectsDb,
-    },
-    IntoTAResult, ResourceHandle, Tensor as DtmTensor,
 };
 
 #[derive(Clone)]
@@ -226,17 +217,20 @@ impl DTPService {
         });
     }
 
-    #[dtp_command]
-    pub async fn start_embedding(&self, project_id: i64) -> crate::TAResult<()> {
+    async fn get_embedding_service(&self) -> crate::TAResult<&EmbeddingService> {
         let embedding_service = self
             .embedding_service
             .get_or_try_init::<anyhow::Error, _, _>(async || {
                 let service = EmbeddingService::new(self.clone())?;
-                service.init().await?;
-                println!("Embedding service initialized");
                 Ok(service)
             })
             .await?;
+        Ok(embedding_service)
+    }
+
+    #[dtp_command]
+    pub async fn start_embedding(&self, project_id: i64) -> crate::TAResult<()> {
+        let embedding_service = self.get_embedding_service().await?;
 
         let start = Instant::now();
 
@@ -265,7 +259,7 @@ impl DTPService {
             .images
             .unwrap_or(Vec::new())
             .iter()
-            .map(|img| (img.id, (&project).node(img.node_id)))
+            .map(|img| (img.id, project.node(img.node_id)))
             .collect();
 
         let total = images.len();
@@ -281,11 +275,18 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_embedding(&self, image_id: i64) -> crate::TAResult<()> {
+    pub async fn get_embedding(&self, image_id: i64) -> crate::TAResult<Vec<EmbeddingMatch>> {
+        let service = self.get_embedding_service().await?;
         let result = self.get_db().await?.embeddings().get(image_id).await?;
-        let similar = self.get_db().await?.embeddings().find(result.1, 10, EmbeddingType::Image).await?;
-        println!("similar: {:#?}", similar);
-        Ok(())
+        let similar = self.get_db().await?.embeddings().find(result.1, 48, EmbeddingType::Image).await?;
+        Ok(similar)
+    }
+
+    #[dtp_command]
+    pub async fn search_embedding(&self, query: String) -> crate::TAResult<Vec<EmbeddingMatch>> {
+        // let result = self.get_db().await?.embeddings().find(query, 48, EmbeddingType::Image).await?;
+        // Ok(result)
+        todo!();
     }
 
     #[dtp_command]

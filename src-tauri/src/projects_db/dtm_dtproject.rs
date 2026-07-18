@@ -1,8 +1,8 @@
+use anyhow::Context;
 use tauri::{
     http::{self, Response, StatusCode, Uri},
     UriSchemeResponder,
 };
-use anyhow::Context;
 
 use crate::{
     projects_db::{
@@ -22,14 +22,28 @@ const MISSING_SVG: &str = r##"<?xml version="1.0" encoding="utf-8"?>
   </g>
 </svg>"##;
 
-// dtm://dtm_dtproject/thumbhalf/5/82988
-// dtm://dtm_dtproject/{item type}/{project_id}/{item id}
+// dtm://dtproject/thumbhalf/5/82988
+// dtm://dtproject/{item type}/{project_id}/{item id}
 
 // note: while audio is technically a tensor type, it is better served from a different route
-// dtm://dtm_dtproject/audio/{project_id}/{item_id}
+// dtm://dtproject/audio/{project_id}/{item_id}
 // for audio, item_id is the node_id
 
-#[derive(Default)]
+// dtm://dtm_pdb/thumb/{image_id}
+
+#[derive(Debug)]
+pub enum DtmResource {
+    DtProject(DTPResource),
+    ProjectsDb(PdbResource),
+}
+
+#[derive(Default, Debug)]
+pub struct PdbResource {
+    pub item_type: String,
+    pub image_id: i64,
+}
+
+#[derive(Default, Debug)]
 pub struct DTPResource {
     pub item_type: String,
     pub project_id: i64,
@@ -41,56 +55,77 @@ pub struct DTPResource {
     pub range_end: Option<usize>,
 }
 
-fn parse_request<T>(request: &http::Request<T>) -> Option<DTPResource> {
+fn parse_request<T>(request: &http::Request<T>) -> Option<DtmResource> {
     let uri = request.uri();
+
+    // the uri will interpret the first part of the url as the hostname
+    // I'm calling that 'route' as in the 'top-level route' rather than host
+    let route = uri.host().unwrap_or("");
+
+    // path[0] will be ""
     let path: Vec<&str> = uri.path().split('/').collect();
-    if path.len() < 4 {
-        return None;
-    }
 
-    let mut resource = DTPResource {
-        item_type: path[1].to_string(),
-        project_id: path[2].parse().unwrap(),
-        item_id: path[3].to_string(),
-        ..Default::default()
-    };
-
-    if let Some(range) = request.headers().get("Range") {
-        let range = range.to_str().unwrap();
-
-        if let Some(range) = range.strip_prefix("bytes=") {
-            let mut parts = range.split('-');
-
-            let start = parts.next().unwrap();
-            let end = parts.next().unwrap_or("");
-
-            resource.range_start = if start.is_empty() {
-                None
-            } else {
-                Some(start.parse::<usize>().unwrap())
-            };
-
-            resource.range_end = if end.is_empty() {
-                None
-            } else {
-                Some(end.parse::<usize>().unwrap())
-            };
-        }
-    }
-
-    if let Some(query) = uri.query() {
-        for q in query.split('&') {
-            let (key, value) = q.split_once('=').unwrap();
-            match key {
-                "node" => resource.node = Some(value.parse().unwrap()),
-                "s" => resource.size = Some(value.parse().unwrap()),
-                "mask" => resource.mask = Some(value.to_string()),
-                _ => (),
+    match route {
+        "dtproject" => {
+            if path.len() < 4 {
+                return None;
             }
-        }
-    }
+            let mut resource = DTPResource {
+                item_type: path[1].to_string(),
+                project_id: path[2].parse().unwrap(),
+                item_id: path[3].to_string(),
+                ..Default::default()
+            };
 
-    Some(resource)
+            if let Some(range) = request.headers().get("Range") {
+                let range = range.to_str().unwrap();
+
+                if let Some(range) = range.strip_prefix("bytes=") {
+                    let mut parts = range.split('-');
+
+                    let start = parts.next().unwrap();
+                    let end = parts.next().unwrap_or("");
+
+                    resource.range_start = if start.is_empty() {
+                        None
+                    } else {
+                        Some(start.parse::<usize>().unwrap())
+                    };
+
+                    resource.range_end = if end.is_empty() {
+                        None
+                    } else {
+                        Some(end.parse::<usize>().unwrap())
+                    };
+                }
+            }
+
+            if let Some(query) = uri.query() {
+                for q in query.split('&') {
+                    let (key, value) = q.split_once('=').unwrap();
+                    match key {
+                        "node" => resource.node = Some(value.parse().unwrap()),
+                        "s" => resource.size = Some(value.parse().unwrap()),
+                        "mask" => resource.mask = Some(value.to_string()),
+                        _ => (),
+                    }
+                }
+            }
+
+            Some(DtmResource::DtProject(resource))
+        }
+        "dtm_pdb" => {
+            if path.len() < 3 {
+                return None;
+            }
+            let resource = PdbResource {
+                item_type: path[1].to_string(),
+                image_id: path[2].parse().unwrap(),
+            };
+            Some(DtmResource::ProjectsDb(resource))
+        }
+        _ => None,
+    }
 }
 
 pub struct DtmProtocol {
@@ -132,7 +167,7 @@ impl DtmProtocol {
         request: http::Request<T>,
     ) -> anyhow::Result<Response<Vec<u8>>> {
         let req = parse_request(&request);
-
+ 
         if req.is_none() {
             return Ok(Response::builder()
                 .status(StatusCode::BAD_REQUEST)
@@ -141,30 +176,42 @@ impl DtmProtocol {
 
         let req = req.unwrap();
 
-        match req.item_type.as_str() {
-            "thumb" => thumb(req.project_id, &req.item_id, false).await,
-            "thumbhalf" => thumb(req.project_id, &req.item_id, true).await,
-            "tensor" => {
-                tensor(
-                    req.project_id,
-                    &req.item_id,
-                    req.node,
-                    req.size,
-                    req.mask.as_deref(),
-                )
-                .await
-            }
-            "audio" => {
-                let project_path = self
-                    .pdb
-                    .get_project_path(req.project_id)
+        match req {
+            DtmResource::DtProject(req) => match req.item_type.as_str() {
+                "thumb" => thumb(req.project_id, &req.item_id, false).await,
+                "thumbhalf" => thumb(req.project_id, &req.item_id, true).await,
+                "tensor" => {
+                    tensor(
+                        req.project_id,
+                        &req.item_id,
+                        req.node,
+                        req.size,
+                        req.mask.as_deref(),
+                    )
                     .await
-                    .context("Failed to get project path")?;
-                audio_request(&project_path, &req).await
-            }
-            _ => Ok(Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body("Not Found".as_bytes().to_vec())?),
+                }
+                "audio" => {
+                    let project_path = self
+                        .pdb
+                        .get_project_path(req.project_id)
+                        .await
+                        .context("Failed to get project path")?;
+                    audio_request(&project_path, &req).await
+                }
+                _ => Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body("Not Found".as_bytes().to_vec())?),
+            },
+            DtmResource::ProjectsDb(req) => match req.item_type.as_str() {
+                "thumb" => {
+                    let pdb = ProjectsDb::get().await?;
+                    let image = pdb.get_image(req.image_id).await?;
+                    thumb(image.project_id, &image.preview_id.to_string(), false).await
+                }
+                _ => Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body("Not implemented".as_bytes().to_vec())?),
+            },
         }
     }
 }
@@ -204,10 +251,7 @@ async fn tensor(
 
     let handle = if let Some(node_id) = node {
         // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
-        project_ref
-            .node(node_id)
-            .sub()?
-            .tensor(name)
+        project_ref.node(node_id).sub()?.tensor(name)
     } else {
         project_ref.tensor(name)
     };
@@ -216,13 +260,11 @@ async fn tensor(
 
     // Handle pose type separately as it doesn't return PNG
     if tensor_type == "pose" {
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(
-                "Unsupported tensor type or decoding failed"
-                    .as_bytes()
-                    .to_vec(),
-            )?);
+        return Ok(Response::builder().status(StatusCode::BAD_REQUEST).body(
+            "Unsupported tensor type or decoding failed"
+                .as_bytes()
+                .to_vec(),
+        )?);
     }
 
     if tensor_type == "audio" {

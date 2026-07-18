@@ -33,7 +33,7 @@ export const viewDescription = [
 export const views = {
     metadata: lazy(() => import("./metadata/Metadata")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/Scratch3")),
+    scratch: lazy(() => import("./scratch/Embedding")),
 }
 
 export function getView(view: string): ComponentType<ChakraProps> {

@@ -102,6 +102,7 @@ candle-core = { version = "0.10.2", features = ["metal", "accelerate"] }
 candle-nn = { version = "0.10.2", features = ["metal", "accelerate"] }
 hf-hub = "1.0.0-rc.1"
 zerocopy = "0.8.52"
+tokenizers = "0.23.1"
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

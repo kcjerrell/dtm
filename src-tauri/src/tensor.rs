@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Result};
 use strum::EnumIs;
 
-use crate::projects_db::{
-    decompress_fzip, dt_project::TensorHistoryNode, dtos::tensor::TensorRaw, inflate_deflate,
-    write_png_with_usercomment,
+use crate::{
+    dtp_service::embeddings::task::IntoTensor,
+    projects_db::{
+        decompress_fzip, dt_project::TensorHistoryNode, dtos::tensor::TensorRaw, inflate_deflate,
+        write_png_with_usercomment,
+    },
 };
 
 /// A decompressed Draw Things tensor.
@@ -191,6 +194,26 @@ impl Tensor {
         Ok(png)
     }
 }
+
+// impl IntoTensor for Tensor {
+//     fn into_tensor(
+//         self: Box<Self>,
+//         width: u32,
+//         height: u32,
+//         channels: u32,
+//         device: &candle_core::Device,
+//     ) -> anyhow::Result<candle_core::Tensor> {
+//         let tensor = candle_core::Tensor::from_slice(
+//             &self.into_f32(),
+//             (self.height as usize, self.width as usize, self.channels as usize),
+//             device,
+//         )?;
+        
+//         if self.width * 
+
+
+//     }
+// }
 
 impl TryFrom<TensorRaw> for Tensor {
     type Error = anyhow::Error;

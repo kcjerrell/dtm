@@ -167,7 +167,7 @@ pub struct Embedding {
     // pub embedding_model: HasOne<super::embedding_models::Entity>,
 }
 
-#[derive(Debug, FromQueryResult)]
+#[derive(Debug, FromQueryResult, Serialize)]
 pub struct EmbeddingMatch {
     pub image_id: i64,
     pub distance: f64,
