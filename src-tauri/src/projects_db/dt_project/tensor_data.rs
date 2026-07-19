@@ -1,6 +1,6 @@
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::projects_db::{
     dt_project::{data::tensor_data::TensorData as ParsedTensorData, DTProjectTable},
@@ -40,6 +40,20 @@ impl TensorData {
     /// and can be accessed unchecked
     pub fn data(&self) -> TensorDataData {
         unsafe { root_as_tensor_data_unchecked(&self.raw_data) }
+    }
+
+    pub fn get_tensor_ids(&self) -> Vec<i64> {
+        let mut ids = HashSet::<i64>::new();
+
+        ids.insert(self.data().mask_id());
+        ids.insert(self.data().pose_id());
+        ids.insert(self.data().custom_id());
+        ids.insert(self.data().tensor_id());
+        ids.insert(self.data().scribble_id());
+        ids.insert(self.data().depth_map_id());
+        ids.insert(self.data().color_palette_id());
+
+        ids.iter().filter(|id| id > &(&0)).copied().collect()
     }
 }
 
@@ -103,12 +117,18 @@ impl<'r> FromRow<'r, SqliteRow> for TensorData {
         }
     }
 }
-
 impl DTProject {
-    pub async fn get_tensor_data(&self, filter: TdFilter) -> Result<Vec<TensorData>, sqlx::Error> {
+    pub async fn get_tensor_data(&self, filter: TdFilter) -> anyhow::Result<Vec<TensorData>> {
         self.check_table(&DTProjectTable::TensorData).await?;
         let query = build_query(filter);
-        query_as(query).fetch_all(&*self.pool).await
+        Ok(query_as(query).fetch_all(&*self.pool).await?)
+    }
+
+    pub async fn list_tensor_data_ids(&self) -> anyhow::Result<Vec<i64>> {
+        self.check_table(&DTProjectTable::TensorData).await?;
+        let query = "SELECT rowid FROM tensordata";
+        let res: Vec<i64> = sqlx::query_scalar(query).fetch_all(&*self.pool).await?;
+        Ok(res)
     }
 }
 

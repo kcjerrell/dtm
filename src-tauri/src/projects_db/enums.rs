@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use serde::Serialize;
 use strum::EnumIs;
 
 use crate::projects_db::{
@@ -42,22 +43,22 @@ impl From<&str> for DtProjectRef {
 
 impl DtProjectRef {
     pub fn thumb(&self, preview_id: i64) -> DtResourceHandle {
-        DtResourceHandle::new(self.clone(), DtResourceRef::Thumb(preview_id))
+        DtResourceHandle::new(self, &DtResourceRef::Thumb(preview_id))
     }
     pub fn tensor(&self, name: &str) -> DtResourceHandle {
-        DtResourceHandle::new(self.clone(), DtResourceRef::Tensor(String::from(name)))
+        DtResourceHandle::new(self, &DtResourceRef::Tensor(String::from(name)))
     }
     pub fn node(&self, node: impl Into<ThnRef>) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.clone(),
-            DtResourceRef::TensorHistoryNode(node.into(), ThnResource::None),
+            self,
+            &DtResourceRef::TensorHistoryNode(node.into(), ThnResource::None),
         )
     }
 }
 
 /// Reference to one or more `tensordata` rows, mirroring the relevant `TdFilter` variants
 /// in `dt_project/tensor_data.rs`.
-#[derive(Debug, Clone, EnumIs)]
+#[derive(Debug, Clone, EnumIs, Serialize)]
 pub enum TdRef {
     /// references a specific tensordata row by id
     RowId(i64),
@@ -84,7 +85,7 @@ impl From<&TdRef> for TdFilter {
 }
 
 /// Reference to a `tensorhistorynode` row, mirroring `ThnFilter` variants
-#[derive(Debug, Clone, EnumIs)]
+#[derive(Debug, Clone, EnumIs, Serialize)]
 pub enum ThnRef {
     /// references a specific tensorhistorynode row by id
     RowId(i64),
@@ -118,7 +119,7 @@ impl From<&ThnRef> for ThnFilter {
 /// Represents a specific resource related to a tensor history node or referenced by tensordata.
 ///
 /// Note: some combinations are always impossible, for example TensorData will never have a Thumb
-#[derive(Debug, Clone, EnumIs)]
+#[derive(Debug, Clone, EnumIs, Serialize)]
 pub enum ThnResource {
     None,
     Thumb,
@@ -154,7 +155,7 @@ impl ThnResource {
 }
 
 /// A reference to a specific resource within a project.
-#[derive(Debug, Clone, EnumIs)]
+#[derive(Debug, Clone, EnumIs, Serialize)]
 pub enum DtResourceRef {
     // References a specific tensor by name
     Tensor(String),
@@ -164,6 +165,21 @@ pub enum DtResourceRef {
     TensorData(TdRef, ThnResource),
     // References tensors and thumbs indirectly through a related TensorHistoryNode
     TensorHistoryNode(ThnRef, ThnResource),
+}
+
+impl DtResourceRef {
+    /// returns the tensor_name, if the DtResourceRef contains one
+    pub fn get_tensor_name(&self) -> Option<String> {
+        match self {
+            DtResourceRef::Tensor(name) => Some(name.clone()),
+            DtResourceRef::TensorData(_, _) => None,
+            DtResourceRef::TensorHistoryNode(_, res) => match res {
+                ThnResource::Tensor(name) => Some(name.clone()),
+                _ => None,
+            },
+            DtResourceRef::Thumb(_) => None,
+        }
+    }
 }
 
 pub struct PartialThnDtResourceHandle<'a> {
@@ -191,38 +207,38 @@ impl<'a> TryFrom<&'a DtResourceHandle> for PartialThnDtResourceHandle<'a> {
 impl<'a> PartialThnDtResourceHandle<'a> {
     pub fn Thumb(self) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::Thumb),
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Thumb),
         )
     }
     pub fn DepthMap(self) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::DepthMap),
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::DepthMap),
         )
     }
     pub fn Pose(self) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::Pose),
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Pose),
         )
     }
     pub fn Scribble(self) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::Scribble),
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Scribble),
         )
     }
     pub fn Custom(self) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::Custom),
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Custom),
         )
     }
     pub fn ColorPalette(self) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(self.node, ThnResource::ColorPalette),
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::ColorPalette),
         )
     }
     // pub fn Canvas(usize) Canvas(usize)
@@ -230,8 +246,8 @@ impl<'a> PartialThnDtResourceHandle<'a> {
     // pub fn Moodboard(usize) Moodboard(usize)
     pub fn tensor(self, tensor_name: &str) -> DtResourceHandle {
         DtResourceHandle::new(
-            self.project,
-            DtResourceRef::TensorHistoryNode(
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(
                 self.node,
                 ThnResource::Tensor(tensor_name.to_string()),
             ),

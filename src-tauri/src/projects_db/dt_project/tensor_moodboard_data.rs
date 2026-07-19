@@ -61,6 +61,13 @@ impl DTProject {
         let query = build_query(filter);
         query_as(query).fetch_all(&*self.pool).await
     }
+
+    pub async fn list_tensor_moodboard_data_ids(&self) -> anyhow::Result<Vec<i64>> {
+        self.check_table(&DTProjectTable::TensorMoodboardData).await?;
+        let query = "SELECT rowid FROM tensormoodboarddata";
+        let res: Vec<i64> = sqlx::query_scalar(query).fetch_all(&*self.pool).await?;
+        Ok(res)
+    }
 }
 
 fn build_query(filter: TmdFilter) -> AssertSqlSafe<String> {

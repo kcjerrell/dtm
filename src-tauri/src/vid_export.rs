@@ -103,8 +103,8 @@ pub async fn save_all_clip_frames(
             for (i, frame) in frames.iter().enumerate() {
                 let name = name_gen.next().unwrap();
                 let handle = DtResourceHandle::new(
-                    DtProjectRef::Id(project_id),
-                    DtResourceRef::Thumb(frame.preview_id),
+                    &DtProjectRef::Id(project_id),
+                    &DtResourceRef::Thumb(frame.preview_id),
                 );
                 let thumb_data = handle
                     .get_preview(false)

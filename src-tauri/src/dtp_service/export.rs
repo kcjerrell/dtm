@@ -180,8 +180,8 @@ impl DTPService {
                     } else {
                         // faster: use the preview jpeg directly, writing metadata into the jpg
                         let handle = DtResourceHandle::new(
-                            DtProjectRef::Id(project_id),
-                            DtResourceRef::Thumb(image.preview_id),
+                            &DtProjectRef::Id(project_id),
+                            &DtResourceRef::Thumb(image.preview_id),
                         );
                         let jpg = handle
                             .get_preview(false)

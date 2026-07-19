@@ -319,6 +319,58 @@ impl DTProject {
         })
     }
 
+    pub async fn get_tensors_raw(&self, names: &[&str]) -> Result<Vec<TensorRaw>, Error> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        self.check_table(&DTProjectTable::Tensors).await?;
+
+        let mut qb = QueryBuilder::new("SELECT name, type, format, datatype, dim, data FROM tensors WHERE name IN (");
+
+        let mut separated = qb.separated(", ");
+        for name in names {
+            separated.push_bind(*name);
+        }
+
+        qb.push(")");
+
+        let rows = qb
+            .build()
+            .fetch_all(&*self.pool)
+            .await?;
+
+        let mut tensors = Vec::new();
+        for row in rows {
+            let name: String = row.get(0);
+            let tensor_type: i64 = row.get(1);
+            let format: i32 = row.get(2);
+            let data_type: i32 = row.get(3);
+            let dim: Vec<u8> = row.get(4);
+            let data: Vec<u8> = row.get(5);
+
+            let n = i32::from_le_bytes(dim[0..4].try_into().ok().unwrap());
+            let height = i32::from_le_bytes(dim[4..8].try_into().ok().unwrap());
+            let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
+            let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
+
+            tensors.push(TensorRaw {
+                name,
+                tensor_type,
+                format,
+                data_type,
+                n,
+                height,
+                width,
+                channels,
+                dim,
+                data,
+            });
+        }
+
+        Ok(tensors)
+    }
+
     pub async fn list_tensors(&self) -> anyhow::Result<Vec<(i64, String)>> {
         self.check_table(&DTProjectTable::Tensors).await?;
         let tensors = query("select rowid, name from tensors")

@@ -70,8 +70,8 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
     let item_id: i64 = resource.item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
 
     let res = DtResourceHandle::new(
-        DtProjectRef::Path(project_path.to_string()),
-        DtResourceRef::TensorHistoryNode(
+        &DtProjectRef::Path(project_path.to_string()),
+        &DtResourceRef::TensorHistoryNode(
             ThnRef::RowId(item_id),
             ThnResource::None,
         ),

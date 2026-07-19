@@ -1,7 +1,11 @@
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize};
 use sqlx::{query_as, AssertSqlSafe, FromRow};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use crate::projects_db::{
     dt_project::{
@@ -181,6 +185,25 @@ impl TensorHistoryNode {
             return Some(p.as_str());
         }
         self.data().negative_text_prompt().filter(|s| !s.is_empty())
+    }
+
+    /// I believe this is mostly for older versions  with f
+    pub fn data_tensor_ids(&self) -> Vec<i64> {
+        let mut ids = HashSet::with_capacity(6);
+        let data = self.data();
+        ids.insert(data.mask_id());
+        ids.insert(data.pose_id());
+        ids.insert(data.custom_id());
+        ids.insert(data.tensor_id());
+        ids.insert(data.scribble_id());
+        ids.insert(data.depth_map_id());
+        ids.insert(data.color_palette_id());
+
+        if let Some(tensordata) = &self.tensordata {
+            ids.extend(tensordata.iter().flat_map(|td| td.get_tensor_ids()));
+        }
+
+        ids.iter().filter(|id| id > &(&0)).copied().collect()
     }
 }
 
@@ -392,7 +415,7 @@ impl DTProject {
         Ok(items)
     }
 
-    pub fn batch_tensor_history_nodes(&self, data: ThnData) -> NodesBatcher {
+    pub fn batch_tensor_history_nodes(&self, data: ThnData) -> NodesBatcher<'_> {
         NodesBatcher::new(self, data)
     }
 

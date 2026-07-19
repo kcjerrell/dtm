@@ -103,10 +103,10 @@ impl ResourceHandle for DtResourceHandle {
 }
 
 impl DtResourceHandle {
-    pub fn new(project: DtProjectRef, resource: DtResourceRef) -> Self {
+    pub fn new(project: &DtProjectRef, resource: &DtResourceRef) -> Self {
         Self {
-            project,
-            resource,
+            project: project.clone(),
+            resource: resource.clone(),
             project_path: Arc::new(OnceCell::new()),
             history_node: Arc::new(OnceCell::new()),
         }
