@@ -96,6 +96,7 @@ tauri-plugin-os = "2"
 strum = { version = "0.28.0", features = ["derive"] }
 fpzip-rs = "0.1.0"
 tempfile = "3.27.0"
+s-zip = { version = "0.11.3", features = ["async"] }
 
 # macOS-only
 [target."cfg(target_os = \"macos\")".dependencies]

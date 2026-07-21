@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
+use tempfile::{tempdir, tempdir_in};
 use walkdir::WalkDir;
 
 use crate::projects_db::dtos::model::ModelType;
@@ -171,6 +172,16 @@ impl AppHandleWrapper {
             app_handle.path().app_data_dir()
         } else {
             Ok(self.get_test_path("app_data_dir"))
+        }
+    }
+
+    pub fn create_temp_dir(&self) -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = &self.app_handle {
+            let temp = app_handle.path().app_data_dir()?.join("temp");
+            let temp_dir = tempdir_in(temp)?;
+            Ok(temp_dir.keep())
+        } else {
+            Ok(self.get_test_path("temp_dir"))
         }
     }
 }

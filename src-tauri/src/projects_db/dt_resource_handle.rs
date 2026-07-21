@@ -34,10 +34,6 @@ impl ResourceHandle for DtResourceHandle {
             let dtp = self.get_project().await?;
             let tensor_raw = dtp.get_tensor_raw(&name).await?;
             let tensor: Tensor = tensor_raw.try_into()?;
-            println!(
-                "got tensor ({},{},{},{})",
-                tensor.n, tensor.height, tensor.width, tensor.channels
-            );
 
             return Ok(Some(tensor));
         }
@@ -147,10 +143,6 @@ impl DtResourceHandle {
                         .await?
                         .into_iter()
                         .next();
-                    println!(
-                        "got history node: {}",
-                        node.as_ref().map(|n| n.rowid).unwrap_or_default()
-                    );
                     Ok::<_, anyhow::Error>(node)
                 } else {
                     Ok::<_, anyhow::Error>(None)

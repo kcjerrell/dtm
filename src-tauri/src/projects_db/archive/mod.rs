@@ -1,33 +1,34 @@
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 use tauri::State;
 
 use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
-        archive::copy::{copy_project, ArchivePlan},
-        dt_project::{ThnData},
-         DtProjectRef, DtResourceRef, ThnRef, ThnResource,
+        archive::copy::{copy_project, ArchivePlan, CopyTensorItem},
+        dt_project::ThnData,
+        DtProjectRef,
     },
     IntoTAResult, TAResult,
 };
 
 mod copy;
+pub(crate) mod workers;
 
 #[tauri::command]
 pub async fn create_dt_archive(
     app: State<'_, AppHandleWrapper>,
     dtp: State<'_, DTPService>,
     project_id: i64,
-) -> TAResult<ArchivePlan> {
+) -> TAResult<()> {
     let plan = compile_resources(dtp, project_id).await?;
     copy_project(
         app.inner().clone(),
         DtProjectRef::Id(project_id),
-        plan.clone(),
+        plan,
     )
     .await?;
-    Ok(plan)
+    Ok(())
 }
 
 /// Scans a DTProject and compiles lists of all resources that should be in the
@@ -58,8 +59,8 @@ pub async fn compile_resources(
 
     // a list of resource refs associating a node to the generated image tensor
     // the ids for these are listed in main_tensor_ids
-    let mut resources: Vec<DtResourceRef> = Vec::new();
-    let mut extra_resources: Vec<DtResourceRef> = Vec::new();
+    let mut resources: Vec<CopyTensorItem> = Vec::new();
+    let mut extra_resources: Vec<CopyTensorItem> = Vec::new();
     let mut unused_tensor_names: Vec<String> = Vec::new();
 
     let mut total_nodes = 0;
@@ -96,11 +97,11 @@ pub async fn compile_resources(
 
             // add the primary tensor as a resource ref
             if main_tensor_id != 0 {
-                let resource_ref = DtResourceRef::TensorHistoryNode(
-                    ThnRef::RowId(node_id),
-                    ThnResource::Tensor(format!("tensor_history_{}", main_tensor_id)),
-                );
-                resources.push(resource_ref);
+                resources.push(CopyTensorItem::primary(
+                    node_id,
+                    format!("tensor_history_{}", main_tensor_id),
+                    data.preview_id(),
+                ));
                 main_tensor_ids.insert(main_tensor_id);
             } else {
                 println!("couldn't find tensor id for node {}", node_id)
@@ -138,6 +139,7 @@ pub async fn compile_resources(
         .map(|(_, name)| name.clone())
         .collect();
 
+    let mut extra_index = 0;
     for tensor_name in all_tensor_names.into_iter() {
         let id = tensor_name
             .rsplit_once("_")
@@ -150,7 +152,8 @@ pub async fn compile_resources(
         if main_tensor_ids.contains(&id) {
             continue;
         } else if tensor_ids.contains(&id) {
-            extra_resources.push(DtResourceRef::Tensor(tensor_name));
+            extra_index += 1;
+            extra_resources.push(CopyTensorItem::extra(tensor_name, extra_index));
         } else {
             unused_tensor_names.push(tensor_name);
         }

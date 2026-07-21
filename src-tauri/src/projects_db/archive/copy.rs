@@ -1,13 +1,19 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use serde::Serialize;
+use s_zip::StreamingZipWriter;
 use sqlx::{query, AssertSqlSafe, SqlitePool};
-use tokio::{sync::Semaphore, task::JoinSet};
+use tokio::{
+    fs, sync::{Semaphore, mpsc::Sender}, task::{JoinHandle, JoinSet},
+};
 
 use crate::{
     dtp_service::AppHandleWrapper,
-    projects_db::{DtProjectRef, DtResourceHandle, DtResourceRef, ProjectsDb},
+    projects_db::{
+        archive::workers::copy_tensors, DtProjectRef, DtResourceHandle, DtResourceRef, ProjectsDb,
+        ThnRef, ThnResource,
+    },
+    util::update_gate::{UpdateGate, UpdateGateExt},
     ResourceHandle,
 };
 
@@ -19,7 +25,7 @@ const TENSORDATA_OFFSETS: &[&str] = &[
 ];
 const TENSORMOODBOARD_OFFSETS: &[&str] = &["", "__f10"];
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug)]
 pub struct ArchivePlan {
     // THE DATA
     /// tensorhistorynode rowids
@@ -31,9 +37,9 @@ pub struct ArchivePlan {
 
     /// THE RESOURCES
     /// primary tensors, should be DtRR::Thn to link metadata
-    pub primary_tensors: Vec<DtResourceRef>,
+    pub primary_tensors: Vec<CopyTensorItem>,
     /// all other included tensors, should be DtRR::Tensor
-    pub tensors_extra: Vec<DtResourceRef>,
+    pub tensors_extra: Vec<CopyTensorItem>,
 
     // THE LEFT BEHIND
     /// tensors names that are not included in the archive
@@ -56,14 +62,14 @@ pub async fn copy_project(
         .open_dt_project(project_ref)
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
+    let project_name = PathBuf::from(&dtp.path)
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
 
-    let mut temp_dir = tempfile::tempdir_in(&app.get_app_data_dir()?)?;
-    temp_dir.disable_cleanup(true);
-    let temp_path = temp_dir.path();
-    let dest_db_path = temp_path.join("project.sqlite3");
-
-    tokio::fs::create_dir_all(temp_path.join("images")).await?;
-    tokio::fs::create_dir_all(temp_path.join("tensors")).await?;
+    let mut temp_dir = app.create_temp_dir()?;
+    let dest_db_path = temp_dir.join("project.sqlite3");
 
     let conn_string = format!("sqlite:{}?mode=rwc", dest_db_path.display());
 
@@ -74,7 +80,7 @@ pub async fn copy_project(
     let schema = dtp.get_schema().await?;
     let src_db_path = dtp.path.clone();
 
-    // for now we will copy every table schema
+    // copy the nedded table schemas
     for (name, sql) in schema.iter() {
         if name.starts_with("tensor") | name.starts_with("thumbnailhistory") {
             sqlx::query(AssertSqlSafe(sql.as_str()))
@@ -83,6 +89,7 @@ pub async fn copy_project(
         }
     }
 
+    // attach the source db to the dest db
     sqlx::query("ATTACH DATABASE ? AS dtp;")
         .bind(&src_db_path)
         .execute(&mut *dest_conn)
@@ -113,70 +120,91 @@ pub async fn copy_project(
     .await?;
 
     // don't let the attached connection return to the pool
-    _ = dest_conn.close().await?;
 
     let project_ref = DtProjectRef::Db(dtp);
+
     copy_tensors(
-        &plan.primary_tensors,
-        &plan.tensors_extra,
+        plan.primary_tensors,
+        plan.tensors_extra,
         &project_ref,
-        &temp_path.into(),
+        &temp_dir.join("project.zip"),
+        dest_conn,
     )
     .await?;
+
+    dest_db.close().await;
+
+    let archive_path = temp_dir.join("project.zip");
+    let handle = tokio::task::spawn_blocking(move || {
+        let mut writer = StreamingZipWriter::new(&archive_path)?;
+        writer.start_entry("project.sqlite3")?;
+        writer.write_data(&std::fs::read(dest_db_path)?)?;
+        writer.finish()?;
+        Ok::<(), anyhow::Error>(())
+    });
+    handle.await??;
+    let target_path = app
+        .get_home_dir()?
+        .join("Documents")
+        .join(format!("{}.zip", project_name));
+    fs::rename(temp_dir.join("project.zip"), target_path).await?;
+    fs::remove_dir_all(temp_dir).await?;
+
+    println!("finished!");
 
     Ok(())
 }
 
-async fn copy_tensors(
-    primary: &[DtResourceRef],
-    extra: &[DtResourceRef],
-    project_ref: &DtProjectRef,
-    out_path: &PathBuf,
-) -> Result<(), anyhow::Error> {
-    let mut tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
-    let semaphore = Arc::new(Semaphore::new(8));
+#[derive(Debug)]
+pub struct CopyTensorItem {
+    pub name: String,
+    pub node_id: Option<i64>,
+    pub preview_id: Option<i64>,
+    pub primary: bool,
+    pub index: i64,
+    pub data: Option<Vec<u8>>,
+    pub lossless: bool,
+    pub added_to_archive: bool,
+    pub error: Option<anyhow::Error>,
+}
 
-    let resources = primary.iter().chain(extra);
-    for resource in resources {
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
-
-        let name = resource
-            .get_tensor_name()
-            .ok_or(anyhow::anyhow!("tensor has no name"))?;
-        let folder = match resource.is_tensor_history_node() {
-            true => "images",
-            false => "tensors",
-        };
-        let path = out_path.join(folder).join(format!("{}.png", name));
-        let handle = DtResourceHandle::new(&project_ref, &resource);
-
-        tasks.spawn(async move {
-            let _permit = permit;
-
-            let png = handle
-                .get_lossless(None)
-                .await?
-                .ok_or(anyhow::anyhow!("couldn't get tensor image"))?;
-
-            _ = tokio::fs::write(&path, &png).await?;
-
-            Ok(())
-        });
-    }
-
-    while let Some(task) = tasks.join_next().await {
-        match task {
-            Ok(Ok(())) => {}
-            Ok(Err(e)) => {
-                println!("task err: {}", e)
-            }
-            Err(e) => {
-                println!("task err: {}", e)
-            }
+impl CopyTensorItem {
+    pub fn primary(node_id: i64, tensor_name: String, preview_id: i64) -> Self {
+        CopyTensorItem {
+            name: tensor_name,
+            node_id: Some(node_id),
+            preview_id: Some(preview_id),
+            primary: true,
+            index: node_id,
+            data: None,
+            lossless: true,
+            added_to_archive: false,
+            error: None,
         }
     }
 
-    Ok(())
+    pub fn extra(tensor_name: String, index: i64) -> Self {
+        CopyTensorItem {
+            name: tensor_name,
+            node_id: None,
+            preview_id: None,
+            primary: false,
+            index,
+            data: None,
+            lossless: true,
+            added_to_archive: false,
+            error: None,
+        }
+    }
+
+    pub fn filename(&self) -> String {
+        format!(
+            "{}/{}.{}",
+            if self.primary { "images" } else { "tensors" },
+            self.name,
+            if self.lossless { "png" } else { "jpg" }
+        )
+    }
 }
 
 async fn copy_table_group(
