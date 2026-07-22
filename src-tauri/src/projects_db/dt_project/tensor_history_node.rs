@@ -110,7 +110,7 @@ impl ThnData {
 }
 
 /// The definitive representation of the tensorhistorynode table entity
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TensorHistoryNode {
     pub rowid: i64,
     pub project_path: PathBuf,

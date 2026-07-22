@@ -4,9 +4,16 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
-    ResourceHandle, Tensor, projects_db::{
-        DTProject, DtProjectRef, DtResourceRef, ProjectsDb, decode_audio, dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter}, dtos::tensor::TensorRaw, enums::PartialThnDtResourceHandle, extract_jpeg_slice, tensors::decompress_fzip,
+    projects_db::{
+        decode_audio,
+        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
+        dtos::tensor::TensorRaw,
+        enums::PartialThnDtResourceHandle,
+        extract_jpeg_slice,
+        tensors::decompress_fzip,
+        DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
+    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
@@ -186,6 +193,17 @@ impl DtResourceHandle {
                 .await?
                 .and_then(|n| n.tensordata.clone())),
         }
+    }
+
+    pub async fn get_tensor_raw(&self) -> Result<Option<TensorRaw>> {
+        if let Some(name) = self.get_tensor_name().await? {
+            let dtp = self.get_project().await?;
+            let tensor_raw = dtp.get_tensor_raw(&name).await?;
+
+            return Ok(Some(tensor_raw));
+        }
+        
+        Ok(None)
     }
 
     async fn get_tensor_name(&self) -> Result<Option<String>> {

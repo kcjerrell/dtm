@@ -1,6 +1,6 @@
 use std::{fs::File, path::PathBuf, sync::Arc};
 
-use s_zip::{StreamingZipReader, StreamingZipWriter};
+use s_zip::{StreamingZipWriter};
 
 use tokio::{
     sync::{
@@ -12,10 +12,10 @@ use tokio::{
 
 use crate::{
     projects_db::{
-        archive::copy::CopyTensorItem, DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef,
-        ThnResource,
+        archive::copy::CopyTensorItem,
+        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
     },
-    ResourceHandle,
+    Tensor,
 };
 
 use anyhow::Result;
@@ -24,11 +24,11 @@ pub async fn copy_tensors(
     primary: Vec<CopyTensorItem>,
     extra: Vec<CopyTensorItem>,
     project_ref: &DtProjectRef,
-    archive_path: &PathBuf,
+    archive_path: PathBuf,
     db_conn: sqlx::pool::PoolConnection<sqlx::Sqlite>,
 ) -> Result<()> {
     let convert = ConvertWorker::new(project_ref.clone(), 7);
-    let zip = ZipWorker::new(archive_path)?;
+    let zip = ZipWorker::new(archive_path.clone());
     let db = DbWorker::new(db_conn);
 
     let stages: Vec<Box<dyn Worker<Item = CopyTensorItem> + Send + Sync>> =
@@ -54,10 +54,12 @@ pub async fn copy_tensors(
         }
     });
 
-    let resources = primary.into_iter().chain(extra.into_iter());
+    let resources = primary.into_iter().chain(extra);
     for resource in resources {
         input_tx.send(resource).await?;
     }
+
+    drop(input_tx);
 
     for handle in handles {
         let res = handle.await;
@@ -115,23 +117,33 @@ impl Worker for ConvertWorker {
                 let project_ref = project_ref.clone();
                 tasks.spawn(async move {
                     let _permit = permit;
-                    let resource = match item.primary {
-                        true => {
-                            let node_id = item.node_id.ok_or(anyhow::anyhow!("missing node_id"))?;
-                            DtResourceHandle::new(
-                                &project_ref,
-                                &DtResourceRef::TensorHistoryNode(
-                                    ThnRef::RowId(node_id),
-                                    ThnResource::Tensor(item.name.clone()),
-                                ),
-                            )
-                        }
-                        false => project_ref.tensor(&item.name),
+                    let resource = match item.node_id {
+                        Some(node_id) => DtResourceHandle::new(
+                            &project_ref,
+                            &DtResourceRef::TensorHistoryNode(
+                                ThnRef::RowId(node_id),
+                                ThnResource::Tensor(item.name.clone()),
+                            ),
+                        ),
+                        None => project_ref.tensor(&item.name),
                     };
 
+                    let node = resource.get_history_node().await?.cloned();
+
+                    let tensor_raw = resource.get_tensor_raw().await?;
+
                     if item.lossless {
-                        let data = resource.get_lossless(None).await?;
-                        item.data = data;
+                        if let Some(data) = tensor_raw {
+                            let result = tokio::task::spawn_blocking(move || {
+                                if let Ok(tensor) = Tensor::try_from(data) {
+                                    tensor.to_png(node.as_ref(), None)
+                                } else {
+                                    Err(anyhow::anyhow!("failed to convert tensor"))
+                                }
+                            })
+                            .await?;
+                            item.data = Some(result?);
+                        }
                     } else {
                         anyhow::bail!("jpg not yet supported")
                     }
@@ -141,8 +153,9 @@ impl Worker for ConvertWorker {
                     Ok(())
                 });
             }
-
             tasks.join_all().await;
+            drop(tx);
+            println!("Convert dropped tx");
             Ok(())
         });
 
@@ -155,16 +168,14 @@ struct ZipWorker {
 }
 
 impl ZipWorker {
-    pub fn new(archive_path: &PathBuf) -> Result<Self> {
-        Ok(Self {
-            archive_path: archive_path.clone(),
-        })
+    pub fn new(archive_path: PathBuf) -> Self {
+        Self { archive_path }
     }
 
     fn archive(writer: &mut StreamingZipWriter<File>, item: &mut CopyTensorItem) -> Result<()> {
         if let Some(data) = &item.data {
-            _ = writer.start_entry(&item.filename())?;
-            _ = writer.write_data(&data)?;
+            writer.start_entry(&item.filename())?;
+            writer.write_data(data)?;
             item.added_to_archive = true;
             println!("wrote item to archive: {}", item.name);
         }
@@ -195,6 +206,8 @@ impl Worker for ZipWorker {
                 tx.blocking_send(item)?;
             }
             writer.finish()?;
+            drop(tx);
+            println!("zip dropped tx");
             Ok::<(), anyhow::Error>(())
         });
 
@@ -252,6 +265,8 @@ impl Worker for DbWorker {
                 }
                 tx.send(item).await?;
             }
+            drop(tx);
+            println!("db dropped tx");
             Ok::<(), anyhow::Error>(())
         });
 

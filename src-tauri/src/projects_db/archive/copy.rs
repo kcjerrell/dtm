@@ -1,20 +1,13 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf};
 
 use anyhow::Result;
-use s_zip::StreamingZipWriter;
+
 use sqlx::{query, AssertSqlSafe, SqlitePool};
-use tokio::{
-    fs, sync::{Semaphore, mpsc::Sender}, task::{JoinHandle, JoinSet},
-};
+use tokio::fs;
 
 use crate::{
     dtp_service::AppHandleWrapper,
-    projects_db::{
-        archive::workers::copy_tensors, DtProjectRef, DtResourceHandle, DtResourceRef, ProjectsDb,
-        ThnRef, ThnResource,
-    },
-    util::update_gate::{UpdateGate, UpdateGateExt},
-    ResourceHandle,
+    projects_db::{archive::workers::copy_tensors, DtProjectRef, ProjectsDb},
 };
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
@@ -68,7 +61,7 @@ pub async fn copy_project(
         .to_string_lossy()
         .to_string();
 
-    let mut temp_dir = app.create_temp_dir()?;
+    let temp_dir = app.create_temp_dir()?;
     let dest_db_path = temp_dir.join("project.sqlite3");
 
     let conn_string = format!("sqlite:{}?mode=rwc", dest_db_path.display());
@@ -127,7 +120,7 @@ pub async fn copy_project(
         plan.primary_tensors,
         plan.tensors_extra,
         &project_ref,
-        &temp_dir.join("project.zip"),
+        temp_dir.join("project.zip"),
         dest_conn,
     )
     .await?;
@@ -135,14 +128,8 @@ pub async fn copy_project(
     dest_db.close().await;
 
     let archive_path = temp_dir.join("project.zip");
-    let handle = tokio::task::spawn_blocking(move || {
-        let mut writer = StreamingZipWriter::new(&archive_path)?;
-        writer.start_entry("project.sqlite3")?;
-        writer.write_data(&std::fs::read(dest_db_path)?)?;
-        writer.finish()?;
-        Ok::<(), anyhow::Error>(())
-    });
-    handle.await??;
+    tokio::task::spawn_blocking(move || add_file_to_zip(archive_path, dest_db_path)).await??;
+
     let target_path = app
         .get_home_dir()?
         .join("Documents")
@@ -242,7 +229,7 @@ async fn copy_table_group(
         .collect::<Vec<_>>();
 
     // copy each table
-    Ok(for table_name in table_names {
+    for table_name in table_names {
         let sql = format!(
             "INSERT INTO main.{0}
             SELECT t.*
@@ -252,5 +239,38 @@ async fn copy_table_group(
         );
 
         query(AssertSqlSafe(sql)).execute(&mut **dest_conn).await?;
-    })
+    }
+
+    Ok(())
+}
+
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZipWriter};
+
+fn add_file_to_zip(archive_path: PathBuf, file_path: PathBuf) -> zip::result::ZipResult<()> {
+    let archive_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&archive_path)?;
+
+    let mut zip = ZipWriter::new_append(archive_file)?;
+
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+
+    let file_name = file_path
+        .file_name()
+        .ok_or(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path has no file name",
+        ))?
+        .to_string_lossy();
+
+    zip.start_file(file_name, options)?;
+
+    let contents = std::fs::read(&file_path)?;
+    zip.write_all(&contents)?;
+
+    zip.finish()?;
+
+    Ok(())
 }
