@@ -174,7 +174,7 @@ pub async fn compile_resources(
             .partition(|tmbd| tensormoodboarddata_ids.contains(tmbd));
 
     println!("Take {} nodes out of {}", node_ids.len(), total_nodes);
-    println!("Take {} tensors out of {}", node_ids.len(), total_nodes);
+    println!("Take {} tensors out of {}", main_tensor_ids.len(), total_nodes);
     println!(
         "Take {} tensordata out of {}",
         copy_tensordata_ids.len(),

@@ -113,7 +113,8 @@ impl Worker for ConvertWorker {
             let mut tasks: JoinSet<Result<()>> = JoinSet::new();
 
             while let Some(mut item) = rx.recv().await {
-                let permit = semaphore.clone().acquire_owned().await.unwrap();
+                let permit = semaphore.clone().acquire_owned().await
+                    .map_err(|e| anyhow::anyhow!("Semaphore acquisition failed: {}", e))?;
                 let tx = tx.clone();
                 let project_ref = project_ref.clone();
                 tasks.spawn(async move {

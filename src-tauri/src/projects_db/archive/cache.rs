@@ -53,7 +53,7 @@ impl DTZipCache {
         let dt_zip = cell
             .get_or_try_init(|| async {
                 Ok::<_, anyhow::Error>(Arc::new(
-                    DTZip::new(archive_path, cache.temp_dir.to_str().unwrap()).await?,
+                    DTZip::new(archive_path, cache.temp_dir.to_str().ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 path"))?).await?,
                 ))
             })
             .await?;

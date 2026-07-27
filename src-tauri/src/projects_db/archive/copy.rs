@@ -113,6 +113,11 @@ pub async fn copy_project(
     )
     .await?;
 
+    // detach the source database
+    sqlx::query("DETACH DATABASE dtp;")
+        .execute(&mut *dest_conn)
+        .await?;
+
     // don't let the attached connection return to the pool
 
     let project_ref = DtProjectRef::Db(dtp);
@@ -135,7 +140,10 @@ pub async fn copy_project(
         .get_home_dir()?
         .join("Documents")
         .join(format!("{}.dtm.zip", project_name));
-    fs::rename(temp_dir.join("project.zip"), target_path).await?;
+    if let Err(e) = fs::rename(temp_dir.join("project.zip"), &target_path).await {
+        fs::remove_dir_all(&temp_dir).await?;
+        return Err(e.into());
+    }
     fs::remove_dir_all(temp_dir).await?;
 
     println!("finished!");

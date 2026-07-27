@@ -35,6 +35,11 @@ impl DTZip {
     }
 
     pub async fn get_file(&self, rel_path: String) -> Result<Vec<u8>> {
+        // Check for path traversal attempts
+        if rel_path.contains("..") || rel_path.starts_with('/') || rel_path.starts_with('\\') {
+            return Err(anyhow::anyhow!("Invalid path: potential path traversal detected"));
+        }
+
         let mut reader = self.reader.lock().await;
         let data = reader.read_entry_by_name(&rel_path).await?;
         Ok(data)
