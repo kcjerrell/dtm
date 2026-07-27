@@ -204,7 +204,8 @@ async fn check_deletions(
 ) -> Result<(), String> {
     let pdb_path = get_db_file_path(&ctx.app_handle);
 
-    let dt_project = DTProject::open(project_path)
+    let dt_project = crate::projects_db::DtProjectRef::Path(project_path.to_string())
+        .open_project()
         .await
         .map_err(|e| e.to_string())?;
 

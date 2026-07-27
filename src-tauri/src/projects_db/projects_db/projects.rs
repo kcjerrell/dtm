@@ -181,14 +181,10 @@ impl ProjectsDb {
         &self,
         project_ref: crate::projects_db::DtProjectRef,
     ) -> Result<std::sync::Arc<DTProject>, MixedError> {
-        match project_ref {
-            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
-            crate::projects_db::DtProjectRef::Id(id) => {
-                let project = self.get_project(id).await?;
-                Ok(DTProject::get(&project.full_path).await?)
-            }
-            crate::projects_db::DtProjectRef::Path(path) => Ok(DTProject::get(&path).await?),
-        }
+        project_ref
+            .get_project()
+            .await
+            .map_err(|e| MixedError::Other(e.to_string()))
     }
 }
 
