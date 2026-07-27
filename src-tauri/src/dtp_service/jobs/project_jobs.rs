@@ -27,7 +27,7 @@ impl AddProjectJob {
             path: file.path.to_string(),
             watchfolder_id: project_sync.watchfolder_id,
             filesize: file.filesize as i64,
-            modified: file.modified.into(),
+            modified: file.modified,
             is_import,
         }
     }
@@ -148,11 +148,11 @@ impl Job for UpdateProjectJob {
         format!("UpdateProjectJob for {}", self.project_id)
     }
 
-    fn start_event(self: &Self) -> Option<DTPEvent> {
+    fn start_event(&self) -> Option<DTPEvent> {
         Some(DTPEvent::ProjectSyncStarted(self.project_id))
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let scan_result: Result<(i64, u64), String> = ctx
             .pdb
             .scan_project(self.project_id, false)
@@ -160,7 +160,7 @@ impl Job for UpdateProjectJob {
             .map_err(|e| e.to_string());
 
         if self.check_deletions {
-            check_deletions(&ctx, self.project_id, &self.project_path).await?;
+            check_deletions(ctx, self.project_id, &self.project_path).await?;
         }
 
         let result = match scan_result {

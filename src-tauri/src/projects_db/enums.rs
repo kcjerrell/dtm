@@ -4,12 +4,13 @@ use serde::Serialize;
 use strum::EnumIs;
 
 use crate::projects_db::{
+    archive::cache::DTZipCache,
     dt_project::{tensor_data::TdFilter, tensor_history_node::ThnFilter},
-    DTProject, DtResourceHandle,
+    DTProject, DtResourceHandle, ProjectsDb,
 };
 
 /// References a Draw Things project database file, either by its id in DTM's ProjectsDb,
-/// its file path, or with a direct reference to the DTProject struct.
+/// its file path, its containing archive, or with a direct reference to the DTProject struct.
 ///
 /// Note: The Db variant should only be used with DTProject.open(). Do not use with a DTProject
 /// that lives in the cache (DTProject.get())
@@ -53,6 +54,52 @@ impl DtProjectRef {
             self,
             &DtResourceRef::TensorHistoryNode(node.into(), ThnResource::None),
         )
+    }
+
+    pub async fn get_project(&self) -> anyhow::Result<Arc<DTProject>> {
+        self.get_or_open_project(false, false).await
+    }
+
+    pub async fn open_project(&self) -> anyhow::Result<Arc<DTProject>> {
+        self.get_or_open_project(true, false).await
+    }
+
+    async fn get_or_open_project(
+        &self,
+        open: bool,
+        as_archive: bool,
+    ) -> anyhow::Result<Arc<DTProject>> {
+        match self {
+            DtProjectRef::Id(id) => {
+                let pdb = ProjectsDb::get().await?;
+                let project_path = pdb
+                    .get_project_path(*id)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?;
+                Box::pin(Self::Path(project_path).get_or_open_project(open, as_archive)).await
+            }
+            DtProjectRef::Path(path) => {
+                if path.ends_with(".dtm.zip") {
+                    let dt_zip = DTZipCache::get_dt_zip(path).await?;
+                    if open {
+                        Ok(Arc::new(
+                            DTProject::open_archive(dt_zip).await?,
+                        ))
+                    } else {
+                        Ok(DTProject::get_archive(dt_zip).await?)
+                    }
+                } else if path.ends_with(".sqlite3") {
+                    if open {
+                        Ok(Arc::new(DTProject::open(path.as_str()).await?))
+                    } else {
+                        Ok(DTProject::get(path.as_str()).await?)
+                    }
+                } else {
+                    anyhow::bail!("unknown project type")
+                }
+            }
+            DtProjectRef::Db(db) => Ok(db.clone()),
+        }
     }
 }
 

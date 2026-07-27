@@ -83,7 +83,7 @@ impl DTPService {
             let project = db.get_project(*project_id).await?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = db.open_dt_project(DtProjectRef::Id(*project_id)).await?;
+            let dt_project = DtProjectRef::Id(*project_id).open_project().await?;
 
             // fresh temp directory per project
             let temp_dir = temp_root.join(format!("project_{}", project_id));

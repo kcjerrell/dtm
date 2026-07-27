@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
-use tempfile::{tempdir, tempdir_in};
+use tempfile::tempdir_in;
 use walkdir::WalkDir;
 
 use crate::projects_db::dtos::model::ModelType;
@@ -17,6 +17,7 @@ pub struct ProjectFile {
     pub modified: i64,
     pub _watchfolder_id: i64,
     pub has_base: bool,
+    pub is_archive: bool,
 }
 
 pub struct GetFolderFilesResult {
@@ -72,6 +73,7 @@ pub async fn get_folder_files(watchfolder_path: &str, watchfolder_id: i64) -> Ge
                         filesize: 0,
                         modified: 0,
                         _watchfolder_id: watchfolder_id,
+                        is_archive: false,
                     });
 
                     if ext == "sqlite3" {
@@ -95,11 +97,34 @@ pub async fn get_folder_files(watchfolder_path: &str, watchfolder_id: i64) -> Ge
                     model_info.push((path.to_string_lossy().to_string(), model_type));
                 }
             }
+            "zip" => {
+                if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
+                    if filename.ends_with(".dtm.zip") {
+                        let full_path = path.to_string_lossy().to_string();
+                        let relative_path = PathBuf::from(full_path.clone())
+                            .strip_prefix(watchfolder_path)
+                            .expect("path should be in watchfolder")
+                            .to_string_lossy()
+                            .to_string();
+                        projects.insert(
+                            full_path,
+                            ProjectFile {
+                                path: relative_path,
+                                has_base: false,
+                                filesize: 0,
+                                modified: 0,
+                                _watchfolder_id: watchfolder_id,
+                                is_archive: true,
+                            },
+                        );
+                    }
+                }
+            }
             _ => {}
         }
     }
 
-    projects.retain(|_, v| v.has_base);
+    projects.retain(|_, v| v.has_base || v.is_archive);
 
     GetFolderFilesResult {
         projects,
@@ -118,9 +143,7 @@ pub fn get_project_path(full_path: String, watchfolder_path: &str) -> String {
 
 pub fn get_full_project_path(project: &ProjectExtra) -> String {
     let folder = folder_cache::get_folder(project.watchfolder_id).unwrap();
-    let path = PathBuf::from(folder)
-        .join(project.path.to_string())
-        .with_extension("sqlite3");
+    let path = PathBuf::from(folder).join(&project.path);
     path.to_string_lossy().to_string()
 }
 
@@ -175,11 +198,23 @@ impl AppHandleWrapper {
         }
     }
 
+    /// creates a temporary subfolder in the app's temp folder
     pub fn create_temp_dir(&self) -> tauri::Result<PathBuf> {
         if let Some(app_handle) = &self.app_handle {
-            let temp = app_handle.path().app_data_dir()?.join("temp");
+            let temp = self.get_temp_dir()?;
             let temp_dir = tempdir_in(temp)?;
             Ok(temp_dir.keep())
+        } else {
+            Ok(self.get_test_path("temp_dir"))
+        }
+    }
+
+    /// gets the app's temp folder
+    pub fn get_temp_dir(&self) -> tauri::Result<PathBuf> {
+        if let Some(app_handle) = &self.app_handle {
+            let temp = app_handle.path().app_data_dir()?.join("temp");
+            fs::create_dir_all(&temp)?;
+            Ok(temp)
         } else {
             Ok(self.get_test_path("temp_dir"))
         }

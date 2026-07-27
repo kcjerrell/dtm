@@ -2,14 +2,14 @@ use crate::projects_db::{
     dt_project::{TensorHistoryNode, ThnData, ThnFilter},
     dtos::image::ListImagesOptions,
     search::process_prompt,
-    DTProject,
+    DtProjectRef,
 };
 use entity::{
-    enums::{ModelType, Sampler},
+    enums::ModelType,
     images,
 };
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};
@@ -23,14 +23,15 @@ pub struct NodeModelWeight {
 }
 
 impl ProjectsDb {
-    pub async fn scan_project(&self, id: i64, full_scan: bool) -> Result<(i64, u64), MixedError> {
+    pub async fn scan_project(&self, id: i64, full_scan: bool) -> anyhow::Result<(i64, u64)> {
         let project = self.get_project(id).await?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
 
-        let dt_project = DTProject::open(&project.full_path).await?;
+        let project_ref = DtProjectRef::Id(id);
+        let dt_project = project_ref.open_project().await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
 
@@ -113,7 +114,8 @@ impl ProjectsDb {
             Some(_) => Ok((project.id, total.total)),
             None => Err(MixedError::Other(
                 "Unexpected result: list_images returned no images".to_string(),
-            )),
+            )
+            .into()),
         }
     }
 

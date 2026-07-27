@@ -7,7 +7,9 @@ use tokio::fs;
 
 use crate::{
     dtp_service::AppHandleWrapper,
-    projects_db::{archive::workers::copy_tensors, DtProjectRef, ProjectsDb},
+    projects_db::{
+        archive::workers::copy_tensors, DtProjectRef, ProjectsDb,
+    },
 };
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
@@ -50,11 +52,7 @@ pub async fn copy_project(
     project_ref: DtProjectRef,
     plan: ArchivePlan,
 ) -> Result<()> {
-    let pdb = ProjectsDb::get().await?;
-    let dtp = pdb
-        .open_dt_project(project_ref)
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
+    let dtp = project_ref.open_project().await?;
     let project_name = PathBuf::from(&dtp.path)
         .file_stem()
         .unwrap()
@@ -62,7 +60,7 @@ pub async fn copy_project(
         .to_string();
 
     let temp_dir = app.create_temp_dir()?;
-    let dest_db_path = temp_dir.join("project.sqlite3");
+    let dest_db_path = temp_dir.join("project.dtm");
 
     let conn_string = format!("sqlite:{}?mode=rwc", dest_db_path.display());
 
@@ -92,6 +90,7 @@ pub async fn copy_project(
         "tensorhistorynode",
         TENSORHISTORYNODE_OFFSETS,
         plan.node_ids.as_slice(),
+        "rowid",
         &mut dest_conn,
     )
     .await?;
@@ -100,6 +99,7 @@ pub async fn copy_project(
         "tensordata",
         TENSORDATA_OFFSETS,
         &plan.tensordata_ids,
+        "rowid",
         &mut dest_conn,
     )
     .await?;
@@ -108,6 +108,7 @@ pub async fn copy_project(
         "tensormoodboarddata",
         TENSORMOODBOARD_OFFSETS,
         &plan.tensormoodboarddata_ids,
+        "rowid",
         &mut dest_conn,
     )
     .await?;
@@ -133,7 +134,7 @@ pub async fn copy_project(
     let target_path = app
         .get_home_dir()?
         .join("Documents")
-        .join(format!("{}.zip", project_name));
+        .join(format!("{}.dtm.zip", project_name));
     fs::rename(temp_dir.join("project.zip"), target_path).await?;
     fs::remove_dir_all(temp_dir).await?;
 
@@ -142,11 +143,12 @@ pub async fn copy_project(
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CopyTensorItem {
     pub name: String,
     pub node_id: Option<i64>,
     pub preview_id: Option<i64>,
+    pub preview: Option<Vec<u8>>,
     pub primary: bool,
     pub index: i64,
     pub data: Option<Vec<u8>>,
@@ -156,41 +158,45 @@ pub struct CopyTensorItem {
 }
 
 impl CopyTensorItem {
-    pub fn primary(node_id: i64, tensor_name: String, preview_id: i64) -> Self {
+    pub fn primary(node_id: i64, tensor_name: String, preview_id: i64, lossless: bool) -> Self {
         CopyTensorItem {
             name: tensor_name,
             node_id: Some(node_id),
             preview_id: Some(preview_id),
             primary: true,
             index: node_id,
-            data: None,
-            lossless: true,
+            lossless,
             added_to_archive: false,
-            error: None,
+            ..Default::default()
         }
     }
 
-    pub fn extra(tensor_name: String, index: i64) -> Self {
+    pub fn extra(tensor_name: String, index: i64, lossless: bool) -> Self {
         CopyTensorItem {
             name: tensor_name,
-            node_id: None,
-            preview_id: None,
             primary: false,
             index,
-            data: None,
-            lossless: true,
+            lossless,
             added_to_archive: false,
-            error: None,
+            ..Default::default()
         }
     }
 
     pub fn filename(&self) -> String {
         format!(
-            "{}/{}.{}",
+            "{}/{:06}_{}.{}",
             if self.primary { "images" } else { "tensors" },
+            self.index,
             self.name,
             if self.lossless { "png" } else { "jpg" }
         )
+    }
+
+    pub fn preview_filename(&self) -> Option<String> {
+        if self.preview.is_none() {
+            return None
+        }
+        self.preview_id.map(|preview_id| format!("thumbhalf/{}.jpg", preview_id))
     }
 }
 
@@ -198,12 +204,25 @@ async fn copy_table_group(
     table_name: &str,
     table_offsets: &[&str],
     rowids: &[i64],
+    id_column: &str,
     dest_conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
 ) -> Result<(), anyhow::Error> {
-    // create temporary table for rowids to copy
-    sqlx::query(
-        "DROP TABLE IF EXISTS temp.ids; CREATE TEMP TABLE ids (rowid INTEGER PRIMARY KEY);",
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS ( SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ? )",
     )
+    .bind(table_name)
+    .fetch_one(&mut **dest_conn)
+    .await?;
+
+    if !exists {
+        return Ok(());
+    }
+
+    // create temporary table for rowids to copy
+    sqlx::query(AssertSqlSafe(format!(
+        "DROP TABLE IF EXISTS temp.ids; CREATE TEMP TABLE ids ({} INTEGER PRIMARY KEY);",
+        id_column
+    )))
     .execute(&mut **dest_conn)
     .await?;
 
@@ -214,7 +233,7 @@ async fn copy_table_group(
             .map(|_| "(?)")
             .collect::<Vec<_>>()
             .join(",");
-        let query_str = format!("INSERT INTO ids (rowid) VALUES {}", placeholders);
+        let query_str = format!("INSERT INTO ids ({}) VALUES {}", id_column, placeholders);
         let mut q = query(AssertSqlSafe(query_str));
         for id in rowid_chunk {
             q = q.bind(id);
@@ -234,8 +253,8 @@ async fn copy_table_group(
             "INSERT INTO main.{0}
             SELECT t.*
             FROM dtp.{0} t
-            JOIN ids USING (rowid)",
-            table_name
+            JOIN ids USING ({1})",
+            table_name, id_column
         );
 
         query(AssertSqlSafe(sql)).execute(&mut **dest_conn).await?;

@@ -1,6 +1,7 @@
 use std::{fs::File, path::PathBuf, sync::Arc};
 
-use s_zip::{StreamingZipWriter};
+use image::{codecs::jpeg::JpegEncoder, ExtendedColorType};
+use s_zip::StreamingZipWriter;
 
 use tokio::{
     sync::{
@@ -12,10 +13,10 @@ use tokio::{
 
 use crate::{
     projects_db::{
-        archive::copy::CopyTensorItem,
-        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
+        archive::copy::CopyTensorItem, write_jpeg_with_metadata, DtProjectRef, DtResourceHandle,
+        DtResourceRef, ThnRef, ThnResource,
     },
-    Tensor,
+    ResourceHandle, Tensor,
 };
 
 use anyhow::Result;
@@ -109,7 +110,7 @@ impl Worker for ConvertWorker {
         let concurrency = self.concurrency;
         let handle = tokio::spawn(async move {
             let semaphore = Arc::new(Semaphore::new(concurrency));
-            let mut tasks = JoinSet::new();
+            let mut tasks: JoinSet<Result<()>> = JoinSet::new();
 
             while let Some(mut item) = rx.recv().await {
                 let permit = semaphore.clone().acquire_owned().await.unwrap();
@@ -130,22 +131,52 @@ impl Worker for ConvertWorker {
 
                     let node = resource.get_history_node().await?.cloned();
 
+                    if item.primary {
+                        if let Some(preview_id) = item.preview_id {
+                            if let Some(node) = &node {
+                                if node.data().index_in_a_clip() == 0 {
+                                    item.preview =
+                                        project_ref.thumb(preview_id).get_preview(true).await?;
+                                }
+                            }
+                        }
+                    }
+
                     let tensor_raw = resource.get_tensor_raw().await?;
 
-                    if item.lossless {
-                        if let Some(data) = tensor_raw {
-                            let result = tokio::task::spawn_blocking(move || {
-                                if let Ok(tensor) = Tensor::try_from(data) {
+                    if let Some(data) = tensor_raw {
+                        let result = tokio::task::spawn_blocking(move || {
+                            if let Ok(tensor) = Tensor::try_from(data) {
+                                if item.lossless {
                                     tensor.to_png(node.as_ref(), None)
                                 } else {
-                                    Err(anyhow::anyhow!("failed to convert tensor"))
+                                    let pixels = tensor.to_pixel_data(None)?;
+
+                                    let mut bytes = Vec::new();
+                                    let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
+
+                                    encoder.encode(
+                                        pixels.as_slice(),
+                                        tensor.width,
+                                        tensor.height,
+                                        ExtendedColorType::Rgb8,
+                                    )?;
+
+                                    let jpg = match node {
+                                        Some(node) => {
+                                            write_jpeg_with_metadata(&bytes, &node.node_data())?
+                                        }
+                                        None => bytes,
+                                    };
+
+                                    Ok(jpg)
                                 }
-                            })
-                            .await?;
-                            item.data = Some(result?);
-                        }
-                    } else {
-                        anyhow::bail!("jpg not yet supported")
+                            } else {
+                                Err(anyhow::anyhow!("failed to convert tensor"))
+                            }
+                        })
+                        .await?;
+                        item.data = Some(result?);
                     }
 
                     tx.send(item).await?;
@@ -176,6 +207,14 @@ impl ZipWorker {
         if let Some(data) = &item.data {
             writer.start_entry(&item.filename())?;
             writer.write_data(data)?;
+
+            if let Some(preview) = &item.preview {
+                if let Some(name) = &item.preview_filename() {
+                    writer.start_entry(name)?;
+                    writer.write_data(preview)?;
+                }
+            }
+
             item.added_to_archive = true;
             println!("wrote item to archive: {}", item.name);
         }
@@ -253,10 +292,12 @@ impl Worker for DbWorker {
 
                     if let Some(preview_id) = item.preview_id {
                         if let Some(node_id) = item.node_id {
-                            sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3); INSERT INTO thumbnailhistoryhalfnode (rowid, __pk0, p) VALUES (?1, ?2, ?3);")
+                            sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3); INSERT INTO thumbnailhistoryhalfnode (rowid, __pk0, p) VALUES (?1, ?2, ?4);")
+                            // sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3);")
                                 .bind(node_id)
                                 .bind(preview_id)
                                 .bind(item.filename().as_bytes())
+                                .bind(item.preview_filename().unwrap_or_else(|| item.filename()).as_bytes())
                                 .execute(&mut **db_conn)
                                 .await?;
                             println!("wrote item to db: {}", item.name);

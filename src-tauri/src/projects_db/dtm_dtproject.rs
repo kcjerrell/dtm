@@ -218,14 +218,14 @@ async fn tensor(
 
     // Handle pose type separately as it doesn't return PNG
     if tensor_type == "pose" {
-        return Ok(Response::builder()
+        return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body(
                 "Unsupported tensor type or decoding failed"
                     .as_bytes()
                     .to_vec(),
             )
-            .map_err(|e| e.to_string())?);
+            .map_err(|e| e.to_string());
     }
 
     if tensor_type == "audio" {

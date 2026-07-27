@@ -45,6 +45,12 @@ impl From<sea_orm::TransactionError<DbErr>> for MixedError {
     }
 }
 
+impl From<MixedError> for anyhow::Error {
+    fn from(err: MixedError) -> anyhow::Error {
+        anyhow::Error::msg(err)
+    }
+}
+
 fn mixed_error_to_string(error: &MixedError) -> String {
     match error {
         MixedError::Sqlx(e) => e.to_string(),
@@ -58,11 +64,5 @@ fn mixed_error_to_string(error: &MixedError) -> String {
 impl From<MixedError> for String {
     fn from(err: MixedError) -> String {
         err.to_string()
-    }
-}
-
-impl Into<anyhow::Error> for MixedError {
-    fn into(self) -> anyhow::Error {
-        anyhow::Error::msg(self)
     }
 }

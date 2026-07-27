@@ -72,7 +72,7 @@ impl Job for CheckFolderJob {
             None => &ctx.pdb.get_watch_folder_by_path(&self.path).await?.unwrap(),
         };
 
-        let resolved = resolve_folder(&watchfolder, &ctx.pdb)
+        let resolved = resolve_folder(watchfolder, &ctx.pdb)
             .await
             .unwrap_or(false);
 
@@ -107,7 +107,7 @@ impl Job for CheckFolderJob {
 
         if self.sync {
             return Ok(JobResult::Subtasks(vec![Arc::new(SyncFolderJob::new(
-                &watchfolder,
+                watchfolder,
             ))]));
         }
 
@@ -131,9 +131,9 @@ impl Job for CheckFolderJob {
     }
 }
 
-impl Into<Arc<dyn Job>> for CheckFolderJob {
-    fn into(self) -> Arc<dyn Job> {
-        Arc::new(self)
+impl From<CheckFolderJob> for Arc<dyn Job> {
+    fn from(val: CheckFolderJob) -> Self {
+        Arc::new(val)
     }
 }
 

@@ -14,6 +14,8 @@ use crate::{
 
 mod copy;
 pub(crate) mod workers;
+pub(crate) mod cache;
+pub(crate) mod dt_zip;
 
 #[tauri::command]
 pub async fn create_dt_archive(
@@ -101,6 +103,7 @@ pub async fn compile_resources(
                     node_id,
                     format!("tensor_history_{}", main_tensor_id),
                     data.preview_id(),
+                    false
                 ));
                 main_tensor_ids.insert(main_tensor_id);
             } else {
@@ -153,7 +156,7 @@ pub async fn compile_resources(
             continue;
         } else if tensor_ids.contains(&id) {
             extra_index += 1;
-            extra_resources.push(CopyTensorItem::extra(tensor_name, extra_index));
+            extra_resources.push(CopyTensorItem::extra(tensor_name, extra_index, false));
         } else {
             unused_tensor_names.push(tensor_name);
         }
@@ -162,13 +165,13 @@ pub async fn compile_resources(
     let all_tensordata_ids = project.list_tensor_data_ids().await?;
     let (copy_tensordata_ids, unused_tensordata_ids): (Vec<_>, Vec<_>) = all_tensordata_ids
         .iter()
-        .partition(|td| tensordata_ids.contains(&td));
+        .partition(|td| tensordata_ids.contains(td));
 
     let all_tensormoodboarddata_ids = project.list_tensor_moodboard_data_ids().await?;
     let (copy_tensormoodboarddata_ids, unused_tensormoodboarddata_ids): (Vec<_>, Vec<_>) =
         all_tensormoodboarddata_ids
             .iter()
-            .partition(|tmbd| tensormoodboarddata_ids.contains(&tmbd));
+            .partition(|tmbd| tensormoodboarddata_ids.contains(tmbd));
 
     println!("Take {} nodes out of {}", node_ids.len(), total_nodes);
     println!("Take {} tensors out of {}", node_ids.len(), total_nodes);

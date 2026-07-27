@@ -1,4 +1,6 @@
 use crate::projects_db::{
+    archive::dt_zip::DTZip,
+    dt_project::resource::DTResource,
     dtos::{
         clip::{ClipExtra, ClipFrame},
         project::DTProjectInfo,
@@ -27,6 +29,7 @@ use std::{
 use tokio::sync::OnceCell;
 
 pub mod raw;
+pub(crate) mod resource;
 pub use raw::dt_project_tensordata;
 pub mod clip;
 pub use clip::{Clip, ClipFilter};
@@ -62,6 +65,7 @@ pub struct DTProject {
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub is_shared: bool,
     allow_mutate: bool,
+    pub dt_zip: Option<Arc<DTZip>>,
 }
 
 pub async fn close_folder(folder_path: &str) {
@@ -112,15 +116,32 @@ fn schedule_eviction(path: String, generation: u64) {
 }
 
 #[derive(Debug, Serialize, Copy, Clone)]
-enum DTProjectTable {
+pub enum DTProjectTable {
     TensorHistoryNode,
     TensorData,
     TextHistory,
     TextLineage,
     TensorMoodboardData,
     Tensors,
-    Thumbs,
+    ThumbnailHistoryNode,
+    ThumbnailHistoryHalfNode,
     Clip,
+}
+
+impl DTProjectTable {
+    pub fn get_name(&self) -> &str {
+        match self {
+            DTProjectTable::TensorHistoryNode => "tensorhistorynode",
+            DTProjectTable::TensorData => "tensordata",
+            DTProjectTable::TextHistory => "texthistory",
+            DTProjectTable::TextLineage => "textlineage",
+            DTProjectTable::TensorMoodboardData => "tensormoodboarddata",
+            DTProjectTable::Tensors => "tensors",
+            DTProjectTable::ThumbnailHistoryNode => "thumbnailhistorynode",
+            DTProjectTable::ThumbnailHistoryHalfNode => "thumbnailhistoryhalfnode",
+            DTProjectTable::Clip => "clip",
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -136,7 +157,11 @@ pub struct DTProjectTableStatus {
 }
 
 impl DTProject {
-    async fn new(db_path: &str, is_shared: bool) -> Result<Self, Error> {
+    async fn new(
+        db_path: &str,
+        is_shared: bool,
+        dt_zip: Option<Arc<DTZip>>,
+    ) -> Result<Self, Error> {
         let connect_string = format!("sqlite:{}?mode=ro", db_path);
         let pool = SqlitePool::connect(&connect_string).await?;
 
@@ -147,6 +172,7 @@ impl DTProject {
             text_history: OnceCell::new(),
             is_shared,
             allow_mutate: false,
+            dt_zip,
         };
 
         dtp.check_tables().await?;
@@ -157,11 +183,15 @@ impl DTProject {
     /// Use this for long-running operations (e.g. scan_project) where the caller
     /// manages the lifetime directly. The pool closes when the DTProject is dropped.
     pub async fn open(path: &str) -> Result<DTProject, Error> {
-        let mut dt_project = DTProject::new(path, false).await;
+        let mut dt_project = DTProject::new(path, false, None).await;
         if let Ok(dt_project) = &mut dt_project {
             dt_project.is_shared = false;
         }
         dt_project
+    }
+
+    pub async fn open_archive(dt_zip: Arc<DTZip>) -> Result<DTProject, Error> {
+        DTProject::new(&dt_zip.db_path.to_owned(), false, Some(dt_zip)).await
     }
 
     pub async fn open_mut(path: &str) -> anyhow::Result<DTProject> {
@@ -171,6 +201,14 @@ impl DTProject {
     }
 
     pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
+        Self::get_internal(path, None).await
+    }
+
+    pub async fn get_archive(dt_zip: Arc<DTZip>) -> Result<Arc<DTProject>, Error> {
+        Self::get_internal(&dt_zip.db_path.to_owned(), Some(dt_zip)).await
+    }
+
+    async fn get_internal(path: &str, dt_zip: Option<Arc<DTZip>>) -> Result<Arc<DTProject>, Error> {
         let cell = PROJECT_CACHE
             .entry(path.to_string())
             .or_insert_with(|| Arc::new(OnceCell::new()))
@@ -178,7 +216,7 @@ impl DTProject {
 
         let result = cell
             .get_or_try_init(|| async {
-                let project = Arc::new(DTProject::new(path, true).await?);
+                let project = Arc::new(DTProject::new(path, true, dt_zip).await?);
                 Ok::<Arc<CachedProject>, Error>(Arc::new(CachedProject {
                     project,
                     generation: AtomicU64::new(0),
@@ -203,13 +241,12 @@ impl DTProject {
     pub async fn check_tables(&self) -> Result<&DTProjectTableStatus, Error> {
         let status = self
             .tables
-            .get_or_try_init::<DTProjectTableStatus, _, _>(async || {
+            .get_or_try_init(|| async {
                 let tables: Vec<(String,)> = sqlx::query_as::<_, (String,)>(
                     "SELECT name FROM sqlite_master WHERE type='table';",
                 )
                 .fetch_all(&*self.pool)
-                .await
-                .unwrap();
+                .await?;
 
                 let mut status = DTProjectTableStatus::default();
 
@@ -228,15 +265,14 @@ impl DTProject {
                         _ => {}
                     }
                 }
-                Ok(status)
+                Ok::<DTProjectTableStatus, Error>(status)
             })
-            .await
-            .unwrap();
+            .await?;
 
         Ok(status)
     }
 
-    async fn check_table(&self, table: &DTProjectTable) -> Result<bool, Error> {
+    pub async fn check_table(&self, table: &DTProjectTable) -> Result<bool, Error> {
         let status = self.check_tables().await?;
 
         let has_table = match table {
@@ -245,7 +281,8 @@ impl DTProject {
             DTProjectTable::TextLineage => status.has_text_lineage,
             DTProjectTable::TensorMoodboardData => status.has_moodboard,
             DTProjectTable::Tensors => status.has_tensors,
-            DTProjectTable::Thumbs => status.has_thumbs,
+            DTProjectTable::ThumbnailHistoryNode => status.has_thumbs,
+            DTProjectTable::ThumbnailHistoryHalfNode => status.has_thumbs,
             DTProjectTable::Clip => status.has_clip,
             DTProjectTable::TensorData => status.has_tensor_data,
         };
@@ -258,7 +295,8 @@ impl DTProject {
     }
 
     pub async fn get_fingerprint(&self) -> Result<String, Error> {
-        self.check_table(&DTProjectTable::Thumbs).await?;
+        self.check_table(&DTProjectTable::ThumbnailHistoryNode)
+            .await?;
 
         let row = query(
             "SELECT
@@ -326,7 +364,9 @@ impl DTProject {
 
         self.check_table(&DTProjectTable::Tensors).await?;
 
-        let mut qb = QueryBuilder::new("SELECT name, type, format, datatype, dim, data FROM tensors WHERE name IN (");
+        let mut qb = QueryBuilder::new(
+            "SELECT name, type, format, datatype, dim, data FROM tensors WHERE name IN (",
+        );
 
         let mut separated = qb.separated(", ");
         for name in names {
@@ -335,10 +375,7 @@ impl DTProject {
 
         qb.push(")");
 
-        let rows = qb
-            .build()
-            .fetch_all(&*self.pool)
-            .await?;
+        let rows = qb.build().fetch_all(&*self.pool).await?;
 
         let mut tensors = Vec::new();
         for row in rows {
@@ -458,26 +495,40 @@ impl DTProject {
     //            join thumbnailhistorynode th on th.__pk0 = thn86.f86
     // KEEP - should probably just extract the jpg here
     // gets the half size preview - note: this is not a jpg, but includes a jpg. use extract_jpeg_slice
-    pub async fn get_thumb_half(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
-        self.check_table(&DTProjectTable::Thumbs).await?;
+    pub async fn get_thumb_half(&self, thumb_id: i64) -> anyhow::Result<DTResource> {
+        self.check_table(&DTProjectTable::ThumbnailHistoryNode)
+            .await?;
         let result = query("SELECT p FROM thumbnailhistoryhalfnode WHERE __pk0 = ?1")
             .bind(thumb_id)
             .fetch_one(&*self.pool)
             .await?;
         let thumbnail: Vec<u8> = result.get(0);
-        Ok(thumbnail)
+
+        // in a dtzip project this will be a file path, within an archive
+
+        if let Some(dt_zip) = &self.dt_zip {
+            Ok(DTResource::dt_zip_ref(thumbnail, dt_zip)?)
+        } else {
+            Ok(DTResource::jpg_with_header(thumbnail))
+        }
     }
 
     // KEEP - should probably just extract the jpg here
     // gets the full size preview - note: this is not a jpg, but includes a jpg. use extract_jpeg_slice
-    pub async fn get_thumb(&self, thumb_id: i64) -> Result<Vec<u8>, Error> {
-        self.check_table(&DTProjectTable::Thumbs).await?;
+    pub async fn get_thumb(&self, thumb_id: i64) -> anyhow::Result<DTResource> {
+        self.check_table(&DTProjectTable::ThumbnailHistoryNode)
+            .await?;
         let result = query("SELECT p FROM thumbnailhistorynode WHERE __pk0 = ?1")
             .bind(thumb_id)
             .fetch_one(&*self.pool)
             .await?;
         let thumbnail: Vec<u8> = result.get(0);
-        Ok(thumbnail)
+
+        if let Some(dt_zip) = &self.dt_zip {
+            Ok(DTResource::dt_zip_ref(thumbnail, dt_zip)?)
+        } else {
+            Ok(DTResource::jpg_with_header(thumbnail))
+        }
     }
 
     // returns clip frames starting from the provided first frame's node_id

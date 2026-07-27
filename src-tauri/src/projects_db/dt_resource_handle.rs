@@ -6,7 +6,10 @@ use tokio::sync::OnceCell;
 use crate::{
     projects_db::{
         decode_audio,
-        dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
+        dt_project::{
+            resource::DTResource, TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter,
+            TmdFilter,
+        },
         dtos::tensor::TensorRaw,
         enums::PartialThnDtResourceHandle,
         extract_jpeg_slice,
@@ -74,7 +77,17 @@ impl ResourceHandle for DtResourceHandle {
             } else {
                 dtp.get_thumb(preview_id).await?
             };
-            Ok(extract_jpeg_slice(&thumb))
+            match thumb {
+                DTResource::JpgWithHeader(jpg) => Ok(jpg.jpg()),
+                DTResource::CompressedTensor(_) => anyhow::bail!("Impossible"),
+                DTResource::DTZipRef(dtzip_ref) => Ok(Some(
+                    dtp.dt_zip
+                        .as_ref()
+                        .map(|dtz| dtz.get_file(dtzip_ref.rel_path))
+                        .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                        .await?,
+                )),
+            }
         } else {
             Ok(None)
         }
@@ -116,27 +129,7 @@ impl DtResourceHandle {
     }
 
     async fn get_project(&self) -> Result<Arc<DTProject>> {
-        let project_path = self
-            .project_path
-            .get_or_try_init(|| async {
-                let resolved_path = match &self.project {
-                    DtProjectRef::Path(path) => String::from(path),
-                    DtProjectRef::Id(id) => {
-                        let pdb = ProjectsDb::get().await?;
-                        let project = pdb.get_project(*id).await.map_err(|e| anyhow::anyhow!(e))?;
-                        String::from(project.full_path)
-                    }
-                    DtProjectRef::Db(db) => db.path.clone(),
-                };
-                Ok::<String, anyhow::Error>(resolved_path)
-            })
-            .await?;
-
-        if let DtProjectRef::Db(db) = &self.project {
-            return Ok(db.clone());
-        }
-
-        Ok(DTProject::get(project_path).await?)
+        self.project.get_project().await
     }
 
     pub async fn get_history_node(&self) -> Result<Option<&TensorHistoryNode>> {
@@ -202,7 +195,7 @@ impl DtResourceHandle {
 
             return Ok(Some(tensor_raw));
         }
-        
+
         Ok(None)
     }
 
