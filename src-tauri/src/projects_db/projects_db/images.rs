@@ -3,7 +3,7 @@ use crate::projects_db::{
         clip::{ClipExtra, ClipFrame},
         image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
     },
-    folder_cache, search, DTProject,
+    folder_cache, search, DTProject, DtProjectRef,
 };
 use entity::{images, projects, watch_folders};
 use sea_orm::{
@@ -187,7 +187,10 @@ impl ProjectsDb {
             .to_str()
             .ok_or_else(|| "Invalid path encoding".to_string())?;
 
-        let dt_project = DTProject::get(full_path_str).await?;
+        let dt_project = DtProjectRef::Path(full_path_str.to_string())
+            .get_project()
+            .await
+            .map_err(|e| e.to_string())?;
         let clip = dt_project.get_clip_and_frames(node_id, clip_id).await?;
 
         Ok(clip)

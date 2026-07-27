@@ -8,7 +8,7 @@ use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
 use crate::projects_db::{
-    decode_tensor, DTProject, DecodeTensorOptions, DrawThingsMetadata,
+    decode_tensor, DecodeTensorOptions, DrawThingsMetadata,
     DtProjectRef, DtResourceHandle, DtResourceRef,
 };
 use crate::ResourceHandle;
@@ -43,10 +43,9 @@ pub async fn save_all_clip_frames(
 
     let (node_id, project_id) = result.ok_or("Image or Project not found")?;
 
-    let project = projects_db.get_project(project_id).await.unwrap();
-
     // 2. Fetch Clip Frames
-    let dt_project = DTProject::open(&project.full_path)
+    let dt_project = DtProjectRef::Id(project_id)
+        .open_project()
         .await
         .map_err(|e| e.to_string())?;
     let frames = dt_project

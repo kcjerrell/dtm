@@ -58,7 +58,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_previews() {
-        let dtp = DTProject::open("test_data/projects/test-project-a2.sqlite3")
+        let dtp = DtProjectRef::from("test_data/projects/test-project-a2.sqlite3")
+            .open_project()
             .await
             .unwrap();
         let nodes = dtp.get_tensor_history_nodes(None, None).await.unwrap();

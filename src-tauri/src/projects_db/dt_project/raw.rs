@@ -145,7 +145,8 @@ pub async fn dt_project_tensordata(
     first: Option<i64>,
     last: Option<i64>,
 ) -> Result<Vec<TensorData>, String> {
-    let dt_project = DTProject::get(&project_path)
+    let dt_project = crate::projects_db::DtProjectRef::Path(project_path)
+        .get_project()
         .await
         .map_err(|e| e.to_string())?;
     let raw = DTProjectRaw::new(&dt_project);
