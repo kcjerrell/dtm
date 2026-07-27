@@ -618,7 +618,7 @@ impl DTProject {
     }
 
     // KEEP
-    async fn get_text_history(&self) -> Result<&Arc<TextHistory>, Error> {
+    async fn get_text_history(&self) -> Result<Arc<TextHistory>, Error> {
         let history = self
             .text_history
             .get_or_try_init(|| async {
@@ -641,20 +641,28 @@ impl DTProject {
                         })
                         .fetch_all(&*self.pool)
                         .await?;
-                let lineages: Vec<(i64, i64)> = query(
-                    "
+
+                let lineages: Vec<(i64, i64)> =
+                    match self.check_table(&DTProjectTable::TextLineage).await {
+                        Ok(_) => {
+                            query(
+                                "
                 SELECT tln.__pk0, tln_f6.f6 
                 FROM textlineagenode tln 
                 JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid 
                 ORDER BY tln.rowid",
-                )
-                .map(|row: SqliteRow| (row.get(0), row.get(1)))
-                .fetch_all(&*self.pool)
-                .await?;
+                            )
+                            .map(|row: SqliteRow| (row.get(0), row.get(1)))
+                            .fetch_all(&*self.pool)
+                            .await?
+                        }
+                        Err(_) => Vec::new(),
+                    };
 
                 Ok(Arc::new(TextHistory::new(nodes, lineages)))
             })
-            .await?;
+            .await?
+            .clone();
 
         Ok(history)
     }

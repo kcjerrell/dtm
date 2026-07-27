@@ -103,7 +103,7 @@ impl TextHistory {
             .nodes
             .iter()
             .filter(|n| n.lineage == lineage && n.start_edits <= text_edits)
-            .max_by_key(|n| n.start_edits);
+            .max_by_key(|n| n.start_edits)?;
 
         let node = node?;
 
@@ -116,26 +116,26 @@ impl TextHistory {
 
         // Try to use cache if relevant
         {
-            let mut cache = self.cache.lock().unwrap();
+            // let mut cache = self.cache.lock().unwrap();
 
-            // Check if we have an exact match in the cache
-            if let Some(entry) = &*cache {
-                if entry.lineage == lineage && entry.edits == text_edits {
-                    return Some(entry.prompts.clone());
-                }
-            }
+            // // Check if we have an exact match in the cache
+            // if let Some(entry) = &*cache {
+            //     if entry.lineage == lineage && entry.edits == text_edits {
+            //         return Some(entry.prompts.clone());
+            //     }
+            // }
 
-            // Check if cache is a valid intermediate point
-            if let Some(entry) = &*cache {
-                if entry.lineage == lineage
-                    && entry.edits <= text_edits
-                    && entry.edits >= node.start_edits
-                {
-                    // Cache is valid and fresher/equal to node start
-                    prompts = entry.prompts.clone();
-                    current_edits = entry.edits;
-                }
-            }
+            // // Check if cache is a valid intermediate point
+            // if let Some(entry) = &*cache {
+            //     if entry.lineage == lineage
+            //         && entry.edits <= text_edits
+            //         && entry.edits >= node.start_edits
+            //     {
+            //         // Cache is valid and fresher/equal to node start
+            //         prompts = entry.prompts.clone();
+            //         current_edits = entry.edits;
+            //     }
+            // }
 
             // 3. Apply modifications
             // Calculate index range to apply
@@ -161,18 +161,18 @@ impl TextHistory {
             }
 
             // 4. Update cache
-            *cache = Some(CacheEntry {
-                lineage,
-                edits: current_edits, // This should be text_edits if we completed successfully
-                prompts: prompts.clone(),
-            });
+            // *cache = Some(CacheEntry {
+            //     lineage,
+            //     edits: current_edits, // This should be text_edits if we completed successfully
+            //     prompts: prompts.clone(),
+            // });
         }
 
         Some(prompts)
     }
 }
 
-fn apply_modification(text: &mut String, modification: &TextModification) {
+pub fn apply_modification(text: &mut String, modification: &TextModification) {
     let mut chars: Vec<char> = text.chars().collect();
     let location = modification.range.location as usize;
     let length = modification.range.length as usize;
