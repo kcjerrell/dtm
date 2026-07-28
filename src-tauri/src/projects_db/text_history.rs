@@ -90,7 +90,7 @@ impl TextHistory {
         }
     }
 
-    pub fn get_edit(&self, lineage: i64, text_edits: i64) -> Option<PromptPair> {
+    pub fn get_edit(&self, lineage: i64, text_edits: i64) -> anyhow::Result<Option<PromptPair>> {
         // 1. Find the appropriate node to start from.
         // We look for a node with the same lineage and start_edits <= text_edits.
         // We pick the one with the highest start_edits among matches.
@@ -103,9 +103,8 @@ impl TextHistory {
             .nodes
             .iter()
             .filter(|n| n.lineage == lineage && n.start_edits <= text_edits)
-            .max_by_key(|n| n.start_edits)?;
-
-        let node = node?;
+            .max_by_key(|n| n.start_edits)
+            .ok_or_else(|| anyhow::anyhow!("No node found for lineage {} and text_edits {}", lineage, text_edits))?;
 
         // 2. Determine starting point (Node or Cache).
         let mut prompts = PromptPair {
@@ -168,7 +167,7 @@ impl TextHistory {
             // });
         }
 
-        Some(prompts)
+        Ok(Some(prompts))
     }
 }
 

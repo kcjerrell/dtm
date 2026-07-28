@@ -47,12 +47,16 @@ pub async fn copy_tensors(
     }
 
     let mut collect_rx = next_rx.unwrap();
-    let collect = tokio::spawn(async move {
-        while let Some(item) = collect_rx.recv().await {
-            if let Some(err) = item.error {
-                eprintln!("Error in archive copy: {err}");
+    let collect: JoinHandle<Result<Vec<CopyTensorItem>>> = tokio::spawn(async move {
+        let mut errored_copies: Vec<CopyTensorItem> = Vec::new();
+        while let Some(mut item) = collect_rx.recv().await {
+            if let Err(_) = &item.result {
+                item.data = None;
+                item.preview = None;
+                errored_copies.push(item);
             }
         }
+        Ok(errored_copies)
     });
 
     let resources = primary.into_iter().chain(extra);
@@ -68,7 +72,15 @@ pub async fn copy_tensors(
             eprintln!("Error in archive copy: {err}");
         }
     }
-    collect.await?;
+    let errored_copies = collect.await??;
+
+    eprintln!(
+        "The following items could not be copied: {:?}",
+        errored_copies
+            .into_iter()
+            .map(|it| format!("{}: {:?}", it.name, it.result.err()))
+            .collect::<Vec<String>>()
+    );
 
     Ok(())
 }
@@ -83,6 +95,7 @@ pub trait Worker {
     ) -> Result<JoinHandle<Result<()>>>;
 }
 
+#[derive(Debug, Clone)]
 struct ConvertWorker {
     project_ref: DtProjectRef,
     concurrency: usize,
@@ -94,6 +107,90 @@ impl ConvertWorker {
             project_ref,
             concurrency,
         }
+    }
+
+    async fn convert(project_ref: DtProjectRef, item: &mut CopyTensorItem) -> Result<()> {
+        let resource = match item.node_id {
+            Some(node_id) => DtResourceHandle::new(
+                &project_ref,
+                &DtResourceRef::TensorHistoryNode(
+                    ThnRef::RowId(node_id),
+                    ThnResource::Tensor(item.name.clone()),
+                ),
+            ),
+            None => project_ref.tensor(&item.name),
+        };
+
+        let node = resource.get_history_node().await?.cloned();
+
+        if item.primary {
+            if let Some(preview_id) = item.preview_id {
+                if let Some(node) = &node {
+                    if node.data().index_in_a_clip() == 0 {
+                        item.preview = project_ref.thumb(preview_id).get_preview(true).await?;
+                    }
+                }
+            }
+        }
+
+        let tensor_raw = resource.get_tensor_raw().await?;
+
+        if let Some(data) = tensor_raw {
+            let lossless = item.lossless;
+            let (data, data_ext) = tokio::task::spawn_blocking(move || {
+                if let Ok(tensor) = Tensor::try_from(data) {
+                    if lossless {
+                        // NOTE: Returns error if tensor is not Image/Binary kind - needs review
+                        tensor
+                            .to_png(node.as_ref(), None)?
+                            .ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "Tensor cannot be converted to PNG (not Image/Binary kind)"
+                                )
+                            })
+                            .map(|t| (t, "png"))
+                    } else {
+                        let pixels = tensor.to_pixel_data(None)?.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Tensor cannot be converted to pixel data (not Image/Binary kind)"
+                            )
+                        })?;
+
+                        let mut bytes = Vec::new();
+                        let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
+                        let color_type = match tensor.channels {
+                            1 => ExtendedColorType::L8,
+                            3 => ExtendedColorType::Rgb8,
+                            4 => ExtendedColorType::Rgba8,
+                            _ => {
+                                anyhow::bail!("Unsupported number of channels: {}", tensor.channels)
+                            }
+                        };
+
+                        if tensor.width * tensor.height * tensor.channels != pixels.len() as u32 {
+                            anyhow::bail!("Tensor dimensions do not match pixel data length");
+                        }
+                        encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
+
+                        let jpg = match node {
+                            Some(node) => write_jpeg_with_metadata(&bytes, &node.node_data())?,
+                            None => bytes,
+                        };
+
+                        Ok((jpg, "jpg"))
+                    }
+                } else {
+                    Err(anyhow::anyhow!("failed to convert tensor"))
+                }
+            })
+            .await??;
+            item.data = Some(data);
+            item.data_ext = Some(data_ext.to_string());
+        } else {
+            anyhow::bail!("Couldn't get tensor_raw");
+        }
+
+        Ok(())
     }
 }
 
@@ -113,74 +210,30 @@ impl Worker for ConvertWorker {
             let mut tasks: JoinSet<Result<()>> = JoinSet::new();
 
             while let Some(mut item) = rx.recv().await {
-                let permit = semaphore.clone().acquire_owned().await
+                let permit = semaphore
+                    .clone()
+                    .acquire_owned()
+                    .await
                     .map_err(|e| anyhow::anyhow!("Semaphore acquisition failed: {}", e))?;
                 let tx = tx.clone();
                 let project_ref = project_ref.clone();
                 tasks.spawn(async move {
                     let _permit = permit;
-                    let resource = match item.node_id {
-                        Some(node_id) => DtResourceHandle::new(
-                            &project_ref,
-                            &DtResourceRef::TensorHistoryNode(
-                                ThnRef::RowId(node_id),
-                                ThnResource::Tensor(item.name.clone()),
-                            ),
-                        ),
-                        None => project_ref.tensor(&item.name),
-                    };
 
-                    let node = resource.get_history_node().await?.cloned();
+                    if item.result.is_ok() {
+                        item.result = Self::convert(project_ref, &mut item).await;
+                    }
 
-                    if item.primary {
-                        if let Some(preview_id) = item.preview_id {
-                            if let Some(node) = &node {
-                                if node.data().index_in_a_clip() == 0 {
-                                    item.preview =
-                                        project_ref.thumb(preview_id).get_preview(true).await?;
-                                }
-                            }
+                    if item.result.is_ok() {
+                        println!("convert sending item...");
+                    }
+                    match tx.send(item).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("ConvertWorker failed to send: {}", e);
+                            return Err(e.into());
                         }
                     }
-
-                    let tensor_raw = resource.get_tensor_raw().await?;
-
-                    if let Some(data) = tensor_raw {
-                        let result = tokio::task::spawn_blocking(move || {
-                            if let Ok(tensor) = Tensor::try_from(data) {
-                                if item.lossless {
-                                    tensor.to_png(node.as_ref(), None)
-                                } else {
-                                    let pixels = tensor.to_pixel_data(None)?;
-
-                                    let mut bytes = Vec::new();
-                                    let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
-
-                                    encoder.encode(
-                                        pixels.as_slice(),
-                                        tensor.width,
-                                        tensor.height,
-                                        ExtendedColorType::Rgb8,
-                                    )?;
-
-                                    let jpg = match node {
-                                        Some(node) => {
-                                            write_jpeg_with_metadata(&bytes, &node.node_data())?
-                                        }
-                                        None => bytes,
-                                    };
-
-                                    Ok(jpg)
-                                }
-                            } else {
-                                Err(anyhow::anyhow!("failed to convert tensor"))
-                            }
-                        })
-                        .await?;
-                        item.data = Some(result?);
-                    }
-
-                    tx.send(item).await?;
 
                     Ok(())
                 });
@@ -206,7 +259,7 @@ impl ZipWorker {
 
     fn archive(writer: &mut StreamingZipWriter<File>, item: &mut CopyTensorItem) -> Result<()> {
         if let Some(data) = &item.data {
-            writer.start_entry(&item.filename())?;
+            writer.start_entry(&item.filename()?)?;
             writer.write_data(data)?;
 
             if let Some(preview) = &item.preview {
@@ -235,26 +288,38 @@ impl Worker for ZipWorker {
         let archive_path = self.archive_path.clone();
         let task = tokio::task::spawn_blocking(move || {
             let mut writer = StreamingZipWriter::with_compression(archive_path, 0)?;
-            while let Some(mut item) = rx.blocking_recv() {
-                if item.error.is_none() {
-                    let result = Self::archive(&mut writer, &mut item);
-                    if let Err(e) = result {
-                        item.error = Some(anyhow::anyhow!(e));
+
+            // written as such so that writer can be closed even if
+            let result = (|| {
+                let mut count = 0;
+                while let Some(mut item) = rx.blocking_recv() {
+                    count += 1;
+                    println!("zip received item {}: {}", count, item.name);
+
+                    if item.result.is_ok() {
+                        item.result = Self::archive(&mut writer, &mut item);
+                    }
+
+                    if let Err(e) = tx.blocking_send(item) {
+                        eprintln!("ZipWorker failed to send to db: {}", e);
+                        return Err(e.into());
                     }
                 }
+                println!("zip loop ended after {} items", count);
+                Ok::<(), anyhow::Error>(())
+            })();
 
-                tx.blocking_send(item)?;
-            }
             writer.finish()?;
             drop(tx);
             println!("zip dropped tx");
-            Ok::<(), anyhow::Error>(())
+            result
         });
 
         Ok(task)
     }
 }
 
+#[derive(Clone)]
 struct DbWorker {
     db_conn: Arc<Mutex<sqlx::pool::PoolConnection<sqlx::Sqlite>>>,
 }
@@ -264,6 +329,49 @@ impl DbWorker {
         Self {
             db_conn: Arc::new(Mutex::new(db_conn)),
         }
+    }
+
+    async fn update_db(&self, item: &mut CopyTensorItem) -> Result<()> {
+        let mut db_conn = self.db_conn.lock().await;
+        let filename = item.filename()?.into_bytes();
+        let preview_filename = item
+            .preview_filename()
+            .map_or(filename.clone(), |pf| pf.into_bytes());
+        match sqlx::query(
+            "INSERT INTO main.tensors ( name, type, format, datatype, dim, data )
+                             SELECT name, type, format, datatype, dim, ?1 AS data
+                             FROM dtp.tensors WHERE name == ?2",
+        )
+        .bind(&filename)
+        .bind(&item.name)
+        .execute(&mut **db_conn)
+        .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("DbWorker failed to insert tensor {}: {}", item.name, e);
+                return Err(e.into());
+            }
+        }
+
+        if let Some(preview_id) = item.preview_id {
+            if let Some(node_id) = item.node_id {
+                match sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3); INSERT INTO thumbnailhistoryhalfnode (rowid, __pk0, p) VALUES (?1, ?2, ?4);")
+                                    .bind(node_id)
+                                    .bind(preview_id)
+                                    .bind(&filename)
+                                    .bind(&preview_filename)
+                                    .execute(&mut **db_conn)
+                                    .await {
+                                        Ok(_) => println!("wrote preview to db: {}", item.name),
+                                        Err(e) => {
+                                            eprintln!("DbWorker failed to insert thumbnail for {}: {}", item.name, e);
+                                            return Err(e.into());
+                                        }
+                                    }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -276,40 +384,34 @@ impl Worker for DbWorker {
         mut rx: Receiver<Self::Item>,
         tx: Sender<Self::Item>,
     ) -> Result<JoinHandle<Result<()>>> {
-        let db_conn = self.db_conn.clone();
+        let self_clone = self.clone();
         let task = tokio::task::spawn(async move {
-            let mut db_conn = db_conn.lock().await;
-            while let Some(item) = rx.recv().await {
-                if item.error.is_none() {
-                    sqlx::query(
-                        "INSERT INTO main.tensors ( name, type, format, datatype, dim, data )
-                         SELECT name, type, format, datatype, dim, ?1 AS data
-                         FROM dtp.tensors WHERE name == ?2",
-                    )
-                    .bind(item.filename().as_bytes())
-                    .bind(&item.name)
-                    .execute(&mut **db_conn)
-                    .await?;
+            let mut count = 0;
+            let result = async move {
+                while let Some(mut item) = rx.recv().await {
+                    count += 1;
+                    println!("db received item {}: {}", count, item.name);
 
-                    if let Some(preview_id) = item.preview_id {
-                        if let Some(node_id) = item.node_id {
-                            sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3); INSERT INTO thumbnailhistoryhalfnode (rowid, __pk0, p) VALUES (?1, ?2, ?4);")
-                            // sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3);")
-                                .bind(node_id)
-                                .bind(preview_id)
-                                .bind(item.filename().as_bytes())
-                                .bind(item.preview_filename().unwrap_or_else(|| item.filename()).as_bytes())
-                                .execute(&mut **db_conn)
-                                .await?;
-                            println!("wrote item to db: {}", item.name);
+                    if item.result.is_ok() {
+                        item.result = self_clone.update_db(&mut item).await;
+                    }
+
+                    match tx.send(item).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("DbWorker failed to send: {}", e);
+                            return Err(e.into());
                         }
                     }
                 }
-                tx.send(item).await?;
+                println!("db loop ended after {} items", count);
+                drop(tx);
+                println!("db dropped tx");
+                Ok::<(), anyhow::Error>(())
             }
-            drop(tx);
-            println!("db dropped tx");
-            Ok::<(), anyhow::Error>(())
+            .await;
+
+            result
         });
 
         Ok(task)

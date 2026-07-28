@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf};
+use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf, prelude::rust_2024::Future};
 
 use anyhow::Result;
 
@@ -7,9 +7,7 @@ use tokio::fs;
 
 use crate::{
     dtp_service::AppHandleWrapper,
-    projects_db::{
-        archive::workers::copy_tensors, DtProjectRef, ProjectsDb,
-    },
+    projects_db::{archive::workers::copy_tensors, DtProjectRef, ProjectsDb},
 };
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
@@ -114,9 +112,9 @@ pub async fn copy_project(
     .await?;
 
     // detach the source database
-    sqlx::query("DETACH DATABASE dtp;")
-        .execute(&mut *dest_conn)
-        .await?;
+    // sqlx::query("DETACH DATABASE dtp;")
+    //     .execute(&mut *dest_conn)
+    //     .await?;
 
     // don't let the attached connection return to the pool
 
@@ -151,7 +149,7 @@ pub async fn copy_project(
     Ok(())
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CopyTensorItem {
     pub name: String,
     pub node_id: Option<i64>,
@@ -160,51 +158,57 @@ pub struct CopyTensorItem {
     pub primary: bool,
     pub index: i64,
     pub data: Option<Vec<u8>>,
+    pub data_ext: Option<String>,
     pub lossless: bool,
     pub added_to_archive: bool,
-    pub error: Option<anyhow::Error>,
+    pub result: anyhow::Result<()>,
 }
 
 impl CopyTensorItem {
-    pub fn primary(node_id: i64, tensor_name: String, preview_id: i64, lossless: bool) -> Self {
-        CopyTensorItem {
-            name: tensor_name,
-            node_id: Some(node_id),
-            preview_id: Some(preview_id),
-            primary: true,
-            index: node_id,
-            lossless,
-            added_to_archive: false,
-            ..Default::default()
-        }
-    }
-
-    pub fn extra(tensor_name: String, index: i64, lossless: bool) -> Self {
+    fn new(tensor_name: String, index: i64, lossless: bool) -> Self {
         CopyTensorItem {
             name: tensor_name,
             primary: false,
             index,
             lossless,
             added_to_archive: false,
-            ..Default::default()
+            node_id: None,
+            preview_id: None,
+            preview: None,
+            data: None,
+            data_ext: None,
+            result: Ok(()),
         }
     }
 
-    pub fn filename(&self) -> String {
-        format!(
+    pub fn primary(node_id: i64, tensor_name: String, preview_id: i64, lossless: bool) -> Self {
+        let mut item = Self::new(tensor_name, node_id, lossless);
+        item.primary = true;
+        item.preview_id = Some(preview_id);
+        item.node_id = Some(node_id);
+
+        item
+    }
+
+    pub fn extra(tensor_name: String, index: i64, lossless: bool) -> Self {
+        Self::new(tensor_name, index, lossless)
+    }
+
+    pub fn filename(&self) -> Result<String> {
+        let ext = self.data_ext.as_ref().ok_or(anyhow::anyhow!("No ext set for item"))?;
+        Ok(format!(
             "{}/{:06}_{}.{}",
             if self.primary { "images" } else { "tensors" },
             self.index,
             self.name,
-            if self.lossless { "png" } else { "jpg" }
-        )
+            ext
+        ))
     }
 
     pub fn preview_filename(&self) -> Option<String> {
-        if self.preview.is_none() {
-            return None
-        }
-        self.preview_id.map(|preview_id| format!("thumbhalf/{}.jpg", preview_id))
+        self.preview.as_ref()?;
+        self.preview_id
+            .map(|preview_id| format!("thumbhalf/{}.jpg", preview_id))
     }
 }
 

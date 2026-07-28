@@ -6,7 +6,8 @@ use crate::projects_db::{
     write_png_with_usercomment,
 };
 
-/// A decompressed Draw Things tensor.
+/// A decompressed Draw Things tensor, as stored in a Draw Things project.
+/// Includes images, audio, pose, and binary images/masks.
 ///
 /// Tensors are stored in NHWC (batch, height, width, channels) order.
 ///
@@ -36,6 +37,33 @@ pub struct Tensor {
 
     /// Tensor values.
     pub data: TensorValue,
+
+    /// Tensor kind
+    pub kind: TensorKind,
+}
+
+#[derive(Debug, Clone, serde::Serialize, EnumIs)]
+pub enum TensorKind {
+    Image,
+    Pose,
+    Audio,
+    Binary,
+    Unknown,
+}
+
+impl TensorKind {
+    pub fn from_name(name: &str) -> TensorKind {
+        match name.split_once('_') {
+            Some((prefix, _)) => match prefix {
+                "tensor" | "shuffle" | "custom" | "depth" | "color" => TensorKind::Image,
+                "pose" => TensorKind::Pose,
+                "audio" => TensorKind::Audio,
+                "binary" | "scribble" => TensorKind::Binary,
+                _ => TensorKind::Unknown,
+            },
+            None => TensorKind::Unknown,
+        }
+    }
 }
 
 #[derive(serde::Serialize, Debug, Clone, Copy, PartialEq, Eq, EnumIs)]
@@ -65,7 +93,10 @@ impl Tensor {
         }
     }
 
-    pub fn to_pixel_data(&self, size: Option<u32>) -> anyhow::Result<Vec<u8>> {
+    pub fn to_pixel_data(&self, size: Option<u32>) -> anyhow::Result<Option<Vec<u8>>> {
+        if !self.kind.is_image() && !self.kind.is_binary() {
+            return Ok(None);
+        }
         let w = self.width as usize;
         let h = self.height as usize;
         let c = self.channels as usize;
@@ -79,7 +110,11 @@ impl Tensor {
                 match &self.data {
                     TensorValue::U8(src) => {
                         if out.len() != src.len() {
-                            return Err(anyhow::anyhow!("Tensor data length mismatch: expected {}, got {}", out.len(), src.len()));
+                            return Err(anyhow::anyhow!(
+                                "Tensor data length mismatch: expected {}, got {}",
+                                out.len(),
+                                src.len()
+                            ));
                         }
                         let mut i = 0usize;
                         while i < out.len().min(src.len()) {
@@ -89,7 +124,11 @@ impl Tensor {
                     }
                     TensorValue::F32(src) => {
                         if out.len() != src.len() {
-                            return Err(anyhow::anyhow!("Tensor data length mismatch: expected {}, got {}", out.len(), src.len()));
+                            return Err(anyhow::anyhow!(
+                                "Tensor data length mismatch: expected {}, got {}",
+                                out.len(),
+                                src.len()
+                            ));
                         }
                         let mut i = 0usize;
                         while i < src.len() {
@@ -101,7 +140,7 @@ impl Tensor {
                     }
                 }
 
-                return Ok(out);
+                return Ok(Some(out));
             }
         };
 
@@ -167,15 +206,18 @@ impl Tensor {
             }
         }
 
-        Ok(out)
+        Ok(Some(out))
     }
 
     pub fn to_png(
         &self,
         history_node: Option<&TensorHistoryNode>,
         size: Option<u32>,
-    ) -> Result<Vec<u8>> {
-        let pixels = self.to_pixel_data(size)?;
+    ) -> Result<Option<Vec<u8>>> {
+        let pixels = match self.to_pixel_data(size)? {
+            Some(p) => p,
+            None => return Ok(None),
+        };
         let (width, height) = if let Some(target_size) = size {
             (target_size, target_size)
         } else {
@@ -187,7 +229,7 @@ impl Tensor {
 
         let png = write_png_with_usercomment(&pixels, width, height, channels as usize, metadata)?;
 
-        Ok(png)
+        Ok(Some(png))
     }
 }
 
@@ -201,40 +243,43 @@ impl TryFrom<TensorRaw> for Tensor {
         } else {
             TensorDType::U8
         };
+        let kind = TensorKind::from_name(&tensor_raw.name);
 
-        let tensor = if tensor_raw.name.starts_with("binary_mask")
-            || tensor_raw.name.starts_with("scribble")
-            || tensor_raw.name.starts_with("audio")
-        {
-            // these tensor types are handled differently by draw things
-            // with the first 8 bytes of the dim blob as height and width
-            // rather than the first 16 bytes as NHWC as with the image tensors
-            let n = 1;
-            let channels = 1;
-            let height = tensor_raw.n as u32;
-            let width = tensor_raw.height as u32;
+        let tensor = match kind {
+            TensorKind::Binary | TensorKind::Audio => {
+                // these tensor types are handled differently by draw things
+                // with the first 8 bytes of the dim blob as height and width
+                // rather than the first 16 bytes as NHWC as with the image tensors
+                let n = 1;
+                let channels = 1;
+                let height = tensor_raw.n as u32;
+                let width = tensor_raw.height as u32;
 
-            Tensor {
-                n,
-                width,
-                height,
-                channels,
-                dtype: dtype,
-                data: tensor_data,
+                Tensor {
+                    n,
+                    width,
+                    height,
+                    channels,
+                    dtype,
+                    data: tensor_data,
+                    kind,
+                }
             }
-        } else {
-            let n = (tensor_raw.n as u32).max(1);
-            let width = tensor_raw.width as u32;
-            let height = tensor_raw.height as u32;
-            let channels = (tensor_raw.channels as u32).max(1);
+            _ => {
+                let n = (tensor_raw.n as u32).max(1);
+                let width = tensor_raw.width as u32;
+                let height = tensor_raw.height as u32;
+                let channels = (tensor_raw.channels as u32).max(1);
 
-            Tensor {
-                n,
-                width,
-                height,
-                channels,
-                dtype: dtype,
-                data: tensor_data,
+                Tensor {
+                    n,
+                    width,
+                    height,
+                    channels,
+                    dtype,
+                    data: tensor_data,
+                    kind,
+                }
             }
         };
 
@@ -256,11 +301,11 @@ fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
 
     // buffer must be 4 bytes per element
     if tensor.data.len() == (buffer_len as usize * 4) {
-        return Ok(TensorValue::F32(bytes_to_f32(&tensor.data)?));
+        Ok(TensorValue::F32(bytes_to_f32(&tensor.data)?))
     }
     // buffer must be 1 byte per element
     else if tensor.data.len() == (buffer_len as usize) {
-        return Ok(TensorValue::U8(tensor.data.to_vec()));
+        Ok(TensorValue::U8(tensor.data.to_vec()))
     }
     // only option left is deflate
     else {
@@ -274,7 +319,7 @@ fn is_fpz_stream(buf: &[u8]) -> bool {
 }
 
 fn bytes_to_f32(bytes: &[u8]) -> anyhow::Result<Vec<f32>> {
-    if bytes.len() % std::mem::size_of::<f32>() != 0 {
+    if !bytes.len().is_multiple_of(std::mem::size_of::<f32>()) {
         anyhow::bail!(
             "Byte array length is not a multiple of {}",
             std::mem::size_of::<f32>()

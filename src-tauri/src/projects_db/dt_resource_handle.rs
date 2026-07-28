@@ -55,7 +55,7 @@ impl ResourceHandle for DtResourceHandle {
         if let Some(tensor) = self.get_tensor().await? {
             let history_node = self.get_history_node().await?;
             let png = tensor.to_png(history_node, size)?;
-            Ok(Some(png))
+            Ok(png)
         } else {
             Ok(None)
         }
@@ -87,6 +87,7 @@ impl ResourceHandle for DtResourceHandle {
                         .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
                         .await?,
                 )),
+                DTResource::Unknown(items) => Ok(None),
             }
         } else {
             Ok(None)
