@@ -21,7 +21,7 @@ impl Job for CheckFileJob {
         "Check file".to_string()
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let watchfolder = ctx
             .pdb
             .get_watch_folder_for_path(&self.project_path)
@@ -38,7 +38,7 @@ impl Job for CheckFileJob {
 
         let entity = ctx
             .pdb
-            .get_project_by_path(watchfolder.id, &project_path)
+            .get_project_by_path(watchfolder.id, project_path)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -70,7 +70,7 @@ impl Job for CheckFileJob {
                 if entity.filesize.unwrap_or(0) != filesize || entity.modified != modified {
                     let job = UpdateProjectJob {
                         project_id: entity.id,
-                        filesize: filesize,
+                        filesize,
                         modified: modified.unwrap_or(0),
                         is_import: false,
                         check_deletions: false,

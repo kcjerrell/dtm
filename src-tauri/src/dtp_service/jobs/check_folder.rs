@@ -61,7 +61,7 @@ impl Job for CheckFolderJob {
         format!("CheckFolderJob for {}", self.path)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         ctx.dtp.stop_watch(&self.path).await;
 
         let mut locked_update: Option<bool> = None;
