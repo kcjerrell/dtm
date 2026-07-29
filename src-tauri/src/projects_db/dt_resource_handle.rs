@@ -40,8 +40,8 @@ impl ResourceHandle for DtResourceHandle {
             return Ok(None);
         }
 
-        if let Some(name) = self.get_tensor_name().await? {
-            let dtp = self.get_project().await?;
+        let dtp = self.get_project().await?;
+        if let Some(name) = self.get_tensor_name(Some(&dtp)).await? {
             let tensor_raw = dtp.get_tensor_raw(&name).await?;
             let tensor: Tensor = tensor_raw.try_into()?;
 
@@ -52,13 +52,31 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_lossless(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
-        if let Some(tensor) = self.get_tensor().await? {
-            let history_node = self.get_history_node().await?;
-            let png = tensor.to_png(history_node, size)?;
-            Ok(png)
-        } else {
-            Ok(None)
+        let dtp = self.get_project().await?;
+        let name = self.get_tensor_name(Some(&dtp)).await?;
+        if let Some(name) = name {
+            if let Some(tensor_raw) = dtp.get_tensor_raw(&name).await.ok() {
+                match &tensor_raw.resource {
+                    DTResource::CompressedTensor(_) => {
+                        let node = self.get_history_node().await?;
+                        let tensor: Tensor = Tensor::try_from(tensor_raw)?;
+                        return tensor.to_png(node, None);
+                    }
+                    DTResource::JpgWithHeader(jpg_with_header) => return Ok(None),
+                    DTResource::DTZipRef(dtzip_ref) => {
+                        return Ok(Some(
+                            dtp.dt_zip
+                                .as_ref()
+                                .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
+                                .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                                .await?,
+                        ))
+                    }
+                    DTResource::Unknown(items) => return Ok(None),
+                }
+            }
         }
+        Ok(None)
     }
 
     async fn get_preview(&self, half: bool) -> Result<Option<Vec<u8>>> {
@@ -83,7 +101,7 @@ impl ResourceHandle for DtResourceHandle {
                 DTResource::DTZipRef(dtzip_ref) => Ok(Some(
                     dtp.dt_zip
                         .as_ref()
-                        .map(|dtz| dtz.get_file(dtzip_ref.rel_path))
+                        .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
                         .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
                         .await?,
                 )),
@@ -190,8 +208,8 @@ impl DtResourceHandle {
     }
 
     pub async fn get_tensor_raw(&self) -> Result<Option<TensorRaw>> {
-        if let Some(name) = self.get_tensor_name().await? {
-            let dtp = self.get_project().await?;
+        let dtp = self.get_project().await?;
+        if let Some(name) = self.get_tensor_name(Some(&dtp)).await? {
             let tensor_raw = dtp.get_tensor_raw(&name).await?;
 
             return Ok(Some(tensor_raw));
@@ -200,7 +218,7 @@ impl DtResourceHandle {
         Ok(None)
     }
 
-    async fn get_tensor_name(&self) -> Result<Option<String>> {
+    async fn get_tensor_name(&self, project: Option<&DTProject>) -> Result<Option<String>> {
         // thumbs do not have a tensor name
         if self.resource.is_thumb() {
             return Ok(None);
@@ -223,7 +241,10 @@ impl DtResourceHandle {
             return Ok(Some(name.clone()));
         }
 
-        let dtp = self.get_project().await?;
+        let dtp = match project {
+            Some(project) => project,
+            None => &*self.get_project().await?,
+        };
 
         // handle moodboard case
         if self.resource.is_tensor_history_node() && res.is_moodboard() {

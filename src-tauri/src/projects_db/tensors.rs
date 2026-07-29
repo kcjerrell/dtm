@@ -10,6 +10,7 @@ use std::io::Cursor;
 use std::io::Read;
 
 use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
+use crate::projects_db::dt_project::resource::DTResource;
 use crate::projects_db::dtos::tensor::TensorRaw;
 use crate::projects_db::metadata::DrawThingsMetadata;
 
@@ -39,10 +40,22 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
     //     tensor.channels
     // );
 
-    let out = decompress_fzip(&tensor.data)?;
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            return Err("DTZipRef not yet supported in decode_tensor".to_string())
+        }
+        DTResource::JpgWithHeader(_) => {
+            return Err("JpgWithHeader not supported in decode_tensor".to_string())
+        }
+    };
+
+    let out = decompress_fzip(&data)?;
     // log::debug!(
     //     "Compressed: {} bytes, decompressed: {} bytes",
-    //     &tensor.data.len(),
+    //     &data.len(),
     //     out.len()
     // );
 
@@ -108,15 +121,27 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
 }
 
 pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
-    if tensor.data.len() >= 3
-        && tensor.data[0] == 0x66
-        && tensor.data[1] == 0x70
-        && tensor.data[2] == 0x79
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            return Err("DTZipRef not yet supported in decode_pose".to_string())
+        }
+        DTResource::JpgWithHeader(_) => {
+            return Err("JpgWithHeader not supported in decode_pose".to_string())
+        }
+    };
+
+    if data.len() >= 3
+        && data[0] == 0x66
+        && data[1] == 0x70
+        && data[2] == 0x79
     {
-        let dec = decompress_fzip(&tensor.data)?;
+        let dec = decompress_fzip(&data)?;
         Ok(f32_to_u8(dec))
     } else {
-        Ok(tensor.data)
+        Ok(data)
     }
 }
 
@@ -251,7 +276,19 @@ pub fn scribble_mask_to_png(
     tensor: TensorRaw,
     size: Option<u32>,
 ) -> Result<Vec<u8>, String> {
-    let data = inflate_deflate(&tensor.data).map_err(|e| e.to_string())?;
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            return Err("DTZipRef not yet supported in scribble_mask_to_png".to_string())
+        }
+        DTResource::JpgWithHeader(_) => {
+            return Err("JpgWithHeader not supported in scribble_mask_to_png".to_string())
+        }
+    };
+
+    let data = inflate_deflate(&data).map_err(|e| e.to_string())?;
     let bw: Vec<u8> = data
         .iter()
         .map(|&x| if x > 0 { 255 } else { 0 })

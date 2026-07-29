@@ -9,8 +9,9 @@ use tauri::http::{Response, StatusCode};
 
 use crate::{
     projects_db::{
-        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, tensors::decompress_fzip, DTProject,
-        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
+        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, dt_project::resource::DTResource,
+        tensors::decompress_fzip, DTProject, DtProjectRef, DtResourceHandle, DtResourceRef,
+        ThnRef, ThnResource,
     },
     ResourceHandle,
 };
@@ -112,7 +113,19 @@ pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, S
 
     let mut writer = hound::WavWriter::new(buf_writer, spec).unwrap();
 
-    let decompressed = decompress_fzip(&tensor.data).unwrap();
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            return Err("DTZipRef not yet supported in decode_audio".to_string())
+        }
+        DTResource::JpgWithHeader(_) => {
+            return Err("JpgWithHeader not supported in decode_audio".to_string())
+        }
+    };
+
+    let decompressed = decompress_fzip(&data).unwrap();
     let left = &decompressed[0..length];
     let right = &decompressed[length..];
 

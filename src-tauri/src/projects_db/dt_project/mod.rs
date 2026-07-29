@@ -29,9 +29,7 @@ use std::{
 };
 use tokio::sync::OnceCell;
 
-pub mod raw;
 pub(crate) mod resource;
-pub use raw::dt_project_tensordata;
 pub mod clip;
 pub use clip::{Clip, ClipFilter};
 pub mod data;
@@ -324,7 +322,7 @@ impl DTProject {
     //            the full tensor name
 
     // KEEP - should rename to get_tensor
-    pub async fn get_tensor_raw(&self, name: &str) -> Result<TensorRaw, Error> {
+    pub async fn get_tensor_raw(&self, name: &str) -> anyhow::Result<TensorRaw> {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row =
             query("SELECT name, type, format, datatype, dim, data FROM tensors WHERE name = ?1")
@@ -344,6 +342,13 @@ impl DTProject {
         let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
         let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
 
+        // If this is an archived project, interpret data as a file path
+        let resource = if let Some(dt_zip) = &self.dt_zip {
+            DTResource::dt_zip_ref(data, dt_zip)?
+        } else {
+            DTResource::compressed_tensor(data)
+        };
+
         Ok(TensorRaw {
             name,
             tensor_type,
@@ -354,7 +359,7 @@ impl DTProject {
             width,
             channels,
             dim,
-            data,
+            resource,
         })
     }
 

@@ -144,6 +144,21 @@ async function exportProjects(
     return await invoke("dtp_export_projects", { projectIds, options })
 }
 
+async function getLossless(
+    projectId: number,
+    nodeId?: number | null,
+    tensorId?: string | null,
+    size?: number | null,
+): Promise<Uint8Array<ArrayBuffer>> {
+    const opts = {
+        projectId,
+        nodeId,
+        tensorId,
+        size,
+    }
+    return new Uint8Array(await invoke("dtp_get_lossless", opts))
+}
+
 const DTPService = {
     connect,
     listProjects,
@@ -164,6 +179,7 @@ const DTPService = {
     syncProjects,
     exportProjects,
     lockFolder,
+    getLossless,
 }
 
 export default DTPService

@@ -1,4 +1,5 @@
 use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
+use crate::projects_db::dt_project::resource::DTResource;
 use crate::projects_db::tensor_history_generated::{
     root_as_tensor_history_node as root_as_tensor_history_node_fb, Control as ControlFb,
     LoRA as LoRAFb, LoRAMode,
@@ -339,7 +340,7 @@ pub struct TensorRaw {
     pub height: i32,
     pub channels: i32,
     pub dim: Vec<u8>,
-    pub data: Vec<u8>,
+    pub resource: DTResource,
 }
 
 impl FromRow<'_, SqliteRow> for TensorRaw {
@@ -356,6 +357,9 @@ impl FromRow<'_, SqliteRow> for TensorRaw {
         let width = i32::from_le_bytes(dim[8..12].try_into().ok().unwrap());
         let channels = i32::from_le_bytes(dim[12..16].try_into().ok().unwrap());
 
+        // Use CompressedTensor for now; get_tensor_raw will update to DTZipRef if needed
+        let resource = DTResource::compressed_tensor(data);
+
         Ok(Self {
             name,
             tensor_type,
@@ -366,7 +370,7 @@ impl FromRow<'_, SqliteRow> for TensorRaw {
             width,
             channels,
             dim,
-            data,
+            resource,
         })
     }
 }

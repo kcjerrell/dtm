@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use strum::EnumIs;
 
 use crate::projects_db::{
-    decompress_fzip, dt_project::TensorHistoryNode, dtos::tensor::TensorRaw, inflate_deflate,
-    write_png_with_usercomment,
+    decompress_fzip, dt_project::resource::DTResource, dt_project::TensorHistoryNode,
+    dtos::tensor::TensorRaw, inflate_deflate, write_png_with_usercomment,
 };
 
 /// A decompressed Draw Things tensor, as stored in a Draw Things project.
@@ -288,10 +288,26 @@ impl TryFrom<TensorRaw> for Tensor {
 }
 
 fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            return Err(anyhow::anyhow!(
+                "DTZipRef not yet supported in get_decompressed - archive tensor reading not implemented"
+            ))
+        }
+        DTResource::JpgWithHeader(_) => {
+            return Err(anyhow::anyhow!(
+                "JpgWithHeader not supported in tensor decompression"
+            ))
+        }
+    };
+
     // this is easiest to check. If it's an fpz stream, it will definitely be f32 as well
-    if is_fpz_stream(&tensor.data) {
-        if let Ok(data) = decompress_fzip(&tensor.data).map_err(|e| anyhow!(e.to_string())) {
-            return Ok(TensorValue::F32(data));
+    if is_fpz_stream(&data) {
+        if let Ok(decompressed) = decompress_fzip(&data).map_err(|e| anyhow!(e.to_string())) {
+            return Ok(TensorValue::F32(decompressed));
         }
     }
     // as far as i know, all tensors are either fpzipped or deflate u8, but that might not be correct.
@@ -300,16 +316,16 @@ fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
         tensor.n.max(1) * tensor.height.max(1) * tensor.width.max(1) * tensor.channels.max(1);
 
     // buffer must be 4 bytes per element
-    if tensor.data.len() == (buffer_len as usize * 4) {
-        Ok(TensorValue::F32(bytes_to_f32(&tensor.data)?))
+    if data.len() == (buffer_len as usize * 4) {
+        Ok(TensorValue::F32(bytes_to_f32(&data)?))
     }
     // buffer must be 1 byte per element
-    else if tensor.data.len() == (buffer_len as usize) {
-        Ok(TensorValue::U8(tensor.data.to_vec()))
+    else if data.len() == (buffer_len as usize) {
+        Ok(TensorValue::U8(data))
     }
     // only option left is deflate
     else {
-        Ok(TensorValue::U8(inflate_deflate(&tensor.data)?))
+        Ok(TensorValue::U8(inflate_deflate(&data)?))
     }
 }
 

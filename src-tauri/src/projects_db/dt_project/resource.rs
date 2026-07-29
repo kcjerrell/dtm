@@ -1,9 +1,10 @@
 use anyhow::Result;
 use serde::Serialize;
+use strum::EnumIs;
 
 use crate::projects_db::{archive::dt_zip::DTZip, extract_jpeg_slice};
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, EnumIs)]
 pub enum DTResource {
     CompressedTensor(CompressedTensor),
     JpgWithHeader(JpgWithHeader),
@@ -47,6 +48,12 @@ pub struct JpgWithHeader(Vec<u8>);
 pub struct DTZipRef {
     pub rel_path: String,
     pub archive_path: String,
+}
+
+impl CompressedTensor {
+    pub fn data(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 impl JpgWithHeader {

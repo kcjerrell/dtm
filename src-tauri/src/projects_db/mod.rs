@@ -8,7 +8,7 @@
 pub mod dt_project;
 pub mod archive;
 pub use archive::create_dt_archive;
-pub use dt_project::{close_folder, dt_project_tensordata, get_last_row, maintenance, DTProject};
+pub use dt_project::{close_folder, get_last_row, maintenance, DTProject};
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 

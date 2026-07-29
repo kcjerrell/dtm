@@ -6,6 +6,7 @@ mod watch;
 pub mod jobs;
 
 pub mod data;
+pub(crate) mod resource;
 pub use data::{
     dtp_decode_tensor, dtp_find_image_from_preview_id, dtp_find_predecessor, dtp_get_clip,
     dtp_get_metadata, dtp_get_tensor_size, dtp_list_images, dtp_list_models, dtp_list_projects,
