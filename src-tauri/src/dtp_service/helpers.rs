@@ -200,7 +200,7 @@ impl AppHandleWrapper {
 
     /// creates a temporary subfolder in the app's temp folder
     pub fn create_temp_dir(&self) -> tauri::Result<PathBuf> {
-        if let Some(app_handle) = &self.app_handle {
+        if let Some(_app_handle) = &self.app_handle {
             let temp = self.get_temp_dir()?;
             let temp_dir = tempdir_in(temp)?;
             Ok(temp_dir.keep())

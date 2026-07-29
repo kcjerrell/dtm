@@ -102,14 +102,14 @@ impl Job for SyncFolderJob {
                     )));
                 }
                 SyncAction::Remove => {
-                    match RemoveProjectJob::new(&sync) {
+                    match RemoveProjectJob::new(sync) {
                         Ok(job) => subtasks.push(Arc::new(job)),
                         Err(e) => log::error!("Failed to create RemoveProjectJob: {}", e),
                     };
                 }
                 SyncAction::Update => {
                     subtasks.push(Arc::new(
-                        UpdateProjectJob::new(&sync, self.is_import.load(Ordering::Relaxed), false)
+                        UpdateProjectJob::new(sync, self.is_import.load(Ordering::Relaxed), false)
                             .unwrap(),
                     ));
                 }
@@ -126,7 +126,7 @@ impl Job for SyncFolderJob {
         Ok(JobResult::Subtasks(subtasks))
     }
 
-    async fn on_complete(self: &Self, ctx: &JobContext) {
+    async fn on_complete(&self, ctx: &JobContext) {
         if self.is_import.load(Ordering::Relaxed) {
             ctx.events.emit(DTPEvent::ImportCompleted);
         }

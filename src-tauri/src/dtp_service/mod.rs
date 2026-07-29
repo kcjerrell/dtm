@@ -16,6 +16,7 @@ pub use data::{
 
 pub mod export;
 
+#[allow(clippy::module_inception)]
 pub mod dtp_service;
 pub use dtp_service::{
     dtp_connect, dtp_lock_folder, dtp_reset_db, dtp_sync_projects, get_db_url, DTPService,

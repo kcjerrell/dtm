@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use crate::{
     bookmarks::{self, PickFolderResult},
     dtp_service::{
@@ -118,7 +120,7 @@ impl DTPService {
     }
 
     pub async fn add_watchfolder(
-        self: &Self,
+        &self,
         path: String,
         bookmark: String,
     ) -> Result<(), String> {
@@ -223,10 +225,10 @@ impl DTPService {
         tensor_id: String,
     ) -> Result<TensorSize, String> {
         let project = self.get_project(project_id).await?;
-        Ok(project
+        project
             .get_tensor_size(&tensor_id)
             .await
-            .map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())
     }
 
     #[dtp_command]

@@ -9,7 +9,7 @@ use crate::{
         events::{DTPEvent, ScanProgress},
         jobs::{sync_folder::ProjectSync, Job, JobContext, JobResult},
     },
-    projects_db::{DTProject, ProjectsDb},
+    projects_db::ProjectsDb,
 };
 
 pub struct AddProjectJob {
@@ -39,7 +39,7 @@ impl Job for AddProjectJob {
         format!("AddProjectJob for {}", self.path)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let result = ctx.pdb.add_project(self.watchfolder_id, &self.path).await;
 
         if self.is_import {
@@ -92,7 +92,7 @@ impl Job for RemoveProjectJob {
         format!("RemoveProjectJob for {}", self.project_id)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let result = ctx
             .pdb
             .remove_project(self.project_id)

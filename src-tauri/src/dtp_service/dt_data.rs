@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use dtm_macros::dtp_commands;
 
 use crate::{
