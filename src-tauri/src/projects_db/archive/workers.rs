@@ -224,9 +224,6 @@ impl Worker for ConvertWorker {
                         item.result = Self::convert(project_ref, &mut item).await;
                     }
 
-                    if item.result.is_ok() {
-                        println!("convert sending item...");
-                    }
                     match tx.send(item).await {
                         Ok(_) => {}
                         Err(e) => {
@@ -270,7 +267,6 @@ impl ZipWorker {
             }
 
             item.added_to_archive = true;
-            println!("wrote item to archive: {}", item.name);
         }
         Ok(())
     }
@@ -294,7 +290,6 @@ impl Worker for ZipWorker {
                 let mut count = 0;
                 while let Some(mut item) = rx.blocking_recv() {
                     count += 1;
-                    println!("zip received item {}: {}", count, item.name);
 
                     if item.result.is_ok() {
                         item.result = Self::archive(&mut writer, &mut item);
@@ -305,7 +300,6 @@ impl Worker for ZipWorker {
                         return Err(e.into());
                     }
                 }
-                println!("zip loop ended after {} items", count);
                 Ok::<(), anyhow::Error>(())
             })();
 
@@ -363,7 +357,7 @@ impl DbWorker {
                                     .bind(&preview_filename)
                                     .execute(&mut **db_conn)
                                     .await {
-                                        Ok(_) => println!("wrote preview to db: {}", item.name),
+                                        Ok(_) => (),
                                         Err(e) => {
                                             eprintln!("DbWorker failed to insert thumbnail for {}: {}", item.name, e);
                                             return Err(e.into());
@@ -390,7 +384,6 @@ impl Worker for DbWorker {
             let result = async move {
                 while let Some(mut item) = rx.recv().await {
                     count += 1;
-                    println!("db received item {}: {}", count, item.name);
 
                     if item.result.is_ok() {
                         item.result = self_clone.update_db(&mut item).await;
@@ -404,7 +397,6 @@ impl Worker for DbWorker {
                         }
                     }
                 }
-                println!("db loop ended after {} items", count);
                 drop(tx);
                 println!("db dropped tx");
                 Ok::<(), anyhow::Error>(())

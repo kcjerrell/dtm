@@ -58,6 +58,8 @@ pub async fn compile_resources(
     let mut tensordata_ids: HashSet<i64> = HashSet::new();
     // tensormoodboarddata rows for the tensors/nodes we are archiving
     let mut tensormoodboarddata_ids: HashSet<i64> = HashSet::new();
+    // clip ids
+    let mut clip_ids: HashSet<i64> = HashSet::new();
 
     // a list of resource refs associating a node to the generated image tensor
     // the ids for these are listed in main_tensor_ids
@@ -103,8 +105,11 @@ pub async fn compile_resources(
                     node_id,
                     format!("tensor_history_{}", main_tensor_id),
                     data.preview_id(),
-                    false
+                    true
                 ));
+                if data.clip_id() != 0 {
+                    clip_ids.insert(data.clip_id());
+                }
                 main_tensor_ids.insert(main_tensor_id);
             } else {
                 println!("couldn't find tensor id for node {}", node_id)
@@ -156,7 +161,7 @@ pub async fn compile_resources(
             continue;
         } else if tensor_ids.contains(&id) {
             extra_index += 1;
-            extra_resources.push(CopyTensorItem::extra(tensor_name, extra_index, false));
+            extra_resources.push(CopyTensorItem::extra(tensor_name, extra_index, true));
         } else {
             unused_tensor_names.push(tensor_name);
         }
@@ -190,6 +195,7 @@ pub async fn compile_resources(
         node_ids,
         tensordata_ids: copy_tensordata_ids,
         tensormoodboarddata_ids: copy_tensormoodboarddata_ids,
+        clip_ids: clip_ids.into_iter().collect(),
         primary_tensors: resources,
         tensors_extra: extra_resources,
         unused_tensors: unused_tensor_names,

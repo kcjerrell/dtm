@@ -1,6 +1,7 @@
 import { DtpService, type ImageExtra } from "@/commands"
 import DTProject from "@/commands/DTProject"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
+import { determineType, getMimeTypeFromExtension } from "@/utils/mediaTypes"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
 import type { OpenPose } from "@/utils/poseHelpers"
 import { getBounds, getLayer } from "../detailsOverlay/CanvasStackComponent"
@@ -93,7 +94,7 @@ export class ResourceHandle {
             frame !== undefined ? await this.getFrameTensorId(frame) : await this.getTensorId()
         if (!tensorId) throw new Error("No tensor id")
 
-        const data = await DtpService.decodeTensor(this.projectId, tensorId, true, this.nodeId)
+        const data = await DtpService.getLossless(this.projectId, this.nodeId, tensorId)
         return data
     }
 
@@ -114,12 +115,15 @@ export class ResourceHandle {
         if (!ctx) throw new Error("No canvas context")
 
         const images = layers.map(async (layer) => {
-            const tensor = await DtpService.decodeTensor(
+            const layerData = await DtpService.getLossless(
                 this.projectId,
+                null,
                 `tensor_history_${layer.tensorData.tensor_id}`,
-                true,
             )
-            const blob = new Blob([tensor], { type: "image/png" })
+            const mediaType = determineType(layerData)
+            const mimeType = getMimeTypeFromExtension(mediaType)
+            if (!mimeType) throw new Error("couldn't determine media type")
+            const blob = new Blob([layerData], { type: mimeType })
             const imageBitmap = await createImageBitmap(blob)
             return { imageBitmap, layer }
         })

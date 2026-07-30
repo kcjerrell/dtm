@@ -17,6 +17,7 @@ const TENSORDATA_OFFSETS: &[&str] = &[
     "", "__f20", "__f22", "__f24", "__f26", "__f28", "__f30", "__f32",
 ];
 const TENSORMOODBOARD_OFFSETS: &[&str] = &["", "__f10"];
+const CLIP_OFFSETS: &[&str] = &["", "__f14"];
 
 #[derive(Debug)]
 pub struct ArchivePlan {
@@ -27,6 +28,8 @@ pub struct ArchivePlan {
     pub tensordata_ids: Vec<i64>,
     /// tensormoodboarddata rowids
     pub tensormoodboarddata_ids: Vec<i64>,
+    // clip rowids
+    pub clip_ids: Vec<i64>,
 
     /// THE RESOURCES
     /// primary tensors, should be DtRR::Thn to link metadata
@@ -71,7 +74,10 @@ pub async fn copy_project(
 
     // copy the nedded table schemas
     for (name, sql) in schema.iter() {
-        if name.starts_with("tensor") | name.starts_with("thumbnailhistory") {
+        if name.starts_with("tensor")
+            | name.starts_with("thumbnailhistory")
+            | name.starts_with("clip")
+        {
             sqlx::query(AssertSqlSafe(sql.as_str()))
                 .execute(&mut *dest_conn)
                 .await?;
@@ -107,6 +113,15 @@ pub async fn copy_project(
         TENSORMOODBOARD_OFFSETS,
         &plan.tensormoodboarddata_ids,
         "rowid",
+        &mut dest_conn,
+    )
+    .await?;
+
+    copy_table_group(
+        "clip",
+        CLIP_OFFSETS,
+        &plan.clip_ids,
+        "__pk0",
         &mut dest_conn,
     )
     .await?;
@@ -195,7 +210,10 @@ impl CopyTensorItem {
     }
 
     pub fn filename(&self) -> Result<String> {
-        let ext = self.data_ext.as_ref().ok_or(anyhow::anyhow!("No ext set for item"))?;
+        let ext = self
+            .data_ext
+            .as_ref()
+            .ok_or(anyhow::anyhow!("No ext set for item"))?;
         Ok(format!(
             "{}/{:06}_{}.{}",
             if self.primary { "images" } else { "tensors" },
