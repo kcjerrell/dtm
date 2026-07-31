@@ -120,7 +120,7 @@ pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, S
         DTResource::DTZipRef(_) => {
             return Err("DTZipRef not yet supported in decode_audio".to_string())
         }
-        DTResource::JpgWithHeader(_) => {
+        DTResource::JpgInFbs(_) => {
             return Err("JpgWithHeader not supported in decode_audio".to_string())
         }
     };

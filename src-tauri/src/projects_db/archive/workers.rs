@@ -27,8 +27,9 @@ pub async fn copy_tensors(
     project_ref: &DtProjectRef,
     archive_path: PathBuf,
     db_conn: sqlx::pool::PoolConnection<sqlx::Sqlite>,
+    lossless: bool,
 ) -> Result<()> {
-    let convert = ConvertWorker::new(project_ref.clone(), 7);
+    let convert = ConvertWorker::new(project_ref.clone(), 7, lossless);
     let zip = ZipWorker::new(archive_path.clone());
     let db = DbWorker::new(db_conn);
 
@@ -99,17 +100,23 @@ pub trait Worker {
 struct ConvertWorker {
     project_ref: DtProjectRef,
     concurrency: usize,
+    lossless: bool,
 }
 
 impl ConvertWorker {
-    pub fn new(project_ref: DtProjectRef, concurrency: usize) -> Self {
+    pub fn new(project_ref: DtProjectRef, concurrency: usize, lossless: bool) -> Self {
         Self {
             project_ref,
             concurrency,
+            lossless,
         }
     }
 
-    async fn convert(project_ref: DtProjectRef, item: &mut CopyTensorItem) -> Result<()> {
+    async fn convert(
+        project_ref: DtProjectRef,
+        item: &mut CopyTensorItem,
+        lossless: bool,
+    ) -> Result<()> {
         let resource = match item.node_id {
             Some(node_id) => DtResourceHandle::new(
                 &project_ref,
@@ -136,7 +143,6 @@ impl ConvertWorker {
         let tensor_raw = resource.get_tensor_raw().await?;
 
         if let Some(data) = tensor_raw {
-            let lossless = item.lossless;
             let (data, data_ext) = tokio::task::spawn_blocking(move || {
                 if let Ok(tensor) = Tensor::try_from(data) {
                     if lossless {
@@ -205,6 +211,7 @@ impl Worker for ConvertWorker {
     ) -> Result<JoinHandle<Result<()>>> {
         let project_ref = self.project_ref.clone();
         let concurrency = self.concurrency;
+        let lossless = self.lossless;
         let handle = tokio::spawn(async move {
             let semaphore = Arc::new(Semaphore::new(concurrency));
             let mut tasks: JoinSet<Result<()>> = JoinSet::new();
@@ -221,7 +228,7 @@ impl Worker for ConvertWorker {
                     let _permit = permit;
 
                     if item.result.is_ok() {
-                        item.result = Self::convert(project_ref, &mut item).await;
+                        item.result = Self::convert(project_ref, &mut item, lossless).await;
                     }
 
                     match tx.send(item).await {
@@ -380,11 +387,8 @@ impl Worker for DbWorker {
     ) -> Result<JoinHandle<Result<()>>> {
         let self_clone = self.clone();
         let task = tokio::task::spawn(async move {
-            let mut count = 0;
             let result = async move {
                 while let Some(mut item) = rx.recv().await {
-                    count += 1;
-
                     if item.result.is_ok() {
                         item.result = self_clone.update_db(&mut item).await;
                     }

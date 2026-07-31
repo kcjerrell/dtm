@@ -1,8 +1,8 @@
 import { Box, Button, Grid, HStack, Input } from "@chakra-ui/react"
-import { proxy, useSnapshot } from "valtio"
-import { CheckRoot, Panel } from "@/components"
 import { invoke } from "@tauri-apps/api/core"
+import { proxy, useSnapshot } from "valtio"
 import urls from "@/commands/urls"
+import { CheckRoot, Panel } from "@/components"
 
 const store = proxy({
     project: "",

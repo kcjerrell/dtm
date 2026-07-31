@@ -297,7 +297,7 @@ fn get_decompressed(tensor: &TensorRaw) -> anyhow::Result<TensorValue> {
                 "DTZipRef not yet supported in get_decompressed - archive tensor reading not implemented"
             ))
         }
-        DTResource::JpgWithHeader(_) => {
+        DTResource::JpgInFbs(_) => {
             return Err(anyhow::anyhow!(
                 "JpgWithHeader not supported in tensor decompression"
             ))

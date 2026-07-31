@@ -7,7 +7,7 @@ use crate::projects_db::{archive::dt_zip::DTZip, extract_jpeg_slice};
 #[derive(Debug, Serialize, Clone, EnumIs)]
 pub enum DTResource {
     CompressedTensor(CompressedTensor),
-    JpgWithHeader(JpgWithHeader),
+    JpgInFbs(JpgWithHeader),
     DTZipRef(DTZipRef),
     Unknown(Vec<u8>),
 }
@@ -16,14 +16,14 @@ impl DTResource {
     pub fn get_bytes(self) -> Option<Vec<u8>> {
         match self {
             DTResource::CompressedTensor(data) => Some(data.0),
-            DTResource::JpgWithHeader(data) => Some(data.0),
+            DTResource::JpgInFbs(data) => Some(data.0),
             DTResource::DTZipRef(_) => None,
             DTResource::Unknown(data) => Some(data),
         }
     }
 
     pub fn jpg_with_header(data: Vec<u8>) -> DTResource {
-        DTResource::JpgWithHeader(JpgWithHeader(data))
+        DTResource::JpgInFbs(JpgWithHeader(data))
     }
 
     pub fn dt_zip_ref(data: Vec<u8>, dt_zip: &DTZip) -> Result<DTResource> {

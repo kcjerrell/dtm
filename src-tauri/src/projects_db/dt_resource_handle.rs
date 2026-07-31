@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::convert::TryInto;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -7,13 +7,10 @@ use crate::{
     projects_db::{
         decode_audio,
         dt_project::{
-            resource::DTResource, TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter,
-            TmdFilter,
+            resource::DTResource, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter,
         },
         dtos::tensor::TensorRaw,
         enums::PartialThnDtResourceHandle,
-        extract_jpeg_slice,
-        tensors::decompress_fzip,
         DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
     ResourceHandle, Tensor,
@@ -21,7 +18,6 @@ use crate::{
 
 type RR = DtResourceRef;
 type ThnR = super::ThnResource;
-type TDR = super::TdRef;
 
 /// Handle to a resource in a Draw Things project
 #[derive(Debug, Clone)]
@@ -29,7 +25,6 @@ pub struct DtResourceHandle {
     pub project: DtProjectRef,
     pub resource: DtResourceRef,
 
-    project_path: Arc<OnceCell<String>>,
     history_node: Arc<OnceCell<Option<TensorHistoryNode>>>,
 }
 
@@ -55,14 +50,14 @@ impl ResourceHandle for DtResourceHandle {
         let dtp = self.get_project().await?;
         let name = self.get_tensor_name(Some(&dtp)).await?;
         if let Some(name) = name {
-            if let Some(tensor_raw) = dtp.get_tensor_raw(&name).await.ok() {
+            if let Ok(tensor_raw) = dtp.get_tensor_raw(&name).await {
                 match &tensor_raw.resource {
                     DTResource::CompressedTensor(_) => {
                         let node = self.get_history_node().await?;
                         let tensor: Tensor = Tensor::try_from(tensor_raw)?;
-                        return tensor.to_png(node, None);
+                        return tensor.to_png(node, size);
                     }
-                    DTResource::JpgWithHeader(jpg_with_header) => return Ok(None),
+                    DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
                     DTResource::DTZipRef(dtzip_ref) => {
                         return Ok(Some(
                             dtp.dt_zip
@@ -72,7 +67,7 @@ impl ResourceHandle for DtResourceHandle {
                                 .await?,
                         ))
                     }
-                    DTResource::Unknown(items) => return Ok(None),
+                    DTResource::Unknown(_items) => return Ok(None),
                 }
             }
         }
@@ -82,7 +77,7 @@ impl ResourceHandle for DtResourceHandle {
     async fn get_preview(&self, half: bool) -> Result<Option<Vec<u8>>> {
         let preview_id = match &self.resource {
             RR::Thumb(id) => Some(*id),
-            RR::TensorHistoryNode(_, thn_resource) => {
+            RR::TensorHistoryNode(_, _thn_resource) => {
                 let node = self.get_history_node().await?;
                 node.map(|n| n.data().preview_id())
             }
@@ -96,7 +91,7 @@ impl ResourceHandle for DtResourceHandle {
                 dtp.get_thumb(preview_id).await?
             };
             match thumb {
-                DTResource::JpgWithHeader(jpg) => Ok(jpg.jpg()),
+                DTResource::JpgInFbs(jpg) => Ok(jpg.jpg()),
                 DTResource::CompressedTensor(_) => anyhow::bail!("Impossible"),
                 DTResource::DTZipRef(dtzip_ref) => Ok(Some(
                     dtp.dt_zip
@@ -105,7 +100,7 @@ impl ResourceHandle for DtResourceHandle {
                         .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
                         .await?,
                 )),
-                DTResource::Unknown(items) => Ok(None),
+                DTResource::Unknown(_items) => Ok(None),
             }
         } else {
             Ok(None)
@@ -122,7 +117,7 @@ impl ResourceHandle for DtResourceHandle {
                 let dtp = self.get_project().await?;
                 let tensor_raw = dtp.get_tensor_raw(&audio_id).await?;
                 // to determine the sample rate we need the duration of the clip
-                let duration = clip.count as f64 / clip.frames_per_second as f64;
+                let duration = clip.count as f64 / clip.frames_per_second;
                 let audio = decode_audio(tensor_raw, duration)
                     .await
                     .map_err(|e| anyhow::anyhow!(e))?;
@@ -132,7 +127,7 @@ impl ResourceHandle for DtResourceHandle {
         Ok(None)
     }
 
-    async fn get_frames(&self, preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
+    async fn get_frames(&self, _preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
         return Err(anyhow::anyhow!("Frames not yet implemented"));
     }
 }
@@ -142,7 +137,6 @@ impl DtResourceHandle {
         Self {
             project: project.clone(),
             resource: resource.clone(),
-            project_path: Arc::new(OnceCell::new()),
             history_node: Arc::new(OnceCell::new()),
         }
     }
@@ -168,7 +162,6 @@ impl DtResourceHandle {
                 }
             })
             .await?;
-
         Ok(node.as_ref())
     }
 
@@ -195,12 +188,12 @@ impl DtResourceHandle {
         match &self.resource {
             DtResourceRef::Thumb(_) => Ok(None),
             DtResourceRef::Tensor(_) => Ok(None),
-            DtResourceRef::TensorData(tensor_data_ref, thn_resource) => {
+            DtResourceRef::TensorData(tensor_data_ref, _thn_resource) => {
                 let dtp = self.get_project().await?;
                 let td = dtp.get_tensor_data(tensor_data_ref.into()).await?;
                 Ok(Some(td.into()))
             }
-            DtResourceRef::TensorHistoryNode(thn_ref, thn_resource) => Ok(self
+            DtResourceRef::TensorHistoryNode(_thn_ref, _thn_resource) => Ok(self
                 .get_history_node()
                 .await?
                 .and_then(|n| n.tensordata.clone())),
@@ -275,9 +268,9 @@ impl DtResourceHandle {
         // return the first (last) tensor name that matches the type
         match &res {
             // I'll figure out how None should be resolved later
-            ThnR::None => return Ok(None),
+            ThnR::None => Ok(None),
             // thumb has no tensor name
-            ThnR::Thumb => return Ok(None),
+            ThnR::Thumb => Ok(None),
             // these are canvas images, indexed in reverse order so that 0 is always the top
             ThnR::Canvas(index) => {
                 let td = tensordata
@@ -285,7 +278,7 @@ impl DtResourceHandle {
                     .rev()
                     .filter(|tdd| tdd.data().tensor_id() > 0)
                     .nth(*index);
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().tensor_id())));
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().tensor_id())))
             }
             ThnR::Mask(index) => {
                 let td = tensordata
@@ -293,56 +286,39 @@ impl DtResourceHandle {
                     .rev()
                     .filter(|tdd| tdd.data().mask_id() > 0)
                     .nth(*index);
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().mask_id())));
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().mask_id())))
             }
             // tensordata can't reference moodboard...
-            ThnR::Moodboard(index) => Ok(None),
+            ThnR::Moodboard(_index) => Ok(None),
             ThnR::DepthMap => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().depth_map_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().depth_map_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().depth_map_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().depth_map_id())))
             }
             ThnR::Pose => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().pose_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().pose_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().pose_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().pose_id())))
             }
             ThnR::Scribble => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().scribble_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().scribble_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().scribble_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().scribble_id())))
             }
             ThnR::Custom => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().custom_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().custom_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().custom_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().custom_id())))
             }
             ThnR::ColorPalette => {
                 let td = tensordata
                     .iter()
-                    .filter(|tdd| tdd.data().color_palette_id() > 0)
-                    .last();
-                return Ok(
-                    td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().color_palette_id()))
-                );
+                    .rfind(|tdd| tdd.data().color_palette_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().color_palette_id())))
             }
-            ThnR::Tensor(name) => {
-                return Err(anyhow::anyhow!(
-                    "Impossible code path: ThnResource::Tensor should have been handled earlier"
-                ));
-            }
+            ThnR::Tensor(_name) => Err(anyhow::anyhow!(
+                "Impossible code path: ThnResource::Tensor should have been handled earlier"
+            )),
         }
     }
 
-    pub fn sub(&self) -> Result<PartialThnDtResourceHandle> {
+    pub fn sub(&self) -> Result<PartialThnDtResourceHandle<'_>> {
         PartialThnDtResourceHandle::try_from(self)
     }
 
@@ -350,7 +326,7 @@ impl DtResourceHandle {
         let pdb = ProjectsDb::get().await?;
         pdb.get_image(image_id)
             .await
-            .and_then(|image| Ok(Some(DtProjectRef::Id(image.project_id).node(image.node_id))))
+            .map(|image| Some(DtProjectRef::Id(image.project_id).node(image.node_id)))
             .map_err(|e| anyhow::anyhow!(e))
     }
 }

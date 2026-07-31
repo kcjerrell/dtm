@@ -7,7 +7,10 @@ use tokio::fs;
 
 use crate::{
     dtp_service::AppHandleWrapper,
-    projects_db::{archive::workers::copy_tensors, DtProjectRef, ProjectsDb},
+    projects_db::{
+        archive::{plan::{ArchivePlan, ArchivePlanItem}, workers::copy_tensors},
+        DtProjectRef,
+    },
 };
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
@@ -18,35 +21,6 @@ const TENSORDATA_OFFSETS: &[&str] = &[
 ];
 const TENSORMOODBOARD_OFFSETS: &[&str] = &["", "__f10"];
 const CLIP_OFFSETS: &[&str] = &["", "__f14"];
-
-#[derive(Debug)]
-pub struct ArchivePlan {
-    // THE DATA
-    /// tensorhistorynode rowids
-    pub node_ids: Vec<i64>,
-    /// tensordata rowids
-    pub tensordata_ids: Vec<i64>,
-    /// tensormoodboarddata rowids
-    pub tensormoodboarddata_ids: Vec<i64>,
-    // clip rowids
-    pub clip_ids: Vec<i64>,
-
-    /// THE RESOURCES
-    /// primary tensors, should be DtRR::Thn to link metadata
-    pub primary_tensors: Vec<CopyTensorItem>,
-    /// all other included tensors, should be DtRR::Tensor
-    pub tensors_extra: Vec<CopyTensorItem>,
-
-    // THE LEFT BEHIND
-    /// tensors names that are not included in the archive
-    pub unused_tensors: Vec<String>,
-    /// tensordata rowids that will not be archived
-    pub unused_tensordata: Vec<i64>,
-    /// tensorhistorynodes that will not be archived
-    pub unused_nodes: Vec<i64>,
-    /// tensormoodboarddata that will not be archived
-    pub unused_tensormoodboarddata: Vec<i64>,
-}
 
 pub async fn copy_project(
     app: AppHandleWrapper,
@@ -136,11 +110,12 @@ pub async fn copy_project(
     let project_ref = DtProjectRef::Db(dtp);
 
     copy_tensors(
-        plan.primary_tensors,
-        plan.tensors_extra,
+        plan.primary_tensors.into_iter().map(CopyTensorItem::primary).collect(),
+        plan.tensors_extra.into_iter().map(CopyTensorItem::extra).collect(),
         &project_ref,
         temp_dir.join("project.zip"),
         dest_conn,
+        plan.lossless,
     )
     .await?;
 
@@ -174,18 +149,16 @@ pub struct CopyTensorItem {
     pub index: i64,
     pub data: Option<Vec<u8>>,
     pub data_ext: Option<String>,
-    pub lossless: bool,
     pub added_to_archive: bool,
     pub result: anyhow::Result<()>,
 }
 
 impl CopyTensorItem {
-    fn new(tensor_name: String, index: i64, lossless: bool) -> Self {
+    fn new(tensor_name: String, index: i64) -> Self {
         CopyTensorItem {
             name: tensor_name,
             primary: false,
             index,
-            lossless,
             added_to_archive: false,
             node_id: None,
             preview_id: None,
@@ -196,17 +169,34 @@ impl CopyTensorItem {
         }
     }
 
-    pub fn primary(node_id: i64, tensor_name: String, preview_id: i64, lossless: bool) -> Self {
-        let mut item = Self::new(tensor_name, node_id, lossless);
-        item.primary = true;
-        item.preview_id = Some(preview_id);
-        item.node_id = Some(node_id);
-
-        item
+    pub fn primary(item: ArchivePlanItem) -> Self {
+        CopyTensorItem {
+            name: item.name,
+            primary: true,
+            index: item.index,
+            added_to_archive: false,
+            node_id: item.node_id,
+            preview_id: item.preview_id,
+            preview: None,
+            data: None,
+            data_ext: None,
+            result: Ok(()),
+        }
     }
 
-    pub fn extra(tensor_name: String, index: i64, lossless: bool) -> Self {
-        Self::new(tensor_name, index, lossless)
+    pub fn extra(item: ArchivePlanItem) -> Self {
+        CopyTensorItem {
+            name: item.name,
+            primary: false,
+            index: item.index,
+            added_to_archive: false,
+            node_id: item.node_id,
+            preview_id: item.preview_id,
+            preview: None,
+            data: None,
+            data_ext: None,
+            result: Ok(()),
+        }
     }
 
     pub fn filename(&self) -> Result<String> {

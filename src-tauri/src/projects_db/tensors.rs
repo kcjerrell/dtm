@@ -47,7 +47,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
         DTResource::DTZipRef(_) => {
             return Err("DTZipRef not yet supported in decode_tensor".to_string())
         }
-        DTResource::JpgWithHeader(_) => {
+        DTResource::JpgInFbs(_) => {
             return Err("JpgWithHeader not supported in decode_tensor".to_string())
         }
     };
@@ -128,7 +128,7 @@ pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
         DTResource::DTZipRef(_) => {
             return Err("DTZipRef not yet supported in decode_pose".to_string())
         }
-        DTResource::JpgWithHeader(_) => {
+        DTResource::JpgInFbs(_) => {
             return Err("JpgWithHeader not supported in decode_pose".to_string())
         }
     };
@@ -283,7 +283,7 @@ pub fn scribble_mask_to_png(
         DTResource::DTZipRef(_) => {
             return Err("DTZipRef not yet supported in scribble_mask_to_png".to_string())
         }
-        DTResource::JpgWithHeader(_) => {
+        DTResource::JpgInFbs(_) => {
             return Err("JpgWithHeader not supported in scribble_mask_to_png".to_string())
         }
     };

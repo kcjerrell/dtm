@@ -1,4 +1,4 @@
-use crate::projects_db::filters::ListImagesFilter;
+use crate::projects_db::{DtProjectRef, DtResourceHandle, filters::ListImagesFilter};
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 
@@ -69,6 +69,12 @@ pub struct ImageExtra {
     pub tiled_diffusion: bool,
     pub tea_cache: bool,
     pub cfg_zero_star: bool,
+}
+
+impl ImageExtra {
+    pub fn get_handle(&self) -> DtResourceHandle {
+        DtProjectRef::Id(self.project_id).node(self.node_id)
+    }
 }
 
 #[derive(Debug, Serialize)]

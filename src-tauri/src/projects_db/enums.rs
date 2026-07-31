@@ -82,9 +82,7 @@ impl DtProjectRef {
                 if path.ends_with(".dtm.zip") {
                     let dt_zip = DTZipCache::get_dt_zip(path).await?;
                     if open {
-                        Ok(Arc::new(
-                            DTProject::open_archive(dt_zip).await?,
-                        ))
+                        Ok(Arc::new(DTProject::open_archive(dt_zip).await?))
                     } else {
                         Ok(DTProject::get_archive(dt_zip).await?)
                     }
@@ -240,57 +238,72 @@ impl<'a> TryFrom<&'a DtResourceHandle> for PartialThnDtResourceHandle<'a> {
 
     fn try_from(value: &'a DtResourceHandle) -> Result<Self, Self::Error> {
         if let DtResourceRef::TensorHistoryNode(node, _) = &value.resource {
-            return Ok(PartialThnDtResourceHandle {
+            Ok(PartialThnDtResourceHandle {
                 project: value.project.clone(),
                 node: node.clone(),
                 source: value,
-            });
+            })
         } else {
-            return Err(anyhow::anyhow!("Resource is not a tensor history node"));
+            Err(anyhow::anyhow!("Resource is not a tensor history node"))
         }
     }
 }
 
 impl<'a> PartialThnDtResourceHandle<'a> {
-    pub fn Thumb(self) -> DtResourceHandle {
+    pub fn thumb(self) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Thumb),
         )
     }
-    pub fn DepthMap(self) -> DtResourceHandle {
+    pub fn depth_map(self) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::DepthMap),
         )
     }
-    pub fn Pose(self) -> DtResourceHandle {
+    pub fn pose(self) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Pose),
         )
     }
-    pub fn Scribble(self) -> DtResourceHandle {
+    pub fn scribble(self) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Scribble),
         )
     }
-    pub fn Custom(self) -> DtResourceHandle {
+    pub fn custom(self) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Custom),
         )
     }
-    pub fn ColorPalette(self) -> DtResourceHandle {
+    pub fn color_palette(self) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::ColorPalette),
         )
     }
-    // pub fn Canvas(usize) Canvas(usize)
-    // pub fn Mask(usize) Mask(usize)
-    // pub fn Moodboard(usize) Moodboard(usize)
+    pub fn canvas(self, index: usize) -> DtResourceHandle {
+        DtResourceHandle::new(
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Canvas(0)),
+        )
+    }
+    pub fn mask(self, index: usize) -> DtResourceHandle {
+        DtResourceHandle::new(
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Mask(index)),
+        )
+    }
+    pub fn moodboard(self, index: usize) -> DtResourceHandle {
+        DtResourceHandle::new(
+            &self.project,
+            &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Moodboard(index)),
+        )
+    }
     pub fn tensor(self, tensor_name: &str) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,

@@ -30,7 +30,7 @@ mod tensor;
 pub use tensor::{Tensor, TensorValue};
 
 mod error;
-pub use error::{TACommandError, TAResult, IntoTAResult};
+pub use error::{IntoTAResult, TACommandError, TAResult};
 
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
@@ -195,6 +195,54 @@ fn get_os_version() -> String {
     }
 }
 
+#[tauri::command]
+async fn size_check(project_id: i64) -> TAResult<()> {
+    let pdb = projects_db::ProjectsDb::get().await?;
+    let images = pdb
+        .list_images(projects_db::dtos::image::ListImagesOptions {
+            project_ids: Some(vec![project_id]),
+            ..Default::default()
+        })
+        .await
+        .into_ta_result()?;
+
+    if let Some(images) = images.images {
+        for img in images {
+            let result: TAResult<()> = (async {
+                let handle = img.get_handle();
+                let tr = handle
+                    .sub()?
+                    .canvas(0)
+                    .get_tensor_raw()
+                    .await?
+                    .ok_or(anyhow::anyhow!("No tensor raw"))?;
+                let t_width = tr.width as u32;
+                let t_height = tr.height as u32;
+                let prev = handle
+                    .get_preview(false)
+                    .await?
+                    .ok_or(anyhow::anyhow!("No preview"))?;
+                let jpg = image::load_from_memory(&prev).into_ta_result()?;
+                let p_width = jpg.width();
+                let p_height = jpg.height();
+
+                if t_width != p_width || t_height != p_height {
+                    println!("size mismatch on node {}", img.node_id);
+                }
+                Ok(())
+            })
+            .await;
+            match result {
+                Ok(_) => (),
+                Err(e) => {
+                    println!("check failed for {}: {}", img.node_id, e.to_string());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -287,6 +335,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_reset_db,
             dtp_service::resource::dtp_get_lossless,
             create_dt_archive,
+            size_check,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
