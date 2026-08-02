@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDateTime};
 
 use super::tensor_history_mod::{Control, LoRA};
 use crate::projects_db::dtos::tensor::{ModelAndWeight, TensorHistoryImport};
-use crate::projects_db::tensor_history_generated::root_as_tensor_history_node;
+use crate::projects_db::fbs::tensor_history_generated::root_as_tensor_history_node;
 
 impl TensorHistoryImport {
     pub fn new(

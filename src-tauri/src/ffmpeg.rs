@@ -1,5 +1,4 @@
 use futures_util::StreamExt;
-use reqwest;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -65,7 +64,7 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
 
     let mut total_downloaded: u64 = 0;
     let mut task_sizes: Vec<Option<u64>> = vec![None; tasks.len()];
-    let client = reqwest::Client::new();
+    let client = ::reqwest::Client::new();
 
     for (i, (name, url, sha256)) in tasks.iter().enumerate() {
         let archive_path = temp_dir.join(format!("{}.7z", name));

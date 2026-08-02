@@ -8,7 +8,10 @@ use tokio::fs;
 use crate::{
     dtp_service::AppHandleWrapper,
     projects_db::{
-        archive::{plan::{ArchivePlan, ArchivePlanItem}, workers::copy_tensors},
+        archive::{
+            plan::{ArchivePlan, ArchivePlanItem},
+            workers::copy_tensors,
+        },
         DtProjectRef,
     },
 };
@@ -110,8 +113,14 @@ pub async fn copy_project(
     let project_ref = DtProjectRef::Db(dtp);
 
     copy_tensors(
-        plan.primary_tensors.into_iter().map(CopyTensorItem::primary).collect(),
-        plan.tensors_extra.into_iter().map(CopyTensorItem::extra).collect(),
+        plan.primary_tensors
+            .into_iter()
+            .map(CopyTensorItem::primary)
+            .collect(),
+        plan.tensors_extra
+            .into_iter()
+            .map(CopyTensorItem::extra)
+            .collect(),
         &project_ref,
         temp_dir.join("project.zip"),
         dest_conn,
@@ -227,14 +236,13 @@ async fn copy_table_group(
     id_column: &str,
     dest_conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
 ) -> Result<(), anyhow::Error> {
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS ( SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ? )",
-    )
-    .bind(table_name)
-    .fetch_one(&mut **dest_conn)
-    .await?;
+    let tables: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM sqlite_schema WHERE type = 'table' AND name LIKE ?")
+            .bind(format!("{}%", table_name))
+            .fetch_all(&mut **dest_conn)
+            .await?;
 
-    if !exists {
+    if tables.is_empty() {
         return Ok(());
     }
 
@@ -269,6 +277,9 @@ async fn copy_table_group(
 
     // copy each table
     for table_name in table_names {
+        if !tables.contains(&table_name) {
+            continue;
+        }
         let sql = format!(
             "INSERT INTO main.{0}
             SELECT t.*

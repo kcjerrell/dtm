@@ -235,9 +235,8 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showSubItemPose(projectId: number, tensorId: string) {
-        const poseData = await DTPService.decodeTensor(projectId, tensorId, false)
-        const points = tensorToPoints(poseData)
-        const pose = pointsToPose(points, 1024, 1024)
+        const poseData = await DTPService.getResourceJson(projectId, null, tensorId)
+        const pose = JSON.parse(poseData)
         const image = await drawPose(pose, 4)
         const details = this.state.detailsView
         if (!image || !details.item) return

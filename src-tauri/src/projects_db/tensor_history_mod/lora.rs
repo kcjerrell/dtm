@@ -1,4 +1,4 @@
-use crate::projects_db::tensor_history_generated::{LoRA as LoRAFb, LoRAMode};
+use crate::projects_db::fbs::tensor_history_generated::{LoRA as LoRAFb, LoRAMode};
 use flatbuffers::{ForwardsUOffset, Vector};
 use serde::ser::SerializeStruct;
 

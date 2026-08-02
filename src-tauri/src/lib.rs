@@ -1,6 +1,5 @@
 #![recursion_limit = "256"]
 
-use reqwest;
 use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::log::LevelFilter;
@@ -75,7 +74,7 @@ async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String,
 
 #[tauri::command]
 async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
-    let resp = reqwest::get(&url).await.map_err(|e| e.to_string())?;
+    let resp = ::reqwest::get(&url).await.map_err(|e| e.to_string())?;
     let content_type = resp
         .headers()
         .get("Content-Type")
@@ -333,9 +332,12 @@ pub fn run() {
             dtp_service::export::dtp_export_projects,
             dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
             dtp_service::dtp_service::dtp_reset_db,
-            dtp_service::resource::dtp_get_lossless,
+            dtp_service::resource::dtp_get_resource_image,
+            dtp_service::resource::dtp_get_resource_json,
             create_dt_archive,
             size_check,
+            // #[cfg(feature = "tensor_bench")]
+            // projects_db::print_tensor_benchmarks,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();

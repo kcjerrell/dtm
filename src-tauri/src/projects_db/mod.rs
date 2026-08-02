@@ -8,7 +8,9 @@
 pub mod dt_project;
 pub mod archive;
 pub use archive::create_dt_archive;
-pub use dt_project::{close_folder, get_last_row, maintenance, DTProject};
+#[cfg(feature = "tensor_bench")]
+pub use archive::print_tensor_benchmarks;
+pub use dt_project::{close_folder, get_last_row, DTProject};
 pub mod projects_db;
 pub use projects_db::ProjectsDb;
 
@@ -16,7 +18,6 @@ pub mod dt_resource_handle;
 pub use dt_resource_handle::DtResourceHandle;
 
 mod tensor_history;
-pub mod tensor_history_generated;
 
 mod dtm_dtproject;
 pub use dtm_dtproject::{extract_jpeg_slice, DTPResource, DtmProtocol};

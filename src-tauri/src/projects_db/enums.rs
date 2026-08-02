@@ -5,7 +5,7 @@ use strum::EnumIs;
 
 use crate::projects_db::{
     archive::cache::DTZipCache,
-    dt_project::{tensor_data::TdFilter, tensor_history_node::ThnFilter},
+    dt_project::{TdFilter, ThnFilter},
     DTProject, DtResourceHandle, ProjectsDb,
 };
 

@@ -294,7 +294,7 @@ mod tests {
             &DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Canvas(0)),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
         assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -307,7 +307,7 @@ mod tests {
             &DtResourceRef::Tensor("tensor_history_265054268".to_string()),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
         assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -323,7 +323,7 @@ mod tests {
             ),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
         assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -333,7 +333,7 @@ mod tests {
     async fn test_lossless_from_thumb() {
         let resource_handle = DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap();
         assert!(lossless.is_none());
     }
 
@@ -344,7 +344,7 @@ mod tests {
             &DtResourceRef::TensorHistoryNode(ThnRef::RowId(77), ThnResource::Canvas(0)),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap();
         assert!(lossless.is_none());
     }
 }

@@ -14,7 +14,7 @@ pub use data::{
     dtp_update_project_exclude, dtp_update_watch_folder,
 };
 pub use resource::{
-    dtp_get_lossless
+    dtp_get_resource_image
 };
 
 pub mod export;

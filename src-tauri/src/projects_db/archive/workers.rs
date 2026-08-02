@@ -13,9 +13,10 @@ use tokio::{
 
 use crate::{
     projects_db::{
-        archive::copy::CopyTensorItem, write_jpeg_with_metadata, DtProjectRef, DtResourceHandle,
-        DtResourceRef, ThnRef, ThnResource,
+        archive::copy::CopyTensorItem, dt_project::TensorHistoryNode, write_jpeg_with_metadata,
+        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
     },
+    tensor::TensorKind,
     ResourceHandle, Tensor,
 };
 
@@ -129,6 +130,18 @@ impl ConvertWorker {
         };
 
         let node = resource.get_history_node().await?.cloned();
+        // to output the pose json correctly, we will need the size from tensordata
+        let size = if item.name.starts_with("pose") {
+            let tds = project_ref
+                .get_project()
+                .await?
+                .find_tensordata_by_tensor(&item.name)
+                .await?;
+            let td = tds.first();
+            td.map(|t| (t.data().width(), t.data().height()))
+        } else {
+            None
+        };
 
         if item.primary {
             if let Some(preview_id) = item.preview_id {
@@ -143,60 +156,81 @@ impl ConvertWorker {
         let tensor_raw = resource.get_tensor_raw().await?;
 
         if let Some(data) = tensor_raw {
-            let (data, data_ext) = tokio::task::spawn_blocking(move || {
+            let result = tokio::task::spawn_blocking(move || {
                 if let Ok(tensor) = Tensor::try_from(data) {
-                    if lossless {
-                        // NOTE: Returns error if tensor is not Image/Binary kind - needs review
-                        tensor
-                            .to_png(node.as_ref(), None)?
-                            .ok_or_else(|| {
-                                anyhow::anyhow!(
-                                    "Tensor cannot be converted to PNG (not Image/Binary kind)"
-                                )
-                            })
-                            .map(|t| (t, "png"))
-                    } else {
-                        let pixels = tensor.to_pixel_data(None)?.ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "Tensor cannot be converted to pixel data (not Image/Binary kind)"
-                            )
-                        })?;
-
-                        let mut bytes = Vec::new();
-                        let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
-                        let color_type = match tensor.channels {
-                            1 => ExtendedColorType::L8,
-                            3 => ExtendedColorType::Rgb8,
-                            4 => ExtendedColorType::Rgba8,
-                            _ => {
-                                anyhow::bail!("Unsupported number of channels: {}", tensor.channels)
-                            }
-                        };
-
-                        if tensor.width * tensor.height * tensor.channels != pixels.len() as u32 {
-                            anyhow::bail!("Tensor dimensions do not match pixel data length");
+                    match tensor.kind {
+                        TensorKind::Image | TensorKind::Binary => {
+                            Self::get_image(lossless, node, tensor).ok()
                         }
-                        encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
-
-                        let jpg = match node {
-                            Some(node) => write_jpeg_with_metadata(&bytes, &node.node_data())?,
-                            None => bytes,
-                        };
-
-                        Ok((jpg, "jpg"))
+                        TensorKind::Pose => Self::get_pose(tensor, size).ok(),
+                        TensorKind::Audio => None,
+                        TensorKind::Unknown => None,
                     }
                 } else {
-                    Err(anyhow::anyhow!("failed to convert tensor"))
+                    None
                 }
             })
-            .await??;
-            item.data = Some(data);
-            item.data_ext = Some(data_ext.to_string());
+            .await?;
+            if let Some((data, data_ext)) = result {
+                item.data = Some(data);
+                item.data_ext = Some(data_ext);
+            }
         } else {
             anyhow::bail!("Couldn't get tensor_raw");
         }
 
         Ok(())
+    }
+
+    fn get_image(
+        lossless: bool,
+        node: Option<TensorHistoryNode>,
+        tensor: Tensor,
+    ) -> anyhow::Result<(Vec<u8>, String)> {
+        if lossless {
+            // NOTE: Returns error if tensor is not Image/Binary kind - needs review
+            tensor
+                .to_png(node.as_ref(), None)?
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Tensor cannot be converted to PNG (not Image/Binary kind)")
+                })
+                .map(|t| (t, "png".to_string()))
+        } else {
+            let pixels = tensor.to_pixel_data(None)?.ok_or_else(|| {
+                anyhow::anyhow!("Tensor cannot be converted to pixel data (not Image/Binary kind)")
+            })?;
+
+            let mut bytes = Vec::new();
+            let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
+            let color_type = match tensor.channels {
+                1 => ExtendedColorType::L8,
+                3 => ExtendedColorType::Rgb8,
+                4 => ExtendedColorType::Rgba8,
+                _ => {
+                    anyhow::bail!("Unsupported number of channels: {}", tensor.channels)
+                }
+            };
+
+            if tensor.width * tensor.height * tensor.channels != pixels.len() as u32 {
+                anyhow::bail!("Tensor dimensions do not match pixel data length");
+            }
+            encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
+
+            let jpg = match node {
+                Some(node) => write_jpeg_with_metadata(&bytes, &node.node_data())?,
+                None => bytes,
+            };
+
+            Ok((jpg, "jpg".to_string()))
+        }
+    }
+
+    fn get_pose(tensor: Tensor, size: Option<(i32, i32)>) -> anyhow::Result<(Vec<u8>, String)> {
+        let (width, height) = size.unwrap_or((1024, 1024));
+        tensor
+            .get_pose(width, height)?
+            .map(|json| (json.into_bytes(), "json".to_string()))
+            .ok_or_else(|| anyhow::anyhow!("Tensor does not contain pose data"))
     }
 }
 

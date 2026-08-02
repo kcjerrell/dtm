@@ -9,7 +9,7 @@ use tauri::http::{Response, StatusCode};
 
 use crate::{
     projects_db::{
-        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, dt_project::resource::DTResource,
+        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, dt_project::DTResource,
         tensors::decompress_fzip, DTProject, DtProjectRef, DtResourceHandle, DtResourceRef,
         ThnRef, ThnResource,
     },

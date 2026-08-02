@@ -112,14 +112,25 @@ impl ThnData {
 /// The definitive representation of the tensorhistorynode table entity
 #[derive(Debug, Clone)]
 pub struct TensorHistoryNode {
+    /// rowid column
     pub rowid: i64,
-    pub project_path: PathBuf,
+    /// __pk0 column (lineage)
     pub lineage: i64,
-    pub logical_time: i64,
+    /// __pk1 column (logical_time)
+    pub logical_time: i64,    
+    /// p column (contains the fbs blob)
     data: Arc<[u8]>,
+
+    /// project this node belongs to
+    pub project_path: PathBuf,
+
+    /// tensordata joined by lineage and logical_time
     pub tensordata: Option<Arc<[TensorData]>>,
+    /// clip joined by indexed fbs field 
     pub clip: Option<Clip>,
+    /// trnsormoodboarddata joined by lineage and logical_time
     pub moodboard: Option<Arc<[TensorMoodboardData]>>,
+
     /// Resolved positive prompt. None means fall back to the flatbuffer field.
     /// Populated by get_tensor_history_nodes when ThnData::legacy_prompts is set.
     prompt: Option<String>,
@@ -158,12 +169,12 @@ impl TensorHistoryNode {
     /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
     /// This method is safe - the flatbuffer was validated at construction
     /// and can be accessed unchecked
-    pub fn data(&self) -> TensorHistoryNodeData {
+    pub fn data(&self) -> TensorHistoryNodeData<'_> {
         unsafe { root_as_tensor_history_node_unchecked(&self.data) }
     }
 
-    /// Returns the fully parsed Rust struct. Use when the caller needs
-    /// an owned `TensorHistoryNodeData` (e.g. DrawThingsMetadata, DecodeTensorOptions).
+    /// Returns the fully parsed Rust struct. Used for serialization and when the caller needs
+    /// ownership (e.g. DrawThingsMetadata, DecodeTensorOptions).
     pub fn node_data(&self) -> ParsedTensorHistoryNodeData {
         ParsedTensorHistoryNodeData::try_from(self.data.as_ref())
             .expect("flatbuffer already validated at construction")
@@ -208,7 +219,7 @@ impl TensorHistoryNode {
 }
 
 #[derive(Serialize, Debug, Default, FromRow)]
-pub struct ThnRow {
+struct ThnRow {
     pub rowid: i64,
     #[sqlx(rename = "__pk0")]
     pub lineage: i64,
@@ -216,21 +227,6 @@ pub struct ThnRow {
     pub logical_time: i64,
     #[sqlx(rename = "p")]
     pub data: Arc<[u8]>,
-}
-
-fn map_thn_row(row: ThnRow, project_path: PathBuf) -> TensorHistoryNode {
-    TensorHistoryNode {
-        rowid: row.rowid,
-        project_path,
-        lineage: row.lineage,
-        logical_time: row.logical_time,
-        data: row.data,
-        tensordata: None,
-        clip: None,
-        moodboard: None,
-        prompt: None,
-        negative_prompt: None,
-    }
 }
 
 pub struct NodesBatcher<'a> {
@@ -257,7 +253,7 @@ impl<'a> NodesBatcher<'a> {
             .await?;
         self.batch_index += 1;
 
-        if nodes.len() > 0 {
+        if !nodes.is_empty() {
             Ok(Some(nodes))
         } else {
             Ok(None)
@@ -270,7 +266,7 @@ impl DTProject {
     /// # Arguments
     /// * `filter`: The filter to use for the query. See `ThnFilter` for more information.
     /// * `data`: Optional data to be included with the query. In general, each requested type
-    ///         will result in an additional query to the database
+    ///   will result in an additional query to the database
     pub async fn get_tensor_history_nodes(
         &self,
         filter: Option<ThnFilter>,
@@ -289,7 +285,7 @@ impl DTProject {
         let rows: Vec<ThnRow> = query_as(query).fetch_all(&*self.pool).await?;
 
         // make a list to hold clip ids (if needed)
-        let mut clip_ids: Vec<i64> = Vec::with_capacity(if data.map_or(false, |d| d.clip) {
+        let mut clip_ids: Vec<i64> = Vec::with_capacity(if data.is_some_and(|d| d.clip) {
             rows.len()
         } else {
             0
@@ -388,18 +384,16 @@ impl DTProject {
                 .enumerate()
                 .filter(|(_, item)| {
                     let fb = item.data();
-                    fb.text_prompt().map_or(true, |s| s.is_empty())
-                        && fb.negative_text_prompt().map_or(true, |s| s.is_empty())
+                    fb.text_prompt().is_none_or(|s| s.is_empty())
+                        && fb.negative_text_prompt().is_none_or(|s| s.is_empty())
                 })
                 .map(|(i, _)| i)
                 .collect();
             if !needs_lookup.is_empty() {
                 for i in needs_lookup {
                     let fb = items[i].data();
-                    if let Some(prompts) = self
-                        .get_text_edit(fb.text_lineage(), fb.text_edits())
-                        .await
-                        .ok()
+                    if let Ok(prompts) =
+                        self.get_text_edit(fb.text_lineage(), fb.text_edits()).await
                     {
                         if !prompts.positive.is_empty() {
                             items[i].prompt = Some(prompts.positive);
@@ -449,7 +443,7 @@ impl DTProject {
 }
 
 fn checked_flatbuffer(data: &Arc<[u8]>) -> Option<Arc<[u8]>> {
-    if root_as_tensor_history_node(&data).is_ok() {
+    if root_as_tensor_history_node(data).is_ok() {
         Some(data.clone())
     } else {
         None
@@ -490,6 +484,7 @@ fn build_query(filter: Option<ThnFilter>) -> AssertSqlSafe<String> {
     AssertSqlSafe(query)
 }
 
+/*
 const SELECT_THN: &str =
     "thn.rowid as thn_rowid, thn.__pk0 as thn__pk0, thn.__pk1 as thn__pk1, thn.p as thn_p";
 const SELECT_TD: &str = "td.rowid as td_rowid, td.__pk2 as td__pk2, td.p as td_p";
@@ -499,7 +494,6 @@ const JOIN_TD: &str = "LEFT JOIN tensordata td ON thn.__pk0 = td.__pk0 AND thn._
 const JOIN_TMD: &str =
     "LEFT JOIN tensor_moodboard_data tmd ON thn.__pk0 = tmd.__pk0 AND thn.__pk1 = tmd.__pk1";
 
-/*
     Rowid(i64),
     Lineage(i64),
     LogicalTime(i64),

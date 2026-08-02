@@ -1,18 +1,12 @@
-use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
-use crate::projects_db::dt_project::resource::DTResource;
-use crate::projects_db::tensor_history_generated::{
-    root_as_tensor_history_node as root_as_tensor_history_node_fb, Control as ControlFb,
-    LoRA as LoRAFb, LoRAMode,
-};
+use crate::projects_db::fbs::tensor_history_generated::{Control as ControlFb, LoRA as LoRAFb};
 use crate::projects_db::{
-    dt_project::data::tensor_data::TensorData,
-    fbs::{root_as_tensor_data, root_as_tensor_history_node, TensorData as TensorDataFb},
-    tensor_history_mod::{Control, LoRA},
+    dt_project::{TensorData,DTResource},
+    fbs::{root_as_tensor_data, TensorData as TensorDataFb},
     tensor_history_tensor_data::TensorHistoryTensorData,
 };
-use chrono::{DateTime, NaiveDateTime};
-use sqlx::{FromRow, Row};
+use chrono::NaiveDateTime;
 use sqlx::sqlite::SqliteRow;
+use sqlx::{FromRow, Row};
 
 pub const PREFIX_TENSOR: &str = "tensor_history";
 pub const PREFIX_MASK: &str = "binary_mask";
@@ -48,17 +42,6 @@ impl TensorFlags {
             has_custom: td.custom_id() > 0,
             has_scribble: td.scribble_id() > 0,
             has_mask: td.mask_id() > 0,
-        }
-    }
-
-    pub fn from_td(td: &TensorData) -> Self {
-        Self {
-            has_depth: td.depth_map_id > 0,
-            has_pose: td.pose_id > 0,
-            has_color: td.color_palette_id > 0,
-            has_custom: td.custom_id > 0,
-            has_scribble: td.scribble_id > 0,
-            has_mask: td.mask_id > 0,
         }
     }
 }
@@ -232,99 +215,6 @@ impl<'a> TensorNodeGrouper<'a> {
             rows_iter: data.iter(),
             current_row: None,
             current_item: None,
-        }
-    }
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct TensorHistoryExtra {
-    pub row_id: i64,
-    pub lineage: i64,
-    pub logical_time: i64,
-    pub tensor_id: Option<String>,
-    pub mask_id: Option<String>,
-    pub depth_map_id: Option<String>,
-    pub scribble_id: Option<String>,
-    pub pose_id: Option<String>,
-    pub color_palette_id: Option<String>,
-    pub custom_id: Option<String>,
-    pub moodboard: Vec<(String, f32)>,
-    pub history: TensorHistoryNodeData,
-    pub tensor_data: Option<Vec<TensorData>>,
-    pub project_path: String,
-}
-
-impl From<(Vec<TensorHistoryTensorData>, String)> for TensorHistoryExtra {
-    fn from((rows, project_path): (Vec<TensorHistoryTensorData>, String)) -> Self {
-        assert!(!rows.is_empty(), "must have at least one row");
-
-        let node_id = rows[0].node_id;
-        let lineage = rows[0].lineage;
-        let logical_time = rows[0].logical_time;
-
-        // Take the node data from the first row (they're all the same)
-        let node_data = &rows[0].node_data;
-        let history = TensorHistoryNodeData::try_from(node_data.as_ref()).unwrap();
-
-        // Initialize optional fields
-        let mut tensor_id: Option<String> = None;
-        let mut mask_id: Option<String> = None;
-        let mut depth_map_id: Option<String> = None;
-        let mut scribble_id: Option<String> = None;
-        let mut pose_id: Option<String> = None;
-        let mut color_palette_id: Option<String> = None;
-        let mut custom_id: Option<String> = None;
-        let moodboard: Vec<(String, f32)> = Vec::new();
-        let mut tensor_data_rows: Vec<TensorData> = Vec::with_capacity(rows.len());
-
-        // Iterate all tensor rows
-        for row in rows {
-            let td = TensorData::from(row);
-
-            if let Some(id) = format_resource_id(PREFIX_TENSOR, td.tensor_id) {
-                tensor_id = Some(id);
-            }
-            if let Some(id) = format_resource_id(PREFIX_MASK, td.mask_id) {
-                mask_id = Some(id);
-            }
-            if let Some(id) = format_resource_id(PREFIX_DEPTH, td.depth_map_id) {
-                depth_map_id = Some(id);
-            }
-            if let Some(id) = format_resource_id(PREFIX_SCRIBBLE, td.scribble_id) {
-                scribble_id = Some(id);
-            }
-            if let Some(id) = format_resource_id(PREFIX_POSE, td.pose_id) {
-                pose_id = Some(id);
-            }
-            if let Some(id) = format_resource_id(PREFIX_COLOR, td.color_palette_id) {
-                color_palette_id = Some(id);
-            }
-            if let Some(id) = format_resource_id(PREFIX_CUSTOM, td.custom_id) {
-                custom_id = Some(id);
-            }
-
-            // if let Some(mb_ids) = tensor_fb.() {
-            //     moodboard.extend(mb_ids.iter().map(|s| (s.to_string(), 1.0)));
-            // }
-
-            tensor_data_rows.push(td);
-        }
-
-        Self {
-            row_id: node_id,
-            lineage,
-            logical_time,
-            tensor_id,
-            mask_id,
-            depth_map_id,
-            scribble_id,
-            pose_id,
-            color_palette_id,
-            custom_id,
-            moodboard,
-            history,
-            tensor_data: Some(tensor_data_rows),
-            project_path,
         }
     }
 }

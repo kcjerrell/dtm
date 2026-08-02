@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Result};
+use serde_json::json;
 use strum::EnumIs;
 
 use crate::projects_db::{
-    decompress_fzip, dt_project::resource::DTResource, dt_project::TensorHistoryNode,
-    dtos::tensor::TensorRaw, inflate_deflate, write_png_with_usercomment,
+    decompress_fzip,
+    dt_project::{DTResource, TensorHistoryNode},
+    dtos::tensor::TensorRaw,
+    inflate_deflate, write_png_with_usercomment,
 };
 
 /// A decompressed Draw Things tensor, as stored in a Draw Things project.
@@ -230,6 +233,52 @@ impl Tensor {
         let png = write_png_with_usercomment(&pixels, width, height, channels as usize, metadata)?;
 
         Ok(Some(png))
+    }
+
+    pub fn get_pose(&self, width: i32, height: i32) -> Result<Option<String>> {
+        if !self.kind.is_pose() {
+            return Ok(None);
+        }
+
+        let points = self
+            .as_f32()
+            .ok_or_else(|| anyhow::anyhow!("Tensor data is not f32"))?;
+
+        // Convert (x, y) pairs to (x, y, confidence) format
+        // Each person has 18 keypoints (36 values) -> 54 values with confidence
+        let mut pose_data: Vec<f32> = Vec::new();
+
+        for chunk in points.chunks_exact(36) {
+            for point in chunk.chunks_exact(2) {
+                let x = point[0];
+                let y = point[1];
+
+                if x < 0.0 && y < 0.0 {
+                    // Missing point
+                    pose_data.extend_from_slice(&[0.0, 0.0, 0.0]);
+                } else {
+                    // Valid point - scale to image dimensions
+                    pose_data.extend_from_slice(&[x * width as f32, y * height as f32, 1.0]);
+                }
+            }
+        }
+
+        let persons: Vec<_> = pose_data
+            .chunks_exact(54)
+            .map(|p| {
+                json!({
+                    "pose_keypoints_2d": p
+                })
+            })
+            .collect();
+
+        let result = json!({
+            "people": persons,
+            "width": width,
+            "height": height
+        });
+
+        Ok(Some(result.to_string()))
     }
 }
 

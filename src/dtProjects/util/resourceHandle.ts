@@ -2,7 +2,7 @@ import { DtpService, type ImageExtra } from "@/commands"
 import DTProject from "@/commands/DTProject"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import { determineType, getMimeTypeFromExtension } from "@/utils/mediaTypes"
-import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import { drawPose } from "@/utils/pose"
 import type { OpenPose } from "@/utils/poseHelpers"
 import { getBounds, getLayer } from "../detailsOverlay/CanvasStackComponent"
 import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
@@ -94,7 +94,7 @@ export class ResourceHandle {
             frame !== undefined ? await this.getFrameTensorId(frame) : await this.getTensorId()
         if (!tensorId) throw new Error("No tensor id")
 
-        const data = await DtpService.getLossless(this.projectId, this.nodeId, tensorId)
+        const data = await DtpService.getResourceImage(this.projectId, this.nodeId, tensorId)
         return data
     }
 
@@ -115,7 +115,7 @@ export class ResourceHandle {
         if (!ctx) throw new Error("No canvas context")
 
         const images = layers.map(async (layer) => {
-            const layerData = await DtpService.getLossless(
+            const layerData = await DtpService.getResourceImage(
                 this.projectId,
                 null,
                 `tensor_history_${layer.tensorData.tensor_id}`,
@@ -150,12 +150,8 @@ export class ResourceHandle {
         ) {
             throw new Error("Not a pose")
         }
-        let pose = this.subItem.pose
-        if (!pose) {
-            const data = await DtpService.decodeTensor(this.projectId, this.subItem.tensorId, false)
-            const points = tensorToPoints(data)
-            pose = pointsToPose(points, this.subItem.width ?? 1024, this.subItem.height ?? 1024)
-        }
+        const data = await DtpService.getResourceJson(this.projectId, null, this.subItem.tensorId)
+        const pose = JSON.parse(data)
         return pose
     }
 

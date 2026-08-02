@@ -1,4 +1,4 @@
-use crate::projects_db::tensor_history_generated::{
+use crate::projects_db::fbs::tensor_history_generated::{
     Control as ControlFb, ControlInputType, ControlMode,
 };
 use flatbuffers::{ForwardsUOffset, Vector};

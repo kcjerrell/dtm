@@ -233,7 +233,7 @@ async fn tensor(
     }
 
     let body = handle
-        .get_lossless(size)
+        .get_image(size)
         .await
         .map_err(|e| format!("Failed to get lossless: {}", e))?
         .ok_or("Failed to get lossless".to_string())?;

@@ -38,7 +38,7 @@ impl TensorData {
     /// Returns the raw FlatBuffer accessor. Prefer this for cheap field reads.
     /// This method is safe - the flatbuffer was validated at construction
     /// and can be accessed unchecked
-    pub fn data(&self) -> TensorDataData {
+    pub fn data(&self) -> TensorDataData<'_> {
         unsafe { root_as_tensor_data_unchecked(&self.raw_data) }
     }
 
@@ -129,6 +129,40 @@ impl DTProject {
         let query = "SELECT rowid FROM tensordata";
         let res: Vec<i64> = sqlx::query_scalar(query).fetch_all(&*self.pool).await?;
         Ok(res)
+    }
+
+    pub async fn find_tensordata_by_tensor(&self, tensor_name: &str) -> anyhow::Result<Vec<TensorData>> {
+        if let Some((prefix, id)) = tensor_name.rsplit_once("_") {
+            let (index_table, index_col) =
+                index_table(prefix).ok_or_else(|| anyhow::anyhow!("Invalid tensor name prefix"))?;
+            let id: i64 = id.parse()?;
+
+            let query = format!(
+                "SELECT * FROM tensordata td
+                 JOIN {} tdf ON td.rowid = tdf.rowid
+                 WHERE tdf.{} = ?1",
+                index_table, index_col
+            );
+
+            return Ok(query_as(AssertSqlSafe(query))
+                .bind(id)
+                .fetch_all(&*self.pool)
+                .await?);
+        }
+        anyhow::bail!("Invalid tensor name")
+    }
+}
+
+fn index_table(tensor_name_prefix: &str) -> Option<(&str, &str)> {
+    match tensor_name_prefix {
+        "tensor_history" => Some(("tensordata__f20", "f20")),
+        "binary_mask" => Some(("tensordata__f22", "f22")),
+        "depth_map" => Some(("tensordata__f24", "f24")),
+        "scribble" => Some(("tensordata__f26", "f26")),
+        "pose" => Some(("tensordata__f28", "f28")),
+        "color_palette" => Some(("tensordata__f30", "f30")),
+        "custom" => Some(("tensordata__f32", "f32")),
+        _ => None,
     }
 }
 

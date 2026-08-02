@@ -6,9 +6,7 @@ use tokio::sync::OnceCell;
 use crate::{
     projects_db::{
         decode_audio,
-        dt_project::{
-            resource::DTResource, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter,
-        },
+        dt_project::{DTResource, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
         dtos::tensor::TensorRaw,
         enums::PartialThnDtResourceHandle,
         DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
@@ -46,7 +44,7 @@ impl ResourceHandle for DtResourceHandle {
         Ok(None)
     }
 
-    async fn get_lossless(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
+    async fn get_image(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
         let dtp = self.get_project().await?;
         let name = self.get_tensor_name(Some(&dtp)).await?;
         if let Some(name) = name {
@@ -129,6 +127,66 @@ impl ResourceHandle for DtResourceHandle {
 
     async fn get_frames(&self, _preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
         return Err(anyhow::anyhow!("Frames not yet implemented"));
+    }
+
+    async fn get_json(&self) -> Result<Option<String>> {
+        let mut size: Option<(i32, i32)> = None;
+        let tensor_name: Option<String> = match &self.resource {
+            RR::TensorData(_, _) => None,
+            RR::Tensor(name) => {
+                if name.starts_with("pose") {
+                    Some(name.to_string())
+                } else {
+                    None
+                }
+            }
+            RR::Thumb(_) => None,
+            RR::TensorHistoryNode(thn_ref, thn_resource) => {
+                match thn_resource {
+                    ThnR::Pose => {
+                        // need to find the pose tensor name
+                        let td = self.get_tensor_data().await?.unwrap_or_default();
+                        let pose_td = td.iter().find(|tdd| tdd.data().pose_id() > 0);
+                        if let Some(pose_td) = pose_td {
+                            let data = pose_td.data();
+                            size = Some((data.width(), data.height()));
+                            Some(format!("pose_{}", data.pose_id()))
+                        } else {
+                            None
+                        }
+                    }
+                    ThnR::None => {
+                        // this should return the history node data. maybe.
+                        None
+                    }
+                    _ => None,
+                }
+            }
+        };
+        println!("tensor_name: {:?}", tensor_name);
+        if let Some(tensor_name) = tensor_name {
+            let dtp = self.get_project().await?;
+            let tensor_raw = dtp.get_tensor_raw(&tensor_name).await?;
+            let tensor = Tensor::try_from(tensor_raw)?;
+
+            let (width, height) = match size {
+                Some((w, h)) => (w, h),
+                None => {
+                    let td = dtp
+                        .find_tensordata_by_tensor(&tensor_name)
+                        .await?
+                        .into_iter()
+                        .next();
+                    td.map_or((1024, 1024), |tdd| {
+                        (tdd.data().width(), tdd.data().height())
+                    })
+                }
+            };
+
+            tensor.get_pose(width, height)
+        } else {
+            Ok(None)
+        }
     }
 }
 

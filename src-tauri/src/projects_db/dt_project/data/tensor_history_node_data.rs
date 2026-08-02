@@ -1,4 +1,4 @@
-use crate::projects_db::tensor_history_generated::root_as_tensor_history_node as root_as_tensor_history_node_fb;
+use crate::projects_db::fbs::tensor_history_generated::root_as_tensor_history_node as root_as_tensor_history_node_fb;
 use crate::projects_db::tensor_history_mod::{Control, LoRA};
 use chrono::{DateTime, NaiveDateTime};
 use serde::Serialize;
@@ -114,6 +114,8 @@ pub struct TensorHistoryNodeData {
     pub compression_artifacts: i8,
     pub compression_artifacts_quality: f32,
     pub audio: bool,
+    pub color_calibration: i8,
+    pub expand_prompt_to_json: bool
 }
 
 impl TryFrom<&[u8]> for TensorHistoryNodeData {
@@ -242,6 +244,8 @@ impl TryFrom<&[u8]> for TensorHistoryNodeData {
             compression_artifacts: node.compression_artifacts().0,
             compression_artifacts_quality: node.compression_artifacts_quality(),
             audio: node.audio(),
+            color_calibration: node.color_calibration().0,
+            expand_prompt_to_json: node.expand_prompt_to_json(),
         })
     }
 }

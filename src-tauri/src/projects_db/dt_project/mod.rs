@@ -1,6 +1,5 @@
 use crate::projects_db::{
     archive::dt_zip::DTZip,
-    dt_project::resource::DTResource,
     dtos::{
         clip::{ClipExtra, ClipFrame},
         project::DTProjectInfo,
@@ -29,18 +28,24 @@ use std::{
 };
 use tokio::sync::OnceCell;
 
-pub(crate) mod resource;
-pub mod clip;
-pub use clip::{Clip, ClipFilter};
-pub mod data;
-pub mod maintenance;
-pub mod tensor_data;
-pub use tensor_data::{TdFilter, TensorData};
-pub mod tensor_history_node;
-pub use tensor_history_node::{TensorHistoryNode, ThnData, ThnFilter};
-pub mod tensor_moodboard_data;
-pub use tensor_moodboard_data::{TensorMoodboardData, TmdFilter};
-pub mod mutate;
+pub(crate) mod fbs;
+pub(crate) mod data;
+
+pub(crate) mod maintenance;
+pub use maintenance::Maintenance;
+
+mod resource;
+pub use resource::*;
+mod clip;
+pub use clip::*;
+mod tensor_data;
+pub use tensor_data::*;
+mod tensor_history_node;
+pub use tensor_history_node::*;
+mod tensor_moodboard_data;
+pub use tensor_moodboard_data::*;
+
+mod mutate;
 
 /// TTL for cached projects. After this duration of no access, the project is evicted.
 const CACHE_TTL: Duration = Duration::from_secs(3);

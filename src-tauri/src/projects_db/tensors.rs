@@ -10,7 +10,7 @@ use std::io::Cursor;
 use std::io::Read;
 
 use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
-use crate::projects_db::dt_project::resource::DTResource;
+use crate::projects_db::dt_project::DTResource;
 use crate::projects_db::dtos::tensor::TensorRaw;
 use crate::projects_db::metadata::DrawThingsMetadata;
 
@@ -133,11 +133,7 @@ pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
         }
     };
 
-    if data.len() >= 3
-        && data[0] == 0x66
-        && data[1] == 0x70
-        && data[2] == 0x79
-    {
+    if data.len() >= 3 && data[0] == 0x66 && data[1] == 0x70 && data[2] == 0x79 {
         let dec = decompress_fzip(&data)?;
         Ok(f32_to_u8(dec))
     } else {
@@ -272,10 +268,7 @@ pub fn decompress_fzip(data: &Vec<u8>) -> std::result::Result<Vec<f32>, String> 
     Ok(out)
 }
 
-pub fn scribble_mask_to_png(
-    tensor: TensorRaw,
-    size: Option<u32>,
-) -> Result<Vec<u8>, String> {
+pub fn scribble_mask_to_png(tensor: TensorRaw, size: Option<u32>) -> Result<Vec<u8>, String> {
     // Extract bytes from DTResource
     let data = match &tensor.resource {
         DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
@@ -289,10 +282,7 @@ pub fn scribble_mask_to_png(
     };
 
     let data = inflate_deflate(&data).map_err(|e| e.to_string())?;
-    let bw: Vec<u8> = data
-        .iter()
-        .map(|&x| if x > 0 { 255 } else { 0 })
-        .collect();
+    let bw: Vec<u8> = data.iter().map(|&x| if x > 0 { 255 } else { 0 }).collect();
 
     let height = i32::from_le_bytes(tensor.dim[0..4].try_into().unwrap_or_default()) as u32;
     let width = i32::from_le_bytes(tensor.dim[4..8].try_into().unwrap_or_default()) as u32;

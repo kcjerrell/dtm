@@ -10,7 +10,7 @@ use sea_query::{Expr, Query};
 
 use crate::{
     dtp_service::jobs::JobContext,
-    projects_db::{dtos::watch_folder::WatchFolderDTO, maintenance::Maintenance, DtProjectRef},
+    projects_db::{dt_project::Maintenance, dtos::watch_folder::WatchFolderDTO, DtProjectRef},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive)]

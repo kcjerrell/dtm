@@ -144,7 +144,7 @@ async function exportProjects(
     return await invoke("dtp_export_projects", { projectIds, options })
 }
 
-async function getLossless(
+async function getResourceImage(
     projectId: number,
     nodeId?: number | null,
     tensorId?: string | null,
@@ -157,6 +157,19 @@ async function getLossless(
         size,
     }
     return new Uint8Array(await invoke("dtp_get_lossless", opts))
+}
+
+async function getResourceJson(
+    projectId: number,
+    nodeId?: number | null,
+    tensorId?: string | null,
+): Promise<string> {
+    const opts = {
+        projectId,
+        nodeId,
+        tensorId,
+    }
+    return await invoke("dtp_get_resource_json", opts)
 }
 
 const DTPService = {
@@ -179,7 +192,8 @@ const DTPService = {
     syncProjects,
     exportProjects,
     lockFolder,
-    getLossless,
+    getResourceImage,
+    getResourceJson,
 }
 
 export default DTPService
