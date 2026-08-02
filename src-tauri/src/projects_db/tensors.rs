@@ -9,9 +9,10 @@ use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
 
-use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
 use crate::projects_db::dt_project::DTResource;
-use crate::projects_db::dtos::tensor::TensorRaw;
+use crate::projects_db::dt_project::{
+    data::tensor_history_node_data::TensorHistoryNodeData, TensorRaw,
+};
 use crate::projects_db::metadata::DrawThingsMetadata;
 
 pub struct DecodeTensorOptions {

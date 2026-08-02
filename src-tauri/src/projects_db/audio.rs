@@ -1,5 +1,4 @@
 use std::{
-    fmt::Error,
     io::{BufWriter, Cursor},
     sync::{Arc, Mutex},
 };
@@ -9,9 +8,10 @@ use tauri::http::{Response, StatusCode};
 
 use crate::{
     projects_db::{
-        dtm_dtproject::DTPResource, dtos::tensor::TensorRaw, dt_project::DTResource,
-        tensors::decompress_fzip, DTProject, DtProjectRef, DtResourceHandle, DtResourceRef,
-        ThnRef, ThnResource,
+        dt_project::{DTResource, TensorRaw},
+        dtm_dtproject::DTPResource,
+        tensors::decompress_fzip,
+        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
     },
     ResourceHandle,
 };
@@ -68,14 +68,14 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
         }
     }
 
-    let item_id: i64 = resource.item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
+    let item_id: i64 = resource
+        .item_id
+        .parse()
+        .map_err(|_| "Invalid item ID".to_string())?;
 
     let res = DtResourceHandle::new(
         &DtProjectRef::Path(project_path.to_string()),
-        &DtResourceRef::TensorHistoryNode(
-            ThnRef::RowId(item_id),
-            ThnResource::None,
-        ),
+        &DtResourceRef::TensorHistoryNode(ThnRef::RowId(item_id), ThnResource::None),
     );
 
     if let Some(audio) = res.get_audio().await.map_err(|e| e.to_string())? {

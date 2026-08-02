@@ -17,8 +17,6 @@ pub use projects_db::ProjectsDb;
 pub mod dt_resource_handle;
 pub use dt_resource_handle::DtResourceHandle;
 
-mod tensor_history;
-
 mod dtm_dtproject;
 pub use dtm_dtproject::{extract_jpeg_slice, DTPResource, DtmProtocol};
 

@@ -6,8 +6,7 @@ use tokio::sync::OnceCell;
 use crate::{
     projects_db::{
         decode_audio,
-        dt_project::{DTResource, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter},
-        dtos::tensor::TensorRaw,
+        dt_project::{DTResource, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter, TensorRaw},
         enums::PartialThnDtResourceHandle,
         DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },

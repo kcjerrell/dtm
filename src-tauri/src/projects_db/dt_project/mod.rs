@@ -3,7 +3,6 @@ use crate::projects_db::{
     dtos::{
         clip::{ClipExtra, ClipFrame},
         project::DTProjectInfo,
-        tensor::{TensorRaw, TensorSize},
         text::TextHistoryNode,
     },
     text_history::PromptPair,
@@ -28,8 +27,8 @@ use std::{
 };
 use tokio::sync::OnceCell;
 
-pub(crate) mod fbs;
 pub(crate) mod data;
+pub(crate) mod fbs;
 
 pub(crate) mod maintenance;
 pub use maintenance::Maintenance;
@@ -44,6 +43,10 @@ mod tensor_history_node;
 pub use tensor_history_node::*;
 mod tensor_moodboard_data;
 pub use tensor_moodboard_data::*;
+mod tensor_raw;
+pub use tensor_raw::*;
+mod types;
+pub use types::*;
 
 mod mutate;
 

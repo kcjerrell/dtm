@@ -8,10 +8,10 @@ use crate::{
         AppHandleWrapper, DTPService,
     },
     projects_db::{
-        dt_project::{TensorHistoryNode, ThnFilter},
+        dt_project::{TensorHistoryNode, ThnFilter, TensorSize},
         dtos::{
             clip::ClipExtra, image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
-            tensor::TensorSize, watch_folder::WatchFolderDTO,
+            watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
         folder_cache, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
