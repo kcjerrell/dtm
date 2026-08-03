@@ -240,7 +240,7 @@ impl ProjectsDb {
             }
         }
 
-        results.sort_by(|a, b| b.count.cmp(&a.count));
+        results.sort_by_key(|b| std::cmp::Reverse(b.count));
         Ok(results)
     }
 }

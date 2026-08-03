@@ -5,14 +5,14 @@
 // #![allow(unused_variables)]
 // #![allow(mismatched_lifetime_syntaxes)]
 
-pub mod dt_project;
 pub mod archive;
+pub mod dt_project;
 pub use archive::create_dt_archive;
 #[cfg(feature = "tensor_bench")]
 pub use archive::print_tensor_benchmarks;
 pub use dt_project::{close_folder, get_last_row, DTProject};
-pub mod projects_db;
-pub use projects_db::ProjectsDb;
+mod projects_db;
+pub use projects_db::*;
 
 pub mod dt_resource_handle;
 pub use dt_resource_handle::DtResourceHandle;
@@ -24,8 +24,9 @@ mod tensor_history_mod;
 
 mod tensors;
 pub use tensors::{
-    build_description, decode_tensor, write_jpeg_with_metadata, write_png_with_usercomment,
-    DecodeTensorOptions, decode_pose, scribble_mask_to_png, inflate_deflate, decompress_fzip,
+    build_description, decode_pose, decode_tensor, decompress_fzip, inflate_deflate,
+    scribble_mask_to_png, write_jpeg_with_metadata, write_png_with_usercomment,
+    DecodeTensorOptions,
 };
 
 mod audio;

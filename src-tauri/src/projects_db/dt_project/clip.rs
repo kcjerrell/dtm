@@ -1,5 +1,8 @@
 use crate::projects_db::{
-    dt_project::{fbs::root_as_clip, DTProjectTable, ThnFilter},
+    dt_project::{
+        fbs::{root_as_clip, root_as_tensor_history_node},
+        DTProjectTable,
+    },
     DTProject,
 };
 use serde::Serialize;
@@ -19,13 +22,51 @@ pub struct Clip {
     pub frames: Option<Vec<ClipFrame>>,
 }
 
-#[derive(serde::Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipFrame {
     pub tensor_id: String,
     pub preview_id: i64,
     pub index_in_a_clip: i32,
     pub row_id: i64,
+}
+
+impl ClipFrame {
+    pub fn new(row_id: i64, blob: &[u8], tensor_id: String) -> Result<Self, String> {
+        let node = root_as_tensor_history_node(blob)
+            .map_err(|e| format!("flatbuffers parse error: {:?}", e))?;
+        Ok(Self {
+            tensor_id,
+            preview_id: node.preview_id(),
+            index_in_a_clip: node.index_in_a_clip(),
+            row_id,
+        })
+    }
+}
+
+impl<'r> FromRow<'r, SqliteRow> for ClipFrame {
+    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        let row_id: i64 = row.get(0);
+        let blob: &[u8] = row.get(1);
+        let tensor_id: String = row.get(2);
+
+        let node =
+            root_as_tensor_history_node(blob).map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
+
+        Ok(Self {
+            tensor_id,
+            preview_id: node.preview_id(),
+            index_in_a_clip: node.index_in_a_clip(),
+            row_id,
+        })
+    }
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipExtra {
+    pub clip: Clip,
+    pub frames: Vec<ClipFrame>,
 }
 
 impl<'r> FromRow<'r, SqliteRow> for Clip {
@@ -81,4 +122,56 @@ impl DTProject {
 
         Ok(rows)
     }
+
+    pub async fn get_clip_and_frames(
+        &self,
+        node_id: i64,
+        clip_id: i64,
+    ) -> anyhow::Result<ClipExtra> {
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
+        self.check_table(&DTProjectTable::Clip).await?;
+
+        let clip: Clip = query_as("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
+            .bind(clip_id)
+            .fetch_one(&*self.pool)
+            .await?;
+
+        let frames: Vec<ClipFrame> = query_as(CLIP_QUERY)
+            .bind(node_id)
+            .bind(node_id + clip.count as i64)
+            .fetch_all(&*self.pool)
+            .await?;
+
+        let extra = ClipExtra {
+            clip: clip.clone(),
+            frames,
+        };
+
+        Ok(extra)
+    }
 }
+
+const CLIP_QUERY: &str = "
+    WITH td_ranked AS (
+        SELECT
+            td.*,
+            ROW_NUMBER() OVER (
+                PARTITION BY td.__pk0, td.__pk1
+                ORDER BY td.__pk2 DESC  -- prefer pk2 = 1
+            ) AS rn
+        FROM tensordata AS td
+    )
+    SELECT
+        thn.rowid,
+        thn.p AS data_blob,
+        'tensor_history_' || td_f20.f20 AS tensor_id
+    FROM tensorhistorynode AS thn
+    LEFT JOIN td_ranked AS td
+        ON thn.__pk0 = td.__pk0
+    AND thn.__pk1 = td.__pk1
+    AND td.rn = 1  -- pick the preferred row per pk0/pk1
+    LEFT JOIN tensordata__f20 AS td_f20
+        ON td.rowid = td_f20.rowid
+    WHERE thn.rowid >= ?1
+    AND thn.rowid < ?2
+    ORDER BY thn.rowid;\n        ";

@@ -5,9 +5,9 @@ use objc2_foundation::{NSArray, NSData, NSString};
 pub fn get_clipboard(pasteboard: Option<String>) -> Result<Retained<NSPasteboard>, String> {
     unsafe {
         match pasteboard.as_deref() {
-            Some("drag") => Ok(NSPasteboard::pasteboardWithName(&*NSPasteboardNameDrag)),
+            Some("drag") => Ok(NSPasteboard::pasteboardWithName(NSPasteboardNameDrag)),
             Some("general") | None => Ok(NSPasteboard::generalPasteboard()),
-            Some(other) => return Err(format!("Unknown pasteboard name: {other}")),
+            Some(other) => Err(format!("Unknown pasteboard name: {other}")),
         }
     }
 }
@@ -34,11 +34,11 @@ pub fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<V
     let ns_type = NSString::from_str(&ty);
     let type_array = NSArray::from_slice(&[&*ns_type]);
 
-    if pb.availableTypeFromArray(&*type_array).is_none() {
+    if pb.availableTypeFromArray(&type_array).is_none() {
         return Err(format!("Type {} not available", ty));
     }
 
-    let data: Option<Retained<NSData>> = pb.dataForType(&*ns_type);
+    let data: Option<Retained<NSData>> = pb.dataForType(&ns_type);
     let data = data.ok_or_else(|| format!("Failed to read binary data for {}", ty))?;
     let bytes = unsafe { data.as_bytes_unchecked() };
 
@@ -57,12 +57,12 @@ pub fn read_clipboard_strings(
         let type_array = NSArray::from_slice(&[&*ns_type]);
 
         // Only proceed if available
-        if pb.availableTypeFromArray(&*type_array).is_none() {
+        if pb.availableTypeFromArray(&type_array).is_none() {
             continue;
         }
 
         // Try to read as NSString
-        if let Some(s) = pb.stringForType(&*ns_type) {
+        if let Some(s) = pb.stringForType(&ns_type) {
             results.insert(ty, s.to_string());
         }
     }

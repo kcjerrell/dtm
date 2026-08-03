@@ -8,14 +8,15 @@ use crate::{
         AppHandleWrapper, DTPService,
     },
     projects_db::{
-        dt_project::{TensorHistoryNode, ThnFilter, TensorSize},
+        dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
         dtos::{
-            clip::ClipExtra, image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
+            image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
             watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
         folder_cache, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
     },
+    TAResult,
 };
 use dtm_macros::dtp_commands;
 
@@ -97,8 +98,8 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> Result<ClipExtra, String> {
-        let db = self.get_db().await?;
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> TAResult<ClipExtra> {
+        let db = self.get_db().await.map_err(|e| anyhow::anyhow!(e))?;
         Ok(db.get_clip(image_id, clip_id).await?)
     }
 
@@ -119,11 +120,7 @@ impl DTPService {
             .await
     }
 
-    pub async fn add_watchfolder(
-        &self,
-        path: String,
-        bookmark: String,
-    ) -> Result<(), String> {
+    pub async fn add_watchfolder(&self, path: String, bookmark: String) -> Result<(), String> {
         self.internal_add_watch_folder(path, bookmark).await
     }
 
@@ -206,7 +203,9 @@ impl DTPService {
     pub async fn get_metadata(&self, image_id: i64) -> Result<DrawThingsMetadata, String> {
         let pdb = self.get_db().await?;
         let image = pdb.get_image(image_id).await?;
-        let dt_project = pdb.get_dt_project(DtProjectRef::Id(image.project_id)).await?;
+        let dt_project = pdb
+            .get_dt_project(DtProjectRef::Id(image.project_id))
+            .await?;
         let nodes = dt_project
             .get_tensor_history_nodes(Some(ThnFilter::Rowid(image.node_id)), None)
             .await

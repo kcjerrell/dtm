@@ -38,7 +38,7 @@ impl DTZipCache {
 
     pub async fn get_dt_zip(archive_path: &str) -> Result<Arc<DTZip>> {
         let cache = Self::get_cache()?;
-        let (_, name) = archive_path.rsplit_once("/").unwrap_or(("", ""));
+        let (_, _name) = archive_path.rsplit_once("/").unwrap_or(("", ""));
 
         // The clone here is important - otherwise the lock on the dashmap shard will be held
         // and can deadlock when this function next awaits

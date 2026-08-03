@@ -1,10 +1,6 @@
 use crate::projects_db::{
     archive::dt_zip::DTZip,
-    dtos::{
-        clip::{ClipExtra, ClipFrame},
-        project::DTProjectInfo,
-        text::TextHistoryNode,
-    },
+    dtos::{project::DTProjectInfo, text::TextHistoryNode},
     text_history::PromptPair,
     TextHistory,
 };
@@ -13,12 +9,11 @@ use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use sqlx::{
-    query, query_as,
+    query,
     sqlite::{SqliteConnection, SqliteRow},
-    Connection, Error, QueryBuilder, Row, SqlitePool,
+    Connection, Error, Row, SqlitePool,
 };
 use std::{
-    collections::HashMap,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -494,91 +489,7 @@ impl DTProject {
         }
     }
 
-    // returns clip frames starting from the provided first frame's node_id
-    // REMOVE - replace with get_clip_and_frames
-    pub async fn get_histories_from_clip(&self, node_id: i64) -> Result<Vec<ClipFrame>, Error> {
-        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
-        let nodes = self
-            .get_tensor_history_nodes(Some(ThnFilter::Rowid(node_id)), None)
-            .await?;
-        let node = nodes.into_iter().next().ok_or(Error::RowNotFound)?;
-        let num_frames = node.data().num_frames();
-
-        let items: Vec<ClipFrame> = query(CLIP_QUERY)
-            .bind(node_id)
-            .bind(node_id + num_frames as i64)
-            .map(|row: SqliteRow| self.map_clip(row))
-            .fetch_all(&*self.pool)
-            .await?;
-
-        Ok(items)
-    }
-
-    // KEEP - however, the clip_id param should be removed, and instead obtained with an additional
-    // query for the node. this is only used for one clip at a time, and even though one usage is
-    // somewhat latency sensitive (video on hover), it should still be fast enough
-    pub async fn get_clip_and_frames(
-        &self,
-        node_id: i64,
-        clip_id: i64,
-    ) -> Result<ClipExtra, Error> {
-        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
-        self.check_table(&DTProjectTable::Clip).await?;
-
-        let clip: Clip = query_as("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
-            .bind(clip_id)
-            .fetch_one(&*self.pool)
-            .await?;
-
-        let frames: Vec<ClipFrame> = query(CLIP_QUERY)
-            .bind(node_id)
-            .bind(node_id + clip.count as i64)
-            .map(|row: SqliteRow| self.map_clip(row))
-            .fetch_all(&*self.pool)
-            .await?;
-
-        let extra = ClipExtra {
-            clip: clip.clone(),
-            frames,
-        };
-
-        Ok(extra)
-    }
-
-    // this is used when importing to get the frame count for video items
-    // KEEP - however, these are small enough that we can just return the whole table.
-    // the import process should call this once per import, instead of once per batch
-    pub async fn get_clip_counts(&self, clip_ids: Vec<i64>) -> Result<HashMap<i64, i64>, Error> {
-        if clip_ids.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        self.check_table(&DTProjectTable::Clip).await?;
-
-        let mut qb = QueryBuilder::new("SELECT rowid, __pk0, p FROM clip WHERE __pk0 IN (");
-
-        let mut separated = qb.separated(", ");
-        for id in &clip_ids {
-            separated.push_bind(id);
-        }
-
-        qb.push(")");
-
-        let rows: Vec<Clip> = qb
-            .build_query_as()
-            // .map(|row: SqliteRow| Clip::map_row(&row))
-            .fetch_all(&*self.pool)
-            .await?;
-
-        Ok(HashMap::from_iter(
-            rows.iter().map(|c| (c.clip_id, c.count as i64)),
-        ))
-    }
-
-    fn map_clip(self: &DTProject, row: SqliteRow) -> ClipFrame {
-        ClipFrame::new(row.get(0), row.get(1), row.get(2)).unwrap()
-    }
 
     // KEEP
     async fn get_text_history(&self) -> Result<Arc<TextHistory>, Error> {
@@ -658,30 +569,7 @@ pub async fn get_last_row(path: &str) -> Result<(i64, i64), Error> {
     Ok((rowid, rowid))
 }
 
-const CLIP_QUERY: &str = "
-    WITH td_ranked AS (
-        SELECT
-            td.*,
-            ROW_NUMBER() OVER (
-                PARTITION BY td.__pk0, td.__pk1
-                ORDER BY td.__pk2 DESC  -- prefer pk2 = 1
-            ) AS rn
-        FROM tensordata AS td
-    )
-    SELECT
-        thn.rowid,
-        thn.p AS data_blob,
-        'tensor_history_' || td_f20.f20 AS tensor_id
-    FROM tensorhistorynode AS thn
-    LEFT JOIN td_ranked AS td
-        ON thn.__pk0 = td.__pk0
-    AND thn.__pk1 = td.__pk1
-    AND td.rn = 1  -- pick the preferred row per pk0/pk1
-    LEFT JOIN tensordata__f20 AS td_f20
-        ON td.rowid = td_f20.rowid
-    WHERE thn.rowid >= ?1
-    AND thn.rowid < ?2
-    ORDER BY thn.rowid;\n        ";
+
 
 /*
 SELECT

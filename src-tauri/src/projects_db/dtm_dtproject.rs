@@ -1,15 +1,12 @@
 use tauri::{
-    http::{self, Response, StatusCode, Uri},
+    http::{self, Response, StatusCode},
     UriSchemeResponder,
 };
 
 use crate::{
     projects_db::{
         audio::audio_request,
-        decode_audio,
-        dt_resource_handle::DtResourceHandle,
-        enums::{DtProjectRef, DtResourceRef, ThnRef, ThnResource},
-        DTProject, ProjectsDb,
+        enums::DtProjectRef, ProjectsDb,
     },
     ResourceHandle,
 };
@@ -133,10 +130,10 @@ impl DtmProtocol {
         let req = parse_request(&request);
 
         if req.is_none() {
-            return Ok(Response::builder()
+            return Response::builder()
                 .status(StatusCode::BAD_REQUEST)
                 .body("Invalid path format".as_bytes().to_vec())
-                .map_err(|e| e.to_string())?);
+                .map_err(|e| e.to_string());
         }
 
         let req = req.unwrap();

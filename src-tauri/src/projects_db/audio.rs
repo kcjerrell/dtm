@@ -38,7 +38,7 @@ pub async fn audio_request(
     } else {
         let start = resource.range_start.unwrap_or(0);
         let end = match resource.range_end {
-            Some(e) => (e as usize + 1).min(audio.len()), // +1 because inclusive
+            Some(e) => (e + 1).min(audio.len()), // +1 because inclusive
             None => audio.len(),
         };
         let chunk = audio[start..end].to_vec();
@@ -156,9 +156,8 @@ fn determine_sample_rate(duration: f64, length: usize) -> u32 {
         rate
     );
 
-    SAMPLE_RATES
+    *SAMPLE_RATES
         .iter()
         .min_by_key(|&r| (r - rate).abs())
-        .unwrap()
-        .clone() as u32
+        .unwrap() as u32
 }

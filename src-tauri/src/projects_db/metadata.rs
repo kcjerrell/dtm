@@ -225,7 +225,7 @@ impl TryFrom<&TensorHistoryNodeData> for V2 {
                         })
                         .collect()
                 })
-                .unwrap_or(Vec::new()),
+                .unwrap_or_default(),
             crop_left: value.crop_left * 64,
             crop_top: value.crop_top * 64,
             decoding_tile_height: value.decoding_tile_height * 64,
@@ -240,9 +240,9 @@ impl TryFrom<&TensorHistoryNodeData> for V2 {
             guiding_frame_noise: value.cond_aug,
             height: (value.start_height * 64) as u32,
             hires_fix: value.hires_fix,
-            hires_fix_height: (value.hires_fix_start_height * 64) as u16,
+            hires_fix_height: (value.hires_fix_start_height * 64),
             hires_fix_strength: value.hires_fix_strength,
-            hires_fix_width: (value.hires_fix_start_width * 64) as u16,
+            hires_fix_width: (value.hires_fix_start_width * 64),
             id: 0,
             image_guidance_scale: value.image_guidance_scale,
             image_prior_steps: value.image_prior_steps,
@@ -260,7 +260,7 @@ impl TryFrom<&TensorHistoryNodeData> for V2 {
                         })
                         .collect::<Vec<_>>()
                 })
-                .unwrap_or(Vec::new()),
+                .unwrap_or_default(),
             mask_blur: value.mask_blur,
             mask_blur_outset: value.mask_blur_outset,
             model: value.model.clone().unwrap_or("".to_string()),
@@ -343,71 +343,71 @@ pub enum Sampler {
     #[serde(rename = "Unknown")]
     Unknown = -1,
     #[serde(rename = "DPM++ 2M Karras")]
-    DPMPP2MKarras = 0,
+    Dpmpp2mKarras = 0,
     #[serde(rename = "Euler Ancestral")]
     EulerA = 1,
     #[serde(rename = "DDIM")]
-    DDIM = 2,
+    Ddim = 2,
     #[serde(rename = "PLMS")]
-    PLMS = 3,
+    Plms = 3,
     #[serde(rename = "DPM++ SDE Karras")]
-    DPMPPSDEKarras = 4,
+    DpmppSdeKarras = 4,
     #[serde(rename = "UniPC")]
-    UniPC = 5,
+    UniPc = 5,
     #[serde(rename = "LCM")]
-    LCM = 6,
+    Lcm = 6,
     #[serde(rename = "Euler A Substep")]
     EulerASubstep = 7,
     #[serde(rename = "DPM++ SDE Substep")]
-    DPMPPSDESubstep = 8,
+    DpmppSdeSubstep = 8,
     #[serde(rename = "TCD")]
-    TCD = 9,
+    Tcd = 9,
     #[serde(rename = "Euler A Trailing")]
     EulerATrailing = 10,
     #[serde(rename = "DPM++ SDE Trailing")]
-    DPMPPSDETrailing = 11,
+    DpmppSdeTrailing = 11,
     #[serde(rename = "DPM++ 2M AYS")]
-    DPMPP2MAYS = 12,
+    Dpmpp2mAys = 12,
     #[serde(rename = "Euler A AYS")]
-    EulerAAYS = 13,
+    EulerAAys = 13,
     #[serde(rename = "DPM++ SDE AYS")]
-    DPMPPSDEAYS = 14,
+    DpmppSdeAys = 14,
     #[serde(rename = "DPM++ 2M Trailing")]
-    DPMPP2MTrailing = 15,
+    Dpmpp2mTrailing = 15,
     #[serde(rename = "DDIM Trailing")]
-    DDIMTrailing = 16,
+    DdimTrailing = 16,
     #[serde(rename = "UniPC Trailing")]
-    UniPCTrailing = 17,
+    UniPcTrailing = 17,
     #[serde(rename = "UniPC AYS")]
-    UniPCAYS = 18,
+    UniPcAys = 18,
     #[serde(rename = "TCD Trailing")]
-    TCDTrailing = 19,
+    TcdTrailing = 19,
 }
 
 impl fmt::Display for Sampler {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Sampler::Unknown => "Unknown",
-            Sampler::DPMPP2MKarras => "DPM++ 2M Karras",
+            Sampler::Dpmpp2mKarras => "DPM++ 2M Karras",
             Sampler::EulerA => "Euler Ancestral",
-            Sampler::DDIM => "DDIM",
-            Sampler::PLMS => "PLMS",
-            Sampler::DPMPPSDEKarras => "DPM++ SDE Karras",
-            Sampler::UniPC => "UniPC",
-            Sampler::LCM => "LCM",
+            Sampler::Ddim => "DDIM",
+            Sampler::Plms => "PLMS",
+            Sampler::DpmppSdeKarras => "DPM++ SDE Karras",
+            Sampler::UniPc => "UniPC",
+            Sampler::Lcm => "LCM",
             Sampler::EulerASubstep => "Euler A Substep",
-            Sampler::DPMPPSDESubstep => "DPM++ SDE Substep",
-            Sampler::TCD => "TCD",
+            Sampler::DpmppSdeSubstep => "DPM++ SDE Substep",
+            Sampler::Tcd => "TCD",
             Sampler::EulerATrailing => "Euler A Trailing",
-            Sampler::DPMPPSDETrailing => "DPM++ SDE Trailing",
-            Sampler::DPMPP2MAYS => "DPM++ 2M AYS",
-            Sampler::EulerAAYS => "Euler A AYS",
-            Sampler::DPMPPSDEAYS => "DPM++ SDE AYS",
-            Sampler::DPMPP2MTrailing => "DPM++ 2M Trailing",
-            Sampler::DDIMTrailing => "DDIM Trailing",
-            Sampler::UniPCTrailing => "UniPC Trailing",
-            Sampler::UniPCAYS => "UniPC AYS",
-            Sampler::TCDTrailing => "TCD Trailing",
+            Sampler::DpmppSdeTrailing => "DPM++ SDE Trailing",
+            Sampler::Dpmpp2mAys => "DPM++ 2M AYS",
+            Sampler::EulerAAys => "Euler A AYS",
+            Sampler::DpmppSdeAys => "DPM++ SDE AYS",
+            Sampler::Dpmpp2mTrailing => "DPM++ 2M Trailing",
+            Sampler::DdimTrailing => "DDIM Trailing",
+            Sampler::UniPcTrailing => "UniPC Trailing",
+            Sampler::UniPcAys => "UniPC AYS",
+            Sampler::TcdTrailing => "TCD Trailing",
         };
         write!(f, "{}", s)
     }

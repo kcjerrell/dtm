@@ -57,10 +57,8 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let tasks = vec![
-        ("ffmpeg", FFMPEG_URL, FFMPEG_SHA256),
-        ("ffprobe", FFPROBE_URL, FFPROBE_SHA256),
-    ];
+    let tasks = [("ffmpeg", FFMPEG_URL, FFMPEG_SHA256),
+        ("ffprobe", FFPROBE_URL, FFPROBE_SHA256)];
 
     let mut total_downloaded: u64 = 0;
     let mut task_sizes: Vec<Option<u64>> = vec![None; tasks.len()];
@@ -233,7 +231,7 @@ fn sha256_file(path: &Path) -> Result<String, std::io::Error> {
     }
 
     let hash = hasher.finalize();
-    Ok(encode(&hash))
+    Ok(encode(hash))
 }
 
 fn verify_checksum(path: &Path, expected: &str) -> Result<bool, std::io::Error> {

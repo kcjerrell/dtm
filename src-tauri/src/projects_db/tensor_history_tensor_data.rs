@@ -1,6 +1,4 @@
-use anyhow::Result;
-use sqlx::Database;
-use sqlx::{FromRow, Row};
+use sqlx::FromRow;
 
 #[derive(Debug, Clone, FromRow)]
 pub struct TensorHistoryTensorData {

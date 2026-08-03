@@ -7,14 +7,14 @@ use crate::Tensor;
 /// All methods return `Result<Option<T>, String>`: `Ok(None)` means the
 /// resource does not exist / is not applicable for this handle, while `Err`
 /// signals a resolution failure.
-/// 
+///
 /// Not all methods are valid for a given resource. The caller should have an
 /// idea of what kind of media it is requesting.
-/// 
+///
 /// Concrete implementations are DtResourceHandle. Potentially implementations
 /// could be added for local files, internet media, and other sources.
 #[async_trait::async_trait]
-pub trait ResourceHandle {
+pub trait ResourceHandle: Send + Sync {
     /// Decompressed tensor + header.
     async fn get_tensor(&self) -> Result<Option<Tensor>>;
 
@@ -39,6 +39,8 @@ pub trait ResourceHandle {
     async fn get_frames(
         &self,
         preview: bool,
-    ) -> Result<Option<Vec<Box<dyn ResourceHandle>>>>;
-}
+    ) -> Result<Option<Vec<Box<dyn ResourceHandle + Send + Sync>>>>;
 
+    /// Returns a path to the resource (usable with dtm: protocol)
+    async fn get_dtm_path(&self) -> Result<Option<String>>;
+}

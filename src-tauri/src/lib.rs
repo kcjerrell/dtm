@@ -234,7 +234,7 @@ async fn size_check(project_id: i64) -> TAResult<()> {
             match result {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("check failed for {}: {}", img.node_id, e.to_string());
+                    println!("check failed for {}: {}", img.node_id, e);
                 }
             }
         }
@@ -410,10 +410,7 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, event| match event {
-            tauri::RunEvent::Exit => {
-                bookmarks::cleanup_bookmarks();
-            }
-            _ => {}
+        .run(|_app_handle, event| if let tauri::RunEvent::Exit = event {
+            bookmarks::cleanup_bookmarks();
         });
 }

@@ -24,7 +24,7 @@ impl ProjectsDb {
         let db = Database::connect(db_path).await?;
         Migrator::up(&db, None).await?;
 
-        let projects_db = Self { db: db };
+        let projects_db = Self { db };
 
         let mut singleton = PROJECTS_DB.write().await;
         *singleton = Some(projects_db.clone());

@@ -7,10 +7,7 @@ use std::{fs, path::PathBuf};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{
-    decode_tensor, DecodeTensorOptions, DrawThingsMetadata,
-    DtProjectRef, DtResourceHandle, DtResourceRef,
-};
+use crate::projects_db::{DrawThingsMetadata, DtProjectRef, DtResourceHandle};
 use crate::ResourceHandle;
 
 #[derive(Debug, Deserialize)]
@@ -44,14 +41,12 @@ pub async fn save_all_clip_frames(
     let (node_id, project_id) = result.ok_or("Image or Project not found")?;
 
     // 2. Fetch Clip Frames
-    let dt_project = DtProjectRef::Id(project_id)
-        .open_project()
+    let handle = DtProjectRef::Id(project_id).node(node_id);
+    let frames = handle
+        .get_frames(false)
         .await
-        .map_err(|e| e.to_string())?;
-    let frames = dt_project
-        .get_histories_from_clip(node_id)
-        .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .ok_or("No frames found for this clip".to_string())?;
 
     if frames.is_empty() {
         return Err("No frames found for this clip".to_string());
@@ -68,62 +63,33 @@ pub async fn save_all_clip_frames(
     });
 
     let total = frames.len();
-    match opts.use_tensor {
-        true => {
-            for (i, frame) in frames.iter().enumerate() {
-                let name = name_gen.next().unwrap();
-                let tensor = dt_project
-                    .get_tensor_raw(&frame.tensor_id)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                let png = decode_tensor(
-                    tensor,
-                    DecodeTensorOptions {
-                        as_png: true,
-                        history_node: None,
-                        size: None,
-                    },
-                )
-                .map_err(|e| e.to_string())?;
-                let file_path = output_dir.join(name);
-                fs::write(&file_path, png).map_err(|e| e.to_string())?;
+    for (i, frame) in frames.iter().enumerate() {
+        let name = name_gen.next().unwrap();
+        let frame_bytes = if opts.use_tensor {
+            frame
+                .get_image(None)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or("Failed to get frame image".to_string())?
+        } else {
+            frame
+                .get_preview(false)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or("Failed to get frame preview".to_string())?
+        };
 
-                let _ = app.emit(
-                    "export_frames_progress",
-                    ExportProgress {
-                        current: i + 1,
-                        total,
-                        msg: "Extracting frames...".to_string(),
-                    },
-                );
-            }
-        }
-        false => {
-            for (i, frame) in frames.iter().enumerate() {
-                let name = name_gen.next().unwrap();
-                let handle = DtResourceHandle::new(
-                    &DtProjectRef::Id(project_id),
-                    &DtResourceRef::Thumb(frame.preview_id),
-                );
-                let thumb_data = handle
-                    .get_preview(false)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .ok_or("Failed to get preview".to_string())?;
+        let file_path = output_dir.join(name);
+        fs::write(&file_path, frame_bytes).map_err(|e| e.to_string())?;
 
-                let file_path = output_dir.join(name);
-                fs::write(&file_path, thumb_data).map_err(|e| e.to_string())?;
-
-                let _ = app.emit(
-                    "export_frames_progress",
-                    ExportProgress {
-                        current: i + 1,
-                        total,
-                        msg: "Extracting frames...".to_string(),
-                    },
-                );
-            }
-        }
+        let _ = app.emit(
+            "export_frames_progress",
+            ExportProgress {
+                current: i + 1,
+                total,
+                msg: "Extracting frames...".to_string(),
+            },
+        );
     }
 
     let _ = app.emit(
@@ -381,23 +347,21 @@ pub fn check_files(dir: &str, pattern: &str) -> Result<(i32, i32), String> {
 
     let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
 
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let caps = matcher.captures(&name);
-            if let Some(caps) = caps {
-                if let Some(clip) = caps.name("clip") {
-                    if let Ok(clip) = clip.as_str().parse::<i32>() {
-                        if clip > max_clip {
-                            max_clip = clip;
-                        }
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let caps = matcher.captures(&name);
+        if let Some(caps) = caps {
+            if let Some(clip) = caps.name("clip") {
+                if let Ok(clip) = clip.as_str().parse::<i32>() {
+                    if clip > max_clip {
+                        max_clip = clip;
                     }
                 }
-                if let Some(frame) = caps.name("frame") {
-                    if let Ok(frame) = frame.as_str().parse::<i32>() {
-                        if frame > max_frame {
-                            max_frame = frame;
-                        }
+            }
+            if let Some(frame) = caps.name("frame") {
+                if let Ok(frame) = frame.as_str().parse::<i32>() {
+                    if frame > max_frame {
+                        max_frame = frame;
                     }
                 }
             }

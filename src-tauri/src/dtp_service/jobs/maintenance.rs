@@ -10,7 +10,11 @@ use sea_query::{Expr, Query};
 
 use crate::{
     dtp_service::jobs::JobContext,
-    projects_db::{dt_project::Maintenance, dtos::watch_folder::WatchFolderDTO, DtProjectRef},
+    projects_db::{
+        dt_project::{ClipFilter, Maintenance},
+        dtos::watch_folder::WatchFolderDTO,
+        DtProjectRef,
+    },
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, TryFromPrimitive)]
@@ -121,10 +125,13 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
         );
 
         let clip_ids = images.iter().map(|im| im.clip_id).collect();
-        let clip_counts = dt_project
-            .get_clip_counts(clip_ids)
+        let clip_counts: HashMap<i64, i64> = dt_project
+            .get_clips(ClipFilter::ClipIds(clip_ids))
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .map(|c| (c.clip_id, c.count as i64))
+            .collect();
 
         // update images.num_frames with correct counts
         for image in images {
@@ -165,9 +172,9 @@ async fn check_sampler_values(
 
     for (project_id, images) in projects.drain() {
         let dt_project = ctx.pdb.get_dt_project(project_id.into()).await?;
-
+        let node_ids: Vec<i64> = images.iter().map(|im| im.node_id).collect();
         let samplers = &dt_project
-            .get_samplers(&images.iter().map(|im| im.node_id).collect())
+            .get_samplers(&node_ids)
             .await
             .map_err(|e| e.to_string())?;
 

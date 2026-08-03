@@ -1,9 +1,10 @@
-use crate::projects_db::{
-    dtos::{
-        clip::{ClipExtra, ClipFrame},
-        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+use crate::{
+    projects_db::{
+        dt_project::ClipExtra,
+        dtos::image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+        folder_cache, search, DtProjectRef,
     },
-    folder_cache, search, DTProject, DtProjectRef,
+    IntoTAResult, TAResult,
 };
 use entity::{images, projects, watch_folders};
 use sea_orm::{
@@ -165,7 +166,7 @@ impl ProjectsDb {
         Ok(image)
     }
 
-    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> Result<ClipExtra, MixedError> {
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> TAResult<ClipExtra> {
         let result: Option<(String, i64, i64)> = images::Entity::find_by_id(image_id)
             .join(JoinType::InnerJoin, images::Relation::Projects.def())
             .select_only()
@@ -174,23 +175,23 @@ impl ProjectsDb {
             .column(images::Column::NodeId)
             .into_tuple()
             .one(&self.db)
-            .await?;
+            .await
+            .into_ta_result()?;
 
         let (rel_path, watchfolder_id, node_id) =
-            result.ok_or_else(|| "Image or Project not found".to_string())?;
+            result.ok_or_else(|| anyhow::anyhow!("Image or Project not found"))?;
 
         let watch_folder_path = folder_cache::get_folder(watchfolder_id)
-            .ok_or_else(|| format!("Watch folder {watchfolder_id} not found in cache"))?;
+            .ok_or_else(|| anyhow::anyhow!("Watch folder {watchfolder_id} not found in cache"))?;
 
         let full_path = std::path::Path::new(&watch_folder_path).join(rel_path);
         let full_path_str = full_path
             .to_str()
-            .ok_or_else(|| "Invalid path encoding".to_string())?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid path encoding"))?;
 
         let dt_project = DtProjectRef::Path(full_path_str.to_string())
             .get_project()
-            .await
-            .map_err(|e| e.to_string())?;
+            .await?;
         let clip = dt_project.get_clip_and_frames(node_id, clip_id).await?;
 
         Ok(clip)

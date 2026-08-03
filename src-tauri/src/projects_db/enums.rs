@@ -286,7 +286,7 @@ impl<'a> PartialThnDtResourceHandle<'a> {
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::ColorPalette),
         )
     }
-    pub fn canvas(self, index: usize) -> DtResourceHandle {
+    pub fn canvas(self, _index: usize) -> DtResourceHandle {
         DtResourceHandle::new(
             &self.project,
             &DtResourceRef::TensorHistoryNode(self.node, ThnResource::Canvas(0)),

@@ -163,5 +163,5 @@ async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok({})
+    Ok(())
 }

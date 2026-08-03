@@ -93,9 +93,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
                     }
                 } else {
                     // Should not happen with correct math, but safe fallback
-                    for _ in 0..channels {
-                        pixels.push(0);
-                    }
+                    pixels.extend(std::iter::repeat_n(0, channels));
                 }
             }
         }
@@ -142,7 +140,7 @@ pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>, String> {
     }
 }
 
-pub fn decompress_fzip(data: &Vec<u8>) -> std::result::Result<Vec<f32>, String> {
+pub fn decompress_fzip(data: &[u8]) -> std::result::Result<Vec<f32>, String> {
     let out: Vec<f32>;
 
     // A valid FPZIP stream needs at least a few bytes for its header.

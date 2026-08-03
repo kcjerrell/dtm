@@ -6,7 +6,9 @@ use tokio::sync::OnceCell;
 use crate::{
     projects_db::{
         decode_audio,
-        dt_project::{DTResource, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter, TensorRaw},
+        dt_project::{
+            DTResource, TensorData, TensorHistoryNode, TensorRaw, ThnData, ThnFilter, TmdFilter,
+        },
         enums::PartialThnDtResourceHandle,
         DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
@@ -124,8 +126,70 @@ impl ResourceHandle for DtResourceHandle {
         Ok(None)
     }
 
-    async fn get_frames(&self, _preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
-        return Err(anyhow::anyhow!("Frames not yet implemented"));
+    async fn get_frames(
+        &self,
+        _preview: bool,
+    ) -> Result<Option<Vec<Box<dyn ResourceHandle + Send + Sync>>>> {
+        // get_frames only makes sense if this handle is for a history node
+        if !self.resource.is_tensor_history_node() {
+            return Ok(None);
+        }
+
+        let node = self.get_history_node().await?;
+        let Some(node) = node else {
+            return Ok(None);
+        };
+
+        let Some(clip) = &node.clip else {
+            return Ok(None);
+        };
+
+        let first_rowid = node.rowid;
+        let mut frames = Vec::with_capacity(clip.count as usize);
+
+        for idx in 0..clip.count {
+            frames.push(
+                Box::new(self.project.node(first_rowid + idx as i64))
+                    as Box<dyn ResourceHandle + Send + Sync>,
+            );
+        }
+
+        Ok(Some(frames))
+    }
+
+    async fn get_dtm_path(&self) -> Result<Option<String>> {
+        let project_id = self.get_project_id().await?;
+        let path = match &self.resource {
+            DtResourceRef::Tensor(name) => {
+                Some(format!("dtm://dtproject/tensor/{}/{}", project_id, name))
+            }
+            DtResourceRef::Thumb(thumb_id) => {
+                Some(format!("dtm://dtproject/thumb/{}/{}", project_id, thumb_id))
+            }
+            DtResourceRef::TensorData(_td_ref, _thn_resource) => None,
+            DtResourceRef::TensorHistoryNode(_, thn_resource) => match thn_resource {
+                super::ThnResource::Thumb => {
+                    let Some(node) = self.get_history_node().await? else {
+                        return Ok(None);
+                    };
+                    Some(format!(
+                        "dtm://dtproject/thumb/{}/{}",
+                        project_id,
+                        node.data().preview_id()
+                    ))
+                }
+                _ => {
+                    let Some(tensor_name) = self.get_tensor_name(None).await? else {
+                        return Ok(None);
+                    };
+                    Some(format!(
+                        "dtm://dtproject/tensor/{}/{}",
+                        project_id, tensor_name
+                    ))
+                }
+            },
+        };
+        Ok(path)
     }
 
     async fn get_json(&self) -> Result<Option<String>> {
@@ -140,7 +204,7 @@ impl ResourceHandle for DtResourceHandle {
                 }
             }
             RR::Thumb(_) => None,
-            RR::TensorHistoryNode(thn_ref, thn_resource) => {
+            RR::TensorHistoryNode(_thn_ref, thn_resource) => {
                 match thn_resource {
                     ThnR::Pose => {
                         // need to find the pose tensor name
@@ -200,6 +264,29 @@ impl DtResourceHandle {
 
     async fn get_project(&self) -> Result<Arc<DTProject>> {
         self.project.get_project().await
+    }
+
+    async fn get_project_id(&self) -> Result<i64> {
+        let path = match &self.project {
+            DtProjectRef::Id(id) => {
+                return Ok(*id);
+            }
+            DtProjectRef::Path(path) => path.to_string(),
+            DtProjectRef::Db(dtproject) => dtproject.path.to_string(),
+        };
+        let pdb = ProjectsDb::get().await?;
+        let Some(folder) = pdb.get_watch_folder_for_path(&path).await? else {
+            anyhow::bail!("can't find folder");
+        };
+        let Some(remaining_path) = path.strip_prefix(&folder.path) else {
+            anyhow::bail!("can't find folder");
+        };
+        let project = pdb.get_project_by_path(folder.id, remaining_path).await?;
+        if let Some(project) = project {
+            Ok(project.id)
+        } else {
+            anyhow::bail!("can't find project");
+        }
     }
 
     pub async fn get_history_node(&self) -> Result<Option<&TensorHistoryNode>> {

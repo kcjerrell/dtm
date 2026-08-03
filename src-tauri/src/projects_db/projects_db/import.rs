@@ -37,7 +37,7 @@ impl ProjectsDb {
 
         let start = match full_scan {
             true => 0,
-            false => project.last_id.or(Some(-1)).unwrap(),
+            false => project.last_id.unwrap_or(-1),
         };
 
         for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
@@ -195,7 +195,7 @@ impl ProjectsDb {
                     }
                 }
 
-                if h.moodboard.as_ref().is_some_and(|mb| mb.len() > 0) {
+                if h.moodboard.as_ref().is_some_and(|mb| !mb.is_empty()) {
                     has_shuffle = true;
                 }
 
@@ -240,7 +240,6 @@ impl ProjectsDb {
                             (wc % 1_000_000) as u32 * 1000,
                         )
                         .unwrap_or_default()
-                        .into()
                     }),
                     has_mask: Set(has_mask),
                     has_depth: Set(has_depth),
@@ -321,7 +320,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     lora_id: Set(lora.model_id),
                     weight: Set(lora.weight),
-                    ..Default::default()
                 });
             }
         }
@@ -347,7 +345,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     control_id: Set(control.model_id),
                     weight: Set(control.weight),
-                    ..Default::default()
                 });
             }
         }

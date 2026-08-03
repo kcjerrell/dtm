@@ -41,7 +41,7 @@ impl DTZip {
         }
 
         let mut reader = self.reader.lock().await;
-        let data = reader.read_entry_by_name(&rel_path).await?;
+        let data = reader.read_entry_by_name(rel_path).await?;
         Ok(data)
     }
 

@@ -44,7 +44,7 @@ impl TryFrom<&[u8]> for TextHistoryNode {
             .modifications()
             .map(|v| {
                 v.iter()
-                    .map(|m| TextModification::try_from(m))
+                    .map(TextModification::try_from)
                     .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?
@@ -85,7 +85,7 @@ impl TextHistory {
     pub fn new(nodes: Vec<TextHistoryNode>, lineages: Vec<(i64, i64)>) -> Self {
         Self {
             nodes,
-            lineages: lineages.into_iter().map(|(a, b)| (a, b)).collect(),
+            lineages: lineages.into_iter().collect(),
             cache: Mutex::new(None),
         }
     }

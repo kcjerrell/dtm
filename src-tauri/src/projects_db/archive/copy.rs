@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf, prelude::rust_2024::Future};
+use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf};
 
 use anyhow::Result;
 

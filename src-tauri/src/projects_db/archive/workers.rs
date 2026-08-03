@@ -52,7 +52,7 @@ pub async fn copy_tensors(
     let collect: JoinHandle<Result<Vec<CopyTensorItem>>> = tokio::spawn(async move {
         let mut errored_copies: Vec<CopyTensorItem> = Vec::new();
         while let Some(mut item) = collect_rx.recv().await {
-            if let Err(_) = &item.result {
+            if item.result.is_err() {
                 item.data = None;
                 item.preview = None;
                 errored_copies.push(item);

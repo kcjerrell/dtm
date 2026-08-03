@@ -4,6 +4,8 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 #![allow(mismatched_lifetime_syntaxes)]
+#![allow(clippy::extra_unused_lifetimes)]
+#![allow(clippy::missing_safety_doc)]
 
 mod text_history_generated;
 pub use text_history_generated::*;
