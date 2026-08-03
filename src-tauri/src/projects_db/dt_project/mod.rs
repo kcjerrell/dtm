@@ -28,7 +28,7 @@ use std::{
 use tokio::sync::OnceCell;
 
 pub(crate) mod data;
-pub(crate) mod fbs;
+pub mod fbs;
 
 pub(crate) mod maintenance;
 pub use maintenance::Maintenance;

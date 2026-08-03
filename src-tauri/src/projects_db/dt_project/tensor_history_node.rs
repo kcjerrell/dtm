@@ -10,12 +10,12 @@ use std::{
 use crate::projects_db::{
     dt_project::{
         data::tensor_history_node_data::TensorHistoryNodeData as ParsedTensorHistoryNodeData,
+        fbs::{
+            root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
+            TensorHistoryNode as TensorHistoryNodeData,
+        },
         tensor_data::TensorData, Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData,
         TmdFilter,
-    },
-    fbs::{
-        root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
-        TensorHistoryNode as TensorHistoryNodeData,
     },
     DTProject,
 };

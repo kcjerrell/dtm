@@ -1,4 +1,4 @@
-use crate::projects_db::fbs::tensor_history_generated::root_as_tensor_history_node as root_as_tensor_history_node_fb;
+use crate::projects_db::dt_project::fbs::root_as_tensor_history_node as root_as_tensor_history_node_fb;
 use crate::projects_db::tensor_history_mod::{Control, LoRA};
 use chrono::{DateTime, NaiveDateTime};
 use serde::Serialize;
