@@ -1,4 +1,4 @@
-use crate::projects_db::fbs::root_as_tensor_data as root_as_tensor_data_fb;
+use crate::projects_db::dt_project::fbs::root_as_tensor_data as root_as_tensor_data_fb;
 use crate::projects_db::tensor_history_tensor_data::TensorHistoryTensorData;
 use serde::Serialize;
 

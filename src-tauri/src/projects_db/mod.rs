@@ -37,8 +37,6 @@ pub use metadata::DrawThingsMetadata;
 mod text_history;
 pub use text_history::TextHistory;
 
-pub mod fbs;
-
 pub mod filters;
 mod search;
 

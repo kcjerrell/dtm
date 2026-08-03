@@ -3,8 +3,11 @@ use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 use std::{collections::HashSet, sync::Arc};
 
 use crate::projects_db::{
-    dt_project::{data::tensor_data::TensorData as ParsedTensorData, DTProjectTable},
-    fbs::{root_as_tensor_data, root_as_tensor_data_unchecked, TensorData as TensorDataData},
+    dt_project::{
+        data::tensor_data::TensorData as ParsedTensorData,
+        fbs::{root_as_tensor_data, root_as_tensor_data_unchecked, TensorData as TensorDataData},
+        DTProjectTable,
+    },
     DTProject,
 };
 

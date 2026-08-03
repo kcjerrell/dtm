@@ -2,8 +2,10 @@ use serde::Serialize;
 use sqlx::{sqlite::SqliteRow, Row};
 
 use crate::projects_db::{
-    dt_project::Clip,
-    fbs::{root_as_clip, root_as_tensor_history_node},
+    dt_project::{
+        fbs::{root_as_clip, root_as_tensor_history_node},
+        Clip,
+    },
 };
 
 #[derive(serde::Serialize, Debug, Clone)]

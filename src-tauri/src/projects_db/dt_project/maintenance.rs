@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sqlx::{query, sqlite::SqliteRow, Error, QueryBuilder, Row};
 
-use crate::projects_db::{fbs::root_as_tensor_history_node, DTProject};
+use crate::projects_db::{dt_project::fbs::root_as_tensor_history_node, DTProject};
 
 pub trait Maintenance {
     async fn get_samplers(&self, node_ids: &Vec<i64>) -> Result<HashMap<i64, i8>, Error>;

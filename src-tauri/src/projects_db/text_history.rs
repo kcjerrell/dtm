@@ -1,4 +1,4 @@
-use super::fbs;
+use super::dt_project::fbs;
 use crate::projects_db::dtos::text::{TextHistoryNode, TextModification, TextRange, TextType};
 use serde::Serialize;
 use std::{collections::HashMap, sync::Mutex};
@@ -214,35 +214,35 @@ mod tests {
         let history = TextHistory::new(nodes, Vec::new());
 
         // Test Case 1: Start of a node (Lineage 2, Edit 0)
-        let res0 = history.get_edit(2, 0).unwrap();
+        let res0 = history.get_edit(2, 0).unwrap().unwrap();
         assert_eq!(res0.positive, "");
 
         // Test Case 2: Apply first modification
         // Mod 0 (edit state 1?): Text "war in space..."
         // edit 1 request should include mod 0.
-        let res1 = history.get_edit(2, 1).unwrap();
+        let res1 = history.get_edit(2, 1).unwrap().unwrap();
         assert!(res1.positive.starts_with("war in space"));
 
         // Test Case 3: Verify Cache (Access 1 again)
-        let res1_cached = history.get_edit(2, 1).unwrap();
+        let res1_cached = history.get_edit(2, 1).unwrap().unwrap();
         assert_eq!(res1, res1_cached);
 
         // Test Case 4: Sequential Access (Forward Play)
         // Access edit 2. Mod 1 "3d fluffy llama".
-        let res2 = history.get_edit(2, 2).unwrap();
+        let res2 = history.get_edit(2, 2).unwrap().unwrap();
         assert!(res2.positive.starts_with("3d fluffy llama"));
         assert!(!res2.positive.contains("war in space"));
 
         // Test Case 5: Jump to later node (Lineage 2, Edit 50)
-        let res50 = history.get_edit(2, 50).unwrap();
+        let res50 = history.get_edit(2, 50).unwrap().unwrap();
         assert_eq!(res50.positive, "an ugly turke");
 
         // Test Case 6: Sequential after jump
-        let res51 = history.get_edit(2, 51).unwrap();
+        let res51 = history.get_edit(2, 51).unwrap().unwrap();
         assert_eq!(res51.positive, "an ugly turkey");
 
         // Test Case 7: Backwards jump (Edit 2 again)
-        let res2_back = history.get_edit(2, 2).unwrap();
+        let res2_back = history.get_edit(2, 2).unwrap().unwrap();
         assert!(res2_back.positive.starts_with("3d fluffy llama"));
     }
 }

@@ -1,6 +1,5 @@
 use crate::projects_db::{
-    dt_project::{DTProjectTable, ThnFilter},
-    fbs::root_as_clip,
+    dt_project::{fbs::root_as_clip, DTProjectTable, ThnFilter},
     DTProject,
 };
 use serde::Serialize;
