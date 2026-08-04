@@ -4,12 +4,9 @@ use crate::projects_db::{
     search::process_prompt,
     DtProjectRef,
 };
-use entity::{
-    enums::ModelType,
-    images,
-};
+use entity::{enums::ModelType, images};
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};

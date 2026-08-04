@@ -134,7 +134,10 @@ impl DTProject {
         Ok(res)
     }
 
-    pub async fn find_tensordata_by_tensor(&self, tensor_name: &str) -> anyhow::Result<Vec<TensorData>> {
+    pub async fn find_tensordata_by_tensor(
+        &self,
+        tensor_name: &str,
+    ) -> anyhow::Result<Vec<TensorData>> {
         if let Some((prefix, id)) = tensor_name.rsplit_once("_") {
             let (index_table, index_col) =
                 index_table(prefix).ok_or_else(|| anyhow::anyhow!("Invalid tensor name prefix"))?;

@@ -115,7 +115,7 @@ pub struct TensorHistoryNodeData {
     pub compression_artifacts_quality: f32,
     pub audio: bool,
     pub color_calibration: i8,
-    pub expand_prompt_to_json: bool
+    pub expand_prompt_to_json: bool,
 }
 
 impl TryFrom<&[u8]> for TensorHistoryNodeData {

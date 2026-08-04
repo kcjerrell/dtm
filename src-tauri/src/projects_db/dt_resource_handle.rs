@@ -148,10 +148,8 @@ impl ResourceHandle for DtResourceHandle {
         let mut frames = Vec::with_capacity(clip.count as usize);
 
         for idx in 0..clip.count {
-            frames.push(
-                Box::new(self.project.node(first_rowid + idx as i64))
-                    as Box<dyn ResourceHandle + Send + Sync>,
-            );
+            frames.push(Box::new(self.project.node(first_rowid + idx as i64))
+                as Box<dyn ResourceHandle + Send + Sync>);
         }
 
         Ok(Some(frames))

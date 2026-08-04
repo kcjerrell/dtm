@@ -264,7 +264,11 @@ impl Scheduler {
 
             // Notify any caller awaiting this specific job (see add_job_front_and_wait).
             if let Some(done) = entry.on_done.take() {
-                let _ = done.send(current_result.clone());
+                let passed_result = match &current_result {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e.clone()),
+                };
+                let _ = done.send(passed_result);
             }
 
             current_id = self.update_parent_job(&entry, ctx).await;

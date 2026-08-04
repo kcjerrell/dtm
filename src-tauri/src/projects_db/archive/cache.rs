@@ -45,15 +45,20 @@ impl DTZipCache {
         let cell = cache
             .cache
             .entry(archive_path.to_owned())
-            .or_insert_with(|| -> Arc<OnceCell<Arc<DTZip>>> {
-                Arc::new(OnceCell::new())
-            })
+            .or_insert_with(|| -> Arc<OnceCell<Arc<DTZip>>> { Arc::new(OnceCell::new()) })
             .clone();
 
         let dt_zip = cell
             .get_or_try_init(|| async {
                 Ok::<_, anyhow::Error>(Arc::new(
-                    DTZip::new(archive_path, cache.temp_dir.to_str().ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 path"))?).await?,
+                    DTZip::new(
+                        archive_path,
+                        cache
+                            .temp_dir
+                            .to_str()
+                            .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 path"))?,
+                    )
+                    .await?,
                 ))
             })
             .await?;

@@ -14,8 +14,8 @@ use crate::projects_db::{
             root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
             TensorHistoryNode as TensorHistoryNodeData,
         },
-        tensor_data::TensorData, Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData,
-        TmdFilter,
+        tensor_data::TensorData,
+        Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
     },
     DTProject,
 };
@@ -117,7 +117,7 @@ pub struct TensorHistoryNode {
     /// __pk0 column (lineage)
     pub lineage: i64,
     /// __pk1 column (logical_time)
-    pub logical_time: i64,    
+    pub logical_time: i64,
     /// p column (contains the fbs blob)
     data: Arc<[u8]>,
 
@@ -126,7 +126,7 @@ pub struct TensorHistoryNode {
 
     /// tensordata joined by lineage and logical_time
     pub tensordata: Option<Arc<[TensorData]>>,
-    /// clip joined by indexed fbs field 
+    /// clip joined by indexed fbs field
     pub clip: Option<Clip>,
     /// trnsormoodboarddata joined by lineage and logical_time
     pub moodboard: Option<Arc<[TensorMoodboardData]>>,
@@ -416,9 +416,9 @@ impl DTProject {
     /**
      * Do not call on a cached dt_project! Only used with DTProject::open()
      */
-    pub async fn check_id(&self, pdb_path: String, project_id: i64) -> Result<Vec<i64>, String> {
+    pub async fn check_id(&self, pdb_path: String, project_id: i64) -> anyhow::Result<Vec<i64>> {
         if self.is_shared {
-            return Err("Cannot check ids on a shared dt_project".to_string());
+            anyhow::bail!("Cannot check ids on a shared dt_project");
         }
 
         let missing_ids: Vec<i64> = sqlx::query_scalar(
@@ -436,7 +436,7 @@ impl DTProject {
         .bind(project_id)
         .fetch_all(&*self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
         Ok(missing_ids)
     }

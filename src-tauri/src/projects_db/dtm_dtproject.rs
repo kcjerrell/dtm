@@ -1,13 +1,11 @@
+use anyhow::Context;
 use tauri::{
     http::{self, Response, StatusCode},
     UriSchemeResponder,
 };
 
 use crate::{
-    projects_db::{
-        audio::audio_request,
-        enums::DtProjectRef, ProjectsDb,
-    },
+    projects_db::{audio::audio_request, enums::DtProjectRef, ProjectsDb},
     ResourceHandle,
 };
 
@@ -126,14 +124,13 @@ impl DtmProtocol {
     async fn handle_request<T>(
         &self,
         request: http::Request<T>,
-    ) -> Result<Response<Vec<u8>>, String> {
+    ) -> anyhow::Result<Response<Vec<u8>>> {
         let req = parse_request(&request);
 
         if req.is_none() {
-            return Response::builder()
+            return Ok(Response::builder()
                 .status(StatusCode::BAD_REQUEST)
-                .body("Invalid path format".as_bytes().to_vec())
-                .map_err(|e| e.to_string());
+                .body("Invalid path format".as_bytes().to_vec())?);
         }
 
         let req = req.unwrap();
@@ -156,28 +153,27 @@ impl DtmProtocol {
                     .pdb
                     .get_project_path(req.project_id)
                     .await
-                    .map_err(|e| format!("Failed to get project path: {}", e))?;
+                    .context("Failed to get project path")?;
                 audio_request(&project_path, &req).await
             }
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .body("Not Found".as_bytes().to_vec())
-                .map_err(|e| e.to_string())?),
+                .body("Not Found".as_bytes().to_vec())?),
         }
     }
 }
 
-async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Vec<u8>>, String> {
-    let preview_id: i64 = item_id.parse().map_err(|_| "Invalid item ID".to_string())?;
+async fn thumb(project_id: i64, item_id: &str, half: bool) -> anyhow::Result<Response<Vec<u8>>> {
+    let preview_id: i64 = item_id.parse().context("Invalid item ID")?;
 
     let handle = DtProjectRef::Id(project_id).thumb(preview_id);
 
     let thumb = handle
         .get_preview(half)
         .await
-        .map_err(|e| format!("Failed to get preview: {}", e))?;
+        .context("Failed to get preview")?;
 
-    let thumb = thumb.ok_or("Failed to get preview".to_string())?;
+    let thumb = thumb.ok_or_else(|| anyhow::anyhow!("Failed to get preview"))?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -185,7 +181,7 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> Result<Response<Ve
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(thumb)
-        .map_err(|e| e.to_string())
+        .map_err(|e| anyhow::anyhow!(e))
 }
 
 // Unsupported options by DtResourceHandle API:
@@ -197,16 +193,12 @@ async fn tensor(
     node: Option<i64>,
     size: Option<u32>,
     _mask: Option<&str>,
-) -> Result<Response<Vec<u8>>, String> {
+) -> anyhow::Result<Response<Vec<u8>>> {
     let project_ref = DtProjectRef::Id(project_id);
 
     let handle = if let Some(node_id) = node {
         // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
-        project_ref
-            .node(node_id)
-            .sub()
-            .map_err(|e| e.to_string())?
-            .tensor(name)
+        project_ref.node(node_id).sub()?.tensor(name)
     } else {
         project_ref.tensor(name)
     };
@@ -215,14 +207,11 @@ async fn tensor(
 
     // Handle pose type separately as it doesn't return PNG
     if tensor_type == "pose" {
-        return Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(
-                "Unsupported tensor type or decoding failed"
-                    .as_bytes()
-                    .to_vec(),
-            )
-            .map_err(|e| e.to_string());
+        return Ok(Response::builder().status(StatusCode::BAD_REQUEST).body(
+            "Unsupported tensor type or decoding failed"
+                .as_bytes()
+                .to_vec(),
+        )?);
     }
 
     if tensor_type == "audio" {
@@ -232,8 +221,8 @@ async fn tensor(
     let body = handle
         .get_image(size)
         .await
-        .map_err(|e| format!("Failed to get lossless: {}", e))?
-        .ok_or("Failed to get lossless".to_string())?;
+        .context("Failed to get lossless")?
+        .ok_or_else(|| anyhow::anyhow!("Failed to get lossless"))?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -241,7 +230,7 @@ async fn tensor(
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(body)
-        .map_err(|e| e.to_string())
+        .map_err(|e| anyhow::anyhow!(e))
 }
 
 fn classify_type(s: &str) -> Option<&str> {

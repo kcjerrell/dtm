@@ -177,11 +177,8 @@ impl ProjectSync {
         }
     }
 
-    pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> Result<Self, String> {
-        let entity = pdb
-            .get_project(project_id)
-            .await
-            .map_err(|e| e.to_string())?;
+    pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> anyhow::Result<Self> {
+        let entity = pdb.get_project(project_id).await?;
 
         let mut project = None;
         if let Ok(metadata) = fs::metadata(&entity.full_path).await {

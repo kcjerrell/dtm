@@ -8,7 +8,7 @@ use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
 use crate::projects_db::{DrawThingsMetadata, DtProjectRef, DtResourceHandle};
-use crate::ResourceHandle;
+use crate::{IntoTAResult, ResourceHandle, TAResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +26,7 @@ pub async fn save_all_clip_frames(
     app: tauri::AppHandle,
     dtp: State<'_, DTPService>,
     opts: FramesExportOpts,
-) -> Result<(usize, String), String> {
+) -> TAResult<(usize, String)> {
     let projects_db = dtp.get_db().await.unwrap();
 
     let result: Option<(i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
@@ -36,24 +36,24 @@ pub async fn save_all_clip_frames(
         .into_tuple()
         .one(&projects_db.db)
         .await
-        .map_err(|e| e.to_string())?;
+        .into_ta_result()?;
 
-    let (node_id, project_id) = result.ok_or("Image or Project not found")?;
+    let (node_id, project_id) = result.ok_or(anyhow::anyhow!("Image or Project not found"))?;
 
     // 2. Fetch Clip Frames
     let handle = DtProjectRef::Id(project_id).node(node_id);
     let frames = handle
         .get_frames(false)
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or("No frames found for this clip".to_string())?;
+        .into_ta_result()?
+        .ok_or(anyhow::anyhow!("No frames found for this clip"))?;
 
     if frames.is_empty() {
-        return Err("No frames found for this clip".to_string());
+        return anyhow::anyhow!("No frames found for this clip").into_ta_result();
     }
 
     let output_dir = PathBuf::from(&opts.output_dir);
-    fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&output_dir).into_ta_result()?;
 
     let mut name_gen = NameGen::new(NameOpts {
         pattern: opts.filename_pattern,
@@ -69,18 +69,18 @@ pub async fn save_all_clip_frames(
             frame
                 .get_image(None)
                 .await
-                .map_err(|e| e.to_string())?
-                .ok_or("Failed to get frame image".to_string())?
+                .into_ta_result()?
+                .ok_or(anyhow::anyhow!("Failed to get frame image"))?
         } else {
             frame
                 .get_preview(false)
                 .await
-                .map_err(|e| e.to_string())?
-                .ok_or("Failed to get frame preview".to_string())?
+                .into_ta_result()?
+                .ok_or(anyhow::anyhow!("Failed to get frame preview"))?
         };
 
         let file_path = output_dir.join(name);
-        fs::write(&file_path, frame_bytes).map_err(|e| e.to_string())?;
+        fs::write(&file_path, frame_bytes).into_ta_result()?;
 
         let _ = app.emit(
             "export_frames_progress",
@@ -129,7 +129,7 @@ pub async fn create_video_from_frames(
     app: tauri::AppHandle,
     dtp: State<'_, DTPService>,
     opts: VideoExportOpts,
-) -> Result<String, String> {
+) -> TAResult<String> {
     // -------------------------------------------------
     // Prepare temp dir
     // -------------------------------------------------
@@ -138,13 +138,13 @@ pub async fn create_video_from_frames(
     let temp_dir = app_data_dir.join("temp_video_frames");
 
     if !ffmpeg_path.exists() {
-        return Err("ffmpeg not found".to_string());
+        return Err(anyhow::anyhow!("ffmpeg not found").into());
     }
 
     if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+        fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
     }
-    fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
 
     // -------------------------------------------------
     // Ensure output directory exists
@@ -152,7 +152,7 @@ pub async fn create_video_from_frames(
     let output_file = PathBuf::from(&opts.output_file);
 
     if let Some(parent) = output_file.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        fs::create_dir_all(parent).map_err(anyhow::Error::msg)?;
     }
 
     let extension = if opts.use_tensor { "png" } else { "jpg" };
@@ -219,14 +219,18 @@ pub async fn create_video_from_frames(
     // metadata and audio come from the node
     if let Some(handle) = DtResourceHandle::from_image_id(opts.image_id)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(anyhow::Error::msg)?
     {
-        if let Some(node) = handle.get_history_node().await.map_err(|e| e.to_string())? {
+        if let Some(node) = handle
+            .get_history_node()
+            .await
+            .map_err(anyhow::Error::msg)?
+        {
             metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
 
-            if let Some(audio_wav) = handle.get_audio().await.map_err(|e| e.to_string())? {
+            if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {
                 let temp_audio_path = temp_dir.join("audio.wav");
-                fs::write(&temp_audio_path, &audio_wav).map_err(|e| e.to_string())?;
+                fs::write(&temp_audio_path, &audio_wav).map_err(anyhow::Error::msg)?;
                 audio_path = Some(temp_audio_path.to_string_lossy().to_string());
             }
         }
@@ -278,7 +282,7 @@ pub async fn create_video_from_frames(
     ]);
 
     if let Some(metadata) = metadata {
-        let json = serde_json::to_string(&metadata).map_err(|e| e.to_string())?;
+        let json = serde_json::to_string(&metadata).map_err(anyhow::Error::msg)?;
         cmd.args(["-metadata", &format!("comment={}", json)]);
     }
 
@@ -289,13 +293,13 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Spawn and read progress
     // -------------------------------------------------
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = cmd.spawn().map_err(anyhow::Error::msg)?;
 
     let stdout = child.stdout.take().unwrap();
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
+        let line = line.map_err(anyhow::Error::msg)?;
 
         // frame=###
         if let Some(f) = line.strip_prefix("frame=") {
@@ -318,10 +322,10 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Wait for finish
     // -------------------------------------------------
-    let status = child.wait().map_err(|e| e.to_string())?;
+    let status = child.wait().map_err(anyhow::Error::msg)?;
 
     if !status.success() {
-        return Err("FFmpeg failed to generate video".to_string());
+        return Err(anyhow::anyhow!("FFmpeg failed to generate video").into());
     }
 
     let _ = app.emit(
@@ -338,14 +342,14 @@ pub async fn create_video_from_frames(
 
 /// returns the highest existing clip id and frame number for the given pattern
 /// -1 indicates no matches
-pub fn check_files(dir: &str, pattern: &str) -> Result<(i32, i32), String> {
+pub fn check_files(dir: &str, pattern: &str) -> anyhow::Result<(i32, i32)> {
     log::debug!("checking {} for {}", dir, pattern);
     let matcher = get_matcher(pattern);
 
     let mut max_clip: i32 = -1;
     let mut max_frame: i32 = -1;
 
-    let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+    let entries = fs::read_dir(dir).map_err(anyhow::Error::msg)?;
 
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -399,7 +403,7 @@ pub fn check_pattern(
     pattern: String,
     dir: String,
     num_frames: u32,
-) -> Result<CheckPatternResult, String> {
+) -> crate::TAResult<CheckPatternResult> {
     let mut result = CheckPatternResult {
         valid: false,
         clip_id: 1,

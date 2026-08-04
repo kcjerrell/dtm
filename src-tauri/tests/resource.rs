@@ -80,7 +80,8 @@ mod tests {
      */
     #[tokio::test]
     async fn test_tensor_from_thumb() {
-        let resource_handle = DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
+        let resource_handle =
+            DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
 
         let tensor = resource_handle.get_tensor().await.unwrap();
         assert!(tensor.is_none());
@@ -155,7 +156,10 @@ mod tests {
 
         let rh_lineage_time_idx = DtResourceHandle::new(
             &project_ref(),
-            &DtResourceRef::TensorData(dtm_lib::projects_db::TdRef::LineageTimeIdx(0, 2, 0), canvas),
+            &DtResourceRef::TensorData(
+                dtm_lib::projects_db::TdRef::LineageTimeIdx(0, 2, 0),
+                canvas,
+            ),
         );
 
         let tensor_rowid = rh_rowid.get_tensor().await.unwrap().unwrap();
@@ -297,7 +301,10 @@ mod tests {
         let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
@@ -310,7 +317,10 @@ mod tests {
         let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
@@ -326,12 +336,16 @@ mod tests {
         let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
     async fn test_lossless_from_thumb() {
-        let resource_handle = DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
+        let resource_handle =
+            DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
 
         let lossless = resource_handle.get_image(None).await.unwrap();
         assert!(lossless.is_none());

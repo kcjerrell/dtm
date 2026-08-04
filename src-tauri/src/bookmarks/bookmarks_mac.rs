@@ -1,4 +1,5 @@
 use crate::dtp_service::AppHandleWrapper;
+use anyhow::{bail, Context, Result};
 
 use super::{PickFolderResult, ResolveResult};
 use tauri::{command, State};
@@ -30,31 +31,31 @@ pub async fn pick_folder_command(
     app: State<'_, AppHandleWrapper>,
     default_path: Option<String>,
     button_text: Option<String>,
-) -> Result<Option<PickFolderResult>, String> {
-    pick_folder(&app, default_path, button_text).await
+) -> crate::TAResult<Option<PickFolderResult>> {
+    Ok(pick_folder(&app, default_path, button_text).await?)
 }
+
 pub async fn pick_folder(
     app: &AppHandleWrapper,
     default_path: Option<String>,
     button_text: Option<String>,
-) -> Result<Option<PickFolderResult>, String> {
+) -> Result<Option<PickFolderResult>> {
     use std::ffi::{CStr, CString};
 
     let target_path = match default_path {
         Some(p) => p,
-        None => {
-            // Default to home directory
-            match app.get_home_dir() {
-                Ok(path) => path.to_string_lossy().into_owned(),
-                Err(_) => return Err("Failed to get home directory".to_string()),
-            }
-        }
+        None => app
+            .get_home_dir()
+            .map_err(|_| anyhow::anyhow!("Failed to get home directory"))?
+            .to_string_lossy()
+            .into_owned(),
     };
 
-    let c_default_path = CString::new(target_path).map_err(|e| e.to_string())?;
+    let c_default_path = CString::new(target_path).context("Failed to create CString for path")?;
 
     let display_button_text = button_text.unwrap_or_else(|| "Select folder".to_string());
-    let c_button_text = CString::new(display_button_text).map_err(|e| e.to_string())?;
+    let c_button_text =
+        CString::new(display_button_text).context("Failed to create CString for button text")?;
 
     let ptr =
         unsafe { ffi::open_dt_folder_picker(c_default_path.as_ptr(), c_button_text.as_ptr()) };
@@ -69,14 +70,18 @@ pub async fn pick_folder(
     unsafe { ffi::free_string_ptr(ptr) };
 
     // Parse JSON result
-    let result: PickFolderResult = serde_json::from_str(&json_result)
-        .map_err(|e| format!("Failed to parse picker result: {}", e))?;
+    let result: PickFolderResult =
+        serde_json::from_str(&json_result).context("Failed to parse picker result")?;
 
     Ok(Some(result))
 }
 
 #[command]
-pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String> {
+pub async fn resolve_bookmark(bookmark: String) -> crate::TAResult<ResolveResult> {
+    Ok(resolve_bookmark_impl(bookmark).await?)
+}
+
+pub async fn resolve_bookmark_impl(bookmark: String) -> Result<ResolveResult> {
     use std::ffi::{CStr, CString};
 
     if bookmark.starts_with("TESTBOOKMARK::") {
@@ -85,7 +90,7 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
         ));
     }
 
-    let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
+    let c_bookmark = CString::new(bookmark).context("Failed to create CString for bookmark")?;
 
     let ptr = unsafe { ffi::start_accessing_security_scoped_resource(c_bookmark.as_ptr()) };
 
@@ -99,8 +104,8 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
     unsafe { ffi::free_string_ptr(ptr) };
 
     // Parse JSON result from FFI
-    let ffi_result: FfiResolveResult = serde_json::from_str(&json_result)
-        .map_err(|e| format!("Failed to parse resolve result: {}", e))?;
+    let ffi_result: FfiResolveResult =
+        serde_json::from_str(&json_result).context("Failed to parse resolve result")?;
 
     match ffi_result.status.as_str() {
         "resolved" => {
@@ -131,10 +136,10 @@ pub async fn resolve_bookmark(bookmark: String) -> Result<ResolveResult, String>
 }
 
 #[command]
-pub async fn stop_accessing_bookmark(bookmark: String) -> Result<(), String> {
+pub async fn stop_accessing_bookmark(bookmark: String) -> crate::TAResult<()> {
     use std::ffi::CString;
 
-    let c_bookmark = CString::new(bookmark).map_err(|e| e.to_string())?;
+    let c_bookmark = CString::new(bookmark).context("Failed to create CString for bookmark")?;
 
     unsafe {
         ffi::stop_accessing_security_scoped_resource(c_bookmark.as_ptr());

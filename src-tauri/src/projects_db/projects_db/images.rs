@@ -166,7 +166,7 @@ impl ProjectsDb {
         Ok(image)
     }
 
-    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> TAResult<ClipExtra> {
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> anyhow::Result<ClipExtra> {
         let result: Option<(String, i64, i64)> = images::Entity::find_by_id(image_id)
             .join(JoinType::InnerJoin, images::Relation::Projects.def())
             .select_only()

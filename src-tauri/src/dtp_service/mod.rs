@@ -13,9 +13,7 @@ pub use data::{
     dtp_list_watch_folders, dtp_pick_watch_folder, dtp_remove_watch_folder,
     dtp_update_project_exclude, dtp_update_watch_folder,
 };
-pub use resource::{
-    dtp_get_resource_image
-};
+pub use resource::dtp_get_resource_image;
 
 pub mod export;
 

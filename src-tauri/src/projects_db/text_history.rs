@@ -104,7 +104,13 @@ impl TextHistory {
             .iter()
             .filter(|n| n.lineage == lineage && n.start_edits <= text_edits)
             .max_by_key(|n| n.start_edits)
-            .ok_or_else(|| anyhow::anyhow!("No node found for lineage {} and text_edits {}", lineage, text_edits))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No node found for lineage {} and text_edits {}",
+                    lineage,
+                    text_edits
+                )
+            })?;
 
         // 2. Determine starting point (Node or Cache).
         let mut prompts = PromptPair {

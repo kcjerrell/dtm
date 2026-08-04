@@ -1,9 +1,12 @@
-use crate::ffmpeg::{get_ffmpeg_path, get_ffprobe_path};
+use crate::{
+    ffmpeg::{get_ffmpeg_path, get_ffprobe_path},
+    IntoTAResult, TAResult,
+};
 use tauri::AppHandle;
 use tokio::process::Command;
 
 #[tauri::command]
-pub async fn get_video_metadata(app: AppHandle, path: String) -> Result<String, String> {
+pub async fn get_video_metadata(app: AppHandle, path: String) -> TAResult<String> {
     let ffmpeg_path = get_ffmpeg_path(&app).await?;
     let ffprobe_path = get_ffprobe_path(&app).await?;
 
@@ -37,7 +40,7 @@ pub async fn get_video_metadata(app: AppHandle, path: String) -> Result<String, 
         .args(args)
         .output()
         .await
-        .map_err(|e| e.to_string())?;
+        .into_ta_result()?;
 
     let stdout = match output.status.success() {
         true => String::from_utf8_lossy(&output.stdout).to_string(),
@@ -64,7 +67,7 @@ pub async fn get_video_metadata(app: AppHandle, path: String) -> Result<String, 
 }
 
 #[tauri::command]
-pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<Vec<u8>, String> {
+pub async fn get_video_thumbnail(app: AppHandle, path: String) -> TAResult<Vec<u8>> {
     let ffmpeg_path = get_ffmpeg_path(&app).await?;
 
     let output = Command::new(ffmpeg_path)
@@ -83,11 +86,11 @@ pub async fn get_video_thumbnail(app: AppHandle, path: String) -> Result<Vec<u8>
         ])
         .output()
         .await
-        .map_err(|e| e.to_string())?;
+        .into_ta_result()?;
 
     if output.status.success() {
         Ok(output.stdout)
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        Err(anyhow::anyhow!(String::from_utf8_lossy(&output.stderr).to_string()).into())
     }
 }

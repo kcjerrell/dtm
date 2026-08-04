@@ -1,4 +1,4 @@
-use crate::projects_db::{DtProjectRef, DtResourceHandle, filters::ListImagesFilter};
+use crate::projects_db::{filters::ListImagesFilter, DtProjectRef, DtResourceHandle};
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 

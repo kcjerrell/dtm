@@ -23,11 +23,11 @@ impl ProjectsDb {
         relative_path: &str,
     ) -> anyhow::Result<ProjectExtra> {
         let watch_folder_path = folder_cache::get_folder(watch_folder_id)
-            .ok_or_else(|| anyhow::anyhow!("Watch folder not found in cache".to_string()))?;
+            .ok_or_else(|| anyhow::anyhow!("Watch folder not found in cache"))?;
         let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
         let full_path_str = full_path
             .to_str()
-            .ok_or(anyhow::anyhow!("problem with path"))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid path"))?;
 
         let project_ref = DtProjectRef::Path(full_path_str.to_string());
         let dt_project = project_ref.get_project().await?;
@@ -180,11 +180,36 @@ impl ProjectsDb {
     pub async fn get_dt_project(
         &self,
         project_ref: crate::projects_db::DtProjectRef,
+    ) -> anyhow::Result<std::sync::Arc<DTProject>> {
+        match project_ref {
+            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
+            crate::projects_db::DtProjectRef::Id(id) => {
+                let project = self.get_project(id).await?;
+                Ok(DTProject::get(&project.full_path).await?)
+            }
+            crate::projects_db::DtProjectRef::Path(path) => Ok(DTProject::get(&path).await?),
+        }
+    }
+
+    /// Returns a persistent, standalone `DTProject` (bypassing the shared cache).
+    /// Use this for long-running operations like exports, where the caller needs
+    /// the connection to stay open for the duration of the work.
+    pub async fn open_dt_project(
+        &self,
+        project_ref: crate::projects_db::DtProjectRef,
     ) -> Result<std::sync::Arc<DTProject>, MixedError> {
-        project_ref
-            .get_project()
-            .await
-            .map_err(|e| MixedError::Other(e.to_string()))
+        match project_ref {
+            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
+            crate::projects_db::DtProjectRef::Id(id) => {
+                let project = self.get_project(id).await?;
+                Ok(std::sync::Arc::new(
+                    DTProject::open(&project.full_path).await?,
+                ))
+            }
+            crate::projects_db::DtProjectRef::Path(path) => {
+                Ok(std::sync::Arc::new(DTProject::open(&path).await?))
+            }
+        }
     }
 }
 

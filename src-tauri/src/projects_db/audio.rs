@@ -26,7 +26,7 @@ static AUDIO_CACHE: Lazy<Mutex<Option<CachedAudio>>> = Lazy::new(|| Mutex::new(N
 pub async fn audio_request(
     project_path: &str,
     resource: &DTPResource,
-) -> Result<Response<Vec<u8>>, String> {
+) -> anyhow::Result<Response<Vec<u8>>> {
     let audio = get_audio(project_path, resource).await?;
 
     if resource.range_start.is_none() && resource.range_end.is_none() {
@@ -56,7 +56,7 @@ pub async fn audio_request(
     }
 }
 
-pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc<Vec<u8>>, String> {
+pub async fn get_audio(project_path: &str, resource: &DTPResource) -> anyhow::Result<Arc<Vec<u8>>> {
     let key = format!("{}/{}", resource.project_id, resource.item_id);
 
     {
@@ -71,14 +71,14 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
     let item_id: i64 = resource
         .item_id
         .parse()
-        .map_err(|_| "Invalid item ID".to_string())?;
+        .map_err(|_| anyhow::anyhow!("Invalid item ID"))?;
 
     let res = DtResourceHandle::new(
         &DtProjectRef::Path(project_path.to_string()),
         &DtResourceRef::TensorHistoryNode(ThnRef::RowId(item_id), ThnResource::None),
     );
 
-    if let Some(audio) = res.get_audio().await.map_err(|e| e.to_string())? {
+    if let Some(audio) = res.get_audio().await? {
         let audio_arc = Arc::new(audio);
 
         {
@@ -91,11 +91,11 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> Result<Arc
 
         Ok(audio_arc)
     } else {
-        Err("Audio not found".to_string())
+        anyhow::bail!("Audio not found")
     }
 }
 
-pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, String> {
+pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> anyhow::Result<Vec<u8>> {
     let channels = tensor.n;
     let length = tensor.height as usize;
 
@@ -118,14 +118,14 @@ pub async fn decode_audio(tensor: TensorRaw, duration: f64) -> Result<Vec<u8>, S
         DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
         DTResource::Unknown(bytes) => bytes.clone(),
         DTResource::DTZipRef(_) => {
-            return Err("DTZipRef not yet supported in decode_audio".to_string())
+            anyhow::bail!("DTZipRef not yet supported in decode_audio")
         }
         DTResource::JpgInFbs(_) => {
-            return Err("JpgWithHeader not supported in decode_audio".to_string())
+            anyhow::bail!("JpgWithHeader not supported in decode_audio")
         }
     };
 
-    let decompressed = decompress_fzip(&data).unwrap();
+    let decompressed = decompress_fzip(&data)?;
     let left = &decompressed[0..length];
     let right = &decompressed[length..];
 

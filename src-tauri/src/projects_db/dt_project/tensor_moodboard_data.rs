@@ -57,7 +57,11 @@ impl DTProject {
         &self,
         filter: TmdFilter,
     ) -> Result<Vec<TensorMoodboardData>, sqlx::Error> {
-        if self.check_table(&DTProjectTable::TensorMoodboardData).await.is_err() {
+        if self
+            .check_table(&DTProjectTable::TensorMoodboardData)
+            .await
+            .is_err()
+        {
             return Ok(Vec::new());
         }
         let query = build_query(filter);
@@ -65,7 +69,11 @@ impl DTProject {
     }
 
     pub async fn list_tensor_moodboard_data_ids(&self) -> anyhow::Result<Vec<i64>> {
-        if self.check_table(&DTProjectTable::TensorMoodboardData).await.is_err() {
+        if self
+            .check_table(&DTProjectTable::TensorMoodboardData)
+            .await
+            .is_err()
+        {
             return Ok(Vec::new());
         }
         let query = "SELECT rowid FROM tensormoodboarddata";

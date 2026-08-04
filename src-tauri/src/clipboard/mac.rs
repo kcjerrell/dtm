@@ -1,18 +1,19 @@
+use anyhow::{anyhow, bail, Context, Result};
 use objc2::rc::Retained;
 use objc2_app_kit::{NSPasteboard, NSPasteboardNameDrag};
 use objc2_foundation::{NSArray, NSData, NSString};
 
-pub fn get_clipboard(pasteboard: Option<String>) -> Result<Retained<NSPasteboard>, String> {
+pub fn get_clipboard(pasteboard: Option<String>) -> Result<Retained<NSPasteboard>> {
     unsafe {
         match pasteboard.as_deref() {
             Some("drag") => Ok(NSPasteboard::pasteboardWithName(NSPasteboardNameDrag)),
             Some("general") | None => Ok(NSPasteboard::generalPasteboard()),
-            Some(other) => Err(format!("Unknown pasteboard name: {other}")),
+            Some(other) => bail!("Unknown pasteboard name: {other}"),
         }
     }
 }
 
-pub fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
+pub fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<()> {
     let pb = get_clipboard(None)?; // general pasteboard only
     let ns_type = NSString::from_str(&ty);
 
@@ -23,23 +24,23 @@ pub fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
     pb.clearContents();
     let ok = pb.setData_forType(Some(ns_data), &ns_type);
     if !ok {
-        return Err(format!("Failed to write binary data for {}", ty));
+        bail!("Failed to write binary data for {}", ty);
     }
 
     Ok(())
 }
 
-pub fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<Vec<u8>, String> {
+pub fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<Vec<u8>> {
     let pb = get_clipboard(pasteboard)?;
     let ns_type = NSString::from_str(&ty);
     let type_array = NSArray::from_slice(&[&*ns_type]);
 
-    if pb.availableTypeFromArray(&type_array).is_none() {
-        return Err(format!("Type {} not available", ty));
+    if pb.availableTypeFromArray(&*type_array).is_none() {
+        bail!("Type {} not available", ty);
     }
 
-    let data: Option<Retained<NSData>> = pb.dataForType(&ns_type);
-    let data = data.ok_or_else(|| format!("Failed to read binary data for {}", ty))?;
+    let data: Option<Retained<NSData>> = pb.dataForType(&*ns_type);
+    let data = data.ok_or_else(|| anyhow!("Failed to read binary data for {}", ty))?;
     let bytes = unsafe { data.as_bytes_unchecked() };
 
     Ok(bytes.to_vec())
@@ -48,7 +49,7 @@ pub fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<V
 pub fn read_clipboard_strings(
     types: Vec<String>,
     pasteboard: Option<String>,
-) -> Result<std::collections::HashMap<String, String>, String> {
+) -> Result<std::collections::HashMap<String, String>> {
     let pb = get_clipboard(pasteboard)?;
     let mut results = std::collections::HashMap::new();
 
@@ -70,12 +71,14 @@ pub fn read_clipboard_strings(
     Ok(results)
 }
 
-pub fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
+pub fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>> {
     // Select pasteboard based on argument
     let pb: Retained<NSPasteboard> = get_clipboard(pasteboard)?;
 
     // Get available types (NSArray<NSString>)
-    let available = pb.types().ok_or("Failed to get available types")?;
+    let available = pb
+        .types()
+        .ok_or_else(|| anyhow!("Failed to get available types"))?;
 
     // Convert NSArray<NSString> → Vec<String>
     let mut result = Vec::with_capacity(available.len());

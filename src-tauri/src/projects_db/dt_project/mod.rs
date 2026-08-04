@@ -235,7 +235,7 @@ impl DTProject {
             Err(e) => {
                 // Remove the empty OnceCell so the next caller retries fresh
                 PROJECT_CACHE.remove(path);
-                Err(e)
+                Err(e.into())
             }
         }
     }
@@ -489,8 +489,6 @@ impl DTProject {
         }
     }
 
-
-
     // KEEP
     async fn get_text_history(&self) -> Result<Arc<TextHistory>, Error> {
         let history = self
@@ -568,8 +566,6 @@ pub async fn get_last_row(path: &str) -> Result<(i64, i64), Error> {
     let rowid: i64 = row.get(0);
     Ok((rowid, rowid))
 }
-
-
 
 /*
 SELECT

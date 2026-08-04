@@ -179,7 +179,7 @@ impl WatchService {
         }
     }
 
-    pub async fn watch_volumes(&self) -> Result<(), String> {
+    pub async fn watch_volumes(&self) -> anyhow::Result<()> {
         let volume_watcher = self
             .volume_watcher
             .get_or_init(|| VolumeWatcher::new(self.scheduler.clone()));
@@ -187,13 +187,13 @@ impl WatchService {
         Ok(())
     }
 
-    pub async fn stop_watch_volumes(&self) -> Result<(), String> {
+    pub async fn stop_watch_volumes(&self) -> anyhow::Result<()> {
         let volume_watcher = self.volume_watcher.get().unwrap();
         volume_watcher.stop().await;
         Ok(())
     }
 
-    pub async fn watch_folder(&self, path: &str, recursive: bool) -> Result<(), String> {
+    pub async fn watch_folder(&self, path: &str, recursive: bool) -> anyhow::Result<()> {
         let watcher = self.watchers.entry(path.to_string()).or_insert_with(|| {
             FolderWatcher::new(path.to_string(), recursive, self.scheduler.clone())
         });
@@ -201,7 +201,7 @@ impl WatchService {
         Ok(())
     }
 
-    pub async fn stop_watch_folder(&self, path: &str) -> Result<(), String> {
+    pub async fn stop_watch_folder(&self, path: &str) -> anyhow::Result<()> {
         let watcher = match self.watchers.get(path) {
             Some(watcher) => watcher,
             None => return Ok(()),
@@ -211,7 +211,7 @@ impl WatchService {
     }
 
     #[allow(dead_code)]
-    pub async fn stop_all(&self) -> Result<(), String> {
+    pub async fn stop_all(&self) -> anyhow::Result<()> {
         Ok(())
     }
 }

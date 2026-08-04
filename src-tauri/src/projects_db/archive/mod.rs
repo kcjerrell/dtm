@@ -9,11 +9,11 @@ use crate::{
     TAResult,
 };
 
-mod copy;
-pub(crate) mod workers;
 pub(crate) mod cache;
+mod copy;
 pub(crate) mod dt_zip;
 pub mod plan;
+pub(crate) mod workers;
 
 #[tauri::command]
 pub async fn create_dt_archive(
@@ -22,11 +22,6 @@ pub async fn create_dt_archive(
     project_id: i64,
 ) -> TAResult<()> {
     let plan = create_plan(&dtp, project_id, true).await?;
-    copy_project(
-        app.inner().clone(),
-        DtProjectRef::Id(project_id),
-        plan,
-    )
-    .await?;
+    copy_project(app.inner().clone(), DtProjectRef::Id(project_id), plan).await?;
     Ok(())
 }

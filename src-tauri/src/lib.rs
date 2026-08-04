@@ -35,46 +35,52 @@ pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
 #[tauri::command]
-fn read_clipboard_types(pasteboard: Option<String>) -> Result<Vec<String>, String> {
-    clipboard::read_clipboard_types(pasteboard)
+fn read_clipboard_types(pasteboard: Option<String>) -> TAResult<Vec<String>> {
+    Ok(clipboard::read_clipboard_types(pasteboard).map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 fn read_clipboard_strings(
     types: Vec<String>,
     pasteboard: Option<String>,
-) -> Result<std::collections::HashMap<String, String>, String> {
-    clipboard::read_clipboard_strings(types, pasteboard)
+) -> TAResult<std::collections::HashMap<String, String>> {
+    Ok(clipboard::read_clipboard_strings(types, pasteboard).map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
-fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> Result<Vec<u8>, String> {
-    clipboard::read_clipboard_binary(ty, pasteboard)
+fn read_clipboard_binary(ty: String, pasteboard: Option<String>) -> TAResult<Vec<u8>> {
+    Ok(clipboard::read_clipboard_binary(ty, pasteboard).map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
-fn write_clipboard_binary(ty: String, data: Vec<u8>) -> Result<(), String> {
-    clipboard::write_clipboard_binary(ty, data)
+fn write_clipboard_binary(ty: String, data: Vec<u8>) -> TAResult<()> {
+    Ok(clipboard::write_clipboard_binary(ty, data).map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
-async fn ffmpeg_check(app: tauri::AppHandle) -> Result<bool, String> {
-    ffmpeg::check_ffmpeg(&app).await
+async fn ffmpeg_check(app: tauri::AppHandle) -> TAResult<bool> {
+    Ok(ffmpeg::check_ffmpeg(&app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
-async fn ffmpeg_download(app: tauri::AppHandle) -> Result<(), String> {
-    ffmpeg::download_ffmpeg(app).await
+async fn ffmpeg_download(app: tauri::AppHandle) -> TAResult<()> {
+    Ok(ffmpeg::download_ffmpeg(app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
-async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> Result<String, String> {
-    ffmpeg::call_ffmpeg(&app, args).await
+async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> TAResult<String> {
+    Ok(ffmpeg::call_ffmpeg(&app, args)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
-async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
-    let resp = ::reqwest::get(&url).await.map_err(|e| e.to_string())?;
+async fn fetch_image_file(url: String) -> TAResult<(Vec<u8>, String)> {
+    let resp = reqwest::get(&url).await.map_err(anyhow::Error::msg)?;
     let content_type = resp
         .headers()
         .get("Content-Type")
@@ -82,7 +88,7 @@ async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
         .to_str()
         .unwrap()
         .to_string();
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let bytes = resp.bytes().await.map_err(anyhow::Error::msg)?;
     Ok((bytes.to_vec(), content_type))
 }
 
@@ -105,7 +111,7 @@ async fn fetch_image_file(url: String) -> Result<(Vec<u8>, String), String> {
 // }
 
 #[tauri::command]
-fn show_dev_window(app: tauri::AppHandle) -> Result<(), String> {
+fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
     match app.get_webview_window("dev") {
         Some(dev_window) => {
             dev_window.close().unwrap();
@@ -410,7 +416,9 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, event| if let tauri::RunEvent::Exit = event {
-            bookmarks::cleanup_bookmarks();
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                bookmarks::cleanup_bookmarks();
+            }
         });
 }
