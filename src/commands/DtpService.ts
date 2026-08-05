@@ -156,7 +156,7 @@ async function getResourceImage(
         tensorId,
         size,
     }
-    return new Uint8Array(await invoke("dtp_get_lossless", opts))
+    return new Uint8Array(await invoke("dtp_get_resource_image", opts))
 }
 
 async function getResourceJson(

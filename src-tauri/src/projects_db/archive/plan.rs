@@ -166,6 +166,7 @@ pub async fn create_plan(
         .iter()
         .map(|(_, name)| name.clone())
         .collect();
+    let tensor_count = all_tensor_names.len();
 
     let mut extra_index = 0;
     for tensor_name in all_tensor_names.into_iter() {
@@ -207,7 +208,7 @@ pub async fn create_plan(
     println!(
         "Take {} tensors out of {}",
         main_tensor_ids.len(),
-        total_nodes
+        tensor_count
     );
     println!(
         "Take {} tensordata out of {}",

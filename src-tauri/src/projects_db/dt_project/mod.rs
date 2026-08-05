@@ -42,6 +42,8 @@ mod tensor_raw;
 pub use tensor_raw::*;
 mod types;
 pub use types::*;
+mod helpers;
+pub use helpers::*;
 
 mod mutate;
 
@@ -128,6 +130,7 @@ pub enum DTProjectTable {
     ThumbnailHistoryNode,
     ThumbnailHistoryHalfNode,
     Clip,
+    ClipAudio,
 }
 
 impl DTProjectTable {
@@ -142,6 +145,7 @@ impl DTProjectTable {
             DTProjectTable::ThumbnailHistoryNode => "thumbnailhistorynode",
             DTProjectTable::ThumbnailHistoryHalfNode => "thumbnailhistoryhalfnode",
             DTProjectTable::Clip => "clip",
+            DTProjectTable::ClipAudio => "clip__f14",
         }
     }
 }
@@ -156,6 +160,7 @@ pub struct DTProjectTableStatus {
     pub has_tensors: bool,
     pub has_thumbs: bool,
     pub has_clip: bool,
+    pub has_clip_audio: bool,
 }
 
 impl DTProject {
@@ -263,6 +268,7 @@ impl DTProject {
                         "texthistorynode" => status.has_text_history = true,
                         "textlineage" => status.has_text_lineage = true,
                         "clip" => status.has_clip = true,
+                        "clip__f14" => status.has_clip_audio = true,
                         "tensordata" => status.has_tensor_data = true,
                         _ => {}
                     }
@@ -286,6 +292,7 @@ impl DTProject {
             DTProjectTable::ThumbnailHistoryNode => status.has_thumbs,
             DTProjectTable::ThumbnailHistoryHalfNode => status.has_thumbs,
             DTProjectTable::Clip => status.has_clip,
+            DTProjectTable::ClipAudio => status.has_clip_audio,
             DTProjectTable::TensorData => status.has_tensor_data,
         };
 

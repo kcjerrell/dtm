@@ -13,7 +13,7 @@ mod ffmpeg;
 pub mod projects_db;
 pub(crate) mod util;
 use dtp_service::dtp_connect;
-use projects_db::create_dt_archive;
+use projects_db::{create_dt_archive, create_dt_archive_plan};
 mod migrations;
 mod vid;
 mod vid_export;
@@ -341,6 +341,7 @@ pub fn run() {
             dtp_service::resource::dtp_get_resource_image,
             dtp_service::resource::dtp_get_resource_json,
             create_dt_archive,
+            create_dt_archive_plan,
             size_check,
             // #[cfg(feature = "tensor_bench")]
             // projects_db::print_tensor_benchmarks,

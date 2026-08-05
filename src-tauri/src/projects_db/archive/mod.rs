@@ -3,7 +3,10 @@ use tauri::State;
 use crate::{
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
-        archive::{copy::copy_project, plan::create_plan},
+        archive::{
+            copy::copy_project,
+            plan::{create_plan, ArchivePlan},
+        },
         DtProjectRef,
     },
     TAResult,
@@ -24,4 +27,13 @@ pub async fn create_dt_archive(
     let plan = create_plan(&dtp, project_id, true).await?;
     copy_project(app.inner().clone(), DtProjectRef::Id(project_id), plan).await?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn create_dt_archive_plan(
+    dtp: State<'_, DTPService>,
+    project_id: i64,
+) -> TAResult<ArchivePlan> {
+    let plan = create_plan(&dtp, project_id, true).await?;
+    Ok(plan)
 }

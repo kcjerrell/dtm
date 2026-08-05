@@ -87,10 +87,14 @@ impl<'r> FromRow<'r, SqliteRow> for Clip {
 }
 
 pub enum ClipFilter {
+    /// Retrieves all clips in the project
     None,
     /// Retrieves a clip by its id
     ClipId(i64),
+    /// Retrieves clips by their ids
     ClipIds(Vec<i64>),
+    /// Retrieves a clip for an audio id
+    AudioId(i64),
 }
 
 impl DTProject {
@@ -113,6 +117,11 @@ impl DTProject {
                     .collect::<Vec<_>>()
                     .join(",");
                 query_str.push_str(&format!(" WHERE __pk0 IN ({})", ids_str));
+            }
+            ClipFilter::AudioId(audio_id) => {
+                self.check_table(&DTProjectTable::ClipAudio).await?;
+                query_str.push_str(&" JOIN clip__f14 on clip.rowid = clip__f14.rowid");
+                query_str.push_str(&format!(" WHERE audio_id = {}", audio_id));
             }
         }
 

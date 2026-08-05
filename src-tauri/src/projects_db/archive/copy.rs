@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf};
+use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf, time::Instant};
 
 use anyhow::Result;
 
@@ -30,6 +30,8 @@ pub async fn copy_project(
     project_ref: DtProjectRef,
     plan: ArchivePlan,
 ) -> Result<()> {
+    let start = Instant::now();
+    let total_items = plan.primary_tensors.len() + plan.tensors_extra.len();
     let dtp = project_ref.open_project().await?;
     let project_name = PathBuf::from(&dtp.path)
         .file_stem()
@@ -98,7 +100,7 @@ pub async fn copy_project(
         "clip",
         CLIP_OFFSETS,
         &plan.clip_ids,
-        "__pk0",
+        "rowid",
         &mut dest_conn,
     )
     .await?;
@@ -143,7 +145,13 @@ pub async fn copy_project(
     }
     fs::remove_dir_all(temp_dir).await?;
 
-    println!("finished!");
+    let duration = start.elapsed();
+    println!(
+        "finished in {:?} for {:?} items ({:.1}ms per item)",
+        duration,
+        total_items,
+        0.001 * duration.as_micros() as f64 / total_items as f64
+    );
 
     Ok(())
 }

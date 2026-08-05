@@ -35,7 +35,7 @@ impl DTPService {
             return anyhow::anyhow!("project_id or project_path is required").into_ta_result();
         };
 
-        let dt_project = self.get_db().await?.get_dt_project(project_ref).await?;
+        let dt_project = project_ref.get_project().await?;
 
         let filter = if let Some(r) = rowid {
             Some(ThnFilter::Rowid(r))

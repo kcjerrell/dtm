@@ -12,12 +12,9 @@ use tokio::{
 };
 
 use crate::{
-    projects_db::{
-        archive::copy::CopyTensorItem, dt_project::TensorHistoryNode, write_jpeg_with_metadata,
-        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
-    },
-    tensor::TensorKind,
-    ResourceHandle, Tensor,
+    ResourceHandle, Tensor, projects_db::{
+        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource, archive::copy::CopyTensorItem, dt_project::{Clip, ClipFilter, TensorHistoryNode, split_tensor_name}, write_jpeg_with_metadata,
+    }, tensor::TensorKind, util::update_gate::PrintUpdate,
 };
 
 use anyhow::Result;
@@ -48,10 +45,12 @@ pub async fn copy_tensors(
         next_rx = Some(output_rx);
     }
 
+    let mut updater = PrintUpdate::new(primary.len() + extra.len(), 20, "Processed", "items");
     let mut collect_rx = next_rx.unwrap();
     let collect: JoinHandle<Result<Vec<CopyTensorItem>>> = tokio::spawn(async move {
         let mut errored_copies: Vec<CopyTensorItem> = Vec::new();
         while let Some(mut item) = collect_rx.recv().await {
+            updater.update(1);
             if item.result.is_err() {
                 item.data = None;
                 item.preview = None;
@@ -143,6 +142,18 @@ impl ConvertWorker {
             None
         };
 
+        let clip = if item.name.starts_with("audio") {
+            let (_, id) = split_tensor_name(&item.name)?;
+            let clips = project_ref
+                .get_project()
+                .await?
+                .get_clips(ClipFilter::AudioId(id))
+                .await?;
+            clips.into_iter().next()
+        } else {
+            None
+        };
+
         if item.primary {
             if let Some(preview_id) = item.preview_id {
                 if let Some(node) = &node {
@@ -163,7 +174,7 @@ impl ConvertWorker {
                             Self::get_image(lossless, node, tensor).ok()
                         }
                         TensorKind::Pose => Self::get_pose(tensor, size).ok(),
-                        TensorKind::Audio => None,
+                        TensorKind::Audio => Self::get_audio(tensor, clip).ok(),
                         TensorKind::Unknown => None,
                     }
                 } else {
@@ -231,6 +242,10 @@ impl ConvertWorker {
             .get_pose(width, height)?
             .map(|json| (json.into_bytes(), "json".to_string()))
             .ok_or_else(|| anyhow::anyhow!("Tensor does not contain pose data"))
+    }
+
+    fn get_audio(tensor: Tensor, clip: Option<Clip>) -> anyhow::Result<(Vec<u8>, String)> {
+        anyhow::bail!("Audio conversion not implemented");
     }
 }
 

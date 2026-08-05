@@ -1,8 +1,9 @@
 use anyhow::Result;
-use std::convert::TryInto;
 use std::sync::Arc;
+use std::{convert::TryInto, time::Instant};
 use tokio::sync::OnceCell;
 
+use crate::util::Instants;
 use crate::{
     projects_db::{
         decode_audio,
@@ -46,25 +47,35 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_image(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
+        let instants = Instants::new();
         let dtp = self.get_project().await?;
+        println!("got project: {}", instants.record());
         let name = self.get_tensor_name(Some(&dtp)).await?;
+        println!("got name: {}", instants.record());
         if let Some(name) = name {
             if let Ok(tensor_raw) = dtp.get_tensor_raw(&name).await {
+                println!("got tensor_raw: {}", instants.record());
                 match &tensor_raw.resource {
                     DTResource::CompressedTensor(_) => {
                         let node = self.get_history_node().await?;
+                        println!("got node: {}", instants.record());
                         let tensor: Tensor = Tensor::try_from(tensor_raw)?;
-                        return tensor.to_png(node, size);
+                        println!("got tensor: {}", instants.record());
+                        let png = tensor.to_png(node, size);
+                        println!("got png: {}", instants.record());
+                        return png;
                     }
                     DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
                     DTResource::DTZipRef(dtzip_ref) => {
-                        return Ok(Some(
-                            dtp.dt_zip
-                                .as_ref()
-                                .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
-                                .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
-                                .await?,
-                        ))
+                        println!("got dtzip_ref: {}", instants.record());
+                        let data = dtp
+                            .dt_zip
+                            .as_ref()
+                            .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
+                            .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                            .await?;
+                        println!("got data: {}", instants.record());
+                        return Ok(Some(data));
                     }
                     DTResource::Unknown(_items) => return Ok(None),
                 }

@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+#[derive(Debug, Clone)]
 pub struct UpdateGate {
     pub total: usize,
     pub current: usize,
@@ -21,7 +22,11 @@ impl UpdateGate {
     }
 
     fn update_inner(&mut self, count: usize) -> bool {
-        self.current += count;
+        if self.current >= self.total {
+            return false;
+        }
+
+        self.current = self.total.min(self.current + count);
 
         if self.current <= self.next_update {
             return false;
@@ -62,5 +67,59 @@ impl UpdateGateExt for Arc<Mutex<UpdateGate>> {
 
     fn prog(&self) -> String {
         self.lock().unwrap().prog()
+    }
+}
+
+pub struct UpdateData {
+    pub step: usize,
+    pub total_steps: usize,
+    pub progress: f64,
+    pub percent: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrintUpdate {
+    pub gate: Arc<Mutex<UpdateGate>>,
+    message_pre: String,
+    message_post: String,
+}
+
+impl PrintUpdate {
+    pub fn new(total: usize, updates: usize, message_pre: &str, message_post: &str) -> Arc<Self> {
+        Arc::new(Self {
+            gate: UpdateGate::new(total, updates),
+            message_pre: message_pre.to_string(),
+            message_post: message_post.to_string(),
+        })
+    }
+
+    pub fn update(&self, count: usize) -> bool {
+        if self.gate.update(count) {
+            println!(
+                "{} {} / {} ({})",
+                self.message_pre,
+                self.gate.current(),
+                self.gate.total(),
+                self.gate.prog()
+            );
+            true
+        } else {
+            false
+        }
+    }
+}
+
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_update_gate() {
+        let updater = PrintUpdate::new(100, 5, "Test", "");
+
+        for i in 0..100 {
+            updater.update(1);
+        }
     }
 }

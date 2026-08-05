@@ -7,9 +7,9 @@
 
 pub mod archive;
 pub mod dt_project;
-pub use archive::create_dt_archive;
 #[cfg(feature = "tensor_bench")]
 pub use archive::print_tensor_benchmarks;
+pub use archive::{create_dt_archive, create_dt_archive_plan};
 pub use dt_project::{close_folder, get_last_row, DTProject};
 mod projects_db;
 pub use projects_db::*;
@@ -23,11 +23,7 @@ pub use dtm_dtproject::{extract_jpeg_slice, DTPResource, DtmProtocol};
 mod tensor_history_mod;
 
 mod tensors;
-pub use tensors::{
-    build_description, decode_pose, decode_tensor, decompress_fzip, inflate_deflate,
-    scribble_mask_to_png, write_jpeg_with_metadata, write_png_with_usercomment,
-    DecodeTensorOptions,
-};
+pub use tensors::*;
 
 mod audio;
 pub use audio::{decode_audio, get_audio};
