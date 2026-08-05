@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
 
-use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
+use crate::dt_project::data::TensorHistoryNodeData;
 /// represents the draw things metadata as it is stored in image metadata.
 /// contains mostly data from TensorHistoryNode
 #[derive(Debug, Serialize, Deserialize)]

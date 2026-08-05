@@ -1,10 +1,8 @@
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 
-use crate::projects_db::{
-    dt_project::{fbs::root_as_tensor_moodboard_data, DTProjectTable},
-    DTProject,
-};
+use crate::dt_project::{fbs::root_as_tensor_moodboard_data, DTProjectTable};
+use crate::dt_project::DTProject;
 
 pub enum TmdFilter {
     None,

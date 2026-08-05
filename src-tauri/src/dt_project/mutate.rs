@@ -1,6 +1,8 @@
 use sqlx::query;
 
-impl super::DTProject {
+use crate::dt_project::DTProject;
+
+impl DTProject {
     pub async fn set_tensor_data(&self, values: Vec<(String, Vec<u8>)>) -> anyhow::Result<()> {
         if !self.allow_mutate {
             anyhow::bail!("Cannot set tensor data on a read-only project - must open project with DTProject::open_mut()");

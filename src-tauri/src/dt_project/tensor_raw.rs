@@ -1,6 +1,6 @@
 use sqlx::{prelude::*, sqlite::SqliteRow};
 
-use crate::projects_db::dt_project::DTResource;
+use crate::dt_project::DTResource;
 
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct TensorRaw {

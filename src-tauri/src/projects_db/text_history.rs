@@ -1,4 +1,4 @@
-use super::dt_project::fbs;
+use crate::dt_project::fbs;
 use crate::projects_db::dtos::text::{TextHistoryNode, TextModification, TextRange, TextType};
 use serde::Serialize;
 use std::{collections::HashMap, sync::Mutex};

@@ -3,9 +3,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use crate::{
-    dtp_service::DTPService,
-    projects_db::{dt_project::ThnData, DtProjectRef},
-    IntoTAResult, TAResult,
+    dt_project::ThnData, dtp_service::DTPService, projects_db::DtProjectRef, IntoTAResult, TAResult,
 };
 
 #[derive(Debug, Serialize)]

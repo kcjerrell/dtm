@@ -2,7 +2,8 @@ use anyhow::Result;
 use serde::Serialize;
 use strum::EnumIs;
 
-use crate::projects_db::{archive::dt_zip::DTZip, extract_jpeg_slice};
+use crate::projects_db::archive::dt_zip::DTZip;
+use crate::projects_db::extract_jpeg_slice;
 
 #[derive(Debug, Serialize, Clone, EnumIs)]
 pub enum DTResource {

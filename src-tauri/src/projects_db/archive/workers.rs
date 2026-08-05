@@ -12,9 +12,14 @@ use tokio::{
 };
 
 use crate::{
-    ResourceHandle, Tensor, projects_db::{
-        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource, archive::copy::CopyTensorItem, dt_project::{Clip, ClipFilter, TensorHistoryNode, split_tensor_name}, write_jpeg_with_metadata,
-    }, tensor::TensorKind, util::update_gate::PrintUpdate,
+    dt_project::{split_tensor_name, Clip, ClipFilter, TensorHistoryNode},
+    projects_db::{
+        archive::copy::CopyTensorItem, write_jpeg_with_metadata, DtProjectRef, DtResourceHandle,
+        DtResourceRef, ThnRef, ThnResource,
+    },
+    tensor::TensorKind,
+    util::update_gate::PrintUpdate,
+    ResourceHandle, Tensor,
 };
 
 use anyhow::Result;

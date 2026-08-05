@@ -7,11 +7,10 @@ use once_cell::sync::Lazy;
 use tauri::http::{Response, StatusCode};
 
 use crate::{
+    dt_project::{DTResource, TensorRaw},
     projects_db::{
-        dt_project::{DTResource, TensorRaw},
-        dtm_dtproject::DTPResource,
-        tensors::decompress_fzip,
-        DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
+        dtm_dtproject::DTPResource, tensors::decompress_fzip, DtProjectRef, DtResourceHandle,
+        DtResourceRef, ThnRef, ThnResource,
     },
     ResourceHandle,
 };

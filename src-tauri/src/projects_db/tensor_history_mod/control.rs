@@ -1,4 +1,4 @@
-use crate::projects_db::dt_project::fbs::{Control as ControlFb, ControlInputType, ControlMode};
+use crate::dt_project::fbs::{Control as ControlFb, ControlInputType, ControlMode};
 use flatbuffers::{ForwardsUOffset, Vector};
 use serde::ser::SerializeStruct;
 

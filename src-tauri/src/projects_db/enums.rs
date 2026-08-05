@@ -3,9 +3,9 @@ use std::sync::Arc;
 use serde::Serialize;
 use strum::EnumIs;
 
+use crate::dt_project::{TdFilter, ThnFilter};
 use crate::projects_db::{
     archive::cache::DTZipCache,
-    dt_project::{TdFilter, ThnFilter},
     DTProject, DtResourceHandle, ProjectsDb,
 };
 

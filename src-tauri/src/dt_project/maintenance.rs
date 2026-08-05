@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use sqlx::{sqlite::SqliteRow, Error, QueryBuilder, Row};
 
-use crate::projects_db::{dt_project::fbs::root_as_tensor_history_node, DTProject};
+use crate::dt_project::fbs::root_as_tensor_history_node;
+use crate::dt_project::DTProject;
 
 #[async_trait]
 pub trait Maintenance {

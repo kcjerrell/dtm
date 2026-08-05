@@ -1,10 +1,8 @@
-use crate::projects_db::{
-    dt_project::{
-        fbs::{root_as_clip, root_as_tensor_history_node},
-        DTProjectTable,
-    },
-    DTProject,
+use crate::dt_project::{
+    fbs::{root_as_clip, root_as_tensor_history_node},
+    DTProjectTable,
 };
+use crate::dt_project::DTProject;
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 

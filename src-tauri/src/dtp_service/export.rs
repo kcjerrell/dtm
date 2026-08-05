@@ -11,10 +11,10 @@ use tokio::sync::Semaphore;
 
 use crate::IntoTAResult;
 use crate::{
+    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
         decode_tensor,
-        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
         dtos::image::{ImageExtra, ListImagesOptions},
         write_jpeg_with_metadata, DecodeTensorOptions, DtProjectRef, DtResourceHandle,
         DtResourceRef,

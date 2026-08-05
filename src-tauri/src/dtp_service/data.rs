@@ -7,8 +7,8 @@ use crate::{
         jobs::{SyncJob, UpdateProjectJob},
         AppHandleWrapper, DTPService,
     },
+    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
     projects_db::{
-        dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
         dtos::{
             image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
             watch_folder::WatchFolderDTO,

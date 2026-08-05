@@ -11,6 +11,7 @@ pub mod bookmarks;
 pub mod dtp_service;
 mod ffmpeg;
 pub mod projects_db;
+pub mod dt_project;
 pub(crate) mod util;
 use dtp_service::dtp_connect;
 use projects_db::{create_dt_archive, create_dt_archive_plan};

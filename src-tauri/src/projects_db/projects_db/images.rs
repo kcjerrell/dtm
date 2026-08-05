@@ -1,6 +1,6 @@
 use crate::{
+    dt_project::ClipExtra,
     projects_db::{
-        dt_project::ClipExtra,
         dtos::image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
         folder_cache, search, DtProjectRef,
     },

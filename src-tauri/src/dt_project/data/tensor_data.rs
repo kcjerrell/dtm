@@ -1,5 +1,4 @@
-use crate::projects_db::dt_project::fbs::root_as_tensor_data as root_as_tensor_data_fb;
-use crate::projects_db::tensor_history_tensor_data::TensorHistoryTensorData;
+use crate::dt_project::fbs::root_as_tensor_data as root_as_tensor_data_fb;
 use serde::Serialize;
 
 #[derive(Serialize, Debug, Clone)]
@@ -50,26 +49,26 @@ impl TryFrom<&[u8]> for TensorData {
     }
 }
 
-impl From<TensorHistoryTensorData> for TensorData {
-    fn from(value: TensorHistoryTensorData) -> Self {
-        let data = root_as_tensor_data_fb(&value.tensor_data).unwrap();
-        Self {
-            rowid: value.node_id,
-            lineage: value.lineage,
-            logical_time: value.logical_time,
-            index: value.td_index,
-            x: data.x(),
-            y: data.y(),
-            width: data.width(),
-            height: data.height(),
-            scale_factor_by_120: data.scale_factor_by_120(),
-            tensor_id: data.tensor_id(),
-            mask_id: data.mask_id(),
-            depth_map_id: data.depth_map_id(),
-            scribble_id: data.scribble_id(),
-            pose_id: data.pose_id(),
-            color_palette_id: data.color_palette_id(),
-            custom_id: data.custom_id(),
-        }
-    }
-}
+// impl From<TensorHistoryTensorData> for TensorData {
+//     fn from(value: TensorHistoryTensorData) -> Self {
+//         let data = root_as_tensor_data_fb(&value.tensor_data).unwrap();
+//         Self {
+//             rowid: value.node_id,
+//             lineage: value.lineage,
+//             logical_time: value.logical_time,
+//             index: value.td_index,
+//             x: data.x(),
+//             y: data.y(),
+//             width: data.width(),
+//             height: data.height(),
+//             scale_factor_by_120: data.scale_factor_by_120(),
+//             tensor_id: data.tensor_id(),
+//             mask_id: data.mask_id(),
+//             depth_map_id: data.depth_map_id(),
+//             scribble_id: data.scribble_id(),
+//             pose_id: data.pose_id(),
+//             color_palette_id: data.color_palette_id(),
+//             custom_id: data.custom_id(),
+//         }
+//     }
+// }

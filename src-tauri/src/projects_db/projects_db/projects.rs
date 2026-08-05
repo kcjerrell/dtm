@@ -1,4 +1,5 @@
-use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DTProject, DtProjectRef};
+use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DtProjectRef};
+use crate::dt_project::DTProject;
 use dashmap::DashMap;
 use entity::{
     images::{self, Entity as Images},

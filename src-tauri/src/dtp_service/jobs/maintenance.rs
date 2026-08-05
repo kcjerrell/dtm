@@ -10,8 +10,8 @@ use sea_query::{Expr, Query};
 
 use crate::{
     dtp_service::jobs::JobContext,
+    dt_project::{ClipFilter, maintenance::Maintenance},
     projects_db::{
-        dt_project::{ClipFilter, Maintenance},
         dtos::watch_folder::WatchFolderDTO,
         DtProjectRef,
     },

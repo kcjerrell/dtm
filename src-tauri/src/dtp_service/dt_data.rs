@@ -3,11 +3,9 @@
 use dtm_macros::dtp_commands;
 
 use crate::{
+    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
     dtp_service::DTPService,
-    projects_db::{
-        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
-        DtProjectRef,
-    },
+    projects_db::DtProjectRef,
     IntoTAResult, TAResult,
 };
 

@@ -2,11 +2,8 @@ use anyhow::{anyhow, Result};
 use serde_json::json;
 use strum::EnumIs;
 
-use crate::projects_db::{
-    decompress_fzip,
-    dt_project::{DTResource, TensorHistoryNode, TensorRaw},
-    inflate_deflate, write_png_with_usercomment,
-};
+use crate::dt_project::{DTResource, TensorHistoryNode, TensorRaw, };
+use crate::projects_db::{decompress_fzip, inflate_deflate, write_png_with_usercomment};
 
 /// A decompressed Draw Things tensor, as stored in a Draw Things project.
 /// Includes images, audio, pose, and binary images/masks.
