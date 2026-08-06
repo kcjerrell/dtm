@@ -119,7 +119,7 @@ function Empty() {
                 <Button
                     onClick={() => {
                         const v = inputRef.current?.value
-                        if (v) {
+                        if (v && inputRef.current) {
                             store.features.push(v)
                             inputRef.current.value = ""
                         }
