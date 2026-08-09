@@ -2,12 +2,12 @@
 
 use crate::{
     bookmarks::{self, PickFolderResult},
+    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnData, ThnFilter},
     dtp_service::{
         events::DTPEvent,
         jobs::{SyncJob, UpdateProjectJob},
         AppHandleWrapper, DTPService,
     },
-    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
     projects_db::{
         dtos::{
             image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
@@ -16,7 +16,7 @@ use crate::{
         filters::ListImagesFilter,
         folder_cache, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
     },
-    TAResult,
+    IntoTAResult, TAResult,
 };
 use dtm_macros::dtp_commands;
 
@@ -312,13 +312,25 @@ impl DTPService {
     #[dtp_command]
     pub async fn find_predecessor(
         &self,
-        _project_id: i64,
-        _row_id: i64,
-        _lineage: i64,
-        _logical_time: i64,
+        project_id: i64,
+        row_id: i64,
+        lineage: i64,
+        logical_time: i64,
     ) -> crate::TAResult<Vec<TensorHistoryNode>> {
-        // Pending rework — returns empty until find_predecessor_candidates is reimplemented.
-        Ok(vec![])
+        let project_ref = DtProjectRef::Id(project_id);
+        let dtp = project_ref.get_project().await?;
+        let nodes = dtp
+            .find_predecessor(row_id, lineage, logical_time)
+            .await
+            .into_ta_result()?;
+        // .get_tensor_history_nodes(
+        //     Some(ThnFilter::Predecessor(row_id, lineage, logical_time)),
+        //     Some(ThnData::tensordata()),
+        // )
+        // .await
+        // .into_ta_result()?;
+
+        Ok(nodes)
     }
 
     // Helper method to get a DTProject instance

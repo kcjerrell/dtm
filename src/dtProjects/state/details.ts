@@ -1,5 +1,5 @@
 import QuickLRU from "quick-lru"
-import type { ImageExtra } from "@/commands"
+import { DtpService, type ImageExtra } from "@/commands"
 import DTProject from "@/commands/DTProject"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import type ProjectsController from "./projects"
@@ -27,8 +27,14 @@ class DetailsService extends DTPStateService {
         return node
     }
 
-    async getPredecessorCandidates(_item: ImageExtra) {
-        return []
+    async getPredecessorCandidates(item?: TensorHistoryNode) {
+        if (!item) return []
+        return await DtpService.findPredecessor(
+            item.projectId,
+            item.rowid,
+            item.lineage,
+            item.logicalTime,
+        )
     }
 }
 

@@ -13,27 +13,30 @@ use crate::dt_project::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
         TensorHistoryNode as TensorHistoryNodeData,
     },
-    tensor_data::TensorData,
-    Clip, ClipFilter, DTProjectTable, TdFilter, TensorMoodboardData, TmdFilter,
+    Clip, ClipFilter, DTProject, DTProjectTable, TdFilter, TensorData, TensorMoodboardData,
+    TmdFilter,
 };
-use crate::dt_project::DTProject;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ThnFilter {
-    // return all history nodes
+    /// return all history nodes
     None,
-    // return history node with rowid
+    /// return history node with rowid
     Rowid(i64),
-    // return all history nodes with lineage
+    /// return all history nodes with lineage
     Lineage(i64),
-    // return all history nodes with logical time
+    /// return all history nodes with logical time
     LogicalTime(i64),
-    // return history node with lineage and logical time
+    /// return history node with lineage and logical time
     LineageAndLogicalTime(i64, i64),
-    // return a slice of all of history nodes (ordered by row id)
+    /// return a slice of all of history nodes (ordered by row id)
     SkipAndTake(i64, i64),
-    // return all history nodes with rowid in range
+    /// return all history nodes with rowid in range
     Range(i64, i64),
+    /// Returns nodes that may be the input image to the node with the given rowid, lineage, and logical time
+    Predecessor(i64, i64, i64),
+    /// Return nodes with the given rowids
+    Rowids(Vec<i64>),
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -279,8 +282,15 @@ impl DTProject {
             });
 
         // build and run the thn query
-        let query = build_query(filter);
-        let rows: Vec<ThnRow> = query_as(query).fetch_all(&*self.pool).await?;
+        let query = build_query(&filter);
+        println!("{:?}", &query.0);
+        let mut rows: Vec<ThnRow> = query_as(query).fetch_all(&*self.pool).await?;
+
+        if let Some(ThnFilter::Predecessor(_, lineage, _)) = filter {
+            if rows.iter().any(|r| r.lineage == lineage) {
+                rows.retain(|r| r.lineage == lineage);
+            }
+        }
 
         // make a list to hold clip ids (if needed)
         let mut clip_ids: Vec<i64> = Vec::with_capacity(if data.is_some_and(|d| d.clip) {
@@ -407,6 +417,27 @@ impl DTProject {
         Ok(items)
     }
 
+    pub async fn find_predecessor(
+        &self,
+        rowid: i64,
+        lineage: i64,
+        logical_time: i64,
+    ) -> anyhow::Result<Vec<TensorHistoryNode>> {
+        let history = self.get_history().await?;
+        let node = history.node(&rowid);
+        let parents = match &node.parent {
+            super::Parent::Found(parent_id) => &vec![*parent_id],
+            super::Parent::Ambiguous(possible_ids) => possible_ids,
+            _ => &vec![],
+        };
+        Ok(self
+            .get_tensor_history_nodes(
+                Some(ThnFilter::Rowids(parents.to_vec())),
+                Some(ThnData::tensordata()),
+            )
+            .await?)
+    }
+
     pub fn batch_tensor_history_nodes(&self, data: ThnData) -> NodesBatcher<'_> {
         NodesBatcher::new(self, data)
     }
@@ -448,7 +479,7 @@ fn checked_flatbuffer(data: &Arc<[u8]>) -> Option<Arc<[u8]>> {
     }
 }
 
-fn build_query(filter: Option<ThnFilter>) -> AssertSqlSafe<String> {
+fn build_query(filter: &Option<ThnFilter>) -> AssertSqlSafe<String> {
     let select = "SELECT * FROM tensorhistorynode thn";
 
     let mut limit_str = "".to_string();
@@ -469,6 +500,16 @@ fn build_query(filter: Option<ThnFilter>) -> AssertSqlSafe<String> {
             }
             ThnFilter::Range(min, max) => {
                 format!("WHERE thn.rowid >= {} AND thn.rowid < {}", min, max)
+            }
+            ThnFilter::Predecessor(rowid, _lineage, logical_time) => {
+                format!(
+                    "WHERE thn.rowid < {} AND thn.__pk1 == {}",
+                    rowid,
+                    logical_time - 1
+                )
+            }
+            ThnFilter::Rowids(rowids) => {
+                format!("WHERE thn.rowid IN ({})", rowids.iter().join(", "))
             }
         }
     } else {

@@ -9,6 +9,7 @@ mod cache;
 mod clip;
 mod core;
 mod helpers;
+mod history_graph;
 mod mutate;
 mod resource;
 mod tensor_data;
@@ -26,6 +27,7 @@ pub use core::{get_last_row, DTProject, DTProjectTable, DTProjectTableStatus};
 // Re-exports from submodules
 pub use clip::*;
 pub use helpers::*;
+pub use history_graph::*;
 pub use resource::*;
 pub use tensor_data::*;
 pub use tensor_history_node::*;

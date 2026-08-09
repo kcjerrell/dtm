@@ -25,7 +25,7 @@ export type UIControllerState = {
         subItem?: SubItem | CanvasStack
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
-        candidates?: TensorHistoryExtra[]
+        candidates?: TensorHistoryNode[]
         sourceRect?: DOMRect | null
         width?: number
         height?: number
@@ -167,7 +167,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 
         const candidates = await this.container
             .getService("details")
-            ?.getPredecessorCandidates(item)
+            ?.getPredecessorCandidates(itemDetails)
         detailsOverlay.candidates = candidates ?? []
 
         this.raise("onItemChanged", { item })

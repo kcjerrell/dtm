@@ -1,8 +1,7 @@
 use crate::projects_db::{
     archive::dt_zip::DTZip,
     dtos::{project::DTProjectInfo, text::TextHistoryNode},
-    PromptPair,
-    TextHistory,
+    PromptPair, TextHistory,
 };
 use anyhow::anyhow;
 use serde::Serialize;
@@ -14,6 +13,7 @@ use sqlx::{
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
+use super::history_graph::HistoryGraph;
 use super::resource::DTResource;
 use super::tensor_raw::TensorRaw;
 use super::types::TensorSize;
@@ -23,6 +23,7 @@ pub struct DTProject {
     pub pool: Arc<SqlitePool>,
     pub path: String,
     text_history: OnceCell<Arc<TextHistory>>,
+    history: OnceCell<Arc<HistoryGraph>>,
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub is_shared: bool,
     pub allow_mutate: bool,
@@ -87,6 +88,7 @@ impl DTProject {
             path: db_path.to_string(),
             tables: Arc::new(OnceCell::new()),
             text_history: OnceCell::new(),
+            history: OnceCell::new(),
             is_shared,
             allow_mutate: false,
             dt_zip,
@@ -412,6 +414,24 @@ impl DTProject {
                 .await?;
 
         Ok(result)
+    }
+
+    pub(crate) async fn get_history(&self) -> anyhow::Result<Arc<HistoryGraph>> {
+        let history = self
+            .history
+            .get_or_try_init(|| async {
+                let nodes = self.get_node_lineages().await?;
+
+                let mut graph = HistoryGraph::new();
+                graph.add_nodes(nodes);
+                graph.resolve_parents();
+
+                Ok::<Arc<HistoryGraph>, anyhow::Error>(Arc::new(graph))
+            })
+            .await?
+            .clone();
+
+        Ok(history)
     }
 }
 
