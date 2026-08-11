@@ -54,6 +54,14 @@ export class TensorHistoryNode {
         return this._node.negative_prompt
     }
 
+    /** will be undefined if it can't be determined */
+    get usedImageInput(): boolean | undefined {
+        const encodeTiming =
+            this.data.profile_data?.timings.find((t) => t.name === "image_encoded")?.durations ?? []
+
+            return encodeTiming.some(t => t > 0.01)
+    }
+
     /** returns the LAST tensor_history name - this corresponds with the generated image */
     get tensorHistoryName(): string | undefined {
         if (this._node.data.tensor_id > 0) return `tensor_history_${this._node.data.tensor_id}`
@@ -118,6 +126,7 @@ export class TensorHistoryNode {
         return undefined
     }
 
+    /** returns the pose tensor name */
     get poseName(): string | undefined {
         if (this._node.data.pose_id > 0) return `pose_${this._node.data.pose_id}`
         if (this.tensordata?.length) {
@@ -129,6 +138,7 @@ export class TensorHistoryNode {
         return undefined
     }
 
+    /** returns the scribble tensor name */
     get scribbleName(): string | undefined {
         if (this._node.data.scribble_id > 0) return `scribble_${this._node.data.scribble_id}`
         if (this.tensordata?.length) {
@@ -152,6 +162,7 @@ export class TensorHistoryNode {
         return undefined
     }
 
+    /** returns the custom tensor name */
     get customName(): string | undefined {
         if (this._node.data.custom_id > 0) return `custom_${this._node.data.custom_id}`
         if (this.tensordata?.length) {
@@ -172,6 +183,10 @@ export class TensorHistoryNode {
     }
 }
 
+/**
+ * corresponds to TensorHistoryNodeData
+ * src-tauri/src/dt_project/data/tensor_history_node_data.rs
+ */
 export type TensorHistoryNodeData = {
     lineage: number
     logical_time: number
@@ -282,6 +297,19 @@ export type TensorHistoryNodeData = {
     compression_artifacts: number
     compression_artifacts_quality: number
     audio: boolean
+    color_calibration: number
+    expand_prompt_to_json: boolean
+    profile_data?: ProfileData
+}
+
+export type ProfileDataEntry = {
+    durations: number[]
+    name: string
+}
+
+export type ProfileData = {
+    duration: number
+    timings: ProfileDataEntry[]
 }
 
 export type Control = {

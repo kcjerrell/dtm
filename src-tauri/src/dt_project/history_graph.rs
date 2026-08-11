@@ -90,6 +90,10 @@ impl HistoryGraph {
         self.nodes.get(rowid).expect("node must exist")
     }
 
+    pub fn nodes(&self) -> Vec<&HistoryNode> {
+        self.nodes.values().collect()
+    }
+
     fn node_mut(&mut self, rowid: &Rowid) -> &mut HistoryNode {
         self.nodes.get_mut(rowid).expect("node must exist")
     }
@@ -205,15 +209,15 @@ impl HistoryGraph {
 
         // we can eliminate candidates that are the last node of their lineage, because this one would have
         // continued it
-        candidates.retain(|candidate| {
-            let candidate_node = self.node(candidate);
-            let max_time = self
-                .max_time_per_lineage
-                .get(&candidate_node.lineage)
-                .copied()
-                .unwrap_or(0);
-            candidate_node.logical_time < max_time
-        });
+        // candidates.retain(|candidate| {
+        //     let candidate_node = self.node(candidate);
+        //     let max_time = self
+        //         .max_time_per_lineage
+        //         .get(&candidate_node.lineage)
+        //         .copied()
+        //         .unwrap_or(0);
+        //     candidate_node.logical_time < max_time
+        // });
 
         // Previous insertion was the active branch when this node was pushed.
         // if prev_node.logical_time == logical_time {
@@ -350,7 +354,12 @@ impl HistoryGraph {
                         node.lineage, node.logical_time
                     ));
                 }
-                Parent::None => {}
+                Parent::None => {
+                    output.push_str(&format!(
+                        "\n \"{}:{}\" [color=red];",
+                        node.lineage, node.logical_time
+                    ));
+                }
             }
         }
 
@@ -382,7 +391,7 @@ impl HistoryGraph {
 }
 
 impl DTProject {
-    pub(crate) async fn get_node_lineages(&self) -> anyhow::Result<Vec<HistoryNode>> {
+    pub async fn get_node_lineages(&self) -> anyhow::Result<Vec<HistoryNode>> {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         let nodes: Vec<HistoryNode> =
             query_as("SELECT rowid, __pk0, __pk1, p FROM tensorhistorynode ORDER BY rowid ASC")

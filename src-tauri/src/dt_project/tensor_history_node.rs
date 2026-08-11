@@ -423,7 +423,7 @@ impl DTProject {
         lineage: i64,
         logical_time: i64,
     ) -> anyhow::Result<Vec<TensorHistoryNode>> {
-        let history = self.get_history().await?;
+        let history = self.get_history_graph().await?;
         let node = history.node(&rowid);
         let parents = match &node.parent {
             super::Parent::Found(parent_id) => &vec![*parent_id],

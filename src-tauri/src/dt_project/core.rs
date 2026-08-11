@@ -416,7 +416,7 @@ impl DTProject {
         Ok(result)
     }
 
-    pub(crate) async fn get_history(&self) -> anyhow::Result<Arc<HistoryGraph>> {
+    pub async fn get_history_graph(&self) -> anyhow::Result<Arc<HistoryGraph>> {
         let history = self
             .history
             .get_or_try_init(|| async {

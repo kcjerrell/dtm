@@ -1,8 +1,10 @@
 use crate::dt_project::fbs::root_as_tensor_history_node as root_as_tensor_history_node_fb;
 use crate::projects_db::tensor_history_mod::{Control, LoRA};
 use chrono::{DateTime, NaiveDateTime};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
+/// Corresponding Typescript type: TensorHistoryNodeData
+/// src/commands/DTProjectTypes.ts
 #[derive(Serialize, Debug, Clone)]
 pub struct TensorHistoryNodeData {
     pub lineage: i64,
@@ -116,6 +118,19 @@ pub struct TensorHistoryNodeData {
     pub audio: bool,
     pub color_calibration: i8,
     pub expand_prompt_to_json: bool,
+    pub profile_data: Option<ProfileData>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProfileDataEntry {
+    pub durations: Vec<f64>,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProfileData {
+    pub duration: f64,
+    pub timings: Vec<ProfileDataEntry>,
 }
 
 impl TryFrom<&[u8]> for TensorHistoryNodeData {
@@ -133,6 +148,10 @@ impl TryFrom<&[u8]> for TensorHistoryNodeData {
             Some(v) => Some(Control::from_fb(v)?),
             None => None,
         };
+
+        let profile_data: Option<ProfileData> = node.profile_data()
+            .and_then(|v| std::str::from_utf8(v.bytes()).ok())
+            .and_then(|s| serde_json::from_str(s).ok());
 
         Ok(TensorHistoryNodeData {
             lineage: node.lineage(),
@@ -246,6 +265,7 @@ impl TryFrom<&[u8]> for TensorHistoryNodeData {
             audio: node.audio(),
             color_calibration: node.color_calibration().0,
             expand_prompt_to_json: node.expand_prompt_to_json(),
+            profile_data,
         })
     }
 }
