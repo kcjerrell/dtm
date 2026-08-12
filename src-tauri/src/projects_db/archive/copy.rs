@@ -6,13 +6,8 @@ use sqlx::{query, AssertSqlSafe, SqlitePool};
 use tokio::fs;
 
 use crate::{
-    dtp_service::AppHandleWrapper,
-    projects_db::{
-        archive::{
-            plan::{ArchivePlan, ArchivePlanItem},
-            workers::copy_tensors,
-        },
-        DtProjectRef,
+    dtp_service::AppHandleWrapper, projects_db::{
+        DtProjectRef, archive::{copy_tensor_item::CopyTensorItem, plan::ArchivePlan, workers::copy_tensors},
     },
 };
 
@@ -154,87 +149,6 @@ pub async fn copy_project(
     );
 
     Ok(())
-}
-
-#[derive(Debug)]
-pub struct CopyTensorItem {
-    pub name: String,
-    pub node_id: Option<i64>,
-    pub preview_id: Option<i64>,
-    pub preview: Option<Vec<u8>>,
-    pub primary: bool,
-    pub index: i64,
-    pub data: Option<Vec<u8>>,
-    pub data_ext: Option<String>,
-    pub added_to_archive: bool,
-    pub result: anyhow::Result<()>,
-}
-
-impl CopyTensorItem {
-    fn new(tensor_name: String, index: i64) -> Self {
-        CopyTensorItem {
-            name: tensor_name,
-            primary: false,
-            index,
-            added_to_archive: false,
-            node_id: None,
-            preview_id: None,
-            preview: None,
-            data: None,
-            data_ext: None,
-            result: Ok(()),
-        }
-    }
-
-    pub fn primary(item: ArchivePlanItem) -> Self {
-        CopyTensorItem {
-            name: item.name,
-            primary: true,
-            index: item.index,
-            added_to_archive: false,
-            node_id: item.node_id,
-            preview_id: item.preview_id,
-            preview: None,
-            data: None,
-            data_ext: None,
-            result: Ok(()),
-        }
-    }
-
-    pub fn extra(item: ArchivePlanItem) -> Self {
-        CopyTensorItem {
-            name: item.name,
-            primary: false,
-            index: item.index,
-            added_to_archive: false,
-            node_id: item.node_id,
-            preview_id: item.preview_id,
-            preview: None,
-            data: None,
-            data_ext: None,
-            result: Ok(()),
-        }
-    }
-
-    pub fn filename(&self) -> Result<String> {
-        let ext = self
-            .data_ext
-            .as_ref()
-            .ok_or(anyhow::anyhow!("No ext set for item"))?;
-        Ok(format!(
-            "{}/{:06}_{}.{}",
-            if self.primary { "images" } else { "tensors" },
-            self.index,
-            self.name,
-            ext
-        ))
-    }
-
-    pub fn preview_filename(&self) -> Option<String> {
-        self.preview.as_ref()?;
-        self.preview_id
-            .map(|preview_id| format!("thumbhalf/{}.jpg", preview_id))
-    }
 }
 
 async fn copy_table_group(

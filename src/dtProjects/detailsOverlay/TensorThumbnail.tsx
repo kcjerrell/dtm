@@ -24,6 +24,14 @@ function TensorThumbnail(props: ThumbnailProps) {
         )
     }
 
+    if (tensorId?.startsWith("audio")) {
+        return (
+            <ThumbnailBase {...restProps}>
+                🎵
+            </ThumbnailBase>
+        )
+    }
+
     const src = urls.tensor(projectId, tensorId, { size })
 
     if (weight !== undefined) {
@@ -94,6 +102,9 @@ function Mask(props: MaskProps) {
     if (!projectId || !maskId) return null
     return (
         <Box
+            objectFit={"cover"}
+            width={"100%"}
+            height={"100%"}
             maskImage={`url(${urls.tensor(projectId, maskId, { size: 100 })})`}
             maskMode="luminance"
             maskSize="contain"
@@ -138,6 +149,8 @@ const ThumbnailBase = chakra("div", {
 const ThumbnailImage = chakra("img", {
     base: {
         objectFit: "cover",
+        width: "100%",
+        height: "100%",
     },
 })
 

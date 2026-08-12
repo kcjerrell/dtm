@@ -87,7 +87,8 @@ pub async fn create_plan(
 
     let mut total_nodes = 0;
 
-    let mut batcher = project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard());
+    let mut batcher =
+        project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard().and_clip());
 
     while let Some(nodes) = batcher.next().await? {
         for node in nodes {
@@ -134,9 +135,16 @@ pub async fn create_plan(
             }
 
             // add any moodboard items
-            if let Some(moodboard) = node.moodboard {
+            if let Some(moodboard) = &node.moodboard {
                 tensormoodboarddata_ids.extend(moodboard.iter().map(|mb| mb.rowid));
                 tensor_ids.extend(moodboard.iter().map(|mb| mb.shuffle_id));
+            }
+
+            // add audio
+            if let Some(clip) = &node.clip {
+                if data.index_in_a_clip() == 1 && clip.audio_id != 0 {
+                    tensor_ids.insert(clip.audio_id);
+                }
             }
         }
     }

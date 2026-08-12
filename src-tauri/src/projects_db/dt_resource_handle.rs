@@ -1,16 +1,18 @@
 use anyhow::Result;
+use std::convert::TryInto;
 use std::sync::Arc;
-use std::{convert::TryInto, time::Instant};
 use tokio::sync::OnceCell;
 
-use crate::util::Instants;
+use crate::{
+    dt_project::{split_tensor_name, ClipFilter},
+    util::Instants,
+};
 use crate::{
     dt_project::{
         DTResource, TensorData, TensorHistoryNode, TensorRaw, ThnData, ThnFilter, TmdFilter,
     },
     projects_db::{
-        decode_audio, enums::{PartialThnDtResourceHandle}, DTProject, DtProjectRef, DtResourceRef,
-        ProjectsDb,
+        enums::PartialThnDtResourceHandle, DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
     },
     ResourceHandle, Tensor,
 };
@@ -117,23 +119,42 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_audio(&self) -> Result<Option<Vec<u8>>> {
-        if let Some(node) = self.get_history_node().await? {
-            if let Some(clip) = &node.clip {
-                if clip.audio_id <= 0 {
-                    return Ok(None);
-                }
-                let audio_id = format!("audio_{}", clip.audio_id);
-                let dtp = self.get_project().await?;
-                let tensor_raw = dtp.get_tensor_raw(&audio_id).await?;
-                // to determine the sample rate we need the duration of the clip
-                let duration = clip.count as f64 / clip.frames_per_second;
-                let audio = decode_audio(tensor_raw, duration)
-                    .await
-                    .map_err(|e| anyhow::anyhow!(e))?;
-                return Ok(Some(audio));
+        let dtp = self.get_project().await?;
+        // to get audio we will need a clip
+        let clip = match &self.resource {
+            DtResourceRef::Tensor(tensor_name) => {
+                let (_, id) = split_tensor_name(tensor_name)?;
+                dtp.get_clips(ClipFilter::AudioId(id))
+                    .await?
+                    .into_iter()
+                    .next()
             }
+            DtResourceRef::TensorHistoryNode(_, _) => {
+                self.get_history_node().await?.and_then(|n| n.clip.clone())
+            }
+            DtResourceRef::Thumb(_) | DtResourceRef::TensorData(_, _) => {
+                return Ok(None);
+            }
+        };
+
+        if let Some(clip) = clip {
+            let tensor_name = format!("audio_{}", clip.audio_id);
+            let duration = clip.count as f64 / clip.frames_per_second;
+            let tensor_raw = dtp.get_tensor_raw(&tensor_name).await?;
+            let audio = match tensor_raw.resource {
+                DTResource::CompressedTensor(_) => {
+                    let tensor = Tensor::try_from(tensor_raw)?;
+                    Some(tensor.decode_audio(duration)?)
+                }
+                DTResource::DTZipRef(dtzip_ref) => {
+                    Some(dtp.get_archive_file(&dtzip_ref.rel_path).await?)
+                }
+                DTResource::JpgInFbs(_) | DTResource::Unknown(_) => None,
+            };
+            Ok(audio)
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 
     async fn get_frames(
@@ -480,5 +501,31 @@ impl DtResourceHandle {
             .await
             .map(|image| Some(DtProjectRef::Id(image.project_id).node(image.node_id)))
             .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    pub async fn is_image(&self) -> Result<bool> {
+        let Some(tensor_name) = self.get_tensor_name(None).await? else {
+            return Ok(false);
+        };
+        Ok(tensor_name.starts_with("tensor_history")
+            || tensor_name.starts_with("binary_mask")
+            || tensor_name.starts_with("shuffle")
+            || tensor_name.starts_with("custom")
+            || tensor_name.starts_with("depth_map")
+            || tensor_name.starts_with("scribble"))
+    }
+
+    pub async fn is_audio(&self) -> Result<bool> {
+        let Some(tensor_name) = self.get_tensor_name(None).await? else {
+            return Ok(false);
+        };
+        Ok(tensor_name.starts_with("audio"))
+    }
+
+    pub async fn is_pose(&self) -> Result<bool> {
+        let Some(tensor_name) = self.get_tensor_name(None).await? else {
+            return Ok(false);
+        };
+        Ok(tensor_name.starts_with("pose"))
     }
 }

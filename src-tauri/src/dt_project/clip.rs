@@ -98,12 +98,12 @@ pub enum ClipFilter {
 impl DTProject {
     pub async fn get_clips(&self, filter: ClipFilter) -> Result<Vec<Clip>, sqlx::Error> {
         self.check_table(&DTProjectTable::Clip).await?;
-        let mut query_str = "SELECT rowid, __pk0, p FROM clip".to_string();
+        let mut query_str = "SELECT clip.rowid, clip.__pk0, clip.p FROM clip".to_string();
 
         match filter {
             ClipFilter::None => {}
             ClipFilter::ClipId(id) => {
-                query_str.push_str(&format!(" WHERE __pk0 = {}", id));
+                query_str.push_str(&format!(" WHERE clip.__pk0 = {}", id));
             }
             ClipFilter::ClipIds(ids) => {
                 if ids.is_empty() {
@@ -114,12 +114,12 @@ impl DTProject {
                     .map(|id| id.to_string())
                     .collect::<Vec<_>>()
                     .join(",");
-                query_str.push_str(&format!(" WHERE __pk0 IN ({})", ids_str));
+                query_str.push_str(&format!(" WHERE clip.__pk0 IN ({})", ids_str));
             }
             ClipFilter::AudioId(audio_id) => {
                 self.check_table(&DTProjectTable::ClipAudio).await?;
-                query_str.push_str(&" JOIN clip__f14 on clip.rowid = clip__f14.rowid");
-                query_str.push_str(&format!(" WHERE audio_id = {}", audio_id));
+                query_str.push_str(" JOIN clip__f14 as f14 on clip.rowid = f14.rowid");
+                query_str.push_str(&format!(" WHERE f14.f14 = {}", audio_id));
             }
         }
 

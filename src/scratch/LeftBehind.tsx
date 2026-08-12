@@ -1,9 +1,10 @@
 import { Box, Button, Grid, HStack, Input } from "@chakra-ui/react"
 import { invoke } from "@tauri-apps/api/core"
 import { proxy, useSnapshot } from "valtio"
+import { ArchivePlan } from "@/commands"
 import urls from "@/commands/urls"
 import { CheckRoot, Panel } from "@/components"
-import { ArchivePlan } from "@/commands"
+import TensorThumbnail from "@/dtProjects/detailsOverlay/TensorThumbnail"
 
 const store = proxy({
     project: "",
@@ -26,11 +27,11 @@ function Empty() {
                     width={"full"}
                     height={"full"}
                     justifyContent={"center"}
-                    templateColumns={"1fr 1fr 1fr"}
+                    templateColumns={"repeat(1fr,5)"}
                     gap={2}
                     alignItems={"center"}
                 >
-                    <HStack gridColumn={"1 / span 3"}>
+                    <HStack gridColumn={"1 / span 5"}>
                         <Input
                             value={snap.project}
                             onChange={(e) => (store.project = e.target.value)}
@@ -40,9 +41,11 @@ function Empty() {
                         <Button
                             flex={"0 1 auto"}
                             onClick={async () => {
+                                const start = performance.now()
                                 store.items = await invoke("create_dt_archive_plan", {
                                     projectId: Number.parseInt(store.project, 10),
                                 })
+                                console.log(performance.now() - start)
                             }}
                         >
                             Load
@@ -63,16 +66,23 @@ function Empty() {
                     </HStack>
                     {snap.items?.unused_tensors.map((item) => {
                         return (
-                            <Box key={item}>
-                                <img
-                                    src={urls.tensor(parseInt(snap.project, 10), item, {
-                                        size: 100,
-                                    })}
-                                    width={100}
-                                    height={100}
-                                    alt={item}
-                                />
-                            </Box>
+                            <TensorThumbnail
+                                key={item}
+                                projectId={Number(snap.project)}
+                                tensorId={item}
+                                width={"100px"}
+                                height={"100px"}
+                            />
+                            // <Box key={item}>
+                            //     <img
+                            //         src={urls.tensor(parseInt(snap.project, 10), item, {
+                            //             size: 100,
+                            //         })}
+                            //         width={100}
+                            //         height={100}
+                            //         alt={item}
+                            //     />
+                            // </Box>
                         )
                     })}
                 </Grid>

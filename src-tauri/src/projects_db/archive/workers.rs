@@ -1,6 +1,5 @@
-use std::{fs::File, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
-use image::{codecs::jpeg::JpegEncoder, ExtendedColorType};
 use s_zip::StreamingZipWriter;
 
 use tokio::{
@@ -12,14 +11,8 @@ use tokio::{
 };
 
 use crate::{
-    dt_project::{split_tensor_name, Clip, ClipFilter, TensorHistoryNode},
-    projects_db::{
-        archive::copy::CopyTensorItem, write_jpeg_with_metadata, DtProjectRef, DtResourceHandle,
-        DtResourceRef, ThnRef, ThnResource,
-    },
-    tensor::TensorKind,
+    projects_db::{archive::copy_tensor_item::CopyTensorItem, DtProjectRef},
     util::update_gate::PrintUpdate,
-    ResourceHandle, Tensor,
 };
 
 use anyhow::Result;
@@ -50,7 +43,7 @@ pub async fn copy_tensors(
         next_rx = Some(output_rx);
     }
 
-    let mut updater = PrintUpdate::new(primary.len() + extra.len(), 20, "Processed", "items");
+    let updater = PrintUpdate::new(primary.len() + extra.len(), 20, "Processed", "items");
     let mut collect_rx = next_rx.unwrap();
     let collect: JoinHandle<Result<Vec<CopyTensorItem>>> = tokio::spawn(async move {
         let mut errored_copies: Vec<CopyTensorItem> = Vec::new();
@@ -116,142 +109,6 @@ impl ConvertWorker {
             lossless,
         }
     }
-
-    async fn convert(
-        project_ref: DtProjectRef,
-        item: &mut CopyTensorItem,
-        lossless: bool,
-    ) -> Result<()> {
-        let resource = match item.node_id {
-            Some(node_id) => DtResourceHandle::new(
-                &project_ref,
-                &DtResourceRef::TensorHistoryNode(
-                    ThnRef::RowId(node_id),
-                    ThnResource::Tensor(item.name.clone()),
-                ),
-            ),
-            None => project_ref.tensor(&item.name),
-        };
-
-        let node = resource.get_history_node().await?.cloned();
-        // to output the pose json correctly, we will need the size from tensordata
-        let size = if item.name.starts_with("pose") {
-            let tds = project_ref
-                .get_project()
-                .await?
-                .find_tensordata_by_tensor(&item.name)
-                .await?;
-            let td = tds.first();
-            td.map(|t| (t.data().width(), t.data().height()))
-        } else {
-            None
-        };
-
-        let clip = if item.name.starts_with("audio") {
-            let (_, id) = split_tensor_name(&item.name)?;
-            let clips = project_ref
-                .get_project()
-                .await?
-                .get_clips(ClipFilter::AudioId(id))
-                .await?;
-            clips.into_iter().next()
-        } else {
-            None
-        };
-
-        if item.primary {
-            if let Some(preview_id) = item.preview_id {
-                if let Some(node) = &node {
-                    if node.data().index_in_a_clip() == 0 {
-                        item.preview = project_ref.thumb(preview_id).get_preview(true).await?;
-                    }
-                }
-            }
-        }
-
-        let tensor_raw = resource.get_tensor_raw().await?;
-
-        if let Some(data) = tensor_raw {
-            let result = tokio::task::spawn_blocking(move || {
-                if let Ok(tensor) = Tensor::try_from(data) {
-                    match tensor.kind {
-                        TensorKind::Image | TensorKind::Binary => {
-                            Self::get_image(lossless, node, tensor).ok()
-                        }
-                        TensorKind::Pose => Self::get_pose(tensor, size).ok(),
-                        TensorKind::Audio => Self::get_audio(tensor, clip).ok(),
-                        TensorKind::Unknown => None,
-                    }
-                } else {
-                    None
-                }
-            })
-            .await?;
-            if let Some((data, data_ext)) = result {
-                item.data = Some(data);
-                item.data_ext = Some(data_ext);
-            }
-        } else {
-            anyhow::bail!("Couldn't get tensor_raw");
-        }
-
-        Ok(())
-    }
-
-    fn get_image(
-        lossless: bool,
-        node: Option<TensorHistoryNode>,
-        tensor: Tensor,
-    ) -> anyhow::Result<(Vec<u8>, String)> {
-        if lossless {
-            // NOTE: Returns error if tensor is not Image/Binary kind - needs review
-            tensor
-                .to_png(node.as_ref(), None)?
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Tensor cannot be converted to PNG (not Image/Binary kind)")
-                })
-                .map(|t| (t, "png".to_string()))
-        } else {
-            let pixels = tensor.to_pixel_data(None)?.ok_or_else(|| {
-                anyhow::anyhow!("Tensor cannot be converted to pixel data (not Image/Binary kind)")
-            })?;
-
-            let mut bytes = Vec::new();
-            let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
-            let color_type = match tensor.channels {
-                1 => ExtendedColorType::L8,
-                3 => ExtendedColorType::Rgb8,
-                4 => ExtendedColorType::Rgba8,
-                _ => {
-                    anyhow::bail!("Unsupported number of channels: {}", tensor.channels)
-                }
-            };
-
-            if tensor.width * tensor.height * tensor.channels != pixels.len() as u32 {
-                anyhow::bail!("Tensor dimensions do not match pixel data length");
-            }
-            encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
-
-            let jpg = match node {
-                Some(node) => write_jpeg_with_metadata(&bytes, &node.node_data())?,
-                None => bytes,
-            };
-
-            Ok((jpg, "jpg".to_string()))
-        }
-    }
-
-    fn get_pose(tensor: Tensor, size: Option<(i32, i32)>) -> anyhow::Result<(Vec<u8>, String)> {
-        let (width, height) = size.unwrap_or((1024, 1024));
-        tensor
-            .get_pose(width, height)?
-            .map(|json| (json.into_bytes(), "json".to_string()))
-            .ok_or_else(|| anyhow::anyhow!("Tensor does not contain pose data"))
-    }
-
-    fn get_audio(tensor: Tensor, clip: Option<Clip>) -> anyhow::Result<(Vec<u8>, String)> {
-        anyhow::bail!("Audio conversion not implemented");
-    }
 }
 
 #[async_trait::async_trait]
@@ -282,7 +139,7 @@ impl Worker for ConvertWorker {
                     let _permit = permit;
 
                     if item.result.is_ok() {
-                        item.result = Self::convert(project_ref, &mut item, lossless).await;
+                        item.result = item.convert(project_ref, lossless).await;
                     }
 
                     match tx.send(item).await {
@@ -314,23 +171,6 @@ impl ZipWorker {
     pub fn new(archive_path: PathBuf) -> Self {
         Self { archive_path }
     }
-
-    fn archive(writer: &mut StreamingZipWriter<File>, item: &mut CopyTensorItem) -> Result<()> {
-        if let Some(data) = &item.data {
-            writer.start_entry(&item.filename()?)?;
-            writer.write_data(data)?;
-
-            if let Some(preview) = &item.preview {
-                if let Some(name) = &item.preview_filename() {
-                    writer.start_entry(name)?;
-                    writer.write_data(preview)?;
-                }
-            }
-
-            item.added_to_archive = true;
-        }
-        Ok(())
-    }
 }
 
 #[async_trait::async_trait]
@@ -348,12 +188,9 @@ impl Worker for ZipWorker {
 
             // written as such so that writer can be closed even if
             let result = (|| {
-                let mut count = 0;
                 while let Some(mut item) = rx.blocking_recv() {
-                    count += 1;
-
                     if item.result.is_ok() {
-                        item.result = Self::archive(&mut writer, &mut item);
+                        item.result = item.archive(&mut writer);
                     }
 
                     if let Err(e) = tx.blocking_send(item) {
@@ -385,49 +222,6 @@ impl DbWorker {
             db_conn: Arc::new(Mutex::new(db_conn)),
         }
     }
-
-    async fn update_db(&self, item: &mut CopyTensorItem) -> Result<()> {
-        let mut db_conn = self.db_conn.lock().await;
-        let filename = item.filename()?.into_bytes();
-        let preview_filename = item
-            .preview_filename()
-            .map_or(filename.clone(), |pf| pf.into_bytes());
-        match sqlx::query(
-            "INSERT INTO main.tensors ( name, type, format, datatype, dim, data )
-                             SELECT name, type, format, datatype, dim, ?1 AS data
-                             FROM dtp.tensors WHERE name == ?2",
-        )
-        .bind(&filename)
-        .bind(&item.name)
-        .execute(&mut **db_conn)
-        .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("DbWorker failed to insert tensor {}: {}", item.name, e);
-                return Err(e.into());
-            }
-        }
-
-        if let Some(preview_id) = item.preview_id {
-            if let Some(node_id) = item.node_id {
-                match sqlx::query("INSERT INTO thumbnailhistorynode (rowid, __pk0, p) VALUES (?1, ?2, ?3); INSERT INTO thumbnailhistoryhalfnode (rowid, __pk0, p) VALUES (?1, ?2, ?4);")
-                                    .bind(node_id)
-                                    .bind(preview_id)
-                                    .bind(&filename)
-                                    .bind(&preview_filename)
-                                    .execute(&mut **db_conn)
-                                    .await {
-                                        Ok(_) => (),
-                                        Err(e) => {
-                                            eprintln!("DbWorker failed to insert thumbnail for {}: {}", item.name, e);
-                                            return Err(e.into());
-                                        }
-                                    }
-            }
-        }
-        Ok(())
-    }
 }
 
 #[async_trait::async_trait]
@@ -444,7 +238,7 @@ impl Worker for DbWorker {
             let result = async move {
                 while let Some(mut item) = rx.recv().await {
                     if item.result.is_ok() {
-                        item.result = self_clone.update_db(&mut item).await;
+                        item.result = item.update_db(self_clone.db_conn.clone()).await;
                     }
 
                     match tx.send(item).await {

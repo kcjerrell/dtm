@@ -1,3 +1,4 @@
+```
 ├── public - front end images
 ├── scripts - various scripts
 ├── src
@@ -76,29 +77,29 @@
         ├── folder-b
         ├── md
         └── project-export-out
-
+```
 
 ### Important types:
 
 #### TensorHistoryNode
   - this *should* represent the actual row in the project file, but has been used inconsistently
-  - rust: struct TensorHistoryNode (src-tauri/src/dt_project/tensor_history_node.rs)
+  - rust: `struct TensorHistoryNode` (src-tauri/src/dt_project/tensor_history_node.rs)
     - contains fields for each column, optional fields for commonly joined data, and a handful of
       helper methods. Also adds a field for the project path
-  - web: type TensorHistoryNodeResponse (src/commands/DTProjectTypes.ts)
-    - the json representation of a TensorHistoryNode received from the backend
-  - web: class TensorHistoryNode (src/commands/DTProjectTypes.ts)
-    - initialized with the TensorHistoryNodeResponse object. Adds a field for the project id if it
+  - web: `type TensorHistoryNodeResponse` (src/commands/DTProjectTypes.ts)
+    - the json representation of a `TensorHistoryNode` received from the backend
+  - web: `class TensorHistoryNode` (src/commands/DTProjectTypes.ts)
+    - initialized with the `TensorHistoryNodeResponse` object. Adds a field for the project id if it
       was used to fetch the node. Adds helper methods for pulling out commonly used data from the
       response
 
 #### TensorHistoryNodeData
-  - this represents the flatbuffer data stored in TensorHistoryNode. Although it contains fields
+  - this represents the flatbuffer data stored in `TensorHistoryNode`. Although it contains fields
     for prompts and associated tensor ids, these are not populated consistently over time due to
-    changes in the fbs and db schema. The TensorHistoryNode type (both in rust and web) adds
+    changes in the fbs and db schema. The `TensorHistoryNode` type (both in rust and web) adds
     helpers to get this data whether its contained in this type, tensordata or legacy prompts
-  - rust: struct TensorHistoryNodeData (src-tauri/src/dt_project/data/tensor_history_node_data.rs)
-  - web: type TensorHistoryNodeData (src/commands/DTProjectTypes.ts)
+  - rust: `struct TensorHistoryNodeData` (src-tauri/src/dt_project/data/tensor_history_node_data.rs)
+  - web: `type TensorHistoryNodeData` (src/commands/DTProjectTypes.ts)
 
 #### GenerationConfiguration
   - this type is not used directly by this project, but is the flatbuffer used by the grpc server.
@@ -135,3 +136,24 @@ Obviously this only makes sense from JS - since it has truly optional fields.
 And if it should come up, a PartialConfig refers to JS/JSON object with as little as 1 field.
 These are commonly used as combinators to apply specific settings, particularly outside of the
 range accepted by the DT UI, for example: { shift: 20.0 }
+
+#### DtProject
+This represents an actual .sqlite3 project file and offers a number of methods for retrieving/finding data from the db
+
+
+#### DtProjectRef
+This is an enum that hold either a project id, file path, or an owned DtProject instance. It has helper methods for resolving the reference to an actual `DtProject` and should be the only way to obtain one.
+
+#### DtResourceRef
+This enum describes a resource contained in a DtProject. It can be either a history node, tensordata, or tensor name.
+
+#### DtResourceHandle
+This struct hold a DtProjectRef and a DtResourceRef and offers methods for obtaining the actual resource. This should be the only way to obtain a resource from a project.
+
+#### Project
+Distinct from DtProject, this generally refers to the DTM's entity for tracking projects.
+
+#### Image
+Refers to DTM's Image entity, which is a generated image in a DtProject. DTM's project browser lists these items.
+
+

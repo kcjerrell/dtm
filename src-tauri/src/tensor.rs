@@ -1,8 +1,10 @@
+use std::io::{BufWriter, Cursor};
+
 use anyhow::{anyhow, Result};
 use serde_json::json;
 use strum::EnumIs;
 
-use crate::dt_project::{DTResource, TensorHistoryNode, TensorRaw, };
+use crate::dt_project::{DTResource, TensorHistoryNode, TensorRaw};
 use crate::projects_db::{decompress_fzip, inflate_deflate, write_png_with_usercomment};
 
 /// A decompressed Draw Things tensor, as stored in a Draw Things project.
@@ -232,6 +234,41 @@ impl Tensor {
         Ok(Some(png))
     }
 
+    pub fn decode_audio(&self, duration: f64) -> anyhow::Result<Vec<u8>> {
+        let channels = self.height;
+        let length = self.width as usize;
+
+        let sample_rate = determine_sample_rate(duration, length);
+
+        let spec = hound::WavSpec {
+            channels: channels as u16,
+            sample_format: hound::SampleFormat::Float,
+            bits_per_sample: 32,
+            sample_rate,
+        };
+
+        let mut buffer = Vec::new();
+        let buf_writer = BufWriter::new(Cursor::new(&mut buffer));
+
+        let mut writer = hound::WavWriter::new(buf_writer, spec).unwrap();
+
+        let data = self
+            .as_f32()
+            .ok_or_else(|| anyhow::anyhow!("Tensor data is not f32"))?;
+
+        let left = &data[0..length];
+        let right = &data[length..];
+
+        for i in 0..length {
+            writer.write_sample(left[i]).unwrap();
+            writer.write_sample(right[i]).unwrap();
+        }
+
+        writer.finalize().unwrap();
+
+        Ok(buffer)
+    }
+
     pub fn get_pose(&self, width: i32, height: i32) -> Result<Option<String>> {
         if !self.kind.is_pose() {
             return Ok(None);
@@ -391,4 +428,27 @@ fn bytes_to_f32(bytes: &[u8]) -> anyhow::Result<Vec<f32>> {
     bytemuck::try_cast_slice(bytes)
         .map(|slice| slice.to_vec())
         .map_err(|e| anyhow::anyhow!("Failed to convert bytes to f32: {:?}", e))
+}
+
+const SAMPLE_RATES: [i32; 2] = [48000, 24000];
+
+pub fn determine_sample_rate(duration: f64, length: usize) -> u32 {
+    // currently the only possible sample rates are 48000 and 24000
+    // we will use the closest one
+    if duration <= 0.0 {
+        return 24000;
+    }
+
+    let rate = (length as f64 / duration) as i32;
+    log::debug!(
+        "Determining sample rate for duration {} and length {} ({})",
+        duration,
+        length,
+        rate
+    );
+
+    *SAMPLE_RATES
+        .iter()
+        .min_by_key(|&r| (r - rate).abs())
+        .unwrap() as u32
 }

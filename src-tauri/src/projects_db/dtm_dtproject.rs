@@ -149,12 +149,7 @@ impl DtmProtocol {
                 .await
             }
             "audio" => {
-                let project_path = self
-                    .pdb
-                    .get_project_path(req.project_id)
-                    .await
-                    .context("Failed to get project path")?;
-                audio_request(&project_path, &req).await
+                audio_request(&req).await
             }
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)

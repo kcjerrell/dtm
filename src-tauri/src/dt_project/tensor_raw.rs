@@ -1,6 +1,6 @@
 use sqlx::{prelude::*, sqlite::SqliteRow};
 
-use crate::dt_project::DTResource;
+use crate::{dt_project::DTResource, tensor::TensorKind};
 
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct TensorRaw {
@@ -14,6 +14,12 @@ pub struct TensorRaw {
     pub channels: i32,
     pub dim: Vec<u8>,
     pub resource: DTResource,
+}
+
+impl TensorRaw {
+    pub fn get_tensor_kind(&self) -> TensorKind {
+        TensorKind::from_name(&self.name)
+    }
 }
 
 impl FromRow<'_, SqliteRow> for TensorRaw {

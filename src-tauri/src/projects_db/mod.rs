@@ -25,7 +25,6 @@ mod tensors;
 pub use tensors::*;
 
 mod audio;
-pub use audio::{decode_audio, get_audio};
 
 mod metadata;
 pub use metadata::DrawThingsMetadata;

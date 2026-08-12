@@ -17,6 +17,7 @@ mod copy;
 pub(crate) mod dt_zip;
 pub mod plan;
 pub(crate) mod workers;
+pub(crate) mod copy_tensor_item;
 
 #[tauri::command]
 pub async fn create_dt_archive(
@@ -24,7 +25,7 @@ pub async fn create_dt_archive(
     dtp: State<'_, DTPService>,
     project_id: i64,
 ) -> TAResult<()> {
-    let plan = create_plan(&dtp, project_id, true).await?;
+    let plan = create_plan(&dtp, project_id, false).await?;
     copy_project(app.inner().clone(), DtProjectRef::Id(project_id), plan).await?;
     Ok(())
 }
@@ -34,6 +35,6 @@ pub async fn create_dt_archive_plan(
     dtp: State<'_, DTPService>,
     project_id: i64,
 ) -> TAResult<ArchivePlan> {
-    let plan = create_plan(&dtp, project_id, true).await?;
+    let plan = create_plan(&dtp, project_id, false).await?;
     Ok(plan)
 }

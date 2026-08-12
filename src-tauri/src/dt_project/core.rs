@@ -433,6 +433,14 @@ impl DTProject {
 
         Ok(history)
     }
+
+    pub async fn get_archive_file(&self, path: &str) -> anyhow::Result<Vec<u8>> {
+        if let Some(dt_zip) = &self.dt_zip {
+            dt_zip.get_file(path).await
+        } else {
+            anyhow::bail!("Cannot get archived file - this is not an DTZip project")
+        }
+    }
 }
 
 pub async fn get_last_row(path: &str) -> Result<(i64, i64), Error> {

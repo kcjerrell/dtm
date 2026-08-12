@@ -283,7 +283,6 @@ impl DTProject {
 
         // build and run the thn query
         let query = build_query(&filter);
-        println!("{:?}", &query.0);
         let mut rows: Vec<ThnRow> = query_as(query).fetch_all(&*self.pool).await?;
 
         if let Some(ThnFilter::Predecessor(_, lineage, _)) = filter {

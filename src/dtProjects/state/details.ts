@@ -29,12 +29,13 @@ class DetailsService extends DTPStateService {
 
     async getPredecessorCandidates(item?: TensorHistoryNode) {
         if (!item) return []
-        return await DtpService.findPredecessor(
+        const candidates = await DtpService.findPredecessor(
             item.projectId,
             item.rowid,
             item.lineage,
             item.logicalTime,
         )
+        return candidates.filter((c) => c.tensorHistoryName)
     }
 }
 

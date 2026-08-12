@@ -260,11 +260,9 @@ impl DTPService {
         project_id: i64,
         tensor_id: String,
     ) -> crate::TAResult<TensorSize> {
-        let project = self
-            .get_project(project_id)
-            .await
-            .map_err(anyhow::Error::msg)?;
-        Ok(project
+        let project_ref = DtProjectRef::Id(project_id);
+        let dt_project = project_ref.get_project().await?;
+        Ok(dt_project
             .get_tensor_size(&tensor_id)
             .await
             .map_err(anyhow::Error::msg)?)
