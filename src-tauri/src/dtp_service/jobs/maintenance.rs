@@ -114,9 +114,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
     }
 
     for (project_id, images) in projects.drain() {
-        // Here, ctx.pdb.get_dt_project returns Result<Arc<DTProject>, MixedError>
-        // MixedError implements Into<anyhow::Error>, so ? works.
-        let dt_project = ctx.pdb.get_dt_project(DtProjectRef::Id(project_id)).await?;
+        let dt_project = DtProjectRef::Id(project_id).get_project().await?;
 
         log::debug!(
             "Checking {} videos for project {}",
@@ -165,7 +163,7 @@ async fn check_sampler_values(watchfolder: &WatchFolderDTO, ctx: &JobContext) ->
     let mut fix: Vec<images::ActiveModel> = Vec::new();
 
     for (project_id, images) in projects.drain() {
-        let dt_project = ctx.pdb.get_dt_project(project_id.into()).await?;
+        let dt_project = DtProjectRef::Id(project_id).get_project().await?;
         let node_ids: Vec<i64> = images.iter().map(|im| im.node_id).collect();
         let samplers = &dt_project.get_samplers(&node_ids).await?;
 

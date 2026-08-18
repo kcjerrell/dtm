@@ -11,16 +11,16 @@ use crate::projects_db::{
 
 /// References a Draw Things project database file, either by its id in DTM's ProjectsDb,
 /// its file path, its containing archive, or with a direct reference to the DTProject struct.
-///
-/// Note: The Db variant should only be used with DTProject.open(). Do not use with a DTProject
-/// that lives in the cache (DTProject.get())
 #[derive(Debug, Clone, EnumIs)]
 pub enum DtProjectRef {
     /// references a Draw Things project using its ID in DTM's ProjectsDb
     Id(i64),
     /// references a Draw Thing project by absolute file path
     Path(String),
-    /// direct reference to a Draw Things project database. Only use with DTProject.open()
+    /// wraps a DTProject instance. Allows you to get/open a project once and reuse with different
+    /// functions. When used this way, the cache TTL is not refreshed, so it's not recomended to use
+    /// with a cached dt project instance. Simply holding the reference will not keep the db
+    /// connection alive
     Db(Arc<DTProject>),
 }
 

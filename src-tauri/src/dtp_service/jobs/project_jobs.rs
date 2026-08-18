@@ -9,9 +9,9 @@ use crate::{
         events::{DTPEvent, ScanProgress},
         jobs::{sync_folder::ProjectSync, Job, JobContext, JobResult},
     },
-    projects_db::{DTProject, ProjectsDb},
+    projects_db::{DtProjectRef, ProjectsDb},
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 pub struct AddProjectJob {
     pub path: String,
@@ -199,7 +199,9 @@ impl Job for UpdateProjectJob {
 async fn check_deletions(ctx: &JobContext, project_id: i64, project_path: &str) -> Result<()> {
     let pdb_path = get_db_file_path(&ctx.app_handle);
 
-    let dt_project = DTProject::open(project_path).await?;
+    let dt_project = DtProjectRef::Path(project_path.to_string())
+        .open_project()
+        .await?;
 
     let missing_ids = dt_project.check_id(pdb_path, project_id).await?;
 

@@ -1,5 +1,4 @@
 use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DtProjectRef};
-use crate::dt_project::DTProject;
 use dashmap::DashMap;
 use entity::{
     images::{self, Entity as Images},
@@ -178,40 +177,6 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn get_dt_project(
-        &self,
-        project_ref: crate::projects_db::DtProjectRef,
-    ) -> anyhow::Result<std::sync::Arc<DTProject>> {
-        match project_ref {
-            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
-            crate::projects_db::DtProjectRef::Id(id) => {
-                let project = self.get_project(id).await?;
-                Ok(DTProject::get(&project.full_path).await?)
-            }
-            crate::projects_db::DtProjectRef::Path(path) => Ok(DTProject::get(&path).await?),
-        }
-    }
-
-    /// Returns a persistent, standalone `DTProject` (bypassing the shared cache).
-    /// Use this for long-running operations like exports, where the caller needs
-    /// the connection to stay open for the duration of the work.
-    pub async fn open_dt_project(
-        &self,
-        project_ref: crate::projects_db::DtProjectRef,
-    ) -> Result<std::sync::Arc<DTProject>, MixedError> {
-        match project_ref {
-            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
-            crate::projects_db::DtProjectRef::Id(id) => {
-                let project = self.get_project(id).await?;
-                Ok(std::sync::Arc::new(
-                    DTProject::open(&project.full_path).await?,
-                ))
-            }
-            crate::projects_db::DtProjectRef::Path(path) => {
-                Ok(std::sync::Arc::new(DTProject::open(&path).await?))
-            }
-        }
-    }
 }
 
 fn project_query() -> sea_orm::Select<entity::prelude::Projects> {

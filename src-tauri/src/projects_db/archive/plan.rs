@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use crate::{
     dt_project::{split_tensor_name, TensorHistoryNode, ThnData},
-    dtp_service::DTPService,
     projects_db::DtProjectRef,
     IntoTAResult, TAResult,
 };
@@ -53,13 +52,11 @@ pub struct ArchivePlanItem {
 }
 
 pub async fn copy_everything_plan(
-    dtp: &DTPService,
     project_id: i64,
     lossless: bool,
 ) -> TAResult<ArchivePlan> {
-    let db = dtp.get_db().await?;
-    let project = db
-        .get_dt_project(DtProjectRef::Id(project_id))
+    let project = DtProjectRef::Id(project_id)
+        .get_project()
         .await
         .into_ta_result()?;
 
@@ -127,13 +124,11 @@ pub async fn copy_everything_plan(
 
 /// This should not be used, but one day may be fixed for a more efficient archive
 pub async fn create_plan(
-    dtp: &DTPService,
     project_id: i64,
     lossless: bool,
 ) -> TAResult<ArchivePlan> {
-    let db = dtp.get_db().await.map_err(|e| anyhow::anyhow!(e))?;
-    let project = db
-        .get_dt_project(DtProjectRef::Id(project_id))
+    let project = DtProjectRef::Id(project_id)
+        .get_project()
         .await
         .into_ta_result()?;
 

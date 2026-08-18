@@ -235,8 +235,8 @@ impl DTPService {
     pub async fn get_metadata(&self, image_id: i64) -> crate::TAResult<DrawThingsMetadata> {
         let pdb = self.get_db().await.map_err(anyhow::Error::msg)?;
         let image = pdb.get_image(image_id).await.map_err(anyhow::Error::msg)?;
-        let dt_project = pdb
-            .get_dt_project(DtProjectRef::Id(image.project_id))
+        let dt_project = DtProjectRef::Id(image.project_id)
+            .get_project()
             .await
             .map_err(anyhow::Error::msg)?;
         let nodes = dt_project

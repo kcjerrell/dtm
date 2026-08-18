@@ -127,7 +127,7 @@ impl DTProject {
             Err(e) => {
                 // Remove the empty OnceCell so the next caller retries fresh
                 PROJECT_CACHE.remove(path);
-                Err(e.into())
+                Err(e)
             }
         }
     }

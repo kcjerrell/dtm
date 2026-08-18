@@ -85,8 +85,8 @@ impl DTPService {
             let project = db.get_project(*project_id).await.into_ta_result()?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = db
-                .open_dt_project(DtProjectRef::Id(*project_id))
+            let dt_project = DtProjectRef::Id(*project_id)
+                .open_project()
                 .await
                 .into_ta_result()?;
 
