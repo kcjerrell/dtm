@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use crate::{
-    dt_project::ThnData, dtp_service::DTPService, projects_db::DtProjectRef, IntoTAResult, TAResult,
+    dt_project::{split_tensor_name, TensorHistoryNode, ThnData},
+    dtp_service::DTPService,
+    projects_db::DtProjectRef,
+    IntoTAResult, TAResult,
 };
 
 #[derive(Debug, Serialize)]
@@ -25,7 +28,7 @@ pub struct ArchivePlan {
     pub clip_ids: Vec<i64>,
 
     /// THE RESOURCES
-    /// primary tensors, should be DtRR::Thn to link metadata
+    /// primary tensors
     pub primary_tensors: Vec<ArchivePlanItem>,
     /// all other included tensors, should be DtRR::Tensor
     pub tensors_extra: Vec<ArchivePlanItem>,
@@ -49,8 +52,80 @@ pub struct ArchivePlanItem {
     pub index: i64,
 }
 
-/// Scans a DTProject and compiles lists of all resources that should be in the
-/// archive.
+pub async fn copy_everything_plan(
+    dtp: &DTPService,
+    project_id: i64,
+    lossless: bool,
+) -> TAResult<ArchivePlan> {
+    let db = dtp.get_db().await?;
+    let project = db
+        .get_dt_project(DtProjectRef::Id(project_id))
+        .await
+        .into_ta_result()?;
+
+    let project_path = PathBuf::from(&project.path);
+
+    let mut main_tensor_ids: HashSet<i64> = HashSet::new();
+    let mut gen_images: Vec<ArchivePlanItem> = Vec::new();
+    let mut extra_resources: Vec<ArchivePlanItem> = Vec::new();
+
+    // all we have to do is create two lists of plan items
+    // one has all generated nodes tensor ids
+    // the other has everything else
+
+    let mut batcher =
+        project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard().and_clip());
+
+    while let Some(nodes) = batcher.next().await? {
+        for node in nodes {
+            let node_id = node.rowid;
+            let data = node.data();
+
+            if data.generated() {
+                let (tensor_id, _) = get_tensor_and_mask(&node);
+                main_tensor_ids.insert(tensor_id);
+
+                gen_images.push(ArchivePlanItem {
+                    name: format!("tensor_history_{}", tensor_id),
+                    node_id: Some(node_id),
+                    preview_id: Some(data.preview_id()),
+                    index: node_id,
+                });
+            }
+        }
+    }
+
+    let mut extra_tensor_index = 0;
+    for (_, name) in project.list_tensors().await? {
+        let (_, tensor_id) = split_tensor_name(&name)?;
+        if !main_tensor_ids.contains(&tensor_id) {
+            extra_tensor_index += 1;
+            extra_resources.push(ArchivePlanItem {
+                name,
+                node_id: None,
+                preview_id: None,
+                index: extra_tensor_index,
+            });
+        }
+    }
+
+    Ok(ArchivePlan {
+        project_path,
+        lossless,
+        node_ids: Vec::new(),
+        tensordata_ids: Vec::new(),
+        tensormoodboarddata_ids: Vec::new(),
+        clip_ids: Vec::new(),
+        primary_tensors: gen_images,
+        tensors_extra: extra_resources,
+        unused_tensors: Vec::new(),
+        unused_tensordata: Vec::new(),
+        unused_nodes: Vec::new(),
+        unused_tensormoodboarddata: Vec::new(),
+    })
+}
+
+/// This should not be used, but one day may be fixed for a more efficient archive
 pub async fn create_plan(
     dtp: &DTPService,
     project_id: i64,
@@ -79,9 +154,7 @@ pub async fn create_plan(
     // clip ids
     let mut clip_ids: HashSet<i64> = HashSet::new();
 
-    // a list of resource refs associating a node to the generated image tensor
-    // the ids for these are listed in main_tensor_ids
-    let mut resources: Vec<ArchivePlanItem> = Vec::new();
+    let mut gen_images: Vec<ArchivePlanItem> = Vec::new();
     let mut extra_resources: Vec<ArchivePlanItem> = Vec::new();
     let mut unused_tensor_names: Vec<String> = Vec::new();
 
@@ -95,43 +168,50 @@ pub async fn create_plan(
             total_nodes += 1;
             let node_id = node.rowid;
             let data = node.data();
-            if !data.generated() {
-                unused_node_ids.push(node_id);
-                continue;
-            }
+
+            // take everything
+
+            // if !data.generated() {
+            //     unused_node_ids.push(node_id);
+            //     continue;
+            // }
+
             // add node id
             node_ids.push(node_id);
 
-            let mut main_tensor_id = data.tensor_id();
+            let (main_tensor_id, main_mask_id) = get_tensor_and_mask(&node);
 
-            // add associated tensordata
+            // add all associated tensordata
             if let Some(tensordata) = &node.tensordata {
                 // add all related tensordata to the archive
                 tensor_ids.extend(&node.data_tensor_ids());
                 tensordata_ids.extend(tensordata.iter().map(|td| td.rowid));
-
-                // find the generated image tensor name if it wasn't on the node
-                if main_tensor_id == 0 {
-                    if let Some(last) = tensordata.last() {
-                        main_tensor_id = last.data().tensor_id();
-                    }
-                }
             }
 
-            // add the primary tensor as a resource ref
+            // add the primary tensor
             if main_tensor_id != 0 {
-                resources.push(ArchivePlanItem {
+                gen_images.push(ArchivePlanItem {
                     name: format!("tensor_history_{}", main_tensor_id),
                     node_id: Some(node_id),
-                    preview_id: Some(data.preview_id()),
+                    preview_id: if data.generated() {
+                        Some(data.preview_id())
+                    } else {
+                        None
+                    },
                     index: node_id,
                 });
-                if data.clip_id() != 0 {
-                    clip_ids.insert(data.clip_id());
-                }
                 main_tensor_ids.insert(main_tensor_id);
             } else {
                 println!("couldn't find tensor id for node {}", node_id)
+            }
+
+            // put the mask in
+            if main_mask_id != 0 {
+                tensor_ids.insert(main_mask_id);
+            }
+
+            if data.clip_id() != 0 {
+                clip_ids.insert(data.clip_id());
             }
 
             // add any moodboard items
@@ -231,14 +311,37 @@ pub async fn create_plan(
         project_path,
         lossless,
         node_ids,
-        tensordata_ids: copy_tensordata_ids,
-        tensormoodboarddata_ids: copy_tensormoodboarddata_ids,
+        tensordata_ids: all_tensordata_ids,
+        tensormoodboarddata_ids: all_tensormoodboarddata_ids,
         clip_ids: clip_ids.into_iter().collect(),
-        primary_tensors: resources,
+        primary_tensors: gen_images,
         tensors_extra: extra_resources,
         unused_tensors: unused_tensor_names,
         unused_tensordata: unused_tensordata_ids,
         unused_nodes: unused_node_ids,
         unused_tensormoodboarddata: unused_tensormoodboarddata_ids,
     })
+}
+
+fn get_tensor_and_mask(node: &TensorHistoryNode) -> (i64, i64) {
+    let data = node.data();
+    let mut main_tensor_id = data.tensor_id();
+    let mut main_mask_id = data.mask_id();
+    if let Some(tensordata) = &node.tensordata {
+        if main_tensor_id == 0 {
+            main_tensor_id = tensordata
+                .iter()
+                .rfind(|tdd| tdd.data().tensor_id() > 0)
+                .map(|tdd| tdd.data().tensor_id())
+                .unwrap_or(0);
+        }
+        if main_mask_id == 0 {
+            main_mask_id = tensordata
+                .iter()
+                .rfind(|tdd| tdd.data().mask_id() > 0)
+                .map(|tdd| tdd.data().mask_id())
+                .unwrap_or(0);
+        }
+    }
+    (main_tensor_id, main_mask_id)
 }

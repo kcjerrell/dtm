@@ -13,8 +13,8 @@ use crate::dt_project::{
         root_as_tensor_history_node, root_as_tensor_history_node_unchecked,
         TensorHistoryNode as TensorHistoryNodeData,
     },
-    Clip, ClipFilter, DTProject, DTProjectTable, TdFilter, TensorData, TensorMoodboardData,
-    TmdFilter,
+    Clip, ClipFilter, DTProject, DTProjectTable, ParentExt, TdFilter, TensorData,
+    TensorMoodboardData, TmdFilter,
 };
 
 #[derive(Debug, Clone)]
@@ -416,25 +416,21 @@ impl DTProject {
         Ok(items)
     }
 
-    pub async fn find_predecessor(
-        &self,
-        rowid: i64,
-        lineage: i64,
-        logical_time: i64,
-    ) -> anyhow::Result<Vec<TensorHistoryNode>> {
+    pub async fn get_predecessors(&self, rowid: i64) -> anyhow::Result<Vec<TensorHistoryNode>> {
         let history = self.get_history_graph().await?;
-        let node = history.node(&rowid);
-        let parents = match &node.parent {
-            super::Parent::Found(parent_id) => &vec![*parent_id],
-            super::Parent::Ambiguous(possible_ids) => possible_ids,
-            _ => &vec![],
-        };
+        let parents = history.get_parent(rowid).ids();
         Ok(self
             .get_tensor_history_nodes(
-                Some(ThnFilter::Rowids(parents.to_vec())),
+                Some(ThnFilter::Rowids(parents)),
                 Some(ThnData::tensordata()),
             )
             .await?)
+    }
+
+    pub async fn get_predecessor_ids(&self, rowid: i64) -> anyhow::Result<Vec<i64>> {
+        let history = self.get_history_graph().await?;
+        let parents = history.get_parent(rowid).ids();
+        Ok(parents)
     }
 
     pub fn batch_tensor_history_nodes(&self, data: ThnData) -> NodesBatcher<'_> {

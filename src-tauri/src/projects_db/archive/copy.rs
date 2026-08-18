@@ -6,8 +6,10 @@ use sqlx::{query, AssertSqlSafe, SqlitePool};
 use tokio::fs;
 
 use crate::{
-    dtp_service::AppHandleWrapper, projects_db::{
-        DtProjectRef, archive::{copy_tensor_item::CopyTensorItem, plan::ArchivePlan, workers::copy_tensors},
+    dtp_service::AppHandleWrapper,
+    projects_db::{
+        archive::{copy_tensor_item::CopyTensorItem, plan::ArchivePlan, workers::copy_tensors},
+        DtProjectRef,
     },
 };
 
@@ -27,6 +29,7 @@ pub async fn copy_project(
 ) -> Result<()> {
     let start = Instant::now();
     let total_items = plan.primary_tensors.len() + plan.tensors_extra.len();
+    log::debug!("starting copy for {} items", total_items);
     let dtp = project_ref.open_project().await?;
     let project_name = PathBuf::from(&dtp.path)
         .file_stem()
@@ -64,48 +67,41 @@ pub async fn copy_project(
         .execute(&mut *dest_conn)
         .await?;
 
-    copy_table_group(
+    copy_table_group_all(
         "tensorhistorynode",
         TENSORHISTORYNODE_OFFSETS,
-        plan.node_ids.as_slice(),
-        "rowid",
+        // plan.node_ids.as_slice(),
+        // "rowid",
         &mut dest_conn,
     )
     .await?;
 
-    copy_table_group(
+    copy_table_group_all(
         "tensordata",
         TENSORDATA_OFFSETS,
-        &plan.tensordata_ids,
-        "rowid",
+        // &plan.tensordata_ids,
+        // "rowid",
         &mut dest_conn,
     )
     .await?;
 
-    copy_table_group(
+    copy_table_group_all(
         "tensormoodboarddata",
         TENSORMOODBOARD_OFFSETS,
-        &plan.tensormoodboarddata_ids,
-        "rowid",
+        // &plan.tensormoodboarddata_ids,
+        // "rowid",
         &mut dest_conn,
     )
     .await?;
 
-    copy_table_group(
+    copy_table_group_all(
         "clip",
         CLIP_OFFSETS,
-        &plan.clip_ids,
-        "rowid",
+        // &plan.clip_ids,
+        // "rowid",
         &mut dest_conn,
     )
     .await?;
-
-    // detach the source database
-    // sqlx::query("DETACH DATABASE dtp;")
-    //     .execute(&mut *dest_conn)
-    //     .await?;
-
-    // don't let the attached connection return to the pool
 
     let project_ref = DtProjectRef::Db(dtp);
 
@@ -128,7 +124,8 @@ pub async fn copy_project(
     dest_db.close().await;
 
     let archive_path = temp_dir.join("project.zip");
-    tokio::task::spawn_blocking(move || add_file_to_zip(archive_path, dest_db_path)).await??;
+    tokio::task::spawn_blocking(move || add_files_to_zip(archive_path, vec![dest_db_path]))
+        .await??;
 
     let target_path = app
         .get_home_dir()?
@@ -151,7 +148,8 @@ pub async fn copy_project(
     Ok(())
 }
 
-async fn copy_table_group(
+#[allow(dead_code)]
+async fn copy_table_group_by_ids(
     table_name: &str,
     table_offsets: &[&str],
     rowids: &[i64],
@@ -216,10 +214,49 @@ async fn copy_table_group(
     Ok(())
 }
 
+async fn copy_table_group_all(
+    table_name: &str,
+    table_offsets: &[&str],
+    dest_conn: &mut sqlx::pool::PoolConnection<sqlx::Sqlite>,
+) -> Result<(), anyhow::Error> {
+    let tables: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM sqlite_schema WHERE type = 'table' AND name LIKE ?")
+            .bind(format!("{}%", table_name))
+            .fetch_all(&mut **dest_conn)
+            .await?;
+
+    if tables.is_empty() {
+        return Ok(());
+    }
+
+    // get the table names
+    let table_names = table_offsets
+        .iter()
+        .map(|&offset| format!("{}{}", table_name, offset))
+        .collect::<Vec<_>>();
+
+    // copy each table
+    for table_name in table_names {
+        if !tables.contains(&table_name) {
+            continue;
+        }
+        let sql = format!(
+            "INSERT INTO main.{0}
+            SELECT *
+            FROM dtp.{0}",
+            table_name
+        );
+
+        query(AssertSqlSafe(sql)).execute(&mut **dest_conn).await?;
+    }
+
+    Ok(())
+}
+
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
-fn add_file_to_zip(archive_path: PathBuf, file_path: PathBuf) -> zip::result::ZipResult<()> {
+fn add_files_to_zip(archive_path: PathBuf, file_paths: Vec<PathBuf>) -> zip::result::ZipResult<()> {
     let archive_file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -229,18 +266,20 @@ fn add_file_to_zip(archive_path: PathBuf, file_path: PathBuf) -> zip::result::Zi
 
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
 
-    let file_name = file_path
-        .file_name()
-        .ok_or(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "path has no file name",
-        ))?
-        .to_string_lossy();
+    for file_path in file_paths {
+        let file_name = file_path
+            .file_name()
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "path has no file name",
+            ))?
+            .to_string_lossy();
 
-    zip.start_file(file_name, options)?;
+        zip.start_file(file_name, options)?;
 
-    let contents = std::fs::read(&file_path)?;
-    zip.write_all(&contents)?;
+        let contents = std::fs::read(&file_path)?;
+        zip.write_all(&contents)?;
+    }
 
     zip.finish()?;
 

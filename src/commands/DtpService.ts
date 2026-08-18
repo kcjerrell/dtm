@@ -112,15 +112,11 @@ async function decodeTensor(
 
 async function findPredecessor(
     projectId: number,
-    rowId: number,
-    lineage: number,
-    logicalTime: number,
+    rowId: number
 ): Promise<TensorHistoryNode[]> {
     const result = await invoke<TensorHistoryNodeResponse[]>("dtp_find_predecessor", {
         projectId,
         rowId,
-        lineage,
-        logicalTime,
     })
     return result.map((r) => new TensorHistoryNode(r, projectId))
 }

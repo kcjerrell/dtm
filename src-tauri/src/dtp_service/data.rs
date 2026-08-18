@@ -2,7 +2,7 @@
 
 use crate::{
     bookmarks::{self, PickFolderResult},
-    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnData, ThnFilter},
+    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
     dtp_service::{
         events::DTPEvent,
         jobs::{SyncJob, UpdateProjectJob},
@@ -139,11 +139,7 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn add_watchfolder(
-        self: &Self,
-        path: String,
-        bookmark: String,
-    ) -> anyhow::Result<()> {
+    pub async fn add_watchfolder(&self, path: String, bookmark: String) -> anyhow::Result<()> {
         self.internal_add_watch_folder(path, bookmark)
             .await
             .map_err(anyhow::Error::msg)
@@ -312,15 +308,10 @@ impl DTPService {
         &self,
         project_id: i64,
         row_id: i64,
-        lineage: i64,
-        logical_time: i64,
     ) -> crate::TAResult<Vec<TensorHistoryNode>> {
         let project_ref = DtProjectRef::Id(project_id);
         let dtp = project_ref.get_project().await?;
-        let nodes = dtp
-            .find_predecessor(row_id, lineage, logical_time)
-            .await
-            .into_ta_result()?;
+        let nodes = dtp.get_predecessors(row_id).await.into_ta_result()?;
         // .get_tensor_history_nodes(
         //     Some(ThnFilter::Predecessor(row_id, lineage, logical_time)),
         //     Some(ThnData::tensordata()),
@@ -336,9 +327,8 @@ impl DTPService {
         &self,
         project_id: i64,
     ) -> anyhow::Result<std::sync::Arc<crate::projects_db::DTProject>> {
-        let db = self.get_db().await?;
-        let project_ref = crate::projects_db::DtProjectRef::Id(project_id);
-        Ok(db.get_dt_project(project_ref).await?)
+        let project_ref = DtProjectRef::Id(project_id);
+        project_ref.get_project().await
     }
 }
 

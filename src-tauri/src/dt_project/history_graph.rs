@@ -1,23 +1,28 @@
-use std::{
-    collections::{HashMap, HashSet},
-    process::Command,
-};
+use std::collections::{HashMap, HashSet};
 
-use itertools::Itertools;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::{prelude::*, query_as, sqlite::SqliteRow};
-use tempfile::NamedTempFile;
 
 use crate::dt_project::{DTProject, DTProjectTable};
 
 type Rowid = i64;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HistoryNode {
     pub rowid: i64,
     pub lineage: i64,
     pub logical_time: i64,
+    #[serde(
+        serialize_with = "serialize_parent_as_array",
+        deserialize_with = "deserialize_parent_from_array"
+    )]
     pub parent: Parent,
+    #[serde(skip)]
     pub children: Vec<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tensor_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mask_name: Option<String>,
 }
 
 impl<'r> FromRow<'r, SqliteRow> for HistoryNode {
@@ -32,16 +37,72 @@ impl<'r> FromRow<'r, SqliteRow> for HistoryNode {
             logical_time,
             parent: Parent::Unknown,
             children: Vec::new(),
+            tensor_name: None,
+            mask_name: None,
         })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Parent {
     Unknown,
     None,
     Found(i64),
     Ambiguous(Vec<i64>),
+}
+
+pub trait ParentExt {
+    fn ids(self) -> Vec<i64>;
+}
+
+impl ParentExt for Option<&Parent> {
+    fn ids(self) -> Vec<i64> {
+        match self {
+            Some(Parent::Found(id)) => vec![*id],
+            Some(Parent::Ambiguous(ids)) => ids.clone(),
+            _ => Vec::new(),
+        }
+    }
+}
+
+fn serialize_parent_as_array<S>(parent: &Parent, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match parent {
+        Parent::Unknown => serializer.serialize_none(),
+        Parent::None => serializer.serialize_none(),
+        Parent::Found(id) => serializer.serialize_i64(*id),
+        Parent::Ambiguous(ids) => ids.serialize(serializer),
+    }
+}
+
+fn deserialize_parent_from_array<'de, D>(deserializer: D) -> Result<Parent, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum ParentHelper {
+        Single(i64),
+        Multiple(Vec<i64>),
+        None(Option<i64>),
+    }
+
+    let helper = ParentHelper::deserialize(deserializer)?;
+    match helper {
+        ParentHelper::Single(id) => Ok(Parent::Found(id)),
+        ParentHelper::Multiple(ids) => {
+            if ids.is_empty() {
+                Ok(Parent::None)
+            } else if ids.len() == 1 {
+                Ok(Parent::Found(ids[0]))
+            } else {
+                Ok(Parent::Ambiguous(ids))
+            }
+        }
+        ParentHelper::None(opt) => Ok(Parent::None),
+    }
 }
 
 impl From<&HistoryNode> for Rowid {
@@ -51,7 +112,7 @@ impl From<&HistoryNode> for Rowid {
 }
 
 #[derive(Debug, Default)]
-pub struct HistoryGraph {
+pub struct HistoryGraphSolver {
     nodes: HashMap<i64, HistoryNode>,
     generations: HashMap<i64, Vec<i64>>,
     lineage_time_index: HashMap<(i64, i64), i64>,
@@ -59,8 +120,45 @@ pub struct HistoryGraph {
     rowid_order: Vec<i64>,
 }
 
-impl HistoryGraph {
-    pub fn new() -> Self {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HistoryGraph {
+    #[serde(deserialize_with = "populate_children")]
+    nodes: HashMap<i64, HistoryNode>,
+}
+
+fn populate_children<'de, D>(deserializer: D) -> Result<HashMap<i64, HistoryNode>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut nodes: HashMap<i64, HistoryNode> = HashMap::deserialize(deserializer)?;
+
+    // Build children relationships
+    let mut children_map: HashMap<i64, Vec<i64>> = HashMap::new();
+
+    for (rowid, node) in &nodes {
+        match &node.parent {
+            Parent::Found(parent_id) => {
+                children_map.entry(*parent_id).or_default().push(*rowid);
+            }
+            Parent::Ambiguous(parent_ids) => {
+                for parent_id in parent_ids {
+                    children_map.entry(*parent_id).or_default().push(*rowid);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Populate children field for each node
+    for node in nodes.values_mut() {
+        node.children = children_map.get(&node.rowid).cloned().unwrap_or_default();
+    }
+
+    Ok(nodes)
+}
+
+impl HistoryGraphSolver {
+    fn new() -> Self {
         Self::default()
     }
 
@@ -86,33 +184,29 @@ impl HistoryGraph {
         self.nodes.insert(rowid, node);
     }
 
-    pub fn node(&self, rowid: &Rowid) -> &HistoryNode {
+    fn get_node(&self, rowid: &Rowid) -> &HistoryNode {
         self.nodes.get(rowid).expect("node must exist")
     }
 
-    pub fn nodes(&self) -> Vec<&HistoryNode> {
-        self.nodes.values().collect()
-    }
-
-    fn node_mut(&mut self, rowid: &Rowid) -> &mut HistoryNode {
+    fn get_node_mut(&mut self, rowid: &Rowid) -> &mut HistoryNode {
         self.nodes.get_mut(rowid).expect("node must exist")
     }
 
-    pub fn parent<T>(&self, node: T) -> &Parent
+    fn get_parent<T>(&self, node: T) -> &Parent
     where
         T: Into<Rowid>,
     {
-        &self.node(&node.into()).parent
+        &self.get_node(&node.into()).parent
     }
 
-    pub fn set_parent(&mut self, node: impl Into<Rowid>, parent: Parent) {
+    fn set_parent(&mut self, node: impl Into<Rowid>, parent: Parent) {
         let node = node.into();
 
         if let Parent::Found(found) = &parent {
-            self.node_mut(found).children.push(node);
+            self.get_node_mut(found).children.push(node);
         }
 
-        self.node_mut(&node).parent = parent;
+        self.get_node_mut(&node).parent = parent;
     }
 
     fn node_at(&self, lineage: i64, logical_time: i64) -> Option<Rowid> {
@@ -124,7 +218,7 @@ impl HistoryGraph {
     fn lineages_at_time(&self, logical_time: i64) -> HashSet<i64> {
         self.get_generation(logical_time)
             .iter()
-            .map(|rowid| self.node(rowid).lineage)
+            .map(|rowid| self.get_node(rowid).lineage)
             .collect()
     }
 
@@ -137,7 +231,7 @@ impl HistoryGraph {
     }
 
     fn is_linear_continuation(&self, rowid: Rowid) -> bool {
-        let node = self.node(&rowid);
+        let node = self.get_node(&rowid);
         if node.logical_time == 1 {
             return false;
         }
@@ -145,7 +239,7 @@ impl HistoryGraph {
     }
 
     fn parent_rowid(&self, rowid: Rowid) -> Option<Rowid> {
-        match self.parent(rowid) {
+        match self.get_parent(rowid) {
             Parent::Found(parent) => Some(*parent),
             _ => None,
         }
@@ -153,7 +247,7 @@ impl HistoryGraph {
 
     /// All nodes at T-1 that existed when this node was inserted.
     fn fork_candidates(&self, rowid: Rowid) -> Vec<Rowid> {
-        let node = self.node(&rowid);
+        let node = self.get_node(&rowid);
         let logical_time = node.logical_time;
         if logical_time <= 1 {
             return Vec::new();
@@ -168,13 +262,15 @@ impl HistoryGraph {
 
     /// Same-time fork parent: active node when pushHistory did not advance logical time.
     fn same_time_fork_parent(&self, rowid: Rowid) -> Option<Rowid> {
-        let node = self.node(&rowid);
+        let node = self.get_node(&rowid);
         let logical_time = node.logical_time;
 
         let same_time: Vec<Rowid> = self
             .get_generation(logical_time)
             .iter()
-            .filter(|candidate| **candidate < rowid && self.node(candidate).lineage != node.lineage)
+            .filter(|candidate| {
+                **candidate < rowid && self.get_node(candidate).lineage != node.lineage
+            })
             .copied()
             .collect();
 
@@ -196,13 +292,13 @@ impl HistoryGraph {
         // let prev = self.previous_rowid(rowid)?;
         // let prev_node = self.node(&prev);
 
-        let node = self.node(&rowid);
+        let node = self.get_node(&rowid);
         let logical_time = node.logical_time;
 
         // if candidate with same lineage, it's our parent
         if let Some(same_lin) = candidates
             .iter()
-            .find(|candidate| self.node(candidate).lineage == node.lineage)
+            .find(|candidate| self.get_node(candidate).lineage == node.lineage)
         {
             return vec![*same_lin];
         }
@@ -246,7 +342,7 @@ impl HistoryGraph {
     }
 
     fn resolve_parent(&self, rowid: Rowid) -> Parent {
-        let node = self.node(&rowid);
+        let node = self.get_node(&rowid);
         let lineage = node.lineage;
         let logical_time = node.logical_time;
 
@@ -286,107 +382,77 @@ impl HistoryGraph {
         }
     }
 
-    pub fn get_generation(&self, logical_time: i64) -> Vec<i64> {
+    fn get_generation(&self, logical_time: i64) -> Vec<i64> {
         self.generations
             .get(&logical_time)
             .cloned()
             .unwrap_or_default()
     }
 
-    pub fn stats(&self) -> (usize, usize, usize) {
-        let mut found = 0;
-        let mut ambiguous = 0;
-        let mut unknown = 0;
+    pub fn solve(nodes: Vec<HistoryNode>) -> HistoryGraph {
+        let mut solver = Self::new();
+        solver.add_nodes(nodes);
+        solver.resolve_parents();
 
-        for node in self.nodes.values() {
-            match node.parent {
-                Parent::Found(_) | Parent::None => found += 1,
-                Parent::Ambiguous(_) => ambiguous += 1,
-                Parent::Unknown => unknown += 1,
-            }
+        HistoryGraph {
+            nodes: solver.nodes,
         }
+    }
+}
 
-        (found, ambiguous, unknown)
+impl HistoryGraph {
+    pub fn new(nodes: Vec<HistoryNode>) -> Self {
+        let nodes_map = nodes.into_iter().map(|node| (node.rowid, node)).collect();
+        Self { nodes: nodes_map }
     }
 
-    /// Save the graph as an SVG file using graphviz dot command.
-    /// Returns an error if graphviz is not available or the command fails.
-    pub fn save_graph(&self, svg_path: &str) -> anyhow::Result<()> {
-        // Check if dot command is available
-        let which_result = Command::new("which").arg("dot").output();
-        match &which_result {
-            Ok(output) if output.status.success() => {}
-            _ => {
-                return Err(anyhow::anyhow!(
-                    "graphviz 'dot' command not found in PATH. Please install graphviz to use save_graph."
-                ));
-            }
+    pub fn get_node(&self, rowid: i64) -> Option<&HistoryNode> {
+        self.nodes.get(&rowid)
+    }
+
+    pub fn get_node_mut(&mut self, rowid: &i64) -> Option<&mut HistoryNode> {
+        self.nodes.get_mut(&rowid)
+    }
+
+    pub fn get_parent(&self, rowid: i64) -> Option<&Parent> {
+        self.get_node(rowid).map(|node| &node.parent)
+    }
+
+    pub fn nodes(&self) -> Vec<&HistoryNode> {
+        self.nodes.values().collect()
+    }
+
+    pub fn to_dot(&self) -> String {
+        let mut dot = String::from("digraph HistoryGraph {\n");
+        dot.push_str("  node [shape=box];\n");
+        dot.push_str("  rankdir=TB;\n");
+        dot.push_str("\n");
+
+        // Add nodes with labels
+        for node in self.nodes.values() {
+            let label = format!("{}\\n{}:{}", node.rowid, node.lineage, node.logical_time);
+            dot.push_str(&format!("  \"{}\" [label=\"{}\"];\n", node.rowid, label));
         }
 
-        let mut output = "digraph {{".to_string();
-        let mut list = Vec::new();
+        dot.push_str("\n");
 
-        for node in self.nodes.values().sorted_by_key(|n| n.rowid) {
-            list.push(format!(
-                "({}) {}:{}",
-                node.rowid, node.lineage, node.logical_time,
-            ));
+        // Add edges from parent to child
+        for node in self.nodes.values() {
             match &node.parent {
-                Parent::Found(parent) => {
-                    let parent = self.node(parent);
-                    output.push_str(&format!(
-                        "\n    \"{}:{}\" -> \"{}:{}\";",
-                        parent.lineage, parent.logical_time, node.lineage, node.logical_time
-                    ));
+                Parent::Found(parent_id) => {
+                    dot.push_str(&format!("  \"{}\" -> \"{}\";\n", parent_id, node.rowid));
                 }
-                Parent::Ambiguous(items) => {
-                    for parent in items {
-                        let parent = self.node(parent);
-                        output.push_str(&format!(
-                            "\n    \"{}:{}\" -> \"{}:{}\" [color=gray];",
-                            parent.lineage, parent.logical_time, node.lineage, node.logical_time
-                        ));
+                Parent::Ambiguous(parent_ids) => {
+                    for parent_id in parent_ids {
+                        dot.push_str(&format!("  \"{}\" -> \"{}\";\n", parent_id, node.rowid));
                     }
                 }
-                Parent::Unknown => {
-                    output.push_str(&format!(
-                        "\n \"{}:{}\" [color=red];",
-                        node.lineage, node.logical_time
-                    ));
-                }
-                Parent::None => {
-                    output.push_str(&format!(
-                        "\n \"{}:{}\" [color=red];",
-                        node.lineage, node.logical_time
-                    ));
-                }
+                _ => {}
             }
         }
 
-        output.push_str("\n}}");
-
-        // Create parent directory if it doesn't exist
-        if let Some(parent) = std::path::Path::new(svg_path).parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        // Use tempfile for the .dot file
-        let dot_file = NamedTempFile::new()?;
-        std::fs::write(&dot_file, output)?;
-
-        // Run dot command to generate SVG
-        let output = Command::new("dot")
-            .args(["-Tsvg", "-o", svg_path, dot_file.path().to_str().unwrap()])
-            .output()?;
-
-        if !output.status.success() {
-            return Err(anyhow::anyhow!(
-                "dot command failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
-        }
-
-        Ok(())
+        dot.push_str("}\n");
+        dot
     }
 }
 
@@ -394,7 +460,7 @@ impl DTProject {
     pub async fn get_node_lineages(&self) -> anyhow::Result<Vec<HistoryNode>> {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
         let nodes: Vec<HistoryNode> =
-            query_as("SELECT rowid, __pk0, __pk1, p FROM tensorhistorynode ORDER BY rowid ASC")
+            query_as("SELECT rowid, __pk0, __pk1 FROM tensorhistorynode ORDER BY rowid ASC")
                 .fetch_all(&*self.pool)
                 .await?;
 

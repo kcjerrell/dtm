@@ -13,6 +13,8 @@ impl UpdateGate {
         assert!(updates > 0, "updates must be greater than 0");
         assert!(total > 0, "total must be greater than 0");
 
+        let updates = updates.min(total);
+
         Arc::new(Mutex::new(Self {
             total,
             current: 0,

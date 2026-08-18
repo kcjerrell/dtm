@@ -4,7 +4,7 @@ use crate::projects_db::{
     PromptPair, TextHistory,
 };
 use anyhow::anyhow;
-use serde::Serialize;
+use serde::{Serialize};
 use sqlx::{
     query,
     sqlite::{SqliteConnection, SqliteRow},
@@ -13,7 +13,7 @@ use sqlx::{
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
-use super::history_graph::HistoryGraph;
+use super::history_graph::{HistoryGraph, HistoryGraphSolver};
 use super::resource::DTResource;
 use super::tensor_raw::TensorRaw;
 use super::types::TensorSize;
@@ -421,11 +421,7 @@ impl DTProject {
             .history
             .get_or_try_init(|| async {
                 let nodes = self.get_node_lineages().await?;
-
-                let mut graph = HistoryGraph::new();
-                graph.add_nodes(nodes);
-                graph.resolve_parents();
-
+                let graph = HistoryGraphSolver::solve(nodes);
                 Ok::<Arc<HistoryGraph>, anyhow::Error>(Arc::new(graph))
             })
             .await?

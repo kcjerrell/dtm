@@ -1,3 +1,4 @@
+## Project Structure
 ```
 ├── public - front end images
 ├── scripts - various scripts
@@ -79,7 +80,7 @@
         └── project-export-out
 ```
 
-### Important types:
+## Important types:
 
 #### TensorHistoryNode
   - this *should* represent the actual row in the project file, but has been used inconsistently
@@ -157,3 +158,17 @@ Distinct from DtProject, this generally refers to the DTM's entity for tracking 
 Refers to DTM's Image entity, which is a generated image in a DtProject. DTM's project browser lists these items.
 
 
+## Regarding lineage
+In a DT project, new history nodes can be created from any other existing node. Unfortunately, instead of having a single value `parent_id` indicating the parent node, the projects use `lineage` (`__pk0`) and `logical_time` (`__pk1`) to track node history - and it doesn't work very well in reverse, or at least I haven't quite figured out how to reconstruct the history yet.
+
+Some terms and background...
+- **Node** - an entry in the tensorhistorynode table. corresponds to items in the edit history in the DT UI. Some of these are gens, but not all. A new node is created when...
+  - an image is generated
+  - the 'clear canvas' button is pressed (and the canvas hasn't already been cleared)
+  - an image is pasted into the canvas
+  - The canvas image is edited with the paint or eraser tools. Each consecutive edit creates a new node.
+  - An control image is added (depth map, moodboard, etc)
+- DTM only indexes and displays nodes that are gens, however one of its goals is to (accurately) provide and display all inputs into that gen, which includes any input image - the image that was on the canvas when the new node was created
+- **Active node** - at any given time in the DT app, a single history node is selected or active
+
+- **Parent** or **predecessor** - The 
