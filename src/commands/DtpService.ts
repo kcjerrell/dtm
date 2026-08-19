@@ -95,21 +95,6 @@ async function getTensorSize(projectId: number, tensorId: string): Promise<Tenso
     return await invoke("dtp_get_tensor_size", { projectId, tensorId })
 }
 
-async function decodeTensor(
-    projectId: number,
-    tensorId: string,
-    asPng: boolean,
-    nodeId?: number | null,
-): Promise<Uint8Array<ArrayBuffer>> {
-    const opts = {
-        tensorId,
-        projectId,
-        asPng,
-        nodeId,
-    }
-    return new Uint8Array(await invoke("dtp_decode_tensor", opts))
-}
-
 async function findPredecessor(
     projectId: number,
     rowId: number
@@ -183,7 +168,6 @@ const DTPService = {
     updateWatchFolder,
     listModels,
     getTensorSize,
-    decodeTensor,
     findPredecessor,
     sync,
     syncProjects,

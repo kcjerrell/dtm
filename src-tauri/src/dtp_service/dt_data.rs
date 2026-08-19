@@ -23,6 +23,7 @@ impl DTPService {
         rowid: Option<i64>,
         min_rowid: Option<i64>,
         max_rowid: Option<i64>,
+        preview_id: Option<i64>,
         select: Option<Vec<String>>,
     ) -> TAResult<Vec<TensorHistoryNode>> {
         let project_ref = if let Some(id) = project_id {
@@ -48,7 +49,7 @@ impl DTPService {
         } else if let (Some(s), Some(t)) = (skip, take) {
             Some(ThnFilter::SkipAndTake(s, t))
         } else {
-            None
+            preview_id.map(ThnFilter::PreviewId)
         };
 
         let mut data = ThnData::default();

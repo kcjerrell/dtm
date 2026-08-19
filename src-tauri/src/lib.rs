@@ -201,54 +201,6 @@ fn get_os_version() -> String {
     }
 }
 
-#[tauri::command]
-async fn size_check(project_id: i64) -> TAResult<()> {
-    let pdb = projects_db::ProjectsDb::get().await?;
-    let images = pdb
-        .list_images(projects_db::dtos::image::ListImagesOptions {
-            project_ids: Some(vec![project_id]),
-            ..Default::default()
-        })
-        .await
-        .into_ta_result()?;
-
-    if let Some(images) = images.images {
-        for img in images {
-            let result: TAResult<()> = (async {
-                let handle = img.get_handle();
-                let tr = handle
-                    .sub()?
-                    .canvas(0)
-                    .get_tensor_raw()
-                    .await?
-                    .ok_or(anyhow::anyhow!("No tensor raw"))?;
-                let t_width = tr.width as u32;
-                let t_height = tr.height as u32;
-                let prev = handle
-                    .get_preview(false)
-                    .await?
-                    .ok_or(anyhow::anyhow!("No preview"))?;
-                let jpg = image::load_from_memory(&prev).into_ta_result()?;
-                let p_width = jpg.width();
-                let p_height = jpg.height();
-
-                if t_width != p_width || t_height != p_height {
-                    println!("size mismatch on node {}", img.node_id);
-                }
-                Ok(())
-            })
-            .await;
-            match result {
-                Ok(_) => (),
-                Err(e) => {
-                    println!("check failed for {}: {}", img.node_id, e);
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -318,7 +270,6 @@ pub fn run() {
             bookmarks::stop_accessing_bookmark,
             dtp_connect,
             dtp_service::data::dtp_pick_watch_folder,
-            dtp_service::data::dtp_decode_tensor,
             dtp_service::data::dtp_find_image_from_preview_id,
             dtp_service::data::dtp_find_predecessor,
             dtp_service::data::dtp_get_clip,
@@ -334,6 +285,7 @@ pub fn run() {
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
+            // not used in front end
             dtp_service::dtp_service::dtp_sync_projects_and_wait,
             dtp_service::data::dtp_get_metadata,
             dtp_service::export::dtp_export_projects,
@@ -343,7 +295,6 @@ pub fn run() {
             dtp_service::resource::dtp_get_resource_json,
             create_dt_archive,
             create_dt_archive_plan,
-            size_check,
             // #[cfg(feature = "tensor_bench")]
             // projects_db::print_tensor_benchmarks,
         ])

@@ -37,6 +37,8 @@ pub enum ThnFilter {
     Predecessor(i64, i64, i64),
     /// Return nodes with the given rowids
     Rowids(Vec<i64>),
+    /// Return node with the given preview_id (from tensorhistorynode__f86 table)
+    PreviewId(i64),
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -275,6 +277,10 @@ impl DTProject {
     ) -> Result<Vec<TensorHistoryNode>, sqlx::Error> {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
+        if let Some(ThnFilter::PreviewId(_)) = filter {
+            self.check_table(&DTProjectTable::ThumbnailHistoryNode).await?;
+        }
+
         // set flags for the requested data
         let (get_tensordata, get_moodboard, get_clip, get_legacy_prompts) = data
             .map_or((false, false, false, false), |d| {
@@ -475,7 +481,7 @@ fn checked_flatbuffer(data: &Arc<[u8]>) -> Option<Arc<[u8]>> {
 }
 
 fn build_query(filter: &Option<ThnFilter>) -> AssertSqlSafe<String> {
-    let select = "SELECT * FROM tensorhistorynode thn";
+    let select = "SELECT thn.* FROM tensorhistorynode thn";
 
     let mut limit_str = "".to_string();
 
@@ -505,6 +511,12 @@ fn build_query(filter: &Option<ThnFilter>) -> AssertSqlSafe<String> {
             }
             ThnFilter::Rowids(rowids) => {
                 format!("WHERE thn.rowid IN ({})", rowids.iter().join(", "))
+            }
+            ThnFilter::PreviewId(preview_id) => {
+                format!(
+                    "JOIN tensorhistorynode__f86 f86 ON thn.rowid = f86.rowid WHERE f86.f86 = {}",
+                    preview_id
+                )
             }
         }
     } else {

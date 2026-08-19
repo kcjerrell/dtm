@@ -14,6 +14,7 @@ type ListTensorHistoryNodeOpts = {
     rowid?: number
     projectId?: number
     projectPath?: string
+    previewId?: number
 }
 
 async function listTensorHistoryNodes(

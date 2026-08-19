@@ -353,6 +353,10 @@ impl DtResourceHandle {
                 };
                 Some((thn_ref.into(), thn_data))
             }
+            DtResourceRef::Thumb(preview_id) => {
+                // for thumb lookup, we need tensordata if we are trying to get the actual image
+                Some((ThnFilter::PreviewId(*preview_id), ThnData::tensordata()))
+            }
             _ => None,
         }
     }
@@ -385,9 +389,17 @@ impl DtResourceHandle {
     }
 
     async fn get_tensor_name(&self, project: Option<&DTProject>) -> Result<Option<String>> {
-        // thumbs do not have a tensor name
+        // even though though handle to a thumb isn't the same as a handle to a node,
+        // I need a path from a preview id to a tensor image and this is the logical place for it
         if self.resource.is_thumb() {
-            return Ok(None);
+            let node = self.get_history_node().await?;
+            if let Some(tensordata) = node.and_then(|n| n.tensordata.as_ref()) {
+                // we want the last tensor image
+                return Ok(tensordata
+                    .iter()
+                    .rfind(|tdd| tdd.data().tensor_id() > 0)
+                    .map(|tdd| format!("tensor_history_{}", tdd.data().tensor_id())));
+            }
         }
 
         // return the tensor name if it's a tensor
@@ -399,7 +411,7 @@ impl DtResourceHandle {
         let res = match &self.resource {
             RR::TensorData(_, res) => res,
             RR::TensorHistoryNode(_, res) => res,
-            RR::Thumb(_) | RR::Tensor(_) => panic!("impossible code path"),
+            RR::Tensor(_) | RR::Thumb(_) => panic!("impossible code path"),
         };
 
         // Handle ThnResource::Tensor by returning the tensor name directly

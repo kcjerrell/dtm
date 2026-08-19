@@ -263,63 +263,19 @@ impl DTPService {
             .await
             .map_err(anyhow::Error::msg)?)
     }
-
-    #[dtp_command]
-    pub async fn decode_tensor(
-        &self,
-        project_id: i64,
-        node_id: Option<i64>,
-        tensor_id: String,
-        as_png: bool,
-    ) -> crate::TAResult<tauri::ipc::Response> {
-        let project = self
-            .get_project(project_id)
-            .await
-            .map_err(anyhow::Error::msg)?;
-        let tensor = project
-            .get_tensor_raw(&tensor_id)
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        let metadata = match node_id {
-            Some(node) => {
-                let nodes = project
-                    .get_tensor_history_nodes(Some(ThnFilter::Rowid(node)), None)
-                    .await
-                    .map_err(anyhow::Error::msg)?;
-                nodes.into_iter().next().map(|n| n.node_data())
-            }
-            None => None,
-        };
-
-        let buffer = crate::projects_db::decode_tensor(
-            tensor,
-            DecodeTensorOptions {
-                as_png,
-                history_node: metadata,
-                size: None,
-            },
-        )?;
-        Ok(tauri::ipc::Response::new(buffer))
-    }
-
+    
     #[dtp_command]
     pub async fn find_predecessor(
         &self,
         project_id: i64,
         row_id: i64,
     ) -> crate::TAResult<Vec<TensorHistoryNode>> {
-        let project_ref = DtProjectRef::Id(project_id);
-        let dtp = project_ref.get_project().await?;
-        let nodes = dtp.get_predecessors(row_id).await.into_ta_result()?;
-        // .get_tensor_history_nodes(
-        //     Some(ThnFilter::Predecessor(row_id, lineage, logical_time)),
-        //     Some(ThnData::tensordata()),
-        // )
-        // .await
-        // .into_ta_result()?;
-
-        Ok(nodes)
+        DtProjectRef::Id(project_id)
+            .get_project()
+            .await?
+            .get_predecessors(row_id)
+            .await
+            .into_ta_result()
     }
 
     // Helper method to get a DTProject instance

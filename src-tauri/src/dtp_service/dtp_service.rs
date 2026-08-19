@@ -253,6 +253,7 @@ impl DTPService {
     }
 
     #[dtp_command]
+    /// used to reset the db in testing
     pub async fn reset_db(&self) -> crate::TAResult<()> {
         let db = self.get_db().await?;
         let folders = db.list_watch_folders().await.into_ta_result()?;
