@@ -408,7 +408,7 @@ impl DtResourceHandle {
         }
 
         // get the resource type
-        let res = match &self.resource {
+        let mut res = match &self.resource {
             RR::TensorData(_, res) => res,
             RR::TensorHistoryNode(_, res) => res,
             RR::Tensor(_) | RR::Thumb(_) => panic!("impossible code path"),
@@ -449,6 +449,10 @@ impl DtResourceHandle {
             return Ok(None);
         }
         let tensordata = tensordata.unwrap();
+
+        if res.is_none() {
+            res = &ThnR::Canvas(0);
+        }
 
         // return the first (last) tensor name that matches the type
         match &res {
