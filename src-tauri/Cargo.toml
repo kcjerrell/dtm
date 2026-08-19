@@ -97,9 +97,9 @@ img-parts = "0.3.3"
 tauri-plugin-os = "2"
 strum = { version = "0.28.0", features = ["derive"] }
 fpzip-rs = "0.1.0"
-candle-transformers = { version = "0.10.2", features = ["metal", "accelerate"] }
-candle-core = { version = "0.10.2", features = ["metal", "accelerate"] }
-candle-nn = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-transformers = { version = "0.10.2" }
+candle-core = { version = "0.10.2" }
+candle-nn = { version = "0.10.2" }
 hf-hub = "1.0.0-rc.1"
 zerocopy = "0.8.52"
 tokenizers = "0.23.1"
@@ -109,6 +109,9 @@ tokenizers = "0.23.1"
 objc2 = "0.6.4"
 objc2-foundation = "0.3.2"
 objc2-app-kit = "0.3.2"
+candle-transformers = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-core = { version = "0.10.2", features = ["metal", "accelerate"] }
+candle-nn = { version = "0.10.2", features = ["metal", "accelerate"] }
 
 # Desktop-only (not mobile)
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
