@@ -1,4 +1,4 @@
-import plist from "plist"
+import * as plist from "plist"
 import { determineType } from "@/utils/mediaTypes"
 import { isOpenPose, type OpenPose } from "@/utils/poseHelpers"
 import { extractImgSrc, extractPaths } from "./imageLoaders"
