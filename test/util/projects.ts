@@ -1,7 +1,7 @@
 import path from "path"
 import fse from "fs-extra"
 import { execSync } from "child_process"
-import plist from "plist"
+import * as plist from "plist"
 import { getTestDataPath } from "./paths"
 
 // helpers for manipulating projects in test data

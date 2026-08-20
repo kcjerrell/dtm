@@ -1,4 +1,4 @@
-import plist from "plist"
+import * as plist from "plist"
 import { getOverrideOr } from "@/testHooks"
 import { getClipboardBinary, getClipboardText, getClipboardTypes } from "@/utils/clipboard"
 import { isVideo } from "@/utils/imageStore"
