@@ -62,7 +62,7 @@
     "valtio-reactive": "^0.2.0"
   },
   "devDependencies": {
-    "@babel/plugin-proposal-decorators": "^8.0.2",
+    "@babel/plugin-proposal-decorators": "^7.29.0",
     "@biomejs/biome": "2.5.9",
     "@chakra-ui/cli": "^3.36.1",
     "@octokit/rest": "^22.0.1",
