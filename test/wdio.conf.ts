@@ -50,7 +50,7 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     ],
 
     // Logging
-    logLevel: "info",
+    logLevel: "warn",
     bail: 0,
     baseUrl: "http://localhost:4444",
     waitforTimeout: 10000,
