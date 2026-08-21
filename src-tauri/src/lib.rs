@@ -207,9 +207,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init());
 
-    #[cfg(feature = "webdriver")]
-    let builder = builder.plugin(tauri_plugin_webdriver::init());
-
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
@@ -247,6 +244,8 @@ pub fn run() {
                 .max_file_size(200000)
                 .build(),
         )
+        .plugin(tauri_plugin_wdio::init()) 
+        .plugin(tauri_plugin_wdio_webdriver::init()) 
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,
