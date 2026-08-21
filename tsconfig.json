@@ -30,15 +30,12 @@
       ]
     },
     "types": [
-      "node",
-      "@wdio/globals/types",
-      "@types/mocha"
+
     ]
   },
   "include": [
     "./src",
     "./src/global.ts",
-    "./test"
   ],
   "exclude": [
     "src/scratch/*"

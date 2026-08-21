@@ -59,6 +59,9 @@ class Metadata {
     }
 
     toolbar = {
+        get toolbar() {
+            return $('[role="toolbar"][aria-label="Metadata viewer actions"]')
+        },
         get loadFromClipboard() {
             return $("aria/Load image from clipboard")
         },

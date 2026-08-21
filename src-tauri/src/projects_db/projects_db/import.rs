@@ -1,15 +1,12 @@
+use crate::dt_project::{TensorHistoryNode, ThnData, ThnFilter};
 use crate::projects_db::{
-    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
     dtos::image::ListImagesOptions,
     search::process_prompt,
-    DTProject,
+    DtProjectRef,
 };
-use entity::{
-    enums::{ModelType, Sampler},
-    images,
-};
+use entity::{enums::ModelType, images};
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};
@@ -23,20 +20,21 @@ pub struct NodeModelWeight {
 }
 
 impl ProjectsDb {
-    pub async fn scan_project(&self, id: i64, full_scan: bool) -> Result<(i64, u64), MixedError> {
+    pub async fn scan_project(&self, id: i64, full_scan: bool) -> anyhow::Result<(i64, u64)> {
         let project = self.get_project(id).await?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
 
-        let dt_project = DTProject::open(&project.full_path).await?;
+        let project_ref = DtProjectRef::Id(id);
+        let dt_project = project_ref.open_project().await?;
         let dt_project_info = dt_project.get_info().await?;
         let end = dt_project_info.history_max_id;
 
         let start = match full_scan {
             true => 0,
-            false => project.last_id.or(Some(-1)).unwrap(),
+            false => project.last_id.unwrap_or(-1),
         };
 
         for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
@@ -113,7 +111,8 @@ impl ProjectsDb {
             Some(_) => Ok((project.id, total.total)),
             None => Err(MixedError::Other(
                 "Unexpected result: list_images returned no images".to_string(),
-            )),
+            )
+            .into()),
         }
     }
 
@@ -193,7 +192,7 @@ impl ProjectsDb {
                     }
                 }
 
-                if h.moodboard.as_ref().is_some_and(|mb| mb.len() > 0) {
+                if h.moodboard.as_ref().is_some_and(|mb| !mb.is_empty()) {
                     has_shuffle = true;
                 }
 
@@ -238,7 +237,6 @@ impl ProjectsDb {
                             (wc % 1_000_000) as u32 * 1000,
                         )
                         .unwrap_or_default()
-                        .into()
                     }),
                     has_mask: Set(has_mask),
                     has_depth: Set(has_depth),
@@ -319,7 +317,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     lora_id: Set(lora.model_id),
                     weight: Set(lora.weight),
-                    ..Default::default()
                 });
             }
         }
@@ -345,7 +342,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     control_id: Set(control.model_id),
                     weight: Set(control.weight),
-                    ..Default::default()
                 });
             }
         }

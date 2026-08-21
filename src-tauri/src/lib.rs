@@ -1,6 +1,5 @@
 #![recursion_limit = "256"]
 
-use reqwest;
 use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::log::LevelFilter;
@@ -12,8 +11,10 @@ pub mod bookmarks;
 pub mod dtp_service;
 mod ffmpeg;
 pub mod projects_db;
+pub mod dt_project;
+pub(crate) mod util;
 use dtp_service::dtp_connect;
-use projects_db::dt_project_tensordata;
+use projects_db::{create_dt_archive, create_dt_archive_plan};
 mod migrations;
 mod vid;
 mod vid_export;
@@ -29,7 +30,7 @@ mod tensor;
 pub use tensor::{Tensor, TensorValue};
 
 mod error;
-pub use error::{TACommandError, TAResult, IntoTAResult};
+pub use error::{IntoTAResult, TACommandError, TAResult};
 
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
@@ -59,17 +60,23 @@ fn write_clipboard_binary(ty: String, data: Vec<u8>) -> TAResult<()> {
 
 #[tauri::command]
 async fn ffmpeg_check(app: tauri::AppHandle) -> TAResult<bool> {
-    Ok(ffmpeg::check_ffmpeg(&app).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::check_ffmpeg(&app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 async fn ffmpeg_download(app: tauri::AppHandle) -> TAResult<()> {
-    Ok(ffmpeg::download_ffmpeg(app).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::download_ffmpeg(app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> TAResult<String> {
-    Ok(ffmpeg::call_ffmpeg(&app, args).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::call_ffmpeg(&app, args)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
@@ -200,9 +207,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init());
 
-    #[cfg(feature = "webdriver")]
-    let builder = builder.plugin(tauri_plugin_webdriver::init());
-
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
@@ -240,6 +244,8 @@ pub fn run() {
                 .max_file_size(200000)
                 .build(),
         )
+        .plugin(tauri_plugin_wdio::init()) 
+        .plugin(tauri_plugin_wdio_webdriver::init()) 
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,
@@ -263,7 +269,6 @@ pub fn run() {
             bookmarks::stop_accessing_bookmark,
             dtp_connect,
             dtp_service::data::dtp_pick_watch_folder,
-            dtp_service::data::dtp_decode_tensor,
             dtp_service::data::dtp_find_image_from_preview_id,
             dtp_service::data::dtp_find_predecessor,
             dtp_service::data::dtp_get_clip,
@@ -279,12 +284,18 @@ pub fn run() {
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
+            // not used in front end
             dtp_service::dtp_service::dtp_sync_projects_and_wait,
             dtp_service::data::dtp_get_metadata,
             dtp_service::export::dtp_export_projects,
             dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
-            dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,
+            dtp_service::resource::dtp_get_resource_image,
+            dtp_service::resource::dtp_get_resource_json,
+            create_dt_archive,
+            create_dt_archive_plan,
+            // #[cfg(feature = "tensor_bench")]
+            // projects_db::print_tensor_benchmarks,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
@@ -357,10 +368,9 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, event| match event {
-            tauri::RunEvent::Exit => {
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
                 bookmarks::cleanup_bookmarks();
             }
-            _ => {}
         });
 }

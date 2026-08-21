@@ -32,7 +32,9 @@ describe("Metadata", () => {
     it("loads image dropped from finder", async () => {
         // go to metadata tab
         await App.selectView("metadata")
+
         // clear images if there any
+        await md.toolbar.toolbar.waitForExist()
         if (await md.toolbar.clearUnpinned.isExisting()) {
             await md.toolbar.clearUnpinned.click()
         }

@@ -1,17 +1,11 @@
+use anyhow::Context;
 use tauri::{
-    http::{self, Response, StatusCode, Uri},
+    http::{self, Response, StatusCode},
     UriSchemeResponder,
 };
-use anyhow::Context;
 
 use crate::{
-    projects_db::{
-        audio::audio_request,
-        decode_audio,
-        dt_resource_handle::DtResourceHandle,
-        enums::{DtProjectRef, DtResourceRef, ThnRef, ThnResource},
-        DTProject, ProjectsDb,
-    },
+    projects_db::{audio::audio_request, enums::DtProjectRef, ProjectsDb},
     ResourceHandle,
 };
 
@@ -155,12 +149,7 @@ impl DtmProtocol {
                 .await
             }
             "audio" => {
-                let project_path = self
-                    .pdb
-                    .get_project_path(req.project_id)
-                    .await
-                    .context("Failed to get project path")?;
-                audio_request(&project_path, &req).await
+                audio_request(&req).await
             }
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
@@ -204,10 +193,7 @@ async fn tensor(
 
     let handle = if let Some(node_id) = node {
         // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
-        project_ref
-            .node(node_id)
-            .sub()?
-            .tensor(name)
+        project_ref.node(node_id).sub()?.tensor(name)
     } else {
         project_ref.tensor(name)
     };
@@ -216,13 +202,11 @@ async fn tensor(
 
     // Handle pose type separately as it doesn't return PNG
     if tensor_type == "pose" {
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(
-                "Unsupported tensor type or decoding failed"
-                    .as_bytes()
-                    .to_vec(),
-            )?);
+        return Ok(Response::builder().status(StatusCode::BAD_REQUEST).body(
+            "Unsupported tensor type or decoding failed"
+                .as_bytes()
+                .to_vec(),
+        )?);
     }
 
     if tensor_type == "audio" {
@@ -230,7 +214,7 @@ async fn tensor(
     }
 
     let body = handle
-        .get_lossless(size)
+        .get_image(size)
         .await
         .context("Failed to get lossless")?
         .ok_or_else(|| anyhow::anyhow!("Failed to get lossless"))?;

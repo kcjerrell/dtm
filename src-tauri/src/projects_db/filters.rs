@@ -20,7 +20,8 @@ impl ListImagesFilterTarget {
             | ListImagesFilterTarget::Width
             | ListImagesFilterTarget::Height
             | ListImagesFilterTarget::TextGuidance
-            | ListImagesFilterTarget::Shift => self.apply_numeric(op, value, q),
+            | ListImagesFilterTarget::Shift
+            | ListImagesFilterTarget::Strength => self.apply_numeric(op, value, q),
 
             // TODO: Lora / Control are relations — depends on how you want to filter
             ListImagesFilterTarget::Lora => apply_lora_filter(op, value, q),
@@ -82,6 +83,7 @@ impl NumericFilter for ListImagesFilterTarget {
             ListImagesFilterTarget::Height => images::Column::StartHeight,
             ListImagesFilterTarget::TextGuidance => images::Column::GuidanceScale,
             ListImagesFilterTarget::Shift => images::Column::Shift,
+            ListImagesFilterTarget::Strength => images::Column::Strength,
             _ => unreachable!("Target is not numeric"),
         }
     }
@@ -197,6 +199,7 @@ pub enum ListImagesFilterTarget {
     Height,
     TextGuidance,
     Shift,
+    Strength
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

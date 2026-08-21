@@ -1,9 +1,10 @@
-use crate::projects_db::{
-    dtos::{
-        clip::{ClipExtra, ClipFrame},
-        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+use crate::{
+    dt_project::ClipExtra,
+    projects_db::{
+        dtos::image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+        folder_cache, search, DtProjectRef,
     },
-    folder_cache, search, DTProject,
+    IntoTAResult, TAResult,
 };
 use entity::{images, projects, watch_folders};
 use sea_orm::{
@@ -174,7 +175,8 @@ impl ProjectsDb {
             .column(images::Column::NodeId)
             .into_tuple()
             .one(&self.db)
-            .await?;
+            .await
+            .into_ta_result()?;
 
         let (rel_path, watchfolder_id, node_id) =
             result.ok_or_else(|| anyhow::anyhow!("Image or Project not found"))?;
@@ -187,7 +189,9 @@ impl ProjectsDb {
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Invalid path encoding"))?;
 
-        let dt_project = DTProject::get(full_path_str).await?;
+        let dt_project = DtProjectRef::Path(full_path_str.to_string())
+            .get_project()
+            .await?;
         let clip = dt_project.get_clip_and_frames(node_id, clip_id).await?;
 
         Ok(clip)

@@ -25,7 +25,7 @@ export type UIControllerState = {
         subItem?: SubItem | CanvasStack
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
-        candidates?: TensorHistoryExtra[]
+        candidates?: TensorHistoryNode[]
         sourceRect?: DOMRect | null
         width?: number
         height?: number
@@ -151,6 +151,10 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showDetailsOverlay(item: ImageExtra) {
+        if (this._clearDetailsOverlayTimer) {
+            window.clearTimeout(this._clearDetailsOverlayTimer)
+            this._clearDetailsOverlayTimer = undefined
+        }
         const detailsOverlay = this.state.detailsView
         detailsOverlay.isOpen = true
         detailsOverlay.item = item
@@ -165,10 +169,14 @@ export class UIController extends DTPStateController<UIControllerState> {
         const itemDetails = await this.container.getService("details")?.getDetails(item)
         detailsOverlay.itemDetails = itemDetails
 
-        const candidates = await this.container
-            .getService("details")
-            ?.getPredecessorCandidates(item)
-        detailsOverlay.candidates = candidates ?? []
+        if (itemDetails?.usedImageInput) {
+            const candidates = await this.container
+                .getService("details")
+                ?.getPredecessorCandidates(itemDetails)
+            detailsOverlay.candidates = candidates ?? []
+        } else {
+            detailsOverlay.candidates = []
+        }
 
         this.raise("onItemChanged", { item })
     }
@@ -177,10 +185,11 @@ export class UIController extends DTPStateController<UIControllerState> {
         return useSnapshot(this.state.detailsView)
     }
 
+    _clearDetailsOverlayTimer?: number
     hideDetailsOverlay() {
         const detailsOverlay = this.state.detailsView
         detailsOverlay.isOpen = false
-        setTimeout(() => {
+        this._clearDetailsOverlayTimer = window.setTimeout(() => {
             detailsOverlay.item = undefined
             detailsOverlay.candidates = []
             detailsOverlay.subItem = undefined
@@ -235,9 +244,8 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showSubItemPose(projectId: number, tensorId: string) {
-        const poseData = await DTPService.decodeTensor(projectId, tensorId, false)
-        const points = tensorToPoints(poseData)
-        const pose = pointsToPose(points, 1024, 1024)
+        const poseData = await DTPService.getResourceJson(projectId, null, tensorId)
+        const pose = JSON.parse(poseData)
         const image = await drawPose(pose, 4)
         const details = this.state.detailsView
         if (!image || !details.item) return
