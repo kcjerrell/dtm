@@ -5,7 +5,7 @@
 		"types": ["node", "@wdio/globals/types", "@wdio/mocha-framework"],
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
-		"moduleResolution": "node",
+		"moduleResolution": "bundler",
 		"module": "esnext"
 	}
 }

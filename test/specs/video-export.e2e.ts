@@ -156,7 +156,6 @@ describe("Video Export", () => {
         await $("aria/Add search filter").click()
 
         // select Model in the filter type
-        await $("aria/Add search filter").click()
         const filterForm = DTProjects.searchPanel.getFilter(0)
         await filterForm.target.click()
         ;(await filterForm.getTargetOption("lora")).click()
