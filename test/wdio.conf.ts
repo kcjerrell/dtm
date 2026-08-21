@@ -3,27 +3,12 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Options } from "@wdio/types"
 import { config as dotenvConfig } from "dotenv"
-import {
-    checkForAppInstance,
-    startApp,
-    startDevServer,
-    stopApp,
-    waitForServer,
-} from "./util/appLauncher.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 dotenvConfig({ path: resolve(__dirname, ".env"), override: false })
-dotenvConfig({ path: resolve(__dirname, "dev.env"), override: false })
 
-let isAppRunning = false
-const useDev = process.env.DTM_USE_DEV !== "false"
-const isDebug = false
-// process.execArgv.some((arg) => arg.startsWith("--inspect")) ||
-// !!process.env.VSCODE_INSPECTOR_OPTIONS;
-
-const WEBDRIVER_PORT = 4445
 const SCREENSHOT_DIR = resolve(__dirname, "artifacts", "screenshots")
 
 function safeFileName(value: string) {
@@ -79,9 +64,9 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     },
 
     // Hooks
-    // onPrepare: async () => {
-    //     mkdirSync(SCREENSHOT_DIR, { recursive: true })
-    // },
+    onPrepare: async () => {
+        mkdirSync(SCREENSHOT_DIR, { recursive: true })
+    },
 
     // onComplete: () => {
     //     // Global teardown after all workers are finished
@@ -111,54 +96,54 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     //     // stopApp()
     // },
 
-    // afterTest: async (test, context, result) => {
-        //     if (result.passed) return
-        //     try {
-        //         const diagnostics = await browser.execute(() => {
-        //             const appRoot = document.querySelector("[data-current-view]")
-        //             const viewContainers = Array.from(
-        //                 document.querySelectorAll<HTMLElement>("[data-view-container]"),
-        //             ).map((el) => {
-        //                 const rect = el.getBoundingClientRect()
-        //                 const style = window.getComputedStyle(el)
-        //                 return {
-        //                     view: el.dataset.viewContainer,
-        //                     active: el.dataset.activeView,
-        //                     mode: el.dataset.activityMode,
-        //                     rect: {
-        //                         x: rect.x,
-        //                         y: rect.y,
-        //                         width: rect.width,
-        //                         height: rect.height,
-        //                     },
-        //                     display: style.display,
-        //                     opacity: style.opacity,
-        //                     visibility: style.visibility,
-        //                 }
-        //             })
-        //             return {
-        //                 currentView: appRoot?.getAttribute("data-current-view"),
-        //                 mountedViews: appRoot?.getAttribute("data-mounted-views"),
-        //                 activeButton: document
-        //                     .querySelector("[aria-current='page']")
-        //                     ?.textContent?.trim(),
-        //                 metadataExists: !!document.getElementById("metadata"),
-        //                 projectsExists: !!document.getElementById("dt-projects"),
-        //                 bodyText: document.body.innerText.slice(0, 1000),
-        //                 viewContainers,
-        //             }
-        //         })
-        //         console.log(`Failure diagnostics: ${JSON.stringify(diagnostics, null, 2)}`)
-        //         mkdirSync(SCREENSHOT_DIR, { recursive: true })
-        //         const stamp = new Date().toISOString().replace(/[:.]/g, "-")
-        //         const suite = safeFileName(test.parent || "suite")
-        //         const title = safeFileName(test.title || "test")
-        //         const filename = `${stamp}__${suite}__${title}.png`
-        //         const targetPath = resolve(SCREENSHOT_DIR, filename)
-        //         await browser.saveScreenshot(targetPath)
-        //         console.log(`Saved failure screenshot: ${targetPath}`)
-        //     } catch (err) {
-        //         console.error("Unable to save failure screenshot", err)
-        //     }
-    // },
+    afterTest: async (test, context, result) => {
+        if (result.passed) return
+        try {
+            const diagnostics = await browser.execute(() => {
+                const appRoot = document.querySelector("[data-current-view]")
+                const viewContainers = Array.from(
+                    document.querySelectorAll<HTMLElement>("[data-view-container]"),
+                ).map((el) => {
+                    const rect = el.getBoundingClientRect()
+                    const style = window.getComputedStyle(el)
+                    return {
+                        view: el.dataset.viewContainer,
+                        active: el.dataset.activeView,
+                        mode: el.dataset.activityMode,
+                        rect: {
+                            x: rect.x,
+                            y: rect.y,
+                            width: rect.width,
+                            height: rect.height,
+                        },
+                        display: style.display,
+                        opacity: style.opacity,
+                        visibility: style.visibility,
+                    }
+                })
+                return {
+                    currentView: appRoot?.getAttribute("data-current-view"),
+                    mountedViews: appRoot?.getAttribute("data-mounted-views"),
+                    activeButton: document
+                        .querySelector("[aria-current='page']")
+                        ?.textContent?.trim(),
+                    metadataExists: !!document.getElementById("metadata"),
+                    projectsExists: !!document.getElementById("dt-projects"),
+                    bodyText: document.body.innerText.slice(0, 1000),
+                    viewContainers,
+                }
+            })
+            console.log(`Failure diagnostics: ${JSON.stringify(diagnostics, null, 2)}`)
+            mkdirSync(SCREENSHOT_DIR, { recursive: true })
+            const stamp = new Date().toISOString().replace(/[:.]/g, "-")
+            const suite = safeFileName(test.parent || "suite")
+            const title = safeFileName(test.title || "test")
+            const filename = `${stamp}__${suite}__${title}.png`
+            const targetPath = resolve(SCREENSHOT_DIR, filename)
+            await browser.saveScreenshot(targetPath)
+            console.log(`Saved failure screenshot: ${targetPath}`)
+        } catch (err) {
+            console.error("Unable to save failure screenshot", err)
+        }
+    },
 }
