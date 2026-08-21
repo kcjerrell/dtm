@@ -51,9 +51,7 @@ describe("Projects", () => {
 		// assert folder was added
 		await expect($(`div=${projectsAPath}`)).toBeDisplayedInViewport();
 
-		await $("aria/Close dialog").scrollIntoView({
-			scrollableElement: $("div[role='dialog']"),
-		});
+		await $("aria/Close dialog").scrollIntoView({ block: "center" });
 		await $("aria/Close dialog").click();
 
 		await expect($("div=test-project-a2")).toBeDisplayedInViewport();
@@ -77,9 +75,7 @@ describe("Projects", () => {
 		// assert folder was added
 		await expect($(`div=${projectsBPath}`)).toBeDisplayedInViewport();
 
-		await $("aria/Close dialog").scrollIntoView({
-			scrollableElement: $("div[role='dialog']"),
-		});
+		await $("aria/Close dialog").scrollIntoView({ block: "center" });
 		await $("aria/Close dialog").click();
 
 		await expect($("div=test-project-e2")).toBeDisplayedInViewport();

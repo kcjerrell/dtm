@@ -88,9 +88,9 @@ function TensorsList(props: TensorsListComponentProps) {
                                     >
                                         <TensorThumbnail
                                             projectId={item.project_id}
-                                            tensorId={c.tensorHistoryName}
-                                            maskId={c.maskName}
-                                            onClick={(e) => showSubitem(e, c.tensorHistoryName, c.maskName)}
+                                            tensorId={c.tensorHistoryName!}
+                                            maskId={c.maskName ?? undefined}
+                                            onClick={(e) => showSubitem(e, c.tensorHistoryName!, c.maskName ?? undefined)}
                                         />
                                     </Tooltip>
                                     {/* {c.maskName && (

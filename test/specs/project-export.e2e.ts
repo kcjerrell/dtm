@@ -40,9 +40,7 @@ async function setupFolderA() {
     await $("aria/Add folder").click()
     await expect($(`div=${folderAPath}`)).toBeDisplayedInViewport()
 
-    await $("aria/Close dialog").scrollIntoView({
-        scrollableElement: $("div[role='dialog']"),
-    })
+    await $("aria/Close dialog").scrollIntoView({ block: "center" })
     await $("aria/Close dialog").click()
 
     // assert the default projects are present

@@ -6,7 +6,7 @@ declare global {
               readonly [P in keyof T]: ReadonlyState<T[P]>
           }
         | Readonly<T>
-    type Snap<T> = ReadOnlyState<T>
+    type Snap<T> = ReadonlyState<T>
 
     type MaybeReadonly<T> = T | ReadonlyState<T>
     type Nullable<T> = T | null | undefined
