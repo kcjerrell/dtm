@@ -6,10 +6,10 @@
 // #![allow(mismatched_lifetime_syntaxes)]
 
 pub mod archive;
+pub use crate::dt_project::{close_folder, get_last_row, DTProject};
 #[cfg(feature = "tensor_bench")]
 pub use archive::print_tensor_benchmarks;
 pub use archive::{create_dt_archive, create_dt_archive_plan};
-pub use crate::dt_project::{close_folder, get_last_row, DTProject};
 mod projects_db;
 pub use projects_db::*;
 
@@ -30,7 +30,7 @@ mod metadata;
 pub use metadata::DrawThingsMetadata;
 
 mod text_history;
-pub use text_history::{TextHistory,PromptPair};
+pub use text_history::{PromptPair, TextHistory};
 
 pub mod filters;
 mod search;

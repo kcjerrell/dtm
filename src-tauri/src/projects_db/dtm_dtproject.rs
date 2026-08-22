@@ -148,9 +148,7 @@ impl DtmProtocol {
                 )
                 .await
             }
-            "audio" => {
-                audio_request(&req).await
-            }
+            "audio" => audio_request(&req).await,
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("Not Found".as_bytes().to_vec())?),
@@ -159,16 +157,19 @@ impl DtmProtocol {
 }
 
 async fn thumb(project_id: i64, item_id: &str, half: bool) -> anyhow::Result<Response<Vec<u8>>> {
-    let preview_id: i64 = item_id.parse().context("Invalid item ID")?;
+    let preview_id: i64 = item_id
+        .parse()
+        .with_context(|| format!("invalid preview ID '{item_id}'"))?;
 
     let handle = DtProjectRef::Id(project_id).thumb(preview_id);
 
     let thumb = handle
         .get_preview(half)
         .await
-        .context("Failed to get preview")?;
+        .with_context(|| format!("failed to load preview {preview_id} for project {project_id}"))?;
 
-    let thumb = thumb.ok_or_else(|| anyhow::anyhow!("Failed to get preview"))?;
+    let thumb = thumb
+        .ok_or_else(|| anyhow::anyhow!("preview {preview_id} not found in project {project_id}"))?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -176,7 +177,7 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> anyhow::Result<Res
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(thumb)
-        .map_err(|e| anyhow::anyhow!(e))
+        .context("failed to build preview HTTP response")
 }
 
 // Unsupported options by DtResourceHandle API:
@@ -216,8 +217,10 @@ async fn tensor(
     let body = handle
         .get_image(size)
         .await
-        .context("Failed to get lossless")?
-        .ok_or_else(|| anyhow::anyhow!("Failed to get lossless"))?;
+        .with_context(|| format!("failed to load image tensor '{name}' for project {project_id}"))?
+        .ok_or_else(|| {
+            anyhow::anyhow!("tensor image '{name}' not found for project {project_id}")
+        })?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -225,7 +228,7 @@ async fn tensor(
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(body)
-        .map_err(|e| anyhow::anyhow!(e))
+        .context("failed to build tensor image HTTP response")
 }
 
 fn classify_type(s: &str) -> Option<&str> {

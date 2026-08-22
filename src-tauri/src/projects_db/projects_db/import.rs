@@ -1,9 +1,6 @@
 use crate::dt_project::{TensorHistoryNode, ThnData, ThnFilter};
-use crate::projects_db::{
-    dtos::image::ListImagesOptions,
-    search::process_prompt,
-    DtProjectRef,
-};
+use crate::projects_db::{dtos::image::ListImagesOptions, search::process_prompt, DtProjectRef};
+use anyhow::Context;
 use entity::{enums::ModelType, images};
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
 use std::collections::HashMap;
@@ -21,15 +18,24 @@ pub struct NodeModelWeight {
 
 impl ProjectsDb {
     pub async fn scan_project(&self, id: i64, full_scan: bool) -> anyhow::Result<(i64, u64)> {
-        let project = self.get_project(id).await?;
+        let project = self
+            .get_project(id)
+            .await
+            .with_context(|| format!("failed to load project metadata for project {id}"))?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
 
         let project_ref = DtProjectRef::Id(id);
-        let dt_project = project_ref.open_project().await?;
-        let dt_project_info = dt_project.get_info().await?;
+        let dt_project = project_ref
+            .open_project()
+            .await
+            .with_context(|| format!("failed to open project database for project {id}"))?;
+        let dt_project_info = dt_project
+            .get_info()
+            .await
+            .with_context(|| format!("failed to get project info for project {id}"))?;
         let end = dt_project_info.history_max_id;
 
         let start = match full_scan {
@@ -46,7 +52,13 @@ impl ProjectsDb {
                     )),
                     Some(ThnData::tensordata().and_legacy_prompts().and_clip()),
                 )
-                .await?;
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to load tensor history range {batch_start}..{} for project {id}",
+                        batch_start + SCAN_BATCH_SIZE as i64
+                    )
+                })?;
 
             let histories_filtered: Vec<TensorHistoryNode> = histories
                 .into_iter()
@@ -56,10 +68,12 @@ impl ProjectsDb {
                 })
                 .collect();
 
-            // currently unused, but allows for storing previews in the db
             let preview_thumbs = HashMap::new();
 
-            let models_lookup = self.process_models(&histories_filtered).await?;
+            let models_lookup = self
+                .process_models(&histories_filtered)
+                .await
+                .with_context(|| format!("failed to process models during scan of project {id}"))?;
 
             let (images, batch_image_loras, batch_image_controls) = self.prepare_image_data(
                 project.id,
@@ -79,7 +93,8 @@ impl ProjectsDb {
                         .to_owned(),
                     )
                     .exec_with_returning(&self.db)
-                    .await?
+                    .await
+                    .with_context(|| format!("failed to insert scanned images for project {id}"))?
             } else {
                 vec![]
             };
@@ -94,7 +109,8 @@ impl ProjectsDb {
                 batch_image_loras,
                 batch_image_controls,
             )
-            .await?;
+            .await
+            .with_context(|| format!("failed to insert image loras/controls for project {id}"))?;
         }
 
         let total = self
@@ -103,9 +119,12 @@ impl ProjectsDb {
                 take: Some(0),
                 ..Default::default()
             })
-            .await?;
+            .await
+            .with_context(|| format!("failed to query total images count for project {id}"))?;
 
-        self.rebuild_images_fts().await?;
+        self.rebuild_images_fts()
+            .await
+            .with_context(|| format!("failed to rebuild FTS index after scanning project {id}"))?;
 
         match total.images {
             Some(_) => Ok((project.id, total.total)),

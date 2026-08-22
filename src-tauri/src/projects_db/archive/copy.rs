@@ -1,6 +1,6 @@
 use std::{fs::OpenOptions, io::prelude::Write, path::PathBuf, time::Instant};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use sqlx::{query, AssertSqlSafe, SqlitePool};
 use tokio::fs;
@@ -30,26 +30,39 @@ pub async fn copy_project(
     let start = Instant::now();
     let total_items = plan.primary_tensors.len() + plan.tensors_extra.len();
     log::debug!("starting copy for {} items", total_items);
-    let dtp = project_ref.open_project().await?;
+    let dtp = project_ref
+        .open_project()
+        .await
+        .context("failed to open source project for archiving")?;
     let project_name = PathBuf::from(&dtp.path)
         .file_stem()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "project".to_string());
 
-    let temp_dir = app.create_temp_dir()?;
+    let temp_dir = app
+        .create_temp_dir()
+        .context("failed to create temporary directory for archive creation")?;
     let dest_db_path = temp_dir.join("project.dtm");
 
     let conn_string = format!("sqlite:{}?mode=rwc", dest_db_path.display());
 
-    // we need to use a single connection, because ATTACH is specific to one connection
-    let dest_db = SqlitePool::connect(&conn_string).await?;
-    let mut dest_conn = dest_db.acquire().await?;
+    let dest_db = SqlitePool::connect(&conn_string).await.with_context(|| {
+        format!(
+            "failed to connect to archive database at {}",
+            dest_db_path.display()
+        )
+    })?;
+    let mut dest_conn = dest_db
+        .acquire()
+        .await
+        .context("failed to acquire connection to archive database")?;
 
-    let schema = dtp.get_schema().await?;
+    let schema = dtp
+        .get_schema()
+        .await
+        .context("failed to retrieve source database schema")?;
     let src_db_path = dtp.path.clone();
 
-    // copy the nedded table schemas
     for (name, sql) in schema.iter() {
         if name.starts_with("tensor")
             | name.starts_with("thumbnailhistory")
@@ -57,51 +70,42 @@ pub async fn copy_project(
         {
             sqlx::query(AssertSqlSafe(sql.as_str()))
                 .execute(&mut *dest_conn)
-                .await?;
+                .await
+                .with_context(|| {
+                    format!("failed to recreate table schema for '{name}' in archive")
+                })?;
         }
     }
 
-    // attach the source db to the dest db
     sqlx::query("ATTACH DATABASE ? AS dtp;")
         .bind(&src_db_path)
         .execute(&mut *dest_conn)
-        .await?;
+        .await
+        .with_context(|| format!("failed to attach source database '{src_db_path}'"))?;
 
     copy_table_group_all(
         "tensorhistorynode",
         TENSORHISTORYNODE_OFFSETS,
-        // plan.node_ids.as_slice(),
-        // "rowid",
         &mut dest_conn,
     )
-    .await?;
+    .await
+    .context("failed to copy 'tensorhistorynode' tables")?;
 
-    copy_table_group_all(
-        "tensordata",
-        TENSORDATA_OFFSETS,
-        // &plan.tensordata_ids,
-        // "rowid",
-        &mut dest_conn,
-    )
-    .await?;
+    copy_table_group_all("tensordata", TENSORDATA_OFFSETS, &mut dest_conn)
+        .await
+        .context("failed to copy 'tensordata' tables")?;
 
     copy_table_group_all(
         "tensormoodboarddata",
         TENSORMOODBOARD_OFFSETS,
-        // &plan.tensormoodboarddata_ids,
-        // "rowid",
         &mut dest_conn,
     )
-    .await?;
+    .await
+    .context("failed to copy 'tensormoodboarddata' tables")?;
 
-    copy_table_group_all(
-        "clip",
-        CLIP_OFFSETS,
-        // &plan.clip_ids,
-        // "rowid",
-        &mut dest_conn,
-    )
-    .await?;
+    copy_table_group_all("clip", CLIP_OFFSETS, &mut dest_conn)
+        .await
+        .context("failed to copy 'clip' tables")?;
 
     let project_ref = DtProjectRef::Db(dtp);
 
@@ -119,23 +123,33 @@ pub async fn copy_project(
         dest_conn,
         plan.lossless,
     )
-    .await?;
+    .await
+    .context("failed to process and pack tensor items into archive")?;
 
     dest_db.close().await;
 
     let archive_path = temp_dir.join("project.zip");
-    tokio::task::spawn_blocking(move || add_files_to_zip(archive_path, vec![dest_db_path]))
-        .await??;
+    let dest_db_path_clone = dest_db_path.clone();
+    tokio::task::spawn_blocking(move || add_files_to_zip(archive_path, vec![dest_db_path_clone]))
+        .await
+        .context("failed to spawn blocking zip task")?
+        .context("failed to append database file to archive zip")?;
 
     let target_path = app
-        .get_home_dir()?
+        .get_home_dir()
+        .context("failed to get user home directory")?
         .join("Documents")
         .join(format!("{}.dtm.zip", project_name));
     if let Err(e) = fs::rename(temp_dir.join("project.zip"), &target_path).await {
-        fs::remove_dir_all(&temp_dir).await?;
-        return Err(e.into());
+        let _ = fs::remove_dir_all(&temp_dir).await;
+        return Err(e).with_context(|| {
+            format!(
+                "failed to move completed archive to {}",
+                target_path.display()
+            )
+        });
     }
-    fs::remove_dir_all(temp_dir).await?;
+    let _ = fs::remove_dir_all(temp_dir).await;
 
     let duration = start.elapsed();
     println!(

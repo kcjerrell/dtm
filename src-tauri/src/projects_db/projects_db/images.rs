@@ -6,6 +6,7 @@ use crate::{
     },
     IntoTAResult, TAResult,
 };
+use anyhow::Context;
 use entity::{images, projects, watch_folders};
 use sea_orm::{
     ColumnTrait, EntityTrait, ExprTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
@@ -176,23 +177,30 @@ impl ProjectsDb {
             .into_tuple()
             .one(&self.db)
             .await
-            .into_ta_result()?;
+            .into_ta_result()
+            .with_context(|| format!("failed to query image {image_id} for clip {clip_id}"))?;
 
         let (rel_path, watchfolder_id, node_id) =
-            result.ok_or_else(|| anyhow::anyhow!("Image or Project not found"))?;
+            result.ok_or_else(|| anyhow::anyhow!("image {image_id} or project not found"))?;
 
         let watch_folder_path = folder_cache::get_folder(watchfolder_id)
-            .ok_or_else(|| anyhow::anyhow!("Watch folder {watchfolder_id} not found in cache"))?;
+            .ok_or_else(|| anyhow::anyhow!("watch folder {watchfolder_id} not found in cache"))?;
 
         let full_path = std::path::Path::new(&watch_folder_path).join(rel_path);
-        let full_path_str = full_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path encoding"))?;
+        let full_path_str = full_path.to_str().ok_or_else(|| {
+            anyhow::anyhow!("invalid path encoding for '{}'", full_path.display())
+        })?;
 
         let dt_project = DtProjectRef::Path(full_path_str.to_string())
             .get_project()
-            .await?;
-        let clip = dt_project.get_clip_and_frames(node_id, clip_id).await?;
+            .await
+            .with_context(|| format!("failed to open project at {}", full_path.display()))?;
+        let clip = dt_project
+            .get_clip_and_frames(node_id, clip_id)
+            .await
+            .with_context(|| {
+                format!("failed to get clip {clip_id} and frames for node {node_id}")
+            })?;
 
         Ok(clip)
     }

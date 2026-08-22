@@ -8,10 +8,10 @@ use tauri_plugin_window_state::StateFlags;
 mod clipboard;
 
 pub mod bookmarks;
+pub mod dt_project;
 pub mod dtp_service;
 mod ffmpeg;
 pub mod projects_db;
-pub mod dt_project;
 pub(crate) mod util;
 use dtp_service::dtp_connect;
 use projects_db::{create_dt_archive, create_dt_archive_plan};
@@ -244,8 +244,8 @@ pub fn run() {
                 .max_file_size(200000)
                 .build(),
         )
-        .plugin(tauri_plugin_wdio::init()) 
-        .plugin(tauri_plugin_wdio_webdriver::init()) 
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init())
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,

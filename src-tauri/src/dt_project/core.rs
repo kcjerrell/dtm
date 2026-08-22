@@ -4,7 +4,7 @@ use crate::projects_db::{
     PromptPair, TextHistory,
 };
 use anyhow::anyhow;
-use serde::{Serialize};
+use serde::Serialize;
 use sqlx::{
     query,
     sqlite::{SqliteConnection, SqliteRow},

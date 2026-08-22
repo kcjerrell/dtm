@@ -263,7 +263,7 @@ impl DTPService {
             .await
             .map_err(anyhow::Error::msg)?)
     }
-    
+
     #[dtp_command]
     pub async fn find_predecessor(
         &self,
