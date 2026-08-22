@@ -140,16 +140,18 @@ pub async fn copy_project(
         .context("failed to get user home directory")?
         .join("Documents")
         .join(format!("{}.dtm.zip", project_name));
-    if let Err(e) = fs::rename(temp_dir.join("project.zip"), &target_path).await {
-        let _ = fs::remove_dir_all(&temp_dir).await;
-        return Err(e).with_context(|| {
-            format!(
-                "failed to move completed archive to {}",
-                target_path.display()
-            )
-        });
+    let rename_result = fs::rename(&temp_dir.join("project.zip"), &target_path).await;
+
+    if let Err(e) = fs::remove_dir_all(&temp_dir).await {
+        log::error!(
+            "failed to remove temp directory '{}': {}",
+            temp_dir.display(),
+            e
+        );
     }
-    let _ = fs::remove_dir_all(temp_dir).await;
+
+    rename_result
+        .with_context(|| format!("failed to move archive to {}", target_path.display()))?;
 
     let duration = start.elapsed();
     println!(

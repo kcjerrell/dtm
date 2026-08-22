@@ -72,44 +72,43 @@ impl ResourceHandle for DtResourceHandle {
             .context("failed to resolve tensor name for image")?;
         println!("got name: {}", instants.record());
         if let Some(name) = name {
-            if let Ok(tensor_raw) = dtp.get_tensor_raw(&name).await {
-                println!("got tensor_raw: {}", instants.record());
-                match &tensor_raw.resource {
-                    DTResource::CompressedTensor(_) => {
-                        let node = self
-                            .get_history_node()
-                            .await
-                            .context("failed to fetch history node for tensor image")?;
-                        println!("got node: {}", instants.record());
-                        let tensor: Tensor = Tensor::try_from(tensor_raw)
-                            .with_context(|| format!("failed to convert raw tensor '{name}'"))?;
-                        println!("got tensor: {}", instants.record());
-                        let png = tensor
-                            .to_png(node, size)
-                            .with_context(|| format!("failed to convert tensor '{name}' to PNG"))?;
-                        println!("got png: {}", instants.record());
-                        return Ok(png);
-                    }
-                    DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
-                    DTResource::DTZipRef(dtzip_ref) => {
-                        println!("got dtzip_ref: {}", instants.record());
-                        let data = dtp
-                            .dt_zip
-                            .as_ref()
-                            .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
-                            .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
-                            .await
-                            .with_context(|| {
-                                format!(
-                                    "failed to read file '{}' from zip archive",
-                                    dtzip_ref.rel_path
-                                )
-                            })?;
-                        println!("got data: {}", instants.record());
-                        return Ok(Some(data));
-                    }
-                    DTResource::Unknown(_items) => return Ok(None),
+            let tensor_raw = dtp.get_tensor_raw(&name).await?;
+            println!("got tensor_raw: {}", instants.record());
+            match &tensor_raw.resource {
+                DTResource::CompressedTensor(_) => {
+                    let node = self
+                        .get_history_node()
+                        .await
+                        .context("failed to fetch history node for tensor image")?;
+                    println!("got node: {}", instants.record());
+                    let tensor: Tensor = Tensor::try_from(tensor_raw)
+                        .with_context(|| format!("failed to convert raw tensor '{name}'"))?;
+                    println!("got tensor: {}", instants.record());
+                    let png = tensor
+                        .to_png(node, size)
+                        .with_context(|| format!("failed to convert tensor '{name}' to PNG"))?;
+                    println!("got png: {}", instants.record());
+                    return Ok(png);
                 }
+                DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
+                DTResource::DTZipRef(dtzip_ref) => {
+                    println!("got dtzip_ref: {}", instants.record());
+                    let data = dtp
+                        .dt_zip
+                        .as_ref()
+                        .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
+                        .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read file '{}' from zip archive",
+                                dtzip_ref.rel_path
+                            )
+                        })?;
+                    println!("got data: {}", instants.record());
+                    return Ok(Some(data));
+                }
+                DTResource::Unknown(_items) => return Ok(None),
             }
         }
         Ok(None)
@@ -592,9 +591,7 @@ impl DtResourceHandle {
     }
 
     pub async fn from_image_id(image_id: i64) -> Result<Option<Self>> {
-        let pdb = ProjectsDb::get()
-            .await
-            .context("failed to access ProjectsDb")?;
+        let pdb = ProjectsDb::get().await?;
         pdb.get_image(image_id)
             .await
             .map(|image| Some(DtProjectRef::Id(image.project_id).node(image.node_id)))

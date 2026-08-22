@@ -38,8 +38,8 @@ impl ProjectsDb {
 
     pub async fn get() -> Result<ProjectsDb> {
         let singleton = PROJECTS_DB.read().await;
-        match singleton.clone() {
-            Some(projects_db) => Ok(projects_db),
+        match singleton.as_ref() {
+            Some(projects_db) => Ok(projects_db.clone()),
             None => Err(anyhow!("ProjectsDb is not initialized")),
         }
     }

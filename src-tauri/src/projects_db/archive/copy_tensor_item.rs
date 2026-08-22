@@ -186,12 +186,7 @@ impl CopyTensorItem {
                 }
             })
             .await
-            .with_context(|| {
-                format!(
-                    "blocking conversion task panicked for tensor '{}'",
-                    self.name
-                )
-            })??;
+            .with_context(|| format!("conversion failed for tensor '{}'", self.name))??;
 
             self.data = Some(result.0);
             self.data_ext = Some(result.1);
