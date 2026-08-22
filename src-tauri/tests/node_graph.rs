@@ -13,8 +13,7 @@ mod tests {
         let dtp = project.open_project().await?;
         let graph = dtp.get_history_graph().await?;
 
-        File::create("test_data/nodes.txt")?
-            .write_all(serde_json::to_string(&graph)?.as_bytes())?;
+        File::create("test_data/nodes.txt")?.write_all(serde_json::to_string(&graph)?.as_bytes())?;
         Ok(())
     }
 

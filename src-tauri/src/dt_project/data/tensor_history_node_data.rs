@@ -149,8 +149,7 @@ impl TryFrom<&[u8]> for TensorHistoryNodeData {
             None => None,
         };
 
-        let profile_data: Option<ProfileData> = node
-            .profile_data()
+        let profile_data: Option<ProfileData> = node.profile_data()
             .and_then(|v| std::str::from_utf8(v.bytes()).ok())
             .and_then(|s| serde_json::from_str(s).ok());
 

@@ -278,8 +278,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
         if let Some(ThnFilter::PreviewId(_)) = filter {
-            self.check_table(&DTProjectTable::ThumbnailHistoryNode)
-                .await?;
+            self.check_table(&DTProjectTable::ThumbnailHistoryNode).await?;
         }
 
         // set flags for the requested data
