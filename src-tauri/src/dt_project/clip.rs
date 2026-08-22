@@ -1,3 +1,4 @@
+use anyhow::Context;
 use crate::dt_project::{
     fbs::{root_as_clip, root_as_tensor_history_node},
     DTProjectTable,
@@ -96,7 +97,7 @@ pub enum ClipFilter {
 }
 
 impl DTProject {
-    pub async fn get_clips(&self, filter: ClipFilter) -> Result<Vec<Clip>, sqlx::Error> {
+    pub async fn get_clips(&self, filter: ClipFilter) -> anyhow::Result<Vec<Clip>> {
         self.check_table(&DTProjectTable::Clip).await?;
         let mut query_str = "SELECT clip.rowid, clip.__pk0, clip.p FROM clip".to_string();
 
@@ -125,7 +126,8 @@ impl DTProject {
 
         let rows: Vec<Clip> = query_as(AssertSqlSafe(query_str))
             .fetch_all(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to query clips in project database {}", self.path))?;
 
         Ok(rows)
     }
@@ -141,13 +143,15 @@ impl DTProject {
         let clip: Clip = query_as("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
             .bind(clip_id)
             .fetch_one(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to query clip in project database {}", self.path))?;
 
         let frames: Vec<ClipFrame> = query_as(CLIP_QUERY)
             .bind(node_id)
             .bind(node_id + clip.count as i64)
             .fetch_all(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to query clip frames in project database {}", self.path))?;
 
         let extra = ClipExtra {
             clip: clip.clone(),

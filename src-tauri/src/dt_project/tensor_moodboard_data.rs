@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 
@@ -54,7 +55,7 @@ impl DTProject {
     pub async fn get_tensor_moodboard_data(
         &self,
         filter: TmdFilter,
-    ) -> Result<Vec<TensorMoodboardData>, sqlx::Error> {
+    ) -> anyhow::Result<Vec<TensorMoodboardData>> {
         if self
             .check_table(&DTProjectTable::TensorMoodboardData)
             .await
@@ -63,7 +64,11 @@ impl DTProject {
             return Ok(Vec::new());
         }
         let query = build_query(filter);
-        query_as(query).fetch_all(&*self.pool).await
+        let data = query_as(query)
+            .fetch_all(&*self.pool)
+            .await
+            .with_context(|| format!("failed to query moodboard data for project {}", self.path))?;
+        Ok(data)
     }
 
     pub async fn list_tensor_moodboard_data_ids(&self) -> anyhow::Result<Vec<i64>> {
@@ -75,7 +80,10 @@ impl DTProject {
             return Ok(Vec::new());
         }
         let query = "SELECT rowid FROM tensormoodboarddata";
-        let res: Vec<i64> = sqlx::query_scalar(query).fetch_all(&*self.pool).await?;
+        let res: Vec<i64> = sqlx::query_scalar(query)
+            .fetch_all(&*self.pool)
+            .await
+            .with_context(|| format!("failed to list moodboard data IDs for project {}", self.path))?;
         Ok(res)
     }
 }
