@@ -1,3 +1,4 @@
+use anyhow::Context;
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize};
 use sqlx::{query_as, AssertSqlSafe, FromRow};
@@ -274,7 +275,7 @@ impl DTProject {
         &self,
         filter: Option<ThnFilter>,
         data: Option<ThnData>,
-    ) -> Result<Vec<TensorHistoryNode>, sqlx::Error> {
+    ) -> anyhow::Result<Vec<TensorHistoryNode>> {
         self.check_table(&DTProjectTable::TensorHistoryNode).await?;
 
         if let Some(ThnFilter::PreviewId(_)) = filter {
@@ -289,7 +290,10 @@ impl DTProject {
 
         // build and run the thn query
         let query = build_query(&filter);
-        let mut rows: Vec<ThnRow> = query_as(query).fetch_all(&*self.pool).await?;
+        let mut rows: Vec<ThnRow> = query_as(query)
+            .fetch_all(&*self.pool)
+            .await
+            .with_context(|| format!("failed to query tensor history nodes for project {}", self.path))?;
 
         if let Some(ThnFilter::Predecessor(_, lineage, _)) = filter {
             if rows.iter().any(|r| r.lineage == lineage) {
@@ -304,30 +308,33 @@ impl DTProject {
             0
         });
 
-        // create TensorHistoryNodes from rows (I think this could be moved into FromRow)
+        // create TensorHistoryNodes from rows
         let mut items: Vec<TensorHistoryNode> = rows
             .into_iter()
             .map(|row| {
                 // this validates the flatbuffer so that .data() can provide fast unchecked access
-                let fb = root_as_tensor_history_node(&row.data).unwrap();
+                let fb = root_as_tensor_history_node(&row.data)
+                    .map_err(|e| anyhow::anyhow!("flatbuffers parse error for tensor history node: {:?}", e))?;
                 if get_clip && fb.clip_id() > 0 {
                     // update list of clip_ids
                     clip_ids.push(fb.clip_id())
                 }
-                TensorHistoryNode {
+                Ok(TensorHistoryNode {
                     rowid: row.rowid,
                     project_path: PathBuf::from(&self.path),
                     lineage: row.lineage,
                     logical_time: row.logical_time,
-                    data: checked_flatbuffer(&row.data).unwrap(),
+                    data: checked_flatbuffer(&row.data)
+                        .ok_or_else(|| anyhow::anyhow!("invalid tensor history node flatbuffer at rowid {}", row.rowid))?,
                     tensordata: None,
                     clip: None,
                     moodboard: None,
                     prompt: None,
                     negative_prompt: None,
-                }
+                })
             })
-            .collect();
+            .collect::<anyhow::Result<Vec<_>>>()
+            .with_context(|| format!("failed to parse tensor history nodes for project {}", self.path))?;
 
         if get_tensordata {
             // gather tensor_data using lineage and logical_time
@@ -425,12 +432,12 @@ impl DTProject {
     pub async fn get_predecessors(&self, rowid: i64) -> anyhow::Result<Vec<TensorHistoryNode>> {
         let history = self.get_history_graph().await?;
         let parents = history.get_parent(rowid).ids();
-        Ok(self
-            .get_tensor_history_nodes(
-                Some(ThnFilter::Rowids(parents)),
-                Some(ThnData::tensordata()),
-            )
-            .await?)
+        self.get_tensor_history_nodes(
+            Some(ThnFilter::Rowids(parents)),
+            Some(ThnData::tensordata()),
+        )
+        .await
+        .with_context(|| format!("failed to get predecessor nodes for project {}", self.path))
     }
 
     pub async fn get_predecessor_ids(&self, rowid: i64) -> anyhow::Result<Vec<i64>> {
@@ -448,7 +455,7 @@ impl DTProject {
      */
     pub async fn check_id(&self, pdb_path: String, project_id: i64) -> anyhow::Result<Vec<i64>> {
         if self.is_shared {
-            anyhow::bail!("Cannot check ids on a shared dt_project");
+            anyhow::bail!("Cannot check ids on shared project database {}", self.path);
         }
 
         let missing_ids: Vec<i64> = sqlx::query_scalar(
@@ -462,11 +469,11 @@ impl DTProject {
                 AND node.rowid IS NULL;
             "#,
         )
-        .bind(pdb_path)
+        .bind(&pdb_path)
         .bind(project_id)
         .fetch_all(&*self.pool)
         .await
-        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        .with_context(|| format!("failed to query missing node IDs attached to database {} for project {}", pdb_path, self.path))?;
 
         Ok(missing_ids)
     }

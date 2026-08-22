@@ -3,6 +3,7 @@
 use tauri::{http, Manager, TitleBarStyle};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::log::LevelFilter;
+#[cfg(target_os = "macos")]
 use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
@@ -207,15 +208,18 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init());
 
-    builder
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init())
+    #[cfg(target_os = "macos")]
+    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
                 .build(),
-        )
+        );
+
+    builder
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())

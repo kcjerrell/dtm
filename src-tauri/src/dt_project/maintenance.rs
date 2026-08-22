@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use async_trait::async_trait;
-use sqlx::{sqlite::SqliteRow, Error, QueryBuilder, Row};
+use sqlx::{sqlite::SqliteRow, QueryBuilder, Row};
 
 use crate::dt_project::fbs::root_as_tensor_history_node;
 use crate::dt_project::DTProject;
 
 #[async_trait]
 pub trait Maintenance {
-    async fn get_samplers(&self, node_ids: &[i64]) -> Result<HashMap<i64, i8>, Error>;
+    async fn get_samplers(&self, node_ids: &[i64]) -> anyhow::Result<HashMap<i64, i8>>;
 }
 
 #[async_trait]
 impl Maintenance for DTProject {
-    async fn get_samplers(&self, node_ids: &[i64]) -> Result<HashMap<i64, i8>, Error> {
+    async fn get_samplers(&self, node_ids: &[i64]) -> anyhow::Result<HashMap<i64, i8>> {
         let mut qb = QueryBuilder::new("SELECT rowid, p FROM tensorhistorynode WHERE rowid IN (");
 
         let mut separated = qb.separated(", ");
@@ -30,7 +31,8 @@ impl Maintenance for DTProject {
                 (node_id, sampler.0)
             })
             .fetch_all(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to fetch samplers for project {}", self.path))?;
 
         let mut samplers: HashMap<i64, i8> = HashMap::new();
 
