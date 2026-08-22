@@ -244,8 +244,8 @@ pub fn run() {
                 .max_file_size(200000)
                 .build(),
         )
-        .plugin(tauri_plugin_wdio::init()) 
-        .plugin(tauri_plugin_wdio_webdriver::init()) 
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init())
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,
