@@ -9,12 +9,9 @@ use sea_orm::{
 use sea_query::{Expr, Query};
 
 use crate::{
+    dt_project::{maintenance::Maintenance, ClipFilter},
     dtp_service::jobs::JobContext,
-    dt_project::{ClipFilter, maintenance::Maintenance},
-    projects_db::{
-        dtos::watch_folder::WatchFolderDTO,
-        DtProjectRef,
-    },
+    projects_db::{dtos::watch_folder::WatchFolderDTO, DtProjectRef},
 };
 use anyhow::{Context, Result};
 
