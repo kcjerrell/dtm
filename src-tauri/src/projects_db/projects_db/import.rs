@@ -40,7 +40,7 @@ impl ProjectsDb {
 
         let start = match full_scan {
             true => 0,
-            false => project.last_id.unwrap_or(-1),
+            false => project.last_id.unwrap_or(0),
         };
 
         for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
