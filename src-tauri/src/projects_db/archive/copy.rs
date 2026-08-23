@@ -132,8 +132,7 @@ pub async fn copy_project(
     let dest_db_path_clone = dest_db_path.clone();
     tokio::task::spawn_blocking(move || add_files_to_zip(archive_path, vec![dest_db_path_clone]))
         .await
-        .context("failed to spawn blocking zip task")?
-        .context("failed to append database file to archive zip")?;
+        .context("failed to append database file to archive zip")??;
 
     let target_path = app
         .get_home_dir()
