@@ -16,6 +16,7 @@ function safeFileName(value: string) {
 }
 
 export const config: Options.Testrunner & Record<string, unknown> = {
+    tsConfigPath: "./tsconfig.wdio.json",
     runner: "local",
     maxInstances: 1,
     specs: [
@@ -47,10 +48,12 @@ export const config: Options.Testrunner & Record<string, unknown> = {
             "tauri:options": {
                 application: "./src-tauri/target/debug/dtm",
             },
+            "wdio:tauriServiceOptions": {
+                captureBackendLogs: true,
+            },
         },
     ],
 
-    // Logging
     logLevel: "warn",
     bail: 0,
     baseUrl: "http://localhost:4444",
@@ -64,38 +67,9 @@ export const config: Options.Testrunner & Record<string, unknown> = {
         timeout: 60000,
     },
 
-    // Hooks
     onPrepare: async () => {
         mkdirSync(SCREENSHOT_DIR, { recursive: true })
     },
-
-    // onComplete: () => {
-    //     // Global teardown after all workers are finished
-    // },
-
-    // beforeSession: async (config, capabilities, specs) => {
-    //     // isAppRunning = false
-    //     // if (checkForAppInstance("DTM") || checkForAppInstance("dtm")) {
-    //     //     // use existing app
-    //     //     isAppRunning = true
-    //     //     console.log(`App is already running. Connecting to existing session...`)
-    //     //     await waitForServer(WEBDRIVER_PORT, 10000)
-    //     //     return
-    //     // }
-    //     // if (useDev) {
-    //     //     console.log("Starting app in dev mode...")
-    //     //     await startDevServer(WEBDRIVER_PORT)
-    //     //     return
-    //     // }
-    //     // console.log("Starting debug build...")
-    //     // await startApp(WEBDRIVER_PORT)
-    // },
-
-    // afterSession: async () => {
-    //     // if (isAppRunning) return
-    //     // console.log("Stopping Tauri application...")
-    //     // stopApp()
-    // },
 
     afterTest: async (test, context, result) => {
         if (result.passed) return
