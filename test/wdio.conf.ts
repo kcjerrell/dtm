@@ -36,6 +36,7 @@ export const config: Options.Testrunner & Record<string, unknown> = {
             "@wdio/tauri-service",
             {
                 appBinaryPath: "./src-tauri/target/debug/dtm",
+                autoInstallTauriDriver: true,
             },
         ],
     ],
