@@ -29,7 +29,7 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     ],
     exclude: [],
 
-    reporters: [["json", { stdout: true }], "spec"],
+    reporters: ["spec"],
 
     services: [
         [
