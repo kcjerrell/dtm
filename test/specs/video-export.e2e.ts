@@ -77,7 +77,7 @@ describe("Video Export", () => {
         await App.selectView("projects")
 
         // make sure we're on the projects tab
-        await $("aria/Projects tab").click()
+        await DTProjects.selectTab("projects")
 
         // filter by video using toolbar button (idempotent)
         const showVideosToggle = DTProjects.imageToolbar.showVideos
@@ -129,7 +129,7 @@ describe("Video Export", () => {
         await App.selectView("projects")
 
         // make sure we're on the projects tab
-        await $("aria/Projects tab").click()
+        await DTProjects.selectTab("projects")
 
         // filter by video using toolbar button (idempotent)
         const showVideosToggle = DTProjects.imageToolbar.showVideos
@@ -149,8 +149,7 @@ describe("Video Export", () => {
 
         // we need to select a video that does NOT have audio
         // go to the search tab
-        await $("aria/Search tab").click()
-        await expect($("aria/Search tab")).toHaveAttribute("aria-selected", "true")
+        await DTProjects.selectTab("search")
 
         // click add filter
         await $("aria/Add search filter").click()
@@ -333,8 +332,7 @@ describe("Video Export", () => {
         await browser.refresh()
         await browser.pause(3000)
         await App.selectView("projects")
-        await $("aria/Search tab").click()
-        await expect($("aria/Search tab")).toHaveAttribute("aria-selected", "true")
+        await DTProjects.selectTab("search")
         await $("aria/Reset search").click()
 
         // search for model version: LTX-2 19B [distilled]

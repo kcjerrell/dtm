@@ -30,6 +30,7 @@ describe("Projects", () => {
 
 		// go to projects view
 		await App.selectView("projects");
+		await DTProjects.selectTab("projects");
 
 		// assert settings panel appears
 		await expect($("p*=Settings")).toBeDisplayedInViewport();
