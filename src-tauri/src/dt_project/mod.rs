@@ -10,6 +10,7 @@ mod clip;
 mod core;
 mod helpers;
 mod history_graph;
+pub(crate) mod history_solver;
 mod mutate;
 mod resource;
 mod tensor_data;

@@ -1,8 +1,6 @@
-use crate::projects_db::{
-    archive::dt_zip::DTZip,
-    dtos::{project::DTProjectInfo, text::TextHistoryNode},
-    PromptPair, TextHistory,
-};
+use crate::{dt_project::history_solver::HistorySolver, projects_db::{
+    PromptPair, TextHistory, archive::dt_zip::DTZip, dtos::{project::DTProjectInfo, text::TextHistoryNode},
+}};
 use anyhow::{anyhow, Context};
 use serde::Serialize;
 use sqlx::{
@@ -474,7 +472,7 @@ impl DTProject {
             .history
             .get_or_try_init(|| async {
                 let nodes = self.get_node_lineages().await?;
-                let graph = HistoryGraphSolver::solve(nodes);
+                let graph = HistorySolver::solve(nodes);
                 Ok::<Arc<HistoryGraph>, anyhow::Error>(Arc::new(graph))
             })
             .await?

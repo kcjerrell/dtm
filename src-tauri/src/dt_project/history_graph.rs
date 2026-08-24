@@ -411,10 +411,6 @@ impl HistoryGraph {
         self.nodes.get(&rowid)
     }
 
-    pub fn get_node_mut(&mut self, rowid: &i64) -> Option<&mut HistoryNode> {
-        self.nodes.get_mut(&rowid)
-    }
-
     pub fn get_parent(&self, rowid: i64) -> Option<&Parent> {
         self.get_node(rowid).map(|node| &node.parent)
     }
