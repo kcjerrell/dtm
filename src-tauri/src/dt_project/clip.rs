@@ -1,8 +1,8 @@
-use anyhow::Context;
 use crate::dt_project::{
     fbs::{root_as_clip, root_as_tensor_history_node},
-    DTProjectTable,
+    DTProject, DTProjectTable,
 };
+use anyhow::Context;
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 
@@ -150,7 +150,12 @@ impl DTProject {
             .bind(node_id + clip.count as i64)
             .fetch_all(&*self.pool)
             .await
-            .with_context(|| format!("failed to query clip frames in project database {}", self.path))?;
+            .with_context(|| {
+                format!(
+                    "failed to query clip frames in project database {}",
+                    self.path
+                )
+            })?;
 
         let extra = ClipExtra {
             clip: clip.clone(),
