@@ -199,7 +199,7 @@ pub enum ListImagesFilterTarget {
     Height,
     TextGuidance,
     Shift,
-    Strength
+    Strength,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

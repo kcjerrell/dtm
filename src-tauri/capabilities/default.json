@@ -73,7 +73,6 @@
         "/Volumes/**"
       ]
     },
-    "http:default",
     "opener:allow-open-path",
     "opener:allow-open-url",
     "opener:allow-default-urls",

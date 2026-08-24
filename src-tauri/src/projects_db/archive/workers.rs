@@ -15,7 +15,7 @@ use crate::{
     util::update_gate::PrintUpdate,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 pub async fn copy_tensors(
     primary: Vec<CopyTensorItem>,
@@ -161,11 +161,10 @@ impl Worker for ConvertWorker {
 
             while let Some(mut item) = rx.recv().await {
                 items_processed += 1;
-                let permit = semaphore
-                    .clone()
-                    .acquire_owned()
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Semaphore acquisition failed: {}", e))?;
+                let permit =
+                    semaphore.clone().acquire_owned().await.context(
+                        "failed to acquire concurrency semaphore permit in ConvertWorker",
+                    )?;
                 let tx = tx.clone();
                 let project_ref = project_ref.clone();
                 let item_name = item.name.clone();
@@ -229,10 +228,13 @@ impl Worker for ZipWorker {
         tx: Sender<Self::Item>,
     ) -> Result<JoinHandle<Result<()>>> {
         let archive_path = self.archive_path.clone();
+        let archive_path_display = archive_path.display().to_string();
         let task = tokio::task::spawn_blocking(move || {
-            let mut writer = StreamingZipWriter::with_compression(archive_path, 0)?;
+            let mut writer =
+                StreamingZipWriter::with_compression(&archive_path, 0).with_context(|| {
+                    format!("failed to create streaming zip writer at {archive_path_display}")
+                })?;
 
-            // written as such so that writer can be closed even if
             let result = (|| {
                 let mut items_processed = 0;
                 while let Some(mut item) = rx.blocking_recv() {
@@ -250,10 +252,9 @@ impl Worker for ZipWorker {
                         );
                     }
 
-                    let item_name = item.name.to_string();
                     if let Err(e) = tx.blocking_send(item) {
                         log::error!("ZipWorker failed to send to db: {}", e);
-                        return Err(e.into());
+                        return Err(e).context("ZipWorker channel send failed");
                     }
                 }
                 log::debug!("ZipWorker: finished processing {} items", items_processed);
@@ -261,7 +262,9 @@ impl Worker for ZipWorker {
             })();
 
             let items_processed = result?;
-            writer.finish()?;
+            writer.finish().with_context(|| {
+                format!("failed to finalize zip archive at {archive_path_display}")
+            })?;
             drop(tx);
             log::debug!("ZipWorker dropped tx: processed {} items", items_processed);
             Ok(())

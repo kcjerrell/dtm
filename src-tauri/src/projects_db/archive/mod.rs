@@ -20,19 +20,14 @@ pub mod plan;
 pub(crate) mod workers;
 
 #[tauri::command]
-pub async fn create_dt_archive(
-    app: State<'_, AppHandleWrapper>,
-    project_id: i64,
-) -> TAResult<()> {
+pub async fn create_dt_archive(app: State<'_, AppHandleWrapper>, project_id: i64) -> TAResult<()> {
     let plan = copy_everything_plan(project_id, false).await?;
     copy_project(app.inner().clone(), DtProjectRef::Id(project_id), plan).await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn create_dt_archive_plan(
-    project_id: i64,
-) -> TAResult<ArchivePlan> {
+pub async fn create_dt_archive_plan(project_id: i64) -> TAResult<ArchivePlan> {
     let plan = copy_everything_plan(project_id, false).await?;
     Ok(plan)
 }

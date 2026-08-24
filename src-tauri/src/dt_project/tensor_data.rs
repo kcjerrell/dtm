@@ -3,12 +3,12 @@ use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 use std::{collections::HashSet, sync::Arc};
 
+use crate::dt_project::DTProject;
 use crate::dt_project::{
     data::TensorData as ParsedTensorData,
     fbs::{root_as_tensor_data, root_as_tensor_data_unchecked, TensorData as TensorDataData},
     DTProjectTable,
 };
-use crate::dt_project::DTProject;
 
 pub enum TdFilter {
     None,

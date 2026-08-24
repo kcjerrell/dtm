@@ -1,6 +1,3 @@
-/// <reference types="@wdio/tauri-service" />
-/// <reference types="@wdio/tauri-plugin" />
-
 describe("Tauri WebdriverIO Plugin", () => {
     it("should have plugin available", async () => {
         expect(typeof browser.tauri?.execute).toBe("function")

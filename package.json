@@ -19,8 +19,7 @@
     "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'",
     "update-fbs": "./scripts/update-fbs.sh",
     "version": "tsx ./scripts/version.ts",
-    "wdio": "wdio run ./test/wdio.conf.ts",
-    "wdio:dev": "DTM_USE_DEV=true wdio run ./test/wdio.conf.ts"
+    "wdio": "wdio run ./test/wdio.conf.ts --tsConfigPath ./tsconfig.wdio.json"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.36.1",
@@ -29,7 +28,6 @@
     "@tauri-apps/plugin-clipboard-manager": "~2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-fs": "^2.5.1",
-    "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-log": "^2.9.0",
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-os": "^2.3.2",

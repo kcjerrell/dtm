@@ -1,4 +1,5 @@
 use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DtProjectRef};
+use anyhow::Context;
 use dashmap::DashMap;
 use entity::{
     images::{self, Entity as Images},
@@ -23,15 +24,22 @@ impl ProjectsDb {
         relative_path: &str,
     ) -> anyhow::Result<ProjectExtra> {
         let watch_folder_path = folder_cache::get_folder(watch_folder_id)
-            .ok_or_else(|| anyhow::anyhow!("Watch folder not found in cache"))?;
+            .ok_or_else(|| anyhow::anyhow!("watch folder {watch_folder_id} not found in cache"))?;
         let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
         let full_path_str = full_path
             .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path"))?;
+            .ok_or_else(|| anyhow::anyhow!("invalid path encoding: {}", full_path.display()))?;
 
         let project_ref = DtProjectRef::Path(full_path_str.to_string());
-        let dt_project = project_ref.get_project().await?;
-        let fingerprint = dt_project.get_fingerprint().await?;
+        let dt_project = project_ref.get_project().await.with_context(|| {
+            format!("failed to open project database at {}", full_path.display())
+        })?;
+        let fingerprint = dt_project.get_fingerprint().await.with_context(|| {
+            format!(
+                "failed to calculate fingerprint for project at {}",
+                full_path.display()
+            )
+        })?;
 
         let project = ActiveModel {
             path: Set(relative_path.to_string()),
@@ -50,9 +58,13 @@ impl ProjectsDb {
                 .to_owned(),
             )
             .exec_with_returning(&self.db)
-            .await?;
+            .await
+            .with_context(|| format!("failed to insert project record '{relative_path}' for watch folder {watch_folder_id}"))?;
 
-        let project = self.get_project(project.id).await?;
+        let project = self
+            .get_project(project.id)
+            .await
+            .with_context(|| format!("failed to load created project {}", project.id))?;
 
         Ok(project)
     }
@@ -176,7 +188,6 @@ impl ProjectsDb {
 
         Ok(())
     }
-
 }
 
 fn project_query() -> sea_orm::Select<entity::prelude::Projects> {

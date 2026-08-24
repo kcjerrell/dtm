@@ -1,10 +1,9 @@
-import path from "path";
+import path from "node:path";
 import App from "../pageobjects/App";
 import DTProjects from "../pageobjects/DTProjects";
-import { Key } from "webdriverio";
 import { cmdClick, shiftClick } from "../util/helpers";
-import { mountFolderB, resetProjects } from "../util/projects";
 import { getTestDataPath } from "../util/paths";
+import { mountFolderB, resetProjects } from "../util/projects";
 
 const testProjectsDir = getTestDataPath("temp");
 
@@ -30,6 +29,7 @@ describe("Projects", () => {
 
 		// go to projects view
 		await App.selectView("projects");
+		await DTProjects.selectTab("projects");
 
 		// assert settings panel appears
 		await expect($("p*=Settings")).toBeDisplayedInViewport();

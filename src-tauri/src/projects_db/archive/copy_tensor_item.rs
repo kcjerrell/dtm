@@ -1,6 +1,6 @@
 use std::{fs::File, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use image::{codecs::jpeg::JpegEncoder, ExtendedColorType};
 use s_zip::StreamingZipWriter;
 use sqlx::pool::PoolConnection;
@@ -9,8 +9,8 @@ use tokio::sync::Mutex;
 use crate::{
     dt_project::{split_tensor_name, Clip, ClipFilter, TensorHistoryNode, TensorRaw},
     projects_db::{
-        archive::plan::ArchivePlanItem, write_jpeg_with_metadata, DtProjectRef,
-        DtResourceHandle, DtResourceRef, ThnRef, ThnResource,
+        archive::plan::ArchivePlanItem, write_jpeg_with_metadata, DtProjectRef, DtResourceHandle,
+        DtResourceRef, ThnRef, ThnResource,
     },
     tensor::TensorKind,
     ResourceHandle, Tensor,
@@ -80,7 +80,7 @@ impl CopyTensorItem {
         let ext = self
             .data_ext
             .as_ref()
-            .ok_or(anyhow::anyhow!("No ext set for item"))?;
+            .ok_or_else(|| anyhow::anyhow!("file extension not set for item '{}'", self.name))?;
         Ok(format!(
             "{}/{:06}_{}.{}",
             if self.primary { "images" } else { "tensors" },
@@ -111,14 +111,20 @@ impl CopyTensorItem {
             None => project_ref.tensor(&self.name),
         };
 
-        let node = resource.get_history_node().await?.cloned();
-        // to output the pose json correctly, we will need the size from tensordata
+        let node = resource
+            .get_history_node()
+            .await
+            .with_context(|| format!("failed to fetch history node for tensor '{}'", self.name))?
+            .cloned();
+
         let size = if self.name.starts_with("pose") {
             let tds = project_ref
                 .get_project()
-                .await?
+                .await
+                .with_context(|| format!("failed to open project for pose tensor '{}'", self.name))?
                 .find_tensordata_by_tensor(&self.name)
-                .await?;
+                .await
+                .with_context(|| format!("failed to find tensordata for pose '{}'", self.name))?;
             let td = tds.first();
             td.map(|t| (t.data().width(), t.data().height()))
         } else {
@@ -129,9 +135,15 @@ impl CopyTensorItem {
             let (_, id) = split_tensor_name(&self.name)?;
             let clips = project_ref
                 .get_project()
-                .await?
+                .await
+                .with_context(|| {
+                    format!("failed to open project for audio tensor '{}'", self.name)
+                })?
                 .get_clips(ClipFilter::AudioId(id))
-                .await?;
+                .await
+                .with_context(|| {
+                    format!("failed to find clips for audio tensor '{}'", self.name)
+                })?;
             clips.into_iter().next()
         } else {
             None
@@ -141,33 +153,45 @@ impl CopyTensorItem {
             if let Some(preview_id) = self.preview_id {
                 if let Some(node) = &node {
                     if node.data().index_in_a_clip() == 0 {
-                        self.preview = project_ref.thumb(preview_id).get_preview(true).await?;
+                        self.preview = project_ref
+                            .thumb(preview_id)
+                            .get_preview(true)
+                            .await
+                            .with_context(|| {
+                                format!(
+                                    "failed to get preview {preview_id} for tensor '{}'",
+                                    self.name
+                                )
+                            })?;
                     }
                 }
             }
         }
 
-        let tensor_raw = resource.get_tensor_raw().await?;
+        let tensor_raw = resource
+            .get_tensor_raw()
+            .await
+            .with_context(|| format!("failed to get raw tensor data for '{}'", self.name))?;
 
         if let Some(data) = tensor_raw {
+            let name_clone = self.name.clone();
             let result = tokio::task::spawn_blocking(move || {
-                let tensor = Tensor::try_from(data).ok()?;
+                let tensor = Tensor::try_from(data)
+                    .with_context(|| format!("failed to convert raw tensor '{name_clone}'"))?;
                 match tensor.kind {
-                    TensorKind::Image | TensorKind::Binary => {
-                        get_image(lossless, node, tensor).ok()
-                    }
-                    TensorKind::Pose => get_pose(tensor, size).ok(),
-                    TensorKind::Audio => get_audio(tensor, clip).ok(),
-                    TensorKind::Unknown => None,
+                    TensorKind::Image | TensorKind::Binary => get_image(lossless, node, tensor),
+                    TensorKind::Pose => get_pose(tensor, size),
+                    TensorKind::Audio => get_audio(tensor, clip),
+                    TensorKind::Unknown => anyhow::bail!("unknown tensor kind for '{name_clone}'"),
                 }
             })
-            .await?;
-            if let Some((data, data_ext)) = result {
-                self.data = Some(data);
-                self.data_ext = Some(data_ext);
-            }
+            .await
+            .with_context(|| format!("conversion failed for tensor '{}'", self.name))??;
+
+            self.data = Some(result.0);
+            self.data_ext = Some(result.1);
         } else {
-            anyhow::bail!("Couldn't get tensor_raw");
+            anyhow::bail!("raw tensor not found for '{}'", self.name);
         }
 
         Ok(())
@@ -176,13 +200,22 @@ impl CopyTensorItem {
     /// Pipeline stage: Zip
     pub fn archive(&mut self, writer: &mut StreamingZipWriter<File>) -> Result<()> {
         if let Some(data) = &self.data {
-            writer.start_entry(&self.filename()?)?;
-            writer.write_data(data)?;
+            let filename = self.filename()?;
+            writer
+                .start_entry(&filename)
+                .with_context(|| format!("failed to start zip entry for '{filename}'"))?;
+            writer
+                .write_data(data)
+                .with_context(|| format!("failed to write zip data for '{filename}'"))?;
 
             if let Some(preview) = &self.preview {
                 if let Some(name) = &self.preview_filename() {
-                    writer.start_entry(name)?;
-                    writer.write_data(preview)?;
+                    writer.start_entry(name).with_context(|| {
+                        format!("failed to start zip preview entry for '{name}'")
+                    })?;
+                    writer.write_data(preview).with_context(|| {
+                        format!("failed to write zip preview data for '{name}'")
+                    })?;
                 }
             }
 
@@ -202,7 +235,7 @@ impl CopyTensorItem {
         let preview_filename = self
             .preview_filename()
             .map_or(filename.clone(), |pf| pf.into_bytes());
-        match sqlx::query(
+        sqlx::query(
             "INSERT INTO main.tensors ( name, type, format, datatype, dim, data )
                              SELECT name, type, format, datatype, dim, ?1 AS data
                              FROM dtp.tensors WHERE name == ?2",
@@ -211,13 +244,7 @@ impl CopyTensorItem {
         .bind(&self.name)
         .execute(&mut **db_conn)
         .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("DbWorker failed to insert tensor {}: {}", self.name, e);
-                return Err(e.into());
-            }
-        }
+        .with_context(|| format!("DbWorker failed to insert tensor record '{}'", self.name))?;
 
         if let Some(preview_id) = self.preview_id {
             if let Some(node_id) = self.node_id {
