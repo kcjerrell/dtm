@@ -109,7 +109,9 @@ impl DTProject {
                 )
                 .fetch_all(&*self.pool)
                 .await
-                .with_context(|| format!("failed to query tables in project database {}", self.path))?;
+                .with_context(|| {
+                    format!("failed to query tables in project database {}", self.path)
+                })?;
 
                 let mut status = DTProjectTableStatus::default();
 
@@ -153,7 +155,11 @@ impl DTProject {
         };
 
         if !has_table {
-            anyhow::bail!("Table '{}' not found in project database {}", table.get_name(), self.path);
+            anyhow::bail!(
+                "Table '{}' not found in project database {}",
+                table.get_name(),
+                self.path
+            );
         }
 
         Ok(has_table)
@@ -175,12 +181,23 @@ impl DTProject {
         )
         .fetch_one(&*self.pool)
         .await
-        .with_context(|| format!("failed to query thumbnail fingerprint for project {}", self.path))?;
+        .with_context(|| {
+            format!(
+                "failed to query thumbnail fingerprint for project {}",
+                self.path
+            )
+        })?;
 
         let fingerprint: String = row.get(0);
         Ok(fingerprint.trim_end_matches(':').to_string())
     }
 
+    // table: tensors
+    // columns: name, type, format, datatype, dim, data
+    // relations: indirectly with tensordata (and its index tables)
+    //            tensordata flatbuffer (and index tables) have the numeric part of the tensor name
+    //            the numeric id can be joined with the type (ie: tensor_history_, depth_map_) to get
+    //            the full tensor name
     pub async fn get_tensor_raw(&self, name: &str) -> anyhow::Result<TensorRaw> {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row =
@@ -188,7 +205,12 @@ impl DTProject {
                 .bind(name)
                 .fetch_one(&*self.pool)
                 .await
-                .with_context(|| format!("failed to query raw tensor '{}' in project {}", name, self.path))?;
+                .with_context(|| {
+                    format!(
+                        "failed to query raw tensor '{}' in project {}",
+                        name, self.path
+                    )
+                })?;
 
         let name: String = row.get(0);
         let tensor_type: i64 = row.get(1);
@@ -204,8 +226,9 @@ impl DTProject {
 
         // If this is an archived project, interpret data as a file path
         let resource = if let Some(dt_zip) = &self.dt_zip {
-            DTResource::dt_zip_ref(data, dt_zip)
-                .with_context(|| format!("failed to resolve archived resource for tensor '{}'", name))?
+            DTResource::dt_zip_ref(data, dt_zip).with_context(|| {
+                format!("failed to resolve archived resource for tensor '{}'", name)
+            })?
         } else {
             DTResource::compressed_tensor(data)
         };
@@ -234,13 +257,21 @@ impl DTProject {
         Ok(tensors)
     }
 
+    // used by front end to determine subitem display size - might not be necessary though
+    // however, it might be worth keeping because it can get a tensor's size without
+    // having to allocate for the tensor data
     pub async fn get_tensor_size(&self, name: &str) -> anyhow::Result<TensorSize> {
         self.check_table(&DTProjectTable::Tensors).await?;
         let row = query("SELECT datatype, dim FROM tensors WHERE name = ?1")
             .bind(name)
             .fetch_one(&*self.pool)
             .await
-            .with_context(|| format!("failed to query tensor size for '{}' in project {}", name, self.path))?;
+            .with_context(|| {
+                format!(
+                    "failed to query tensor size for '{}' in project {}",
+                    name, self.path
+                )
+            })?;
 
         let datatype: i64 = row.get(0);
         let dim: Vec<u8> = row.get(1);
@@ -275,6 +306,7 @@ impl DTProject {
         }
     }
 
+    // used to so 'top off' scans know if the project has been updated
     pub async fn get_info(&self) -> anyhow::Result<DTProjectInfo> {
         match self.check_table(&DTProjectTable::TensorHistoryNode).await {
             Ok(_) => {}
@@ -300,6 +332,14 @@ impl DTProject {
         })
     }
 
+    // table: thumbnailhistorynode and thumbnailhalfhistorynode
+    // columns: __pk0 (preview_id), p (flatbuffer with jpg)
+    // relations: tensorhistorynode's flatbuffer preview_id field is __pk0
+    //            this is also indexed on tensorhistorynode__f86
+    //            select * from tensorhistorynode thn
+    //            join tensorhistorynode__f86 thn86 on thn86.rowid = thn.rowid
+    //            join thumbnailhistorynode th on th.__pk0 = thn86.f86
+    // gets the half size preview - note: this is not a jpg, but includes a jpg. use extract_jpeg_slice
     pub async fn get_thumb_half(&self, thumb_id: i64) -> anyhow::Result<DTResource> {
         self.check_table(&DTProjectTable::ThumbnailHistoryNode)
             .await?;
@@ -311,13 +351,18 @@ impl DTProject {
         let thumbnail: Vec<u8> = result.get(0);
 
         if let Some(dt_zip) = &self.dt_zip {
-            DTResource::dt_zip_ref(thumbnail, dt_zip)
-                .with_context(|| format!("failed to resolve archived half thumbnail for project {}", self.path))
+            DTResource::dt_zip_ref(thumbnail, dt_zip).with_context(|| {
+                format!(
+                    "failed to resolve archived half thumbnail for project {}",
+                    self.path
+                )
+            })
         } else {
             Ok(DTResource::jpg_with_header(thumbnail))
         }
     }
 
+    // gets the full size preview - note: this is not a jpg, but includes a jpg. use extract_jpeg_slice
     pub async fn get_thumb(&self, thumb_id: i64) -> anyhow::Result<DTResource> {
         self.check_table(&DTProjectTable::ThumbnailHistoryNode)
             .await?;
@@ -329,8 +374,12 @@ impl DTProject {
         let thumbnail: Vec<u8> = result.get(0);
 
         if let Some(dt_zip) = &self.dt_zip {
-            DTResource::dt_zip_ref(thumbnail, dt_zip)
-                .with_context(|| format!("failed to resolve archived thumbnail for project {}", self.path))
+            DTResource::dt_zip_ref(thumbnail, dt_zip).with_context(|| {
+                format!(
+                    "failed to resolve archived thumbnail for project {}",
+                    self.path
+                )
+            })
         } else {
             Ok(DTResource::jpg_with_header(thumbnail))
         }
@@ -351,31 +400,45 @@ impl DTProject {
                     )));
                 }
 
-                let nodes: Vec<TextHistoryNode> =
-                    query("SELECT p FROM texthistorynode ORDER BY rowid")
-                        .map(|row: SqliteRow| {
-                            let p: Vec<u8> = row.get(0);
-                            TextHistoryNode::try_from(p.as_slice()).unwrap()
+                let rows = query("SELECT rowid, p FROM texthistorynode ORDER BY rowid")
+                    .fetch_all(&*self.pool)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "failed to query text history nodes for project {}",
+                            self.path
+                        )
+                    })?;
+
+                let nodes: Vec<TextHistoryNode> = rows
+                    .into_iter()
+                    .map(|row| {
+                        let rowid: i64 = row.get(0);
+                        let p: Vec<u8> = row.get(1);
+                        TextHistoryNode::try_from(p.as_slice()).with_context(|| {
+                            format!(
+                                "failed to parse text history node row {} for project {}",
+                                rowid, self.path
+                            )
                         })
-                        .fetch_all(&*self.pool)
-                        .await
-                        .with_context(|| format!("failed to query text history nodes for project {}", self.path))?;
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?;
 
                 let lineages: Vec<(i64, i64)> =
                     match self.check_table(&DTProjectTable::TextLineage).await {
-                        Ok(_) => {
-                            query(
-                                "
+                        Ok(_) => query(
+                            "
                 SELECT tln.__pk0, tln_f6.f6 
                 FROM textlineagenode tln 
                 JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid 
                 ORDER BY tln.rowid",
-                            )
-                            .map(|row: SqliteRow| (row.get(0), row.get(1)))
-                            .fetch_all(&*self.pool)
-                            .await
-                            .with_context(|| format!("failed to query text lineages for project {}", self.path))?
-                        }
+                        )
+                        .map(|row: SqliteRow| (row.get(0), row.get(1)))
+                        .fetch_all(&*self.pool)
+                        .await
+                        .with_context(|| {
+                            format!("failed to query text lineages for project {}", self.path)
+                        })?,
                         Err(_) => Vec::new(),
                     };
 
@@ -427,7 +490,10 @@ impl DTProject {
                 .await
                 .with_context(|| format!("failed to read archive file '{}'", path))
         } else {
-            anyhow::bail!("Cannot get archived file - project is not an DTZip archive: {}", self.path)
+            anyhow::bail!(
+                "Cannot get archived file - project is not an DTZip archive: {}",
+                self.path
+            )
         }
     }
 }

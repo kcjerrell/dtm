@@ -24,11 +24,12 @@ impl Maintenance for DTProject {
         separated.push_unseparated(")");
         let query = qb.build();
         let images = query
-            .map(|row: SqliteRow| {
+            .try_map(|row: SqliteRow| {
                 let node_id: i64 = row.get(0);
-                let history = root_as_tensor_history_node(row.get(1)).unwrap();
+                let history = root_as_tensor_history_node(row.get(1))
+                    .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
                 let sampler = history.sampler();
-                (node_id, sampler.0)
+                Ok((node_id, sampler.0))
             })
             .fetch_all(&*self.pool)
             .await

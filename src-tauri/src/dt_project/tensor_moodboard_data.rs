@@ -83,7 +83,12 @@ impl DTProject {
         let res: Vec<i64> = sqlx::query_scalar(query)
             .fetch_all(&*self.pool)
             .await
-            .with_context(|| format!("failed to list moodboard data IDs for project {}", self.path))?;
+            .with_context(|| {
+                format!(
+                    "failed to list moodboard data IDs for project {}",
+                    self.path
+                )
+            })?;
         Ok(res)
     }
 }

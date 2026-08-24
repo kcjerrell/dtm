@@ -291,10 +291,16 @@ impl DTProject {
 
         // build and run the thn query
         let query = build_query(&filter);
-        let mut rows: Vec<ThnRow> = query_as(query)
-            .fetch_all(&*self.pool)
-            .await
-            .with_context(|| format!("failed to query tensor history nodes for project {}", self.path))?;
+        let mut rows: Vec<ThnRow> =
+            query_as(query)
+                .fetch_all(&*self.pool)
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to query tensor history nodes for project {}",
+                        self.path
+                    )
+                })?;
 
         if let Some(ThnFilter::Predecessor(_, lineage, _)) = filter {
             if rows.iter().any(|r| r.lineage == lineage) {
@@ -314,8 +320,9 @@ impl DTProject {
             .into_iter()
             .map(|row| {
                 // this validates the flatbuffer so that .data() can provide fast unchecked access
-                let fb = root_as_tensor_history_node(&row.data)
-                    .map_err(|e| anyhow::anyhow!("flatbuffers parse error for tensor history node: {:?}", e))?;
+                let fb = root_as_tensor_history_node(&row.data).map_err(|e| {
+                    anyhow::anyhow!("flatbuffers parse error for tensor history node: {:?}", e)
+                })?;
                 if get_clip && fb.clip_id() > 0 {
                     // update list of clip_ids
                     clip_ids.push(fb.clip_id())
@@ -325,8 +332,12 @@ impl DTProject {
                     project_path: PathBuf::from(&self.path),
                     lineage: row.lineage,
                     logical_time: row.logical_time,
-                    data: checked_flatbuffer(&row.data)
-                        .ok_or_else(|| anyhow::anyhow!("invalid tensor history node flatbuffer at rowid {}", row.rowid))?,
+                    data: checked_flatbuffer(&row.data).ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "invalid tensor history node flatbuffer at rowid {}",
+                            row.rowid
+                        )
+                    })?,
                     tensordata: None,
                     clip: None,
                     moodboard: None,
@@ -335,7 +346,12 @@ impl DTProject {
                 })
             })
             .collect::<anyhow::Result<Vec<_>>>()
-            .with_context(|| format!("failed to parse tensor history nodes for project {}", self.path))?;
+            .with_context(|| {
+                format!(
+                    "failed to parse tensor history nodes for project {}",
+                    self.path
+                )
+            })?;
 
         if get_tensordata {
             // gather tensor_data using lineage and logical_time
@@ -474,7 +490,12 @@ impl DTProject {
         .bind(project_id)
         .fetch_all(&*self.pool)
         .await
-        .with_context(|| format!("failed to query missing node IDs attached to database {} for project {}", pdb_path, self.path))?;
+        .with_context(|| {
+            format!(
+                "failed to query missing node IDs attached to database {} for project {}",
+                pdb_path, self.path
+            )
+        })?;
 
         Ok(missing_ids)
     }

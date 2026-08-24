@@ -70,7 +70,7 @@ pub struct ClipExtra {
 impl<'r> FromRow<'r, SqliteRow> for Clip {
     fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
         let p = row.get::<Vec<u8>, _>("p");
-        let data = root_as_clip(&p).unwrap();
+        let data = root_as_clip(&p).map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
         Ok(Self {
             row_id: row.get("rowid"),
             clip_id: row.get("__pk0"),

@@ -145,8 +145,9 @@ impl DTProject {
         tensor_name: &str,
     ) -> anyhow::Result<Vec<TensorData>> {
         if let Some((prefix, id)) = tensor_name.rsplit_once("_") {
-            let (index_table, index_col) = index_table(prefix)
-                .ok_or_else(|| anyhow::anyhow!("Invalid tensor name prefix for '{}'", tensor_name))?;
+            let (index_table, index_col) = index_table(prefix).ok_or_else(|| {
+                anyhow::anyhow!("Invalid tensor name prefix for '{}'", tensor_name)
+            })?;
             let id: i64 = id
                 .parse()
                 .with_context(|| format!("failed to parse tensor index from '{}'", tensor_name))?;
@@ -162,7 +163,12 @@ impl DTProject {
                 .bind(id)
                 .fetch_all(&*self.pool)
                 .await
-                .with_context(|| format!("failed to query tensordata for tensor '{}' in project {}", tensor_name, self.path))?;
+                .with_context(|| {
+                    format!(
+                        "failed to query tensordata for tensor '{}' in project {}",
+                        tensor_name, self.path
+                    )
+                })?;
             return Ok(res);
         }
         anyhow::bail!("Invalid tensor name: {}", tensor_name)

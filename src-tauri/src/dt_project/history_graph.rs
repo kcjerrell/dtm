@@ -464,7 +464,12 @@ impl DTProject {
             query_as("SELECT rowid, __pk0, __pk1 FROM tensorhistorynode ORDER BY rowid ASC")
                 .fetch_all(&*self.pool)
                 .await
-                .with_context(|| format!("failed to query node lineages in project database {}", self.path))?;
+                .with_context(|| {
+                    format!(
+                        "failed to query node lineages in project database {}",
+                        self.path
+                    )
+                })?;
 
         Ok(nodes)
     }

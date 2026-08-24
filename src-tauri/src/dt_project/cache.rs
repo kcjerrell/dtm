@@ -1,7 +1,7 @@
 use crate::projects_db::archive::dt_zip::DTZip;
+use anyhow::Context;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use anyhow::Context;
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -107,7 +107,10 @@ impl DTProject {
         Self::get_internal(&dt_zip.db_path.to_owned(), Some(dt_zip)).await
     }
 
-    async fn get_internal(path: &str, dt_zip: Option<Arc<DTZip>>) -> anyhow::Result<Arc<DTProject>> {
+    async fn get_internal(
+        path: &str,
+        dt_zip: Option<Arc<DTZip>>,
+    ) -> anyhow::Result<Arc<DTProject>> {
         let cell = PROJECT_CACHE
             .entry(path.to_string())
             .or_insert_with(|| Arc::new(OnceCell::new()))
@@ -115,11 +118,10 @@ impl DTProject {
 
         let result = cell
             .get_or_try_init(|| async {
-                let project = Arc::new(
-                    DTProject::new(path, true, dt_zip)
-                        .await
-                        .with_context(|| format!("failed to initialize cached project at {}", path))?,
-                );
+                let project =
+                    Arc::new(DTProject::new(path, true, dt_zip).await.with_context(|| {
+                        format!("failed to initialize cached project at {}", path)
+                    })?);
                 Ok::<Arc<CachedProject>, anyhow::Error>(Arc::new(CachedProject {
                     project,
                     generation: AtomicU64::new(0),
