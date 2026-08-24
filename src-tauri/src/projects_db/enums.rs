@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use serde::Serialize;
 use strum::EnumIs;
 
 use crate::dt_project::{TdFilter, ThnFilter};
-use crate::projects_db::{
-    archive::cache::DTZipCache,
-    DTProject, DtResourceHandle, ProjectsDb,
-};
+use crate::projects_db::{archive::cache::DTZipCache, DTProject, DtResourceHandle, ProjectsDb};
 
 /// References a Draw Things project database file, either by its id in DTM's ProjectsDb,
 /// its file path, its containing archive, or with a direct reference to the DTProject struct.
@@ -71,29 +69,48 @@ impl DtProjectRef {
     ) -> anyhow::Result<Arc<DTProject>> {
         match self {
             DtProjectRef::Id(id) => {
-                let pdb = ProjectsDb::get().await?;
+                let pdb = ProjectsDb::get()
+                    .await
+                    .context("failed to access ProjectsDb")?;
                 let project_path = pdb
                     .get_project_path(*id)
                     .await
-                    .map_err(|e| anyhow::anyhow!(e))?;
+                    .map_err(|e| anyhow::anyhow!(e))
+                    .with_context(|| {
+                        format!("failed to resolve project path for project ID {id}")
+                    })?;
                 Box::pin(Self::Path(project_path).get_or_open_project(open, as_archive)).await
             }
             DtProjectRef::Path(path) => {
                 if path.ends_with(".dtm.zip") {
-                    let dt_zip = DTZipCache::get_dt_zip(path).await?;
+                    let dt_zip = DTZipCache::get_dt_zip(path).await.with_context(|| {
+                        format!("failed to load DTZip archive for path '{path}'")
+                    })?;
                     if open {
-                        Ok(Arc::new(DTProject::open_archive(dt_zip).await?))
+                        Ok(Arc::new(
+                            DTProject::open_archive(dt_zip).await.with_context(|| {
+                                format!("failed to open project archive '{path}'")
+                            })?,
+                        ))
                     } else {
-                        Ok(DTProject::get_archive(dt_zip).await?)
+                        Ok(DTProject::get_archive(dt_zip).await.with_context(|| {
+                            format!("failed to get cached project archive '{path}'")
+                        })?)
                     }
                 } else if path.ends_with(".sqlite3") {
                     if open {
-                        Ok(Arc::new(DTProject::open(path.as_str()).await?))
+                        Ok(Arc::new(
+                            DTProject::open(path.as_str()).await.with_context(|| {
+                                format!("failed to open project database '{path}'")
+                            })?,
+                        ))
                     } else {
-                        Ok(DTProject::get(path.as_str()).await?)
+                        Ok(DTProject::get(path.as_str()).await.with_context(|| {
+                            format!("failed to get cached project database '{path}'")
+                        })?)
                     }
                 } else {
-                    anyhow::bail!("unknown project type")
+                    anyhow::bail!("unknown project file extension for '{path}'")
                 }
             }
             DtProjectRef::Db(db) => Ok(db.clone()),

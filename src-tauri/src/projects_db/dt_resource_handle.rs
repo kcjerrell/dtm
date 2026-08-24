@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::convert::TryInto;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -36,10 +36,22 @@ impl ResourceHandle for DtResourceHandle {
             return Ok(None);
         }
 
-        let dtp = self.get_project().await?;
-        if let Some(name) = self.get_tensor_name(Some(&dtp)).await? {
-            let tensor_raw = dtp.get_tensor_raw(&name).await?;
-            let tensor: Tensor = tensor_raw.try_into()?;
+        let dtp = self
+            .get_project()
+            .await
+            .context("failed to open project for tensor request")?;
+        if let Some(name) = self
+            .get_tensor_name(Some(&dtp))
+            .await
+            .context("failed to resolve tensor name")?
+        {
+            let tensor_raw = dtp
+                .get_tensor_raw(&name)
+                .await
+                .with_context(|| format!("failed to get raw tensor '{name}'"))?;
+            let tensor: Tensor = tensor_raw
+                .try_into()
+                .with_context(|| format!("failed to convert raw tensor '{name}' to Tensor"))?;
 
             return Ok(Some(tensor));
         }
@@ -49,37 +61,54 @@ impl ResourceHandle for DtResourceHandle {
 
     async fn get_image(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
         let instants = Instants::new();
-        let dtp = self.get_project().await?;
+        let dtp = self
+            .get_project()
+            .await
+            .context("failed to open project for image request")?;
         println!("got project: {}", instants.record());
-        let name = self.get_tensor_name(Some(&dtp)).await?;
+        let name = self
+            .get_tensor_name(Some(&dtp))
+            .await
+            .context("failed to resolve tensor name for image")?;
         println!("got name: {}", instants.record());
         if let Some(name) = name {
-            if let Ok(tensor_raw) = dtp.get_tensor_raw(&name).await {
-                println!("got tensor_raw: {}", instants.record());
-                match &tensor_raw.resource {
-                    DTResource::CompressedTensor(_) => {
-                        let node = self.get_history_node().await?;
-                        println!("got node: {}", instants.record());
-                        let tensor: Tensor = Tensor::try_from(tensor_raw)?;
-                        println!("got tensor: {}", instants.record());
-                        let png = tensor.to_png(node, size);
-                        println!("got png: {}", instants.record());
-                        return png;
-                    }
-                    DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
-                    DTResource::DTZipRef(dtzip_ref) => {
-                        println!("got dtzip_ref: {}", instants.record());
-                        let data = dtp
-                            .dt_zip
-                            .as_ref()
-                            .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
-                            .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
-                            .await?;
-                        println!("got data: {}", instants.record());
-                        return Ok(Some(data));
-                    }
-                    DTResource::Unknown(_items) => return Ok(None),
+            let tensor_raw = dtp.get_tensor_raw(&name).await?;
+            println!("got tensor_raw: {}", instants.record());
+            match &tensor_raw.resource {
+                DTResource::CompressedTensor(_) => {
+                    let node = self
+                        .get_history_node()
+                        .await
+                        .context("failed to fetch history node for tensor image")?;
+                    println!("got node: {}", instants.record());
+                    let tensor: Tensor = Tensor::try_from(tensor_raw)
+                        .with_context(|| format!("failed to convert raw tensor '{name}'"))?;
+                    println!("got tensor: {}", instants.record());
+                    let png = tensor
+                        .to_png(node, size)
+                        .with_context(|| format!("failed to convert tensor '{name}' to PNG"))?;
+                    println!("got png: {}", instants.record());
+                    return Ok(png);
                 }
+                DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
+                DTResource::DTZipRef(dtzip_ref) => {
+                    println!("got dtzip_ref: {}", instants.record());
+                    let data = dtp
+                        .dt_zip
+                        .as_ref()
+                        .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
+                        .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read file '{}' from zip archive",
+                                dtzip_ref.rel_path
+                            )
+                        })?;
+                    println!("got data: {}", instants.record());
+                    return Ok(Some(data));
+                }
+                DTResource::Unknown(_items) => return Ok(None),
             }
         }
         Ok(None)
@@ -89,17 +118,27 @@ impl ResourceHandle for DtResourceHandle {
         let preview_id = match &self.resource {
             RR::Thumb(id) => Some(*id),
             RR::TensorHistoryNode(_, _thn_resource) => {
-                let node = self.get_history_node().await?;
+                let node = self
+                    .get_history_node()
+                    .await
+                    .context("failed to fetch history node for preview")?;
                 node.map(|n| n.data().preview_id())
             }
             _ => None,
         };
         if let Some(preview_id) = preview_id {
-            let dtp = self.get_project().await?;
+            let dtp = self
+                .get_project()
+                .await
+                .context("failed to open project for preview")?;
             let thumb = if half {
-                dtp.get_thumb_half(preview_id).await?
+                dtp.get_thumb_half(preview_id)
+                    .await
+                    .with_context(|| format!("failed to get half preview {preview_id}"))?
             } else {
-                dtp.get_thumb(preview_id).await?
+                dtp.get_thumb(preview_id)
+                    .await
+                    .with_context(|| format!("failed to get preview {preview_id}"))?
             };
             match thumb {
                 DTResource::JpgInFbs(jpg) => Ok(jpg.jpg()),
@@ -109,7 +148,13 @@ impl ResourceHandle for DtResourceHandle {
                         .as_ref()
                         .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
                         .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
-                        .await?,
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read preview '{}' from zip archive",
+                                dtzip_ref.rel_path
+                            )
+                        })?,
                 )),
                 DTResource::Unknown(_items) => Ok(None),
             }
@@ -119,13 +164,19 @@ impl ResourceHandle for DtResourceHandle {
     }
 
     async fn get_audio(&self) -> Result<Option<Vec<u8>>> {
-        let dtp = self.get_project().await?;
+        let dtp = self
+            .get_project()
+            .await
+            .context("failed to open project for audio")?;
         // to get audio we will need a clip
         let clip = match &self.resource {
             DtResourceRef::Tensor(tensor_name) => {
                 let (_, id) = split_tensor_name(tensor_name)?;
                 dtp.get_clips(ClipFilter::AudioId(id))
-                    .await?
+                    .await
+                    .with_context(|| {
+                        format!("failed to query audio clip for tensor '{tensor_name}'")
+                    })?
                     .into_iter()
                     .next()
             }
@@ -140,15 +191,31 @@ impl ResourceHandle for DtResourceHandle {
         if let Some(clip) = clip {
             let tensor_name = format!("audio_{}", clip.audio_id);
             let duration = clip.count as f64 / clip.frames_per_second;
-            let tensor_raw = dtp.get_tensor_raw(&tensor_name).await?;
+            let tensor_raw = dtp
+                .get_tensor_raw(&tensor_name)
+                .await
+                .with_context(|| format!("failed to get raw audio tensor '{tensor_name}'"))?;
             let audio = match tensor_raw.resource {
                 DTResource::CompressedTensor(_) => {
-                    let tensor = Tensor::try_from(tensor_raw)?;
-                    Some(tensor.decode_audio(duration)?)
+                    let tensor = Tensor::try_from(tensor_raw).with_context(|| {
+                        format!("failed to convert raw audio tensor '{tensor_name}'")
+                    })?;
+                    Some(
+                        tensor
+                            .decode_audio(duration)
+                            .with_context(|| format!("failed to decode audio '{tensor_name}'"))?,
+                    )
                 }
-                DTResource::DTZipRef(dtzip_ref) => {
-                    Some(dtp.get_archive_file(&dtzip_ref.rel_path).await?)
-                }
+                DTResource::DTZipRef(dtzip_ref) => Some(
+                    dtp.get_archive_file(&dtzip_ref.rel_path)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read audio from zip archive '{}'",
+                                dtzip_ref.rel_path
+                            )
+                        })?,
+                ),
                 DTResource::JpgInFbs(_) | DTResource::Unknown(_) => None,
             };
             Ok(audio)
@@ -303,18 +370,30 @@ impl DtResourceHandle {
             DtProjectRef::Path(path) => path.to_string(),
             DtProjectRef::Db(dtproject) => dtproject.path.to_string(),
         };
-        let pdb = ProjectsDb::get().await?;
-        let Some(folder) = pdb.get_watch_folder_for_path(&path).await? else {
-            anyhow::bail!("can't find folder");
+        let pdb = ProjectsDb::get()
+            .await
+            .context("failed to access ProjectsDb for project ID lookup")?;
+        let Some(folder) = pdb
+            .get_watch_folder_for_path(&path)
+            .await
+            .with_context(|| format!("failed to get watch folder for path '{path}'"))?
+        else {
+            anyhow::bail!("can't find folder for path '{path}'");
         };
         let Some(remaining_path) = path.strip_prefix(&folder.path) else {
-            anyhow::bail!("can't find folder");
+            anyhow::bail!(
+                "path '{path}' does not start with watch folder prefix '{}'",
+                folder.path
+            );
         };
-        let project = pdb.get_project_by_path(folder.id, remaining_path).await?;
+        let project = pdb
+            .get_project_by_path(folder.id, remaining_path)
+            .await
+            .with_context(|| format!("failed to get project by path '{remaining_path}'"))?;
         if let Some(project) = project {
             Ok(project.id)
         } else {
-            anyhow::bail!("can't find project");
+            anyhow::bail!("can't find project for relative path '{remaining_path}'");
         }
     }
 
@@ -517,6 +596,7 @@ impl DtResourceHandle {
             .await
             .map(|image| Some(DtProjectRef::Id(image.project_id).node(image.node_id)))
             .map_err(|e| anyhow::anyhow!(e))
+            .with_context(|| format!("failed to resolve DtResourceHandle for image {image_id}"))
     }
 
     pub async fn is_image(&self) -> Result<bool> {

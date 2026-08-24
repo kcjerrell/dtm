@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -51,13 +52,11 @@ pub struct ArchivePlanItem {
     pub index: i64,
 }
 
-pub async fn copy_everything_plan(
-    project_id: i64,
-    lossless: bool,
-) -> TAResult<ArchivePlan> {
+pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePlan> {
     let project = DtProjectRef::Id(project_id)
         .get_project()
         .await
+        .with_context(|| format!("failed to open project {project_id} for archive planning"))
         .into_ta_result()?;
 
     let project_path = PathBuf::from(&project.path);
@@ -66,14 +65,17 @@ pub async fn copy_everything_plan(
     let mut gen_images: Vec<ArchivePlanItem> = Vec::new();
     let mut extra_resources: Vec<ArchivePlanItem> = Vec::new();
 
-    // all we have to do is create two lists of plan items
-    // one has all generated nodes tensor ids
-    // the other has everything else
-
     let mut batcher =
         project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard().and_clip());
 
-    while let Some(nodes) = batcher.next().await? {
+    while let Some(nodes) = batcher
+        .next()
+        .await
+        .with_context(|| {
+            format!("failed to fetch tensor history node batch for project {project_id}")
+        })
+        .into_ta_result()?
+    {
         for node in nodes {
             let node_id = node.rowid;
             let data = node.data();
@@ -93,7 +95,12 @@ pub async fn copy_everything_plan(
     }
 
     let mut extra_tensor_index = 0;
-    for (_, name) in project.list_tensors().await? {
+    for (_, name) in project
+        .list_tensors()
+        .await
+        .with_context(|| format!("failed to list tensors for project {project_id}"))
+        .into_ta_result()?
+    {
         let (_, tensor_id) = split_tensor_name(&name)?;
         if !main_tensor_ids.contains(&tensor_id) {
             extra_tensor_index += 1;
@@ -123,10 +130,7 @@ pub async fn copy_everything_plan(
 }
 
 /// This should not be used, but one day may be fixed for a more efficient archive
-pub async fn create_plan(
-    project_id: i64,
-    lossless: bool,
-) -> TAResult<ArchivePlan> {
+pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePlan> {
     let project = DtProjectRef::Id(project_id)
         .get_project()
         .await

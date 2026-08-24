@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::{
     io::{BufWriter, Cursor},
     sync::{Arc, Mutex},
@@ -67,14 +68,19 @@ pub async fn get_audio(resource: &DTPResource) -> anyhow::Result<Arc<Vec<u8>>> {
     let item_id: i64 = resource
         .item_id
         .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid item ID"))?;
+        .with_context(|| format!("invalid item ID '{}' for audio request", resource.item_id))?;
 
     let res = DtResourceHandle::new(
         &DtProjectRef::Id(resource.project_id),
         &DtResourceRef::TensorHistoryNode(ThnRef::RowId(item_id), ThnResource::None),
     );
 
-    if let Some(audio) = res.get_audio().await? {
+    if let Some(audio) = res.get_audio().await.with_context(|| {
+        format!(
+            "failed to fetch audio resource for project {}",
+            resource.project_id
+        )
+    })? {
         let audio_arc = Arc::new(audio);
 
         {

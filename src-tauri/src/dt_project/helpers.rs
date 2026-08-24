@@ -1,10 +1,11 @@
 use anyhow::Result;
 
 pub fn split_tensor_name(name: &str) -> Result<(String, i64)> {
-    if let Some((prefix, id)) = name.rsplit_once("_") {
-        let id = id.parse::<i64>()?;
-        Ok((prefix.to_string(), id))
-    } else {
-        anyhow::bail!("Invalid tensor name: {}", name)
-    }
+    name.rsplit_once("_")
+        .and_then(|(prefix, id)| {
+            id.parse::<i64>()
+                .ok()
+                .map(|id64| (prefix.to_string(), id64))
+        })
+        .ok_or_else(|| anyhow::anyhow!("invalid tensor name: {}", name))
 }
