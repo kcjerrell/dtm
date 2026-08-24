@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "composite": true,
     "target": "ESNext",
     "lib": [
       "ESNext",
@@ -12,11 +13,12 @@
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true,
     "types": [
       "node",
       "@wdio/globals/types",
-      "@wdio/mocha-framework"
+      "@wdio/mocha-framework",
+      "@wdio/tauri-service",
+      "@wdio/tauri-plugin"
     ]
   },
   "include": [

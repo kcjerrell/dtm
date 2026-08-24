@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process"
 import { join } from "node:path"
 import fse from "fs-extra"
 import App from "../pageobjects/App"
@@ -6,6 +7,7 @@ import { getPasteboardData, setPasteboardOverride } from "../util/clipdump"
 import {
     ensureFfmpeg,
     ffmpegInstalled,
+    ffmpegPath,
     removeFfmpegBinaries,
     stageFfmpegArchives,
 } from "../util/ffmpeg"
@@ -15,6 +17,48 @@ import { getFile, waitForFile } from "../util/testData"
 
 const md = Metadata
 const tempDir = getTestDataPath("temp", "md")
+const videoFixturePath = getTestDataPath("temp", "vid-export2.mp4")
+
+async function ensureMetadataVideoFixture() {
+    if (await fse.pathExists(videoFixturePath)) return
+
+    await ensureFfmpeg()
+    await fse.ensureDir(getTestDataPath("temp"))
+
+    const comment = JSON.stringify({
+        c: "A moonrise on an alien planet, unfamiliar shapes emerging from shadow as a distant glow lifts into the sky, the environment undefined and shifting, textures that feel more sensed than seen, subtle gradients of color blending into one another, quiet, atmospheric, ambiguous, dreamlike",
+        model: "ltx_2.3_22b_distilled_q8p.ckpt",
+        v2: {
+            model: "ltx_2.3_22b_distilled_q8p.ckpt",
+            width: 512,
+            height: 512,
+            sampler: 19,
+            steps: 8,
+        },
+    })
+
+    execFileSync(ffmpegPath, [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=512x512:d=0.68:r=25",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-shortest",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-metadata",
+        `comment=${comment}`,
+        videoFixturePath,
+    ])
+}
 
 // these tests depend on previous tests, and will skip if one fails
 describe("Metadata", () => {
@@ -171,7 +215,8 @@ describe("Metadata", () => {
     // into its own test. The video metadata test below assumes ffmpeg is present
     // via ensureFfmpeg().
     it("installs ffmpeg from the metadata panel", async () => {
-        const videoPath = getTestDataPath("temp", "vid-export2.mp4")
+        await ensureMetadataVideoFixture()
+        const videoPath = videoFixturePath
         if (!(await fse.pathExists(videoPath))) {
             throw new Error(`Video file not found: ${videoPath}`)
         }
@@ -212,9 +257,10 @@ describe("Metadata", () => {
     })
 
     it("loads video metadata", async () => {
+        await ensureMetadataVideoFixture()
         await ensureFfmpeg()
 
-        const videoPath = getTestDataPath("temp", "vid-export2.mp4")
+        const videoPath = videoFixturePath
         if (!(await fse.pathExists(videoPath))) {
             throw new Error(`Video file not found: ${videoPath}`)
         }
@@ -238,6 +284,7 @@ describe("Metadata", () => {
         await expect($("#metadata video")).toBeDisplayed()
 
         // ffmpeg is already installed, so metadata should load without an install step
+        await md.selectTab("details")
         await md.getDataItemValue("filename", { timeout: 60000 })
 
         expect(await md.getDataItemValue("nb_streams")).toContain("2")

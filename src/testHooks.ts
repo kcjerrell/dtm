@@ -27,7 +27,10 @@ export function addTestHooks() {
     window.__E2E_TEST_OVERRIDE_DATA = overrideData
 
     window.__reset_metadata_store = async () => {
-        const { resetMetadataStore } = await import("./metadata/state/metadataStore")
+        const { resetMetadataStore, waitForMetadataStore } = await import(
+            "./metadata/state/metadataStore"
+        )
+        await waitForMetadataStore()
         resetMetadataStore()
     }
 
