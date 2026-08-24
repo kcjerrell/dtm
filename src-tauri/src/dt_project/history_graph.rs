@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use anyhow::Context;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::{prelude::*, query_as, sqlite::SqliteRow};
 
@@ -462,7 +463,13 @@ impl DTProject {
         let nodes: Vec<HistoryNode> =
             query_as("SELECT rowid, __pk0, __pk1 FROM tensorhistorynode ORDER BY rowid ASC")
                 .fetch_all(&*self.pool)
-                .await?;
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to query node lineages in project database {}",
+                        self.path
+                    )
+                })?;
 
         Ok(nodes)
     }

@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use async_trait::async_trait;
-use sqlx::{sqlite::SqliteRow, Error, QueryBuilder, Row};
+use sqlx::{sqlite::SqliteRow, QueryBuilder, Row};
 
 use crate::dt_project::fbs::root_as_tensor_history_node;
 use crate::dt_project::DTProject;
 
 #[async_trait]
 pub trait Maintenance {
-    async fn get_samplers(&self, node_ids: &[i64]) -> Result<HashMap<i64, i8>, Error>;
+    async fn get_samplers(&self, node_ids: &[i64]) -> anyhow::Result<HashMap<i64, i8>>;
 }
 
 #[async_trait]
 impl Maintenance for DTProject {
-    async fn get_samplers(&self, node_ids: &[i64]) -> Result<HashMap<i64, i8>, Error> {
+    async fn get_samplers(&self, node_ids: &[i64]) -> anyhow::Result<HashMap<i64, i8>> {
         let mut qb = QueryBuilder::new("SELECT rowid, p FROM tensorhistorynode WHERE rowid IN (");
 
         let mut separated = qb.separated(", ");
@@ -23,14 +24,16 @@ impl Maintenance for DTProject {
         separated.push_unseparated(")");
         let query = qb.build();
         let images = query
-            .map(|row: SqliteRow| {
+            .try_map(|row: SqliteRow| {
                 let node_id: i64 = row.get(0);
-                let history = root_as_tensor_history_node(row.get(1)).unwrap();
+                let history = root_as_tensor_history_node(row.get(1))
+                    .map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
                 let sampler = history.sampler();
-                (node_id, sampler.0)
+                Ok((node_id, sampler.0))
             })
             .fetch_all(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to fetch samplers for project {}", self.path))?;
 
         let mut samplers: HashMap<i64, i8> = HashMap::new();
 

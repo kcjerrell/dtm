@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 use std::{collections::HashSet, sync::Arc};
@@ -122,13 +123,20 @@ impl DTProject {
     pub async fn get_tensor_data(&self, filter: TdFilter) -> anyhow::Result<Vec<TensorData>> {
         self.check_table(&DTProjectTable::TensorData).await?;
         let query = build_query(filter);
-        Ok(query_as(query).fetch_all(&*self.pool).await?)
+        let res = query_as(query)
+            .fetch_all(&*self.pool)
+            .await
+            .with_context(|| format!("failed to query tensor data for project {}", self.path))?;
+        Ok(res)
     }
 
     pub async fn list_tensor_data_ids(&self) -> anyhow::Result<Vec<i64>> {
         self.check_table(&DTProjectTable::TensorData).await?;
         let query = "SELECT rowid FROM tensordata";
-        let res: Vec<i64> = sqlx::query_scalar(query).fetch_all(&*self.pool).await?;
+        let res: Vec<i64> = sqlx::query_scalar(query)
+            .fetch_all(&*self.pool)
+            .await
+            .with_context(|| format!("failed to list tensor data IDs for project {}", self.path))?;
         Ok(res)
     }
 
@@ -137,9 +145,12 @@ impl DTProject {
         tensor_name: &str,
     ) -> anyhow::Result<Vec<TensorData>> {
         if let Some((prefix, id)) = tensor_name.rsplit_once("_") {
-            let (index_table, index_col) =
-                index_table(prefix).ok_or_else(|| anyhow::anyhow!("Invalid tensor name prefix"))?;
-            let id: i64 = id.parse()?;
+            let (index_table, index_col) = index_table(prefix).ok_or_else(|| {
+                anyhow::anyhow!("Invalid tensor name prefix for '{}'", tensor_name)
+            })?;
+            let id: i64 = id
+                .parse()
+                .with_context(|| format!("failed to parse tensor index from '{}'", tensor_name))?;
 
             let query = format!(
                 "SELECT * FROM tensordata td
@@ -148,12 +159,19 @@ impl DTProject {
                 index_table, index_col
             );
 
-            return Ok(query_as(AssertSqlSafe(query))
+            let res = query_as(AssertSqlSafe(query))
                 .bind(id)
                 .fetch_all(&*self.pool)
-                .await?);
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to query tensordata for tensor '{}' in project {}",
+                        tensor_name, self.path
+                    )
+                })?;
+            return Ok(res);
         }
-        anyhow::bail!("Invalid tensor name")
+        anyhow::bail!("Invalid tensor name: {}", tensor_name)
     }
 }
 

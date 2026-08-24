@@ -4,7 +4,7 @@ use crate::{
         dtos::image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
         folder_cache, search, DtProjectRef,
     },
-    IntoTAResult, TAResult,
+    IntoTAResult,
 };
 use anyhow::Context;
 use entity::{images, projects, watch_folders};

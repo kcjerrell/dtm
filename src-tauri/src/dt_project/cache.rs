@@ -1,7 +1,7 @@
 use crate::projects_db::archive::dt_zip::DTZip;
+use anyhow::Context;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use sqlx::Error;
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -78,14 +78,19 @@ impl DTProject {
     /// Creates a standalone DTProject that bypasses the cache and eviction system.
     /// Use this for long-running operations (e.g. scan_project) where the caller
     /// manages the lifetime directly. The pool closes when the DTProject is dropped.
-    pub async fn open(path: &str) -> Result<DTProject, Error> {
-        let mut dt_project = DTProject::new(path, false, None).await?;
+    pub async fn open(path: &str) -> anyhow::Result<DTProject> {
+        let mut dt_project = DTProject::new(path, false, None)
+            .await
+            .with_context(|| format!("failed to open standalone project database at {}", path))?;
         dt_project.is_shared = false;
         Ok(dt_project)
     }
 
-    pub async fn open_archive(dt_zip: Arc<DTZip>) -> Result<DTProject, Error> {
-        DTProject::new(&dt_zip.db_path.to_owned(), false, Some(dt_zip)).await
+    pub async fn open_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<DTProject> {
+        let db_path = dt_zip.db_path.clone();
+        DTProject::new(&db_path, false, Some(dt_zip))
+            .await
+            .with_context(|| format!("failed to open archived project database at {}", db_path))
     }
 
     pub async fn open_mut(path: &str) -> anyhow::Result<DTProject> {
@@ -94,15 +99,18 @@ impl DTProject {
         Ok(dt_project)
     }
 
-    pub async fn get(path: &str) -> Result<Arc<DTProject>, Error> {
+    pub async fn get(path: &str) -> anyhow::Result<Arc<DTProject>> {
         Self::get_internal(path, None).await
     }
 
-    pub async fn get_archive(dt_zip: Arc<DTZip>) -> Result<Arc<DTProject>, Error> {
+    pub async fn get_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<Arc<DTProject>> {
         Self::get_internal(&dt_zip.db_path.to_owned(), Some(dt_zip)).await
     }
 
-    async fn get_internal(path: &str, dt_zip: Option<Arc<DTZip>>) -> Result<Arc<DTProject>, Error> {
+    async fn get_internal(
+        path: &str,
+        dt_zip: Option<Arc<DTZip>>,
+    ) -> anyhow::Result<Arc<DTProject>> {
         let cell = PROJECT_CACHE
             .entry(path.to_string())
             .or_insert_with(|| Arc::new(OnceCell::new()))
@@ -110,8 +118,11 @@ impl DTProject {
 
         let result = cell
             .get_or_try_init(|| async {
-                let project = Arc::new(DTProject::new(path, true, dt_zip).await?);
-                Ok::<Arc<CachedProject>, Error>(Arc::new(CachedProject {
+                let project =
+                    Arc::new(DTProject::new(path, true, dt_zip).await.with_context(|| {
+                        format!("failed to initialize cached project at {}", path)
+                    })?);
+                Ok::<Arc<CachedProject>, anyhow::Error>(Arc::new(CachedProject {
                     project,
                     generation: AtomicU64::new(0),
                 }))

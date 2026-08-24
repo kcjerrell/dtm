@@ -1,8 +1,8 @@
-use crate::dt_project::DTProject;
 use crate::dt_project::{
     fbs::{root_as_clip, root_as_tensor_history_node},
-    DTProjectTable,
+    DTProject, DTProjectTable,
 };
+use anyhow::Context;
 use serde::Serialize;
 use sqlx::{query_as, sqlite::SqliteRow, AssertSqlSafe, FromRow, Row};
 
@@ -70,7 +70,7 @@ pub struct ClipExtra {
 impl<'r> FromRow<'r, SqliteRow> for Clip {
     fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
         let p = row.get::<Vec<u8>, _>("p");
-        let data = root_as_clip(&p).unwrap();
+        let data = root_as_clip(&p).map_err(|e| sqlx::Error::Protocol(e.to_string()))?;
         Ok(Self {
             row_id: row.get("rowid"),
             clip_id: row.get("__pk0"),
@@ -96,7 +96,7 @@ pub enum ClipFilter {
 }
 
 impl DTProject {
-    pub async fn get_clips(&self, filter: ClipFilter) -> Result<Vec<Clip>, sqlx::Error> {
+    pub async fn get_clips(&self, filter: ClipFilter) -> anyhow::Result<Vec<Clip>> {
         self.check_table(&DTProjectTable::Clip).await?;
         let mut query_str = "SELECT clip.rowid, clip.__pk0, clip.p FROM clip".to_string();
 
@@ -125,7 +125,8 @@ impl DTProject {
 
         let rows: Vec<Clip> = query_as(AssertSqlSafe(query_str))
             .fetch_all(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to query clips in project database {}", self.path))?;
 
         Ok(rows)
     }
@@ -141,13 +142,20 @@ impl DTProject {
         let clip: Clip = query_as("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
             .bind(clip_id)
             .fetch_one(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| format!("failed to query clip in project database {}", self.path))?;
 
         let frames: Vec<ClipFrame> = query_as(CLIP_QUERY)
             .bind(node_id)
             .bind(node_id + clip.count as i64)
             .fetch_all(&*self.pool)
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "failed to query clip frames in project database {}",
+                    self.path
+                )
+            })?;
 
         let extra = ClipExtra {
             clip: clip.clone(),
