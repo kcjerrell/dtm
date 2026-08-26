@@ -12,6 +12,13 @@ edition = "2021"
 name = "dtm_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Use this profile when collecting Samply traces. It keeps release optimizations
+# while retaining the symbols needed to make the trace useful.
+[profile.samply]
+inherits = "release"
+debug = true
+strip = "none"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 cc = "1.2"

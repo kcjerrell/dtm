@@ -169,14 +169,10 @@ export class UIController extends DTPStateController<UIControllerState> {
         const itemDetails = await this.container.getService("details")?.getDetails(item)
         detailsOverlay.itemDetails = itemDetails
 
-        if (itemDetails?.usedImageInput) {
-            const candidates = await this.container
-                .getService("details")
-                ?.getPredecessorCandidates(itemDetails)
-            detailsOverlay.candidates = candidates ?? []
-        } else {
-            detailsOverlay.candidates = []
-        }
+        const candidates = await this.container
+            .getService("details")
+            ?.getPredecessorCandidates(itemDetails)
+        detailsOverlay.candidates = candidates ?? []
 
         this.raise("onItemChanged", { item })
     }

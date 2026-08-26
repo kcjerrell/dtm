@@ -77,14 +77,15 @@ function Explorer(props: ExplorerProps) {
                             />
                             <PanelButton
                                 onClick={async () => {
-                                    if (minRowidRef.current) {
-                                        const value = parseInt(minRowidRef.current.value, 10)
-                                        console.log(minRowidRef)
-                                        state.minRowid = value
-                                        state.data = []
-                                        state.pageStatus = []
-                                        await loadPage(0)
+                                    if (!minRowidRef.current) {
+                                        return;
                                     }
+                                    const value = parseInt(minRowidRef.current.value, 10)
+                                    console.log(minRowidRef.current.value)
+                                    state.minRowid = value
+                                    state.data = []
+                                    state.pageStatus = []
+                                    await loadPage(0)
                                 }}
                             >
                                 Update

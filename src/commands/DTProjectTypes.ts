@@ -54,15 +54,6 @@ export class TensorHistoryNode {
         return this._node.negative_prompt
     }
 
-    /** will be undefined if it can't be determined */
-    get usedImageInput(): boolean | undefined {
-        const encodeTiming = this.data.profile_data?.timings.find(
-            (t) => t.name === "image_encoded",
-        )?.durations
-
-        return encodeTiming?.some((t) => t > 0.001)
-    }
-
     /** returns the LAST tensor_history name - this corresponds with the generated image */
     get tensorHistoryName(): string | undefined {
         if (this._node.data.tensor_id > 0) return `tensor_history_${this._node.data.tensor_id}`

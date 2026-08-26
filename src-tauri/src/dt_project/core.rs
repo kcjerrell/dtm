@@ -1,17 +1,22 @@
-use crate::{dt_project::history_solver::HistorySolver, projects_db::{
-    PromptPair, TextHistory, archive::dt_zip::DTZip, dtos::{project::DTProjectInfo, text::TextHistoryNode},
-}};
+use crate::{
+    dt_project::history_solver::HistorySolver,
+    projects_db::{
+        archive::dt_zip::DTZip,
+        dtos::{project::DTProjectInfo, text::TextHistoryNode},
+        PromptPair, TextHistory,
+    },
+};
 use anyhow::{anyhow, Context};
 use serde::Serialize;
 use sqlx::{
-    query,
+    query, query_as,
     sqlite::{SqliteConnection, SqliteRow},
     Connection, Row, SqlitePool,
 };
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
-use super::history_graph::{HistoryGraph, HistoryGraphSolver};
+use super::history_graph::{HistoryGraph, HistoryNode};
 use super::resource::DTResource;
 use super::tensor_raw::TensorRaw;
 use super::types::TensorSize;
@@ -465,6 +470,22 @@ impl DTProject {
                 .with_context(|| format!("failed to query sqlite schema for project {}", self.path))?;
 
         Ok(result)
+    }
+
+    pub async fn get_node_lineages(&self) -> anyhow::Result<Vec<HistoryNode>> {
+        self.check_table(&DTProjectTable::TensorHistoryNode).await?;
+        let nodes: Vec<HistoryNode> =
+            query_as("SELECT rowid, __pk0, __pk1 FROM tensorhistorynode ORDER BY rowid ASC")
+                .fetch_all(&*self.pool)
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to query node lineages in project database {}",
+                        self.path
+                    )
+                })?;
+
+        Ok(nodes)
     }
 
     pub async fn get_history_graph(&self) -> anyhow::Result<Arc<HistoryGraph>> {
