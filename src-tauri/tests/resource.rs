@@ -347,8 +347,13 @@ mod tests {
         let resource_handle =
             DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
 
-        let lossless = resource_handle.get_image(None).await.unwrap();
-        assert!(lossless.is_none());
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
+        assert!(lossless.len() > 0);
+        // Verify it's a PNG by checking the PNG signature
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
