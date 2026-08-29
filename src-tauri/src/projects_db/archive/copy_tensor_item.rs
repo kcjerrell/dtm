@@ -7,14 +7,16 @@ use sqlx::pool::PoolConnection;
 use tokio::sync::Mutex;
 
 use crate::{
-    dt_project::{split_tensor_name, Clip, ClipFilter, TensorHistoryNode, TensorRaw},
+    dt_project::{split_tensor_name, Clip, ClipFilter, TensorHistoryNode},
     projects_db::{
-        archive::plan::ArchivePlanItem, write_jpeg_with_metadata, DtProjectRef, DtResourceHandle,
-        DtResourceRef, ThnRef, ThnResource,
+        write_jpeg_with_metadata, DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef,
+        ThnResource,
     },
     tensor::TensorKind,
     ResourceHandle, Tensor,
 };
+
+use super::ArchivePlanItem;
 
 #[derive(Debug)]
 pub struct CopyTensorItem {

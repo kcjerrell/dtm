@@ -1,6 +1,8 @@
+mod debounce_task;
+mod extensions;
 mod instants;
 pub mod update_gate;
-pub use instants::Instants;
 
-mod extensions;
-pub use extensions::{BytesExt, ImageBufferType};
+pub use debounce_task::DebounceTask;
+pub use extensions::BytesExt;
+pub use instants::Instants;

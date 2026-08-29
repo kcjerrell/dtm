@@ -1,7 +1,7 @@
 use crate::{
     dt_project::history_solver::HistorySolver,
     projects_db::{
-        archive::dt_zip::DTZip,
+        archive::DTZip,
         dtos::{project::DTProjectInfo, text::TextHistoryNode},
         PromptPair, TextHistory,
     },

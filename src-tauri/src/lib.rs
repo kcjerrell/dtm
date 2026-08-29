@@ -36,6 +36,16 @@ pub use error::{IntoTAResult, TACommandError, TAResult};
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
+// `tauri dev` and `tauri build --debug` both write to target/debug, but Tauri
+// sets its `dev` cfg only for the former. Keep this marker in the executable so
+// the WDIO launcher can decide whether it must start the Vite server first.
+#[used]
+static DTM_TAURI_RUNTIME_MODE: &str = if cfg!(dev) {
+    "DTM_TAURI_RUNTIME_MODE=dev\0"
+} else {
+    "DTM_TAURI_RUNTIME_MODE=build\0"
+};
+
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> TAResult<Vec<String>> {
     Ok(clipboard::read_clipboard_types(pasteboard).map_err(anyhow::Error::msg)?)

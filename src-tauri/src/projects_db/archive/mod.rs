@@ -1,23 +1,22 @@
 use tauri::State;
 
-use crate::{
-    dtp_service::AppHandleWrapper,
-    projects_db::{
-        archive::{
-            copy::copy_project,
-            plan::{copy_everything_plan, ArchivePlan},
-        },
-        DtProjectRef,
-    },
-    TAResult,
-};
+use crate::{dtp_service::AppHandleWrapper, projects_db::DtProjectRef, TAResult};
 
-pub(crate) mod cache;
+mod cache;
 mod copy;
-pub(crate) mod copy_tensor_item;
-pub(crate) mod dt_zip;
-pub mod plan;
-pub(crate) mod workers;
+mod copy_tensor_item;
+mod dt_zip;
+mod plan;
+mod workers;
+
+pub(crate) use copy::copy_project;
+pub(crate) use copy_tensor_item::CopyTensorItem;
+pub(crate) use plan::copy_everything_plan;
+pub(crate) use workers::copy_tensors;
+
+pub use cache::DTZipCache;
+pub use dt_zip::DTZip;
+pub use plan::{ArchivePlan, ArchivePlanItem};
 
 #[tauri::command]
 pub async fn create_dt_archive(app: State<'_, AppHandleWrapper>, project_id: i64) -> TAResult<()> {

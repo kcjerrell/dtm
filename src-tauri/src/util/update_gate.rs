@@ -112,13 +112,9 @@ impl PrintUpdate {
 }
 
 mod tests {
-    use super::*;
-    use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Mutex};
-
     #[test]
     fn test_update_gate() {
-        let updater = PrintUpdate::new(100, 5, "Test", "");
+        let updater = crate::util::update_gate::PrintUpdate::new(100, 5, "Test", "");
 
         for i in 0..100 {
             updater.update(1);

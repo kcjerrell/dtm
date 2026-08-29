@@ -1,3 +1,5 @@
+use std::sync::{Arc, OnceLock};
+
 use anyhow::{anyhow, Context, Result};
 use migration::{Migrator, MigratorTrait};
 use once_cell::sync::Lazy;
@@ -12,11 +14,14 @@ mod projects;
 mod watchfolders;
 pub use mixed_error::MixedError;
 
+use crate::util::DebounceTask;
+
 static PROJECTS_DB: Lazy<RwLock<Option<ProjectsDb>>> = Lazy::new(|| RwLock::new(None));
 
 #[derive(Clone, Debug)]
 pub struct ProjectsDb {
     pub db: DatabaseConnection,
+    rebuild_debounce: OnceLock<Arc<DebounceTask>>,
 }
 
 impl ProjectsDb {
@@ -28,7 +33,10 @@ impl ProjectsDb {
             .await
             .with_context(|| format!("failed to run database migrations on '{db_path}'"))?;
 
-        let projects_db = Self { db };
+        let projects_db = Self {
+            db,
+            rebuild_debounce: OnceLock::new(),
+        };
 
         let mut singleton = PROJECTS_DB.write().await;
         *singleton = Some(projects_db.clone());

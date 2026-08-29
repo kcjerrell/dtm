@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import type { TauriCapabilities } from "@wdio/tauri-service"
 import type { Options } from "@wdio/types"
 import { config as dotenvConfig } from "dotenv"
 
@@ -38,6 +39,7 @@ export const config: Options.Testrunner & Record<string, unknown> = {
             {
                 appBinaryPath: "./src-tauri/target/debug/dtm",
                 autoInstallTauriDriver: true,
+                tauriDriverPort: 4445,
             },
         ],
     ],
@@ -47,31 +49,32 @@ export const config: Options.Testrunner & Record<string, unknown> = {
             browserName: "tauri",
             "tauri:options": {
                 application: "./src-tauri/target/debug/dtm",
+                webviewOptions: { width: 800, height: 600 },
             },
             "wdio:tauriServiceOptions": {
-                captureBackendLogs: true,
+                captureBackendLogs: false,
             },
-        },
+        } as TauriCapabilities,
     ],
 
     logLevel: "warn",
     bail: 0,
     baseUrl: "http://localhost:4444",
-    waitforTimeout: 10000,
-    connectionRetryTimeout: 90000,
+    waitforTimeout: 10_000,
+    connectionRetryTimeout: 90_000,
     connectionRetryCount: 3,
 
     framework: "mocha",
     mochaOpts: {
         ui: "bdd",
-        timeout: 60000,
+        timeout: 60_000,
     },
 
     onPrepare: async () => {
         mkdirSync(SCREENSHOT_DIR, { recursive: true })
     },
 
-    afterTest: async (test, context, result) => {
+    afterTest: async (test, _context, result) => {
         if (result.passed) return
         try {
             const diagnostics = await browser.execute(() => {

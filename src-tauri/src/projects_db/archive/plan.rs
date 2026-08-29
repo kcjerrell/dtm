@@ -139,7 +139,7 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePla
     let project_path = PathBuf::from(&project.path);
 
     let mut node_ids: Vec<i64> = Vec::new();
-    let mut unused_node_ids: Vec<i64> = Vec::new();
+    let unused_node_ids: Vec<i64> = Vec::new();
 
     // the ids for the 'primary' tensor - the generated image for a node
     let mut main_tensor_ids: HashSet<i64> = HashSet::new();

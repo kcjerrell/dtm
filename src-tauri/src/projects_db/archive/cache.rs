@@ -5,7 +5,9 @@ use dashmap::DashMap;
 use anyhow::{anyhow, Result};
 use tokio::sync::OnceCell;
 
-use crate::{dtp_service::AppHandleWrapper, projects_db::archive::dt_zip::DTZip};
+use crate::dtp_service::AppHandleWrapper;
+
+use super::DTZip;
 
 static DT_ZIP_CACHE: OnceCell<DTZipCache> = OnceCell::const_new();
 

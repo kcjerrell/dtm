@@ -1,4 +1,4 @@
-use crate::projects_db::archive::dt_zip::DTZip;
+use crate::projects_db::archive::DTZip;
 use anyhow::Context;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;

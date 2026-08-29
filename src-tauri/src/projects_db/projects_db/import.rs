@@ -1,9 +1,11 @@
 use crate::dt_project::{TensorHistoryNode, ThnData, ThnFilter};
 use crate::projects_db::{dtos::image::ListImagesOptions, search::process_prompt, DtProjectRef};
+use crate::util::DebounceTask;
 use anyhow::Context;
 use entity::{enums::ModelType, images};
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};
@@ -68,7 +70,7 @@ impl ProjectsDb {
                 })
                 .collect();
 
-            let preview_thumbs = HashMap::new();
+            let preview_thumbs = HashMap::default();
 
             let models_lookup = self
                 .process_models(&histories_filtered)
@@ -122,9 +124,11 @@ impl ProjectsDb {
             .await
             .with_context(|| format!("failed to query total images count for project {id}"))?;
 
-        self.rebuild_images_fts()
-            .await
-            .with_context(|| format!("failed to rebuild FTS index after scanning project {id}"))?;
+        // self.rebuild_images_fts()
+        //     .await
+        //     .with_context(|| format!("failed to rebuild FTS index after scanning project {id}"))?;
+
+        self.rebuild_images_fts();
 
         match total.images {
             Some(_) => Ok((project.id, total.total)),
@@ -141,7 +145,7 @@ impl ProjectsDb {
         project_id: i64,
         histories: &[TensorHistoryNode],
         models_lookup: &HashMap<ModelTypeAndFile, i64>,
-        preview_thumbs: HashMap<i64, Vec<u8>>,
+        _preview_thumbs: HashMap<i64, Vec<u8>>,
     ) -> (
         Vec<images::ActiveModel>,
         Vec<NodeModelWeight>,
@@ -158,7 +162,7 @@ impl ProjectsDb {
                 let clip_id = fb.clip_id();
 
                 // currently unused
-                let preview_thumb = preview_thumbs.get(&preview_id).cloned();
+                let preview_thumb = None;
 
                 let mut has_mask = false;
                 let mut has_depth = false;
@@ -382,11 +386,24 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn rebuild_images_fts(&self) -> Result<(), MixedError> {
-        self.db
-            .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
-            .await?;
+    pub fn rebuild_images_fts(&self) {
+        let debouncer = self.rebuild_debounce.get_or_init(|| {
+            Arc::new(DebounceTask::new(2000, async || {
+                let result: anyhow::Result<()> = async {
+                    let pdb = ProjectsDb::get().await?;
+                    pdb.db
+                        .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
+                        .await?;
+                    Ok(())
+                }
+                .await;
 
-        Ok(())
+                if let Err(e) = result {
+                    log::error!("Could not rebuild FTS: {}", e);
+                }
+            }))
+        });
+
+        debouncer.call();
     }
 }

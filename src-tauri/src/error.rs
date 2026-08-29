@@ -8,34 +8,18 @@ pub struct TACommandError(pub anyhow::Error);
 impl std::error::Error for TACommandError {}
 impl std::fmt::Display for TACommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        #[cfg(any(debug_assertions, feature = "show_errs_in_release"))]
-        {
-            write!(f, "{:#}", self.0)
-        }
-
-        #[cfg(not(any(debug_assertions, feature = "show_errs_in_release")))]
-        {
-            write!(f, "{}", self.0)
-        }
+        write!(f, "{:#}", self.0)
     }
 }
 
-// Every "renspose" from a tauri command needs to be serializeable into json with serde.
+// Every "respose" from a tauri command needs to be serializeable into json with serde.
 // This is why we cannot use `anyhow` directly. This piece of code fixes that.
 impl Serialize for TACommandError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        #[cfg(any(debug_assertions, feature = "show_errs_in_release"))]
-        {
-            serializer.serialize_str(&format!("{:#}", self.0))
-        }
-
-        #[cfg(not(any(debug_assertions, feature = "show_errs_in_release")))]
-        {
-            serializer.serialize_str("errors disabled in production.")
-        }
+        serializer.serialize_str(&format!("{:#}", self.0))
     }
 }
 

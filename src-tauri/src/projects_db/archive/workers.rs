@@ -10,10 +10,9 @@ use tokio::{
     task::{JoinHandle, JoinSet},
 };
 
-use crate::{
-    projects_db::{archive::copy_tensor_item::CopyTensorItem, DtProjectRef},
-    util::update_gate::PrintUpdate,
-};
+use crate::{projects_db::DtProjectRef, util::update_gate::PrintUpdate};
+
+use super::CopyTensorItem;
 
 use anyhow::{Context, Result};
 

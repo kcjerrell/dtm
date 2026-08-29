@@ -1,17 +1,13 @@
 use anyhow::Context;
-use std::{
-    io::{BufWriter, Cursor},
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use once_cell::sync::Lazy;
 use tauri::http::{Response, StatusCode};
 
 use crate::{
-    dt_project::{DTResource, TensorRaw},
     projects_db::{
-        dtm_dtproject::DTPResource, tensors::decompress_fzip, DtProjectRef, DtResourceHandle,
-        DtResourceRef, ThnRef, ThnResource,
+        dtm_dtproject::DTPResource, DtProjectRef, DtResourceHandle, DtResourceRef, ThnRef,
+        ThnResource,
     },
     ResourceHandle,
 };

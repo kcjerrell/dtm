@@ -5,13 +5,9 @@ use anyhow::{Context, Result};
 use sqlx::{query, AssertSqlSafe, SqlitePool};
 use tokio::fs;
 
-use crate::{
-    dtp_service::AppHandleWrapper,
-    projects_db::{
-        archive::{copy_tensor_item::CopyTensorItem, plan::ArchivePlan, workers::copy_tensors},
-        DtProjectRef,
-    },
-};
+use crate::{dtp_service::AppHandleWrapper, projects_db::DtProjectRef};
+
+use super::{copy_tensors, ArchivePlan, CopyTensorItem};
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
     "", "__f22", "__f24", "__f48", "__f60", "__f62", "__f66", "__f70", "__f86",

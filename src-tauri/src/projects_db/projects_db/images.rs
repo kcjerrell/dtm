@@ -134,6 +134,8 @@ impl ProjectsDb {
             });
         }
 
+        let count = query.clone().count(&self.db).await?;
+
         if let Some(skip) = opts.skip {
             query = query.offset(skip as u64);
         }
@@ -142,7 +144,6 @@ impl ProjectsDb {
             query = query.limit(take as u64);
         }
 
-        let count = query.clone().count(&self.db).await?;
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
 
         Ok(ListImagesResult {
