@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Debug, Serialize)]
-pub struct ArchivePlan {
+pub struct DtArchivePlan {
     /// Project path
     pub project_path: PathBuf,
 
@@ -29,9 +29,9 @@ pub struct ArchivePlan {
 
     /// THE RESOURCES
     /// primary tensors
-    pub primary_tensors: Vec<ArchivePlanItem>,
+    pub primary_tensors: Vec<DtArchivePlanItem>,
     /// all other included tensors, should be DtRR::Tensor
-    pub tensors_extra: Vec<ArchivePlanItem>,
+    pub tensors_extra: Vec<DtArchivePlanItem>,
 
     // THE LEFT BEHIND
     /// tensors names that are not included in the archive
@@ -45,14 +45,14 @@ pub struct ArchivePlan {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ArchivePlanItem {
+pub struct DtArchivePlanItem {
     pub name: String,
     pub node_id: Option<i64>,
     pub preview_id: Option<i64>,
     pub index: i64,
 }
 
-pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePlan> {
+pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<DtArchivePlan> {
     let project = DtProjectRef::Id(project_id)
         .get_project()
         .await
@@ -62,8 +62,8 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<A
     let project_path = PathBuf::from(&project.path);
 
     let mut main_tensor_ids: HashSet<i64> = HashSet::new();
-    let mut gen_images: Vec<ArchivePlanItem> = Vec::new();
-    let mut extra_resources: Vec<ArchivePlanItem> = Vec::new();
+    let mut gen_images: Vec<DtArchivePlanItem> = Vec::new();
+    let mut extra_resources: Vec<DtArchivePlanItem> = Vec::new();
 
     let mut batcher =
         project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard().and_clip());
@@ -84,7 +84,7 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<A
                 let (tensor_id, _) = get_tensor_and_mask(&node);
                 main_tensor_ids.insert(tensor_id);
 
-                gen_images.push(ArchivePlanItem {
+                gen_images.push(DtArchivePlanItem {
                     name: format!("tensor_history_{}", tensor_id),
                     node_id: Some(node_id),
                     preview_id: Some(data.preview_id()),
@@ -104,7 +104,7 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<A
         let (_, tensor_id) = split_tensor_name(&name)?;
         if !main_tensor_ids.contains(&tensor_id) {
             extra_tensor_index += 1;
-            extra_resources.push(ArchivePlanItem {
+            extra_resources.push(DtArchivePlanItem {
                 name,
                 node_id: None,
                 preview_id: None,
@@ -113,7 +113,7 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<A
         }
     }
 
-    Ok(ArchivePlan {
+    Ok(DtArchivePlan {
         project_path,
         lossless,
         node_ids: Vec::new(),
@@ -130,7 +130,7 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<A
 }
 
 /// This should not be used, but one day may be fixed for a more efficient archive
-pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePlan> {
+pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchivePlan> {
     let project = DtProjectRef::Id(project_id)
         .get_project()
         .await
@@ -153,8 +153,8 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePla
     // clip ids
     let mut clip_ids: HashSet<i64> = HashSet::new();
 
-    let mut gen_images: Vec<ArchivePlanItem> = Vec::new();
-    let mut extra_resources: Vec<ArchivePlanItem> = Vec::new();
+    let mut gen_images: Vec<DtArchivePlanItem> = Vec::new();
+    let mut extra_resources: Vec<DtArchivePlanItem> = Vec::new();
     let mut unused_tensor_names: Vec<String> = Vec::new();
 
     let mut total_nodes = 0;
@@ -189,7 +189,7 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePla
 
             // add the primary tensor
             if main_tensor_id != 0 {
-                gen_images.push(ArchivePlanItem {
+                gen_images.push(DtArchivePlanItem {
                     name: format!("tensor_history_{}", main_tensor_id),
                     node_id: Some(node_id),
                     preview_id: if data.generated() {
@@ -267,7 +267,7 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePla
             continue;
         } else if tensor_ids.contains(&id) {
             extra_index += 1;
-            extra_resources.push(ArchivePlanItem {
+            extra_resources.push(DtArchivePlanItem {
                 name: tensor_name,
                 node_id: None,
                 preview_id: None,
@@ -306,7 +306,7 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<ArchivePla
         all_tensormoodboarddata_ids.len()
     );
 
-    Ok(ArchivePlan {
+    Ok(DtArchivePlan {
         project_path,
         lossless,
         node_ids,

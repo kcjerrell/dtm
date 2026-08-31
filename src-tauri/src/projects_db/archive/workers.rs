@@ -10,7 +10,10 @@ use tokio::{
     task::{JoinHandle, JoinSet},
 };
 
-use crate::{projects_db::DtProjectRef, util::update_gate::PrintUpdate};
+use crate::{
+    projects_db::DtProjectRef,
+    util::{update_gate::PrintUpdate, InstantsTotal},
+};
 
 use super::CopyTensorItem;
 
@@ -158,7 +161,9 @@ impl Worker for ConvertWorker {
             let mut tasks: JoinSet<Result<()>> = JoinSet::new();
             let mut items_processed = 0;
 
+            let mut total = InstantsTotal::new();
             while let Some(mut item) = rx.recv().await {
+                total.off();
                 items_processed += 1;
                 let permit =
                     semaphore.clone().acquire_owned().await.context(
@@ -196,10 +201,15 @@ impl Worker for ConvertWorker {
 
                     Ok(())
                 });
+                total.on();
             }
             tasks.join_all().await;
             drop(tx);
-            log::debug!("Convert dropped tx (processed {} items)", items_processed);
+            log::debug!(
+                "Convert dropped tx (processed {} items). Idle time: {:?}ms",
+                items_processed,
+                total.get_total()
+            );
             Ok(())
         });
 
@@ -236,7 +246,9 @@ impl Worker for ZipWorker {
 
             let result = (|| {
                 let mut items_processed = 0;
+                let mut total = InstantsTotal::new();
                 while let Some(mut item) = rx.blocking_recv() {
+                    total.off();
                     items_processed += 1;
                     if item.result.is_ok() {
                         item.result = item.archive(&mut writer);
@@ -255,8 +267,14 @@ impl Worker for ZipWorker {
                         log::error!("ZipWorker failed to send to db: {}", e);
                         return Err(e).context("ZipWorker channel send failed");
                     }
+
+                    total.on();
                 }
-                log::debug!("ZipWorker: finished processing {} items", items_processed);
+                log::debug!(
+                    "ZipWorker: finished processing {} items. Idle time: {:?}ms",
+                    items_processed,
+                    total.get_total()
+                );
                 Ok::<usize, anyhow::Error>(items_processed)
             })();
 
@@ -300,7 +318,9 @@ impl Worker for DbWorker {
             let mut items_added = 0;
             let mut items_processed = 0;
             let result = async move {
+                let mut total = InstantsTotal::new();
                 while let Some(mut item) = rx.recv().await {
+                    total.off();
                     items_processed += 1;
                     if item.result.is_ok() {
                         item.result = item.update_db(self_clone.db_conn.clone()).await;
@@ -321,12 +341,15 @@ impl Worker for DbWorker {
                             return Err(e.into());
                         }
                     }
+
+                    total.on();
                 }
                 drop(tx);
                 log::debug!(
-                    "db dropped tx (processed {} items total, {} added to db)",
+                    "db dropped tx (processed {} items total, {} added to db). Idle time: {:?}ms",
                     items_processed,
-                    items_added
+                    items_added,
+                    total.get_total()
                 );
                 Ok::<(), anyhow::Error>(())
             }

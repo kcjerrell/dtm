@@ -16,7 +16,7 @@ pub(crate) use workers::copy_tensors;
 
 pub use cache::DTZipCache;
 pub use dt_zip::DTZip;
-pub use plan::{ArchivePlan, ArchivePlanItem};
+pub use plan::{DtArchivePlan, DtArchivePlanItem};
 
 #[tauri::command]
 pub async fn create_dt_archive(app: State<'_, AppHandleWrapper>, project_id: i64) -> TAResult<()> {
@@ -26,7 +26,7 @@ pub async fn create_dt_archive(app: State<'_, AppHandleWrapper>, project_id: i64
 }
 
 #[tauri::command]
-pub async fn create_dt_archive_plan(project_id: i64) -> TAResult<ArchivePlan> {
+pub async fn create_dt_archive_plan(project_id: i64) -> TAResult<DtArchivePlan> {
     let plan = copy_everything_plan(project_id, false).await?;
     Ok(plan)
 }

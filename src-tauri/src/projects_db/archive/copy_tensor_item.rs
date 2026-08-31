@@ -16,7 +16,7 @@ use crate::{
     ResourceHandle, Tensor,
 };
 
-use super::ArchivePlanItem;
+use super::DtArchivePlanItem;
 
 #[derive(Debug)]
 pub struct CopyTensorItem {
@@ -48,7 +48,7 @@ impl CopyTensorItem {
         }
     }
 
-    pub fn primary(item: ArchivePlanItem) -> Self {
+    pub fn primary(item: DtArchivePlanItem) -> Self {
         CopyTensorItem {
             name: item.name,
             primary: true,
@@ -63,7 +63,7 @@ impl CopyTensorItem {
         }
     }
 
-    pub fn extra(item: ArchivePlanItem) -> Self {
+    pub fn extra(item: DtArchivePlanItem) -> Self {
         CopyTensorItem {
             name: item.name,
             primary: false,

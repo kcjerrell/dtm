@@ -65,34 +65,34 @@ impl ResourceHandle for DtResourceHandle {
             .get_project()
             .await
             .context("failed to open project for image request")?;
-        println!("got project: {}", instants.record());
+        println!("got project: {:?}", instants.record());
         let name = self
             .get_tensor_name(Some(&dtp))
             .await
             .context("failed to resolve tensor name for image")?;
-        println!("got name: {}", instants.record());
+        println!("got name: {:?}", instants.record());
         if let Some(name) = name {
             let tensor_raw = dtp.get_tensor_raw(&name).await?;
-            println!("got tensor_raw: {}", instants.record());
+            println!("got tensor_raw: {:?}", instants.record());
             match &tensor_raw.resource {
                 DTResource::CompressedTensor(_) => {
                     let node = self
                         .get_history_node()
                         .await
                         .context("failed to fetch history node for tensor image")?;
-                    println!("got node: {}", instants.record());
+                    println!("got node: {:?}", instants.record());
                     let tensor: Tensor = Tensor::try_from(tensor_raw)
                         .with_context(|| format!("failed to convert raw tensor '{name}'"))?;
-                    println!("got tensor: {}", instants.record());
+                    println!("got tensor: {:?}", instants.record());
                     let png = tensor
                         .to_png(node, size)
                         .with_context(|| format!("failed to convert tensor '{name}' to PNG"))?;
-                    println!("got png: {}", instants.record());
+                    println!("got png: {:?}", instants.record());
                     return Ok(png);
                 }
                 DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
                 DTResource::DTZipRef(dtzip_ref) => {
-                    println!("got dtzip_ref: {}", instants.record());
+                    println!("got dtzip_ref: {:?}", instants.record());
                     let data = dtp
                         .dt_zip
                         .as_ref()
@@ -105,7 +105,7 @@ impl ResourceHandle for DtResourceHandle {
                                 dtzip_ref.rel_path
                             )
                         })?;
-                    println!("got data: {}", instants.record());
+                    println!("got data: {:?}", instants.record());
                     return Ok(Some(data));
                 }
                 DTResource::Unknown(_items) => return Ok(None),
