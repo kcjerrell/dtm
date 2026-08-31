@@ -4,6 +4,10 @@
   "private": true,
   "version": "0.6.0",
   "type": "module",
+  "engines": {
+    "node": ">=24.15.0 <25",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "TAURI_WEBDRIVER_PORT=4445 tauri dev --features webdriver",
     "dev:web": "MOCK_TAURI=true vite",
