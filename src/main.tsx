@@ -1,3 +1,4 @@
+import '@wdio/tauri-plugin';
 import { ChakraProvider } from "@chakra-ui/react"
 import { invoke } from "@tauri-apps/api/core"
 import { motion } from "motion/react"

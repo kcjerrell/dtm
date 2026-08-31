@@ -18,7 +18,7 @@ use crate::{
         watch::WatchService,
         AppHandleWrapper,
     },
-    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
+    projects_db::{self, archive::DTZipCache, get_last_row, DtmProtocol, ProjectsDb},
     IntoTAResult,
 };
 
@@ -44,7 +44,7 @@ impl DTPService {
 
         Self {
             app_handle,
-            pdb: pdb,
+            pdb,
             events,
             scheduler,
             watch,
@@ -87,6 +87,8 @@ impl DTPService {
             let mut guard = self.watch.write().await;
             *guard = Some(watch);
         }
+
+        DTZipCache::init(self.app_handle.clone()).await?;
 
         self.events.emit(DTPEvent::DtpServiceReady);
 
@@ -242,7 +244,8 @@ impl DTPService {
             .get_db()
             .await?
             .update_watch_folder(watchfolder_id, None, None, Some(true))
-            .await.into_ta_result()?;
+            .await
+            .into_ta_result()?;
         self.stop_watch(&folder.path).await;
         projects_db::close_folder(&folder.path).await;
         self.events.emit(DTPEvent::WatchFoldersChanged);
@@ -250,6 +253,7 @@ impl DTPService {
     }
 
     #[dtp_command]
+    /// used to reset the db in testing
     pub async fn reset_db(&self) -> crate::TAResult<()> {
         let db = self.get_db().await?;
         let folders = db.list_watch_folders().await.into_ta_result()?;

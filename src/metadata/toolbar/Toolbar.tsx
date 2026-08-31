@@ -38,7 +38,7 @@ function Toolbar(props: ChakraProps) {
 
     return (
         <ContentHeaderContainer data-tauri-drag-region {...restProps}>
-            <ToolbarContainer>
+            <ToolbarContainer role="toolbar" aria-label="Metadata viewer actions">
                 <ToolbarRoot borderBottom={messageChannel.messages.length ? "0px" : "1px"}>
                     <ToolbarButtonGroup
                         layout={"size"}

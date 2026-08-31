@@ -10,6 +10,7 @@ import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
 import type { VideoContextType } from "@/components/video/context"
 import type { ICommand } from "@/types"
 import { writeClipboardText } from "@/utils/clipboard"
+import { determineType, getUtiFromExtension } from "@/utils/mediaTypes"
 import { showMenu } from "@/utils/menu"
 import { save } from "@/utils/tauri"
 import { useDTP } from "../state/context"
@@ -60,8 +61,13 @@ export function useImageCommands(): [
                     }
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
+                    const uti = getUtiFromExtension(determineType(data))
+                    if (!uti) {
+                        console.error("Could not determine type of media", data.slice(0, 10))
+                        return
+                    }
                     await invoke("write_clipboard_binary", {
-                        ty: `public.png`,
+                        ty: uti,
                         data,
                     })
                 },
@@ -98,10 +104,15 @@ export function useImageCommands(): [
                     }
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
+                    const mediaType = determineType(data)
+                    if (!mediaType) {
+                        console.error("Could not determine type of media")
+                        return
+                    }
                     const savePath = await save({
                         canCreateDirectories: true,
                         title: "Save image",
-                        filters: [{ name: "Image", extensions: ["png"] }],
+                        filters: [{ name: "Image", extensions: [mediaType] }],
                     })
                     if (savePath) {
                         await fs.writeFile(savePath, data)
@@ -151,8 +162,12 @@ export function useImageCommands(): [
                     const project = projects.getProject(selected[0].projectId)
 
                     const interop = await import("@/metadata/state/interop")
-
-                    await interop.sendToMetadata(data, "png", {
+                    const mediaType = determineType(data)
+                    if (!mediaType) {
+                        console.error("Could not determine type of media")
+                        return
+                    }
+                    await interop.sendToMetadata(data, mediaType, {
                         source: "project",
                         projectFile: project?.path,
                         tensorId: await selected[0].getTensorId(),

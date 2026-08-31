@@ -63,6 +63,28 @@ export function VideoImage(props: VideoImageProps) {
     const handlers = clickToPause
         ? {
               onPointerDown: (e: React.PointerEvent) => {
+                  // detect if the click is within the actual image
+                  if (canvasRef.current) {
+                      const canvas = canvasRef.current
+                      const rect = canvas.getBoundingClientRect()
+                      const elementAspect = rect.width / rect.height
+                      const imgAspect = canvas.width / canvas.height
+                      if (elementAspect > imgAspect) {
+                          // the image is fit vertically and centered horizontally
+                          const actualWidth = rect.height * imgAspect
+                          const left = rect.left + (rect.width - actualWidth) / 2
+                          if (e.clientX < left || e.clientX >= left + actualWidth) {
+                              return
+                          }
+                      } else if (elementAspect < imgAspect) {
+                          // the image is fit horizontally and centered vertically
+                          const actualHeight = rect.width / imgAspect
+                          const top = rect.top + (rect.height - actualHeight) / 2
+                          if (e.clientY < top || e.clientY >= top + actualHeight) {
+                              return
+                          }
+                      }
+                  }
                   e.stopPropagation()
                   controls.togglePlayPause()
               },

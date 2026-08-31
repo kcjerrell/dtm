@@ -52,51 +52,6 @@ A unified library across all your Draw Things projects:
 
 ### Build from Source
 
-#### Ubuntu 24.04 x86_64
-
-Ubuntu 24.04 (glibc) is the supported Linux development baseline. The repository
-records Node 24.15.0 LTS in `.nvmrc`, Rust 1.94.0 in `rust-toolchain.toml`, and exact
-JavaScript and Rust dependency graphs in `package-lock.json` and
-`src-tauri/Cargo.lock`. Prepare a clean machine (the command is idempotent), then
-install strictly from the npm lockfile:
-
-```bash
-scripts/bootstrap-ubuntu.sh
-npm ci
-scripts/verify-ubuntu.sh
-```
-
-The bootstrap installs the Ubuntu archive's current 24.04 versions. Compile/runtime
-packages are GTK 3, WebKitGTK 4.1, GLib, Ayatana AppIndicator, librsvg, OpenSSL,
-SQLite, pkg-config, and the C/C++ toolchain. Xvfb, xauth, xkb-data,
-`webkit2gtk-driver`, and zenity are display/E2E diagnostics. To capture the exact
-native versions on a prepared reference host, run
-`dpkg-query -W build-essential lib\*-dev pkg-config xvfb webkit2gtk-driver`;
-`scripts/verify-ubuntu.sh` reports the relevant pkg-config versions and proves a
-GTK process can connect to Xvfb. The embedded WDIO provider is used; do not install
-the old global `tauri-driver`.
-
-Release fixtures are cached outside test output at `.cache/dtm-fixtures` (override
-with `DTM_FIXTURE_CACHE_DIR`). Populate once with `scripts/test-setup.sh`; subsequent
-runs reuse the cache. Set `DTM_FIXTURES_OFFLINE=1` to prohibit downloads and fail
-clearly if a versioned fixture is absent. The ffmpeg 8.0.1 archives currently come
-from evermeet.cx and are macOS fixtures; Linux ffmpeg runtime/E2E behavior is outside
-this environment-bootstrap scope.
-
-Useful validation entry points, in increasing cost, are:
-
-```bash
-npm run build
-cargo check --manifest-path src-tauri/Cargo.toml --locked
-cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
-npm run build:debug
-```
-
-`npm run build:debug` also invokes the frontend build and produces the Tauri debug
-bundle. Run GUI/WDIO commands beneath `xvfb-run -a` when no display is available.
-
-#### macOS
-
 **Prerequisites:** [Node.js / npm](https://nodejs.org/), [Rust](https://www.rust-lang.org/tools/install), Xcode command line tools (`xcode-select --install`)
 
 ```bash

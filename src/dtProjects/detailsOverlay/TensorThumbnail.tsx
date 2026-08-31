@@ -1,8 +1,8 @@
+import { Box } from "@chakra-ui/react"
 import { chakra } from "@chakra-ui/react/styled-system"
+import { LuLayers } from "react-icons/lu"
 import urls from "@/commands/urls"
 import PoseImage from "@/components/Pose"
-import { LuLayers } from "react-icons/lu"
-import { Box } from "@chakra-ui/react"
 
 const _thumbnailSize = "60px"
 
@@ -11,9 +11,10 @@ interface ThumbnailProps extends ChakraProps {
     tensorId: string
     maskId?: string
     weight?: number
+    size?: number
 }
 function TensorThumbnail(props: ThumbnailProps) {
-    const { projectId, tensorId, maskId, weight, ...restProps } = props
+    const { projectId, tensorId, maskId, weight, size = 100, ...restProps } = props
 
     if (tensorId?.startsWith("pose")) {
         return (
@@ -23,7 +24,15 @@ function TensorThumbnail(props: ThumbnailProps) {
         )
     }
 
-    const src = urls.tensor(projectId, tensorId, { size: 100 })
+    if (tensorId?.startsWith("audio")) {
+        return (
+            <ThumbnailBase {...restProps}>
+                🎵
+            </ThumbnailBase>
+        )
+    }
+
+    const src = urls.tensor(projectId, tensorId, { size })
 
     if (weight !== undefined) {
         // if (weight === 0) return null
@@ -93,6 +102,9 @@ function Mask(props: MaskProps) {
     if (!projectId || !maskId) return null
     return (
         <Box
+            objectFit={"cover"}
+            width={"100%"}
+            height={"100%"}
             maskImage={`url(${urls.tensor(projectId, maskId, { size: 100 })})`}
             maskMode="luminance"
             maskSize="contain"
@@ -137,6 +149,8 @@ const ThumbnailBase = chakra("div", {
 const ThumbnailImage = chakra("img", {
     base: {
         objectFit: "cover",
+        width: "100%",
+        height: "100%",
     },
 })
 

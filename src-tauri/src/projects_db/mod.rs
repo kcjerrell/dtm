@@ -1,50 +1,41 @@
-#![allow(dead_code)]
-#![allow(non_snake_case)]
-#![allow(non_camel_case_types)]
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(mismatched_lifetime_syntaxes)]
+// #![allow(dead_code)]
+// #![allow(non_snake_case)]
+// #![allow(non_camel_case_types)]
+// #![allow(unused_imports)]
+// #![allow(unused_variables)]
+// #![allow(mismatched_lifetime_syntaxes)]
 
-pub mod dt_project;
-pub use dt_project::{close_folder, dt_project_tensordata, get_last_row, maintenance, DTProject};
-pub mod projects_db;
-pub use projects_db::ProjectsDb;
+pub mod archive;
+pub use crate::dt_project::{close_folder, get_last_row, DTProject};
+#[cfg(feature = "tensor_bench")]
+pub use archive::print_tensor_benchmarks;
+pub use archive::{create_dt_archive, create_dt_archive_plan};
+mod projects_db;
+pub use projects_db::*;
 
 pub mod dt_resource_handle;
 pub use dt_resource_handle::DtResourceHandle;
 
-mod tensor_history;
-pub mod tensor_history_generated;
-
 mod dtm_dtproject;
 pub use dtm_dtproject::{extract_jpeg_slice, DTPResource, DtmProtocol};
 
-mod tensor_history_mod;
+pub mod tensor_history_mod;
 
 mod tensors;
-pub use tensors::{
-    build_description, decode_tensor, write_jpeg_with_metadata, write_png_with_usercomment,
-    DecodeTensorOptions, decode_pose, scribble_mask_to_png, inflate_deflate, decompress_fzip,
-};
+pub use tensors::*;
 
 mod audio;
-pub use audio::{decode_audio, get_audio};
 
 mod metadata;
 pub use metadata::DrawThingsMetadata;
 
 mod text_history;
-pub use text_history::TextHistory;
-
-pub mod fbs;
+pub use text_history::{PromptPair, TextHistory};
 
 pub mod filters;
 mod search;
 
 pub mod dtos;
-
-mod tensor_history_tensor_data;
-pub use tensor_history_tensor_data::TensorHistoryTensorData;
 
 pub mod folder_cache;
 

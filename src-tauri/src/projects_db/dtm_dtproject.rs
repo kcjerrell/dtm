@@ -1,17 +1,11 @@
+use anyhow::Context;
 use tauri::{
-    http::{self, Response, StatusCode, Uri},
+    http::{self, Response, StatusCode},
     UriSchemeResponder,
 };
-use anyhow::Context;
 
 use crate::{
-    projects_db::{
-        audio::audio_request,
-        decode_audio,
-        dt_resource_handle::DtResourceHandle,
-        enums::{DtProjectRef, DtResourceRef, ThnRef, ThnResource},
-        DTProject, ProjectsDb,
-    },
+    projects_db::{audio::audio_request, enums::DtProjectRef, ProjectsDb},
     ResourceHandle,
 };
 
@@ -154,14 +148,7 @@ impl DtmProtocol {
                 )
                 .await
             }
-            "audio" => {
-                let project_path = self
-                    .pdb
-                    .get_project_path(req.project_id)
-                    .await
-                    .context("Failed to get project path")?;
-                audio_request(&project_path, &req).await
-            }
+            "audio" => audio_request(&req).await,
             _ => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("Not Found".as_bytes().to_vec())?),
@@ -170,16 +157,19 @@ impl DtmProtocol {
 }
 
 async fn thumb(project_id: i64, item_id: &str, half: bool) -> anyhow::Result<Response<Vec<u8>>> {
-    let preview_id: i64 = item_id.parse().context("Invalid item ID")?;
+    let preview_id: i64 = item_id
+        .parse()
+        .with_context(|| format!("invalid preview ID '{item_id}'"))?;
 
     let handle = DtProjectRef::Id(project_id).thumb(preview_id);
 
     let thumb = handle
         .get_preview(half)
         .await
-        .context("Failed to get preview")?;
+        .with_context(|| format!("failed to load preview {preview_id} for project {project_id}"))?;
 
-    let thumb = thumb.ok_or_else(|| anyhow::anyhow!("Failed to get preview"))?;
+    let thumb = thumb
+        .ok_or_else(|| anyhow::anyhow!("preview {preview_id} not found in project {project_id}"))?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -187,7 +177,7 @@ async fn thumb(project_id: i64, item_id: &str, half: bool) -> anyhow::Result<Res
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(thumb)
-        .map_err(|e| anyhow::anyhow!(e))
+        .context("failed to build preview HTTP response")
 }
 
 // Unsupported options by DtResourceHandle API:
@@ -204,10 +194,7 @@ async fn tensor(
 
     let handle = if let Some(node_id) = node {
         // Use TensorHistoryNode with ThnRef::RowId and ThnResource::Tensor(name) to ensure metadata can be included
-        project_ref
-            .node(node_id)
-            .sub()?
-            .tensor(name)
+        project_ref.node(node_id).sub()?.tensor(name)
     } else {
         project_ref.tensor(name)
     };
@@ -216,13 +203,11 @@ async fn tensor(
 
     // Handle pose type separately as it doesn't return PNG
     if tensor_type == "pose" {
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body(
-                "Unsupported tensor type or decoding failed"
-                    .as_bytes()
-                    .to_vec(),
-            )?);
+        return Ok(Response::builder().status(StatusCode::BAD_REQUEST).body(
+            "Unsupported tensor type or decoding failed"
+                .as_bytes()
+                .to_vec(),
+        )?);
     }
 
     if tensor_type == "audio" {
@@ -230,10 +215,12 @@ async fn tensor(
     }
 
     let body = handle
-        .get_lossless(size)
+        .get_image(size)
         .await
-        .context("Failed to get lossless")?
-        .ok_or_else(|| anyhow::anyhow!("Failed to get lossless"))?;
+        .with_context(|| format!("failed to load image tensor '{name}' for project {project_id}"))?
+        .ok_or_else(|| {
+            anyhow::anyhow!("tensor image '{name}' not found for project {project_id}")
+        })?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -241,7 +228,7 @@ async fn tensor(
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "GET")
         .body(body)
-        .map_err(|e| anyhow::anyhow!(e))
+        .context("failed to build tensor image HTTP response")
 }
 
 fn classify_type(s: &str) -> Option<&str> {
