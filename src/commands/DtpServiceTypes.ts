@@ -175,6 +175,7 @@ export interface TensorRaw {
 }
 
 import type { TensorDataParsed as TensorDataRow } from "./DTProjectTypes"
+
 export type { TensorDataRow }
 
 export interface DTImageFull {
@@ -348,3 +349,26 @@ export type ScanProgress = {
     images_found: number
     images_scanned: number
 }
+
+export interface ArchivePlanItem {
+    name: string
+    node_id: number | null
+    preview_id: number | null
+    index: number
+}
+
+export interface ArchivePlan {
+    project_path: string
+    lossless: boolean
+    node_ids: number[]
+    tensordata_ids: number[]
+    tensormoodboarddata_ids: number[]
+    clip_ids: number[]
+    primary_tensors: ArchivePlanItem[]
+    tensors_extra: ArchivePlanItem[]
+    unused_tensors: string[]
+    unused_tensordata: number[]
+    unused_nodes: number[]
+    unused_tensormoodboarddata: number[]
+}
+

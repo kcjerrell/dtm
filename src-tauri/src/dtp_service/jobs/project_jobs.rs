@@ -9,9 +9,9 @@ use crate::{
         events::{DTPEvent, ScanProgress},
         jobs::{sync_folder::ProjectSync, Job, JobContext, JobResult},
     },
-    projects_db::{DTProject, ProjectsDb},
+    projects_db::{DtProjectRef, ProjectsDb},
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 pub struct AddProjectJob {
     pub path: String,
@@ -28,7 +28,7 @@ impl AddProjectJob {
             path: file.path.to_string(),
             watchfolder_id: project_sync.watchfolder_id,
             filesize: file.filesize as i64,
-            modified: file.modified.into(),
+            modified: file.modified,
             is_import,
         }
     }
@@ -40,7 +40,7 @@ impl Job for AddProjectJob {
         format!("AddProjectJob for {}", self.path)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let result = ctx.pdb.add_project(self.watchfolder_id, &self.path).await;
 
         if self.is_import {
@@ -93,7 +93,7 @@ impl Job for RemoveProjectJob {
         format!("RemoveProjectJob for {}", self.project_id)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let result = ctx
             .pdb
             .remove_project(self.project_id)
@@ -113,11 +113,7 @@ pub struct UpdateProjectJob {
 }
 
 impl UpdateProjectJob {
-    pub fn new(
-        project_sync: &ProjectSync,
-        is_import: bool,
-        check_deletions: bool,
-    ) -> Result<Self> {
+    pub fn new(project_sync: &ProjectSync, is_import: bool, check_deletions: bool) -> Result<Self> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
@@ -149,11 +145,11 @@ impl Job for UpdateProjectJob {
         format!("UpdateProjectJob for {}", self.project_id)
     }
 
-    fn start_event(self: &Self) -> Option<DTPEvent> {
+    fn start_event(&self) -> Option<DTPEvent> {
         Some(DTPEvent::ProjectSyncStarted(self.project_id))
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let scan_result: Result<(i64, u64), String> = ctx
             .pdb
             .scan_project(self.project_id, false)
@@ -161,7 +157,7 @@ impl Job for UpdateProjectJob {
             .map_err(|e| e.to_string());
 
         if self.check_deletions {
-            check_deletions(&ctx, self.project_id, &self.project_path)
+            check_deletions(ctx, self.project_id, &self.project_path)
                 .await
                 .map_err(|e| e.to_string())?;
         }
@@ -200,14 +196,12 @@ impl Job for UpdateProjectJob {
     }
 }
 
-async fn check_deletions(
-    ctx: &JobContext,
-    project_id: i64,
-    project_path: &str,
-) -> Result<()> {
+async fn check_deletions(ctx: &JobContext, project_id: i64, project_path: &str) -> Result<()> {
     let pdb_path = get_db_file_path(&ctx.app_handle);
 
-    let dt_project = DTProject::open(project_path).await?;
+    let dt_project = DtProjectRef::Path(project_path.to_string())
+        .open_project()
+        .await?;
 
     let missing_ids = dt_project.check_id(pdb_path, project_id).await?;
 

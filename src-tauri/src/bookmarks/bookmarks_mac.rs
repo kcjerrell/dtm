@@ -1,5 +1,5 @@
-use anyhow::{bail, Context, Result};
 use crate::dtp_service::AppHandleWrapper;
+use anyhow::{bail, Context, Result};
 
 use super::{PickFolderResult, ResolveResult};
 use tauri::{command, State};
@@ -44,12 +44,11 @@ pub async fn pick_folder(
 
     let target_path = match default_path {
         Some(p) => p,
-        None => {
-            app.get_home_dir()
-                .map_err(|_| anyhow::anyhow!("Failed to get home directory"))?
-                .to_string_lossy()
-                .into_owned()
-        }
+        None => app
+            .get_home_dir()
+            .map_err(|_| anyhow::anyhow!("Failed to get home directory"))?
+            .to_string_lossy()
+            .into_owned(),
     };
 
     let c_default_path = CString::new(target_path).context("Failed to create CString for path")?;
@@ -71,8 +70,8 @@ pub async fn pick_folder(
     unsafe { ffi::free_string_ptr(ptr) };
 
     // Parse JSON result
-    let result: PickFolderResult = serde_json::from_str(&json_result)
-        .context("Failed to parse picker result")?;
+    let result: PickFolderResult =
+        serde_json::from_str(&json_result).context("Failed to parse picker result")?;
 
     Ok(Some(result))
 }
@@ -105,8 +104,8 @@ pub async fn resolve_bookmark_impl(bookmark: String) -> Result<ResolveResult> {
     unsafe { ffi::free_string_ptr(ptr) };
 
     // Parse JSON result from FFI
-    let ffi_result: FfiResolveResult = serde_json::from_str(&json_result)
-        .context("Failed to parse resolve result")?;
+    let ffi_result: FfiResolveResult =
+        serde_json::from_str(&json_result).context("Failed to parse resolve result")?;
 
     match ffi_result.status.as_str() {
         "resolved" => {

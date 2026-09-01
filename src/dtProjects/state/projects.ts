@@ -216,12 +216,12 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         va.set(this.state.selectedProjects, selectedProjects)
     }
 
-    private loadProjectsTimeout: NodeJS.Timeout | null = null
+    private loadProjectsTimeout: number | null = null
     async loadProjectsDebounced() {
         if (this.loadProjectsTimeout) {
             clearTimeout(this.loadProjectsTimeout)
         }
-        this.loadProjectsTimeout = setTimeout(async () => {
+        this.loadProjectsTimeout = window.setTimeout(async () => {
             await this.loadProjects()
             await this.container.getService("models").refreshModels()
         }, 2000)

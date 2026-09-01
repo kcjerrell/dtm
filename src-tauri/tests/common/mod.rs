@@ -202,4 +202,3 @@ pub async fn test_fixture(
 
     (dtps, event_helper, wfh, db_path)
 }
-

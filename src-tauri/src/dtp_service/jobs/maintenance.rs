@@ -9,8 +9,9 @@ use sea_orm::{
 use sea_query::{Expr, Query};
 
 use crate::{
+    dt_project::{maintenance::Maintenance, ClipFilter},
     dtp_service::jobs::JobContext,
-    projects_db::{dtos::watch_folder::WatchFolderDTO, maintenance::Maintenance, DtProjectRef},
+    projects_db::{dtos::watch_folder::WatchFolderDTO, DtProjectRef},
 };
 use anyhow::{Context, Result};
 
@@ -110,9 +111,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
     }
 
     for (project_id, images) in projects.drain() {
-        // Here, ctx.pdb.get_dt_project returns Result<Arc<DTProject>, MixedError>
-        // MixedError implements Into<anyhow::Error>, so ? works.
-        let dt_project = ctx.pdb.get_dt_project(DtProjectRef::Id(project_id)).await?;
+        let dt_project = DtProjectRef::Id(project_id).get_project().await?;
 
         log::debug!(
             "Checking {} videos for project {}",
@@ -121,9 +120,12 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
         );
 
         let clip_ids = images.iter().map(|im| im.clip_id).collect();
-        let clip_counts = dt_project
-            .get_clip_counts(clip_ids)
-            .await?;
+        let clip_counts: HashMap<i64, i64> = dt_project
+            .get_clips(ClipFilter::ClipIds(clip_ids))
+            .await?
+            .into_iter()
+            .map(|c| (c.clip_id, c.count as i64))
+            .collect();
 
         // update images.num_frames with correct counts
         for image in images {
@@ -140,10 +142,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
     Ok(())
 }
 
-async fn check_sampler_values(
-    watchfolder: &WatchFolderDTO,
-    ctx: &JobContext,
-) -> Result<()> {
+async fn check_sampler_values(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Result<()> {
     let images: Vec<images::Model> = images::Entity::find()
         .join(JoinType::InnerJoin, images::Relation::Projects.def())
         .filter(projects::Column::WatchfolderId.eq(watchfolder.id))
@@ -161,11 +160,9 @@ async fn check_sampler_values(
     let mut fix: Vec<images::ActiveModel> = Vec::new();
 
     for (project_id, images) in projects.drain() {
-        let dt_project = ctx.pdb.get_dt_project(project_id.into()).await?;
-
-        let samplers = &dt_project
-            .get_samplers(&images.iter().map(|im| im.node_id).collect())
-            .await?;
+        let dt_project = DtProjectRef::Id(project_id).get_project().await?;
+        let node_ids: Vec<i64> = images.iter().map(|im| im.node_id).collect();
+        let samplers = &dt_project.get_samplers(&node_ids).await?;
 
         for image in images {
             if let Some(sampler) = samplers.get(&image.node_id) {
@@ -177,9 +174,7 @@ async fn check_sampler_values(
     }
 
     for model in fix {
-        images::Entity::update(model)
-            .exec(&ctx.pdb.db)
-            .await?;
+        images::Entity::update(model).exec(&ctx.pdb.db).await?;
     }
 
     Ok(())

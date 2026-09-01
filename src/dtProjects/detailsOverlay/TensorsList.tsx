@@ -1,16 +1,16 @@
 import { chakra, Spacer } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { type ComponentProps, useCallback } from "react"
-import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import { type ComponentProps, Fragment, useCallback } from "react"
+import type { ImageExtra } from "@/commands"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
-import { MotionBox } from "@/components"
+import { MotionBox, Tooltip } from "@/components"
 import { useDTP } from "../state/context"
 import TensorThumbnail, { CanvasCombinedButton } from "./TensorThumbnail"
 
 interface TensorsListComponentProps extends ComponentProps<typeof Container> {
     item?: ImageExtra
     details?: MaybeReadonly<TensorHistoryNode>
-    candidates?: MaybeReadonly<TensorHistoryExtra[]>
+    candidates?: MaybeReadonly<TensorHistoryNode[]>
 }
 
 function TensorsList(props: TensorsListComponentProps) {
@@ -37,7 +37,6 @@ function TensorsList(props: TensorsListComponentProps) {
         Mask: details.maskName,
     }
 
-    // const previous = candidates?.filter((c) => c.tensor_id?.startsWith("tensor")) ?? []
     const canvasTensors = details.tensordata?.filter((t) => t.data.tensor_id)
 
     return (
@@ -72,6 +71,37 @@ function TensorsList(props: TensorsListComponentProps) {
                                 weight={entry.weight}
                             />
                         ))}
+                    </Images>
+                </Group>
+            )}
+            {candidates && candidates.length > 0 && (
+                <Group>
+                    <Label>Previous</Label>
+                    <Images>
+                        {candidates
+                            .filter((c) => c.tensorHistoryName)
+                            .map((c) => (
+                                <Fragment key={c.rowid}>
+                                    <Tooltip
+                                        tipTitle={"Input image"}
+                                        tipText={`Lineage: ${c.lineage}, Logical time: ${c.logicalTime}`}
+                                    >
+                                        <TensorThumbnail
+                                            projectId={item.project_id}
+                                            tensorId={c.tensorHistoryName}
+                                            maskId={c.maskName}
+                                            onClick={(e) => showSubitem(e, c.tensorHistoryName, c.maskName)}
+                                        />
+                                    </Tooltip>
+                                    {/* {c.maskName && (
+                                        <TensorThumbnail
+                                            projectId={item.project_id}
+                                            tensorId={c.maskName}
+                                            onClick={(e) => showSubitem(e, c.maskName)}
+                                        />
+                                    )} */}
+                                </Fragment>
+                            ))}
                     </Images>
                 </Group>
             )}

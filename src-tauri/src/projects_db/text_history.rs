@@ -1,4 +1,4 @@
-use super::fbs;
+use crate::dt_project::fbs;
 use crate::projects_db::dtos::text::{TextHistoryNode, TextModification, TextRange, TextType};
 use serde::Serialize;
 use std::{collections::HashMap, sync::Mutex};
@@ -44,7 +44,7 @@ impl TryFrom<&[u8]> for TextHistoryNode {
             .modifications()
             .map(|v| {
                 v.iter()
-                    .map(|m| TextModification::try_from(m))
+                    .map(TextModification::try_from)
                     .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?
@@ -85,12 +85,12 @@ impl TextHistory {
     pub fn new(nodes: Vec<TextHistoryNode>, lineages: Vec<(i64, i64)>) -> Self {
         Self {
             nodes,
-            lineages: lineages.into_iter().map(|(a, b)| (a, b)).collect(),
+            lineages: lineages.into_iter().collect(),
             cache: Mutex::new(None),
         }
     }
 
-    pub fn get_edit(&self, lineage: i64, text_edits: i64) -> Option<PromptPair> {
+    pub fn get_edit(&self, lineage: i64, text_edits: i64) -> anyhow::Result<Option<PromptPair>> {
         // 1. Find the appropriate node to start from.
         // We look for a node with the same lineage and start_edits <= text_edits.
         // We pick the one with the highest start_edits among matches.
@@ -103,9 +103,14 @@ impl TextHistory {
             .nodes
             .iter()
             .filter(|n| n.lineage == lineage && n.start_edits <= text_edits)
-            .max_by_key(|n| n.start_edits);
-
-        let node = node?;
+            .max_by_key(|n| n.start_edits)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No node found for lineage {} and text_edits {}",
+                    lineage,
+                    text_edits
+                )
+            })?;
 
         // 2. Determine starting point (Node or Cache).
         let mut prompts = PromptPair {
@@ -116,26 +121,26 @@ impl TextHistory {
 
         // Try to use cache if relevant
         {
-            let mut cache = self.cache.lock().unwrap();
+            // let mut cache = self.cache.lock().unwrap();
 
-            // Check if we have an exact match in the cache
-            if let Some(entry) = &*cache {
-                if entry.lineage == lineage && entry.edits == text_edits {
-                    return Some(entry.prompts.clone());
-                }
-            }
+            // // Check if we have an exact match in the cache
+            // if let Some(entry) = &*cache {
+            //     if entry.lineage == lineage && entry.edits == text_edits {
+            //         return Some(entry.prompts.clone());
+            //     }
+            // }
 
-            // Check if cache is a valid intermediate point
-            if let Some(entry) = &*cache {
-                if entry.lineage == lineage
-                    && entry.edits <= text_edits
-                    && entry.edits >= node.start_edits
-                {
-                    // Cache is valid and fresher/equal to node start
-                    prompts = entry.prompts.clone();
-                    current_edits = entry.edits;
-                }
-            }
+            // // Check if cache is a valid intermediate point
+            // if let Some(entry) = &*cache {
+            //     if entry.lineage == lineage
+            //         && entry.edits <= text_edits
+            //         && entry.edits >= node.start_edits
+            //     {
+            //         // Cache is valid and fresher/equal to node start
+            //         prompts = entry.prompts.clone();
+            //         current_edits = entry.edits;
+            //     }
+            // }
 
             // 3. Apply modifications
             // Calculate index range to apply
@@ -161,18 +166,18 @@ impl TextHistory {
             }
 
             // 4. Update cache
-            *cache = Some(CacheEntry {
-                lineage,
-                edits: current_edits, // This should be text_edits if we completed successfully
-                prompts: prompts.clone(),
-            });
+            // *cache = Some(CacheEntry {
+            //     lineage,
+            //     edits: current_edits, // This should be text_edits if we completed successfully
+            //     prompts: prompts.clone(),
+            // });
         }
 
-        Some(prompts)
+        Ok(Some(prompts))
     }
 }
 
-fn apply_modification(text: &mut String, modification: &TextModification) {
+pub fn apply_modification(text: &mut String, modification: &TextModification) {
     let mut chars: Vec<char> = text.chars().collect();
     let location = modification.range.location as usize;
     let length = modification.range.length as usize;
@@ -215,35 +220,35 @@ mod tests {
         let history = TextHistory::new(nodes, Vec::new());
 
         // Test Case 1: Start of a node (Lineage 2, Edit 0)
-        let res0 = history.get_edit(2, 0).unwrap();
+        let res0 = history.get_edit(2, 0).unwrap().unwrap();
         assert_eq!(res0.positive, "");
 
         // Test Case 2: Apply first modification
         // Mod 0 (edit state 1?): Text "war in space..."
         // edit 1 request should include mod 0.
-        let res1 = history.get_edit(2, 1).unwrap();
+        let res1 = history.get_edit(2, 1).unwrap().unwrap();
         assert!(res1.positive.starts_with("war in space"));
 
         // Test Case 3: Verify Cache (Access 1 again)
-        let res1_cached = history.get_edit(2, 1).unwrap();
+        let res1_cached = history.get_edit(2, 1).unwrap().unwrap();
         assert_eq!(res1, res1_cached);
 
         // Test Case 4: Sequential Access (Forward Play)
         // Access edit 2. Mod 1 "3d fluffy llama".
-        let res2 = history.get_edit(2, 2).unwrap();
+        let res2 = history.get_edit(2, 2).unwrap().unwrap();
         assert!(res2.positive.starts_with("3d fluffy llama"));
         assert!(!res2.positive.contains("war in space"));
 
         // Test Case 5: Jump to later node (Lineage 2, Edit 50)
-        let res50 = history.get_edit(2, 50).unwrap();
+        let res50 = history.get_edit(2, 50).unwrap().unwrap();
         assert_eq!(res50.positive, "an ugly turke");
 
         // Test Case 6: Sequential after jump
-        let res51 = history.get_edit(2, 51).unwrap();
+        let res51 = history.get_edit(2, 51).unwrap().unwrap();
         assert_eq!(res51.positive, "an ugly turkey");
 
         // Test Case 7: Backwards jump (Edit 2 again)
-        let res2_back = history.get_edit(2, 2).unwrap();
+        let res2_back = history.get_edit(2, 2).unwrap().unwrap();
         assert!(res2_back.positive.starts_with("3d fluffy llama"));
     }
 }

@@ -18,7 +18,7 @@ mod tests {
     #[tokio::test]
     async fn test_preview_from_thumb() {
         let project_ref = DtProjectRef::from("test_data/projects/test-project-a2.sqlite3");
-        let resource_handle = DtResourceHandle::new(project_ref, DtResourceRef::Thumb(209719244));
+        let resource_handle = DtResourceHandle::new(&project_ref, &DtResourceRef::Thumb(209719244));
 
         let thumb = resource_handle.get_preview(false).await.unwrap().unwrap();
         assert!(thumb.len() > 0);
@@ -32,8 +32,8 @@ mod tests {
     async fn test_preview_from_node() {
         let project_ref = DtProjectRef::from("test_data/projects/test-project-a2.sqlite3");
         let resource_handle = DtResourceHandle::new(
-            project_ref,
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Thumb),
+            &project_ref,
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Thumb),
         );
 
         let thumb = resource_handle.get_preview(false).await.unwrap().unwrap();
@@ -44,8 +44,8 @@ mod tests {
     #[tokio::test]
     async fn test_canvas_tensor_from_node() {
         let rh = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Canvas(0)),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Canvas(0)),
         );
         let tensor = rh.get_tensor().await.unwrap().unwrap();
         let data_len = match &tensor.data {
@@ -58,7 +58,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_previews() {
-        let dtp = DTProject::open("test_data/projects/test-project-a2.sqlite3")
+        let dtp = DtProjectRef::from("test_data/projects/test-project-a2.sqlite3")
+            .open_project()
             .await
             .unwrap();
         let nodes = dtp.get_tensor_history_nodes(None, None).await.unwrap();
@@ -66,8 +67,8 @@ mod tests {
         let mut previews = Vec::new();
         for node in nodes {
             let resource_handle = DtResourceHandle::new(
-                DtProjectRef::from("test_data/projects/test-project-a2.sqlite3"),
-                DtResourceRef::Thumb(node.data().preview_id()),
+                &DtProjectRef::from("test_data/projects/test-project-a2.sqlite3"),
+                &DtResourceRef::Thumb(node.data().preview_id()),
             );
             let preview = resource_handle.get_preview(true).await.unwrap();
             previews.push(preview);
@@ -79,7 +80,8 @@ mod tests {
      */
     #[tokio::test]
     async fn test_tensor_from_thumb() {
-        let resource_handle = DtResourceHandle::new(project_ref(), DtResourceRef::Thumb(209719244));
+        let resource_handle =
+            DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
 
         let tensor = resource_handle.get_tensor().await.unwrap();
         assert!(tensor.is_none());
@@ -87,7 +89,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_preview_from_invalid_thumb() {
-        let resource_handle = DtResourceHandle::new(project_ref(), DtResourceRef::Thumb(7));
+        let resource_handle = DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(7));
 
         let result = resource_handle.get_preview(false).await;
         assert!(result.is_err());
@@ -99,8 +101,8 @@ mod tests {
     #[tokio::test]
     async fn test_tensor_from_tensor() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::Tensor("tensor_history_265054268".to_string()),
+            &project_ref(),
+            &DtResourceRef::Tensor("tensor_history_265054268".to_string()),
         );
 
         let tensor = resource_handle.get_tensor().await.unwrap().unwrap();
@@ -115,8 +117,8 @@ mod tests {
     #[tokio::test]
     async fn test_preview_from_tensor() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::Tensor("tensor_history_265054268".to_string()),
+            &project_ref(),
+            &DtResourceRef::Tensor("tensor_history_265054268".to_string()),
         );
 
         let preview = resource_handle.get_preview(false).await.unwrap();
@@ -126,7 +128,7 @@ mod tests {
     #[tokio::test]
     async fn test_tensor_from_invalid_tensor() {
         let resource_handle =
-            DtResourceHandle::new(project_ref(), DtResourceRef::Tensor("7".to_string()));
+            DtResourceHandle::new(&project_ref(), &DtResourceRef::Tensor("7".to_string()));
 
         let result = resource_handle.get_tensor().await;
         assert!(result.is_err());
@@ -140,21 +142,24 @@ mod tests {
         let canvas = ThnResource::Canvas(0);
 
         let rh_rowid = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorData(dtm_lib::projects_db::TdRef::RowId(2), canvas.clone()),
+            &project_ref(),
+            &DtResourceRef::TensorData(dtm_lib::projects_db::TdRef::RowId(2), canvas.clone()),
         );
 
         let rh_lineage_time = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorData(
+            &project_ref(),
+            &DtResourceRef::TensorData(
                 dtm_lib::projects_db::TdRef::LineageTime(0, 2),
                 canvas.clone(),
             ),
         );
 
         let rh_lineage_time_idx = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorData(dtm_lib::projects_db::TdRef::LineageTimeIdx(0, 2, 0), canvas),
+            &project_ref(),
+            &DtResourceRef::TensorData(
+                dtm_lib::projects_db::TdRef::LineageTimeIdx(0, 2, 0),
+                canvas,
+            ),
         );
 
         let tensor_rowid = rh_rowid.get_tensor().await.unwrap().unwrap();
@@ -185,8 +190,8 @@ mod tests {
     #[tokio::test]
     async fn test_preview_from_tensor_data() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorData(
+            &project_ref(),
+            &DtResourceRef::TensorData(
                 dtm_lib::projects_db::TdRef::RowId(2),
                 ThnResource::Canvas(0),
             ),
@@ -199,8 +204,8 @@ mod tests {
     #[tokio::test]
     async fn test_tensor_from_invalid_tensor_data() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorData(
+            &project_ref(),
+            &DtResourceRef::TensorData(
                 dtm_lib::projects_db::TdRef::LineageTime(7, 2),
                 ThnResource::Canvas(0),
             ),
@@ -218,13 +223,13 @@ mod tests {
         let canvas = ThnResource::Canvas(0);
 
         let rh_rowid = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), canvas.clone()),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), canvas.clone()),
         );
 
         let rh_lineage_time = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::LineageTime(0, 2), canvas),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::LineageTime(0, 2), canvas),
         );
 
         let tensor_rowid = rh_rowid.get_tensor().await.unwrap().unwrap();
@@ -256,13 +261,13 @@ mod tests {
         let canvas = ThnResource::Canvas(0);
 
         let rh_rowid = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), canvas.clone()),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), canvas.clone()),
         );
 
         let rh_lineage_time = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::LineageTime(0, 2), canvas),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::LineageTime(0, 2), canvas),
         );
 
         let preview_rowid = rh_rowid.get_preview(false).await.unwrap().unwrap();
@@ -275,8 +280,8 @@ mod tests {
     #[tokio::test]
     async fn test_tensor_from_invalid_thn() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(77), ThnResource::Canvas(0)),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(77), ThnResource::Canvas(0)),
         );
 
         let result = resource_handle.get_tensor().await.unwrap();
@@ -289,61 +294,76 @@ mod tests {
     #[tokio::test]
     async fn test_lossless_from_thn_canvas() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Canvas(0)),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(2), ThnResource::Canvas(0)),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
     async fn test_lossless_from_tensor() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::Tensor("tensor_history_265054268".to_string()),
+            &project_ref(),
+            &DtResourceRef::Tensor("tensor_history_265054268".to_string()),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
     async fn test_lossless_from_tensor_data() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorData(
+            &project_ref(),
+            &DtResourceRef::TensorData(
                 dtm_lib::projects_db::TdRef::RowId(2),
                 ThnResource::Canvas(0),
             ),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
     async fn test_lossless_from_thumb() {
-        let resource_handle = DtResourceHandle::new(project_ref(), DtResourceRef::Thumb(209719244));
+        let resource_handle =
+            DtResourceHandle::new(&project_ref(), &DtResourceRef::Thumb(209719244));
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap();
-        assert!(lossless.is_none());
+        let lossless = resource_handle.get_image(None).await.unwrap().unwrap();
+        assert!(lossless.len() > 0);
+        // Verify it's a PNG by checking the PNG signature
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
     async fn test_lossless_from_invalid_thn() {
         let resource_handle = DtResourceHandle::new(
-            project_ref(),
-            DtResourceRef::TensorHistoryNode(ThnRef::RowId(77), ThnResource::Canvas(0)),
+            &project_ref(),
+            &DtResourceRef::TensorHistoryNode(ThnRef::RowId(77), ThnResource::Canvas(0)),
         );
 
-        let lossless = resource_handle.get_lossless(None).await.unwrap();
+        let lossless = resource_handle.get_image(None).await.unwrap();
         assert!(lossless.is_none());
     }
 }

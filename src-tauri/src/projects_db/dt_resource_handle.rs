@@ -1,17 +1,24 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use std::convert::TryInto;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 use crate::{
-    ResourceHandle, Tensor, projects_db::{
-        DTProject, DtProjectRef, DtResourceRef, ProjectsDb, decode_audio, dt_project::{TdFilter, TensorData, TensorHistoryNode, ThnData, ThnFilter, TmdFilter}, dtos::tensor::TensorRaw, enums::PartialThnDtResourceHandle, extract_jpeg_slice, tensors::decompress_fzip,
+    dt_project::{split_tensor_name, ClipFilter},
+    util::Instants,
+};
+use crate::{
+    dt_project::{
+        DTResource, TensorData, TensorHistoryNode, TensorRaw, ThnData, ThnFilter, TmdFilter,
     },
+    projects_db::{
+        enums::PartialThnDtResourceHandle, DTProject, DtProjectRef, DtResourceRef, ProjectsDb,
+    },
+    ResourceHandle, Tensor,
 };
 
 type RR = DtResourceRef;
 type ThnR = super::ThnResource;
-type TDR = super::TdRef;
 
 /// Handle to a resource in a Draw Things project
 #[derive(Debug, Clone)]
@@ -19,7 +26,6 @@ pub struct DtResourceHandle {
     pub project: DtProjectRef,
     pub resource: DtResourceRef,
 
-    project_path: Arc<OnceCell<String>>,
     history_node: Arc<OnceCell<Option<TensorHistoryNode>>>,
 }
 
@@ -30,14 +36,22 @@ impl ResourceHandle for DtResourceHandle {
             return Ok(None);
         }
 
-        if let Some(name) = self.get_tensor_name().await? {
-            let dtp = self.get_project().await?;
-            let tensor_raw = dtp.get_tensor_raw(&name).await?;
-            let tensor: Tensor = tensor_raw.try_into()?;
-            println!(
-                "got tensor ({},{},{},{})",
-                tensor.n, tensor.height, tensor.width, tensor.channels
-            );
+        let dtp = self
+            .get_project()
+            .await
+            .context("failed to open project for tensor request")?;
+        if let Some(name) = self
+            .get_tensor_name(Some(&dtp))
+            .await
+            .context("failed to resolve tensor name")?
+        {
+            let tensor_raw = dtp
+                .get_tensor_raw(&name)
+                .await
+                .with_context(|| format!("failed to get raw tensor '{name}'"))?;
+            let tensor: Tensor = tensor_raw
+                .try_into()
+                .with_context(|| format!("failed to convert raw tensor '{name}' to Tensor"))?;
 
             return Ok(Some(tensor));
         }
@@ -45,95 +59,342 @@ impl ResourceHandle for DtResourceHandle {
         Ok(None)
     }
 
-    async fn get_lossless(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
-        if let Some(tensor) = self.get_tensor().await? {
-            let history_node = self.get_history_node().await?;
-            let png = tensor.to_png(history_node, size)?;
-            Ok(Some(png))
-        } else {
-            Ok(None)
+    async fn get_image(&self, size: Option<u32>) -> Result<Option<Vec<u8>>> {
+        let instants = Instants::new();
+        let dtp = self
+            .get_project()
+            .await
+            .context("failed to open project for image request")?;
+        println!("got project: {:?}", instants.record());
+        let name = self
+            .get_tensor_name(Some(&dtp))
+            .await
+            .context("failed to resolve tensor name for image")?;
+        println!("got name: {:?}", instants.record());
+        if let Some(name) = name {
+            let tensor_raw = dtp.get_tensor_raw(&name).await?;
+            println!("got tensor_raw: {:?}", instants.record());
+            match &tensor_raw.resource {
+                DTResource::CompressedTensor(_) => {
+                    let node = self
+                        .get_history_node()
+                        .await
+                        .context("failed to fetch history node for tensor image")?;
+                    println!("got node: {:?}", instants.record());
+                    let tensor: Tensor = Tensor::try_from(tensor_raw)
+                        .with_context(|| format!("failed to convert raw tensor '{name}'"))?;
+                    println!("got tensor: {:?}", instants.record());
+                    let png = tensor
+                        .to_png(node, size)
+                        .with_context(|| format!("failed to convert tensor '{name}' to PNG"))?;
+                    println!("got png: {:?}", instants.record());
+                    return Ok(png);
+                }
+                DTResource::JpgInFbs(_jpg_with_header) => return Ok(None),
+                DTResource::DTZipRef(dtzip_ref) => {
+                    println!("got dtzip_ref: {:?}", instants.record());
+                    let data = dtp
+                        .dt_zip
+                        .as_ref()
+                        .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
+                        .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read file '{}' from zip archive",
+                                dtzip_ref.rel_path
+                            )
+                        })?;
+                    println!("got data: {:?}", instants.record());
+                    return Ok(Some(data));
+                }
+                DTResource::Unknown(_items) => return Ok(None),
+            }
         }
+        Ok(None)
     }
 
     async fn get_preview(&self, half: bool) -> Result<Option<Vec<u8>>> {
         let preview_id = match &self.resource {
             RR::Thumb(id) => Some(*id),
-            RR::TensorHistoryNode(_, thn_resource) => {
-                let node = self.get_history_node().await?;
+            RR::TensorHistoryNode(_, _thn_resource) => {
+                let node = self
+                    .get_history_node()
+                    .await
+                    .context("failed to fetch history node for preview")?;
                 node.map(|n| n.data().preview_id())
             }
             _ => None,
         };
         if let Some(preview_id) = preview_id {
-            let dtp = self.get_project().await?;
+            let dtp = self
+                .get_project()
+                .await
+                .context("failed to open project for preview")?;
             let thumb = if half {
-                dtp.get_thumb_half(preview_id).await?
+                dtp.get_thumb_half(preview_id)
+                    .await
+                    .with_context(|| format!("failed to get half preview {preview_id}"))?
             } else {
-                dtp.get_thumb(preview_id).await?
+                dtp.get_thumb(preview_id)
+                    .await
+                    .with_context(|| format!("failed to get preview {preview_id}"))?
             };
-            Ok(extract_jpeg_slice(&thumb))
+            match thumb {
+                DTResource::JpgInFbs(jpg) => Ok(jpg.jpg()),
+                DTResource::CompressedTensor(_) => anyhow::bail!("Impossible"),
+                DTResource::DTZipRef(dtzip_ref) => Ok(Some(
+                    dtp.dt_zip
+                        .as_ref()
+                        .map(|dtz| dtz.get_file(&dtzip_ref.rel_path))
+                        .ok_or(anyhow::anyhow!("impossible missing dtzip"))?
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read preview '{}' from zip archive",
+                                dtzip_ref.rel_path
+                            )
+                        })?,
+                )),
+                DTResource::Unknown(_items) => Ok(None),
+            }
         } else {
             Ok(None)
         }
     }
 
     async fn get_audio(&self) -> Result<Option<Vec<u8>>> {
-        if let Some(node) = self.get_history_node().await? {
-            if let Some(clip) = &node.clip {
-                if clip.audio_id <= 0 {
-                    return Ok(None);
-                }
-                let audio_id = format!("audio_{}", clip.audio_id);
-                let dtp = self.get_project().await?;
-                let tensor_raw = dtp.get_tensor_raw(&audio_id).await?;
-                // to determine the sample rate we need the duration of the clip
-                let duration = clip.count as f64 / clip.frames_per_second as f64;
-                let audio = decode_audio(tensor_raw, duration)
+        let dtp = self
+            .get_project()
+            .await
+            .context("failed to open project for audio")?;
+        // to get audio we will need a clip
+        let clip = match &self.resource {
+            DtResourceRef::Tensor(tensor_name) => {
+                let (_, id) = split_tensor_name(tensor_name)?;
+                dtp.get_clips(ClipFilter::AudioId(id))
                     .await
-                    .map_err(|e| anyhow::anyhow!(e))?;
-                return Ok(Some(audio));
+                    .with_context(|| {
+                        format!("failed to query audio clip for tensor '{tensor_name}'")
+                    })?
+                    .into_iter()
+                    .next()
             }
+            DtResourceRef::TensorHistoryNode(_, _) => {
+                self.get_history_node().await?.and_then(|n| n.clip.clone())
+            }
+            DtResourceRef::Thumb(_) | DtResourceRef::TensorData(_, _) => {
+                return Ok(None);
+            }
+        };
+
+        if let Some(clip) = clip {
+            let tensor_name = format!("audio_{}", clip.audio_id);
+            let duration = clip.count as f64 / clip.frames_per_second;
+            let tensor_raw = dtp
+                .get_tensor_raw(&tensor_name)
+                .await
+                .with_context(|| format!("failed to get raw audio tensor '{tensor_name}'"))?;
+            let audio = match tensor_raw.resource {
+                DTResource::CompressedTensor(_) => {
+                    let tensor = Tensor::try_from(tensor_raw).with_context(|| {
+                        format!("failed to convert raw audio tensor '{tensor_name}'")
+                    })?;
+                    Some(
+                        tensor
+                            .decode_audio(duration)
+                            .with_context(|| format!("failed to decode audio '{tensor_name}'"))?,
+                    )
+                }
+                DTResource::DTZipRef(dtzip_ref) => Some(
+                    dtp.get_archive_file(&dtzip_ref.rel_path)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to read audio from zip archive '{}'",
+                                dtzip_ref.rel_path
+                            )
+                        })?,
+                ),
+                DTResource::JpgInFbs(_) | DTResource::Unknown(_) => None,
+            };
+            Ok(audio)
+        } else {
+            Ok(None)
         }
-        Ok(None)
     }
 
-    async fn get_frames(&self, preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>> {
-        return Err(anyhow::anyhow!("Frames not yet implemented"));
+    async fn get_frames(
+        &self,
+        _preview: bool,
+    ) -> Result<Option<Vec<Box<dyn ResourceHandle + Send + Sync>>>> {
+        // get_frames only makes sense if this handle is for a history node
+        if !self.resource.is_tensor_history_node() {
+            return Ok(None);
+        }
+
+        let node = self.get_history_node().await?;
+        let Some(node) = node else {
+            return Ok(None);
+        };
+
+        let Some(clip) = &node.clip else {
+            return Ok(None);
+        };
+
+        let first_rowid = node.rowid;
+        let mut frames = Vec::with_capacity(clip.count as usize);
+
+        for idx in 0..clip.count {
+            frames.push(Box::new(self.project.node(first_rowid + idx as i64))
+                as Box<dyn ResourceHandle + Send + Sync>);
+        }
+
+        Ok(Some(frames))
+    }
+
+    async fn get_dtm_path(&self) -> Result<Option<String>> {
+        let project_id = self.get_project_id().await?;
+        let path = match &self.resource {
+            DtResourceRef::Tensor(name) => {
+                Some(format!("dtm://dtproject/tensor/{}/{}", project_id, name))
+            }
+            DtResourceRef::Thumb(thumb_id) => {
+                Some(format!("dtm://dtproject/thumb/{}/{}", project_id, thumb_id))
+            }
+            DtResourceRef::TensorData(_td_ref, _thn_resource) => None,
+            DtResourceRef::TensorHistoryNode(_, thn_resource) => match thn_resource {
+                super::ThnResource::Thumb => {
+                    let Some(node) = self.get_history_node().await? else {
+                        return Ok(None);
+                    };
+                    Some(format!(
+                        "dtm://dtproject/thumb/{}/{}",
+                        project_id,
+                        node.data().preview_id()
+                    ))
+                }
+                _ => {
+                    let Some(tensor_name) = self.get_tensor_name(None).await? else {
+                        return Ok(None);
+                    };
+                    Some(format!(
+                        "dtm://dtproject/tensor/{}/{}",
+                        project_id, tensor_name
+                    ))
+                }
+            },
+        };
+        Ok(path)
+    }
+
+    async fn get_json(&self) -> Result<Option<String>> {
+        let mut size: Option<(i32, i32)> = None;
+        let tensor_name: Option<String> = match &self.resource {
+            RR::TensorData(_, _) => None,
+            RR::Tensor(name) => {
+                if name.starts_with("pose") {
+                    Some(name.to_string())
+                } else {
+                    None
+                }
+            }
+            RR::Thumb(_) => None,
+            RR::TensorHistoryNode(_thn_ref, thn_resource) => {
+                match thn_resource {
+                    ThnR::Pose => {
+                        // need to find the pose tensor name
+                        let td = self.get_tensor_data().await?.unwrap_or_default();
+                        let pose_td = td.iter().find(|tdd| tdd.data().pose_id() > 0);
+                        if let Some(pose_td) = pose_td {
+                            let data = pose_td.data();
+                            size = Some((data.width(), data.height()));
+                            Some(format!("pose_{}", data.pose_id()))
+                        } else {
+                            None
+                        }
+                    }
+                    ThnR::None => {
+                        // this should return the history node data. maybe.
+                        None
+                    }
+                    _ => None,
+                }
+            }
+        };
+        println!("tensor_name: {:?}", tensor_name);
+        if let Some(tensor_name) = tensor_name {
+            let dtp = self.get_project().await?;
+            let tensor_raw = dtp.get_tensor_raw(&tensor_name).await?;
+            let tensor = Tensor::try_from(tensor_raw)?;
+
+            let (width, height) = match size {
+                Some((w, h)) => (w, h),
+                None => {
+                    let td = dtp
+                        .find_tensordata_by_tensor(&tensor_name)
+                        .await?
+                        .into_iter()
+                        .next();
+                    td.map_or((1024, 1024), |tdd| {
+                        (tdd.data().width(), tdd.data().height())
+                    })
+                }
+            };
+
+            tensor.get_pose(width, height)
+        } else {
+            Ok(None)
+        }
     }
 }
 
 impl DtResourceHandle {
-    pub fn new(project: DtProjectRef, resource: DtResourceRef) -> Self {
+    pub fn new(project: &DtProjectRef, resource: &DtResourceRef) -> Self {
         Self {
-            project,
-            resource,
-            project_path: Arc::new(OnceCell::new()),
+            project: project.clone(),
+            resource: resource.clone(),
             history_node: Arc::new(OnceCell::new()),
         }
     }
 
     async fn get_project(&self) -> Result<Arc<DTProject>> {
-        let project_path = self
-            .project_path
-            .get_or_try_init(|| async {
-                let resolved_path = match &self.project {
-                    DtProjectRef::Path(path) => String::from(path),
-                    DtProjectRef::Id(id) => {
-                        let pdb = ProjectsDb::get().await?;
-                        let project = pdb.get_project(*id).await.map_err(|e| anyhow::anyhow!(e))?;
-                        String::from(project.full_path)
-                    }
-                    DtProjectRef::Db(db) => db.path.clone(),
-                };
-                Ok::<String, anyhow::Error>(resolved_path)
-            })
-            .await?;
+        self.project.get_project().await
+    }
 
-        if let DtProjectRef::Db(db) = &self.project {
-            return Ok(db.clone());
+    async fn get_project_id(&self) -> Result<i64> {
+        let path = match &self.project {
+            DtProjectRef::Id(id) => {
+                return Ok(*id);
+            }
+            DtProjectRef::Path(path) => path.to_string(),
+            DtProjectRef::Db(dtproject) => dtproject.path.to_string(),
+        };
+        let pdb = ProjectsDb::get()
+            .await
+            .context("failed to access ProjectsDb for project ID lookup")?;
+        let Some(folder) = pdb
+            .get_watch_folder_for_path(&path)
+            .await
+            .with_context(|| format!("failed to get watch folder for path '{path}'"))?
+        else {
+            anyhow::bail!("can't find folder for path '{path}'");
+        };
+        let Some(remaining_path) = path.strip_prefix(&folder.path) else {
+            anyhow::bail!(
+                "path '{path}' does not start with watch folder prefix '{}'",
+                folder.path
+            );
+        };
+        let project = pdb
+            .get_project_by_path(folder.id, remaining_path)
+            .await
+            .with_context(|| format!("failed to get project by path '{remaining_path}'"))?;
+        if let Some(project) = project {
+            Ok(project.id)
+        } else {
+            anyhow::bail!("can't find project for relative path '{remaining_path}'");
         }
-
-        Ok(DTProject::get(project_path).await?)
     }
 
     pub async fn get_history_node(&self) -> Result<Option<&TensorHistoryNode>> {
@@ -147,17 +408,12 @@ impl DtResourceHandle {
                         .await?
                         .into_iter()
                         .next();
-                    println!(
-                        "got history node: {}",
-                        node.as_ref().map(|n| n.rowid).unwrap_or_default()
-                    );
                     Ok::<_, anyhow::Error>(node)
                 } else {
                     Ok::<_, anyhow::Error>(None)
                 }
             })
             .await?;
-
         Ok(node.as_ref())
     }
 
@@ -176,6 +432,10 @@ impl DtResourceHandle {
                 };
                 Some((thn_ref.into(), thn_data))
             }
+            DtResourceRef::Thumb(preview_id) => {
+                // for thumb lookup, we need tensordata if we are trying to get the actual image
+                Some((ThnFilter::PreviewId(*preview_id), ThnData::tensordata()))
+            }
             _ => None,
         }
     }
@@ -184,22 +444,41 @@ impl DtResourceHandle {
         match &self.resource {
             DtResourceRef::Thumb(_) => Ok(None),
             DtResourceRef::Tensor(_) => Ok(None),
-            DtResourceRef::TensorData(tensor_data_ref, thn_resource) => {
+            DtResourceRef::TensorData(tensor_data_ref, _thn_resource) => {
                 let dtp = self.get_project().await?;
                 let td = dtp.get_tensor_data(tensor_data_ref.into()).await?;
                 Ok(Some(td.into()))
             }
-            DtResourceRef::TensorHistoryNode(thn_ref, thn_resource) => Ok(self
+            DtResourceRef::TensorHistoryNode(_thn_ref, _thn_resource) => Ok(self
                 .get_history_node()
                 .await?
                 .and_then(|n| n.tensordata.clone())),
         }
     }
 
-    async fn get_tensor_name(&self) -> Result<Option<String>> {
-        // thumbs do not have a tensor name
+    pub async fn get_tensor_raw(&self) -> Result<Option<TensorRaw>> {
+        let dtp = self.get_project().await?;
+        if let Some(name) = self.get_tensor_name(Some(&dtp)).await? {
+            let tensor_raw = dtp.get_tensor_raw(&name).await?;
+
+            return Ok(Some(tensor_raw));
+        }
+
+        Ok(None)
+    }
+
+    async fn get_tensor_name(&self, project: Option<&DTProject>) -> Result<Option<String>> {
+        // even though though handle to a thumb isn't the same as a handle to a node,
+        // I need a path from a preview id to a tensor image and this is the logical place for it
         if self.resource.is_thumb() {
-            return Ok(None);
+            let node = self.get_history_node().await?;
+            if let Some(tensordata) = node.and_then(|n| n.tensordata.as_ref()) {
+                // we want the last tensor image
+                return Ok(tensordata
+                    .iter()
+                    .rfind(|tdd| tdd.data().tensor_id() > 0)
+                    .map(|tdd| format!("tensor_history_{}", tdd.data().tensor_id())));
+            }
         }
 
         // return the tensor name if it's a tensor
@@ -208,10 +487,10 @@ impl DtResourceHandle {
         }
 
         // get the resource type
-        let res = match &self.resource {
+        let mut res = match &self.resource {
             RR::TensorData(_, res) => res,
             RR::TensorHistoryNode(_, res) => res,
-            RR::Thumb(_) | RR::Tensor(_) => panic!("impossible code path"),
+            RR::Tensor(_) | RR::Thumb(_) => panic!("impossible code path"),
         };
 
         // Handle ThnResource::Tensor by returning the tensor name directly
@@ -219,7 +498,10 @@ impl DtResourceHandle {
             return Ok(Some(name.clone()));
         }
 
-        let dtp = self.get_project().await?;
+        let dtp = match project {
+            Some(project) => project,
+            None => &*self.get_project().await?,
+        };
 
         // handle moodboard case
         if self.resource.is_tensor_history_node() && res.is_moodboard() {
@@ -247,12 +529,16 @@ impl DtResourceHandle {
         }
         let tensordata = tensordata.unwrap();
 
+        if res.is_none() {
+            res = &ThnR::Canvas(0);
+        }
+
         // return the first (last) tensor name that matches the type
         match &res {
             // I'll figure out how None should be resolved later
-            ThnR::None => return Ok(None),
+            ThnR::None => Ok(None),
             // thumb has no tensor name
-            ThnR::Thumb => return Ok(None),
+            ThnR::Thumb => Ok(None),
             // these are canvas images, indexed in reverse order so that 0 is always the top
             ThnR::Canvas(index) => {
                 let td = tensordata
@@ -260,7 +546,7 @@ impl DtResourceHandle {
                     .rev()
                     .filter(|tdd| tdd.data().tensor_id() > 0)
                     .nth(*index);
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().tensor_id())));
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().tensor_id())))
             }
             ThnR::Mask(index) => {
                 let td = tensordata
@@ -268,56 +554,39 @@ impl DtResourceHandle {
                     .rev()
                     .filter(|tdd| tdd.data().mask_id() > 0)
                     .nth(*index);
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().mask_id())));
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().mask_id())))
             }
             // tensordata can't reference moodboard...
-            ThnR::Moodboard(index) => Ok(None),
+            ThnR::Moodboard(_index) => Ok(None),
             ThnR::DepthMap => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().depth_map_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().depth_map_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().depth_map_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().depth_map_id())))
             }
             ThnR::Pose => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().pose_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().pose_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().pose_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().pose_id())))
             }
             ThnR::Scribble => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().scribble_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().scribble_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().scribble_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().scribble_id())))
             }
             ThnR::Custom => {
-                let td = tensordata
-                    .iter()
-                    .filter(|tdd| tdd.data().custom_id() > 0)
-                    .last();
-                return Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().custom_id())));
+                let td = tensordata.iter().rfind(|tdd| tdd.data().custom_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().custom_id())))
             }
             ThnR::ColorPalette => {
                 let td = tensordata
                     .iter()
-                    .filter(|tdd| tdd.data().color_palette_id() > 0)
-                    .last();
-                return Ok(
-                    td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().color_palette_id()))
-                );
+                    .rfind(|tdd| tdd.data().color_palette_id() > 0);
+                Ok(td.map(|tdd| format!("{}{}", res.prefix(), tdd.data().color_palette_id())))
             }
-            ThnR::Tensor(name) => {
-                return Err(anyhow::anyhow!(
-                    "Impossible code path: ThnResource::Tensor should have been handled earlier"
-                ));
-            }
+            ThnR::Tensor(_name) => Err(anyhow::anyhow!(
+                "Impossible code path: ThnResource::Tensor should have been handled earlier"
+            )),
         }
     }
 
-    pub fn sub(&self) -> Result<PartialThnDtResourceHandle> {
+    pub fn sub(&self) -> Result<PartialThnDtResourceHandle<'_>> {
         PartialThnDtResourceHandle::try_from(self)
     }
 
@@ -325,7 +594,34 @@ impl DtResourceHandle {
         let pdb = ProjectsDb::get().await?;
         pdb.get_image(image_id)
             .await
-            .and_then(|image| Ok(Some(DtProjectRef::Id(image.project_id).node(image.node_id))))
+            .map(|image| Some(DtProjectRef::Id(image.project_id).node(image.node_id)))
             .map_err(|e| anyhow::anyhow!(e))
+            .with_context(|| format!("failed to resolve DtResourceHandle for image {image_id}"))
+    }
+
+    pub async fn is_image(&self) -> Result<bool> {
+        let Some(tensor_name) = self.get_tensor_name(None).await? else {
+            return Ok(false);
+        };
+        Ok(tensor_name.starts_with("tensor_history")
+            || tensor_name.starts_with("binary_mask")
+            || tensor_name.starts_with("shuffle")
+            || tensor_name.starts_with("custom")
+            || tensor_name.starts_with("depth_map")
+            || tensor_name.starts_with("scribble"))
+    }
+
+    pub async fn is_audio(&self) -> Result<bool> {
+        let Some(tensor_name) = self.get_tensor_name(None).await? else {
+            return Ok(false);
+        };
+        Ok(tensor_name.starts_with("audio"))
+    }
+
+    pub async fn is_pose(&self) -> Result<bool> {
+        let Some(tensor_name) = self.get_tensor_name(None).await? else {
+            return Ok(false);
+        };
+        Ok(tensor_name.starts_with("pose"))
     }
 }

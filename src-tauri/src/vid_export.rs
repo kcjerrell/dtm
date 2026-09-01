@@ -1,17 +1,19 @@
+use anyhow::Context;
 use regex::Regex;
 use sea_orm::{EntityTrait, QuerySelect};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use tauri::{Emitter, Manager, State};
 
 use crate::dtp_service::DTPService;
-use crate::projects_db::{
-    decode_tensor, DTProject, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
-    DtResourceHandle, DtResourceRef,
-};
-use crate::{IntoTAResult, ResourceHandle, TAResult};
+use crate::projects_db::{DrawThingsMetadata, DtProjectRef, DtResourceHandle};
+use crate::util::BytesExt;
+use crate::{ffmpeg::get_ffmpeg_path, IntoTAResult, ResourceHandle, TAResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,7 +31,7 @@ pub async fn save_all_clip_frames(
     app: tauri::AppHandle,
     dtp: State<'_, DTPService>,
     opts: FramesExportOpts,
-) -> TAResult<(usize, String)> {
+) -> TAResult<Vec<PathBuf>> {
     let projects_db = dtp.get_db().await.unwrap();
 
     let result: Option<(i64, i64)> = entity::images::Entity::find_by_id(opts.image_id)
@@ -43,14 +45,13 @@ pub async fn save_all_clip_frames(
 
     let (node_id, project_id) = result.ok_or(anyhow::anyhow!("Image or Project not found"))?;
 
-    let project = projects_db.get_project(project_id).await.unwrap();
-
     // 2. Fetch Clip Frames
-    let dt_project = DTProject::open(&project.full_path).await.into_ta_result()?;
-    let frames = dt_project
-        .get_histories_from_clip(node_id)
+    let handle = DtProjectRef::Id(project_id).node(node_id);
+    let frames = handle
+        .get_frames(false)
         .await
-        .into_ta_result()?;
+        .into_ta_result()?
+        .ok_or(anyhow::anyhow!("No frames found for this clip"))?;
 
     if frames.is_empty() {
         return anyhow::anyhow!("No frames found for this clip").into_ta_result();
@@ -67,62 +68,44 @@ pub async fn save_all_clip_frames(
     });
 
     let total = frames.len();
-    match opts.use_tensor {
-        true => {
-            for (i, frame) in frames.iter().enumerate() {
-                let name = name_gen.next().unwrap();
-                let tensor = dt_project
-                    .get_tensor_raw(&frame.tensor_id)
-                    .await
-                    .into_ta_result()?;
-                let png = decode_tensor(
-                    tensor,
-                    DecodeTensorOptions {
-                        as_png: true,
-                        history_node: None,
-                        size: None,
-                    },
-                )
-                .into_ta_result()?;
-                let file_path = output_dir.join(name);
-                fs::write(&file_path, png).into_ta_result()?;
+    let mut saved_paths = Vec::with_capacity(total);
+    for (i, frame) in frames.iter().enumerate() {
+        let name = name_gen.next().unwrap();
+        let frame_bytes = if opts.use_tensor {
+            frame
+                .get_image(None)
+                .await
+                .into_ta_result()
+                .context("Failed to get frame image")?
+                .ok_or_else(|| anyhow::anyhow!("Frame image was None"))?
+        } else {
+            frame
+                .get_preview(false)
+                .await
+                .into_ta_result()
+                .context("Failed to get frame preview")?
+                .ok_or_else(|| anyhow::anyhow!("Frame preview was None"))?
+        };
 
-                let _ = app.emit(
-                    "export_frames_progress",
-                    ExportProgress {
-                        current: i + 1,
-                        total,
-                        msg: "Extracting frames...".to_string(),
-                    },
-                );
-            }
+        let image_type = frame_bytes.get_image_type();
+        let extension = image_type.extension();
+        if extension.is_empty() {
+            return anyhow::anyhow!("Unsupported frame image format").into_ta_result()?;
         }
-        false => {
-            for (i, frame) in frames.iter().enumerate() {
-                let name = name_gen.next().unwrap();
-                let handle = DtResourceHandle::new(
-                    DtProjectRef::Id(project_id),
-                    DtResourceRef::Thumb(frame.preview_id),
-                );
-                let thumb_data = handle
-                    .get_preview(false)
-                    .await
-                    .into_ta_result()?
-                    .ok_or(anyhow::anyhow!("Failed to get preview"))?;
 
-                let file_path = output_dir.join(name);
-                fs::write(&file_path, thumb_data).into_ta_result()?;
+        let mut file_path = output_dir.join(name);
+        file_path.set_extension(extension);
+        fs::write(&file_path, frame_bytes).into_ta_result()?;
+        saved_paths.push(file_path);
 
-                let _ = app.emit(
-                    "export_frames_progress",
-                    ExportProgress {
-                        current: i + 1,
-                        total,
-                        msg: "Extracting frames...".to_string(),
-                    },
-                );
-            }
-        }
+        let _ = app.emit(
+            "export_frames_progress",
+            ExportProgress {
+                current: i + 1,
+                total,
+                msg: "Extracting frames...".to_string(),
+            },
+        );
     }
 
     let _ = app.emit(
@@ -134,7 +117,7 @@ pub async fn save_all_clip_frames(
         },
     );
 
-    Ok((total, output_dir.to_str().unwrap().to_string()))
+    Ok(saved_paths)
 }
 
 #[derive(Clone, Serialize, Debug)]
@@ -166,13 +149,9 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Prepare temp dir
     // -------------------------------------------------
-    let app_data_dir = app.path().app_data_dir().unwrap();
-    let ffmpeg_path = app_data_dir.join("bin").join("ffmpeg");
+    let app_data_dir = app.path().app_data_dir().map_err(anyhow::Error::msg)?;
+    let ffmpeg_path = get_ffmpeg_path(&app).await?;
     let temp_dir = app_data_dir.join("temp_video_frames");
-
-    if !ffmpeg_path.exists() {
-        return Err(anyhow::anyhow!("ffmpeg not found").into());
-    }
 
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;
@@ -188,24 +167,29 @@ pub async fn create_video_from_frames(
         fs::create_dir_all(parent).map_err(anyhow::Error::msg)?;
     }
 
-    let extension = if opts.use_tensor { "png" } else { "jpg" };
-
     // -------------------------------------------------
     // Export frames first
     // -------------------------------------------------
-    let (frame_count, _) = save_all_clip_frames(
+    let frame_paths = save_all_clip_frames(
         app.clone(),
         dtp.clone(),
         FramesExportOpts {
             image_id: opts.image_id,
             output_dir: temp_dir.to_str().unwrap().to_string(),
             use_tensor: opts.use_tensor,
-            filename_pattern: format!("frame_####.{}", extension),
+            filename_pattern: "frame_####".to_string(),
             clip_number: None,
             start_frame: None,
         },
     )
     .await?;
+
+    let frame_count = frame_paths.len();
+    let extension = frame_paths
+        .first()
+        .and_then(|path| path.extension())
+        .and_then(|extension| extension.to_str())
+        .ok_or_else(|| anyhow::anyhow!("Exported frame has no file extension"))?;
 
     let out_fps = opts.out_fps.unwrap_or(opts.fps);
     let interpolate = out_fps != opts.fps;
@@ -254,13 +238,19 @@ pub async fn create_video_from_frames(
         .await
         .map_err(anyhow::Error::msg)?
     {
-        if let Some(node) = handle.get_history_node().await.map_err(anyhow::Error::msg)? {
+        if let Some(node) = handle
+            .get_history_node()
+            .await
+            .map_err(anyhow::Error::msg)?
+        {
             metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
 
-            if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {
-                let temp_audio_path = temp_dir.join("audio.wav");
-                fs::write(&temp_audio_path, &audio_wav).map_err(anyhow::Error::msg)?;
-                audio_path = Some(temp_audio_path.to_string_lossy().to_string());
+            if node.clip.as_ref().map_or(false, |c| c.audio_id > 0) {
+                if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {
+                    let temp_audio_path = temp_dir.join("audio.wav");
+                    fs::write(&temp_audio_path, &audio_wav).map_err(anyhow::Error::msg)?;
+                    audio_path = Some(temp_audio_path.to_string_lossy().to_string());
+                }
             }
         }
     }
@@ -373,30 +363,30 @@ pub async fn create_video_from_frames(
 /// -1 indicates no matches
 pub fn check_files(dir: &str, pattern: &str) -> anyhow::Result<(i32, i32)> {
     log::debug!("checking {} for {}", dir, pattern);
-    let matcher = get_matcher(pattern);
+    check_files_with_matcher(dir, get_matcher(pattern))
+}
 
+fn check_files_with_matcher(dir: &str, matcher: Regex) -> anyhow::Result<(i32, i32)> {
     let mut max_clip: i32 = -1;
     let mut max_frame: i32 = -1;
 
     let entries = fs::read_dir(dir).map_err(anyhow::Error::msg)?;
 
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let caps = matcher.captures(&name);
-            if let Some(caps) = caps {
-                if let Some(clip) = caps.name("clip") {
-                    if let Ok(clip) = clip.as_str().parse::<i32>() {
-                        if clip > max_clip {
-                            max_clip = clip;
-                        }
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let caps = matcher.captures(&name);
+        if let Some(caps) = caps {
+            if let Some(clip) = caps.name("clip") {
+                if let Ok(clip) = clip.as_str().parse::<i32>() {
+                    if clip > max_clip {
+                        max_clip = clip;
                     }
                 }
-                if let Some(frame) = caps.name("frame") {
-                    if let Ok(frame) = frame.as_str().parse::<i32>() {
-                        if frame > max_frame {
-                            max_frame = frame;
-                        }
+            }
+            if let Some(frame) = caps.name("frame") {
+                if let Ok(frame) = frame.as_str().parse::<i32>() {
+                    if frame > max_frame {
+                        max_frame = frame;
                     }
                 }
             }
@@ -415,6 +405,23 @@ pub fn get_matcher(filename_pattern: &str) -> Regex {
     let matcher_clip: Regex = Regex::new(r"%+").unwrap();
     let pattern = matcher_frame.replace_all(&pattern, "(?P<frame>\\d+)");
     let pattern = matcher_clip.replace_all(&pattern, "(?P<clip>\\d+)");
+    Regex::new(&pattern).unwrap()
+}
+
+fn get_matcher_ignoring_extension(filename_pattern: &str) -> Regex {
+    let pattern = Path::new(filename_pattern)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(filename_pattern);
+    let mut pattern = format!("^{}(?:\\.[^.]*)?$", regex::escape(pattern));
+    let matcher_frame: Regex = Regex::new(r"(\\#)+").unwrap();
+    let matcher_clip: Regex = Regex::new(r"%+").unwrap();
+    pattern = matcher_frame
+        .replace_all(&pattern, "(?P<frame>\\d+)")
+        .to_string();
+    pattern = matcher_clip
+        .replace_all(&pattern, "(?P<clip>\\d+)")
+        .to_string();
     Regex::new(&pattern).unwrap()
 }
 
@@ -475,7 +482,8 @@ pub fn check_pattern(
     match PathBuf::from(&dir).exists() {
         false => result.output_dir_dne = true,
         true => {
-            let (max_clip, max_frame) = check_files(&dir, &pattern).unwrap();
+            let matcher = get_matcher_ignoring_extension(&pattern);
+            let (max_clip, max_frame) = check_files_with_matcher(&dir, matcher).unwrap();
             result.clip_id = (max_clip.max(0) + 1) as u32;
             result.first_safe_index = match clip_token.is_some() {
                 true => 1,
@@ -619,6 +627,9 @@ mod tests {
             fs::write(PATH.get().unwrap().join("clip_001_frame_0002.png"), "").unwrap();
             fs::write(PATH.get().unwrap().join("clip_002_frame_0001.png"), "").unwrap();
             fs::write(PATH.get().unwrap().join("image_003.png"), "").unwrap();
+            fs::write(PATH.get().unwrap().join("clip_01_img_000.jpg"), "").unwrap();
+            fs::write(PATH.get().unwrap().join("clip_02_img_000.txt"), "").unwrap();
+            fs::write(PATH.get().unwrap().join("clip_03_img_000.png"), "").unwrap();
             // this is to make sure patterns are being escaped
             fs::write(PATH.get().unwrap().join("image_004Xpng"), "").unwrap();
         });
@@ -699,6 +710,16 @@ mod tests {
         let result6 =
             check_pattern("clip_%%\\frame_###.png".to_string(), path.to_string(), 1).unwrap();
         assert!(!result6.valid);
+    }
+
+    #[test]
+    fn test_check_pattern_ignores_extension() {
+        initialize_files();
+        let path = PATH.get().unwrap().to_str().unwrap();
+        let result = check_pattern("clip_%%_img_###.png".to_string(), path.to_string(), 1).unwrap();
+
+        assert!(result.valid);
+        assert_eq!(result.clip_id, 4);
     }
 
     #[test]

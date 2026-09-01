@@ -1,34 +1,29 @@
-import os from "node:os"
+import { execFileSync } from "node:child_process"
 import path from "node:path"
 import fse from "fs-extra"
 import App from "../pageobjects/App"
 import DTProjects from "../pageobjects/DTProjects"
-import { getTestDataPath } from "./paths"
+import { getAppDataDir, getTestDataPath } from "./paths"
 
-export const ffmpegBinDir = path.join(
-    os.homedir(),
-    "Library",
-    "Application Support",
-    "com.kcjer.dtm",
-    "bin",
-)
-export const ffmpegTempDir = path.join(
-    os.homedir(),
-    "Library",
-    "Application Support",
-    "com.kcjer.dtm",
-    "temp",
-)
+export const ffmpegBinDir = path.join(getAppDataDir(), "bin")
+export const ffmpegTempDir = path.join(getAppDataDir(), "temp")
 export const ffmpegArchiveFixtureDir = getTestDataPath("ffmpeg")
 
-export const ffmpegPath = path.join(ffmpegBinDir, "ffmpeg")
-export const ffprobePath = path.join(ffmpegBinDir, "ffprobe")
+export const ffmpegPath =
+    process.platform === "linux"
+        ? process.env.DTM_FFMPEG_PATH || "ffmpeg"
+        : path.join(ffmpegBinDir, "ffmpeg")
+export const ffprobePath =
+    process.platform === "linux"
+        ? process.env.DTM_FFPROBE_PATH || "ffprobe"
+        : path.join(ffmpegBinDir, "ffprobe")
 
 /**
  * Copies the bundled ffmpeg/ffprobe .7z fixtures into the app's temp dir so the
  * install flow extracts them from disk instead of downloading them.
  */
 export async function stageFfmpegArchives() {
+    if (process.platform === "linux") return
     await fse.ensureDir(ffmpegTempDir)
     for (const archiveName of ["ffmpeg.7z", "ffprobe.7z"]) {
         const src = path.join(ffmpegArchiveFixtureDir, archiveName)
@@ -41,11 +36,21 @@ export async function stageFfmpegArchives() {
 
 /** Removes any installed ffmpeg/ffprobe binaries so the install flow runs fresh. */
 export async function removeFfmpegBinaries() {
+    if (process.platform === "linux") return
     await fse.remove(ffmpegBinDir)
 }
 
 /** True when both ffmpeg and ffprobe binaries exist in the app's bin dir. */
 export async function ffmpegInstalled() {
+    if (process.platform === "linux") {
+        try {
+            execFileSync(ffmpegPath, ["-version"], { stdio: "ignore", timeout: 5000 })
+            execFileSync(ffprobePath, ["-version"], { stdio: "ignore", timeout: 5000 })
+            return true
+        } catch {
+            return false
+        }
+    }
     return (await fse.pathExists(ffmpegPath)) && (await fse.pathExists(ffprobePath))
 }
 
