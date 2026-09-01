@@ -128,7 +128,7 @@ async fn fetch_image_file(url: String) -> TAResult<(Vec<u8>, String)> {
 fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
     match app.get_webview_window("dev") {
         Some(dev_window) => {
-            dev_window.close()?;
+            dev_window.close().into_ta_result()?;
         }
         None => {
             let dev_window = WebviewWindowBuilder::new(&app, "dev", WebviewUrl::App("#dev".into()))
@@ -137,10 +137,10 @@ fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
                 .min_inner_size(600.0, 400.0)
                 .visible(true)
                 .disable_drag_drop_handler()
-                .build()?;
+                .build().into_ta_result()?;
 
-            dev_window.show()?;
-            dev_window.set_focus()?;
+            dev_window.show().into_ta_result()?;
+            dev_window.set_focus().into_ta_result()?;
         }
     }
 
