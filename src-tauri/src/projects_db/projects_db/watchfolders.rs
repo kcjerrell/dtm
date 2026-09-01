@@ -35,11 +35,6 @@ impl ProjectsDb {
         Ok(model.into())
     }
 
-    pub async fn something(&self) -> anyhow::Result<()> {
-        self.remove_watch_folders(vec![1]).await.map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        Ok(())
-    }
-
     pub async fn remove_watch_folders(&self, ids: Vec<i64>) -> Result<(), MixedError> {
         if ids.is_empty() {
             return Ok(());

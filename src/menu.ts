@@ -9,6 +9,7 @@ import {
 } from "@tauri-apps/api/menu"
 import { open } from "@tauri-apps/plugin-dialog"
 import { exit } from "@tauri-apps/plugin-process"
+import { type as osType } from "@tauri-apps/plugin-os"
 import { toggleColorMode } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import { postMessage } from "./state/Messages"
@@ -21,6 +22,7 @@ const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
 let lastOpts: CreateOptionMenuOpts
 
 async function createAppMenus() {
+    const isMacOS = osType() === "macos"
     const aboutApp: AboutMetadata = {
         name: "DTM",
         version: await getVersion(),
@@ -57,42 +59,62 @@ async function createAppMenus() {
                 item: { About: aboutApp },
                 text: "About",
             }),
-            await MenuItem.new({
-                text: "Check for Updates...",
-                id: "about_checkForUpdates",
-                action: async () => {
-                    postMessage({
-                        channel: "toolbar",
-                        message: "Checking for updates...",
-                        uType: "update",
-                        duration: 3000,
-                    })
-                    await AppStore.checkForUpdate()
-                },
-            }),
+            ...(isMacOS
+                ? [
+                      await MenuItem.new({
+                          text: "Check for Updates...",
+                          id: "about_checkForUpdates",
+                          action: async () => {
+                              postMessage({
+                                  channel: "toolbar",
+                                  message: "Checking for updates...",
+                                  uType: "update",
+                                  duration: 3000,
+                              })
+                              await AppStore.checkForUpdate()
+                          },
+                      }),
+                  ]
+                : []),
             await Separator(),
-            await PredefinedMenuItem.new({
-                item: "Services",
-                text: "Services",
-            }),
+            ...(isMacOS
+                ? [
+                      await PredefinedMenuItem.new({
+                          item: "Services",
+                          text: "Services",
+                      }),
+                  ]
+                : []),
             await Separator(),
-            await PredefinedMenuItem.new({
-                item: "Hide",
-                text: "Hide DTM",
-            }),
-            await PredefinedMenuItem.new({
-                item: "HideOthers",
-                text: "Hide Others",
-            }),
-            await PredefinedMenuItem.new({
-                item: "ShowAll",
-                text: "Show All",
-            }),
+            ...(isMacOS
+                ? [
+                      await PredefinedMenuItem.new({
+                          item: "Hide",
+                          text: "Hide DTM",
+                      }),
+                  ]
+                : []),
+            ...(isMacOS
+                ? [
+                      await PredefinedMenuItem.new({
+                          item: "HideOthers",
+                          text: "Hide Others",
+                      }),
+                  ]
+                : []),
+            ...(isMacOS
+                ? [
+                      await PredefinedMenuItem.new({
+                          item: "ShowAll",
+                          text: "Show All",
+                      }),
+                  ]
+                : []),
             await Separator(),
             await MenuItem.new({
                 id: "dtm_quit",
                 text: "Quit DTM",
-                accelerator: "Command+Q",
+                accelerator: isMacOS ? "Command+Q" : "Ctrl+Q",
                 action: async () => {
                     await exit(0)
                 },
@@ -129,14 +151,18 @@ async function createAppMenus() {
                     if (item) addImageItem(item)
                 },
             }),
-            await MenuItem.new({
-                text: "Open from pasteboard...",
-                id: "file_openPasteboard",
-                action: async () => {
-                    const { loadImage2 } = await import("./metadata/state/imageLoaders")
-                    await loadImage2("general")
-                },
-            }),
+            ...(isMacOS
+                ? [
+                      await MenuItem.new({
+                          text: "Open from pasteboard...",
+                          id: "file_openPasteboard",
+                          action: async () => {
+                              const { loadImage2 } = await import("./metadata/state/imageLoaders")
+                              await loadImage2("general")
+                          },
+                      }),
+                  ]
+                : []),
             await Separator(),
             await MenuItem.new({
                 text: "Close",

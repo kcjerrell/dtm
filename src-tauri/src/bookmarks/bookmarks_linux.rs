@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::str::FromStr;
 
 use crate::dtp_service::AppHandleWrapper;
@@ -21,15 +21,21 @@ pub async fn pick_folder(
     default_path: Option<String>,
     _button_text: Option<String>,
 ) -> Result<Option<PickFolderResult>> {
-    let app = app.app_handle.clone().unwrap();
+    let app = app
+        .app_handle
+        .clone()
+        .context("application handle is unavailable while choosing a folder")?;
     let folder_override = match default_path {
-        Some(path) => match path.starts_with("TESTPATH::") {
-            true => {
-                let path = path.strip_prefix("TESTPATH::").unwrap();
-                Some(tauri_plugin_fs::FilePath::from_str(path).unwrap())
-            }
-            false => None,
-        },
+        Some(path) if path.starts_with("TESTPATH::") => {
+            let path = path
+                .strip_prefix("TESTPATH::")
+                .context("test folder path is missing its TESTPATH prefix")?;
+            Some(
+                tauri_plugin_fs::FilePath::from_str(path)
+                    .with_context(|| format!("invalid test folder path: {path}"))?,
+            )
+        }
+        Some(_) => None,
         None => None,
     };
 
@@ -57,9 +63,10 @@ pub async fn resolve_bookmark(bookmark: String) -> crate::TAResult<ResolveResult
 
 pub async fn resolve_bookmark_impl(bookmark: String) -> anyhow::Result<ResolveResult> {
     if bookmark.starts_with("TESTBOOKMARK::") {
-        return Ok(ResolveResult::Resolved(
-            bookmark.split("::").last().unwrap().to_string(),
-        ));
+        let path = bookmark
+            .strip_prefix("TESTBOOKMARK::")
+            .context("test bookmark is missing its TESTBOOKMARK prefix")?;
+        return Ok(ResolveResult::Resolved(path.to_string()));
     }
 
     // On Linux, the bookmark IS the path

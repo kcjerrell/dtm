@@ -73,7 +73,6 @@
         "/Volumes/**"
       ]
     },
-    "http:default",
     "opener:allow-open-path",
     "opener:allow-open-url",
     "opener:allow-default-urls",
@@ -96,7 +95,9 @@
       "identifier": "shell:allow-spawn"
     },
     "log:default",
-    "os:default"
+    "os:default",
+    "wdio-webdriver:default",
+    "wdio:default"
   ],
   "windows": [
     "main",

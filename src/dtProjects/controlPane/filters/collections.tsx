@@ -127,6 +127,7 @@ export const filterTargets = {
         initialValue: 3.5,
     } as FilterImplementation<number>,
     shift: { collection: numberOpsCollection, ValueComponent: FloatValueInput, initialValue: 3.12 },
+    strength: { collection: numberOpsCollection, ValueComponent: FloatValueInput, initialValue: 1.0 },
     none: {
         collection: createListCollection<CollectionItem>({ items: [] }),
         ValueComponent: (props: ValueSelectorProps<unknown>) => {

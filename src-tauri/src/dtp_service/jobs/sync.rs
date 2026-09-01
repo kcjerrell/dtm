@@ -18,15 +18,15 @@ impl SyncJob {
 #[async_trait::async_trait]
 impl Job for SyncJob {
     fn get_label(&self) -> String {
-        format!("SyncJob")
+        "SyncJob".to_string()
     }
-    fn start_event(self: &Self) -> Option<DTPEvent> {
+    fn start_event(&self) -> Option<DTPEvent> {
         Some(DTPEvent::SyncStarted)
     }
-    async fn on_complete(self: &Self, ctx: &JobContext) {
+    async fn on_complete(&self, ctx: &JobContext) {
         ctx.events.emit(DTPEvent::SyncComplete);
     }
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let folders = ctx
             .pdb
             .list_watch_folders()

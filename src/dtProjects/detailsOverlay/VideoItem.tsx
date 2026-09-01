@@ -23,7 +23,6 @@ function VideoItem(props: VideoItemProps) {
 
     return (
         <Grid
-            onClick={(e) => e.stopPropagation()}
             templateRows={"1fr auto auto"}
             // width={"100%"}
             // height={"100%"}
@@ -35,7 +34,7 @@ function VideoItem(props: VideoItemProps) {
                 <Extractor />
                 <VideoImage
                     clickToPause
-                    data-solid
+                    // data-solid
                     naturalSize={{ width: naturalWidth, height: naturalHeight }}
                     width={"100%"}
                     height={"100%"}

@@ -1,6 +1,5 @@
 use anyhow::{bail, Context, Result};
 use futures_util::StreamExt;
-use reqwest;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -62,14 +61,14 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<()> {
         .await
         .context("Failed to create bin dir")?;
 
-    let tasks = vec![
+    let tasks = [
         ("ffmpeg", FFMPEG_URL, FFMPEG_SHA256),
         ("ffprobe", FFPROBE_URL, FFPROBE_SHA256),
     ];
 
     let mut total_downloaded: u64 = 0;
     let mut task_sizes: Vec<Option<u64>> = vec![None; tasks.len()];
-    let client = reqwest::Client::new();
+    let client = ::reqwest::Client::new();
 
     for (i, (name, url, sha256)) in tasks.iter().enumerate() {
         let archive_path = temp_dir.join(format!("{}.7z", name));
@@ -87,8 +86,8 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<()> {
             task_sizes[i] = content_length;
 
             let mut stream = res.bytes_stream();
-            let mut file = std::fs::File::create(&archive_path)
-                .context("Failed to create archive file")?;
+            let mut file =
+                std::fs::File::create(&archive_path).context("Failed to create archive file")?;
 
             let mut last_emit = std::time::Instant::now();
             let emit_interval = std::time::Duration::from_millis(200);
@@ -244,7 +243,7 @@ fn sha256_file(path: &Path) -> Result<String, std::io::Error> {
     }
 
     let hash = hasher.finalize();
-    Ok(encode(&hash))
+    Ok(encode(hash))
 }
 
 fn verify_checksum(path: &Path, expected: &str) -> Result<bool, std::io::Error> {

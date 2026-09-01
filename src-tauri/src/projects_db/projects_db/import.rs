@@ -1,15 +1,11 @@
-use crate::projects_db::{
-    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
-    dtos::image::ListImagesOptions,
-    search::process_prompt,
-    DTProject,
-};
-use entity::{
-    enums::{ModelType, Sampler},
-    images,
-};
+use crate::dt_project::{TensorHistoryNode, ThnData, ThnFilter};
+use crate::projects_db::{dtos::image::ListImagesOptions, search::process_prompt, DtProjectRef};
+use crate::util::DebounceTask;
+use anyhow::Context;
+use entity::{enums::ModelType, images};
 use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};
@@ -23,20 +19,30 @@ pub struct NodeModelWeight {
 }
 
 impl ProjectsDb {
-    pub async fn scan_project(&self, id: i64, full_scan: bool) -> Result<(i64, u64), MixedError> {
-        let project = self.get_project(id).await?;
+    pub async fn scan_project(&self, id: i64, full_scan: bool) -> anyhow::Result<(i64, u64)> {
+        let project = self
+            .get_project(id)
+            .await
+            .with_context(|| format!("failed to load project metadata for project {id}"))?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
 
-        let dt_project = DTProject::open(&project.full_path).await?;
-        let dt_project_info = dt_project.get_info().await?;
+        let project_ref = DtProjectRef::Id(id);
+        let dt_project = project_ref
+            .open_project()
+            .await
+            .with_context(|| format!("failed to open project database for project {id}"))?;
+        let dt_project_info = dt_project
+            .get_info()
+            .await
+            .with_context(|| format!("failed to get project info for project {id}"))?;
         let end = dt_project_info.history_max_id;
 
         let start = match full_scan {
             true => 0,
-            false => project.last_id.or(Some(-1)).unwrap(),
+            false => project.last_id.unwrap_or(0),
         };
 
         for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
@@ -48,7 +54,13 @@ impl ProjectsDb {
                     )),
                     Some(ThnData::tensordata().and_legacy_prompts().and_clip()),
                 )
-                .await?;
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to load tensor history range {batch_start}..{} for project {id}",
+                        batch_start + SCAN_BATCH_SIZE as i64
+                    )
+                })?;
 
             let histories_filtered: Vec<TensorHistoryNode> = histories
                 .into_iter()
@@ -58,10 +70,12 @@ impl ProjectsDb {
                 })
                 .collect();
 
-            // currently unused, but allows for storing previews in the db
-            let preview_thumbs = HashMap::new();
+            let preview_thumbs = HashMap::default();
 
-            let models_lookup = self.process_models(&histories_filtered).await?;
+            let models_lookup = self
+                .process_models(&histories_filtered)
+                .await
+                .with_context(|| format!("failed to process models during scan of project {id}"))?;
 
             let (images, batch_image_loras, batch_image_controls) = self.prepare_image_data(
                 project.id,
@@ -81,7 +95,8 @@ impl ProjectsDb {
                         .to_owned(),
                     )
                     .exec_with_returning(&self.db)
-                    .await?
+                    .await
+                    .with_context(|| format!("failed to insert scanned images for project {id}"))?
             } else {
                 vec![]
             };
@@ -96,7 +111,8 @@ impl ProjectsDb {
                 batch_image_loras,
                 batch_image_controls,
             )
-            .await?;
+            .await
+            .with_context(|| format!("failed to insert image loras/controls for project {id}"))?;
         }
 
         let total = self
@@ -105,15 +121,21 @@ impl ProjectsDb {
                 take: Some(0),
                 ..Default::default()
             })
-            .await?;
+            .await
+            .with_context(|| format!("failed to query total images count for project {id}"))?;
 
-        self.rebuild_images_fts().await?;
+        // self.rebuild_images_fts()
+        //     .await
+        //     .with_context(|| format!("failed to rebuild FTS index after scanning project {id}"))?;
+
+        self.rebuild_images_fts();
 
         match total.images {
             Some(_) => Ok((project.id, total.total)),
             None => Err(MixedError::Other(
                 "Unexpected result: list_images returned no images".to_string(),
-            )),
+            )
+            .into()),
         }
     }
 
@@ -123,7 +145,7 @@ impl ProjectsDb {
         project_id: i64,
         histories: &[TensorHistoryNode],
         models_lookup: &HashMap<ModelTypeAndFile, i64>,
-        preview_thumbs: HashMap<i64, Vec<u8>>,
+        _preview_thumbs: HashMap<i64, Vec<u8>>,
     ) -> (
         Vec<images::ActiveModel>,
         Vec<NodeModelWeight>,
@@ -140,7 +162,7 @@ impl ProjectsDb {
                 let clip_id = fb.clip_id();
 
                 // currently unused
-                let preview_thumb = preview_thumbs.get(&preview_id).cloned();
+                let preview_thumb = None;
 
                 let mut has_mask = false;
                 let mut has_depth = false;
@@ -193,7 +215,7 @@ impl ProjectsDb {
                     }
                 }
 
-                if h.moodboard.as_ref().is_some_and(|mb| mb.len() > 0) {
+                if h.moodboard.as_ref().is_some_and(|mb| !mb.is_empty()) {
                     has_shuffle = true;
                 }
 
@@ -238,7 +260,6 @@ impl ProjectsDb {
                             (wc % 1_000_000) as u32 * 1000,
                         )
                         .unwrap_or_default()
-                        .into()
                     }),
                     has_mask: Set(has_mask),
                     has_depth: Set(has_depth),
@@ -319,7 +340,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     lora_id: Set(lora.model_id),
                     weight: Set(lora.weight),
-                    ..Default::default()
                 });
             }
         }
@@ -345,7 +365,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     control_id: Set(control.model_id),
                     weight: Set(control.weight),
-                    ..Default::default()
                 });
             }
         }
@@ -367,11 +386,24 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub async fn rebuild_images_fts(&self) -> Result<(), MixedError> {
-        self.db
-            .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
-            .await?;
+    pub fn rebuild_images_fts(&self) {
+        let debouncer = self.rebuild_debounce.get_or_init(|| {
+            Arc::new(DebounceTask::new(2000, async || {
+                let result: anyhow::Result<()> = async {
+                    let pdb = ProjectsDb::get().await?;
+                    pdb.db
+                        .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
+                        .await?;
+                    Ok(())
+                }
+                .await;
 
-        Ok(())
+                if let Err(e) = result {
+                    log::error!("Could not rebuild FTS: {}", e);
+                }
+            }))
+        });
+
+        debouncer.call();
     }
 }

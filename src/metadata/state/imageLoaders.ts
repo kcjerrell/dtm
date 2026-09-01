@@ -123,15 +123,15 @@ async function* loadItems(
 
             // Special handling for bulk file loading
             if (uti === "NSFilenamesPboardType" && result.urls) {
-                // const items = await settledValues(
-                //     result.urls.map((f) => createMediaItem(f, { ...utiSource, file: f })),
-                // )
                 const items = [] as MediaItem[]
                 for (const url of result.urls) {
                     console.debug("trying url", url)
                     const item = await createMediaItem(url, { ...utiSource, url })
                     console.debug("item for", url, item)
-                    if (item) items.push(item)
+                    if (item) {
+                        await item.hasMetadata()
+                        items.push(item)
+                    }
                 }
                 yield items
                 return

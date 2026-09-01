@@ -190,7 +190,7 @@ export function makeSelectable<T extends object>(
             p.setSelected(!p._selected)
         },
         onClick(e?: React.MouseEvent) {
-            const modifier = e?.metaKey ? "cmd" : e?.shiftKey ? "shift" : undefined
+            const modifier = e && hasPrimaryModifier(e) ? "cmd" : e?.shiftKey ? "shift" : undefined
             onClick(p, p._selected, modifier)
         },
     })
@@ -204,6 +204,10 @@ export function makeSelectableList<T extends object>(items: T[]): Selectable<T>[
 
 function getModifier(e: React.MouseEvent) {
     if (e.shiftKey) return "shift"
-    if (e.metaKey) return "cmd"
+    if (hasPrimaryModifier(e)) return "cmd"
     return null
+}
+
+function hasPrimaryModifier(e: Pick<React.MouseEvent, "metaKey" | "ctrlKey">) {
+    return navigator.platform.toLowerCase().includes("mac") ? e.metaKey : e.ctrlKey
 }
