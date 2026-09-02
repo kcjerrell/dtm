@@ -171,4 +171,4 @@ Some terms and background...
 - DTM only indexes and displays nodes that are gens, however one of its goals is to (accurately) provide and display all inputs into that gen, which includes any input image - the image that was on the canvas when the new node was created
 - **Active node** - at any given time in the DT app, a single history node is selected or active
 
-- **Parent** or **predecessor** - The 
+- **Parent** or **predecessor** - This is the node that was active when a new node was added. In many cases, it is not actually relevant. For example if a gen does not use an edit model and uses 100% strength, the image that was on the canvas has no affect on the generated image. Regardless, DTM attempts to determine what this image is so the user can view it.
