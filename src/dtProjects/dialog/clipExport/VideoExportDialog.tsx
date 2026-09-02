@@ -321,7 +321,8 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
             </PanelSection>
 
             <ffmpeg.FfmpegComponent>
-                FFMPEG must be downloaded before video can be exported.
+                FFmpeg and FFprobe must be available before video can be exported. On Linux, install
+                the system ffmpeg package.
             </ffmpeg.FfmpegComponent>
 
             {(isExporting ||

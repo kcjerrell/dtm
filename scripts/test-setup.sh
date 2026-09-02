@@ -26,12 +26,18 @@ unzip -o "$CACHE_DIR/test_data_v3.zip" -d .
 
 mkdir -p test_data/temp
 
-# Preload ffmpeg archives used by the in-app installer so tests can seed app_data/temp
-# instead of waiting on network every run.
-FFMPEG_CACHE_DIR="test_data/ffmpeg"
-mkdir -p "$FFMPEG_CACHE_DIR"
-
-fetch "https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z" "$CACHE_DIR/ffmpeg-8.0.1.7z"
-fetch "https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z" "$CACHE_DIR/ffprobe-8.0.1.7z"
-cp "$CACHE_DIR/ffmpeg-8.0.1.7z" "$FFMPEG_CACHE_DIR/ffmpeg.7z"
-cp "$CACHE_DIR/ffprobe-8.0.1.7z" "$FFMPEG_CACHE_DIR/ffprobe.7z"
+if [[ "$(uname -s)" == Darwin ]]; then
+  # Preload archives used by the macOS in-app installer. Linux always uses the
+  # validated system package and must never stage these macOS binaries.
+  FFMPEG_CACHE_DIR="test_data/ffmpeg"
+  mkdir -p "$FFMPEG_CACHE_DIR"
+  fetch "https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z" "$CACHE_DIR/ffmpeg-8.0.1.7z"
+  fetch "https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z" "$CACHE_DIR/ffprobe-8.0.1.7z"
+  cp "$CACHE_DIR/ffmpeg-8.0.1.7z" "$FFMPEG_CACHE_DIR/ffmpeg.7z"
+  cp "$CACHE_DIR/ffprobe-8.0.1.7z" "$FFMPEG_CACHE_DIR/ffprobe.7z"
+elif [[ "$(uname -s)" == Linux ]]; then
+  command -v ffmpeg >/dev/null || { echo "error: install ffmpeg with: sudo apt install ffmpeg" >&2; exit 1; }
+  command -v ffprobe >/dev/null || { echo "error: install ffprobe with: sudo apt install ffmpeg" >&2; exit 1; }
+  ffmpeg -version >/dev/null
+  ffprobe -version >/dev/null
+fi

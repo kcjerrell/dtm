@@ -38,7 +38,8 @@ function Details(props: DetailsProps) {
             {imageSnap?.isVideo && (
                 <>
                     <ffmpeg.FfmpegComponent>
-                        FFMPEG must be downloaded to load video metadata.
+                        FFmpeg and FFprobe must be available to load video metadata. On Linux,
+                        install the system ffmpeg package.
                     </ffmpeg.FfmpegComponent>
                     {ffmpeg.isReady && (imageSnap as VideoItem)?.metadataStatus === "pending" && (
                         <HStack justifyContent={"center"} alignItems={"center"} width={"full"}>

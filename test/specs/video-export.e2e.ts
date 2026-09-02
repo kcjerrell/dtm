@@ -72,6 +72,10 @@ describe("Video Export", () => {
     // Runs first and isolates the (sometimes flaky) ffmpeg install into its own
     // test. The remaining tests assume ffmpeg is installed via ensureFfmpeg().
     it("installs ffmpeg", async () => {
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
         // ensure ffmpeg has been deleted by removing the bin folder in the appdatadir
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
@@ -104,7 +108,9 @@ describe("Video Export", () => {
 
         await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
         await expect($("body")).toHaveText(
-            expect.stringContaining("FFMPEG must be downloaded before video can be exported"),
+            expect.stringContaining(
+                "FFmpeg and FFprobe must be available before video can be exported",
+            ),
         )
         const exportButton = $("aria/Export video")
         await expect(exportButton).toBeDisabled()

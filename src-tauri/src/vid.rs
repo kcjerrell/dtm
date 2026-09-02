@@ -7,34 +7,20 @@ use tokio::process::Command;
 
 #[tauri::command]
 pub async fn get_video_metadata(app: AppHandle, path: String) -> TAResult<String> {
-    let ffmpeg_path = get_ffmpeg_path(&app).await?;
     let ffprobe_path = get_ffprobe_path(&app).await?;
 
-    let (cmd, args) = if ffprobe_path.exists() {
-        (
-            ffprobe_path,
-            vec![
-                "-v".to_string(),
-                "quiet".to_string(),
-                "-print_format".to_string(),
-                "json".to_string(),
-                "-show_format".to_string(),
-                "-show_streams".to_string(),
-                path,
-            ],
-        )
-    } else {
-        (
-            ffmpeg_path,
-            vec![
-                "-i".to_string(),
-                path,
-                "-f".to_string(),
-                "ffmetadata".to_string(),
-                "-".to_string(),
-            ],
-        )
-    };
+    let (cmd, args) = (
+        ffprobe_path,
+        vec![
+            "-v".to_string(),
+            "quiet".to_string(),
+            "-print_format".to_string(),
+            "json".to_string(),
+            "-show_format".to_string(),
+            "-show_streams".to_string(),
+            path,
+        ],
+    );
 
     let output = Command::new(cmd)
         .args(args)

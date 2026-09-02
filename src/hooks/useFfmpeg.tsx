@@ -15,6 +15,7 @@ type FfmpegProgress = {
 }
 
 export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
+    const usesSystemTools = navigator.userAgent.includes("Linux")
     const { state, snap } = useProxyRef(() => ({
         showComponent: false,
         status: "unknown" as FfmpegStatus,
@@ -48,7 +49,7 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
         })
         state.status = "installing"
         try {
-            state.progressText = "Downloading..."
+            state.progressText = usesSystemTools ? "Checking system tools..." : "Downloading..."
             await ffmpegDownload()
             state.status = "installed"
             onComplete?.()
@@ -82,11 +83,11 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
                     >
                         {
                             {
-                                "not-installed": "Install",
-                                installing: "Installing...",
+                                "not-installed": usesSystemTools ? "Check again" : "Install",
+                                installing: usesSystemTools ? "Checking..." : "Installing...",
                                 installed: "Done!",
                                 error: "Retry",
-                                unknown: "Install",
+                                unknown: usesSystemTools ? "Check again" : "Install",
                             }[snap.status]
                         }
                     </PanelButton>

@@ -149,13 +149,9 @@ pub async fn create_video_from_frames(
     // -------------------------------------------------
     // Prepare temp dir
     // -------------------------------------------------
-    let app_data_dir = app.path().app_data_dir().unwrap();
-    let ffmpeg_path = app_data_dir.join("bin").join("ffmpeg");
+    let app_data_dir = app.path().app_data_dir().into_ta_result()?;
+    let ffmpeg_path = crate::ffmpeg::get_ffmpeg_path(&app).await?;
     let temp_dir = app_data_dir.join("temp_video_frames");
-
-    if !ffmpeg_path.exists() {
-        return Err(anyhow::anyhow!("ffmpeg not found").into());
-    }
 
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).map_err(anyhow::Error::msg)?;

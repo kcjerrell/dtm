@@ -215,6 +215,10 @@ describe("Metadata", () => {
     // into its own test. The video metadata test below assumes ffmpeg is present
     // via ensureFfmpeg().
     it("installs ffmpeg from the metadata panel", async () => {
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
         await ensureMetadataVideoFixture()
         const videoPath = videoFixturePath
         if (!(await fse.pathExists(videoPath))) {
