@@ -2,8 +2,8 @@
 # Prepare a supported Ubuntu 24.04 x86_64 or ARM64 development host.
 set -euo pipefail
 
-if ! grep -q '^VERSION_ID="22.04"$' /etc/os-release; then
-  echo "error: this bootstrap supports Ubuntu 22.04 only" >&2
+if ! grep -q '^VERSION_ID="24.04"$' /etc/os-release; then
+  echo "error: this bootstrap supports Ubuntu 24.04 only" >&2
   exit 1
 fi
 
