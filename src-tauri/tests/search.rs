@@ -13,16 +13,19 @@ mod tests {
     ) {
         // `connect` queues an initial sync. Let it finish before adding a folder,
         // otherwise the two syncs can import the fixture concurrently.
-        event_helper.assert_count("sync_complete", 1).await;
+        assert!(event_helper.wait_for_count("sync_complete", 1).await);
         event_helper.reset_counts();
 
         wfh.copy_all();
         dtps.add_watchfolder(wfh.watchfolder_path.clone(), wfh.bookmark.clone())
             .await
             .unwrap();
-        event_helper
-            .assert_count("project_sync_complete", wfh.get_count())
-            .await;
+        assert!(
+            event_helper
+                .wait_for_count("project_sync_complete", wfh.get_count())
+                .await
+        );
+        dtps.get_db().await.unwrap().rebuild_images_fts().await.unwrap();
     }
 
     #[tokio::test]
@@ -54,12 +57,14 @@ mod tests {
         );
 
         let first_prompt = &all_images[0].prompt;
-        let mut words = first_prompt.split_whitespace();
+        let mut words = first_prompt.split_whitespace().filter(|w| w.len() > 4);
         let first_word = words
             .next()
             .unwrap()
             .trim_matches(|c: char| !c.is_alphanumeric());
         let phrase = format!("\"{} {}\"", first_word, words.next().unwrap());
+
+        println!("Searching for {}", first_word);
 
         let simple = dtps
             .list_images(

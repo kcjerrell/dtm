@@ -154,7 +154,7 @@ impl Job for UpdateProjectJob {
             .pdb
             .scan_project(self.project_id, false)
             .await
-            .map_err(|e| e.to_string());
+            .map_err(|e| format!("{e:#}"));
 
         if self.check_deletions {
             check_deletions(ctx, self.project_id, &self.project_path)

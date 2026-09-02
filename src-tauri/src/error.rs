@@ -33,7 +33,7 @@ impl From<anyhow::Error> for TACommandError {
 /// Use this as your command's return type.
 ///
 /// Example usage:
-/// ```
+/// ```text
 /// #[tauri::command]
 /// fn test() -> anyhow_tauri::TAResult<String> {
 ///     Ok("No error thrown.".into())
@@ -55,7 +55,7 @@ where
     /// This is a "quality of life" improvement.
     ///
     /// Example usage:
-    /// ```
+    /// ```text
     /// #[tauri::command]
     /// fn test_into_ta_result() -> anyhow_tauri::TAResult<String> {
     ///     function_that_succeeds().into_ta_result()
@@ -72,7 +72,7 @@ impl<T> IntoTAResult<T> for anyhow::Error {
     /// This is a "quality of life" improvement.
     ///
     /// Example usage:
-    /// ```
+    /// ```text
     /// #[tauri::command]
     /// fn test_into_ta_result() -> anyhow_tauri::TAResult<String> {
     ///     function_that_succeeds().into_ta_result()
@@ -89,7 +89,7 @@ pub trait IntoEmptyTAResult<T> {
     /// Usefull whenever you want to create `Result<(), TACommandError>` (or `TAResult<()>`)
     ///
     /// Example usage:
-    /// ```
+    /// ```text
     /// #[tauri::command]
     /// fn test_into_ta_empty_result() -> anyhow_tauri::TAResult<()> {
     ///     anyhow::anyhow!("Showcase of the .into_ta_empty_result()").into_ta_empty_result()
@@ -106,7 +106,7 @@ impl IntoEmptyTAResult<()> for anyhow::Error {
 /// Mirrors the `anyhow::bail!` implementation, but calls `.into_ta_result()` afterwards.
 ///
 /// Example usage:
-/// ```
+/// ```text
 /// #[tauri::command]
 /// fn test_bail() -> anyhow_tauri::TAResult<String> {
 ///     anyhow_tauri::bail!("Showcase of the .bail!()")
@@ -128,7 +128,7 @@ macro_rules! bail {
 /// Mirrors the `anyhow::ensure!` implementation, but calls `.into_ta_result()` afterwards.
 ///
 /// Example usage:
-/// ```
+/// ```text
 /// #[tauri::command]
 /// fn test_ensure() -> anyhow_tauri::TAResult<String> {
 ///     anyhow_tauri::ensure!(1 == 2); // this should throw

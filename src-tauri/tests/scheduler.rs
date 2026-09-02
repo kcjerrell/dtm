@@ -19,8 +19,8 @@ mod tests {
 
         // it can add and run jobs
         dtp.add_job(TestJob::new(1, 100));
-        event_helper.assert_count("test_event_start", 1).await;
-        event_helper.assert_count("test_event_complete", 1).await;
+        assert!(event_helper.wait_for_count("test_event_start", 1).await);
+        assert!(event_helper.wait_for_count("test_event_complete", 1).await);
 
         // it can add and run concurrent jobs
         // the assumes concurrent threads are 4
@@ -30,9 +30,9 @@ mod tests {
         dtp.add_job(TestJob::new(3, 500));
         dtp.add_job(TestJob::new(4, 500));
         dtp.add_job(TestJob::new(5, 500));
-        event_helper.assert_count("test_event_start", 4).await;
-        event_helper.assert_count("test_event_complete", 0).await;
-        event_helper.assert_count("test_event_complete", 4).await;
+        assert!(event_helper.wait_for_count("test_event_start", 4).await);
+        assert!(event_helper.wait_for_count("test_event_complete", 0).await);
+        assert!(event_helper.wait_for_count("test_event_complete", 4).await);
         let duration = start_time.elapsed();
         assert!(duration < std::time::Duration::from_millis(1000));
 
@@ -43,8 +43,8 @@ mod tests {
             TestJob::new(6, 500)
                 .with_subtask(TestJob::new(7, 500).with_subtask(TestJob::new(8, 500))),
         );
-        event_helper.assert_count("test_event_start", 3).await;
-        event_helper.assert_count("test_event_complete", 3).await;
+        assert!(event_helper.wait_for_count("test_event_start", 3).await);
+        assert!(event_helper.wait_for_count("test_event_complete", 3).await);
         assert!(start_time.elapsed() >= std::time::Duration::from_millis(1500));
 
         dtp.stop().await;
@@ -65,8 +65,8 @@ mod tests {
         // it can add and run jobs with failure
         event_helper.reset_counts();
         scheduler.add_job(TestJob::new(1, 500).with_fail());
-        event_helper.assert_count("test_event_start", 1).await;
-        event_helper.assert_count("test_event_failed", 1).await;
+        assert!(event_helper.wait_for_count("test_event_start", 1).await);
+        assert!(event_helper.wait_for_count("test_event_failed", 1).await);
 
         dtp_service.stop().await;
     }
@@ -86,14 +86,14 @@ mod tests {
         // it returns Ok only after the job has actually completed
         let result = scheduler.add_job_front_and_wait(TestJob::new(1, 100)).await;
         assert!(result.is_ok());
-        event_helper.assert_count("test_event_complete", 1).await;
+        assert!(event_helper.wait_for_count("test_event_complete", 1).await);
 
         // it surfaces the job's failure to the caller
         let result = scheduler
             .add_job_front_and_wait(TestJob::new(2, 50).with_fail())
             .await;
         assert_eq!(result, Err("TestJob failed".to_string()));
-        event_helper.assert_count("test_event_failed", 1).await;
+        assert!(event_helper.wait_for_count("test_event_failed", 1).await);
 
         // it waits for all subtasks to finish before returning
         event_helper.reset_counts();
@@ -103,7 +103,7 @@ mod tests {
             .await
             .unwrap();
         assert!(start.elapsed() >= std::time::Duration::from_millis(400));
-        event_helper.assert_count("test_event_complete", 2).await;
+        assert!(event_helper.wait_for_count("test_event_complete", 2).await);
 
         dtp.stop().await;
     }

@@ -29,7 +29,7 @@ impl ProjectsDb {
             return Ok((project.id, 0));
         }
 
-        let project_ref = DtProjectRef::Id(id);
+        let project_ref = DtProjectRef::Path(project.full_path.clone());
         let dt_project = project_ref
             .open_project()
             .await
@@ -128,7 +128,7 @@ impl ProjectsDb {
         //     .await
         //     .with_context(|| format!("failed to rebuild FTS index after scanning project {id}"))?;
 
-        self.rebuild_images_fts();
+        self.rebuild_images_fts_debounced();
 
         match total.images {
             Some(_) => Ok((project.id, total.total)),
@@ -386,20 +386,23 @@ impl ProjectsDb {
         Ok(())
     }
 
-    pub fn rebuild_images_fts(&self) {
-        let debouncer = self.rebuild_debounce.get_or_init(|| {
-            Arc::new(DebounceTask::new(2000, async || {
-                let result: anyhow::Result<()> = async {
-                    let pdb = ProjectsDb::get().await?;
-                    pdb.db
-                        .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
-                        .await?;
-                    Ok(())
-                }
-                .await;
+    /// Rebuilding the fts index is slow - prefer rebuild_images_fts_debounced()
+    pub async fn rebuild_images_fts(&self) -> anyhow::Result<()> {
+        self.db
+            .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
+            .await?;
+        Ok(())
+    }
 
-                if let Err(e) = result {
-                    log::error!("Could not rebuild FTS: {}", e);
+    pub fn rebuild_images_fts_debounced(&self) {
+        let projects_db = self.clone();
+        let debouncer = self.rebuild_debounce.get_or_init(|| {
+            Arc::new(DebounceTask::new(2000, move || {
+                let projects_db = projects_db.clone();
+                async move {
+                    if let Err(e) = projects_db.rebuild_images_fts().await {
+                        log::error!("Could not rebuild FTS: {}", e);
+                    }
                 }
             }))
         });
