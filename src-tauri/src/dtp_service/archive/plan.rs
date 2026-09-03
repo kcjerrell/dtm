@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Debug, Serialize)]
-pub struct DtArchivePlan {
+pub(crate) struct DtArchivePlan {
     /// Project path
     pub project_path: PathBuf,
 
@@ -45,7 +45,7 @@ pub struct DtArchivePlan {
 }
 
 #[derive(Debug, Serialize)]
-pub struct DtArchivePlanItem {
+pub(crate) struct DtArchivePlanItem {
     pub name: String,
     pub node_id: Option<i64>,
     pub preview_id: Option<i64>,

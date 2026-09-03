@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use s_zip::AsyncStreamingZipReader;
 use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 
-pub struct DTZip {
+pub(crate) struct DTZip {
     pub archive_path: String,
     pub db_path: String,
     reader: Mutex<AsyncStreamingZipReader>,

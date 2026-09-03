@@ -19,7 +19,7 @@ use crate::{
 use super::DtArchivePlanItem;
 
 #[derive(Debug)]
-pub struct CopyTensorItem {
+pub(crate) struct CopyTensorItem {
     pub name: String,
     pub node_id: Option<i64>,
     pub preview_id: Option<i64>,

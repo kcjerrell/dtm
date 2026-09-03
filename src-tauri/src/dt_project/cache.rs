@@ -1,4 +1,4 @@
-use crate::projects_db::archive::DTZip;
+use crate::dtp_service::archive::DTZip;
 use anyhow::Context;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -86,7 +86,7 @@ impl DTProject {
         Ok(dt_project)
     }
 
-    pub async fn open_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<DTProject> {
+    pub(crate) async fn open_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<DTProject> {
         let db_path = dt_zip.db_path.clone();
         DTProject::new(&db_path, false, Some(dt_zip))
             .await
@@ -103,7 +103,7 @@ impl DTProject {
         Self::get_internal(path, None).await
     }
 
-    pub async fn get_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<Arc<DTProject>> {
+    pub(crate) async fn get_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<Arc<DTProject>> {
         Self::get_internal(&dt_zip.db_path.to_owned(), Some(dt_zip)).await
     }
 

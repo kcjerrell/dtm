@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::Serialize;
 use strum::EnumIs;
 
-use crate::projects_db::archive::DTZip;
+use crate::dtp_service::archive::DTZip;
 use crate::projects_db::extract_jpeg_slice;
 
 #[derive(Debug, Serialize, Clone, EnumIs)]
@@ -27,7 +27,7 @@ impl DTResource {
         DTResource::JpgInFbs(JpgWithHeader(data))
     }
 
-    pub fn dt_zip_ref(data: Vec<u8>, dt_zip: &DTZip) -> Result<DTResource> {
+    pub(crate) fn dt_zip_ref(data: Vec<u8>, dt_zip: &DTZip) -> Result<DTResource> {
         let rel_path = String::from_utf8(data)?;
         let archive_path = dt_zip.archive_path.clone();
         Ok(DTResource::DTZipRef(DTZipRef {

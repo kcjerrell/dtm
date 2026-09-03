@@ -118,7 +118,7 @@ pub async fn copy_tensors(
 }
 
 #[async_trait::async_trait]
-pub trait Worker {
+pub(crate) trait Worker {
     type Item: Send + Sync + 'static;
     async fn start(
         &self,

@@ -7,7 +7,7 @@ use tokio::fs;
 
 use crate::{dtp_service::AppHandleWrapper, projects_db::DtProjectRef};
 
-use super::{copy_tensors, DtArchivePlan, CopyTensorItem};
+use super::{copy_tensors, CopyTensorItem, DtArchivePlan};
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
     "", "__f22", "__f24", "__f48", "__f60", "__f62", "__f66", "__f70", "__f86",

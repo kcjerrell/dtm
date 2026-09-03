@@ -1,3 +1,4 @@
+pub(crate) mod archive;
 pub mod events;
 mod helpers;
 mod scheduler;

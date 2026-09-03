@@ -1,7 +1,7 @@
 use crate::{
     dt_project::history_solver::HistorySolver,
+    dtp_service::archive::DTZip,
     projects_db::{
-        archive::DTZip,
         dtos::{project::DTProjectInfo, text::TextHistoryNode},
         PromptPair, TextHistory,
     },
@@ -30,7 +30,7 @@ pub struct DTProject {
     pub tables: Arc<OnceCell<DTProjectTableStatus>>,
     pub is_shared: bool,
     pub allow_mutate: bool,
-    pub dt_zip: Option<Arc<DTZip>>,
+    pub(crate) dt_zip: Option<Arc<DTZip>>,
 }
 
 #[derive(Debug, Serialize, Copy, Clone)]

@@ -11,6 +11,7 @@ use tauri::{ipc::Channel, State};
 use tokio::sync::{OnceCell, RwLock};
 
 use crate::{
+    dtp_service::archive::DTZipCache,
     dtp_service::{
         events::{self, DTPEvent},
         jobs::{FetchModels, Job, JobContext, ProjectSync, SyncJob, UpdateProjectJob},
@@ -18,7 +19,7 @@ use crate::{
         watch::WatchService,
         AppHandleWrapper,
     },
-    projects_db::{self, archive::DTZipCache, get_last_row, DtmProtocol, ProjectsDb},
+    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
     IntoTAResult,
 };
 

@@ -11,7 +11,7 @@ use super::DTZip;
 
 static DT_ZIP_CACHE: OnceCell<DTZipCache> = OnceCell::const_new();
 
-pub struct DTZipCache {
+pub(crate) struct DTZipCache {
     cache: Arc<DashMap<String, Arc<OnceCell<Arc<DTZip>>>>>,
     temp_dir: PathBuf,
 }
