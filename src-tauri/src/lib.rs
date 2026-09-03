@@ -1,6 +1,8 @@
 #![recursion_limit = "256"]
 
-use tauri::{http, Manager, TitleBarStyle};
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
+use tauri::{http, Manager};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::log::LevelFilter;
 #[cfg(target_os = "macos")]
@@ -126,7 +128,7 @@ async fn fetch_image_file(url: String) -> TAResult<(Vec<u8>, String)> {
 fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
     match app.get_webview_window("dev") {
         Some(dev_window) => {
-            dev_window.close().unwrap();
+            dev_window.close().into_ta_result()?;
         }
         None => {
             let dev_window = WebviewWindowBuilder::new(&app, "dev", WebviewUrl::App("#dev".into()))
@@ -135,11 +137,10 @@ fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
                 .min_inner_size(600.0, 400.0)
                 .visible(true)
                 .disable_drag_drop_handler()
-                .build()
-                .unwrap();
+                .build().into_ta_result()?;
 
-            dev_window.show().unwrap();
-            dev_window.set_focus().unwrap();
+            dev_window.show().into_ta_result()?;
+            dev_window.set_focus().into_ta_result()?;
         }
     }
 
@@ -315,7 +316,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let dtp_service = app_handle.state::<dtp_service::DTPService>();
                 let dtm_protocol = dtp_service.dtm_protocol().await;
-                if request.uri().host().unwrap() == "dtproject" {
+                if request.uri().host() == Some("dtproject") {
                     dtm_protocol
                         .dtm_dtproject_protocol(request, responder)
                         .await;
@@ -325,7 +326,7 @@ pub fn run() {
                             .status(http::StatusCode::BAD_REQUEST)
                             .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
                             .body("failed to read file".as_bytes().to_vec())
-                            .unwrap(),
+                            .unwrap_or_else(|_| http::Response::new(Vec::new())),
                     );
                 }
             });
@@ -334,7 +335,9 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
-            let _ = tauri::async_runtime::block_on(run_migrations(app.handle().clone()));
+            tauri::async_runtime::block_on(run_migrations(app.handle().clone())).map_err(
+                |error| format!("failed to migrate the application database: {error:#}"),
+            )?;
 
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
@@ -349,7 +352,9 @@ pub fn run() {
                 .hidden_title(true)
                 .title_bar_style(TitleBarStyle::Overlay);
 
-            let _window = win_builder.build().unwrap();
+            let _window = win_builder.build()?;
+
+            log::info!("DTM main window created successfully");
 
             let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
             let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());

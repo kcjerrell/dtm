@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use entity::watch_folders::{Column, Entity as WatchFolders};
+use migration::{Migrator, MigratorTrait};
 use sea_orm::{Database, EntityTrait, ExprTrait};
 use sea_query::Expr;
 use semver::Version;
@@ -12,6 +13,18 @@ use anyhow::{Context, Result};
 
 /// Public entry point (your requested API)
 pub async fn run_migrations(app: AppHandle) -> Result<()> {
+    let wrapper = AppHandleWrapper::new(Some(app.clone()));
+    let db_url = get_db_url(&wrapper);
+    let db = Database::connect(&db_url)
+        .await
+        .with_context(|| format!("Failed to connect to application database at '{db_url}'"))?;
+
+    // Version migrations may read or update the application database. Apply the
+    // schema migrations first, including on a fresh install where no tables exist.
+    Migrator::up(&db, None)
+        .await
+        .with_context(|| format!("Failed to run database migrations on '{db_url}'"))?;
+
     let current_version = Version::parse(&app.package_info().version.to_string())
         .context("Failed to parse current version")?;
 
@@ -22,7 +35,7 @@ pub async fn run_migrations(app: AppHandle) -> Result<()> {
     // Run migrations in order
     for version in Versions::ordered() {
         if should_run(&last_version, &current_version, version.as_str()) {
-            run_migration(app.clone(), version).await?;
+            run_migration(app.clone(), &db, version).await?;
         }
     }
 
@@ -111,9 +124,13 @@ impl Versions {
 // ─────────────────────────────────────
 //
 
-async fn run_migration(app: AppHandle, version: Versions) -> Result<()> {
+async fn run_migration(
+    app: AppHandle,
+    db: &sea_orm::DatabaseConnection,
+    version: Versions,
+) -> Result<()> {
     match version {
-        Versions::V0_5_0 => migrate_0_5_0(app).await,
+        Versions::V0_5_0 => migrate_0_5_0(app, db).await,
     }
 }
 
@@ -123,7 +140,7 @@ async fn run_migration(app: AppHandle, version: Versions) -> Result<()> {
 // ─────────────────────────────────────
 //
 
-async fn migrate_0_5_0(app: AppHandle) -> Result<()> {
+async fn migrate_0_5_0(app: AppHandle, db: &sea_orm::DatabaseConnection) -> Result<()> {
     log::info!("Running migration 0.5.0");
 
     let store_dir = app
@@ -147,23 +164,20 @@ async fn migrate_0_5_0(app: AppHandle) -> Result<()> {
         fs::remove_file(settings_file).context("Failed to remove settings file")?;
     }
 
-    add_db_maintenance(app, MaintenanceTaskKind::RescanClipCount).await?;
+    add_db_maintenance(db, MaintenanceTaskKind::RescanClipCount).await?;
 
     Ok(())
 }
 
-async fn add_db_maintenance(app: AppHandle, task: MaintenanceTaskKind) -> Result<()> {
-    let wrapper = AppHandleWrapper::new(Some(app));
-    let db_path: String = get_db_url(&wrapper);
-    let db = Database::connect(db_path)
-        .await
-        .context("Failed to connect to database for migration")?;
-
+async fn add_db_maintenance(
+    db: &sea_orm::DatabaseConnection,
+    task: MaintenanceTaskKind,
+) -> Result<()> {
     let maint_value: u32 = task as u32;
 
     WatchFolders::update_many()
         .col_expr(Column::Maint, Expr::col(Column::Maint).bit_or(maint_value))
-        .exec(&db)
+        .exec(db)
         .await
         .context("Failed to update watch folders for maintenance")?;
 

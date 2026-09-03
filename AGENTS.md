@@ -135,6 +135,15 @@ Run the narrowest relevant tests while developing, then broader validation befor
 
 Use the repository's existing scripts/configuration as the authority for exact commands.
 
+The generated Tauri icons under `src-tauri/icons/` are intentionally not tracked. In a fresh
+checkout or worktree, run `npm run gen-icons` from the repository root before building the app or
+running Cargo commands that compile `tauri::generate_context!()` (including `cargo test`).
+
+The test fixtures are also intentionally not tracked. In a fresh checkout or worktree, run
+`./test-setup.sh` from `src-tauri/` before running `cargo test`; the Rust integration tests resolve
+their fixtures relative to that directory. Run `./scripts/test-setup.sh` from the repository root
+before the end-to-end test suite; that script prepares the root project and ffmpeg fixtures.
+
 Depending on the affected code, validate:
 
 - Rust formatting/check/tests

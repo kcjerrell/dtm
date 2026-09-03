@@ -1,29 +1,27 @@
 ---
-name: execute-linear-subtask
-description: Implement one assigned Linear sub-issue on its designated branch, keeping strictly to scope, validating the result, and reporting concise implementation details back to the orchestrator. Use only for execution of a single delegated subtask.
+name: execute-subtask
+description: Implement the assigned task, keeping strictly to scope, validating the result, and reporting concise implementation details. Use only for execution of a single delegated subtask.
 ---
 
-# Execute one Linear subtask
+# Execute one subtask
 
-Implement exactly one assigned Linear sub-issue.
+Implement the assigned task.
 
 This skill is for focused execution by a worker agent. **Do not re-plan the parent effort, delegate additional agents, create unrelated work, or expand scope beyond what is required to complete the assigned issue.**
 
-The assigned Linear issue is the primary source of truth for scope, constraints, dependencies, and acceptance criteria. Additional instructions from the orchestrator may provide implementation context or findings from prerequisite work.
+The assigned task is the primary source of truth for scope, constraints, dependencies, and acceptance criteria. Additional instructions from the orchestrator may provide implementation context or findings from prerequisite work.
 
 ## Establish task context
 
 Before modifying code:
 
-1. Read the assigned Linear issue completely.
-2. Read any prerequisite issues, orchestrator notes, or implementation findings provided with the assignment.
-3. Confirm that the current branch is the branch assigned for this subtask and that prerequisite work expected by the issue is present.
-4. Inspect the relevant repository code, tests, configuration, documentation, and nearby implementation patterns necessary to understand the task.
-5. Identify the smallest coherent implementation that satisfies the issue's acceptance criteria.
+1. Read the assigned task completely.
+2. Inspect the relevant repository code, tests, configuration, documentation, and nearby implementation patterns necessary to understand the task.
+3. Identify the smallest coherent implementation that satisfies the task's acceptance criteria.
 
 Do not perform a broad repository investigation when targeted inspection is sufficient.
 
-If the repository state materially contradicts the issue or the task cannot safely proceed because a prerequisite is missing, report the blocker to the orchestrator rather than silently inventing a workaround.
+If the repository state materially contradicts the task or the task cannot safely proceed because a prerequisite is missing, report the blocker to the orchestrator rather than silently inventing a workaround.
 
 ## Stay within scope
 
@@ -38,20 +36,13 @@ Avoid:
 - formatting unrelated files,
 - dependency upgrades not required by the task,
 - redesigning APIs outside the assigned scope,
-- implementing work owned by another Linear issue,
 - speculative future-proofing.
 
 If you discover additional work that should be done but is not necessary to satisfy this issue, report it rather than implementing it.
 
-Do not split small supporting changes into separate work. If a helper, test update, configuration adjustment, documentation change, or minor migration is naturally part of the assigned task, include it here.
-
 ## Respect prior decisions
 
-Treat completed prerequisite work and orchestrator-provided findings as established context unless repository evidence shows that they are incorrect.
-
 Maintain compatibility with interfaces, architectural decisions, naming, and constraints introduced by prerequisite tasks.
-
-If completing this issue would require reversing or materially changing a prior decision, stop and report the conflict to the orchestrator before proceeding with that change.
 
 ## Implement coherently
 
@@ -71,7 +62,7 @@ Do not optimize for minimizing line count at the expense of clarity or correctne
 
 Run the most relevant validation available for the assigned task.
 
-Use the issue's validation criteria when provided. Depending on the task, validation may include:
+Use the task's validation criteria when provided. Depending on the task, validation may include:
 
 - targeted unit or integration tests,
 - type checking,
@@ -108,7 +99,7 @@ Examples include:
 
 - an expected API behaves differently than the plan assumed,
 - an interface had to change,
-- a file or subsystem responsible for the behavior differs from the issue description,
+- a file or subsystem responsible for the behavior differs from the task description,
 - a new compatibility constraint was discovered,
 - a test exposes behavior downstream tasks must account for,
 - a dependency assumption is incorrect.
@@ -119,29 +110,13 @@ Instead, complete the assigned issue when it remains safe to do so and include a
 
 If the discovery prevents correct completion or materially changes the planned architecture, stop at a safe state and report the blocker.
 
-## Do not manage orchestration
-
-The worker does not own the wider execution graph.
-
-Do not:
-
-- spawn subagents,
-- start another Linear issue,
-- modify dependencies between unrelated issues,
-- decide which task should execute next,
-- create or reorganize the final PR stack,
-- merge other workers' branches,
-- perform project-wide integration work unless explicitly part of this issue.
-
-Return control to the orchestrator after this task is complete.
-
 ## Completion report
 
 When finished, return a concise report containing:
 
 ### Result
 
-State whether the Linear issue is complete, blocked, or partially complete.
+State whether the task is complete, blocked, or partially complete.
 
 ### Changes
 

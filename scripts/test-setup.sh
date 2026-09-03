@@ -26,8 +26,16 @@ unzip -o "$CACHE_DIR/test_data_v3.zip" -d .
 
 mkdir -p test_data/temp
 
-# Preload ffmpeg archives used by the in-app installer so tests can seed app_data/temp
-# instead of waiting on network every run.
+# Preload the macOS archives used by the in-app installer. Linux uses validated
+# system tools and must never stage or execute these Evermeet artifacts.
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  command -v ffmpeg >/dev/null || { echo "error: install ffmpeg (sudo apt-get install -y ffmpeg)" >&2; exit 1; }
+  command -v ffprobe >/dev/null || { echo "error: install ffprobe (sudo apt-get install -y ffmpeg)" >&2; exit 1; }
+  ffmpeg -version >/dev/null
+  ffprobe -version >/dev/null
+  exit 0
+fi
+
 FFMPEG_CACHE_DIR="test_data/ffmpeg"
 mkdir -p "$FFMPEG_CACHE_DIR"
 

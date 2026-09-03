@@ -74,37 +74,40 @@ function TensorsList(props: TensorsListComponentProps) {
                     </Images>
                 </Group>
             )}
-            {candidates && candidates.length > 0 && (
-                <Group>
-                    <Label>Previous</Label>
-                    <Images>
-                        {candidates
-                            .filter((c) => c.tensorHistoryName)
-                            .map((c) => (
-                                <Fragment key={c.rowid}>
-                                    <Tooltip
-                                        tipTitle={"Input image"}
-                                        tipText={`Lineage: ${c.lineage}, Logical time: ${c.logicalTime}`}
-                                    >
-                                        <TensorThumbnail
-                                            projectId={item.project_id}
-                                            tensorId={c.tensorHistoryName}
-                                            maskId={c.maskName}
-                                            onClick={(e) => showSubitem(e, c.tensorHistoryName, c.maskName)}
-                                        />
-                                    </Tooltip>
-                                    {/* {c.maskName && (
+            {candidates &&
+                candidates.map((c) => c.tensorHistoryName).filter(Boolean).length > 0 && (
+                    <Group>
+                        <Label>Previous</Label>
+                        <Images>
+                            {candidates
+                                .filter((c) => c.tensorHistoryName)
+                                .map((c) => (
+                                    <Fragment key={c.rowid}>
+                                        <Tooltip
+                                            tipTitle={"Input image"}
+                                            tipText={`Lineage: ${c.lineage}, Logical time: ${c.logicalTime}`}
+                                        >
+                                            <TensorThumbnail
+                                                projectId={item.project_id}
+                                                tensorId={c.tensorHistoryName as string}
+                                                maskId={c.maskName}
+                                                onClick={(e) =>
+                                                    showSubitem(e, c.tensorHistoryName, c.maskName)
+                                                }
+                                            />
+                                        </Tooltip>
+                                        {/* {c.maskName && (
                                         <TensorThumbnail
                                             projectId={item.project_id}
                                             tensorId={c.maskName}
                                             onClick={(e) => showSubitem(e, c.maskName)}
                                         />
                                     )} */}
-                                </Fragment>
-                            ))}
-                    </Images>
-                </Group>
-            )}
+                                    </Fragment>
+                                ))}
+                        </Images>
+                    </Group>
+                )}
             {!!canvasTensors?.length && canvasTensors.length > 1 && (
                 <Group>
                     <Label>Canvas</Label>
