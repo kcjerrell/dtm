@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::Serialize;
 use strum::EnumIs;
 
-use crate::projects_db::archive::DTZip;
+use crate::archive::DTZip;
 use crate::projects_db::extract_jpeg_slice;
 
 #[derive(Debug, Serialize, Clone, EnumIs)]

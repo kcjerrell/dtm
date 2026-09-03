@@ -5,7 +5,8 @@ use serde::Serialize;
 use strum::EnumIs;
 
 use crate::dt_project::{TdFilter, ThnFilter};
-use crate::projects_db::{archive::DTZipCache, DTProject, DtResourceHandle, ProjectsDb};
+use crate::archive::DTZipCache;
+use crate::projects_db::{DTProject, DtResourceHandle, ProjectsDb};
 
 /// References a Draw Things project database file, either by its id in DTM's ProjectsDb,
 /// its file path, its containing archive, or with a direct reference to the DTProject struct.

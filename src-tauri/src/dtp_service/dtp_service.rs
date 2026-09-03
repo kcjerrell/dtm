@@ -18,7 +18,8 @@ use crate::{
         watch::WatchService,
         AppHandleWrapper,
     },
-    projects_db::{self, archive::DTZipCache, get_last_row, DtmProtocol, ProjectsDb},
+    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
+    archive::DTZipCache,
     IntoTAResult,
 };
 

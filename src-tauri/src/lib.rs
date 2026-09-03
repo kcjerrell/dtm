@@ -10,6 +10,7 @@ use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
+pub mod archive;
 pub mod bookmarks;
 pub mod dt_project;
 pub mod dtp_service;
@@ -17,7 +18,7 @@ mod ffmpeg;
 pub mod projects_db;
 pub(crate) mod util;
 use dtp_service::dtp_connect;
-use projects_db::{create_dt_archive, create_dt_archive_plan};
+use archive::{create_dt_archive, create_dt_archive_plan};
 mod migrations;
 mod vid;
 mod vid_export;
