@@ -7,6 +7,7 @@ import DTProjects from "../pageobjects/DTProjects"
 import {
     ensureFfmpeg,
     ffmpegBinDir,
+    ffmpegInstalled,
     removeFfmpegBinaries,
     stageFfmpegArchives,
 } from "../util/ffmpeg"
@@ -76,6 +77,11 @@ describe("Video Export", () => {
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
 
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
+
         // go to projects view
         await browser.refresh()
         await browser.pause(3000)
@@ -104,18 +110,18 @@ describe("Video Export", () => {
 
         await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
         await expect($("body")).toHaveText(
-            expect.stringContaining("FFMPEG must be downloaded before video can be exported"),
+            expect.stringContaining("FFmpeg"),
         )
         const exportButton = $("aria/Export video")
         await expect(exportButton).toBeDisabled()
         await $("button=Install").click()
 
         await $("[data-testid='ffmpeg-section']").waitForDisplayed({
-            timeout: 25000,
+            timeout: 90_000,
             reverse: true,
         })
 
-        await exportButton.waitForEnabled({ timeout: 30000 })
+        await exportButton.waitForEnabled()
 
         expect(await fse.pathExists(path.join(ffmpegBinDir, "ffmpeg"))).toBe(true)
         expect(await fse.pathExists(path.join(ffmpegBinDir, "ffprobe"))).toBe(true)

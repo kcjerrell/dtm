@@ -193,6 +193,10 @@ impl DTPService {
     }
 
     pub async fn resume_watch(&self, path: &str, recursive: bool) {
+        if !self.auto_watch.load(Ordering::Relaxed) {
+            return;
+        }
+
         let watch = self.watch.read().await;
         let watch = watch.as_ref().unwrap();
         watch.watch_folder(path, recursive).await.unwrap();

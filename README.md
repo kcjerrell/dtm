@@ -51,7 +51,7 @@ A unified library across all your Draw Things projects:
    - Click **Open Anyway** and confirm
 
 ### Build from Source
-
+#### Mac (Apple Silicon or Intel)
 **Prerequisites:** [Node.js / npm](https://nodejs.org/), [Rust](https://www.rust-lang.org/tools/install), Xcode command line tools (`xcode-select --install`)
 
 ```bash
@@ -69,6 +69,23 @@ npm run build:universal
 
 # Run in dev mode
 npm run dev
+```
+
+#### Linux
+Note: Linux support is rudimentary and intended to enable cloud-based Agentic AI workflows
+```bash
+bash ./bootstrap-ubuntu.sh
+npm install
+npm run gen:icons
+npm run dev
+```
+
+#### Tests
+```bash
+npm run build:debug
+npm run wdio
+cd src-tauri
+cargo test
 ```
 
 ## License

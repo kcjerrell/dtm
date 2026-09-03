@@ -52,19 +52,24 @@ impl EventHelper {
             .count()
     }
 
-    pub async fn assert_count(self: &Self, event_type: &str, count: usize) {
+    pub async fn wait_for_count(self: &Self, event_type: &str, count: usize) -> bool {
         let mut max_checks = MAX_WAIT_MS / 100;
-        while self.count(event_type) < count && max_checks > 0 {
+        let mut current_count = self.count(event_type);
+        while current_count < count && max_checks > 0 {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             max_checks -= 1;
+            current_count = self.count(event_type);
         }
-        assert_eq!(
-            self.count(event_type),
-            count,
-            "Expected {} events of type {}",
-            count,
-            event_type
-        );
+        if current_count != count {
+            println!(
+                "Count for {} was {}",
+                event_type,
+                current_count
+            );
+            false
+        } else {
+            true
+        }
     }
 
     pub fn reset_counts(&self) {
@@ -171,7 +176,8 @@ pub async fn test_fixture(
     auto_watch: bool,
     copy_db: bool,
 ) -> (DTPService, EventHelper, WatchFolderHelper, String) {
-    let temp_dir = TempDir::new_in("test_data/temp").unwrap();
+    let mut temp_dir = TempDir::new_in("test_data/temp").unwrap();
+    temp_dir.disable_cleanup(true);
     let temp_dir_path = temp_dir.path().to_str().unwrap().to_string();
     let wfh = WatchFolderHelper::get(Watchfolder::A, temp_dir);
     // reset_db();
