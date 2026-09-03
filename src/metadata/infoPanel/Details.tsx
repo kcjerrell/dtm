@@ -37,9 +37,10 @@ function Details(props: DetailsProps) {
             <SourceDetails imageSource={imageSource} />
             {imageSnap?.isVideo && (
                 <>
-                    <ffmpeg.FfmpegComponent>
-                        FFMPEG must be downloaded to load video metadata.
-                    </ffmpeg.FfmpegComponent>
+                    <ffmpeg.FfmpegComponent
+                        macMessage="FFmpeg must be downloaded to load video metadata."
+                        linuxMessage="Please install FFmpeg and FFprobe with your package manager in order to load video metadata."
+                    />
                     {ffmpeg.isReady && (imageSnap as VideoItem)?.metadataStatus === "pending" && (
                         <HStack justifyContent={"center"} alignItems={"center"} width={"full"}>
                             <Spinner />

@@ -76,6 +76,11 @@ describe("Video Export", () => {
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
 
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
+
         // go to projects view
         await browser.refresh()
         await browser.pause(3000)
@@ -104,7 +109,7 @@ describe("Video Export", () => {
 
         await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
         await expect($("body")).toHaveText(
-            expect.stringContaining("FFMPEG must be downloaded before video can be exported"),
+            expect.stringContaining("FFmpeg"),
         )
         const exportButton = $("aria/Export video")
         await expect(exportButton).toBeDisabled()

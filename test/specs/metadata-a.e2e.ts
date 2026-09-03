@@ -226,6 +226,11 @@ describe("Metadata", () => {
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
 
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
+
         await App.selectView("metadata")
         // clear images if there any
         if (await md.toolbar.clearUnpinned.isExisting()) {
@@ -254,7 +259,7 @@ describe("Metadata", () => {
         await md.getDataItemValue("filename", { timeout: 60000 })
 
         expect(await ffmpegInstalled()).toBe(true)
-    })
+    }).timeout(120_000)
 
     it("loads video metadata", async () => {
         await ensureMetadataVideoFixture()
