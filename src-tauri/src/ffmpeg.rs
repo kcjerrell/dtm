@@ -29,7 +29,7 @@ struct DownloadProgress {
     state: Option<String>,
 }
 
-const VERSION_CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+const VERSION_CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[cfg(not(target_os = "linux"))]
 fn cached_tool_path(app: &AppHandle, name: &str) -> Result<PathBuf> {

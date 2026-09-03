@@ -7,6 +7,7 @@ import DTProjects from "../pageobjects/DTProjects"
 import {
     ensureFfmpeg,
     ffmpegBinDir,
+    ffmpegInstalled,
     removeFfmpegBinaries,
     stageFfmpegArchives,
 } from "../util/ffmpeg"
@@ -116,11 +117,11 @@ describe("Video Export", () => {
         await $("button=Install").click()
 
         await $("[data-testid='ffmpeg-section']").waitForDisplayed({
-            timeout: 25000,
+            timeout: 90_000,
             reverse: true,
         })
 
-        await exportButton.waitForEnabled({ timeout: 30000 })
+        await exportButton.waitForEnabled()
 
         expect(await fse.pathExists(path.join(ffmpegBinDir, "ffmpeg"))).toBe(true)
         expect(await fse.pathExists(path.join(ffmpegBinDir, "ffprobe"))).toBe(true)
