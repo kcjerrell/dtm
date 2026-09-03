@@ -71,6 +71,7 @@ mod tests {
                 None,
                 Some(first_word.to_string()),
                 None,
+                Some(phrase),
                 None,
                 None,
                 None,

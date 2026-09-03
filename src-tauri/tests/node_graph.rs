@@ -1,7 +1,7 @@
 use dtm_lib::projects_db::DtProjectRef;
 
 mod tests {
-    use std::{fs::File, io::prelude::Write};
+    use std::{fs::File, io::prelude::Write, process::Command};
 
     use super::*;
 
