@@ -16,7 +16,7 @@ pub(crate) use workers::copy_tensors;
 
 pub use cache::DTZipCache;
 pub use dt_zip::DTZip;
-pub use plan::{DtArchivePlan, DtArchivePlanItem};
+pub use plan::{CreateDtArchiveOptions, DtArchivePlan, DtArchivePlanItem};
 
 #[tauri::command]
 pub async fn create_dt_archive(app: State<'_, AppHandleWrapper>, project_id: i64) -> TAResult<()> {

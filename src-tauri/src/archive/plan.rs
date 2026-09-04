@@ -9,6 +9,18 @@ use crate::{
     IntoTAResult, TAResult,
 };
 
+#[derive(Serialize, Debug)]
+pub struct CreateDtArchiveOptions {
+    /// Project to archive.
+    pub project_id: i64,
+    /// Whether to use PNG instead of JPEG for archived images.
+    pub lossless: bool,
+    /// JPEG quality; this may also be used as the PNG effort.
+    pub quality: f32,
+    /// Directory where the archive will be saved.
+    pub target: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct DtArchivePlan {
     /// Project path
