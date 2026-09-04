@@ -1,19 +1,24 @@
 #![recursion_limit = "256"]
 
-use reqwest;
-use tauri::{http, Manager, TitleBarStyle};
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
+use tauri::{http, Manager};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_log::log::LevelFilter;
+#[cfg(target_os = "macos")]
 use tauri_plugin_window_state::StateFlags;
 
 mod clipboard;
 
+pub mod archive;
 pub mod bookmarks;
+pub mod dt_project;
 pub mod dtp_service;
 mod ffmpeg;
 pub mod projects_db;
+pub(crate) mod util;
 use dtp_service::dtp_connect;
-use projects_db::dt_project_tensordata;
+use archive::{create_dt_archive, create_dt_archive_plan};
 mod migrations;
 mod vid;
 mod vid_export;
@@ -29,10 +34,20 @@ mod tensor;
 pub use tensor::{Tensor, TensorValue};
 
 mod error;
-pub use error::{TACommandError, TAResult, IntoTAResult};
+pub use error::{IntoTAResult, TACommandError, TAResult};
 
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
+
+// `tauri dev` and `tauri build --debug` both write to target/debug, but Tauri
+// sets its `dev` cfg only for the former. Keep this marker in the executable so
+// the WDIO launcher can decide whether it must start the Vite server first.
+#[used]
+static DTM_TAURI_RUNTIME_MODE: &str = if cfg!(dev) {
+    "DTM_TAURI_RUNTIME_MODE=dev\0"
+} else {
+    "DTM_TAURI_RUNTIME_MODE=build\0"
+};
 
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> TAResult<Vec<String>> {
@@ -59,17 +74,23 @@ fn write_clipboard_binary(ty: String, data: Vec<u8>) -> TAResult<()> {
 
 #[tauri::command]
 async fn ffmpeg_check(app: tauri::AppHandle) -> TAResult<bool> {
-    Ok(ffmpeg::check_ffmpeg(&app).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::check_ffmpeg(&app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 async fn ffmpeg_download(app: tauri::AppHandle) -> TAResult<()> {
-    Ok(ffmpeg::download_ffmpeg(app).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::download_ffmpeg(app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> TAResult<String> {
-    Ok(ffmpeg::call_ffmpeg(&app, args).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::call_ffmpeg(&app, args)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
@@ -108,7 +129,7 @@ async fn fetch_image_file(url: String) -> TAResult<(Vec<u8>, String)> {
 fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
     match app.get_webview_window("dev") {
         Some(dev_window) => {
-            dev_window.close().unwrap();
+            dev_window.close().into_ta_result()?;
         }
         None => {
             let dev_window = WebviewWindowBuilder::new(&app, "dev", WebviewUrl::App("#dev".into()))
@@ -117,11 +138,10 @@ fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
                 .min_inner_size(600.0, 400.0)
                 .visible(true)
                 .disable_drag_drop_handler()
-                .build()
-                .unwrap();
+                .build().into_ta_result()?;
 
-            dev_window.show().unwrap();
-            dev_window.set_focus().unwrap();
+            dev_window.show().into_ta_result()?;
+            dev_window.set_focus().into_ta_result()?;
         }
     }
 
@@ -198,21 +218,20 @@ fn get_os_version() -> String {
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_shell::init());
-
-    #[cfg(feature = "webdriver")]
-    let builder = builder.plugin(tauri_plugin_webdriver::init());
-
-    builder
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
                 .build(),
-        )
-        .plugin(tauri_plugin_http::init())
+        );
+
+    builder
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -240,6 +259,8 @@ pub fn run() {
                 .max_file_size(200000)
                 .build(),
         )
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init())
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,
@@ -263,7 +284,6 @@ pub fn run() {
             bookmarks::stop_accessing_bookmark,
             dtp_connect,
             dtp_service::data::dtp_pick_watch_folder,
-            dtp_service::data::dtp_decode_tensor,
             dtp_service::data::dtp_find_image_from_preview_id,
             dtp_service::data::dtp_find_predecessor,
             dtp_service::data::dtp_get_clip,
@@ -279,19 +299,25 @@ pub fn run() {
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
             dtp_service::dtp_service::dtp_sync_projects,
+            // not used in front end
             dtp_service::dtp_service::dtp_sync_projects_and_wait,
             dtp_service::data::dtp_get_metadata,
             dtp_service::export::dtp_export_projects,
             dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
-            dt_project_tensordata,
             dtp_service::dtp_service::dtp_reset_db,
+            dtp_service::resource::dtp_get_resource_image,
+            dtp_service::resource::dtp_get_resource_json,
+            create_dt_archive,
+            create_dt_archive_plan,
+            // #[cfg(feature = "tensor_bench")]
+            // projects_db::print_tensor_benchmarks,
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
             tauri::async_runtime::spawn(async move {
                 let dtp_service = app_handle.state::<dtp_service::DTPService>();
                 let dtm_protocol = dtp_service.dtm_protocol().await;
-                if request.uri().host().unwrap() == "dtproject" {
+                if request.uri().host() == Some("dtproject") {
                     dtm_protocol
                         .dtm_dtproject_protocol(request, responder)
                         .await;
@@ -301,7 +327,7 @@ pub fn run() {
                             .status(http::StatusCode::BAD_REQUEST)
                             .header(http::header::CONTENT_TYPE, mime::TEXT_PLAIN.essence_str())
                             .body("failed to read file".as_bytes().to_vec())
-                            .unwrap(),
+                            .unwrap_or_else(|_| http::Response::new(Vec::new())),
                     );
                 }
             });
@@ -310,7 +336,9 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
-            let _ = tauri::async_runtime::block_on(run_migrations(app.handle().clone()));
+            tauri::async_runtime::block_on(run_migrations(app.handle().clone())).map_err(
+                |error| format!("failed to migrate the application database: {error:#}"),
+            )?;
 
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
@@ -325,7 +353,9 @@ pub fn run() {
                 .hidden_title(true)
                 .title_bar_style(TitleBarStyle::Overlay);
 
-            let _window = win_builder.build().unwrap();
+            let _window = win_builder.build()?;
+
+            log::info!("DTM main window created successfully");
 
             let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
             let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
@@ -357,10 +387,9 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, event| match event {
-            tauri::RunEvent::Exit => {
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
                 bookmarks::cleanup_bookmarks();
             }
-            _ => {}
         });
 }

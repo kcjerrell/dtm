@@ -36,7 +36,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
     })
 
     itemSource: IItemSource<ImageExtra> = new EmptyItemSource()
-    eventTimer: NodeJS.Timeout | undefined
+    eventTimer: number | undefined
 
     private lastSelectedProjectIds: number[] = []
 
@@ -73,7 +73,7 @@ class ImagesController extends DTPStateController<ImagesControllerState> {
                     await this.container.services.uiState.importLockPromise
                     if (this.eventTimer) return
                     clearTimeout(this.eventTimer)
-                    this.eventTimer = setTimeout(async () => {
+                    this.eventTimer = window.setTimeout(async () => {
                         await this.refreshImageCounts()
                         this.container.emit("imagesChanged")
                         this.eventTimer = undefined
