@@ -154,18 +154,16 @@ impl CopyTensorItem {
         if self.primary {
             if let Some(preview_id) = self.preview_id {
                 if let Some(node) = &node {
-                    if node.data().index_in_a_clip() == 0 {
-                        self.preview = project_ref
-                            .thumb(preview_id)
-                            .get_preview(true)
-                            .await
-                            .with_context(|| {
-                                format!(
-                                    "failed to get preview {preview_id} for tensor '{}'",
-                                    self.name
-                                )
-                            })?;
-                    }
+                    self.preview = project_ref
+                        .thumb(preview_id)
+                        .get_preview(true)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to get preview {preview_id} for tensor '{}'",
+                                self.name
+                            )
+                        })?;
                 }
             }
         }

@@ -11,10 +11,10 @@ use serde::Serialize;
 use sqlx::{
     query, query_as,
     sqlite::{SqliteConnection, SqliteRow},
-    Connection, Row, SqlitePool,
+    AssertSqlSafe, Connection, Row, SqlitePool,
 };
-use std::sync::Arc;
-use tokio::sync::OnceCell;
+use std::{os::unix::fs::MetadataExt, path::PathBuf, sync::Arc};
+use tokio::{fs, sync::OnceCell};
 
 use super::history_graph::{HistoryGraph, HistoryNode};
 use super::resource::DTResource;
@@ -388,6 +388,20 @@ impl DTProject {
         }
     }
 
+    pub async fn get_thumbs_stats(&self, half: bool) -> anyhow::Result<(u64, u64)> {
+        let q = if half {
+            self.check_table(&DTProjectTable::ThumbnailHistoryHalfNode)
+                .await?;
+            "select count(*), sum(length(p)) from thumbnailhistoryhalfnode"
+        } else {
+            self.check_table(&DTProjectTable::ThumbnailHistoryNode)
+                .await?;
+            "select count(*), sum(length(p)) from thumbnailhistorynode"
+        };
+        let (count, sum): (u64, u64) = query_as(AssertSqlSafe(q)).fetch_one(&*self.pool).await?;
+        Ok((count, sum))
+    }
+
     async fn get_text_history(&self) -> anyhow::Result<Arc<TextHistory>> {
         let history = self
             .text_history
@@ -431,9 +445,9 @@ impl DTProject {
                     match self.check_table(&DTProjectTable::TextLineage).await {
                         Ok(_) => query(
                             "
-                SELECT tln.__pk0, tln_f6.f6 
-                FROM textlineagenode tln 
-                JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid 
+                SELECT tln.__pk0, tln_f6.f6
+                FROM textlineagenode tln
+                JOIN textlineagenode__f6 tln_f6 on tln.rowid = tln_f6.rowid
                 ORDER BY tln.rowid",
                         )
                         .map(|row: SqliteRow| (row.get(0), row.get(1)))
@@ -514,6 +528,24 @@ impl DTProject {
                 self.path
             )
         }
+    }
+
+    pub async fn get_db_file_size(&self) -> anyhow::Result<u64> {
+        let path = PathBuf::from(&self.path);
+        let metadata_db = fs::metadata(&path).await.with_context(|| {
+            format!(
+                "failed to get metadata for project database at {}",
+                self.path
+            )
+        })?;
+
+        let wal_path = path.with_extension("sqlite3-wal");
+        let wal_size = match fs::try_exists(&wal_path).await.unwrap_or(false) {
+            true => fs::metadata(&wal_path).await.map(|m| m.size()).unwrap_or(0),
+            false => 0,
+        };
+
+        Ok(metadata_db.size() + wal_size)
     }
 }
 

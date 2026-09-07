@@ -31,7 +31,7 @@ fpzip-sys = { path = "./fpzip-sys" }
 dtm_macros = { path = "./macros" }
 
 # Core Tauri
-tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
+tauri = { version = "2", features = ["tray-icon", "protocol-asset", "devtools"] }
 
 # Tauri Plugins (all GitHub v2 versions)
 # Ensures a single consistent dependency tree

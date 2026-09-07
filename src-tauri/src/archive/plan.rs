@@ -1,5 +1,5 @@
 use anyhow::Context;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -9,7 +9,7 @@ use crate::{
     IntoTAResult, TAResult,
 };
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CreateDtArchiveOptions {
     /// Project to archive.
     pub project_id: i64,
@@ -29,16 +29,6 @@ pub struct DtArchivePlan {
     /// Whether to use lossless compression
     pub lossless: bool,
 
-    // THE DATA
-    /// tensorhistorynode rowids
-    pub node_ids: Vec<i64>,
-    /// tensordata rowids
-    pub tensordata_ids: Vec<i64>,
-    /// tensormoodboarddata rowids
-    pub tensormoodboarddata_ids: Vec<i64>,
-    // clip rowids
-    pub clip_ids: Vec<i64>,
-
     /// THE RESOURCES
     /// primary tensors
     pub primary_tensors: Vec<DtArchivePlanItem>,
@@ -54,6 +44,82 @@ pub struct DtArchivePlan {
     pub unused_nodes: Vec<i64>,
     /// tensormoodboarddata that will not be archived
     pub unused_tensormoodboarddata: Vec<i64>,
+}
+
+/// Counts of tensors grouped by their Draw Things resource prefix.
+#[derive(Debug, Default, Serialize)]
+pub struct TensorCounts {
+    pub tensor_history: u32,
+    pub binary_mask: u32,
+    pub shuffle: u32,
+    pub custom: u32,
+    pub depth_map: u32,
+    pub color_palette: u32,
+    pub audio: u32,
+    pub scribble: u32,
+}
+
+impl TensorCounts {
+    pub fn add(&mut self, tensor_name: &str) {
+        if let Some((prefix, _)) = tensor_name.rsplit_once("_") {
+            match prefix {
+                "tensor_history" => self.tensor_history += 1,
+                "binary_mask" => self.binary_mask += 1,
+                "shuffle" => self.shuffle += 1,
+                "custom" => self.custom += 1,
+                "depth_map" => self.depth_map += 1,
+                "color_palette" => self.color_palette += 1,
+                "audio" => self.audio += 1,
+                "scribble" => self.scribble += 1,
+                _ => {}
+            }
+        }
+    }
+}
+
+impl From<&DtArchivePlan> for TensorCounts {
+    fn from(value: &DtArchivePlan) -> Self {
+        let mut counts = Self::default();
+
+        let items = value.primary_tensors.iter().chain(&value.tensors_extra);
+
+        for item in items {
+            if let Some((prefix, _)) = item.name.rsplit_once("_") {
+                match prefix {
+                    "tensor_history" => counts.tensor_history += 1,
+                    "binary_mask" => counts.binary_mask += 1,
+                    "shuffle" => counts.shuffle += 1,
+                    "custom" => counts.custom += 1,
+                    "depth_map" => counts.depth_map += 1,
+                    "color_palette" => counts.color_palette += 1,
+                    "audio" => counts.audio += 1,
+                    "scribble" => counts.scribble += 1,
+                    _ => {}
+                }
+            }
+        }
+
+        counts
+    }
+}
+
+/// Information shown before creating an archive.
+#[derive(Debug, Serialize, Default)]
+pub struct DtArchivePreview {
+    /// Amount of each tensor type
+    pub tensors: TensorCounts,
+    /// The number of primary tensors (DTM-indexed images that are gen=true)
+    pub primary_tensors: u32,
+    /// The number of extra tensors
+    pub extra_tensors: u32,
+    /// Number and total byte size of half-size thumbnails included in the archive.
+    pub thumbhalf: (u64, u64),
+    /// Current project file size in bytes.
+    pub filesize: u64,
+    /// Estimated archive size in bytes.
+    pub estimate: u64,
+    /// Whether Draw Things currently has the project open.
+    pub file_in_use: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -128,10 +194,6 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<D
     Ok(DtArchivePlan {
         project_path,
         lossless,
-        node_ids: Vec::new(),
-        tensordata_ids: Vec::new(),
-        tensormoodboarddata_ids: Vec::new(),
-        clip_ids: Vec::new(),
         primary_tensors: gen_images,
         tensors_extra: extra_resources,
         unused_tensors: Vec::new(),
@@ -150,7 +212,6 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
 
     let project_path = PathBuf::from(&project.path);
 
-    let mut node_ids: Vec<i64> = Vec::new();
     let unused_node_ids: Vec<i64> = Vec::new();
 
     // the ids for the 'primary' tensor - the generated image for a node
@@ -162,21 +223,15 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
     let mut tensordata_ids: HashSet<i64> = HashSet::new();
     // tensormoodboarddata rows for the tensors/nodes we are archiving
     let mut tensormoodboarddata_ids: HashSet<i64> = HashSet::new();
-    // clip ids
-    let mut clip_ids: HashSet<i64> = HashSet::new();
-
     let mut gen_images: Vec<DtArchivePlanItem> = Vec::new();
     let mut extra_resources: Vec<DtArchivePlanItem> = Vec::new();
     let mut unused_tensor_names: Vec<String> = Vec::new();
-
-    let mut total_nodes = 0;
 
     let mut batcher =
         project.batch_tensor_history_nodes(ThnData::tensordata().and_moodboard().and_clip());
 
     while let Some(nodes) = batcher.next().await? {
         for node in nodes {
-            total_nodes += 1;
             let node_id = node.rowid;
             let data = node.data();
 
@@ -186,9 +241,6 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
             //     unused_node_ids.push(node_id);
             //     continue;
             // }
-
-            // add node id
-            node_ids.push(node_id);
 
             let (main_tensor_id, main_mask_id) = get_tensor_and_mask(&node);
 
@@ -219,10 +271,6 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
             // put the mask in
             if main_mask_id != 0 {
                 tensor_ids.insert(main_mask_id);
-            }
-
-            if data.clip_id() != 0 {
-                clip_ids.insert(data.clip_id());
             }
 
             // add any moodboard items
@@ -301,7 +349,6 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
             .iter()
             .partition(|tmbd| tensormoodboarddata_ids.contains(tmbd));
 
-    println!("Take {} nodes out of {}", node_ids.len(), total_nodes);
     println!(
         "Take {} tensors out of {}",
         main_tensor_ids.len(),
@@ -321,10 +368,6 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
     Ok(DtArchivePlan {
         project_path,
         lossless,
-        node_ids,
-        tensordata_ids: all_tensordata_ids,
-        tensormoodboarddata_ids: all_tensormoodboarddata_ids,
-        clip_ids: clip_ids.into_iter().collect(),
         primary_tensors: gen_images,
         tensors_extra: extra_resources,
         unused_tensors: unused_tensor_names,
