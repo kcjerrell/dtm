@@ -7,7 +7,7 @@ use tokio::fs;
 
 use crate::{dtp_service::AppHandleWrapper, projects_db::DtProjectRef};
 
-use super::{copy_tensors, DtArchivePlan, CopyTensorItem};
+use super::{copy_tensors, CopyTensorItem, CreateDtArchiveOptions, DtArchivePlan};
 
 const TENSORHISTORYNODE_OFFSETS: &[&str] = &[
     "", "__f22", "__f24", "__f48", "__f60", "__f62", "__f66", "__f70", "__f86",
@@ -22,6 +22,7 @@ pub async fn copy_project(
     app: AppHandleWrapper,
     project_ref: DtProjectRef,
     plan: DtArchivePlan,
+    opts: CreateDtArchiveOptions,
 ) -> Result<()> {
     let start = Instant::now();
     let total_items = plan.primary_tensors.len() + plan.tensors_extra.len();
@@ -117,7 +118,7 @@ pub async fn copy_project(
         &project_ref,
         temp_dir.join("project.zip"),
         dest_conn,
-        plan.lossless,
+        opts.lossless,
     )
     .await
     .context("failed to process and pack tensor items into archive")?;
@@ -130,12 +131,28 @@ pub async fn copy_project(
         .await
         .context("failed to append database file to archive zip")??;
 
-    let target_path = app
-        .get_home_dir()
-        .context("failed to get user home directory")?
-        .join("Documents")
-        .join(format!("{}.dtm.zip", project_name));
-    let rename_result = fs::rename(&temp_dir.join("project.zip"), &target_path).await;
+    let target_dir = PathBuf::from(&opts.target);
+    fs::create_dir_all(&target_dir).await.with_context(|| {
+        format!(
+            "failed to create archive output directory {}",
+            target_dir.display()
+        )
+    })?;
+    let target_path = target_dir.join(format!("{}.dtm.zip", project_name));
+    let source_path = temp_dir.join("project.zip");
+    let move_result = match fs::rename(&source_path, &target_path).await {
+        Ok(()) => Ok(()),
+        Err(rename_error) => fs::copy(&source_path, &target_path)
+            .await
+            .map(|_| ())
+            .with_context(|| {
+                format!(
+                    "failed to copy archive to {} after rename failed: {}",
+                    target_path.display(),
+                    rename_error
+                )
+            }),
+    };
 
     if let Err(e) = fs::remove_dir_all(&temp_dir).await {
         log::error!(
@@ -145,8 +162,7 @@ pub async fn copy_project(
         );
     }
 
-    rename_result
-        .with_context(|| format!("failed to move archive to {}", target_path.display()))?;
+    move_result.with_context(|| format!("failed to move archive to {}", target_path.display()))?;
 
     let duration = start.elapsed();
     println!(

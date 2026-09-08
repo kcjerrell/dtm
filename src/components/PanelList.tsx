@@ -4,12 +4,11 @@ import { proxy, type Snapshot, useSnapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
 import { type Selectable, useSelectableGroup } from "@/hooks/useSelectableV"
 import type { ICommand } from "@/types"
-import { PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import { PaneListContainer, PanelSectionHeader, Tooltip } from "."
 import CommandButton from "./CommandButton"
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
-    emptyListText?: string | boolean
     commands?: ICommand<T, C>[]
     commandContext?: C
     header?: string
@@ -19,7 +18,7 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
     itemsState: ValueOrGetter<T[]>
     onSelectionChanged?: (selected: T[]) => void
     clearSelection?: unknown
-    selectionMode?: "multipleModifier" | "multipleToggle" | "single"
+    selectionMode?: "multipleModifier" | "multipleToggle" | "single" | "singleRequired"
     variant?: "flat" | "inset"
     scrollContainerProps?: ChakraProps
 }
@@ -27,7 +26,6 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
 function PanelList<T extends Selectable, C = undefined>(props: PanelListComponentProps<T, C>) {
     const {
         children,
-        emptyListText: emptyListTextProp,
         commands,
         commandContext,
         header,
@@ -59,9 +57,6 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
     const wrapperRef = useRef<HTMLDivElement>(null)
     const contentRef = useRef<HTMLDivElement>(null)
 
-    // const scrollY = useRef(0)
-    // const scrollYMv = useSpring(0, { mass: 1, stiffness: 210, damping: 25, visualDuration: 0.5 })
-
     useEffect(() => {
         if (clearSelection) {
             items.forEach((it) => {
@@ -72,14 +67,6 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
         }
         clearSelectionRef.current = clearSelection
     }, [clearSelection, items])
-
-    const areItemsSelected = selectedItems.length > 0
-    const emptyListText =
-        emptyListTextProp === false
-            ? null
-            : typeof emptyListTextProp === "string"
-              ? emptyListTextProp
-              : "(No items)"
 
     return (
         <PanelSection {...boxProps} variant={variant}>
@@ -98,30 +85,11 @@ function PanelList<T extends Selectable, C = undefined>(props: PanelListComponen
                     variant={variant}
                     ref={wrapperRef}
                     {...scrollContainerProps}
-                    // overflowY="clip"
-                    // onWheel={(e) => {
-                    // 	if (!wrapperRef.current || !contentRef.current) return
-                    // 	const max =
-                    // 		contentRef.current?.clientHeight - wrapperRef.current?.clientHeight
-                    // 	scrollY.current = Math.max(0, Math.min(max, scrollY.current + e.deltaY))
-                    // 	scrollYMv.set(-scrollY.current)
-                    // }}
                 >
                     <PanelListScrollContent variant={variant} ref={contentRef} asChild>
                         <SelectableGroup>{children}</SelectableGroup>
                     </PanelListScrollContent>
                 </PaneListScrollContainer>
-
-                {!emptyListText && areItemsSelected && (
-                    <PanelListItem
-                        bgColor={"transparent"}
-                        fontStyle={"italic"}
-                        textAlign={"center"}
-                        variant={variant}
-                    >
-                        {emptyListText}
-                    </PanelListItem>
-                )}
 
                 <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0}>
                     {commands?.map((command) => (

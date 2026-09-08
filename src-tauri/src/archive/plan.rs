@@ -1,7 +1,6 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 use crate::{
     dt_project::{split_tensor_name, TensorHistoryNode, ThnData},
@@ -9,7 +8,7 @@ use crate::{
     IntoTAResult, TAResult,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct CreateDtArchiveOptions {
     /// Project to archive.
     pub project_id: i64,
@@ -23,12 +22,6 @@ pub struct CreateDtArchiveOptions {
 
 #[derive(Debug, Serialize)]
 pub struct DtArchivePlan {
-    /// Project path
-    pub project_path: PathBuf,
-
-    /// Whether to use lossless compression
-    pub lossless: bool,
-
     /// THE RESOURCES
     /// primary tensors
     pub primary_tensors: Vec<DtArchivePlanItem>,
@@ -47,7 +40,7 @@ pub struct DtArchivePlan {
 }
 
 /// Counts of tensors grouped by their Draw Things resource prefix.
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct TensorCounts {
     pub tensor_history: u32,
     pub binary_mask: u32,
@@ -104,7 +97,7 @@ impl From<&DtArchivePlan> for TensorCounts {
 }
 
 /// Information shown before creating an archive.
-#[derive(Debug, Serialize, Default)]
+#[derive(Clone, Debug, Serialize, Default)]
 pub struct DtArchivePreview {
     /// Amount of each tensor type
     pub tensors: TensorCounts,
@@ -130,14 +123,12 @@ pub struct DtArchivePlanItem {
     pub index: i64,
 }
 
-pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<DtArchivePlan> {
+pub async fn copy_everything_plan(project_id: i64) -> TAResult<DtArchivePlan> {
     let project = DtProjectRef::Id(project_id)
         .get_project()
         .await
         .with_context(|| format!("failed to open project {project_id} for archive planning"))
         .into_ta_result()?;
-
-    let project_path = PathBuf::from(&project.path);
 
     let mut main_tensor_ids: HashSet<i64> = HashSet::new();
     let mut gen_images: Vec<DtArchivePlanItem> = Vec::new();
@@ -192,8 +183,6 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<D
     }
 
     Ok(DtArchivePlan {
-        project_path,
-        lossless,
         primary_tensors: gen_images,
         tensors_extra: extra_resources,
         unused_tensors: Vec::new(),
@@ -204,13 +193,11 @@ pub async fn copy_everything_plan(project_id: i64, lossless: bool) -> TAResult<D
 }
 
 /// This should not be used, but one day may be fixed for a more efficient archive
-pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchivePlan> {
+pub async fn create_plan(project_id: i64) -> TAResult<DtArchivePlan> {
     let project = DtProjectRef::Id(project_id)
         .get_project()
         .await
         .into_ta_result()?;
-
-    let project_path = PathBuf::from(&project.path);
 
     let unused_node_ids: Vec<i64> = Vec::new();
 
@@ -366,8 +353,6 @@ pub async fn create_plan(project_id: i64, lossless: bool) -> TAResult<DtArchiveP
     );
 
     Ok(DtArchivePlan {
-        project_path,
-        lossless,
         primary_tensors: gen_images,
         tensors_extra: extra_resources,
         unused_tensors: unused_tensor_names,

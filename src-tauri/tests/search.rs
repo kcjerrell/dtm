@@ -25,7 +25,12 @@ mod tests {
                 .wait_for_count("project_sync_complete", wfh.get_count())
                 .await
         );
-        dtps.get_db().await.unwrap().rebuild_images_fts().await.unwrap();
+        dtps.get_db()
+            .await
+            .unwrap()
+            .rebuild_images_fts()
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

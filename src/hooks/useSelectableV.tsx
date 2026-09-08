@@ -12,7 +12,7 @@ import { hasPrimaryModifier } from "@/utils/platform";
 
 type SelectableContextType<T extends Selectable = Selectable> = {
   getItems: () => T[];
-  mode: "single" | "multipleToggle" | "multipleModifier";
+  mode: "single" | "multipleToggle" | "multipleModifier" | "singleRequired";
   onSelectionChanged?: (selectedItems: T[]) => void;
   keyFn: (item: T | Snapshot<T>) => string | number;
   lastSelectedItem: React.RefObject<T | null>;
@@ -44,6 +44,10 @@ function selectItem<T extends Selectable>(
     const newValue = value ?? !itemState.selected;
     clearAllSelected(state);
     if (newValue) itemState.setSelected(newValue);
+  }
+  else if (state.mode === "singleRequired") {
+    clearAllSelected(state);
+    itemState.setSelected(true);
   }
   // multiple toggle mode
   else if (state.mode === "multipleToggle") {
@@ -101,7 +105,7 @@ function selectItem<T extends Selectable>(
 
 type SelectableGroupOptions<T extends Selectable> = {
   onSelectionChanged?: (selectedItems: T[]) => void;
-  mode?: "single" | "multipleToggle" | "multipleModifier";
+  mode?: "single" | "singleRequired" | "multipleToggle" | "multipleModifier";
   /** This should be a stable reference for cv to memoize */
   keyFn?: (item: T | Snapshot<T>) => string | number;
 };

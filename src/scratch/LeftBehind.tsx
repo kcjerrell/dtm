@@ -1,4 +1,5 @@
 import { Box, Button, Grid, HStack, Input } from "@chakra-ui/react";
+import { path } from "@tauri-apps/api";
 import { invoke } from "@tauri-apps/api/core";
 import { proxy, useSnapshot } from "valtio";
 import { ArchivePlan } from "@/commands";
@@ -59,8 +60,14 @@ function Empty() {
               flex={"0 1 auto"}
               onClick={async () => {
                 const start = performance.now();
+                const target = await path.documentDir();
                 store.items = await invoke("create_dt_archive", {
-                  projectId: Number.parseInt(store.project, 10),
+                  opts: {
+                    project_id: Number.parseInt(store.project, 10),
+                    lossless: true,
+                    quality: 0.8,
+                    target,
+                  },
                 });
                 const end = performance.now();
                 console.log(`create_dt_archive took ${end - start} ms`);

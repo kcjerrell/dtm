@@ -61,11 +61,7 @@ impl EventHelper {
             current_count = self.count(event_type);
         }
         if current_count != count {
-            println!(
-                "Count for {} was {}",
-                event_type,
-                current_count
-            );
+            println!("Count for {} was {}", event_type, current_count);
             false
         } else {
             true

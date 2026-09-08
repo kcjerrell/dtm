@@ -1,8 +1,9 @@
 use anyhow::Result;
+use dashmap::DashMap;
 use std::{
     future::Future,
     pin::Pin,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock},
 };
 
 use sqlx::QueryBuilder;
@@ -19,8 +20,13 @@ use crate::{
     TAResult,
 };
 
-static PLAN_CACHE: LazyLock<Mutex<Option<(String, DtArchivePlan)>>> =
-    LazyLock::new(|| Mutex::new(None));
+struct PlanCacheEntry {
+    opts: CreateDtArchiveOptions,
+    plan: Arc<DtArchivePlan>,
+    preview: DtArchivePreview,
+}
+
+static PLAN_CACHE: LazyLock<DashMap<i64, PlanCacheEntry>> = LazyLock::new(DashMap::new);
 
 type ThumbnailStatsReducer = Box<
     dyn for<'a> Fn(
@@ -42,8 +48,63 @@ type TensorStatsReducer = Box<
 
 #[tauri::command]
 pub async fn create_dt_archive_plan(opts: CreateDtArchiveOptions) -> TAResult<DtArchivePreview> {
-    let plan = copy_everything_plan(opts.project_id, opts.lossless).await?;
+    if let Some(entry) = PLAN_CACHE.get(&opts.project_id) {
+        let cached_opts = entry.opts.clone();
+        let plan = Arc::clone(&entry.plan);
+        let cached_preview = entry.preview.clone();
+        drop(entry);
 
+        let preview = if should_regenerate_preview(&cached_opts, &opts) {
+            generate_dt_archive_preview(plan.as_ref(), &opts).await?
+        } else {
+            cached_preview
+        };
+
+        PLAN_CACHE.insert(
+            opts.project_id,
+            PlanCacheEntry {
+                opts,
+                plan,
+                preview: preview.clone(),
+            },
+        );
+
+        return Ok(preview);
+    }
+
+    let plan = Arc::new(copy_everything_plan(opts.project_id).await?);
+    let preview = generate_dt_archive_preview(plan.as_ref(), &opts).await?;
+
+    PLAN_CACHE.insert(
+        opts.project_id,
+        PlanCacheEntry {
+            opts,
+            plan,
+            preview: preview.clone(),
+        },
+    );
+
+    Ok(preview)
+}
+
+fn should_regenerate_preview(
+    cached_opts: &CreateDtArchiveOptions,
+    opts: &CreateDtArchiveOptions,
+) -> bool {
+    let lossless_changed = cached_opts.lossless != opts.lossless;
+
+    // Quality does not affect conversion yet, but compare it here so the cache policy is explicit.
+    let _quality_changed = cached_opts.quality != opts.quality;
+    // The target directory does not affect either the plan or preview.
+    let _target_changed = cached_opts.target != opts.target;
+
+    lossless_changed
+}
+
+async fn generate_dt_archive_preview(
+    plan: &DtArchivePlan,
+    opts: &CreateDtArchiveOptions,
+) -> TAResult<DtArchivePreview> {
     let project_ref = DtProjectRef::Id(opts.project_id);
     let dt_project = project_ref.open_project().await?;
 
@@ -91,9 +152,12 @@ pub async fn create_dt_archive_plan(opts: CreateDtArchiveOptions) -> TAResult<Dt
 
     preview.estimate = image_bytes + preview.thumbhalf.1 + tensor_stats.other;
 
-    *PLAN_CACHE.lock().unwrap() = Some((dt_project.path.clone(), plan));
-
     Ok(preview)
+}
+
+#[tauri::command]
+pub fn clear_dt_archive_plan_cache() {
+    PLAN_CACHE.clear();
 }
 
 /// Converts selected image plan items and returns their total pixel count and encoded byte size.
@@ -239,62 +303,81 @@ fn tensor_stats_reducer(
     BatchReducer::new(reducer, TensorStats::default(), 100)
 }
 
-// async fn estimate_tensors_size(plan: &DtArchivePlan) -> anyhow::Result<u64> {
-//     let project_ref = DtProjectRef::Path(plan.project_path.to_string_lossy().into());
-//     let dt_project = project_ref.open_project().await?;
-
-//     let dims = dt_project.get_all_tensor_dims().await?;
-//     let preview_every = (dims.len() / 11).max(1);
-//     let mut til_preview = preview_every;
-//     let mut pixels: u64 = 0;
-//     let mut other: u64 = 0;
-//     let mut sample_pixels: u64 = 0;
-//     let mut sample_after: u64 = 0;
-
-//     for (i, dim) in dims.iter().enumerate() {
-//         let kind = TensorKind::from_name(&dim.name);
-//         match kind {
-//             TensorKind::Image => {
-//                 let img_pixels = (dim.channels * dim.width * dim.height) as u64;
-//                 pixels += img_pixels;
-//                 til_preview -= 1;
-//                 if til_preview == 0 {
-//                     til_preview = preview_every;
-
-//                     let mut item = CopyTensorItem::extra(DtArchivePlanItem {
-//                         name: dim.name.clone(),
-//                         node_id: None,
-//                         preview_id: None,
-//                         index: i as i64,
-//                     });
-//                     item.convert(project_ref.clone(), plan.lossless).await?;
-
-//                     sample_pixels += img_pixels;
-//                     sample_after += item.data.map_or(dim.data_len as usize, |d| d.len()) as u64;
-//                 }
-//             }
-//             TensorKind::Audio => {
-//                 // assuming 2 bytes per sample
-//                 other += (dim.n * dim.height * dim.width * dim.channels * 2) as u64;
-//             }
-//             TensorKind::Binary => {
-//                 pixels += (dim.channels * dim.width * dim.height) as u64;
-//             }
-//             TensorKind::Pose => other += estimate_pose(dim.n),
-//             TensorKind::Unknown => {}
-//         }
-//     }
-
-//     let after_bpp = sample_after as f64 / sample_pixels as f64;
-//     let est_bytes = (pixels as f64 * after_bpp) as u64 + other;
-
-//     Ok(est_bytes)
-// }
-
 fn estimate_pose(people: i32) -> u64 {
     // the base size is 38-40 bytes (avg 39)
     // per person is 131-761 bytes (avg 446)
     let base = 39;
     let per_person = 446;
     (base + per_person * people) as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn options(
+        project_id: i64,
+        lossless: bool,
+        quality: f32,
+        target: &str,
+    ) -> CreateDtArchiveOptions {
+        CreateDtArchiveOptions {
+            project_id,
+            lossless,
+            quality,
+            target: target.to_string(),
+        }
+    }
+
+    fn empty_plan() -> Arc<DtArchivePlan> {
+        Arc::new(DtArchivePlan {
+            primary_tensors: Vec::new(),
+            tensors_extra: Vec::new(),
+            unused_tensors: Vec::new(),
+            unused_tensordata: Vec::new(),
+            unused_nodes: Vec::new(),
+            unused_tensormoodboarddata: Vec::new(),
+        })
+    }
+
+    #[test]
+    fn only_lossless_changes_regenerate_the_preview() {
+        let cached = options(1, false, 80.0, "/first");
+
+        assert!(!should_regenerate_preview(&cached, &cached));
+        assert!(should_regenerate_preview(
+            &cached,
+            &options(1, true, 80.0, "/first")
+        ));
+        assert!(!should_regenerate_preview(
+            &cached,
+            &options(1, false, 90.0, "/first")
+        ));
+        assert!(!should_regenerate_preview(
+            &cached,
+            &options(1, false, 80.0, "/second")
+        ));
+    }
+
+    #[test]
+    fn cache_holds_multiple_projects_and_clear_removes_them() {
+        PLAN_CACHE.clear();
+
+        for project_id in [1, 2] {
+            PLAN_CACHE.insert(
+                project_id,
+                PlanCacheEntry {
+                    opts: options(project_id, false, 80.0, "/target"),
+                    plan: empty_plan(),
+                    preview: DtArchivePreview::default(),
+                },
+            );
+        }
+
+        assert_eq!(PLAN_CACHE.len(), 2);
+
+        clear_dt_archive_plan_cache();
+
+        assert!(PLAN_CACHE.is_empty());
+    }
 }

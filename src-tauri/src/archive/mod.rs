@@ -14,7 +14,7 @@ pub(crate) use copy::copy_project;
 pub(crate) use copy_tensor_item::CopyTensorItem;
 pub(crate) use workers::copy_tensors;
 
-pub use commands::create_dt_archive_plan;
+pub use commands::{clear_dt_archive_plan_cache, create_dt_archive_plan};
 
 pub use cache::DTZipCache;
 pub use dt_zip::DTZip;
@@ -25,8 +25,22 @@ pub use plan::{
 use plan::copy_everything_plan;
 
 #[tauri::command]
-pub async fn create_dt_archive(app: State<'_, AppHandleWrapper>, project_id: i64) -> TAResult<()> {
-    let plan = copy_everything_plan(project_id, true).await?;
-    copy_project(app.inner().clone(), DtProjectRef::Id(project_id), plan).await?;
+pub async fn create_dt_archive(
+    app: State<'_, AppHandleWrapper>,
+    opts: CreateDtArchiveOptions,
+) -> TAResult<()> {
+    if opts.target.trim().is_empty() {
+        return Err(anyhow::anyhow!("archive output folder is required").into());
+    }
+
+    let project_id = opts.project_id;
+    let plan = copy_everything_plan(project_id).await?;
+    copy_project(
+        app.inner().clone(),
+        DtProjectRef::Id(project_id),
+        plan,
+        opts,
+    )
+    .await?;
     Ok(())
 }

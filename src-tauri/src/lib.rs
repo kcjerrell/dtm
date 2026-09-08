@@ -17,8 +17,8 @@ pub mod dtp_service;
 mod ffmpeg;
 pub mod projects_db;
 pub(crate) mod util;
+use archive::{clear_dt_archive_plan_cache, create_dt_archive, create_dt_archive_plan};
 use dtp_service::dtp_connect;
-use archive::{create_dt_archive, create_dt_archive_plan};
 mod migrations;
 mod vid;
 mod vid_export;
@@ -138,7 +138,8 @@ fn show_dev_window(app: tauri::AppHandle) -> TAResult<()> {
                 .min_inner_size(600.0, 400.0)
                 .visible(true)
                 .disable_drag_drop_handler()
-                .build().into_ta_result()?;
+                .build()
+                .into_ta_result()?;
 
             dev_window.show().into_ta_result()?;
             dev_window.set_focus().into_ta_result()?;
@@ -309,6 +310,7 @@ pub fn run() {
             dtp_service::resource::dtp_get_resource_json,
             create_dt_archive,
             create_dt_archive_plan,
+            clear_dt_archive_plan_cache,
             // #[cfg(feature = "tensor_bench")]
             // projects_db::print_tensor_benchmarks,
         ])
