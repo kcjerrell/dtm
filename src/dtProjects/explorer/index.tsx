@@ -1,9 +1,11 @@
-import { Box, HStack, Table, Text, VStack } from "@chakra-ui/react"
+import { Box, HStack, Input, Portal, Table, Text, VStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { Fragment, useCallback, useEffect, useMemo } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useRef } from "react"
 import DTProject from "@/commands/DTProject"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import urls from "@/commands/urls"
+import { Panel, PanelButton } from "@/components"
+import { useRootElementRef } from "@/hooks/useRootElement"
 import { useProxyRef } from "@/hooks/valtioHooks"
 import { useDTP } from "../state/context"
 
@@ -17,10 +19,14 @@ function Explorer(props: ExplorerProps) {
     const { state, snap } = useProxyRef(() => ({
         data: [] as TensorHistoryNode[],
         pageStatus: [] as ("loading" | "loaded" | undefined)[],
+        minRowid: undefined as undefined | number,
+        maxRowId: undefined as undefined | number,
     }))
-    const columns = useMemo(() => ["rowid", "lineage", "logical_time"], [])
+    const columns = useMemo(() => ["rowid", "lineage", "logicalTime"], [])
 
     const project = projects.getProject(projectId)
+
+    const minRowidRef = useRef<HTMLInputElement>(null)
 
     const loadPage = useCallback(
         async (pageIndex: number) => {
@@ -28,7 +34,7 @@ function Explorer(props: ExplorerProps) {
             state.pageStatus[pageIndex] = "loading"
             const rows = await DTProject.listTensorHistoryNodes({
                 projectId,
-                skip: pageIndex * 50,
+                skip: pageIndex * 50 + (state.minRowid ?? 0),
                 take: 50,
                 select: ["tensordata", "moodboard", "clip"],
             })
@@ -38,6 +44,8 @@ function Explorer(props: ExplorerProps) {
         [projectId, state, project],
     )
 
+    const container = useRootElementRef("view")
+
     useEffect(() => {
         loadPage(0)
     }, [loadPage])
@@ -45,7 +53,47 @@ function Explorer(props: ExplorerProps) {
     if (!project) return null
 
     return (
-        <Box {...restProps}>
+        <Box position={"relative"} overflow={"visible"} {...restProps}>
+            <Portal container={container}>
+                <Box
+                    position={"absolute"}
+                    display={"flex"}
+                    justifyContent={"center"}
+                    alignItems={"center"}
+                    // bgColor={"blue"}
+                    bottom={"0"}
+                    width={"80vh"}
+                    height={"10vh"}
+                    left={"10vw"}
+                >
+                    <Panel>
+                        <HStack>
+                            {/* <Input width={"10rem"} variant={"subtle"} placeholder={"min rowid"} /> */}
+                            <Input
+                                ref={minRowidRef}
+                                width={"10rem"}
+                                variant={"subtle"}
+                                placeholder={"min rowid"}
+                            />
+                            <PanelButton
+                                onClick={async () => {
+                                    if (!minRowidRef.current) {
+                                        return;
+                                    }
+                                    const value = parseInt(minRowidRef.current.value, 10)
+                                    console.log(minRowidRef.current.value)
+                                    state.minRowid = value
+                                    state.data = []
+                                    state.pageStatus = []
+                                    await loadPage(0)
+                                }}
+                            >
+                                Update
+                            </PanelButton>
+                        </HStack>
+                    </Panel>
+                </Box>
+            </Portal>
             <Table.Root>
                 <Table.Header></Table.Header>
 

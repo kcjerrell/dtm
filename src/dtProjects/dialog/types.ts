@@ -1,54 +1,63 @@
-import type { ImageExtra } from "@/commands"
-import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
+import type { ImageExtra } from "@/commands";
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes";
 
 export type VideoExportDialogState = {
-    dialogType: "clip-export-video"
-    props: {
-        image: ImageExtra
-        historyNode: TensorHistoryNode
-    }
-}
+  dialogType: "clip-export-video";
+  props: {
+    image: ImageExtra;
+    historyNode: TensorHistoryNode;
+  };
+};
 
 export type FrameExportDialogState = {
-    dialogType: "clip-export-frames"
-    props: {
-        image: ImageExtra
-        historyNode: TensorHistoryNode
-    }
-}
+  dialogType: "clip-export-frames";
+  props: {
+    image: ImageExtra;
+    historyNode: TensorHistoryNode;
+  };
+};
 
 export type ProjectExportDialogState = {
-    dialogType: "project-export"
-    props: {
-        projectIds: number[]
-    }
-}
+  dialogType: "project-export";
+  props: {
+    projectIds: number[];
+  };
+};
+
+export type DtArchiveDialogState = {
+  dialogType: "dt-archive";
+  props: {
+    projectIds: number[];
+  };
+};
 
 export type SettingsDialogState = {
-    dialogType: "settings"
-    props: Record<string, unknown>
-}
+  dialogType: "settings";
+  props: Record<string, unknown>;
+};
 
 export type ExplorerDialogState = {
-    dialogType: "explorer"
-    props: Record<string, unknown>
-}
+  dialogType: "explorer";
+  props: Record<string, unknown>;
+};
 
 type UnknownDialogState = {
-    dialogType: "unknown"
-    props: Record<string, unknown>
-}
+  dialogType: "unknown";
+  props: Record<string, unknown>;
+};
 
 export interface DialogPropsBase extends ChakraProps {
-    onClose: () => void
+  onClose: () => void;
 }
 
-export type DialogProps<T extends DialogState = UnknownDialogState> = DialogPropsBase & T["props"]
+export type DialogProps<T extends DialogState = UnknownDialogState> =
+  DialogPropsBase & T["props"];
 
 export type DialogState =
-    | VideoExportDialogState
-    | FrameExportDialogState
-    | ProjectExportDialogState
-    | SettingsDialogState
-    | ExplorerDialogState
-    | UnknownDialogState
+  | VideoExportDialogState
+  | FrameExportDialogState
+  | ProjectExportDialogState
+  | DtArchiveDialogState
+  | SettingsDialogState
+  | ExplorerDialogState
+  | UnknownDialogState;

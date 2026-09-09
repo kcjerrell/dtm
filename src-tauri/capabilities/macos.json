@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "description": "macOS-only updater and window-state permissions",
+  "identifier": "macos",
+  "platforms": ["macOS"],
+  "permissions": ["updater:default", "window-state:default"],
+  "windows": ["main", "dev"]
+}

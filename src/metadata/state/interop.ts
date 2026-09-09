@@ -16,7 +16,6 @@ export async function sendToMetadata(
     //     compareImageSource(im.source, source),
     // ) as Nullable<MediaItem>
 
-    // if (!imageItem) {
     await waitForMetadataStore()
     const image = await ImageItem.fromBuffer(imageData, type, source)
     if (image) {
@@ -27,7 +26,6 @@ export async function sendToMetadata(
             updateSetting("app.currentView", "metadata")
         }
     }
-    // }
 }
 
 export function handleDrop(data: unknown) {

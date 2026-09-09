@@ -62,7 +62,7 @@ impl Job for CheckFolderJob {
         format!("CheckFolderJob for {}", self.path)
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         ctx.dtp.stop_watch(&self.path).await;
 
         let mut locked_update: Option<bool> = None;
@@ -70,7 +70,9 @@ impl Job for CheckFolderJob {
 
         let watchfolder = match &self.watchfolder {
             Some(wf) => wf.clone(),
-            None => ctx.pdb.get_watch_folder_by_path(&self.path)
+            None => ctx
+                .pdb
+                .get_watch_folder_by_path(&self.path)
                 .await
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "Watch folder not found".to_string())?,
@@ -138,9 +140,9 @@ impl Job for CheckFolderJob {
     }
 }
 
-impl Into<Arc<dyn Job>> for CheckFolderJob {
-    fn into(self) -> Arc<dyn Job> {
-        Arc::new(self)
+impl From<CheckFolderJob> for Arc<dyn Job> {
+    fn from(val: CheckFolderJob) -> Self {
+        Arc::new(val)
     }
 }
 

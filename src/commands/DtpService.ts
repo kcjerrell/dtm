@@ -1,4 +1,5 @@
 import { type Channel, invoke } from "@tauri-apps/api/core"
+import { TensorHistoryNode, type TensorHistoryNodeResponse } from "./DTProjectTypes"
 import type {
     ClipExtra,
     ImageExtra,
@@ -7,7 +8,6 @@ import type {
     Model,
     ModelType,
     ProjectExtra,
-    TensorHistoryExtra,
     TensorSize,
     WatchFolder,
 } from "./DtpServiceTypes"
@@ -95,33 +95,15 @@ async function getTensorSize(projectId: number, tensorId: string): Promise<Tenso
     return await invoke("dtp_get_tensor_size", { projectId, tensorId })
 }
 
-async function decodeTensor(
-    projectId: number,
-    tensorId: string,
-    asPng: boolean,
-    nodeId?: number | null,
-): Promise<Uint8Array<ArrayBuffer>> {
-    const opts = {
-        tensorId,
-        projectId,
-        asPng,
-        nodeId,
-    }
-    return new Uint8Array(await invoke("dtp_decode_tensor", opts))
-}
-
 async function findPredecessor(
     projectId: number,
-    rowId: number,
-    lineage: number,
-    logicalTime: number,
-): Promise<TensorHistoryExtra[]> {
-    return await invoke("dtp_find_predecessor", {
+    rowId: number
+): Promise<TensorHistoryNode[]> {
+    const result = await invoke<TensorHistoryNodeResponse[]>("dtp_find_predecessor", {
         projectId,
         rowId,
-        lineage,
-        logicalTime,
     })
+    return result.map((r) => new TensorHistoryNode(r, projectId))
 }
 
 async function sync() {
@@ -144,6 +126,34 @@ async function exportProjects(
     return await invoke("dtp_export_projects", { projectIds, options })
 }
 
+async function getResourceImage(
+    projectId: number,
+    nodeId?: number | null,
+    tensorId?: string | null,
+    size?: number | null,
+): Promise<Uint8Array<ArrayBuffer>> {
+    const opts = {
+        projectId,
+        nodeId,
+        tensorId,
+        size,
+    }
+    return new Uint8Array(await invoke("dtp_get_resource_image", opts))
+}
+
+async function getResourceJson(
+    projectId: number,
+    nodeId?: number | null,
+    tensorId?: string | null,
+): Promise<string> {
+    const opts = {
+        projectId,
+        nodeId,
+        tensorId,
+    }
+    return await invoke("dtp_get_resource_json", opts)
+}
+
 const DTPService = {
     connect,
     listProjects,
@@ -158,12 +168,13 @@ const DTPService = {
     updateWatchFolder,
     listModels,
     getTensorSize,
-    decodeTensor,
     findPredecessor,
     sync,
     syncProjects,
     exportProjects,
     lockFolder,
+    getResourceImage,
+    getResourceJson,
 }
 
 export default DTPService

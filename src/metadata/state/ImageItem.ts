@@ -189,17 +189,15 @@ export class ImageItem extends MediaItem {
 }
 
 export async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
-    const imageItem = await DtpService.findImageFromPreviewId(dtpImage.projectId, dtpImage.imageId)
-    if (!imageItem) return
-    const history = await DTProject.getTensorHistory(imageItem.project_id, imageItem.node_id)
-    if (!history || !history.tensorHistoryName) return
-    const image = await DtpService.decodeTensor(
-        imageItem.project_id,
-        history.tensorHistoryName,
-        true,
-        imageItem.node_id,
+    const { projectId, imageId } = dtpImage
+    const history = await DTProject.listTensorHistoryNodes({ projectId, previewId: imageId, select: "tensordata" })
+    if (!history[0]) return
+    const image = await DtpService.getResourceImage(
+        dtpImage.projectId,
+        history[0].rowid,
+        history[0].tensorHistoryName,
     )
-    return { image, projectFile: history.project_path, history }
+    return { image, projectFile: history[0].project_path, history: history[0] }
 }
 
 export function isLocalUrl(url: string): boolean {

@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 
 use crate::projects_db::dtos::project::ProjectExtra;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct DTPEventsService {
     sender: Arc<Mutex<Option<Channel<DTPEvent>>>>,
 }

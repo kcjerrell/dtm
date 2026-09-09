@@ -149,16 +149,11 @@ impl Scheduler {
     }
 
     async fn update_parent_job(&self, job_entry: &JobEntry, _ctx: &JobContext) -> Option<JobId> {
-        if job_entry.state.parent_id.is_none() {
-            return None;
-        }
-        let parent_id = job_entry.state.parent_id.unwrap();
+        let parent_id = job_entry.state.parent_id?;
 
         let tasks_remaining = {
             let mut jobs = self.jobs.lock().await;
-            let Some(parent_job) = jobs.get_mut(&parent_id) else {
-                return None;
-            };
+            let parent_job = jobs.get_mut(&parent_id)?;
             let tasks_remaining = match job_entry.state.status {
                 JobStatus::Complete | JobStatus::Failed(_) => {
                     self.decrement_subtask_count(&mut parent_job.state)

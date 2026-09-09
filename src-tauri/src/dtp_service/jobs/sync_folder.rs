@@ -46,10 +46,10 @@ impl Job for SyncFolderJob {
             self.watchfolder_path, self.watchfolder_id
         )
     }
-    fn start_event(self: &Self) -> Option<DTPEvent> {
+    fn start_event(&self) -> Option<DTPEvent> {
         Some(DTPEvent::FolderSyncStarted(self.watchfolder_id))
     }
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let files = get_folder_files(&self.watchfolder_path, self.watchfolder_id).await;
         let mut project_files = files.projects;
         let mut sync_projects: Vec<ProjectSync> = Vec::new();
@@ -97,19 +97,19 @@ impl Job for SyncFolderJob {
             match sync.action {
                 SyncAction::Add => {
                     subtasks.push(Arc::new(AddProjectJob::new(
-                        &sync,
+                        sync,
                         self.is_import.load(Ordering::Relaxed),
                     )));
                 }
                 SyncAction::Remove => {
-                    match RemoveProjectJob::new(&sync) {
+                    match RemoveProjectJob::new(sync) {
                         Ok(job) => subtasks.push(Arc::new(job)),
                         Err(e) => log::error!("Failed to create RemoveProjectJob: {}", e),
                     };
                 }
                 SyncAction::Update => {
                     subtasks.push(Arc::new(
-                        UpdateProjectJob::new(&sync, self.is_import.load(Ordering::Relaxed), false)
+                        UpdateProjectJob::new(sync, self.is_import.load(Ordering::Relaxed), false)
                             .unwrap(),
                     ));
                 }
@@ -126,7 +126,15 @@ impl Job for SyncFolderJob {
         Ok(JobResult::Subtasks(subtasks))
     }
 
-    async fn on_complete(self: &Self, ctx: &JobContext) {
+    async fn on_complete(&self, ctx: &JobContext) {
+        if self.is_import.load(Ordering::Relaxed) {
+            ctx.events.emit(DTPEvent::ImportCompleted);
+        }
+        ctx.events
+            .emit(DTPEvent::FolderSyncComplete(self.watchfolder_id));
+    }
+
+    async fn on_failed(&self, ctx: &JobContext, _error: String) {
         if self.is_import.load(Ordering::Relaxed) {
             ctx.events.emit(DTPEvent::ImportCompleted);
         }
@@ -160,20 +168,17 @@ impl ProjectSync {
         watchfolder_id: i64,
         watchfolder_path: String,
     ) -> Self {
-        let sync = Self {
+        Self {
             entity,
             file,
             action: SyncAction::None,
             watchfolder_id,
             watchfolder_path,
-        };
-        sync
+        }
     }
 
     pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> anyhow::Result<Self> {
-        let entity = pdb
-            .get_project(project_id)
-            .await?;
+        let entity = pdb.get_project(project_id).await?;
 
         let mut project = None;
         if let Ok(metadata) = fs::metadata(&entity.full_path).await {
@@ -189,6 +194,7 @@ impl ProjectSync {
                     }
                 },
                 _watchfolder_id: entity.watchfolder_id,
+                is_archive: entity.full_path.ends_with(".dtm.zip"),
             });
         };
 
@@ -222,11 +228,18 @@ impl ProjectSync {
             return;
         }
         if let (Some(entity), Some(file)) = (self.entity.as_ref(), self.file.as_ref()) {
-            if file.filesize != entity.filesize.unwrap_or(0) as u64
-                || file.modified != entity.modified.unwrap_or(0) as i64
-            {
+            if has_changed(file, entity) {
                 self.action = SyncAction::Update;
             }
         }
+    }
+}
+
+fn has_changed(file: &ProjectFile, entity: &ProjectExtra) -> bool {
+    if file.is_archive {
+        file.filesize != entity.filesize.unwrap_or(0) as u64
+    } else {
+        file.filesize != entity.filesize.unwrap_or(0) as u64
+            || file.modified != entity.modified.unwrap_or(0)
     }
 }

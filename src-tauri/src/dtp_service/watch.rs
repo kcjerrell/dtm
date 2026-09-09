@@ -143,6 +143,9 @@ impl VolumeWatcher {
     }
 
     pub async fn start(&self) {
+        if !Path::new("/Volumes").exists() {
+            return;
+        }
         self.watcher
             .lock()
             .await
@@ -152,6 +155,9 @@ impl VolumeWatcher {
     }
 
     pub async fn stop(&self) {
+        if !Path::new("/Volumes").exists() {
+            return;
+        }
         self.watcher
             .lock()
             .await

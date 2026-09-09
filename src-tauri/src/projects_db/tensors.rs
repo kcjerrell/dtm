@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use flate2::read::DeflateDecoder;
 use fpzip_sys::*;
 
@@ -9,8 +9,8 @@ use std::ffi::c_void;
 use std::io::Cursor;
 use std::io::Read;
 
-use crate::projects_db::dt_project::data::tensor_history_node_data::TensorHistoryNodeData;
-use crate::projects_db::dtos::tensor::TensorRaw;
+use crate::dt_project::DTResource;
+use crate::dt_project::{data::TensorHistoryNodeData, TensorRaw};
 use crate::projects_db::metadata::DrawThingsMetadata;
 
 pub struct DecodeTensorOptions {
@@ -39,10 +39,23 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
     //     tensor.channels
     // );
 
-    let out = decompress_fzip(&tensor.data)?;
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            anyhow::bail!("DTZipRef not yet supported in decode_tensor")
+        }
+        DTResource::JpgInFbs(_) => {
+            anyhow::bail!("JpgWithHeader not supported in decode_tensor")
+        }
+    };
+
+    let out = decompress_fzip(&data)
+        .with_context(|| format!("failed to decompress tensor data for {}", tensor.name))?;
     // log::debug!(
     //     "Compressed: {} bytes, decompressed: {} bytes",
-    //     &tensor.data.len(),
+    //     &data.len(),
     //     out.len()
     // );
 
@@ -79,9 +92,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
                     }
                 } else {
                     // Should not happen with correct math, but safe fallback
-                    for _ in 0..channels {
-                        pixels.push(0);
-                    }
+                    pixels.extend(std::iter::repeat_n(0, channels));
                 }
             }
         }
@@ -101,25 +112,35 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
             height,
             tensor.channels as usize,
             history_node,
-        ),
+        )
+        .with_context(|| format!("failed to encode tensor {} as PNG", tensor.name)),
         false => Ok(pixels),
     }
 }
 
 pub fn decode_pose(tensor: TensorRaw) -> Result<Vec<u8>> {
-    if tensor.data.len() >= 3
-        && tensor.data[0] == 0x66
-        && tensor.data[1] == 0x70
-        && tensor.data[2] == 0x79
-    {
-        let dec = decompress_fzip(&tensor.data)?;
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            anyhow::bail!("DTZipRef not yet supported in decode_pose")
+        }
+        DTResource::JpgInFbs(_) => {
+            anyhow::bail!("JpgWithHeader not supported in decode_pose")
+        }
+    };
+
+    if data.len() >= 3 && data[0] == 0x66 && data[1] == 0x70 && data[2] == 0x79 {
+        let dec = decompress_fzip(&data)
+            .with_context(|| format!("failed to decompress pose tensor {}", tensor.name))?;
         Ok(f32_to_u8(dec))
     } else {
-        Ok(tensor.data)
+        Ok(data)
     }
 }
 
-pub fn decompress_fzip(data: &Vec<u8>) -> Result<Vec<f32>> {
+pub fn decompress_fzip(data: &[u8]) -> Result<Vec<f32>> {
     let out: Vec<f32>;
 
     // A valid FPZIP stream needs at least a few bytes for its header.
@@ -255,7 +276,20 @@ pub fn decompress_fzip(data: &Vec<u8>) -> Result<Vec<f32>> {
 }
 
 pub fn scribble_mask_to_png(tensor: TensorRaw, size: Option<u32>) -> Result<Vec<u8>> {
-    let data = inflate_deflate(&tensor.data)?;
+    // Extract bytes from DTResource
+    let data = match &tensor.resource {
+        DTResource::CompressedTensor(compressed) => compressed.data().to_vec(),
+        DTResource::Unknown(bytes) => bytes.clone(),
+        DTResource::DTZipRef(_) => {
+            anyhow::bail!("DTZipRef not yet supported in scribble_mask_to_png")
+        }
+        DTResource::JpgInFbs(_) => {
+            anyhow::bail!("JpgWithHeader not supported in scribble_mask_to_png")
+        }
+    };
+
+    let data = inflate_deflate(&data)
+        .with_context(|| format!("failed to inflate mask/scribble data for {}", tensor.name))?;
     let bw: Vec<u8> = data.iter().map(|&x| if x > 0 { 255 } else { 0 }).collect();
 
     let height = i32::from_le_bytes(tensor.dim[0..4].try_into().unwrap_or_default()) as u32;
@@ -280,9 +314,17 @@ pub fn scribble_mask_to_png(tensor: TensorRaw, size: Option<u32>) -> Result<Vec<
             image::imageops::FilterType::Nearest,
         );
 
-        resized.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+        resized
+            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+            .with_context(|| {
+                format!(
+                    "failed to encode scaled mask/scribble PNG for {}",
+                    tensor.name
+                )
+            })?;
     } else {
-        img.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)?;
+        img.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+            .with_context(|| format!("failed to encode mask/scribble PNG for {}", tensor.name))?;
     }
 
     Ok(out)
@@ -291,7 +333,9 @@ pub fn scribble_mask_to_png(tensor: TensorRaw, size: Option<u32>) -> Result<Vec<
 pub fn inflate_deflate(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     let mut decoder = DeflateDecoder::new(data);
     let mut out = Vec::new();
-    decoder.read_to_end(&mut out)?;
+    decoder
+        .read_to_end(&mut out)
+        .context("failed to inflate compressed stream")?;
     Ok(out)
 }
 
@@ -326,7 +370,9 @@ pub fn write_png_with_usercomment(
         _ => return Err(anyhow::anyhow!("Unsupported channel count ({})", channels)),
     });
 
-    let mut writer = encoder.write_header()?;
+    let mut writer = encoder
+        .write_header()
+        .context("failed to write PNG header")?;
 
     // Draw Things writes an explicit sRGB intent. DT seems to expect it.
     writer.write_chunk(
@@ -335,8 +381,10 @@ pub fn write_png_with_usercomment(
     )?;
 
     if let Some(history) = history_node {
-        let metadata = DrawThingsMetadata::try_from(&history)?;
-        let json_string = serde_json::to_string(&metadata)?;
+        let metadata = DrawThingsMetadata::try_from(&history)
+            .context("failed to create metadata from tensor history node")?;
+        let json_string =
+            serde_json::to_string(&metadata).context("failed to serialize metadata JSON")?;
 
         let exif = build_exif_user_comment(&json_string, width, height);
         writer.write_chunk(png::chunk::eXIf, &exif)?;
@@ -347,8 +395,10 @@ pub fn write_png_with_usercomment(
         writer.write_chunk(png::chunk::iTXt, &itxt_chunk)?;
     }
 
-    writer.write_image_data(pixels)?;
-    writer.finish()?;
+    writer
+        .write_image_data(pixels)
+        .context("failed to write PNG pixel data")?;
+    writer.finish().context("failed to finalize PNG encoding")?;
 
     Ok(out)
 }
@@ -364,11 +414,14 @@ pub fn write_jpeg_with_metadata(
     use img_parts::jpeg::{markers, Jpeg, JpegSegment};
     use img_parts::Bytes;
 
-    let metadata = DrawThingsMetadata::try_from(history)?;
-    let json_string = serde_json::to_string(&metadata)?;
+    let metadata = DrawThingsMetadata::try_from(history)
+        .context("failed to create metadata from tensor history node for JPEG")?;
+    let json_string =
+        serde_json::to_string(&metadata).context("failed to serialize metadata JSON for JPEG")?;
     let xmp = build_drawthings_xmp(&json_string, &build_description(&metadata));
 
-    let mut jpeg = Jpeg::from_bytes(Bytes::copy_from_slice(jpg))?;
+    let mut jpeg = Jpeg::from_bytes(Bytes::copy_from_slice(jpg))
+        .context("failed to parse JPEG image bytes")?;
 
     // JPEG stores XMP in an APP1 segment whose payload is the Adobe XMP
     // namespace id, a null byte, then the XMP packet.

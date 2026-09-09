@@ -1,29 +1,15 @@
 import { mkdirSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import type { TauriCapabilities } from "@wdio/tauri-service"
 import type { Options } from "@wdio/types"
 import { config as dotenvConfig } from "dotenv"
-import {
-    checkForAppInstance,
-    startApp,
-    startDevServer,
-    stopApp,
-    waitForServer,
-} from "./util/appLauncher.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 dotenvConfig({ path: resolve(__dirname, ".env"), override: false })
-dotenvConfig({ path: resolve(__dirname, "dev.env"), override: false })
 
-let isAppRunning = false
-const useDev = process.env.DTM_USE_DEV !== "false"
-const isDebug = false
-// process.execArgv.some((arg) => arg.startsWith("--inspect")) ||
-// !!process.env.VSCODE_INSPECTOR_OPTIONS;
-
-const WEBDRIVER_PORT = 4445
 const SCREENSHOT_DIR = resolve(__dirname, "artifacts", "screenshots")
 
 function safeFileName(value: string) {
@@ -31,22 +17,11 @@ function safeFileName(value: string) {
 }
 
 export const config: Options.Testrunner & Record<string, unknown> = {
+    tsConfigPath: "./tsconfig.wdio.json",
     runner: "local",
-
-    autoCompileOpts: {
-        autoCompile: true,
-        tsNodeOpts: {
-            project: resolve(__dirname, "tsconfig.json"),
-            transpileOnly: true,
-            esm: true,
-        },
-    },
-
-    reporters: [["json", { stdout: true }], "spec"],
-
-    // specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
-
+    maxInstances: 1,
     specs: [
+        "./specs/tauri-wdio.e2e.ts",
         "./specs/projects-a.e2e.ts",
         "./specs/model-selector-popup.e2e.ts",
         "./specs/projects.e2e.ts",
@@ -54,80 +29,53 @@ export const config: Options.Testrunner & Record<string, unknown> = {
         "./specs/metadata-a.e2e.ts",
         "./specs/project-export.e2e.ts",
     ],
-
     exclude: [],
 
-    maxInstances: 1,
+    reporters: ["spec"],
+
+    services: [
+        [
+            "@wdio/tauri-service",
+            {
+                appBinaryPath: "./src-tauri/target/debug/dtm",
+                autoInstallTauriDriver: true,
+                tauriDriverPort: 4445,
+            },
+        ],
+    ],
 
     capabilities: [
         {
-            maxInstances: 1,
-            browserName: "chrome",
-            "goog:chromeOptions": {
-                // We don't actually use Chrome - WebdriverIO connects to our custom WebDriver server
+            browserName: "tauri",
+            "tauri:options": {
+                application: "./src-tauri/target/debug/dtm",
+                webviewOptions: { width: 800, height: 600 },
             },
-        },
+            "wdio:tauriServiceOptions": {
+                captureBackendLogs: false,
+            },
+        } as TauriCapabilities,
     ],
 
-    // Connect to our WebDriver server
-    hostname: "127.0.0.1",
-    port: WEBDRIVER_PORT,
-    path: "/",
-
     logLevel: "warn",
-
     bail: 0,
-
-    waitforTimeout: isDebug ? 1000000 : 10000,
-
-    connectionRetryTimeout: isDebug ? 12000000 : 120000,
-
+    baseUrl: "http://localhost:4444",
+    waitforTimeout: 10_000,
+    connectionRetryTimeout: 90_000,
     connectionRetryCount: 3,
 
     framework: "mocha",
-
     mochaOpts: {
         ui: "bdd",
-        timeout: isDebug ? 6000000 : 180000,
+        timeout: 60_000,
     },
 
-    // Hooks
     onPrepare: async () => {
         mkdirSync(SCREENSHOT_DIR, { recursive: true })
     },
 
-    onComplete: () => {
-        // Global teardown after all workers are finished
-    },
-
-    beforeSession: async (config, capabilities, specs) => {
-        isAppRunning = false
-
-        if (checkForAppInstance("DTM") || checkForAppInstance("dtm")) {
-            // use existing app
-            isAppRunning = true
-            console.log(`App is already running. Connecting to existing session...`)
-            await waitForServer(WEBDRIVER_PORT, 10000)
-            return
-        }
-        if (useDev) {
-            console.log("Starting app in dev mode...")
-            await startDevServer(WEBDRIVER_PORT)
-            return
-        }
-        console.log("Starting debug build...")
-        await startApp(WEBDRIVER_PORT)
-    },
-
-    afterSession: async () => {
-        if (isAppRunning) return
-        console.log("Stopping Tauri application...")
-        stopApp()
-    },
-
-    afterTest: async (test, context, result) => {
+    afterTest: async (test, _context, result) => {
         if (result.passed) return
-
         try {
             const diagnostics = await browser.execute(() => {
                 const appRoot = document.querySelector("[data-current-view]")
@@ -151,7 +99,6 @@ export const config: Options.Testrunner & Record<string, unknown> = {
                         visibility: style.visibility,
                     }
                 })
-
                 return {
                     currentView: appRoot?.getAttribute("data-current-view"),
                     mountedViews: appRoot?.getAttribute("data-mounted-views"),
@@ -165,7 +112,6 @@ export const config: Options.Testrunner & Record<string, unknown> = {
                 }
             })
             console.log(`Failure diagnostics: ${JSON.stringify(diagnostics, null, 2)}`)
-
             mkdirSync(SCREENSHOT_DIR, { recursive: true })
             const stamp = new Date().toISOString().replace(/[:.]/g, "-")
             const suite = safeFileName(test.parent || "suite")

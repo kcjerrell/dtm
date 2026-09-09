@@ -17,7 +17,7 @@ impl Job for ExampleJob {
     }
 
     // optional
-    // fn start_event(self: &Self) -> Option<DTPEvent> { None }
+    // fn start_event(&self) -> Option<DTPEvent> { None }
 
     // optional
     // async fn on_complete(&self, _ctx: &JobContext) {}
@@ -25,7 +25,7 @@ impl Job for ExampleJob {
     // optional
     // async fn on_failed(&self, _ctx: &JobContext, _error: String) {}
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         Ok(JobResult::None)
     }
 }

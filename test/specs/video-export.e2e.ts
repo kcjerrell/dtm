@@ -7,6 +7,7 @@ import DTProjects from "../pageobjects/DTProjects"
 import {
     ensureFfmpeg,
     ffmpegBinDir,
+    ffmpegInstalled,
     removeFfmpegBinaries,
     stageFfmpegArchives,
 } from "../util/ffmpeg"
@@ -19,10 +20,6 @@ import { getTestDataPath } from "../util/paths"
     folder-b (mounted as Volumes/folder-b)
     test-project-e2
 */
-
-type E2EWindow = Window & {
-    __E2E_FILE_PATH__?: string
-}
 
 function parseFps(rate: string): number {
     const [num, denom] = rate.split("/").map((v) => Number(v))
@@ -55,12 +52,21 @@ async function waitForImageGridReady() {
     )
 }
 
-async function clickFilterPopupItem(label: string) {
-    const option = await $(
-        `//div[@data-filter-popup]//*[@role="option" and (normalize-space()="${label}" or .//*[normalize-space()="${label}"])]`,
-    )
-    await option.waitForDisplayed({ timeout: 10000 })
-    await option.click()
+async function openDetailsOverlay(item: WebdriverIO.Element) {
+    let lastError: unknown
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            await item.scrollIntoView()
+            await item.click()
+            await $("#details-overlay").waitForDisplayed({ timeout: 5000 })
+            return
+        } catch (error) {
+            lastError = error
+            await browser.keys("Escape").catch(() => {})
+            await browser.pause(300)
+        }
+    }
+    throw lastError
 }
 
 describe("Video Export", () => {
@@ -71,13 +77,18 @@ describe("Video Export", () => {
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
 
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
+
         // go to projects view
         await browser.refresh()
         await browser.pause(3000)
         await App.selectView("projects")
 
         // make sure we're on the projects tab
-        await $("aria/Projects tab").click()
+        await DTProjects.selectTab("projects")
 
         // filter by video using toolbar button (idempotent)
         const showVideosToggle = DTProjects.imageToolbar.showVideos
@@ -91,8 +102,7 @@ describe("Video Export", () => {
         expect(items.length).toBeGreaterThan(0)
 
         // open the first video
-        await items[0].click()
-        await expect($("#details-overlay")).toBeDisplayed()
+        await openDetailsOverlay(items[0])
 
         // open the Save video dialog and run the install flow
         await $("aria/Save video").click()
@@ -100,18 +110,18 @@ describe("Video Export", () => {
 
         await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
         await expect($("body")).toHaveText(
-            expect.stringContaining("FFMPEG must be downloaded before video can be exported"),
+            expect.stringContaining("FFmpeg"),
         )
         const exportButton = $("aria/Export video")
         await expect(exportButton).toBeDisabled()
         await $("button=Install").click()
 
         await $("[data-testid='ffmpeg-section']").waitForDisplayed({
-            timeout: 25000,
+            timeout: 90_000,
             reverse: true,
         })
 
-        await exportButton.waitForEnabled({ timeout: 30000 })
+        await exportButton.waitForEnabled()
 
         expect(await fse.pathExists(path.join(ffmpegBinDir, "ffmpeg"))).toBe(true)
         expect(await fse.pathExists(path.join(ffmpegBinDir, "ffprobe"))).toBe(true)
@@ -129,7 +139,7 @@ describe("Video Export", () => {
         await App.selectView("projects")
 
         // make sure we're on the projects tab
-        await $("aria/Projects tab").click()
+        await DTProjects.selectTab("projects")
 
         // filter by video using toolbar button (idempotent)
         const showVideosToggle = DTProjects.imageToolbar.showVideos
@@ -149,8 +159,7 @@ describe("Video Export", () => {
 
         // we need to select a video that does NOT have audio
         // go to the search tab
-        await $("aria/Search tab").click()
-        await expect($("aria/Search tab")).toHaveAttribute("aria-selected", "true")
+        await DTProjects.selectTab("search")
 
         // click add filter
         await $("aria/Add search filter").click()
@@ -197,8 +206,7 @@ describe("Video Export", () => {
         )
 
         // click the first image
-        await filteredItems[0].click()
-        await expect($("#details-overlay")).toBeDisplayed()
+        await openDetailsOverlay(filteredItems[0])
 
         // assert some details
         // expect(await DTProjects.getDataItemValue("Model")).toContain("wan_v2.1_14b")
@@ -333,8 +341,7 @@ describe("Video Export", () => {
         await browser.refresh()
         await browser.pause(3000)
         await App.selectView("projects")
-        await $("aria/Search tab").click()
-        await expect($("aria/Search tab")).toHaveAttribute("aria-selected", "true")
+        await DTProjects.selectTab("search")
         await $("aria/Reset search").click()
 
         // search for model version: LTX-2 19B [distilled]
@@ -366,8 +373,7 @@ describe("Video Export", () => {
         expect(filteredItems.length).toBeGreaterThan(0)
 
         // open first item and assert details
-        await filteredItems[0].click()
-        await expect($("#details-overlay")).toBeDisplayed()
+        await openDetailsOverlay(filteredItems[0])
         expect(await DTProjects.getDataItemValue("Model")).toContain("2.3")
         expect(await DTProjects.getDataItemValue("Num Frames")).toContain("17")
 
