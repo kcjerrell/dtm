@@ -326,6 +326,16 @@ impl ResourceHandle for DtResourceHandle {
         if let Some(tensor_name) = tensor_name {
             let dtp = self.get_project().await?;
             let tensor_raw = dtp.get_tensor_raw(&tensor_name).await?;
+
+            // read json file from a dtzip
+            match tensor_raw.resource {
+                DTResource::DTZipRef(dtzip_ref) => {
+                    let json = dtp.get_archive_file(&dtzip_ref.rel_path).await?;
+                    return Ok(String::from_utf8(json).ok());
+                }
+                _ => {}
+            }
+
             let tensor = Tensor::try_from(tensor_raw)?;
 
             let (width, height) = match size {
