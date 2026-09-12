@@ -87,8 +87,8 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<()> {
             task_sizes[i] = content_length;
 
             let mut stream = res.bytes_stream();
-            let mut file = std::fs::File::create(&archive_path)
-                .context("Failed to create archive file")?;
+            let mut file =
+                std::fs::File::create(&archive_path).context("Failed to create archive file")?;
 
             let mut last_emit = std::time::Instant::now();
             let emit_interval = std::time::Duration::from_millis(200);

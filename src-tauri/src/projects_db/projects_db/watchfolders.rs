@@ -36,7 +36,9 @@ impl ProjectsDb {
     }
 
     pub async fn something(&self) -> anyhow::Result<()> {
-        self.remove_watch_folders(vec![1]).await.map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        self.remove_watch_folders(vec![1])
+            .await
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
         Ok(())
     }
 

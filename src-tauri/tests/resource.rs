@@ -296,7 +296,10 @@ mod tests {
         let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
@@ -309,7 +312,10 @@ mod tests {
         let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]
@@ -325,7 +331,10 @@ mod tests {
         let lossless = resource_handle.get_lossless(None).await.unwrap().unwrap();
         assert!(lossless.len() > 0);
         // Verify it's a PNG by checking the PNG signature
-        assert_eq!(&lossless[0..8], &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &lossless[0..8],
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        );
     }
 
     #[tokio::test]

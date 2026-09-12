@@ -29,7 +29,7 @@ mod tensor;
 pub use tensor::{Tensor, TensorValue};
 
 mod error;
-pub use error::{TACommandError, TAResult, IntoTAResult};
+pub use error::{IntoTAResult, TACommandError, TAResult};
 
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
@@ -59,17 +59,23 @@ fn write_clipboard_binary(ty: String, data: Vec<u8>) -> TAResult<()> {
 
 #[tauri::command]
 async fn ffmpeg_check(app: tauri::AppHandle) -> TAResult<bool> {
-    Ok(ffmpeg::check_ffmpeg(&app).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::check_ffmpeg(&app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 async fn ffmpeg_download(app: tauri::AppHandle) -> TAResult<()> {
-    Ok(ffmpeg::download_ffmpeg(app).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::download_ffmpeg(app)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]
 async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> TAResult<String> {
-    Ok(ffmpeg::call_ffmpeg(&app, args).await.map_err(anyhow::Error::msg)?)
+    Ok(ffmpeg::call_ffmpeg(&app, args)
+        .await
+        .map_err(anyhow::Error::msg)?)
 }
 
 #[tauri::command]

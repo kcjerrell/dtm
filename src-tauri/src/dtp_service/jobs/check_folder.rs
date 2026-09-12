@@ -70,7 +70,9 @@ impl Job for CheckFolderJob {
 
         let watchfolder = match &self.watchfolder {
             Some(wf) => wf.clone(),
-            None => ctx.pdb.get_watch_folder_by_path(&self.path)
+            None => ctx
+                .pdb
+                .get_watch_folder_by_path(&self.path)
                 .await
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "Watch folder not found".to_string())?,

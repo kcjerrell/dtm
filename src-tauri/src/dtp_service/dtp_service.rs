@@ -242,7 +242,8 @@ impl DTPService {
             .get_db()
             .await?
             .update_watch_folder(watchfolder_id, None, None, Some(true))
-            .await.into_ta_result()?;
+            .await
+            .into_ta_result()?;
         self.stop_watch(&folder.path).await;
         projects_db::close_folder(&folder.path).await;
         self.events.emit(DTPEvent::WatchFoldersChanged);

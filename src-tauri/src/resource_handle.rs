@@ -27,9 +27,5 @@ pub trait ResourceHandle {
     /// Frames (e.g. for clip/video resources), as further resource handles.
     /// Returned handles should be directly resolvable without extra lookups
     /// Set preview to true to get fast preview frames, if available
-    async fn get_frames(
-        &self,
-        preview: bool,
-    ) -> Result<Option<Vec<Box<dyn ResourceHandle>>>>;
+    async fn get_frames(&self, preview: bool) -> Result<Option<Vec<Box<dyn ResourceHandle>>>>;
 }
-

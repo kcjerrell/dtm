@@ -12,8 +12,8 @@ use anyhow::{Context, Result};
 
 /// Public entry point (your requested API)
 pub async fn run_migrations(app: AppHandle) -> Result<()> {
-    let current_version =
-        Version::parse(&app.package_info().version.to_string()).context("Failed to parse current version")?;
+    let current_version = Version::parse(&app.package_info().version.to_string())
+        .context("Failed to parse current version")?;
 
     let path = version_file(&app)?;
 
@@ -39,7 +39,10 @@ pub async fn run_migrations(app: AppHandle) -> Result<()> {
 //
 
 fn version_file(app: &AppHandle) -> Result<PathBuf> {
-    let mut path = app.path().app_data_dir().context("Failed to get app data dir")?;
+    let mut path = app
+        .path()
+        .app_data_dir()
+        .context("Failed to get app data dir")?;
 
     fs::create_dir_all(&path).context("Failed to create app data dir")?;
 

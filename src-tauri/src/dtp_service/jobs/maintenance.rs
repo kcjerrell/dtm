@@ -121,9 +121,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
         );
 
         let clip_ids = images.iter().map(|im| im.clip_id).collect();
-        let clip_counts = dt_project
-            .get_clip_counts(clip_ids)
-            .await?;
+        let clip_counts = dt_project.get_clip_counts(clip_ids).await?;
 
         // update images.num_frames with correct counts
         for image in images {
@@ -140,10 +138,7 @@ async fn check_clip_counts(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Re
     Ok(())
 }
 
-async fn check_sampler_values(
-    watchfolder: &WatchFolderDTO,
-    ctx: &JobContext,
-) -> Result<()> {
+async fn check_sampler_values(watchfolder: &WatchFolderDTO, ctx: &JobContext) -> Result<()> {
     let images: Vec<images::Model> = images::Entity::find()
         .join(JoinType::InnerJoin, images::Relation::Projects.def())
         .filter(projects::Column::WatchfolderId.eq(watchfolder.id))
@@ -177,9 +172,7 @@ async fn check_sampler_values(
     }
 
     for model in fix {
-        images::Entity::update(model)
-            .exec(&ctx.pdb.db)
-            .await?;
+        images::Entity::update(model).exec(&ctx.pdb.db).await?;
     }
 
     Ok(())

@@ -584,8 +584,6 @@ const CLIP_QUERY: &str = "
     AND thn.rowid < ?2
     ORDER BY thn.rowid;\n        ";
 
-
-
 /*
 SELECT
     thn.rowid,

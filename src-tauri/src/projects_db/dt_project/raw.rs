@@ -133,7 +133,6 @@ impl<'a> DTProjectRaw<'a> {
     }
 }
 
-
 #[tauri::command]
 pub async fn dt_project_tensordata(
     project_path: String,
@@ -143,8 +142,7 @@ pub async fn dt_project_tensordata(
     first: Option<i64>,
     last: Option<i64>,
 ) -> crate::TAResult<Vec<TensorData>> {
-    let dt_project = DTProject::get(&project_path)
-        .await?;
+    let dt_project = DTProject::get(&project_path).await?;
     let raw = DTProjectRaw::new(&dt_project);
 
     let mut query = TensorDataQuery::new();

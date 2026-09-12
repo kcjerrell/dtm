@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
 use crate::bookmarks;
+use anyhow::{Context, Result};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::path::PathBuf;

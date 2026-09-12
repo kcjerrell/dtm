@@ -67,14 +67,14 @@ pub async fn get_audio(project_path: &str, resource: &DTPResource) -> anyhow::Re
         }
     }
 
-    let item_id: i64 = resource.item_id.parse().map_err(|_| anyhow::anyhow!("Invalid item ID"))?;
+    let item_id: i64 = resource
+        .item_id
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid item ID"))?;
 
     let res = DtResourceHandle::new(
         DtProjectRef::Path(project_path.to_string()),
-        DtResourceRef::TensorHistoryNode(
-            ThnRef::RowId(item_id),
-            ThnResource::None,
-        ),
+        DtResourceRef::TensorHistoryNode(ThnRef::RowId(item_id), ThnResource::None),
     );
 
     if let Some(audio) = res.get_audio().await? {

@@ -85,7 +85,10 @@ impl DTPService {
             let project = db.get_project(*project_id).await.into_ta_result()?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = db.open_dt_project(DtProjectRef::Id(*project_id)).await.into_ta_result()?;
+            let dt_project = db
+                .open_dt_project(DtProjectRef::Id(*project_id))
+                .await
+                .into_ta_result()?;
 
             // fresh temp directory per project
             let temp_dir = temp_root.join(format!("project_{}", project_id));
@@ -114,7 +117,8 @@ impl DTPService {
             // decoding, so each task awaits the io then offloads the cpu work to a
             // blocking thread. the semaphore caps how many run at once.
             let semaphore = Arc::new(Semaphore::new(4));
-            let mut handles: Vec<tokio::task::JoinHandle<anyhow::Result<()>>> = Vec::with_capacity(images.len());
+            let mut handles: Vec<tokio::task::JoinHandle<anyhow::Result<()>>> =
+                Vec::with_capacity(images.len());
 
             for (index, image) in images.into_iter().enumerate() {
                 let permit = semaphore.clone().acquire_owned().await.into_ta_result()?;

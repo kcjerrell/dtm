@@ -23,7 +23,7 @@ mkdir -p "$TARGET_DIR"
 for FILE in "${FILES[@]}"; do
   echo "Downloading $FILE..."
   curl -sSL "$BASE_URL/$FILE" -o "$TARGET_DIR/$FILE"
-  
+
   echo "Processing $FILE..."
   # Remove " (indexed)" and " (primary)" from the files
   sed -i.bak -e 's/ (indexed)//g' -e 's/ (primary)//g' "$TARGET_DIR/$FILE"
@@ -31,6 +31,6 @@ for FILE in "${FILES[@]}"; do
 done
 
 echo "Running flatc to update the generated code..."
-./scripts/flatc --rust -o "$TARGET_DIR" "$TARGET_DIR"/*.fbs
+flatc --rust -o "$TARGET_DIR" "$TARGET_DIR"/*.fbs
 
 echo "Done!"

@@ -113,11 +113,7 @@ pub struct UpdateProjectJob {
 }
 
 impl UpdateProjectJob {
-    pub fn new(
-        project_sync: &ProjectSync,
-        is_import: bool,
-        check_deletions: bool,
-    ) -> Result<Self> {
+    pub fn new(project_sync: &ProjectSync, is_import: bool, check_deletions: bool) -> Result<Self> {
         if let Some(entity) = &project_sync.entity {
             Ok(Self {
                 project_id: entity.id,
@@ -200,11 +196,7 @@ impl Job for UpdateProjectJob {
     }
 }
 
-async fn check_deletions(
-    ctx: &JobContext,
-    project_id: i64,
-    project_path: &str,
-) -> Result<()> {
+async fn check_deletions(ctx: &JobContext, project_id: i64, project_path: &str) -> Result<()> {
     let pdb_path = get_db_file_path(&ctx.app_handle);
 
     let dt_project = DTProject::open(project_path).await?;

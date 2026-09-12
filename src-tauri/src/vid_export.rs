@@ -254,7 +254,11 @@ pub async fn create_video_from_frames(
         .await
         .map_err(anyhow::Error::msg)?
     {
-        if let Some(node) = handle.get_history_node().await.map_err(anyhow::Error::msg)? {
+        if let Some(node) = handle
+            .get_history_node()
+            .await
+            .map_err(anyhow::Error::msg)?
+        {
             metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
 
             if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {
