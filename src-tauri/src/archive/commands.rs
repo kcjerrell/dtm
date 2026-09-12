@@ -122,6 +122,16 @@ async fn generate_dt_archive_preview(
             thumb_stats.add(preview_id).await?;
         }
         tensor_stats.add(item.name.clone()).await?;
+
+        if item.clip_id.is_some() {
+            preview.video_frames += 1;
+            if item.index_in_a_clip == 0 {
+                preview.gen_videos += 1;
+            }
+        } else {
+            preview.gen_images += 1;
+        }
+
         til_sample -= 1;
         if til_sample == 0 {
             til_sample = sample_every;
@@ -208,6 +218,7 @@ async fn convert_sample_tensors(
             node_id: plan_item.node_id,
             preview_id: plan_item.preview_id,
             index: plan_item.index,
+            ..Default::default()
         });
         item.convert(project_ref.clone(), opts.lossless).await?;
 

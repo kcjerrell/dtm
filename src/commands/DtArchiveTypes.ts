@@ -1,6 +1,6 @@
 export type CreateDtArchiveOptions = {
     /** Project to archive. */
-    project_id: number
+    projectId: number
     /** Whether to use PNG instead of JPEG for archived images. */
     lossless: boolean
     /** JPEG quality; this may also be used as the PNG effort. */
@@ -10,22 +10,25 @@ export type CreateDtArchiveOptions = {
 }
 
 export type TensorCounts = {
-    tensor_history: number
-    binary_mask: number
+    tensorHistory: number
+    binaryMask: number
     shuffle: number
     custom: number
-    depth_map: number
-    color_palette: number
+    depthMap: number
+    colorPalette: number
     audio: number
     scribble: number
 }
 
 export type DtArchivePreview = {
+    genImages: number
+    genVideos: number
+    videoFrames: number
     tensors: TensorCounts
     /** The number of primary tensors (DTM-indexed images that are gen=true) */
-    primary_tensors: number
+    primaryTensors: number
     /** The number of extra tensors */
-    extra_tensors: number
+    extraTensors: number
     /** Number and total byte size of half-size thumbnails included in the archive. */
     thumbhalf: [number, number]
     /** Current project file size in bytes. */
@@ -33,5 +36,5 @@ export type DtArchivePreview = {
     /** Estimated archive size in bytes. */
     estimate: number
     /** Whether Draw Things currently has the project open. */
-    file_in_use: boolean
+    fileInUse: boolean
 }

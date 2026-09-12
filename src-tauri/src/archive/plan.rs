@@ -9,6 +9,7 @@ use crate::{
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateDtArchiveOptions {
     /// Project to archive.
     pub project_id: i64,
@@ -41,6 +42,7 @@ pub struct DtArchivePlan {
 
 /// Counts of tensors grouped by their Draw Things resource prefix.
 #[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TensorCounts {
     pub tensor_history: u32,
     pub binary_mask: u32,
@@ -98,7 +100,18 @@ impl From<&DtArchivePlan> for TensorCounts {
 
 /// Information shown before creating an archive.
 #[derive(Clone, Debug, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct DtArchivePreview {
+    /// The number of generated images in the project
+    /// gen_images + gen_videos should equal the number of items displayed on the project list
+    /// video_frames + gen_images should equal primary_tensors
+    pub gen_images: u32,
+    /// the number of generated video clips in the project
+    /// gen_images + gen_videos should equal the number of items displayed on the project list
+    pub gen_videos: u32,
+    /// the number of video frames in the project (including the first frame)
+    /// video_frames + gen_images should equal primary_tensors
+    pub video_frames: u32,
     /// Amount of each tensor type
     pub tensors: TensorCounts,
     /// The number of primary tensors (DTM-indexed images that are gen=true)
@@ -115,12 +128,14 @@ pub struct DtArchivePreview {
     pub file_in_use: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct DtArchivePlanItem {
     pub name: String,
     pub node_id: Option<i64>,
     pub preview_id: Option<i64>,
     pub index: i64,
+    pub clip_id: Option<i64>,
+    pub index_in_a_clip: i32,
 }
 
 pub async fn copy_everything_plan(project_id: i64) -> TAResult<DtArchivePlan> {
@@ -147,6 +162,7 @@ pub async fn copy_everything_plan(project_id: i64) -> TAResult<DtArchivePlan> {
     {
         for node in nodes {
             let node_id = node.rowid;
+            let clip_id = node.clip.as_ref().map(|c| c.clip_id);
             let data = node.data();
 
             if data.generated() {
@@ -158,6 +174,8 @@ pub async fn copy_everything_plan(project_id: i64) -> TAResult<DtArchivePlan> {
                     node_id: Some(node_id),
                     preview_id: Some(data.preview_id()),
                     index: node_id,
+                    clip_id: clip_id,
+                    index_in_a_clip: data.index_in_a_clip(),
                 });
             }
         }
@@ -175,9 +193,8 @@ pub async fn copy_everything_plan(project_id: i64) -> TAResult<DtArchivePlan> {
             extra_tensor_index += 1;
             extra_resources.push(DtArchivePlanItem {
                 name,
-                node_id: None,
-                preview_id: None,
                 index: extra_tensor_index,
+                ..Default::default()
             });
         }
     }
@@ -249,6 +266,7 @@ pub async fn create_plan(project_id: i64) -> TAResult<DtArchivePlan> {
                         None
                     },
                     index: node_id,
+                    ..Default::default()
                 });
                 main_tensor_ids.insert(main_tensor_id);
             } else {
@@ -319,6 +337,7 @@ pub async fn create_plan(project_id: i64) -> TAResult<DtArchivePlan> {
                 node_id: None,
                 preview_id: None,
                 index: extra_index,
+                ..Default::default()
             });
         } else {
             unused_tensor_names.push(tensor_name);
@@ -383,4 +402,73 @@ fn get_tensor_and_mask(node: &TensorHistoryNode) -> (i64, i64) {
         }
     }
     (main_tensor_id, main_mask_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{CreateDtArchiveOptions, DtArchivePreview, TensorCounts};
+
+    #[test]
+    fn archive_api_types_use_camel_case_json_fields() {
+        let opts_json = json!({
+            "projectId": 42,
+            "lossless": true,
+            "quality": 80.0,
+            "target": "/archives",
+        });
+        let opts: CreateDtArchiveOptions = serde_json::from_value(opts_json.clone()).unwrap();
+
+        assert_eq!(opts.project_id, 42);
+
+        assert_eq!(serde_json::to_value(opts).unwrap(), opts_json);
+
+        let preview = DtArchivePreview {
+            gen_images: 1,
+            gen_videos: 2,
+            video_frames: 3,
+            tensors: TensorCounts {
+                tensor_history: 4,
+                binary_mask: 5,
+                shuffle: 6,
+                custom: 7,
+                depth_map: 8,
+                color_palette: 9,
+                audio: 10,
+                scribble: 11,
+            },
+            primary_tensors: 12,
+            extra_tensors: 13,
+            thumbhalf: (14, 15),
+            filesize: 16,
+            estimate: 17,
+            file_in_use: true,
+        };
+
+        assert_eq!(
+            serde_json::to_value(preview).unwrap(),
+            json!({
+                "genImages": 1,
+                "genVideos": 2,
+                "videoFrames": 3,
+                "tensors": {
+                    "tensorHistory": 4,
+                    "binaryMask": 5,
+                    "shuffle": 6,
+                    "custom": 7,
+                    "depthMap": 8,
+                    "colorPalette": 9,
+                    "audio": 10,
+                    "scribble": 11,
+                },
+                "primaryTensors": 12,
+                "extraTensors": 13,
+                "thumbhalf": [14, 15],
+                "filesize": 16,
+                "estimate": 17,
+                "fileInUse": true,
+            })
+        );
+    }
 }

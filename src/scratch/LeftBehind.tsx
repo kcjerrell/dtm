@@ -45,7 +45,7 @@ function Empty() {
                 const start = performance.now();
                 store.items = await invoke("create_dt_archive_plan", {
                   opts: {
-                    project_id: Number.parseInt(store.project, 10),
+                    projectId: Number.parseInt(store.project, 10),
                     lossless: true,
                     quality: .8,
                     target: ""
@@ -63,7 +63,7 @@ function Empty() {
                 const target = await path.documentDir();
                 store.items = await invoke("create_dt_archive", {
                   opts: {
-                    project_id: Number.parseInt(store.project, 10),
+                    projectId: Number.parseInt(store.project, 10),
                     lossless: true,
                     quality: 0.8,
                     target,

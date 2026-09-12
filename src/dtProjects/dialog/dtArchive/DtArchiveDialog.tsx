@@ -38,12 +38,12 @@ type ProjectItemState = Selectable<{
 type ArchiveFormat = "jpg" | "png";
 
 const tensorLabels: Record<keyof TensorCounts, string> = {
-  tensor_history: "Images",
-  binary_mask: "Masks",
+  tensorHistory: "Images",
+  binaryMask: "Masks",
   shuffle: "Moodboard",
   custom: "Custom",
-  depth_map: "Depth maps",
-  color_palette: "Color palettes",
+  depthMap: "Depth maps",
+  colorPalette: "Color palettes",
   audio: "Audio",
   scribble: "Scribbles",
 };
@@ -120,7 +120,7 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
     const timeout = window.setTimeout(async () => {
       try {
         const preview = await createDtArchivePlan({
-          project_id: selectedProjectId,
+          projectId: selectedProjectId,
           lossless: state.format === "png",
           quality: 80,
           target: state.outputDir,
@@ -157,7 +157,7 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
     try {
       for (const projectId of projectIds) {
         await createDtArchive({
-          project_id: projectId,
+          projectId,
           lossless: format === "png",
           quality: 80,
           target: outputDir,
@@ -363,8 +363,10 @@ function ArchivePlanDetails({
         <Detail label="Current project size">
           <FormatByte value={preview.filesize} />
         </Detail>
-        <Detail label="Generated images" value={preview.primary_tensors} />
-        <Detail label="Extra tensors" value={preview.extra_tensors} />
+        <Detail label="Generated images" value={preview.genImages} />
+        <Detail label="Generated video clips" value={preview.genVideos} />
+        <Detail label="Video frames" value={preview.videoFrames} />
+        <Detail label="Extra tensors" value={preview.extraTensors} />
       </DetailsGrid>
 
       {tensorEntries.length > 0 && (
@@ -380,7 +382,7 @@ function ArchivePlanDetails({
         </VStack>
       )}
 
-      {preview.file_in_use && (
+      {preview.fileInUse && (
         <Text color="orange.solid">
           This project is currently open in Draw Things.
         </Text>

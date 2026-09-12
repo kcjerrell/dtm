@@ -62,21 +62,24 @@ export const invoke = async (cmd: string, args?: any) => {
     case "create_dt_archive_plan":
       return {
         tensors: {
-          tensor_history: 0,
-          binary_mask: 0,
+          tensorHistory: 0,
+          binaryMask: 0,
           shuffle: 0,
           custom: 0,
-          depth_map: 0,
-          color_palette: 0,
+          depthMap: 0,
+          colorPalette: 0,
           audio: 0,
           scribble: 0,
         },
-        primary_tensors: 0,
-        extra_tensors: 0,
+        genImages: 0,
+        genVideos: 0,
+        videoFrames: 0,
+        primaryTensors: 0,
+        extraTensors: 0,
         thumbhalf: [0, 0],
         filesize: 0,
         estimate: 0,
-        file_in_use: false,
+        fileInUse: false,
       };
     case "create_dt_archive":
     case "clear_dt_archive_plan_cache":
