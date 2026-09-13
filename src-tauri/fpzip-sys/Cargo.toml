@@ -17,5 +17,5 @@ name = "fpzip_sys"
 crate-type = ["staticlib", "rlib"]
 
 [build-dependencies]
-bindgen = "0.72"
+bindgen = "0.73"
 cmake = "0.1"
