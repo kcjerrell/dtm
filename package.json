@@ -102,6 +102,6 @@
     "vite-bundle-visualizer": "^1.2.1",
     "vite-plugin-html-injection": "^1.5.2",
     "vite-plugin-wasm": "^3.6.0",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   }
 }
