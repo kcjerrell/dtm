@@ -174,13 +174,13 @@ impl DTProject {
 
         let row = query(
             "SELECT
-                        group_concat(rowid || \"-\" || __pk0, \":\") AS fingerprint
-                    FROM (
-                        SELECT rowid, __pk0
-                        FROM thumbnailhistorynode
-                        ORDER BY rowid ASC
-                        LIMIT 5
-                    )",
+                group_concat(rowid || \"-\" || __pk0, \":\") AS fingerprint
+            FROM (
+                SELECT rowid, __pk0
+                FROM thumbnailhistorynode
+                ORDER BY rowid ASC
+                LIMIT 5
+            )",
         )
         .fetch_one(&*self.pool)
         .await
