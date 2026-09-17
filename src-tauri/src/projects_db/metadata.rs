@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
 
-use crate::dt_project::data::TensorHistoryNodeData;
+use crate::dt_project::{fbs::TensorHistoryNode as TensorHistoryNodeData, TensorHistoryNode};
 /// represents the draw things metadata as it is stored in image metadata.
 /// contains mostly data from TensorHistoryNode
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,18 +28,14 @@ pub struct DrawThingsMetadata {
     pub v2: V2,
 }
 
-impl TryFrom<&TensorHistoryNodeData> for DrawThingsMetadata {
+impl TryFrom<&TensorHistoryNode> for DrawThingsMetadata {
     type Error = serde_json::Error;
 
-    fn try_from(value: &TensorHistoryNodeData) -> Result<Self, Self::Error> {
-        let v2 = V2::try_from(value)?;
+    fn try_from(value: &TensorHistoryNode) -> Result<Self, Self::Error> {
+        let data = value.data();
+        let v2 = V2::try_from(&data)?;
         Ok(Self {
-            c: value
-                .text_prompt
-                .clone()
-                .unwrap_or_default()
-                .trim()
-                .to_string(),
+            c: value.prompt().unwrap_or_default().trim().to_string(),
             model: v2.model.clone(),
             profile: Some(json!({
                 "duration": 0,
@@ -54,8 +50,7 @@ impl TryFrom<&TensorHistoryNodeData> for DrawThingsMetadata {
             steps: v2.steps,
             strength: v2.strength as f64,
             uc: value
-                .negative_text_prompt
-                .clone()
+                .negative_prompt()
                 .unwrap_or_default()
                 .trim()
                 .to_string(),
@@ -188,37 +183,36 @@ where
     }
 }
 
-impl TryFrom<&TensorHistoryNodeData> for V2 {
+impl TryFrom<&TensorHistoryNodeData<'_>> for V2 {
     type Error = serde_json::Error;
 
-    fn try_from(value: &TensorHistoryNodeData) -> Result<Self, Self::Error> {
+    fn try_from(value: &TensorHistoryNodeData<'_>) -> Result<Self, Self::Error> {
         Ok(V2 {
-            aesthetic_score: value.aesthetic_score,
+            aesthetic_score: value.aesthetic_score(),
             batch_count: 1,
-            batch_size: value.batch_size,
-            causal_inference: value.causal_inference,
-            causal_inference_pad: value.causal_inference_pad,
-            cfg_zero_init_steps: value.cfg_zero_init_steps,
-            cfg_zero_star: value.cfg_zero_star,
-            clip_l_text: value.clip_l_text.clone(),
-            clip_skip: value.clip_skip,
-            clip_weight: value.clip_weight,
+            batch_size: value.batch_size(),
+            causal_inference: value.causal_inference(),
+            causal_inference_pad: value.causal_inference_pad(),
+            cfg_zero_init_steps: value.cfg_zero_init_steps(),
+            cfg_zero_star: value.cfg_zero_star(),
+            clip_l_text: value.clip_l_text().map(str::to_string),
+            clip_skip: value.clip_skip(),
+            clip_weight: value.clip_weight(),
             controls: value
-                .controls
-                .as_ref()
+                .controls()
                 .map(|controls| {
                     controls
                         .iter()
                         .map(|c| {
                             json!({
-                                "file": c.file,
-                                "weight": c.weight,
-                                "guidanceStart": c.guidance_start,
-                                "guidanceEnd": c.guidance_end,
+                                "file": c.file(),
+                                "weight": c.weight(),
+                                "guidanceStart": c.guidance_start(),
+                                "guidanceEnd": c.guidance_end(),
                                 "downSamplingRate": 1,
                                 "globalAveragePooling": false,
                                 "inputOverride": "pose",
-                                "noPrompt": c.no_prompt,
+                                "noPrompt": c.no_prompt(),
                                 "controlImportance": "balanced",
                                 "targetBlocks": []
                             })
@@ -226,86 +220,85 @@ impl TryFrom<&TensorHistoryNodeData> for V2 {
                         .collect()
                 })
                 .unwrap_or_default(),
-            crop_left: value.crop_left * 64,
-            crop_top: value.crop_top * 64,
-            decoding_tile_height: value.decoding_tile_height * 64,
-            decoding_tile_overlap: value.decoding_tile_overlap * 64,
-            decoding_tile_width: value.decoding_tile_width * 64,
-            diffusion_tile_height: value.diffusion_tile_height * 64,
-            diffusion_tile_overlap: value.diffusion_tile_overlap * 64,
-            diffusion_tile_width: value.diffusion_tile_width * 64,
-            fps: value.fps_id, // TODO CHECK
-            guidance_embed: value.guidance_embed,
-            guidance_scale: value.guidance_scale,
-            guiding_frame_noise: value.cond_aug,
-            height: (value.start_height * 64) as u32,
-            hires_fix: value.hires_fix,
-            hires_fix_height: (value.hires_fix_start_height * 64),
-            hires_fix_strength: value.hires_fix_strength,
-            hires_fix_width: (value.hires_fix_start_width * 64),
+            crop_left: value.crop_left() * 64,
+            crop_top: value.crop_top() * 64,
+            decoding_tile_height: value.decoding_tile_height() * 64,
+            decoding_tile_overlap: value.decoding_tile_overlap() * 64,
+            decoding_tile_width: value.decoding_tile_width() * 64,
+            diffusion_tile_height: value.diffusion_tile_height() * 64,
+            diffusion_tile_overlap: value.diffusion_tile_overlap() * 64,
+            diffusion_tile_width: value.diffusion_tile_width() * 64,
+            fps: value.fps_id(), // TODO CHECK
+            guidance_embed: value.guidance_embed(),
+            guidance_scale: value.guidance_scale(),
+            guiding_frame_noise: value.cond_aug(),
+            height: (value.start_height() * 64) as u32,
+            hires_fix: value.hires_fix(),
+            hires_fix_height: value.hires_fix_start_height() * 64,
+            hires_fix_strength: value.hires_fix_strength(),
+            hires_fix_width: value.hires_fix_start_width() * 64,
             id: 0,
-            image_guidance_scale: value.image_guidance_scale,
-            image_prior_steps: value.image_prior_steps,
+            image_guidance_scale: value.image_guidance_scale(),
+            image_prior_steps: value.image_prior_steps(),
             loras: value
-                .loras
-                .as_ref()
+                .loras()
                 .map(|l| {
                     l.iter()
                         .map(|x| {
                             json!({
-                                "file": x.file,
-                                "weight": x.weight,
+                                "file": x.file(),
+                                "weight": x.weight(),
                                 "mode": "all"
                             })
                         })
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default(),
-            mask_blur: value.mask_blur,
-            mask_blur_outset: value.mask_blur_outset,
-            model: value.model.clone().unwrap_or("".to_string()),
-            motion_scale: value.motion_bucket_id,
-            negative_aesthetic_score: value.negative_aesthetic_score,
-            negative_original_image_height: value.negative_original_image_height,
-            negative_original_image_width: value.negative_original_image_width,
-            negative_prompt_for_image_prior: value.negative_prompt_for_image_prior,
-            num_frames: value.num_frames,
-            original_image_height: value.original_image_height,
-            original_image_width: value.original_image_width,
-            preserve_original_after_inpaint: value.preserve_original_after_inpaint,
-            refiner_model: value.refiner_model.clone(),
-            refiner_start: value.refiner_start,
-            resolution_dependent_shift: value.resolution_dependent_shift,
-            sampler: value.sampler,
-            seed: value.seed,
-            seed_mode: value.seed_mode,
-            separate_clip_l: value.separate_clip_l,
-            separate_open_clip_g: value.separate_open_clip_g,
-            separate_t5: value.separate_t5,
-            sharpness: value.sharpness,
-            shift: value.shift,
-            speed_up_with_guidance_embed: value.speed_up_with_guidance_embed,
-            stage2_guidance: value.stage_2_cfg,
-            stage2_shift: value.stage_2_shift,
-            stage2_steps: value.stage_2_steps,
-            start_frame_guidance: value.start_frame_cfg,
-            steps: value.steps,
-            stochastic_sampling_gamma: value.stochastic_sampling_gamma,
-            strength: value.strength,
-            t5_text_encoder: value.t5_text_encoder,
-            target_image_height: value.target_image_height,
-            target_image_width: value.target_image_width,
-            tea_cache: value.tea_cache,
-            tea_cache_end: value.tea_cache_end,
-            tea_cache_max_skip_steps: value.tea_cache_max_skip_steps,
-            tea_cache_start: value.tea_cache_start,
-            tea_cache_threshold: value.tea_cache_threshold,
-            tiled_decoding: value.tiled_decoding,
-            tiled_diffusion: value.tiled_diffusion,
-            upscaler: value.upscaler.clone(),
-            upscaler_scale_factor: value.upscaler_scale_factor,
-            width: (value.start_width * 64) as u32,
-            zero_negative_prompt: value.zero_negative_prompt,
+            mask_blur: value.mask_blur(),
+            mask_blur_outset: value.mask_blur_outset(),
+            model: value.model().unwrap_or_default().to_string(),
+            motion_scale: value.motion_bucket_id(),
+            negative_aesthetic_score: value.negative_aesthetic_score(),
+            negative_original_image_height: value.negative_original_image_height(),
+            negative_original_image_width: value.negative_original_image_width(),
+            negative_prompt_for_image_prior: value.negative_prompt_for_image_prior(),
+            num_frames: value.num_frames(),
+            original_image_height: value.original_image_height(),
+            original_image_width: value.original_image_width(),
+            preserve_original_after_inpaint: value.preserve_original_after_inpaint(),
+            refiner_model: value.refiner_model().map(str::to_string),
+            refiner_start: value.refiner_start(),
+            resolution_dependent_shift: value.resolution_dependent_shift(),
+            sampler: value.sampler().0,
+            seed: value.seed(),
+            seed_mode: value.seed_mode().0,
+            separate_clip_l: value.separate_clip_l(),
+            separate_open_clip_g: value.separate_open_clip_g(),
+            separate_t5: value.separate_t5(),
+            sharpness: value.sharpness(),
+            shift: value.shift(),
+            speed_up_with_guidance_embed: value.speed_up_with_guidance_embed(),
+            stage2_guidance: value.stage_2_cfg(),
+            stage2_shift: value.stage_2_shift(),
+            stage2_steps: value.stage_2_steps(),
+            start_frame_guidance: value.start_frame_cfg(),
+            steps: value.steps(),
+            stochastic_sampling_gamma: value.stochastic_sampling_gamma(),
+            strength: value.strength(),
+            t5_text_encoder: value.t5_text_encoder(),
+            target_image_height: value.target_image_height(),
+            target_image_width: value.target_image_width(),
+            tea_cache: value.tea_cache(),
+            tea_cache_end: value.tea_cache_end(),
+            tea_cache_max_skip_steps: value.tea_cache_max_skip_steps(),
+            tea_cache_start: value.tea_cache_start(),
+            tea_cache_threshold: value.tea_cache_threshold(),
+            tiled_decoding: value.tiled_decoding(),
+            tiled_diffusion: value.tiled_diffusion(),
+            upscaler: value.upscaler().map(str::to_string),
+            upscaler_scale_factor: value.upscaler_scale_factor(),
+            width: (value.start_width() * 64) as u32,
+            zero_negative_prompt: value.zero_negative_prompt(),
         })
     }
 }

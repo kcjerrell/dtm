@@ -302,7 +302,7 @@ fn get_image(
         encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
 
         let jpg = match node {
-            Some(node) => write_jpeg_with_metadata(&bytes, &node.node_data())?,
+            Some(node) => write_jpeg_with_metadata(&bytes, &node)?,
             None => bytes,
         };
 

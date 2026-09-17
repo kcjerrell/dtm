@@ -434,17 +434,24 @@ impl DtResourceHandle {
                 match thn_resource {
                     // for thumb lookup, all we need is the node itself
                     ThnR::Thumb => {}
-                    // we do not need tensordata, since Tensor has its own tensor_name included
-                    ThnR::Tensor(_) => {}
+                    // Tensor has its own tensor_name, but metadata still needs legacy prompts.
+                    ThnR::Tensor(_) => thn_data = thn_data.and_legacy_prompts(),
                     _ => {
-                        thn_data = thn_data.and_tensordata().and_moodboard().and_clip();
+                        thn_data = thn_data
+                            .and_tensordata()
+                            .and_moodboard()
+                            .and_clip()
+                            .and_legacy_prompts();
                     }
                 };
                 Some((thn_ref.into(), thn_data))
             }
             DtResourceRef::Thumb(preview_id) => {
                 // for thumb lookup, we need tensordata if we are trying to get the actual image
-                Some((ThnFilter::PreviewId(*preview_id), ThnData::tensordata()))
+                Some((
+                    ThnFilter::PreviewId(*preview_id),
+                    ThnData::tensordata().and_legacy_prompts(),
+                ))
             }
             _ => None,
         }

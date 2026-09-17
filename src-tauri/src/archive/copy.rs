@@ -17,6 +17,8 @@ const TENSORDATA_OFFSETS: &[&str] = &[
 ];
 const TENSORMOODBOARD_OFFSETS: &[&str] = &["", "__f10"];
 const CLIP_OFFSETS: &[&str] = &["", "__f14"];
+const TEXTHISTORYNODE_OFFSETS: &[&str] = &[""];
+const TEXTLINEAGENODE_OFFSETS: &[&str] = &["", "__f6"];
 
 pub async fn copy_project(
     app: AppHandleWrapper,
@@ -64,6 +66,8 @@ pub async fn copy_project(
         if name.starts_with("tensor")
             | name.starts_with("thumbnailhistory")
             | name.starts_with("clip")
+            | name.starts_with("texthistorynode")
+            | name.starts_with("textlineagenode")
         {
             sqlx::query(AssertSqlSafe(sql.as_str()))
                 .execute(&mut *dest_conn)
@@ -103,6 +107,14 @@ pub async fn copy_project(
     copy_table_group_all("clip", CLIP_OFFSETS, &mut dest_conn)
         .await
         .context("failed to copy 'clip' tables")?;
+
+    copy_table_group_all("texthistorynode", TEXTHISTORYNODE_OFFSETS, &mut dest_conn)
+        .await
+        .context("failed to copy 'texthistorynode' tables")?;
+
+    copy_table_group_all("textlineagenode", TEXTLINEAGENODE_OFFSETS, &mut dest_conn)
+        .await
+        .context("failed to copy 'textlineagenode' tables")?;
 
     let project_ref = DtProjectRef::Db(dtp);
 

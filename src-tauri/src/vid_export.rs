@@ -247,7 +247,7 @@ pub async fn create_video_from_frames(
             .await
             .map_err(anyhow::Error::msg)?
         {
-            metadata = DrawThingsMetadata::try_from(&node.node_data()).ok();
+            metadata = DrawThingsMetadata::try_from(node).ok();
 
             if node.clip.as_ref().map_or(false, |c| c.audio_id > 0) {
                 if let Some(audio_wav) = handle.get_audio().await.map_err(anyhow::Error::msg)? {

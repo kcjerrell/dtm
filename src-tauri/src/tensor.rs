@@ -226,9 +226,8 @@ impl Tensor {
         };
         let channels = self.channels;
 
-        let metadata = history_node.map(|n| n.node_data());
-
-        let png = write_png_with_usercomment(&pixels, width, height, channels as usize, metadata)?;
+        let png =
+            write_png_with_usercomment(&pixels, width, height, channels as usize, history_node)?;
         // let png = encode_png(&pixels, width, height, channels as usize)?;
 
         Ok(Some(png))

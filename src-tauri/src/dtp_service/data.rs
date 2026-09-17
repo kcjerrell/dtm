@@ -2,7 +2,7 @@
 
 use crate::{
     bookmarks::{self, PickFolderResult},
-    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
+    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnData, ThnFilter},
     dtp_service::{
         events::DTPEvent,
         jobs::{FolderChange, SyncJob},
@@ -218,14 +218,17 @@ impl DTPService {
             .await
             .map_err(anyhow::Error::msg)?;
         let nodes = dt_project
-            .get_tensor_history_nodes(Some(ThnFilter::Rowid(image.node_id)), None)
+            .get_tensor_history_nodes(
+                Some(ThnFilter::Rowid(image.node_id)),
+                Some(ThnData::legacy_prompts()),
+            )
             .await
             .map_err(anyhow::Error::msg)?;
         let node = nodes
             .into_iter()
             .next()
             .ok_or_else(|| anyhow::anyhow!("Node not found"))?;
-        Ok(DrawThingsMetadata::try_from(&node.node_data()).map_err(anyhow::Error::msg)?)
+        Ok(DrawThingsMetadata::try_from(&node).map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]

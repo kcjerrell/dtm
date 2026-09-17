@@ -10,12 +10,12 @@ use std::io::Cursor;
 use std::io::Read;
 
 use crate::dt_project::DTResource;
-use crate::dt_project::{data::TensorHistoryNodeData, TensorRaw};
+use crate::dt_project::{TensorHistoryNode, TensorRaw};
 use crate::projects_db::metadata::DrawThingsMetadata;
 
 pub struct DecodeTensorOptions {
     pub as_png: bool,
-    pub history_node: Option<TensorHistoryNodeData>,
+    pub history_node: Option<TensorHistoryNode>,
     pub size: Option<u32>,
 }
 
@@ -111,7 +111,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
             width,
             height,
             tensor.channels as usize,
-            history_node,
+            history_node.as_ref(),
         )
         .with_context(|| format!("failed to encode tensor {} as PNG", tensor.name)),
         false => Ok(pixels),
@@ -355,7 +355,7 @@ pub fn write_png_with_usercomment(
     width: u32,
     height: u32,
     channels: usize,
-    history_node: Option<TensorHistoryNodeData>,
+    history_node: Option<&TensorHistoryNode>,
 ) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let cursor = Cursor::new(&mut out);
@@ -381,7 +381,7 @@ pub fn write_png_with_usercomment(
     )?;
 
     if let Some(history) = history_node {
-        let metadata = DrawThingsMetadata::try_from(&history)
+        let metadata = DrawThingsMetadata::try_from(history)
             .context("failed to create metadata from tensor history node")?;
         let json_string =
             serde_json::to_string(&metadata).context("failed to serialize metadata JSON")?;
@@ -409,7 +409,7 @@ pub fn write_png_with_usercomment(
 /// only an XMP segment is added. Pure-Rust (no exiv2/gexiv2 system deps).
 pub fn write_jpeg_with_metadata(
     jpg: &[u8],
-    history: &TensorHistoryNodeData,
+    history: &TensorHistoryNode,
 ) -> anyhow::Result<Vec<u8>> {
     use img_parts::jpeg::{markers, Jpeg, JpegSegment};
     use img_parts::Bytes;

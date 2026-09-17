@@ -178,7 +178,7 @@ impl TensorHistoryNode {
     }
 
     /// Returns the fully parsed Rust struct. Used for serialization and when the caller needs
-    /// ownership (e.g. DrawThingsMetadata, DecodeTensorOptions).
+    /// owned data.
     pub fn node_data(&self) -> ParsedTensorHistoryNodeData {
         ParsedTensorHistoryNodeData::try_from(self.data.as_ref())
             .expect("flatbuffer already validated at construction")
@@ -576,3 +576,52 @@ const JOIN_TMD: &str =
     SkipAndTake(i64, i64),
     Range(i64, i64),
 */
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        dt_project::fbs,
+        projects_db::{write_png_with_usercomment, DrawThingsMetadata},
+    };
+
+    #[test]
+    fn metadata_and_png_use_resolved_legacy_prompts() {
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let model = builder.create_string("test-model");
+        let data = fbs::TensorHistoryNode::create(
+            &mut builder,
+            &fbs::TensorHistoryNodeArgs {
+                model: Some(model),
+                ..Default::default()
+            },
+        );
+        fbs::finish_tensor_history_node_buffer(&mut builder, data);
+
+        let node = TensorHistoryNode {
+            rowid: 1,
+            lineage: 1,
+            logical_time: 1,
+            data: Arc::from(builder.finished_data()),
+            project_path: PathBuf::from("test.sqlite3"),
+            tensordata: None,
+            clip: None,
+            moodboard: None,
+            prompt: Some("  legacy positive prompt  ".to_string()),
+            negative_prompt: Some("  legacy negative prompt  ".to_string()),
+        };
+
+        let metadata = DrawThingsMetadata::try_from(&node).unwrap();
+        assert_eq!(metadata.c, "legacy positive prompt");
+        assert_eq!(metadata.uc, "legacy negative prompt");
+        assert_eq!(metadata.model, "test-model");
+
+        let png = write_png_with_usercomment(&[0, 0, 0], 1, 1, 3, Some(&node)).unwrap();
+        assert!(png
+            .windows(b"legacy positive prompt".len())
+            .any(|window| window == b"legacy positive prompt"));
+        assert!(png
+            .windows(b"legacy negative prompt".len())
+            .any(|window| window == b"legacy negative prompt"));
+    }
+}
