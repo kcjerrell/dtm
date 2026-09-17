@@ -28,6 +28,9 @@ impl ProjectExtra {
 
         let wf_path = crate::projects_db::folder_cache::get_folder(self.watchfolder_id);
 
+        if !self.full_path.is_empty() {
+            return;
+        }
         self.full_path = if let Some(ref wf) = wf_path {
             std::path::Path::new(wf)
                 .join(&self.path)

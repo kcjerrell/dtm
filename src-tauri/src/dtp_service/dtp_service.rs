@@ -8,23 +8,27 @@ use std::{
 
 use dtm_macros::{dtm_command, dtp_commands};
 use tauri::{ipc::Channel, State};
-use tokio::sync::{OnceCell, RwLock};
+use tokio::sync::{Mutex, OnceCell, RwLock};
 
 use crate::{
     archive::DTZipCache,
     dtp_service::{
         events::{self, DTPEvent},
-        jobs::{FetchModels, Job, JobContext, ProjectSync, SyncJob, UpdateProjectJob},
+        jobs::{
+            FetchModels, FolderChange, FolderChangeJob, Job, JobContext, ProjectSync, SyncJob,
+            UpdateProjectJob,
+        },
         scheduler::Scheduler,
         watch::WatchService,
         AppHandleWrapper,
     },
-    projects_db::{self, get_last_row, DtmProtocol, ProjectsDb},
+    projects_db::{get_last_row, DtmProtocol, ProjectsDb},
     IntoTAResult,
 };
 
 #[derive(Clone)]
 pub struct DTPService {
+    pub(super) lifecycle: Arc<Mutex<()>>,
     pub app_handle: AppHandleWrapper,
     pub events: events::DTPEventsService,
     pdb: Arc<RwLock<Option<ProjectsDb>>>,
@@ -44,6 +48,7 @@ impl DTPService {
         let dtm_protocol = Arc::new(OnceCell::new());
 
         Self {
+            lifecycle: Arc::new(Mutex::new(())),
             app_handle,
             pdb,
             events,
@@ -60,6 +65,8 @@ impl DTPService {
         auto_watch: bool,
         db_path: String,
     ) -> anyhow::Result<()> {
+        let _lifecycle = self.lifecycle.lock().await;
+        self.stop_inner().await;
         self.auto_watch.store(auto_watch, Ordering::Relaxed);
         let pdb = ProjectsDb::new(&db_path).await?;
         {
@@ -116,7 +123,9 @@ impl DTPService {
     #[dtp_command]
     pub async fn sync(&self) -> crate::TAResult<()> {
         let scheduler = self.scheduler.read().await;
-        let scheduler = scheduler.as_ref().unwrap();
+        let scheduler = scheduler
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready"))?;
         scheduler.add_job(SyncJob::new(false));
 
         Ok(())
@@ -128,9 +137,20 @@ impl DTPService {
         project_ids: Vec<i64>,
         check_deletions: bool,
     ) -> crate::TAResult<()> {
+        let db = self.get_db().await?;
+        let scheduler = self
+            .scheduler
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready"))?;
         for project_id in project_ids {
-            let sync = ProjectSync::from_id(&self.get_db().await?, project_id).await?;
-            self.add_job(UpdateProjectJob::new(&sync, false, check_deletions)?);
+            let sync = ProjectSync::from_id(&db, project_id).await?;
+            let mut job = UpdateProjectJob::new(&sync, false, check_deletions)?;
+            // The Projects menu refresh is the explicit repair boundary. Export
+            // uses sync_projects_and_wait and retains incremental behavior.
+            job.repair = check_deletions;
+            scheduler.add_job(job);
         }
         Ok(())
     }
@@ -193,68 +213,70 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn resume_watch(&self, path: &str, recursive: bool) {
+    pub async fn resume_watch(&self, path: &str, recursive: bool) -> anyhow::Result<()> {
         if !self.auto_watch.load(Ordering::Relaxed) {
-            return;
+            return Ok(());
         }
-
-        let watch = self.watch.read().await;
-        let watch = watch.as_ref().unwrap();
-        watch.watch_folder(path, recursive).await.unwrap();
+        if let Some(watch) = self.watch.read().await.as_ref() {
+            watch.watch_folder(path, recursive).await?;
+        }
+        Ok(())
     }
-
     pub async fn stop_watch(&self, path: &str) {
-        let watch = self.watch.read().await;
-        let watch = watch.as_ref().unwrap();
-        watch.stop_watch_folder(path).await.unwrap();
+        if let Some(watch) = self.watch.read().await.as_ref() {
+            if let Err(error) = watch.stop_watch_folder(path).await {
+                log::error!("Failed to stop watcher {path}: {error:#}");
+            }
+        }
     }
-
     pub fn add_job<T: Job + 'static>(&self, job: T) {
         let dtp = self.clone();
         tokio::spawn(async move {
-            let scheduler = dtp.scheduler.read().await;
-            let scheduler = scheduler.as_ref().unwrap();
-            scheduler.add_job(job);
+            if let Some(scheduler) = dtp.scheduler.read().await.as_ref() {
+                scheduler.add_job(job);
+            }
         });
     }
-
     pub async fn stop(&self) {
-        {
-            let watch = self.watch.read().await;
-            let watch = watch.as_ref().unwrap();
-            watch.stop_all().await.unwrap();
-        }
-        {
-            let mut guard = self.pdb.write().await;
-            *guard = None;
-        }
+        let _lifecycle = self.lifecycle.lock().await;
+        self.stop_inner().await;
+    }
 
-        {
-            let scheduler = self.scheduler.read().await.clone();
-            scheduler.unwrap().stop().await;
+    async fn stop_inner(&self) {
+        self.auto_watch.store(false, Ordering::Relaxed);
+        if let Some(watch) = self.watch.read().await.as_ref() {
+            if let Err(error) = watch.stop_all().await {
+                log::error!("Failed to stop watchers: {error:#}");
+            }
         }
-        {
-            let mut guard = self.scheduler.write().await;
-            *guard = None;
+        let scheduler = self.scheduler.write().await.take();
+        if let Some(scheduler) = scheduler {
+            scheduler.stop().await;
         }
-        {
-            let mut guard = self.watch.write().await;
-            *guard = None;
+        if let Some(db) = self.pdb.write().await.take() {
+            db.finish_maintenance().await;
         }
+        *self.watch.write().await = None;
     }
 
     #[dtp_command]
     pub async fn lock_folder(&self, watchfolder_id: i64) -> crate::TAResult<()> {
-        let folder = self
-            .get_db()
-            .await?
-            .update_watch_folder(watchfolder_id, None, None, Some(true))
-            .await
-            .into_ta_result()?;
-        self.stop_watch(&folder.path).await;
-        projects_db::close_folder(&folder.path).await;
-        self.events.emit(DTPEvent::WatchFoldersChanged);
+        self.change_folder(watchfolder_id, FolderChange::Lock)
+            .await?;
         Ok(())
+    }
+
+    pub async fn change_folder(&self, folder_id: i64, change: FolderChange) -> anyhow::Result<()> {
+        let scheduler = self
+            .scheduler
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready"))?;
+        scheduler
+            .add_job_front_and_wait(FolderChangeJob { folder_id, change })
+            .await
+            .map_err(anyhow::Error::msg)
     }
 
     #[dtp_command]
@@ -263,7 +285,9 @@ impl DTPService {
         let db = self.get_db().await?;
         let folders = db.list_watch_folders().await.into_ta_result()?;
         let ids = folders.iter().map(|f| f.id).collect::<Vec<i64>>();
-        db.remove_watch_folders(ids).await.into_ta_result()?;
+        for id in ids {
+            self.change_folder(id, FolderChange::Remove).await?;
+        }
         Ok(())
     }
 }

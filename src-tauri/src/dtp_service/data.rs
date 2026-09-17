@@ -5,7 +5,7 @@ use crate::{
     dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnFilter},
     dtp_service::{
         events::DTPEvent,
-        jobs::{SyncJob, UpdateProjectJob},
+        jobs::{FolderChange, SyncJob},
         AppHandleWrapper, DTPService,
     },
     projects_db::{
@@ -40,29 +40,20 @@ impl DTPService {
         project_id: i64,
         exclude: bool,
     ) -> crate::TAResult<()> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-
-        db.update_exclude(project_id, exclude)
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        if !exclude {
-            self.add_job(
-                UpdateProjectJob::from_id(&db, project_id, true, false)
-                    .await
-                    .map_err(anyhow::Error::msg)?,
-            )
-        }
-
-        let project = db
+        let project = self
+            .get_db()
+            .await?
             .get_project(project_id)
             .await
             .map_err(anyhow::Error::msg)?;
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::ProjectUpdated(
-                project,
-            ));
-
+        self.change_folder(
+            project.watchfolder_id,
+            FolderChange::Exclude {
+                project_id,
+                exclude,
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -150,6 +141,7 @@ impl DTPService {
         path: String,
         bookmark: String,
     ) -> anyhow::Result<()> {
+        let _lifecycle = self.lifecycle.lock().await;
         let db = self.get_db().await.map_err(anyhow::Error::msg)?;
         let folder = db
             .add_watch_folder(&path, &bookmark, false)
@@ -185,37 +177,23 @@ impl DTPService {
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
 
         let scheduler = self.scheduler.read().await;
-        let scheduler = scheduler.as_ref().unwrap();
+        let scheduler = scheduler
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready"))?;
         scheduler.add_job(SyncJob::new(false));
         Ok(())
     }
 
     #[dtp_command]
     pub async fn remove_watch_folder(&self, id: i64) -> crate::TAResult<()> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-        db.remove_watch_folders(vec![id])
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
-
-        // the projects will be removed automatically by the db
-        self.events.emit(DTPEvent::ProjectsChanged);
-
+        self.change_folder(id, FolderChange::Remove).await?;
         Ok(())
     }
 
     #[dtp_command]
     pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> crate::TAResult<()> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-        db.update_watch_folder(id, Some(recursive), None, None)
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
-
+        self.change_folder(id, FolderChange::Recursion(recursive))
+            .await?;
         Ok(())
     }
 

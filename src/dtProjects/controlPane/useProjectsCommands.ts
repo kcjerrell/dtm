@@ -10,6 +10,7 @@ import {
   FiRefreshCw,
   MdBlock,
 } from "@/components/icons/icons";
+import { toaster } from "@/components/ui/toaster";
 import { getSpacer, type ICommand } from "@/types";
 import { plural } from "@/utils/helpers";
 import { showMenu } from "@/utils/menu";
@@ -121,14 +122,18 @@ export function useProjectsCommands(): [
             : "Rescan all projects",
         getTipText: (selected) =>
           selected.length > 0
-            ? `Rescan project${plural(selected.length)} for changes, including deletions`
+            ? `Rescan project${plural(selected.length)} to repair indexed images and metadata`
             : "Rescan all projects for changes",
         icon: FiRefreshCw,
         action: async (selected) => {
-          if (!selected?.length) {
-            DtpService.sync();
-          } else {
-            DtpService.syncProjects(selected.map((f) => f.id));
+          try {
+            if (!selected?.length) {
+              await DtpService.sync();
+            } else {
+              await DtpService.syncProjects(selected.map((f) => f.id));
+            }
+          } catch (error) {
+            toaster.create({ type: "error", title: "Project synchronization failed", description: String(error) });
           }
         },
         requiresSelection: false,

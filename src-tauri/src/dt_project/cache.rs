@@ -30,7 +30,7 @@ struct CachedProject {
 pub async fn close_folder(folder_path: &str) {
     let to_remove: Vec<String> = PROJECT_CACHE
         .iter()
-        .filter(|entry| entry.key().starts_with(folder_path))
+        .filter(|entry| std::path::Path::new(entry.key()).starts_with(folder_path))
         .map(|entry| entry.key().clone())
         .collect();
 
@@ -84,6 +84,20 @@ impl DTProject {
             .with_context(|| format!("failed to open standalone project database at {}", path))?;
         dt_project.is_shared = false;
         Ok(dt_project)
+    }
+
+    /// A dedicated, single-connection read transaction for explicit repair.
+    /// Existing parsers all use this pool, so every batch sees one snapshot.
+    pub async fn open_snapshot(path: &str) -> anyhow::Result<DTProject> {
+        let project = Self::new_with_pool(
+            path,
+            false,
+            None,
+            sqlx::sqlite::SqlitePoolOptions::new().max_connections(1),
+        )
+        .await?;
+        sqlx::query("BEGIN").execute(&*project.pool).await?;
+        Ok(project)
     }
 
     pub async fn open_archive(dt_zip: Arc<DTZip>) -> anyhow::Result<DTProject> {

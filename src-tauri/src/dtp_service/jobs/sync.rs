@@ -26,6 +26,9 @@ impl Job for SyncJob {
     async fn on_complete(&self, ctx: &JobContext) {
         ctx.events.emit(DTPEvent::SyncComplete);
     }
+    async fn on_failed(&self, ctx: &JobContext, _error: String) {
+        ctx.events.emit(DTPEvent::SyncComplete);
+    }
     async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let folders = ctx
             .pdb

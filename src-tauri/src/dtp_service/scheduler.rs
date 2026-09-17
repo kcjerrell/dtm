@@ -1,341 +1,247 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
-};
-
-use tokio::sync::{oneshot, Mutex, Notify, Semaphore};
-
 use crate::dtp_service::{
     events::DTPEvent,
     jobs::{Job, JobContext, JobResult},
 };
+use futures_util::FutureExt;
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
+use tokio::sync::{oneshot, Mutex, Notify};
+use tokio::task::JoinSet;
 
 type JobId = u64;
-
-#[derive(Clone, Debug, Default)]
-pub enum JobStatus {
-    #[default]
-    Pending,
-    Active,
-    // Canceled,
-    WaitingForSubtasks(isize),
-    Complete,
-    Failed(String),
-}
-
-#[derive(Clone, Debug, Default)]
-struct JobState {
-    id: JobId,
-    parent_id: Option<JobId>,
-    status: JobStatus,
-    jobs_failed: isize,
-    jobs_completed: isize,
-}
-
 struct JobEntry {
     job: Arc<dyn Job>,
-    state: JobState,
-    /// When set, the job's final result is reported here once it (and all of its
-    /// subtasks) resolve. Used by `add_job_front_and_wait` to await a job.
+    parent: Option<JobId>,
+    remaining: usize,
+    failure: Option<String>,
+    admission_error: Option<String>,
+    // A folder lease belongs to the first job in the tree that requests it.
+    // Descendants inherit it, so they never wait on their own parent.
+    scope: Option<(i64, JobId)>,
     on_done: Option<oneshot::Sender<Result<(), String>>>,
 }
-
+#[derive(Default)]
+struct State {
+    queue: VecDeque<JobId>,
+    jobs: HashMap<JobId, JobEntry>,
+    leases: HashMap<i64, JobId>,
+    next_id: JobId,
+    stopped: bool,
+}
 #[derive(Clone)]
 pub struct Scheduler {
-    queue: Arc<Mutex<VecDeque<JobId>>>,
+    state: Arc<Mutex<State>>,
     notify: Arc<Notify>,
-    jobs: Arc<Mutex<HashMap<JobId, JobEntry>>>,
-    next_id: Arc<AtomicU64>,
     ctx: Arc<JobContext>,
-    worker_handle: Arc<std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    worker: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
-
 impl Scheduler {
     pub fn new(ctx: Arc<JobContext>) -> Self {
-        let semaphore = Arc::new(Semaphore::new(4));
-        let scheduler = Scheduler {
-            queue: Arc::new(Mutex::new(VecDeque::new())),
+        let scheduler = Self {
+            state: Arc::new(Mutex::new(State::default())),
             notify: Arc::new(Notify::new()),
             ctx,
-            jobs: Arc::new(Mutex::new(HashMap::new())),
-            next_id: Arc::new(AtomicU64::new(0)),
-            worker_handle: Arc::new(std::sync::Mutex::new(None)),
+            worker: Arc::new(Mutex::new(None)),
         };
-
-        let handle = tokio::spawn({
-            let semaphore = semaphore.clone();
-            let scheduler = scheduler.clone();
-
-            async move {
-                loop {
-                    let next = { scheduler.queue.lock().await.pop_front() };
-                    match next {
-                        Some(job_id) => {
-                            let permit = semaphore.clone().acquire_owned().await.unwrap();
-                            let scheduler = scheduler.clone();
-
-                            tokio::spawn(async move {
-                                scheduler.process(job_id).await;
-                                drop(permit); // release worker slot
-                            });
-                        }
-                        None => {
-                            // Queue is empty; wait until a job is enqueued. `notify_one`
-                            // stores a permit when called with no waiter, so a job pushed
-                            // between the pop above and this await is not missed.
-                            scheduler.notify.notified().await;
-                        }
-                    }
-                }
-            }
-        });
-
-        *scheduler.worker_handle.lock().unwrap() = Some(handle);
-
+        let runner = scheduler.clone();
+        *scheduler.worker.try_lock().unwrap() =
+            Some(tokio::spawn(async move { runner.run().await }));
         scheduler
     }
 
-    pub async fn stop(&self) {
-        if let Some(handle) = self.worker_handle.lock().unwrap().take() {
-            handle.abort();
+    async fn run(&self) {
+        let mut workers = JoinSet::new();
+        loop {
+            let next = {
+                let mut state = self.state.lock().await;
+                if state.stopped && state.jobs.is_empty() && workers.is_empty() {
+                    break;
+                }
+                if workers.len() < 4 {
+                    let index = state.queue.iter().position(|id| {
+                        state.jobs[id].scope.is_none_or(|(folder, owner)| {
+                            state
+                                .leases
+                                .get(&folder)
+                                .is_none_or(|active| *active == owner)
+                        })
+                    });
+                    index.map(|index| {
+                        let id = state.queue.remove(index).unwrap();
+                        if let Some((folder, owner)) = state.jobs[&id].scope {
+                            state.leases.insert(folder, owner);
+                        }
+                        id
+                    })
+                } else {
+                    None
+                }
+            };
+            if let Some(id) = next {
+                let scheduler = self.clone();
+                workers.spawn(async move { scheduler.process(id).await });
+                continue;
+            }
+            tokio::select! {
+                _ = self.notify.notified() => {},
+                result = workers.join_next(), if !workers.is_empty() => {
+                    if let Some(Err(error)) = result { log::error!("Scheduler worker failed: {error}"); }
+                }
+            }
         }
     }
 
-    async fn process(&self, job_id: JobId) {
-        // get the job, updating its status along the way
-        let job: Arc<dyn Job> = {
-            let mut jobs = self.jobs.lock().await;
-            let Some(entry) = jobs.get_mut(&job_id) else {
-                log::warn!("[Scheduler] Job {} not found during process", job_id);
-                return;
-            };
-            entry.state.status = JobStatus::Active;
-            entry.job.clone()
+    /// Reject new roots, then drain all accepted work and its descendants. The
+    /// database remains available until this returns; no worker is detached.
+    pub async fn stop(&self) {
+        self.state.lock().await.stopped = true;
+        self.notify.notify_one();
+        let mut worker = self.worker.lock().await;
+        if let Some(handle) = worker.take() {
+            let _ = handle.await;
+        }
+    }
+
+    async fn process(&self, id: JobId) {
+        let (job, admission_error) = {
+            let state = self.state.lock().await;
+            (
+                state.jobs[&id].job.clone(),
+                state.jobs[&id].admission_error.clone(),
+            )
         };
-
-        let label = job.get_label();
-        log::debug!("[Scheduler] Starting job: {}", label);
-
-        // emit start event
         if let Some(event) = job.start_event() {
             self.ctx.events.emit(event);
         }
-
-        // execute job
-        let result = job.execute(&self.ctx).await;
-
-        let (next_status, event, subtasks) = self.handle_result(result).await;
-
-        match &next_status {
-            JobStatus::WaitingForSubtasks(count) => self.shelve_job(job_id, count).await,
-            JobStatus::Complete => self.resolve_job(job_id, &self.ctx, Ok(())).await,
-            JobStatus::Failed(e) => self.resolve_job(job_id, &self.ctx, Err(e.clone())).await,
-            _ => {}
+        let result = if let Some(error) = admission_error {
+            Err(error)
+        } else {
+            std::panic::AssertUnwindSafe(job.execute(&self.ctx))
+                .catch_unwind()
+                .await
+                .unwrap_or_else(|_| Err(format!("{} panicked", job.get_label())))
         };
-
-        if let Some(subtasks) = subtasks {
-            for subtask in subtasks {
-                self.add_job_internal(subtask, Some(job_id), false, None)
-                    .await;
+        match result {
+            Ok(JobResult::Subtasks(children)) if !children.is_empty() => {
+                self.state.lock().await.jobs.get_mut(&id).unwrap().remaining = children.len();
+                for child in children {
+                    self.enqueue(child, Some(id), false, None).await;
+                }
             }
-        }
-
-        if let Some(event) = event {
-            self.ctx.events.emit(event);
+            Ok(result) => {
+                // Publish data before terminal events or an awaited result.
+                if let JobResult::Event(event) = result {
+                    self.ctx.events.emit(event);
+                }
+                self.resolve(id, Ok(())).await;
+            }
+            Err(error) => self.resolve(id, Err(error)).await,
         }
     }
 
-    async fn update_parent_job(&self, job_entry: &JobEntry, _ctx: &JobContext) -> Option<JobId> {
-        let parent_id = job_entry.state.parent_id?;
-
-        let tasks_remaining = {
-            let mut jobs = self.jobs.lock().await;
-            let parent_job = jobs.get_mut(&parent_id)?;
-            let tasks_remaining = match job_entry.state.status {
-                JobStatus::Complete | JobStatus::Failed(_) => {
-                    self.decrement_subtask_count(&mut parent_job.state)
+    async fn resolve(&self, mut id: JobId, mut result: Result<(), String>) {
+        loop {
+            let mut entry = self.state.lock().await.jobs.remove(&id).unwrap();
+            let callback = async {
+                match &result {
+                    Ok(()) => entry.job.on_complete(&self.ctx).await,
+                    Err(error) => entry.job.on_failed(&self.ctx, error.clone()).await,
                 }
-                _ => self.get_subtask_count(&parent_job.state),
             };
-            match job_entry.state.status {
-                JobStatus::Complete => parent_job.state.jobs_completed += 1,
-                JobStatus::Failed(_) => parent_job.state.jobs_failed += 1,
-                _ => {}
+            if std::panic::AssertUnwindSafe(callback)
+                .catch_unwind()
+                .await
+                .is_err()
+            {
+                result = Err(format!(
+                    "{} terminal callback panicked",
+                    entry.job.get_label()
+                ));
             }
-            tasks_remaining
-        };
-
-        if tasks_remaining == 0 {
-            Some(parent_id)
-        } else {
-            None
-        }
-    }
-
-    fn decrement_subtask_count(&self, state: &mut JobState) -> isize {
-        if let JobStatus::WaitingForSubtasks(tasks_remaining) = state.status {
-            state.status = JobStatus::WaitingForSubtasks(tasks_remaining - 1);
-            tasks_remaining - 1
-        } else {
-            0
-        }
-    }
-
-    fn get_subtask_count(&self, state: &JobState) -> isize {
-        if let JobStatus::WaitingForSubtasks(tasks_remaining) = state.status {
-            tasks_remaining
-        } else {
-            0
-        }
-    }
-
-    async fn handle_result(
-        &self,
-        result: Result<JobResult, String>,
-    ) -> (JobStatus, Option<DTPEvent>, Option<Vec<Arc<dyn Job>>>) {
-        let result = match result {
-            Ok(r) => r,
-            Err(e) => {
-                return (JobStatus::Failed(e.clone()), None, None);
-            }
-        };
-
-        let (status, event, subtasks) = match result {
-            JobResult::Event(event) => (JobStatus::Complete, Some(event), None),
-            JobResult::None => (JobStatus::Complete, None, None),
-            JobResult::Subtasks(subtasks) => (
-                match subtasks.len() {
-                    0 => JobStatus::Complete,
-                    _ => JobStatus::WaitingForSubtasks(subtasks.len() as isize),
-                },
-                None,
-                Some(subtasks),
-            ),
-        };
-
-        (status, event, subtasks)
-    }
-
-    /// Resolves a job, calling on_complete or on_failed, and updates its parent.
-    /// If a parent completes all subtasks, it always resolves as successful,
-    /// even if some subtasks failed.
-    async fn resolve_job(&self, job_id: JobId, ctx: &JobContext, result: Result<(), String>) {
-        let mut current_id = Some(job_id);
-        let mut current_result = result;
-
-        while let Some(id) = current_id {
-            let mut entry = {
-                let mut jobs = self.jobs.lock().await;
-                let Some(entry) = jobs.remove(&id) else {
-                    log::warn!("[Scheduler] Job {} not found during resolution", id);
-                    break;
-                };
-                entry
-            };
-
-            match &current_result {
-                Ok(_) => {
-                    entry.state.status = JobStatus::Complete;
-                    entry.job.on_complete(ctx).await;
-                    if entry.state.jobs_failed + entry.state.jobs_completed > 0 {
-                        log::debug!(
-                            "[Scheduler] Finished job: {} and {} subtasks",
-                            entry.job.get_label(),
-                            entry.state.jobs_failed + entry.state.jobs_completed
-                        );
-                    } else {
-                        log::debug!("[Scheduler] Finished job: {}", entry.job.get_label(),);
-                    }
-                }
-                Err(error) => {
-                    entry.state.status = JobStatus::Failed(error.clone());
-                    log::warn!(
-                        "[Scheduler] Failed job: {} ({}) {}",
-                        entry.job.get_label(),
-                        entry.state.id,
-                        error
-                    );
-                    entry.job.on_failed(ctx, error.clone()).await;
+            if let Err(error) = &result {
+                log::error!("{}: {error}", entry.job.get_label());
+                if entry.parent.is_none() {
+                    self.ctx.events.emit(DTPEvent::SyncFailed(format!(
+                        "{}: {error}",
+                        entry.job.get_label()
+                    )));
                 }
             }
-
-            // Notify any caller awaiting this specific job (see add_job_front_and_wait).
             if let Some(done) = entry.on_done.take() {
-                let passed_result = match &current_result {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e.clone()),
-                };
-                let _ = done.send(passed_result);
+                let _ = done.send(result.clone());
             }
-
-            current_id = self.update_parent_job(&entry, ctx).await;
-
-            // Parent jobs always succeed when their subtasks finish,
-            // regardless of whether this specific subtask failed.
-            current_result = Ok(());
-        }
-    }
-
-    async fn shelve_job(&self, job_id: JobId, subtasks_remaining: &isize) {
-        let mut jobs = self.jobs.lock().await;
-        if let Some(entry) = jobs.get_mut(&job_id) {
-            entry.state.status = JobStatus::WaitingForSubtasks(*subtasks_remaining);
-        } else {
-            log::warn!("[Scheduler] Job {} not found during shelve", job_id);
+            let mut state = self.state.lock().await;
+            if let Some((folder, owner)) = entry.scope {
+                if owner == id {
+                    state.leases.remove(&folder);
+                }
+            }
+            self.notify.notify_one();
+            let Some(parent_id) = entry.parent else { break };
+            let parent = state.jobs.get_mut(&parent_id).unwrap();
+            if let Err(error) = result {
+                parent.failure.get_or_insert(error);
+            }
+            parent.remaining -= 1;
+            if parent.remaining != 0 {
+                break;
+            }
+            result = parent.failure.take().map_or(Ok(()), Err);
+            id = parent_id;
         }
     }
 
     pub fn add_job<T: Job + 'static>(&self, job: T) {
-        let job = Arc::new(job);
-        let this = self.clone();
+        let scheduler = self.clone();
         tokio::spawn(async move {
-            this.add_job_internal(job, None, false, None).await;
+            scheduler.enqueue(Arc::new(job), None, false, None).await;
         });
     }
-
-    /// Inserts a job at the front of the queue and waits until it (and all of its
-    /// subtasks) complete or fail, returning the job's final result.
-    ///
-    /// This lets callers run a normally-passive job (e.g. a project sync) on demand
-    /// and block on its completion before continuing.
     pub async fn add_job_front_and_wait<T: Job + 'static>(&self, job: T) -> Result<(), String> {
         let (tx, rx) = oneshot::channel();
-        self.add_job_internal(Arc::new(job), None, true, Some(tx))
-            .await;
+        self.enqueue(Arc::new(job), None, true, Some(tx)).await;
         rx.await
-            .unwrap_or_else(|_| Err("Job was dropped before completion".to_string()))
+            .unwrap_or_else(|_| Err("Job was dropped before completion".into()))
     }
-
-    async fn add_job_internal(
+    async fn enqueue(
         &self,
         job: Arc<dyn Job>,
-        parent_id: Option<JobId>,
+        parent: Option<JobId>,
         front: bool,
         on_done: Option<oneshot::Sender<Result<(), String>>>,
     ) {
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        let entry = JobEntry {
-            job,
-            state: JobState {
-                id,
-                parent_id,
-                status: JobStatus::Pending,
-                ..Default::default()
-            },
-            on_done,
+        let (folder, admission_error) = match job.folder_scope(&self.ctx).await {
+            Ok(folder) => (folder, None),
+            Err(error) => (None, Some(error)),
         };
-        // Insert into the job map before enqueuing so the worker always finds it.
-        let _ = { self.jobs.lock().await.insert(id, entry) };
-        {
-            let mut queue = self.queue.lock().await;
-            if front {
-                queue.push_front(id);
-            } else {
-                queue.push_back(id);
+        let mut state = self.state.lock().await;
+        if state.stopped && parent.is_none() {
+            if let Some(done) = on_done {
+                let _ = done.send(Err("Scheduler stopped".into()));
             }
+            return;
+        }
+        let id = state.next_id;
+        state.next_id += 1;
+        let inherited = parent.and_then(|p| state.jobs[&p].scope);
+        state.jobs.insert(
+            id,
+            JobEntry {
+                job,
+                parent,
+                remaining: 0,
+                failure: None,
+                admission_error,
+                scope: inherited.or_else(|| folder.map(|f| (f, id))),
+                on_done,
+            },
+        );
+        if front {
+            state.queue.push_front(id);
+        } else {
+            state.queue.push_back(id);
         }
         self.notify.notify_one();
     }

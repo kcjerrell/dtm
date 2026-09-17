@@ -1,4 +1,4 @@
-use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DtProjectRef};
+use crate::projects_db::{dtos::project::ProjectExtra, DtProjectRef};
 use anyhow::Context;
 use dashmap::DashMap;
 use entity::{
@@ -17,15 +17,21 @@ use super::{MixedError, ProjectsDb};
 
 static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
+pub(super) fn clear_project_paths() {
+    PROJECT_PATH_CACHE.clear();
+}
+
 impl ProjectsDb {
     pub async fn add_project(
         &self,
         watch_folder_id: i64,
         relative_path: &str,
     ) -> anyhow::Result<ProjectExtra> {
-        let watch_folder_path = folder_cache::get_folder(watch_folder_id)
-            .ok_or_else(|| anyhow::anyhow!("watch folder {watch_folder_id} not found in cache"))?;
-        let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
+        let folder = self
+            .get_watch_folder(watch_folder_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("watch folder {watch_folder_id} not found"))?;
+        let full_path = std::path::Path::new(&folder.path).join(relative_path);
         let full_path_str = full_path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("invalid path encoding: {}", full_path.display()))?;
@@ -70,7 +76,14 @@ impl ProjectsDb {
     }
 
     pub async fn remove_project(&self, id: i64) -> Result<Option<i64>, MixedError> {
-        let _ = Projects::delete_by_id(id).exec(&self.db).await?;
+        let project = self.get_project(id).await?;
+        let result = Projects::delete_by_id(id).exec(&self.db).await?;
+        PROJECT_PATH_CACHE.remove(&id);
+        crate::dt_project::close_folder(&project.full_path).await;
+        if result.rows_affected == 0 {
+            return Ok(None);
+        }
+        self.rebuild_images_fts_debounced();
 
         Ok(Some(id))
     }
@@ -184,6 +197,7 @@ impl ProjectsDb {
                 .exec(&self.db)
                 .await?;
             log::debug!("Deleted {} images", result.rows_affected);
+            self.rebuild_images_fts_debounced();
         }
 
         Ok(())
@@ -200,7 +214,10 @@ fn project_query() -> sea_orm::Select<entity::prelude::Projects> {
         .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
         .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
         .column_as(Expr::value(""), "name")
-        .column_as(Expr::value(""), "full_path")
+        .column_as(
+            Expr::cust("watch_folders.path || '/' || projects.path"),
+            "full_path",
+        )
         .column_as(
             Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
             "is_missing",

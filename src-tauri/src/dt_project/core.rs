@@ -83,8 +83,24 @@ impl DTProject {
         is_shared: bool,
         dt_zip: Option<Arc<DTZip>>,
     ) -> anyhow::Result<Self> {
+        Self::new_with_pool(
+            db_path,
+            is_shared,
+            dt_zip,
+            sqlx::sqlite::SqlitePoolOptions::new(),
+        )
+        .await
+    }
+
+    pub(crate) async fn new_with_pool(
+        db_path: &str,
+        is_shared: bool,
+        dt_zip: Option<Arc<DTZip>>,
+        options: sqlx::sqlite::SqlitePoolOptions,
+    ) -> anyhow::Result<Self> {
         let connect_string = format!("sqlite:{}?mode=ro", db_path);
-        let pool = SqlitePool::connect(&connect_string)
+        let pool = options
+            .connect(&connect_string)
             .await
             .with_context(|| format!("failed to connect to sqlite database at {}", db_path))?;
 

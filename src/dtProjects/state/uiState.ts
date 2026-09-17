@@ -1,12 +1,13 @@
 import { proxy, useSnapshot } from "valtio"
 import { proxySet } from "valtio/utils"
-import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { ImageExtra } from "@/commands"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import DTPService from "@/commands/DtpService"
 import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
+import { toaster } from "@/components/ui/toaster"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
-import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import { drawPose } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
 import { type CanvasStack, isCanvasStack, type SubItem, type TensorType } from "../types"
 import type { ProjectState } from "./projects"
@@ -76,6 +77,9 @@ export class UIController extends DTPStateController<UIControllerState> {
     constructor() {
         super("uiState")
 
+        this.container.on("sync_failed", (error) => {
+            toaster.create({ type: "error", title: "Project synchronization failed", description: error })
+        })
         this.container.on("import_started", () => this.startImport())
         this.container.on("import_progress", (progress) => this.updateImport(progress))
         this.container.on("import_completed", () => this.endImport())

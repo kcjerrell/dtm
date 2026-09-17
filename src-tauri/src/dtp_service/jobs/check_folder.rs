@@ -62,81 +62,98 @@ impl Job for CheckFolderJob {
         format!("CheckFolderJob for {}", self.path)
     }
 
-    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
-        ctx.dtp.stop_watch(&self.path).await;
-
-        let mut locked_update: Option<bool> = None;
-        let mut missing_update: Option<bool> = None;
-
-        let watchfolder = match &self.watchfolder {
-            Some(wf) => wf.clone(),
-            None => ctx
-                .pdb
-                .get_watch_folder_by_path(&self.path)
-                .await
-                .map_err(|e| e.to_string())?
-                .ok_or_else(|| "Watch folder not found".to_string())?,
-        };
-
-        let resolved = resolve_folder(&watchfolder, &ctx.pdb)
+    async fn folder_scope(&self, ctx: &JobContext) -> Result<Option<i64>, String> {
+        if let Some(folder) = &self.watchfolder {
+            return Ok(Some(folder.id));
+        }
+        Ok(ctx
+            .pdb
+            .get_watch_folder_by_path(&self.path)
             .await
-            .unwrap_or(false);
+            .map_err(|e| e.to_string())?
+            .map(|f| f.id))
+    }
 
-        // check existence of folder
-        let is_missing = !resolved || !fs::exists(&watchfolder.path).unwrap_or(false);
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
+        self.check(ctx).await.map_err(|e| format!("{e:#}"))
+    }
+}
 
-        // if DTO.missing is different, update folder and all projects
-        if watchfolder.is_missing != is_missing {
-            missing_update = Some(is_missing);
-        }
-
-        if watchfolder.is_locked && self.reset_lock {
-            locked_update = Some(false);
-        }
-
-        if locked_update.is_some() || missing_update.is_some() {
-            ctx.pdb
-                .update_watch_folder(watchfolder.id, None, missing_update, locked_update)
-                .await
-                .map_err(|e| e.to_string())?;
-            ctx.events.emit(DTPEvent::ProjectsChanged);
-        }
-
-        if is_missing {
+impl CheckFolderJob {
+    async fn check(&self, ctx: &JobContext) -> Result<JobResult> {
+        let current = match &self.watchfolder {
+            Some(folder) => ctx.pdb.get_watch_folder(folder.id).await?,
+            None => ctx.pdb.get_watch_folder_by_path(&self.path).await?,
+        };
+        let Some(mut folder) = current else {
+            return Ok(JobResult::None);
+        };
+        if folder.is_locked && !self.reset_lock {
+            ctx.dtp.stop_watch(&folder.path).await;
             return Ok(JobResult::None);
         }
-
-        // run maintenance tasks (if any) before scheduling follow-up work
-        if watchfolder.maint > 0 {
-            log::info!("Required maintenance for folder {}", watchfolder.path);
-            run_maintenance(watchfolder.maint, &watchfolder, ctx)
-                .await
-                .map_err(|e| e.to_string())?;
+        let previous_path = folder.path.clone();
+        let resolved = resolve_folder(&folder, &ctx.pdb).await?;
+        folder = ctx
+            .pdb
+            .get_watch_folder(folder.id)
+            .await?
+            .context("watch folder removed")?;
+        if previous_path != folder.path {
+            ctx.dtp.stop_watch(&previous_path).await;
         }
-
-        if self.sync {
+        let missing = if !resolved {
+            true
+        } else {
+            match fs::metadata(&folder.path) {
+                Ok(metadata) => !metadata.is_dir(),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+                Err(error) => {
+                    return Err(error)
+                        .with_context(|| format!("failed to inspect watch folder {}", folder.path))
+                }
+            }
+        };
+        if folder.is_missing != missing || (folder.is_locked && self.reset_lock) {
+            folder = ctx
+                .pdb
+                .update_watch_folder(
+                    folder.id,
+                    None,
+                    Some(missing),
+                    self.reset_lock.then_some(false),
+                )
+                .await?;
+            ctx.events.emit(DTPEvent::WatchFoldersChanged);
+            ctx.events.emit(DTPEvent::ProjectsChanged);
+        }
+        if missing || folder.is_locked {
+            ctx.dtp.stop_watch(&folder.path).await;
+            return Ok(JobResult::None);
+        }
+        // Subscribe before discovery and leave the watcher running. Events that
+        // arrive during this tree are queued behind its folder lease.
+        ctx.dtp
+            .resume_watch(&folder.path, folder.recursive.unwrap_or(false))
+            .await?;
+        if folder.maint > 0 {
+            run_maintenance(folder.maint, &folder, ctx).await?;
+        }
+        if self.sync || previous_path != folder.path {
             return Ok(JobResult::Subtasks(vec![Arc::new(SyncFolderJob::new(
-                &watchfolder,
+                &folder,
             ))]));
         }
-
         if let Some(files) = &self.check_files {
-            let jobs: Vec<Arc<dyn Job>> = files
-                .iter()
-                .map(|f| Arc::new(CheckFileJob::new(f.to_string())) as Arc<dyn Job>)
-                .collect();
-            return Ok(JobResult::Subtasks(jobs));
+            let unique: std::collections::HashSet<_> = files.iter().collect();
+            return Ok(JobResult::Subtasks(
+                unique
+                    .into_iter()
+                    .map(|f| Arc::new(CheckFileJob::new(f.clone())) as Arc<dyn Job>)
+                    .collect(),
+            ));
         }
-
         Ok(JobResult::None)
-    }
-
-    async fn on_complete(&self, ctx: &JobContext) {
-        ctx.dtp.resume_watch(&self.path, true).await;
-    }
-
-    async fn on_failed(&self, ctx: &JobContext, _error: String) {
-        ctx.dtp.resume_watch(&self.path, true).await;
     }
 }
 
@@ -147,33 +164,22 @@ impl From<CheckFolderJob> for Arc<dyn Job> {
 }
 
 async fn resolve_folder(folder: &WatchFolderDTO, db: &ProjectsDb) -> Result<bool> {
-    let cached = folder_cache::get_folder(folder.id);
-    if let Some(cached) = cached {
-        if cached == folder.path {
-            return Ok(true);
-        }
-    }
-    let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await;
-    if let Ok(resolved) = resolved {
-        match resolved {
-            crate::bookmarks::ResolveResult::Resolved(updated_path) => {
-                if updated_path != folder.path {
-                    db.update_bookmark_path(folder.id, &folder.bookmark, &updated_path)
-                        .await?;
-                }
-            }
-            crate::bookmarks::ResolveResult::StaleRefreshed {
-                new_bookmark,
-                resolved_path,
-            } => {
-                db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
+    let resolved = folder_cache::resolve_bookmark(folder.id, &folder.bookmark).await?;
+    match resolved {
+        crate::bookmarks::ResolveResult::Resolved(path) => {
+            if path != folder.path {
+                db.update_bookmark_path(folder.id, &folder.bookmark, &path)
                     .await?;
             }
-            crate::bookmarks::ResolveResult::CannotResolve => {
-                // TODO: Mark as missing in DB?
-                return Ok(false);
-            }
         }
+        crate::bookmarks::ResolveResult::StaleRefreshed {
+            new_bookmark,
+            resolved_path,
+        } => {
+            db.update_bookmark_path(folder.id, &new_bookmark, &resolved_path)
+                .await?;
+        }
+        crate::bookmarks::ResolveResult::CannotResolve => return Ok(false),
     }
     Ok(true)
 }

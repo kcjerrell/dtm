@@ -22,12 +22,9 @@ impl DTPEventsService {
     }
 
     pub fn emit(&self, event: DTPEvent) {
-        let sender = self.sender.clone();
-        tauri::async_runtime::spawn(async move {
-            if let Some(tx) = &*sender.lock().unwrap() {
-                let _ = tx.send(event);
-            }
-        });
+        if let Some(tx) = &*self.sender.lock().unwrap() {
+            let _ = tx.send(event);
+        }
     }
 }
 
@@ -50,6 +47,8 @@ pub enum DTPEvent {
 
     SyncStarted,
     SyncComplete,
+    /// Terminal failure, separate from progress completion.
+    SyncFailed(String),
 
     FolderSyncStarted(i64),
     FolderSyncComplete(i64),

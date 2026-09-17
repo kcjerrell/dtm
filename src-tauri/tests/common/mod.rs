@@ -20,12 +20,18 @@ pub mod util;
 
 pub struct EventHelper {
     received: Arc<RwLock<Vec<String>>>,
+    payloads: Arc<RwLock<Vec<Value>>>,
+    changed: Arc<tokio::sync::Notify>,
 }
 
 impl EventHelper {
     pub fn new<E>() -> (Self, tauri::ipc::Channel<E>) {
         let received = Arc::new(RwLock::new(Vec::new()));
         let received_clone = received.clone();
+        let payloads = Arc::new(RwLock::new(Vec::new()));
+        let payloads_clone = payloads.clone();
+        let changed = Arc::new(tokio::sync::Notify::new());
+        let changed_clone = changed.clone();
         let channel = tauri::ipc::Channel::new(move |event| {
             match event {
                 tauri::ipc::InvokeResponseBody::Json(json_string) => {
@@ -33,6 +39,8 @@ impl EventHelper {
                     let event_type = v["type"].as_str().unwrap();
                     println!("Received event: {}", event_type);
                     received_clone.write().unwrap().push(event_type.to_string());
+                    payloads_clone.write().unwrap().push(v);
+                    changed_clone.notify_one();
                 }
                 _ => {
                     println!("Received data event")
@@ -40,7 +48,24 @@ impl EventHelper {
             }
             Ok(())
         });
-        (EventHelper { received }, channel)
+        (
+            EventHelper {
+                received,
+                payloads,
+                changed,
+            },
+            channel,
+        )
+    }
+
+    pub fn payloads(&self, event_type: &str) -> Vec<Value> {
+        self.payloads
+            .read()
+            .unwrap()
+            .iter()
+            .filter(|v| v["type"] == event_type)
+            .map(|v| v["data"].clone())
+            .collect()
     }
 
     pub fn count(self: &Self, event_type: &str) -> usize {
@@ -52,24 +77,23 @@ impl EventHelper {
             .count()
     }
 
-    pub async fn wait_for_count(self: &Self, event_type: &str, count: usize) -> bool {
-        let mut max_checks = MAX_WAIT_MS / 100;
-        let mut current_count = self.count(event_type);
-        while current_count < count && max_checks > 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            max_checks -= 1;
-            current_count = self.count(event_type);
-        }
-        if current_count != count {
-            println!("Count for {} was {}", event_type, current_count);
-            false
-        } else {
-            true
-        }
+    pub async fn wait_for_at_least(&self, event_type: &str, count: usize) -> bool {
+        tokio::time::timeout(std::time::Duration::from_millis(MAX_WAIT_MS), async {
+            while self.count(event_type) < count {
+                self.changed.notified().await;
+            }
+        })
+        .await
+        .is_ok()
+    }
+
+    pub async fn wait_for_count(&self, event_type: &str, count: usize) -> bool {
+        self.wait_for_at_least(event_type, count).await && self.count(event_type) == count
     }
 
     pub fn reset_counts(&self) {
         self.received.write().unwrap().clear();
+        self.payloads.write().unwrap().clear();
     }
 }
 

@@ -3,14 +3,13 @@ use std::sync::{
     Arc,
 };
 
-use tokio::fs;
+use anyhow::Context;
+use std::path::Path;
 
 use crate::{
     dtp_service::{
         events::DTPEvent,
-        helpers::{
-            get_folder_files, get_full_project_path, system_time_to_epoch_secs, ProjectFile,
-        },
+        helpers::{get_folder_files, inspect_project_file, ProjectFile},
         jobs::{
             AddProjectJob, Job, JobContext, JobResult, RemoveProjectJob, SyncModelsJob,
             UpdateProjectJob,
@@ -46,18 +45,34 @@ impl Job for SyncFolderJob {
             self.watchfolder_path, self.watchfolder_id
         )
     }
+    async fn folder_scope(&self, _ctx: &JobContext) -> Result<Option<i64>, String> {
+        Ok(Some(self.watchfolder_id))
+    }
     fn start_event(&self) -> Option<DTPEvent> {
         Some(DTPEvent::FolderSyncStarted(self.watchfolder_id))
     }
     async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
-        let files = get_folder_files(&self.watchfolder_path, self.watchfolder_id).await;
+        let Some(folder) = ctx
+            .pdb
+            .get_watch_folder(self.watchfolder_id)
+            .await
+            .map_err(|e| e.to_string())?
+        else {
+            return Ok(JobResult::None);
+        };
+        if folder.is_missing || folder.is_locked {
+            return Ok(JobResult::None);
+        }
+        let files = get_folder_files(&folder.path, folder.id, folder.recursive.unwrap_or(false))
+            .await
+            .map_err(|e| format!("{e:#}"))?;
         let mut project_files = files.projects;
         let mut sync_projects: Vec<ProjectSync> = Vec::new();
         let entities = ctx
             .pdb
             .list_projects(Some(self.watchfolder_id))
             .await
-            .unwrap();
+            .map_err(|e| e.to_string())?;
 
         // detect if this is a new folder import
         let is_import = entities.is_empty() && !project_files.is_empty();
@@ -67,25 +82,24 @@ impl Job for SyncFolderJob {
         }
 
         for entity in entities {
-            let full_path = get_full_project_path(&entity);
+            let full_path = Path::new(&folder.path)
+                .join(&entity.path)
+                .to_string_lossy()
+                .into_owned();
+            if !folder.recursive.unwrap_or(false)
+                && Path::new(&entity.path).components().count() > 1
+            {
+                continue;
+            }
             let file = project_files.remove(&full_path);
 
-            let sync = ProjectSync::new(
-                Some(entity),
-                file,
-                self.watchfolder_id,
-                self.watchfolder_path.clone(),
-            );
+            let sync =
+                ProjectSync::new(Some(entity), file, self.watchfolder_id, folder.path.clone());
             sync_projects.push(sync);
         }
 
         for (_key, file) in project_files.drain() {
-            let sync = ProjectSync::new(
-                None,
-                Some(file),
-                self.watchfolder_id,
-                self.watchfolder_path.clone(),
-            );
+            let sync = ProjectSync::new(None, Some(file), self.watchfolder_id, folder.path.clone());
             sync_projects.push(sync);
         }
 
@@ -96,10 +110,10 @@ impl Job for SyncFolderJob {
 
             match sync.action {
                 SyncAction::Add => {
-                    subtasks.push(Arc::new(AddProjectJob::new(
-                        sync,
-                        self.is_import.load(Ordering::Relaxed),
-                    )));
+                    subtasks.push(Arc::new(
+                        AddProjectJob::new(sync, self.is_import.load(Ordering::Relaxed))
+                            .map_err(|e| format!("{e:#}"))?,
+                    ));
                 }
                 SyncAction::Remove => {
                     match RemoveProjectJob::new(sync) {
@@ -110,7 +124,7 @@ impl Job for SyncFolderJob {
                 SyncAction::Update => {
                     subtasks.push(Arc::new(
                         UpdateProjectJob::new(sync, self.is_import.load(Ordering::Relaxed), false)
-                            .unwrap(),
+                            .map_err(|e| format!("{e:#}"))?,
                     ));
                 }
                 _ => {}
@@ -180,38 +194,17 @@ impl ProjectSync {
     pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> anyhow::Result<Self> {
         let entity = pdb.get_project(project_id).await?;
 
-        let mut project = None;
-        if let Ok(metadata) = fs::metadata(&entity.full_path).await {
-            project = Some(ProjectFile {
-                path: entity.full_path.to_string(),
-                has_base: true,
-                filesize: metadata.len(),
-                modified: match metadata.modified() {
-                    Ok(modified) => system_time_to_epoch_secs(modified).unwrap_or(0),
-                    Err(e) => {
-                        log::error!("Failed to get modified time: {}", e);
-                        0
-                    }
-                },
-                _watchfolder_id: entity.watchfolder_id,
-                is_archive: entity.full_path.ends_with(".dtm.zip"),
-            });
-        };
-
-        let full_path = entity.full_path.to_string();
-
-        let watchfolder_path = full_path
-            .strip_suffix(&entity.path)
-            .unwrap()
-            .strip_suffix("/")
-            .unwrap();
-
+        let folder = pdb
+            .get_watch_folder(entity.watchfolder_id)
+            .await?
+            .context("watch folder not found")?;
+        let project = inspect_project_file(Path::new(&entity.full_path), &folder.path, folder.id)?;
         Ok(Self {
             watchfolder_id: entity.watchfolder_id,
             entity: Some(entity),
             file: project,
             action: SyncAction::None,
-            watchfolder_path: watchfolder_path.to_string(),
+            watchfolder_path: folder.path,
         })
     }
 
@@ -228,7 +221,7 @@ impl ProjectSync {
             return;
         }
         if let (Some(entity), Some(file)) = (self.entity.as_ref(), self.file.as_ref()) {
-            if has_changed(file, entity) {
+            if !entity.excluded && has_changed(file, entity) {
                 self.action = SyncAction::Update;
             }
         }

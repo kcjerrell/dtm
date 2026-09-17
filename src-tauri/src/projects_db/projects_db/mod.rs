@@ -21,7 +21,9 @@ static PROJECTS_DB: Lazy<RwLock<Option<ProjectsDb>>> = Lazy::new(|| RwLock::new(
 #[derive(Clone, Debug)]
 pub struct ProjectsDb {
     pub db: DatabaseConnection,
-    rebuild_debounce: OnceLock<Arc<DebounceTask>>,
+    rebuild_debounce: Arc<OnceLock<Arc<DebounceTask>>>,
+    maintenance_lock: Arc<tokio::sync::Mutex<()>>,
+    maintenance_stopped: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl ProjectsDb {
@@ -33,9 +35,12 @@ impl ProjectsDb {
             .await
             .with_context(|| format!("failed to run database migrations on '{db_path}'"))?;
 
+        projects::clear_project_paths();
         let projects_db = Self {
             db,
-            rebuild_debounce: OnceLock::new(),
+            rebuild_debounce: Arc::new(OnceLock::new()),
+            maintenance_lock: Arc::new(tokio::sync::Mutex::new(())),
+            maintenance_stopped: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         };
 
         let mut singleton = PROJECTS_DB.write().await;

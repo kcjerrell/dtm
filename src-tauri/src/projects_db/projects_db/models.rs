@@ -4,7 +4,9 @@ use crate::dt_project::TensorHistoryNode;
 use crate::projects_db::dtos::model::ModelExtra;
 use anyhow::{Context, Result};
 use entity::{enums::ModelType, image_controls, image_loras, images, models};
-use sea_orm::{sea_query::OnConflict, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set};
+use sea_orm::{
+    sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QuerySelect, Set,
+};
 use serde::Deserialize;
 
 use super::{MixedError, ProjectsDb};
@@ -29,6 +31,14 @@ impl ProjectsDb {
         &self,
         histories: &[TensorHistoryNode],
     ) -> Result<HashMap<ModelTypeAndFile, i64>, MixedError> {
+        self.process_models_on(histories, &self.db).await
+    }
+
+    pub(super) async fn process_models_on<C: ConnectionTrait>(
+        &self,
+        histories: &[TensorHistoryNode],
+        db: &C,
+    ) -> Result<HashMap<ModelTypeAndFile, i64>, MixedError> {
         let models: Vec<models::ActiveModel> = HashSet::<ModelTypeAndFile>::from_iter(
             histories
                 .iter()
@@ -42,13 +52,16 @@ impl ProjectsDb {
         })
         .collect();
 
+        if models.is_empty() {
+            return Ok(HashMap::new());
+        }
         let models = models::Entity::insert_many(models)
             .on_conflict(
                 OnConflict::columns([models::Column::Filename, models::Column::ModelType])
                     .update_column(models::Column::Filename)
                     .to_owned(),
             )
-            .exec_with_returning(&self.db)
+            .exec_with_returning(db)
             .await?;
 
         let mut models_lookup: HashMap<ModelTypeAndFile, i64> = HashMap::new();

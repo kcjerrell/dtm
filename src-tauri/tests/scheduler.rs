@@ -108,3 +108,134 @@ mod tests {
         dtp.stop().await;
     }
 }
+
+#[tokio::test]
+async fn failed_descendants_fail_awaited_ancestors() {
+    use common::*;
+    use dtm_lib::dtp_service::{AppHandleWrapper, DTPService};
+    let dtp = DTPService::new(AppHandleWrapper::new(None));
+    let (events, channel) = EventHelper::new();
+    dtp.connect(channel, false, "sqlite::memory:".into())
+        .await
+        .unwrap();
+    let scheduler = dtp.scheduler.read().await.clone().unwrap();
+    let result = scheduler
+        .add_job_front_and_wait(TestJob::new(1, 0).with_subtasks(vec![
+            TestJob::new(2, 0).with_subtask(TestJob::new(3, 0).with_fail()),
+            TestJob::new(4, 0),
+        ]))
+        .await;
+    assert_eq!(result, Err("TestJob failed".into()));
+    assert_eq!(events.count("test_event_failed"), 3);
+    assert_eq!(events.count("test_event_complete"), 1);
+    dtp.stop().await;
+    assert!(scheduler
+        .add_job_front_and_wait(TestJob::new(5, 0))
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn folder_leases_cover_descendants_and_stop_drains_workers() {
+    use common::*;
+    use dtm_lib::dtp_service::{
+        jobs::{Job, JobContext, JobResult},
+        AppHandleWrapper, DTPService,
+    };
+    use std::sync::Arc;
+    use tokio::sync::{Notify, Semaphore};
+    struct GateJob {
+        folder: i64,
+        started: Arc<Notify>,
+        gate: Arc<Semaphore>,
+        child: bool,
+    }
+    #[async_trait::async_trait]
+    impl Job for GateJob {
+        fn get_label(&self) -> String {
+            "gate".into()
+        }
+        async fn folder_scope(&self, _: &JobContext) -> Result<Option<i64>, String> {
+            Ok(Some(self.folder))
+        }
+        async fn execute(&self, _: &JobContext) -> Result<JobResult, String> {
+            if !self.child {
+                return Ok(JobResult::Subtasks(vec![Arc::new(Self {
+                    folder: self.folder,
+                    started: self.started.clone(),
+                    gate: self.gate.clone(),
+                    child: true,
+                })]));
+            }
+            self.started.notify_one();
+            self.gate.acquire().await.unwrap().forget();
+            Ok(JobResult::None)
+        }
+    }
+    let dtp = DTPService::new(AppHandleWrapper::new(None));
+    let (_, channel) = EventHelper::new();
+    dtp.connect(channel, false, "sqlite::memory:".into())
+        .await
+        .unwrap();
+    let scheduler = dtp.scheduler.read().await.clone().unwrap();
+    let started = Arc::new(Notify::new());
+    let gate = Arc::new(Semaphore::new(0));
+    let first = tokio::spawn({
+        let scheduler = scheduler.clone();
+        let started = started.clone();
+        let gate = gate.clone();
+        async move {
+            scheduler
+                .add_job_front_and_wait(GateJob {
+                    folder: 1,
+                    started,
+                    gate,
+                    child: false,
+                })
+                .await
+        }
+    });
+    started.notified().await;
+    let second_started = Arc::new(Notify::new());
+    let second = tokio::spawn({
+        let scheduler = scheduler.clone();
+        let started = second_started.clone();
+        async move {
+            scheduler
+                .add_job_front_and_wait(GateJob {
+                    folder: 1,
+                    started,
+                    gate: Arc::new(Semaphore::new(1)),
+                    child: true,
+                })
+                .await
+        }
+    });
+    // A different folder can finish while the first folder's child is blocked.
+    scheduler
+        .add_job_front_and_wait(GateJob {
+            folder: 2,
+            started: Arc::new(Notify::new()),
+            gate: Arc::new(Semaphore::new(1)),
+            child: true,
+        })
+        .await
+        .unwrap();
+    assert!(!second.is_finished());
+    let stop = tokio::spawn({
+        let dtp = dtp.clone();
+        async move { dtp.stop().await }
+    });
+    gate.add_permits(1);
+    first.await.unwrap().unwrap();
+    // If shutdown won admission, the second request is explicitly rejected.
+    let _ = second.await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), stop)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(scheduler
+        .add_job_front_and_wait(TestJob::new(8, 0))
+        .await
+        .is_err());
+}

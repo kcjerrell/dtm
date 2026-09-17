@@ -1,16 +1,17 @@
-use dashmap::DashMap;
 use notify_debouncer_mini::{
     new_debouncer,
     notify::{RecommendedWatcher, RecursiveMode},
     DebounceEventResult, Debouncer,
 };
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashSet,
     path::Path,
     sync::{Arc, OnceLock},
 };
+use tokio::sync::Mutex;
 use tokio::time::Duration;
-use tokio::{fs, sync::Mutex};
 
 use crate::dtp_service::{
     jobs::{CheckFolderJob, SyncJob},
@@ -18,7 +19,8 @@ use crate::dtp_service::{
 };
 
 pub struct WatchService {
-    watchers: DashMap<String, FolderWatcher>,
+    watchers: Mutex<HashMap<String, FolderWatcher>>,
+    stopped: AtomicBool,
     volume_watcher: OnceLock<VolumeWatcher>,
     scheduler: Arc<Scheduler>,
 }
@@ -30,7 +32,7 @@ pub struct FolderWatcher {
 }
 
 impl FolderWatcher {
-    pub fn new(path: String, recursive: bool, scheduler: Arc<Scheduler>) -> Self {
+    pub fn new(path: String, recursive: bool, scheduler: Arc<Scheduler>) -> anyhow::Result<Self> {
         let watcher_path = path.clone();
         let runtime_handle = tokio::runtime::Handle::current();
 
@@ -45,7 +47,7 @@ impl FolderWatcher {
                             match event.path.extension().and_then(|ext| ext.to_str()) {
                                 Some("sqlite3") | Some("sqlite3-wal") => {
                                     let project_path = event.path.with_extension("sqlite3");
-                                    projects.insert(project_path.to_str().unwrap().to_string());
+                                    projects.insert(project_path.to_string_lossy().into_owned());
                                 }
                                 _ => {}
                             }
@@ -61,36 +63,33 @@ impl FolderWatcher {
                             scheduler.add_job(job);
                         }
                     }
-                    Err(e) => eprintln!("Watch error: {:?}", e),
+                    Err(e) => {
+                        log::error!("Watch error for {path}: {e:?}");
+                        scheduler.add_job(CheckFolderJob::new_from_path(path, false, true, None));
+                    }
                 }
             });
-        })
-        .unwrap();
+        })?;
 
-        Self {
+        Ok(Self {
             watcher: Mutex::new(watcher),
             path: watcher_path,
             recursive,
-        }
+        })
     }
 
-    pub async fn start(&self) {
-        let exists = fs::try_exists(&self.path).await.unwrap_or(false);
-        if !exists {
-            return;
-        }
-
-        let recursive_mode = match self.recursive {
-            true => RecursiveMode::Recursive,
-            false => RecursiveMode::NonRecursive,
+    pub async fn start(&self) -> anyhow::Result<()> {
+        let mode = if self.recursive {
+            RecursiveMode::Recursive
+        } else {
+            RecursiveMode::NonRecursive
         };
-
-        let _ = self
-            .watcher
+        self.watcher
             .lock()
             .await
             .watcher()
-            .watch(Path::new(&self.path), recursive_mode);
+            .watch(Path::new(&self.path), mode)?;
+        Ok(())
     }
 
     pub async fn stop(&self) {
@@ -108,7 +107,7 @@ pub struct VolumeWatcher {
 }
 
 impl VolumeWatcher {
-    pub fn new(scheduler: Arc<Scheduler>) -> Self {
+    pub fn new(scheduler: Arc<Scheduler>) -> anyhow::Result<Self> {
         let runtime_handle = tokio::runtime::Handle::current();
 
         let watcher = new_debouncer(Duration::from_secs(2), move |res: DebounceEventResult| {
@@ -134,84 +133,98 @@ impl VolumeWatcher {
                     Err(e) => eprintln!("Watch error: {:?}", e),
                 }
             });
-        })
-        .unwrap();
+        })?;
 
-        Self {
+        Ok(Self {
             watcher: Mutex::new(watcher),
-        }
+        })
     }
 
-    pub async fn start(&self) {
-        if !Path::new("/Volumes").exists() {
-            return;
+    pub async fn start(&self) -> anyhow::Result<()> {
+        if !Path::new("/Volumes").try_exists()? {
+            return Ok(());
         }
         self.watcher
             .lock()
             .await
             .watcher()
-            .watch(Path::new("/Volumes"), RecursiveMode::NonRecursive)
-            .unwrap();
+            .watch(Path::new("/Volumes"), RecursiveMode::NonRecursive)?;
+        Ok(())
     }
 
     pub async fn stop(&self) {
         if !Path::new("/Volumes").exists() {
             return;
         }
-        self.watcher
+        let _ = self
+            .watcher
             .lock()
             .await
             .watcher()
-            .unwatch(Path::new("/Volumes"))
-            .unwrap();
+            .unwatch(Path::new("/Volumes"));
     }
 }
 
 impl WatchService {
     pub fn new(scheduler: Scheduler) -> Self {
         let scheduler = Arc::new(scheduler);
-        let watchers = DashMap::new();
+        let watchers = Mutex::new(HashMap::new());
         let volume_watcher = OnceLock::new();
         Self {
             watchers,
+            stopped: AtomicBool::new(false),
             volume_watcher,
             scheduler,
         }
     }
 
     pub async fn watch_volumes(&self) -> anyhow::Result<()> {
-        let volume_watcher = self
-            .volume_watcher
-            .get_or_init(|| VolumeWatcher::new(self.scheduler.clone()));
-        volume_watcher.start().await;
+        if self.volume_watcher.get().is_none() {
+            let watcher = VolumeWatcher::new(self.scheduler.clone())?;
+            let _ = self.volume_watcher.set(watcher);
+        }
+        if let Some(watcher) = self.volume_watcher.get() {
+            watcher.start().await?;
+        }
         Ok(())
     }
 
     pub async fn stop_watch_volumes(&self) -> anyhow::Result<()> {
-        let volume_watcher = self.volume_watcher.get().unwrap();
-        volume_watcher.stop().await;
+        if let Some(watcher) = self.volume_watcher.get() {
+            watcher.stop().await;
+        }
         Ok(())
     }
 
     pub async fn watch_folder(&self, path: &str, recursive: bool) -> anyhow::Result<()> {
-        let watcher = self.watchers.entry(path.to_string()).or_insert_with(|| {
-            FolderWatcher::new(path.to_string(), recursive, self.scheduler.clone())
-        });
-        watcher.start().await;
+        let mut watchers = self.watchers.lock().await;
+        if self.stopped.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        if watchers.get(path).is_some_and(|w| w.recursive == recursive) {
+            return Ok(());
+        }
+        if let Some(old) = watchers.remove(path) {
+            old.stop().await;
+        }
+        let watcher = FolderWatcher::new(path.to_owned(), recursive, self.scheduler.clone())?;
+        watcher.start().await?;
+        watchers.insert(path.to_owned(), watcher);
         Ok(())
     }
-
     pub async fn stop_watch_folder(&self, path: &str) -> anyhow::Result<()> {
-        let watcher = match self.watchers.get(path) {
-            Some(watcher) => watcher,
-            None => return Ok(()),
-        };
-        watcher.stop().await;
+        if let Some(watcher) = self.watchers.lock().await.remove(path) {
+            watcher.stop().await;
+        }
         Ok(())
     }
-
-    #[allow(dead_code)]
     pub async fn stop_all(&self) -> anyhow::Result<()> {
+        let mut watchers = self.watchers.lock().await;
+        self.stopped.store(true, Ordering::Release);
+        for (_, watcher) in watchers.drain() {
+            watcher.stop().await;
+        }
+        self.stop_watch_volumes().await?;
         Ok(())
     }
 }
