@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 use tempfile::tempdir_in;
@@ -220,13 +220,31 @@ impl AppHandleWrapper {
 
     /// gets the app's temp folder
     pub fn get_temp_dir(&self) -> tauri::Result<PathBuf> {
+        let temp = self.temp_dir_path()?;
+        fs::create_dir_all(&temp)?;
+        Ok(temp)
+    }
+
+    /// removes the app's temp folder and all of its contents
+    pub fn clear_temp_dir(&self) -> tauri::Result<()> {
+        remove_dir_if_exists(&self.temp_dir_path()?)?;
+        Ok(())
+    }
+
+    fn temp_dir_path(&self) -> tauri::Result<PathBuf> {
         if let Some(app_handle) = &self.app_handle {
-            let temp = app_handle.path().app_data_dir()?.join("temp");
-            fs::create_dir_all(&temp)?;
-            Ok(temp)
+            Ok(app_handle.path().app_data_dir()?.join("temp"))
         } else {
-            Ok(self.get_test_path("temp_dir"))
+            Ok(std::env::current_dir()?.join("test_data/temp/temp_dir"))
         }
+    }
+}
+
+fn remove_dir_if_exists(path: &Path) -> std::io::Result<()> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
     }
 }
 
@@ -249,6 +267,20 @@ impl From<&AppHandle> for AppHandleWrapper {
 #[cfg(test)]
 mod synchronization_tests {
     use super::*;
+
+    #[test]
+    fn temp_dir_cleanup_removes_contents_and_is_idempotent() {
+        let parent = tempfile::tempdir().unwrap();
+        let temp = parent.path().join("temp");
+        fs::create_dir_all(temp.join("nested")).unwrap();
+        fs::write(temp.join("nested/file"), "temporary data").unwrap();
+
+        remove_dir_if_exists(&temp).unwrap();
+        assert!(!temp.exists());
+
+        remove_dir_if_exists(&temp).unwrap();
+    }
+
     #[tokio::test]
     async fn sqlite_metadata_matches_discovery_with_and_without_wal() {
         let dir = tempfile::tempdir().unwrap();

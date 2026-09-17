@@ -389,9 +389,13 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, event| {
+        .run(|app_handle, event| {
             if let tauri::RunEvent::Exit = event {
                 bookmarks::cleanup_bookmarks();
+                if let Err(error) = dtp_service::AppHandleWrapper::from(app_handle).clear_temp_dir()
+                {
+                    log::error!("Failed to clear application temp folder: {error}");
+                }
             }
         });
 }
