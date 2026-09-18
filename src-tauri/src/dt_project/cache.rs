@@ -37,11 +37,12 @@ pub async fn close_folder(folder_path: &str) {
     for key in to_remove {
         if let Some((_, cell)) = PROJECT_CACHE.remove(&key) {
             if let Some(cached) = cell.get() {
-                let pool = cached.project.pool.clone();
-                tokio::spawn(async move {
-                    tokio::time::sleep(DRAIN_GRACE).await;
-                    pool.close().await;
-                });
+                if let Some(pool) = cached.project.initialized_pool() {
+                    tokio::spawn(async move {
+                        tokio::time::sleep(DRAIN_GRACE).await;
+                        pool.close().await;
+                    });
+                }
             }
         }
     }
@@ -63,11 +64,12 @@ fn schedule_eviction(path: String, generation: u64) {
         if should_evict {
             if let Some((_, cell)) = PROJECT_CACHE.remove(&path) {
                 if let Some(cached) = cell.get() {
-                    let pool = cached.project.pool.clone();
-                    tokio::spawn(async move {
-                        tokio::time::sleep(DRAIN_GRACE).await;
-                        pool.close().await;
-                    });
+                    if let Some(pool) = cached.project.initialized_pool() {
+                        tokio::spawn(async move {
+                            tokio::time::sleep(DRAIN_GRACE).await;
+                            pool.close().await;
+                        });
+                    }
                 }
             }
         }
@@ -96,7 +98,7 @@ impl DTProject {
             sqlx::sqlite::SqlitePoolOptions::new().max_connections(1),
         )
         .await?;
-        sqlx::query("BEGIN").execute(&*project.pool).await?;
+        sqlx::query("BEGIN").execute(project.pool().await?).await?;
         Ok(project)
     }
 
@@ -155,5 +157,44 @@ impl DTProject {
                 Err(e)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use tempfile::tempdir;
+    use zip::{write::SimpleFileOptions, ZipWriter};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn closing_cached_lazy_archive_does_not_initialize_pool() -> anyhow::Result<()> {
+        let dir = tempdir()?;
+        let archive_path = dir.path().join("cached.dtm.zip");
+        let file = std::fs::File::create(&archive_path)?;
+        let mut zip = ZipWriter::new(file);
+        zip.start_file("project.dtm", SimpleFileOptions::default())?;
+        zip.write_all(b"database bytes that must remain archived")?;
+        zip.finish()?;
+
+        let archive = Arc::new(
+            DTZip::new(
+                archive_path.to_string_lossy().as_ref(),
+                dir.path().to_string_lossy().as_ref(),
+            )
+            .await?,
+        );
+        let project = DTProject::get_archive(archive.clone()).await?;
+        assert!(project.initialized_pool().is_none());
+        assert_eq!(tokio::fs::metadata(&archive.db_path).await?.len(), 0);
+
+        close_folder(dir.path().to_string_lossy().as_ref()).await;
+
+        assert!(project.initialized_pool().is_none());
+        assert_eq!(tokio::fs::metadata(&archive.db_path).await?.len(), 0);
+        assert!(!PROJECT_CACHE.contains_key(&archive.db_path));
+        Ok(())
     }
 }

@@ -291,16 +291,15 @@ impl DTProject {
 
         // build and run the thn query
         let query = build_query(&filter);
-        let mut rows: Vec<ThnRow> =
-            query_as(query)
-                .fetch_all(&*self.pool)
-                .await
-                .with_context(|| {
-                    format!(
-                        "failed to query tensor history nodes for project {}",
-                        self.path
-                    )
-                })?;
+        let mut rows: Vec<ThnRow> = query_as(query)
+            .fetch_all(self.pool().await?)
+            .await
+            .with_context(|| {
+                format!(
+                    "failed to query tensor history nodes for project {}",
+                    self.path
+                )
+            })?;
 
         if let Some(ThnFilter::Predecessor(_, lineage, _)) = filter {
             if rows.iter().any(|r| r.lineage == lineage) {
@@ -488,7 +487,7 @@ impl DTProject {
         )
         .bind(&pdb_path)
         .bind(project_id)
-        .fetch_all(&*self.pool)
+        .fetch_all(self.pool().await?)
         .await
         .with_context(|| {
             format!(

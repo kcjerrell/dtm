@@ -101,7 +101,7 @@ impl DTProject {
         }
         names.push_unseparated(")");
 
-        let result = q.build_query_as().fetch_all(&*self.pool).await?;
+        let result = q.build_query_as().fetch_all(self.pool().await?).await?;
         Ok(result)
     }
 }

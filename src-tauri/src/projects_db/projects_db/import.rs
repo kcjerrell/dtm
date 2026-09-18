@@ -158,7 +158,7 @@ impl ProjectsDb {
         );
         let source = crate::dt_project::DTProject::open_snapshot(&project.full_path).await?;
         let end: i64 = sqlx::query_scalar("SELECT coalesce(max(rowid), 0) FROM tensorhistorynode")
-            .fetch_one(&*source.pool)
+            .fetch_one(source.pool().await?)
             .await?;
         let transaction = self.db.begin().await?;
         let existing: Vec<(i64, i64)> = images::Entity::find()

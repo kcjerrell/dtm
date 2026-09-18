@@ -29,11 +29,15 @@ impl DTResource {
 
     pub fn dt_zip_ref(data: Vec<u8>, dt_zip: &DTZip) -> Result<DTResource> {
         let rel_path = String::from_utf8(data)?;
+        Ok(Self::dt_zip_path(rel_path, dt_zip))
+    }
+
+    pub fn dt_zip_path(rel_path: String, dt_zip: &DTZip) -> DTResource {
         let archive_path = dt_zip.archive_path.clone();
-        Ok(DTResource::DTZipRef(DTZipRef {
+        DTResource::DTZipRef(DTZipRef {
             rel_path,
             archive_path,
-        }))
+        })
     }
 
     pub fn compressed_tensor(data: Vec<u8>) -> DTResource {

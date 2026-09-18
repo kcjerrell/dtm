@@ -254,7 +254,7 @@ fn thumbs_stats_reducer(
 
             let result: Vec<u64> = query
                 .build_query_scalar()
-                .fetch_all(&*dt_project_clone.pool)
+                .fetch_all(dt_project_clone.pool().await?)
                 .await?;
 
             let (count, total_size) = thumb_stats;

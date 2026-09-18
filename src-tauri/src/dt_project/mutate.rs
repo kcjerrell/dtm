@@ -16,7 +16,7 @@ impl DTProject {
             let res = query("UPDATE tensors SET data = ?1 WHERE tensor_name = ?2")
                 .bind(&data)
                 .bind(&tensor_name)
-                .execute(&*self.pool)
+                .execute(self.pool().await?)
                 .await
                 .with_context(|| {
                     format!(

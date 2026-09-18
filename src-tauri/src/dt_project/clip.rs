@@ -124,7 +124,7 @@ impl DTProject {
         }
 
         let rows: Vec<Clip> = query_as(AssertSqlSafe(query_str))
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| format!("failed to query clips in project database {}", self.path))?;
 
@@ -141,14 +141,14 @@ impl DTProject {
 
         let clip: Clip = query_as("SELECT rowid, __pk0, p FROM clip where __pk0 = ?1")
             .bind(clip_id)
-            .fetch_one(&*self.pool)
+            .fetch_one(self.pool().await?)
             .await
             .with_context(|| format!("failed to query clip in project database {}", self.path))?;
 
         let frames: Vec<ClipFrame> = query_as(CLIP_QUERY)
             .bind(node_id)
             .bind(node_id + clip.count as i64)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| {
                 format!(

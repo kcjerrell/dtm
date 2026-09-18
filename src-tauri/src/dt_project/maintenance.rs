@@ -31,7 +31,7 @@ impl Maintenance for DTProject {
                 let sampler = history.sampler();
                 Ok((node_id, sampler.0))
             })
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| format!("failed to fetch samplers for project {}", self.path))?;
 

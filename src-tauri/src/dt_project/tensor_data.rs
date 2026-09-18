@@ -124,7 +124,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorData).await?;
         let query = build_query(filter);
         let res = query_as(query)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| format!("failed to query tensor data for project {}", self.path))?;
         Ok(res)
@@ -134,7 +134,7 @@ impl DTProject {
         self.check_table(&DTProjectTable::TensorData).await?;
         let query = "SELECT rowid FROM tensordata";
         let res: Vec<i64> = sqlx::query_scalar(query)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| format!("failed to list tensor data IDs for project {}", self.path))?;
         Ok(res)
@@ -161,7 +161,7 @@ impl DTProject {
 
             let res = query_as(AssertSqlSafe(query))
                 .bind(id)
-                .fetch_all(&*self.pool)
+                .fetch_all(self.pool().await?)
                 .await
                 .with_context(|| {
                     format!(

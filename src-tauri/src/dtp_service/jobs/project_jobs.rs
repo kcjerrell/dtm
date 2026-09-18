@@ -266,7 +266,7 @@ async fn check_deletions(ctx: &JobContext, project_id: i64, project_path: &str) 
         .all(&ctx.pdb.db)
         .await?;
     let current: Vec<i64> = sqlx::query_scalar("SELECT rowid FROM tensorhistorynode")
-        .fetch_all(&*dt_project.pool)
+        .fetch_all(dt_project.pool().await?)
         .await?;
     let current: std::collections::HashSet<i64> = current.into_iter().collect();
     let missing: Vec<i64> = ids

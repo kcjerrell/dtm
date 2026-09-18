@@ -65,7 +65,7 @@ impl DTProject {
         }
         let query = build_query(filter);
         let data = query_as(query)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| format!("failed to query moodboard data for project {}", self.path))?;
         Ok(data)
@@ -81,7 +81,7 @@ impl DTProject {
         }
         let query = "SELECT rowid FROM tensormoodboarddata";
         let res: Vec<i64> = sqlx::query_scalar(query)
-            .fetch_all(&*self.pool)
+            .fetch_all(self.pool().await?)
             .await
             .with_context(|| {
                 format!(
