@@ -229,10 +229,41 @@ impl ProjectSync {
 }
 
 fn has_changed(file: &ProjectFile, entity: &ProjectExtra) -> bool {
-    if file.is_archive {
-        file.filesize != entity.filesize.unwrap_or(0) as u64
-    } else {
-        file.filesize != entity.filesize.unwrap_or(0) as u64
-            || file.modified != entity.modified.unwrap_or(0)
+    file.filesize != entity.filesize.unwrap_or(0) as u64
+        || file.modified != entity.modified.unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn archive_change_detection_includes_modification_time() {
+        let file = ProjectFile {
+            path: "project.dtm.zip".into(),
+            filesize: 100,
+            modified: 20,
+            _watchfolder_id: 1,
+            has_base: true,
+            is_archive: true,
+        };
+        let mut entity = ProjectExtra {
+            id: 1,
+            fingerprint: String::new(),
+            path: file.path.clone(),
+            watchfolder_id: 1,
+            image_count: None,
+            last_id: None,
+            filesize: Some(100),
+            modified: Some(19),
+            excluded: false,
+            name: String::new(),
+            full_path: String::new(),
+            is_missing: false,
+            is_locked: false,
+        };
+        assert!(has_changed(&file, &entity));
+        entity.modified = Some(20);
+        assert!(!has_changed(&file, &entity));
     }
 }

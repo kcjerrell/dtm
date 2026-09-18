@@ -80,6 +80,11 @@ impl ProjectsDb {
         let result = Projects::delete_by_id(id).exec(&self.db).await?;
         PROJECT_PATH_CACHE.remove(&id);
         crate::dt_project::close_folder(&project.full_path).await;
+        if project.full_path.ends_with(".dtm.zip") {
+            crate::archive::DTZipCache::invalidate(&project.full_path)
+                .await
+                .map_err(|error| MixedError::Other(format!("{error:#}")))?;
+        }
         if result.rows_affected == 0 {
             return Ok(None);
         }
@@ -182,6 +187,8 @@ impl ProjectsDb {
             .await?
             .ok_or_else(|| MixedError::Other(format!("Project {project_id} not found")))?;
 
+        let project_path = self.get_project(project_id).await?.full_path;
+
         let mut project: projects::ActiveModel = project.into();
         project.excluded = Set(exclude);
         project.modified = Set(None);
@@ -198,6 +205,12 @@ impl ProjectsDb {
                 .await?;
             log::debug!("Deleted {} images", result.rows_affected);
             self.rebuild_images_fts_debounced();
+            crate::dt_project::close_folder(&project_path).await;
+            if project_path.ends_with(".dtm.zip") {
+                crate::archive::DTZipCache::invalidate(&project_path)
+                    .await
+                    .map_err(|error| MixedError::Other(format!("{error:#}")))?;
+            }
         }
 
         Ok(())

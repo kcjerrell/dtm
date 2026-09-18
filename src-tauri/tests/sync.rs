@@ -1,9 +1,33 @@
 mod common;
 
+fn write_dtzip(
+    path: &std::path::Path,
+    database: &std::path::Path,
+    entries: &[(&str, &[u8])],
+) -> anyhow::Result<()> {
+    use std::io::Write;
+    use zip::{write::SimpleFileOptions, ZipWriter};
+
+    let staged = path.with_extension("zip.next");
+    let file = std::fs::File::create(&staged)?;
+    let mut zip = ZipWriter::new(file);
+    zip.start_file("project.dtm", SimpleFileOptions::default())?;
+    zip.write_all(&std::fs::read(database)?)?;
+    for (name, data) in entries {
+        zip.start_file(*name, SimpleFileOptions::default())?;
+        zip.write_all(data)?;
+    }
+    zip.finish()?;
+    std::fs::rename(staged, path)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
 
     use crate::common::*;
+    use crate::write_dtzip;
+    use std::path::Path;
 
     static TEST_MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -117,11 +141,70 @@ mod tests {
 
         dtps.stop().await;
     }
+
+    #[tokio::test]
+    async fn archive_watcher_add_replace_and_delete_converge() {
+        let _guard = TEST_MUTEX.lock().await;
+        let (dtps, events, folder, _) = test_fixture(true, false).await;
+        assert!(events.wait_for_count("sync_complete", 1).await);
+        dtps.add_watchfolder(folder.watchfolder_path.clone(), folder.bookmark.clone())
+            .await
+            .unwrap();
+        assert!(events.wait_for_count("sync_complete", 2).await);
+        events.reset_counts();
+
+        let archive = Path::new(&folder.watchfolder_path).join("watched.dtm.zip");
+        write_dtzip(
+            &archive,
+            Path::new(&folder.projects[1].get_src_path()),
+            &[("generation", b"one")],
+        )
+        .unwrap();
+        assert!(events.wait_for_count("project_added", 1).await);
+        assert!(events.wait_for_at_least("project_updated", 1).await);
+        let project = dtps.list_projects(None).await.unwrap().remove(0);
+        events.reset_counts();
+
+        write_dtzip(
+            &archive,
+            Path::new(&folder.projects[1].get_variant_src_path()),
+            &[("generation", b"a deliberately larger second generation")],
+        )
+        .unwrap();
+        assert!(events.wait_for_at_least("project_updated", 1).await);
+        assert_eq!(
+            dtps.get_db()
+                .await
+                .unwrap()
+                .get_project(project.id)
+                .await
+                .unwrap()
+                .image_count,
+            Some(project.image_count.unwrap() + 1)
+        );
+        events.reset_counts();
+
+        let renamed = Path::new(&folder.watchfolder_path).join("renamed.dtm.zip");
+        std::fs::rename(&archive, &renamed).unwrap();
+        assert!(events.wait_for_count("project_removed", 1).await);
+        assert!(events.wait_for_count("project_added", 1).await);
+        assert_eq!(dtps.list_projects(None).await.unwrap().len(), 1);
+        events.reset_counts();
+
+        std::fs::remove_file(&renamed).unwrap();
+        assert!(events.wait_for_count("project_removed", 1).await);
+        assert!(dtps.list_projects(None).await.unwrap().is_empty());
+        dtps.stop().await;
+    }
 }
 
 mod regressions {
     use crate::common::*;
+    use crate::write_dtzip;
+    use dtm_lib::archive::DTZipCache;
     use dtm_lib::dtp_service::jobs::{CheckFileJob, SyncJob, UpdateProjectJob};
+    use dtm_lib::projects_db::DtProjectRef;
+    use dtm_lib::ResourceHandle;
     use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, Set};
     use std::path::Path;
 
@@ -140,6 +223,242 @@ mod regressions {
         assert!(events.wait_for_count("sync_complete", 2).await);
         events.reset_counts();
         (dtp, events, folder, path)
+    }
+
+    async fn mark_archive_changed(db: &dtm_lib::projects_db::ProjectsDb, project_id: i64) {
+        let inspected = dtm_lib::dtp_service::jobs::ProjectSync::from_id(db, project_id)
+            .await
+            .unwrap()
+            .file
+            .unwrap();
+        db.update_project(project_id, None, Some(inspected.modified - 1))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn archive_replacements_reconcile_index_resources_and_failures() {
+        let (dtp, events, folder, _) = test_fixture(false, false).await;
+        assert!(events.wait_for_count("sync_complete", 1).await);
+        folder.projects[0].copy();
+        let archive_path = Path::new(&folder.watchfolder_path).join("replacement.dtm.zip");
+        write_dtzip(
+            &archive_path,
+            Path::new(&folder.projects[1].get_src_path()),
+            &[],
+        )
+        .unwrap();
+        dtp.add_watchfolder(folder.watchfolder_path.clone(), folder.bookmark.clone())
+            .await
+            .unwrap();
+        assert!(events.wait_for_count("sync_complete", 2).await);
+
+        let db = dtp.get_db().await.unwrap();
+        let scheduler = dtp.scheduler.read().await.clone().unwrap();
+        let project = db
+            .list_projects(None)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|project| project.full_path.ends_with(".dtm.zip"))
+            .unwrap();
+        assert_eq!(db.list_projects(None).await.unwrap().len(), 2);
+        let metadata = std::fs::metadata(&archive_path).unwrap();
+        let inspected = dtm_lib::dtp_service::jobs::ProjectSync::from_id(&db, project.id)
+            .await
+            .unwrap()
+            .file
+            .unwrap();
+        assert_eq!(project.filesize, Some(metadata.len() as i64));
+        assert_eq!(project.modified, Some(inspected.modified));
+        let initial_count = project.image_count.unwrap();
+        let image = entity::images::Entity::find()
+            .filter(entity::images::Column::ProjectId.eq(project.id))
+            .one(&db.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let preview_path = format!("thumbhalf/{}.jpg", image.preview_id);
+
+        write_dtzip(
+            &archive_path,
+            Path::new(&folder.projects[1].get_src_path()),
+            &[(preview_path.as_str(), b"generation-0001")],
+        )
+        .unwrap();
+        mark_archive_changed(&db, project.id).await;
+        scheduler
+            .add_job_front_and_wait(CheckFileJob::new(project.full_path.clone()))
+            .await
+            .unwrap();
+        assert_eq!(
+            DtProjectRef::Id(project.id)
+                .thumb(image.preview_id)
+                .get_preview(true)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"generation-0001"
+        );
+
+        let same_size = std::fs::metadata(&archive_path).unwrap().len();
+        write_dtzip(
+            &archive_path,
+            Path::new(&folder.projects[1].get_src_path()),
+            &[(preview_path.as_str(), b"generation-0002")],
+        )
+        .unwrap();
+        assert_eq!(std::fs::metadata(&archive_path).unwrap().len(), same_size);
+        scheduler
+            .add_job_front_and_wait(CheckFileJob::new(project.full_path.clone()))
+            .await
+            .unwrap();
+        assert_eq!(
+            DtProjectRef::Id(project.id)
+                .thumb(image.preview_id)
+                .get_preview(true)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"generation-0002"
+        );
+
+        let excluded_generation = DTZipCache::get_dt_zip(&project.full_path).await.unwrap();
+        let excluded_db_path = excluded_generation.db_path.clone();
+        dtp.update_project_exclude(project.id, true).await.unwrap();
+        assert_eq!(
+            db.get_project(project.id).await.unwrap().image_count,
+            Some(0)
+        );
+        drop(excluded_generation);
+        assert!(!Path::new(&excluded_db_path).exists());
+        dtp.update_project_exclude(project.id, false).await.unwrap();
+        assert_eq!(
+            db.get_project(project.id).await.unwrap().image_count,
+            Some(initial_count)
+        );
+        assert_eq!(
+            DtProjectRef::Id(project.id)
+                .thumb(image.preview_id)
+                .get_preview(true)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"generation-0002"
+        );
+
+        let refreshed_image = entity::images::Entity::find()
+            .filter(entity::images::Column::ProjectId.eq(project.id))
+            .filter(entity::images::Column::NodeId.eq(image.node_id))
+            .one(&db.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut stale: entity::images::ActiveModel = refreshed_image.into();
+        stale.prompt = Set("dtm259staleprompt".into());
+        stale.prompt_search = Set("dtm259staleprompt".into());
+        stale.update(&db.db).await.unwrap();
+        db.rebuild_images_fts().await.unwrap();
+        write_dtzip(
+            &archive_path,
+            Path::new(&folder.projects[1].get_variant_src_path()),
+            &[(preview_path.as_str(), b"generation-0003")],
+        )
+        .unwrap();
+        mark_archive_changed(&db, project.id).await;
+        events.reset_counts();
+        scheduler
+            .add_job_front_and_wait(CheckFileJob::new(project.full_path.clone()))
+            .await
+            .unwrap();
+        let expanded = db.get_project(project.id).await.unwrap();
+        assert_eq!(expanded.image_count, Some(initial_count + 1));
+        assert_eq!(events.count("project_updated"), 1);
+        assert_eq!(
+            DtProjectRef::Id(project.id)
+                .thumb(image.preview_id)
+                .get_preview(true)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"generation-0003"
+        );
+        let stale_search = dtm_lib::projects_db::dtos::image::ListImagesOptions {
+            search: Some("dtm259staleprompt".into()),
+            ..Default::default()
+        };
+        assert_eq!(db.list_images(stale_search).await.unwrap().total, 0);
+
+        events.reset_counts();
+        scheduler
+            .add_job_front_and_wait(CheckFileJob::new(project.full_path.clone()))
+            .await
+            .unwrap();
+        assert_eq!(events.count("project_updated"), 0);
+
+        let successful_stamp = db.get_project(project.id).await.unwrap();
+        let failed_count = successful_stamp.image_count;
+        let corrupt = archive_path.with_extension("zip.next");
+        std::fs::write(&corrupt, b"not a zip").unwrap();
+        std::fs::rename(corrupt, &archive_path).unwrap();
+        mark_archive_changed(&db, project.id).await;
+        let stamp_before_failure = db.get_project(project.id).await.unwrap();
+        assert!(scheduler
+            .add_job_front_and_wait(CheckFileJob::new(project.full_path.clone()))
+            .await
+            .is_err());
+        let after_failure = db.get_project(project.id).await.unwrap();
+        assert_eq!(after_failure.modified, stamp_before_failure.modified);
+        assert_eq!(after_failure.filesize, stamp_before_failure.filesize);
+        assert_eq!(after_failure.image_count, failed_count);
+        assert_eq!(
+            DtProjectRef::Id(project.id)
+                .thumb(image.preview_id)
+                .get_preview(true)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"generation-0003"
+        );
+
+        write_dtzip(
+            &archive_path,
+            Path::new(&folder.projects[1].get_src_path()),
+            &[(preview_path.as_str(), b"generation-0004")],
+        )
+        .unwrap();
+        scheduler
+            .add_job_front_and_wait(CheckFileJob::new(project.full_path.clone()))
+            .await
+            .unwrap();
+        assert_eq!(
+            db.get_project(project.id).await.unwrap().image_count,
+            Some(initial_count)
+        );
+        assert_eq!(
+            DtProjectRef::Id(project.id)
+                .thumb(image.preview_id)
+                .get_preview(true)
+                .await
+                .unwrap()
+                .unwrap(),
+            b"generation-0004"
+        );
+
+        let archive_generation = DTZipCache::get_dt_zip(&project.full_path).await.unwrap();
+        let extracted_path = archive_generation.db_path.clone();
+        assert!(std::fs::metadata(&extracted_path).unwrap().len() > 0);
+        std::fs::remove_file(&archive_path).unwrap();
+        scheduler
+            .add_job_front_and_wait(SyncJob::new(false))
+            .await
+            .unwrap();
+        let remaining = db.list_projects(None).await.unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert!(remaining[0].full_path.ends_with(".sqlite3"));
+        drop(archive_generation);
+        assert!(!Path::new(&extracted_path).exists());
+        dtp.stop().await;
     }
 
     #[tokio::test]

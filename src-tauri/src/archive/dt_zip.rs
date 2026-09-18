@@ -48,6 +48,13 @@ impl std::fmt::Debug for DTZip {
     }
 }
 
+impl Drop for DTZip {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.db_path);
+        let _ = std::fs::remove_file(format!("{}.part", self.db_path));
+    }
+}
+
 impl DTZip {
     pub async fn new(archive_path: &str, temp_dir: &str) -> Result<Self> {
         let reader = AsyncStreamingZipReader::open(archive_path)

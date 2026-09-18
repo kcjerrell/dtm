@@ -129,6 +129,8 @@ impl CheckFolderJob {
         }
         if missing || folder.is_locked {
             ctx.dtp.stop_watch(&folder.path).await;
+            crate::dt_project::close_folder(&folder.path).await;
+            crate::archive::DTZipCache::close_folder(&folder.path).await?;
             return Ok(JobResult::None);
         }
         // Subscribe before discovery and leave the watcher running. Events that

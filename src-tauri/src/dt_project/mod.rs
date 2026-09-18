@@ -20,7 +20,7 @@ mod tensor_raw;
 mod types;
 
 // Re-exports from cache
-pub use cache::close_folder;
+pub use cache::{close_folder, close_path};
 
 // Re-exports from core
 pub use core::{get_last_row, DTProject, DTProjectTable, DTProjectTableStatus};

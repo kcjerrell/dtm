@@ -62,6 +62,9 @@ impl ProjectsDb {
                 .unwrap()
                 .remove(&folder.id);
             crate::dt_project::close_folder(&folder.path).await;
+            crate::archive::DTZipCache::close_folder(&folder.path)
+                .await
+                .map_err(|error| MixedError::Other(format!("{error:#}")))?;
         }
         self.rebuild_images_fts_debounced();
         Ok(())
@@ -118,6 +121,9 @@ impl ProjectsDb {
             .insert(id, std::path::PathBuf::from(path));
         super::projects::clear_project_paths();
         crate::dt_project::close_folder(&previous.path).await;
+        crate::archive::DTZipCache::close_folder(&previous.path)
+            .await
+            .map_err(|error| MixedError::Other(format!("{error:#}")))?;
         Ok(model.into())
     }
 

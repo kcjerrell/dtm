@@ -44,12 +44,8 @@ impl FolderWatcher {
                     Ok(events) => {
                         let mut projects: HashSet<String> = HashSet::new();
                         for event in events {
-                            match event.path.extension().and_then(|ext| ext.to_str()) {
-                                Some("sqlite3") | Some("sqlite3-wal") => {
-                                    let project_path = event.path.with_extension("sqlite3");
-                                    projects.insert(project_path.to_string_lossy().into_owned());
-                                }
-                                _ => {}
+                            if let Some(project_path) = project_path_for_event(&event.path) {
+                                projects.insert(project_path);
                             }
                         }
 
@@ -99,6 +95,39 @@ impl FolderWatcher {
             .await
             .watcher()
             .unwatch(Path::new(&self.path));
+    }
+}
+
+fn project_path_for_event(path: &Path) -> Option<String> {
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("sqlite3") | Some("sqlite3-wal") => Some(
+            path.with_extension("sqlite3")
+                .to_string_lossy()
+                .into_owned(),
+        ),
+        Some("zip") if path.to_string_lossy().ends_with(".dtm.zip") => {
+            Some(path.to_string_lossy().into_owned())
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::project_path_for_event;
+    use std::path::Path;
+
+    #[test]
+    fn routes_sqlite_wal_and_dtzip_events_without_rewriting_archives() {
+        assert_eq!(
+            project_path_for_event(Path::new("/tmp/a.sqlite3-wal")).as_deref(),
+            Some("/tmp/a.sqlite3")
+        );
+        assert_eq!(
+            project_path_for_event(Path::new("/tmp/a.dtm.zip")).as_deref(),
+            Some("/tmp/a.dtm.zip")
+        );
+        assert_eq!(project_path_for_event(Path::new("/tmp/a.zip")), None);
     }
 }
 

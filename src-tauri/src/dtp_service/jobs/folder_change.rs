@@ -42,6 +42,7 @@ impl FolderChangeJob {
                     .await?;
                 ctx.dtp.stop_watch(&folder.path).await;
                 crate::dt_project::close_folder(&folder.path).await;
+                crate::archive::DTZipCache::close_folder(&folder.path).await?;
             }
             FolderChange::Recursion(recursive) => {
                 ctx.pdb

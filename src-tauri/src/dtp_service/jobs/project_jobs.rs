@@ -1,4 +1,5 @@
 use crate::{
+    archive::DTZipCache,
     dtp_service::{
         events::{DTPEvent, ScanProgress},
         helpers::inspect_project_file,
@@ -51,16 +52,29 @@ impl Job for AddProjectJob {
             .get_project_by_path(folder.id, &self.path)
             .await
             .map_err(|e| e.to_string())?;
-        let project = if let Some(project) = existing {
-            project
+        let (project, added) = if let Some(project) = existing {
+            (project, false)
         } else {
-            let project = ctx
-                .pdb
-                .add_project(folder.id, &self.path)
-                .await
-                .map_err(|e| format!("{e:#}"))?;
+            let full_path = Path::new(&folder.path)
+                .join(&self.path)
+                .to_string_lossy()
+                .into_owned();
+            if self.path.ends_with(".dtm.zip") {
+                DTZipCache::invalidate(&full_path)
+                    .await
+                    .map_err(|e| format!("{e:#}"))?;
+            }
+            let project = match ctx.pdb.add_project(folder.id, &self.path).await {
+                Ok(project) => project,
+                Err(error) => {
+                    if self.path.ends_with(".dtm.zip") {
+                        let _ = DTZipCache::invalidate(&full_path).await;
+                    }
+                    return Err(format!("{error:#}"));
+                }
+            };
             ctx.events.emit(DTPEvent::ProjectAdded(project.clone()));
-            project
+            (project, true)
         };
         if self.is_import {
             ctx.events.emit(DTPEvent::ImportProgress(ScanProgress {
@@ -70,9 +84,14 @@ impl Job for AddProjectJob {
                 images_scanned: 0,
             }));
         }
-        let job = UpdateProjectJob::from_id(&ctx.pdb, project.id, self.is_import, false)
+        let mut job = UpdateProjectJob::from_id(&ctx.pdb, project.id, self.is_import, false)
             .await
             .map_err(|e| format!("{e:#}"))?;
+        // add_project already opened and validated this exact archive generation to calculate
+        // its fingerprint. Reuse it for the initial scan instead of extracting it twice.
+        if added {
+            job.refresh_archive = false;
+        }
         Ok(JobResult::Subtasks(vec![Arc::new(job)]))
     }
 }
@@ -148,6 +167,7 @@ pub struct UpdateProjectJob {
     pub is_import: bool,
     pub check_deletions: bool,
     pub repair: bool,
+    refresh_archive: bool,
 }
 impl UpdateProjectJob {
     pub fn new(sync: &ProjectSync, is_import: bool, check_deletions: bool) -> Result<Self> {
@@ -161,6 +181,7 @@ impl UpdateProjectJob {
             is_import,
             check_deletions,
             repair: false,
+            refresh_archive: true,
         })
     }
     pub async fn from_id(
@@ -185,9 +206,23 @@ impl UpdateProjectJob {
         let before = sync
             .file
             .with_context(|| format!("project file disappeared: {}", project.full_path))?;
+        let replacement = if before.is_archive && self.refresh_archive {
+            let archive = DTZipCache::open_fresh(&project.full_path).await?;
+            ctx.pdb
+                .repair_archive_project(
+                    self.project_id,
+                    archive.clone(),
+                    before.filesize,
+                    before.modified,
+                )
+                .await?;
+            Some(archive)
+        } else {
+            None
+        };
         if self.repair && !before.is_archive {
             ctx.pdb.repair_project(self.project_id).await?;
-        } else {
+        } else if !before.is_archive || !self.refresh_archive {
             ctx.pdb.scan_project(self.project_id, false).await?;
             if self.check_deletions {
                 check_deletions(ctx, self.project_id, &project.full_path).await?;
@@ -199,6 +234,9 @@ impl UpdateProjectJob {
             self.watchfolder_id,
         )?
         .with_context(|| format!("project disappeared during scan: {}", project.full_path))?;
+        if let Some(replacement) = replacement {
+            DTZipCache::replace(&project.full_path, replacement).await?;
+        }
         // Persist the pre-scan stamp: a concurrent write must remain detectable.
         let project = ctx
             .pdb
@@ -217,9 +255,7 @@ impl UpdateProjectJob {
             }));
         }
         ctx.events.emit(DTPEvent::ProjectUpdated(project.clone()));
-        if !before.is_archive
-            && (before.filesize != after.filesize || before.modified != after.modified)
-        {
+        if before.filesize != after.filesize || before.modified != after.modified {
             return Ok(JobResult::Subtasks(vec![Arc::new(CheckFileJob::new(
                 project.full_path,
             ))]));

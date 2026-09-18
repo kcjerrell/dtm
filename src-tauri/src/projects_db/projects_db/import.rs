@@ -1,6 +1,9 @@
-use crate::dt_project::{TensorHistoryNode, ThnData, ThnFilter};
 use crate::projects_db::{dtos::image::ListImagesOptions, search::process_prompt, DtProjectRef};
 use crate::util::DebounceTask;
+use crate::{
+    archive::DTZip,
+    dt_project::{DTProject, TensorHistoryNode, ThnData, ThnFilter},
+};
 use anyhow::Context;
 use entity::{enums::ModelType, images};
 use sea_orm::{
@@ -156,7 +159,46 @@ impl ProjectsDb {
             !project.full_path.ends_with(".dtm.zip"),
             "SQLite repair requires a SQLite project"
         );
-        let source = crate::dt_project::DTProject::open_snapshot(&project.full_path).await?;
+        let source = DTProject::open_snapshot(&project.full_path).await?;
+        self.reconcile_project(id, &source, None).await?;
+        crate::dt_project::close_folder(&project.full_path).await;
+        Ok(())
+    }
+
+    pub async fn repair_archive_project(
+        &self,
+        id: i64,
+        archive: Arc<DTZip>,
+        expected_size: u64,
+        expected_modified: i64,
+    ) -> anyhow::Result<()> {
+        let project = self.get_project(id).await?;
+        if project.excluded {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            project.full_path.ends_with(".dtm.zip"),
+            "archive repair requires a DTZip project"
+        );
+        anyhow::ensure!(
+            archive.archive_path == project.full_path,
+            "archive snapshot path does not match project {id}"
+        );
+        let source = DTProject::open_archive_snapshot(archive).await?;
+        self.reconcile_project(
+            id,
+            &source,
+            Some((&project.full_path, expected_size, expected_modified)),
+        )
+        .await
+    }
+
+    async fn reconcile_project(
+        &self,
+        id: i64,
+        source: &DTProject,
+        expected_archive: Option<(&str, u64, i64)>,
+    ) -> anyhow::Result<()> {
         let end: i64 = sqlx::query_scalar("SELECT coalesce(max(rowid), 0) FROM tensorhistorynode")
             .fetch_one(source.pool().await?)
             .await?;
@@ -238,8 +280,25 @@ impl ProjectsDb {
         transaction
             .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
             .await?;
+        if let Some((path, expected_size, expected_modified)) = expected_archive {
+            let metadata = std::fs::metadata(path)
+                .with_context(|| format!("archive changed while reconciling project {id}"))?;
+            let modified: i64 = metadata
+                .modified()
+                .with_context(|| {
+                    format!("failed to read archive modification time for project {id}")
+                })?
+                .duration_since(std::time::UNIX_EPOCH)
+                .context("archive modification time predates Unix epoch")?
+                .as_micros()
+                .try_into()
+                .context("archive modification time is outside the supported range")?;
+            anyhow::ensure!(
+                metadata.len() == expected_size && modified == expected_modified,
+                "archive changed while reconciling project {id}"
+            );
+        }
         transaction.commit().await?;
-        crate::dt_project::close_folder(&project.full_path).await;
         Ok(())
     }
 

@@ -256,6 +256,9 @@ impl DTPService {
         if let Some(db) = self.pdb.write().await.take() {
             db.finish_maintenance().await;
         }
+        if let Err(error) = DTZipCache::clear().await {
+            log::error!("Failed to clear DTZip cache: {error:#}");
+        }
         *self.watch.write().await = None;
     }
 

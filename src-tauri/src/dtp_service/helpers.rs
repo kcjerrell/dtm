@@ -48,6 +48,7 @@ pub fn inspect_project_file(
         "project is not a file: {}",
         full_path.display()
     );
+    let is_archive = full_path.to_string_lossy().ends_with(".dtm.zip");
     let mut size = base.len();
     let mut modified = base.modified().with_context(|| {
         format!(
@@ -55,7 +56,6 @@ pub fn inspect_project_file(
             full_path.display()
         )
     })?;
-    let is_archive = full_path.to_string_lossy().ends_with(".dtm.zip");
     if !is_archive {
         let mut wal = full_path.as_os_str().to_os_string();
         wal.push("-wal");
@@ -78,8 +78,14 @@ pub fn inspect_project_file(
             .to_string_lossy()
             .into_owned(),
         filesize: size,
-        modified: system_time_to_epoch_secs(modified)
-            .context("project modification time predates Unix epoch")?,
+        // Existing SQLite stamps are seconds for compatibility. DTZip support is new, so use
+        // microseconds to reliably detect a same-size replacement made within the same second.
+        modified: if is_archive {
+            system_time_to_epoch_micros(modified)
+        } else {
+            system_time_to_epoch_secs(modified)
+        }
+        .context("project modification time predates Unix epoch")?,
         _watchfolder_id: folder_id,
         has_base: true,
         is_archive,
@@ -134,18 +140,9 @@ fn discover_folder(
                 }
             }
             Some("zip") if path.to_string_lossy().ends_with(".dtm.zip") => {
-                // DTZip synchronization is handled separately in DTM-259.
-                projects.insert(
-                    path.to_string_lossy().into_owned(),
-                    ProjectFile {
-                        path: path.strip_prefix(folder)?.to_string_lossy().into_owned(),
-                        filesize: 0,
-                        modified: 0,
-                        _watchfolder_id: folder_id,
-                        has_base: false,
-                        is_archive: true,
-                    },
-                );
+                if let Some(file) = inspect_project_file(path, folder, folder_id)? {
+                    projects.insert(path.to_string_lossy().into_owned(), file);
+                }
             }
             _ => {}
         }
@@ -169,6 +166,12 @@ pub fn system_time_to_epoch_secs(time: SystemTime) -> Option<i64> {
     time.duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
+}
+
+fn system_time_to_epoch_micros(time: SystemTime) -> Option<i64> {
+    time.duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|duration| i64::try_from(duration.as_micros()).ok())
 }
 
 #[derive(Clone)]
@@ -309,6 +312,25 @@ mod synchronization_tests {
             .unwrap()
             .projects
             .is_empty());
+    }
+
+    #[tokio::test]
+    async fn archive_discovery_persists_real_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().to_str().unwrap();
+        let archive = dir.path().join("project.dtm.zip");
+        fs::write(&archive, [7; 37]).unwrap();
+        fs::write(dir.path().join("unrelated.zip"), [8; 12]).unwrap();
+
+        let inspected = inspect_project_file(&archive, folder, 4).unwrap().unwrap();
+        let discovered = get_folder_files(folder, 4, true).await.unwrap();
+        let project = &discovered.projects[archive.to_str().unwrap()];
+        assert_eq!(project.filesize, 37);
+        assert_eq!(project.modified, inspected.modified);
+        assert!(project.has_base);
+        assert!(project.is_archive);
+        assert_eq!(project.path, "project.dtm.zip");
+        assert_eq!(discovered.projects.len(), 1);
     }
     #[tokio::test]
     #[cfg(unix)]

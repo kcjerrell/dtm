@@ -48,6 +48,19 @@ pub async fn close_folder(folder_path: &str) {
     }
 }
 
+pub async fn close_path(path: &str) {
+    if let Some((_, cell)) = PROJECT_CACHE.remove(path) {
+        if let Some(cached) = cell.get() {
+            if let Some(pool) = cached.project.initialized_pool() {
+                tokio::spawn(async move {
+                    tokio::time::sleep(DRAIN_GRACE).await;
+                    pool.close().await;
+                });
+            }
+        }
+    }
+}
+
 fn schedule_eviction(path: String, generation: u64) {
     tokio::spawn(async move {
         tokio::time::sleep(CACHE_TTL).await;
@@ -107,6 +120,19 @@ impl DTProject {
         DTProject::new(&db_path, false, Some(dt_zip))
             .await
             .with_context(|| format!("failed to open archived project database at {}", db_path))
+    }
+
+    pub async fn open_archive_snapshot(dt_zip: Arc<DTZip>) -> anyhow::Result<DTProject> {
+        let db_path = dt_zip.db_path.clone();
+        let project = Self::new_with_pool(
+            &db_path,
+            false,
+            Some(dt_zip),
+            sqlx::sqlite::SqlitePoolOptions::new().max_connections(1),
+        )
+        .await?;
+        sqlx::query("BEGIN").execute(project.pool().await?).await?;
+        Ok(project)
     }
 
     pub async fn open_mut(path: &str) -> anyhow::Result<DTProject> {
