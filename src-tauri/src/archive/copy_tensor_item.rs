@@ -16,7 +16,7 @@ use crate::{
     ResourceHandle, Tensor,
 };
 
-use super::DtArchivePlanItem;
+use super::{DtArchivePlanItem, Format};
 
 #[derive(Debug)]
 pub struct CopyTensorItem {
@@ -101,7 +101,7 @@ impl CopyTensorItem {
     /// Pipeline stage: Convert
     /// This stage intentionally does not use the DtResourceHandle methods (which are async) so
     /// cpu-bound tasks can run on their own thread
-    pub async fn convert(&mut self, project_ref: DtProjectRef, lossless: bool) -> Result<()> {
+    pub async fn convert(&mut self, project_ref: DtProjectRef, format: Format) -> Result<()> {
         let resource = match self.node_id {
             Some(node_id) => DtResourceHandle::new(
                 &project_ref,
@@ -179,7 +179,7 @@ impl CopyTensorItem {
                 let tensor = Tensor::try_from(data)
                     .with_context(|| format!("failed to convert raw tensor '{name_clone}'"))?;
                 match tensor.kind {
-                    TensorKind::Image | TensorKind::Binary => get_image(lossless, node, tensor),
+                    TensorKind::Image | TensorKind::Binary => get_image(format, node, tensor),
                     TensorKind::Pose => get_pose(tensor, size),
                     TensorKind::Audio => get_audio(tensor, clip),
                     TensorKind::Unknown => anyhow::bail!("unknown tensor kind for '{name_clone}'"),
@@ -268,45 +268,48 @@ impl CopyTensorItem {
 }
 
 fn get_image(
-    lossless: bool,
+    format: Format,
     node: Option<TensorHistoryNode>,
     tensor: Tensor,
 ) -> anyhow::Result<(Vec<u8>, String)> {
-    if lossless {
-        // NOTE: Returns error if tensor is not Image/Binary kind - needs review
-        tensor
-            .to_png(node.as_ref(), None)?
-            .ok_or_else(|| {
-                anyhow::anyhow!("Tensor cannot be converted to PNG (not Image/Binary kind)")
-            })
-            .map(|t| (t, "png".to_string()))
-    } else {
-        let pixels = tensor.to_pixel_data(None)?.ok_or_else(|| {
-            anyhow::anyhow!("Tensor cannot be converted to pixel data (not Image/Binary kind)")
-        })?;
-
-        let mut bytes = Vec::new();
-        let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 80);
-        let color_type = match tensor.channels {
-            1 => ExtendedColorType::L8,
-            3 => ExtendedColorType::Rgb8,
-            4 => ExtendedColorType::Rgba8,
-            _ => {
-                anyhow::bail!("Unsupported number of channels: {}", tensor.channels)
-            }
-        };
-
-        if tensor.width * tensor.height * tensor.channels != pixels.len() as u32 {
-            anyhow::bail!("Tensor dimensions do not match pixel data length");
+    match format {
+        Format::Png(effort) => {
+            // NOTE: Returns error if tensor is not Image/Binary kind - needs review
+            tensor
+                .to_png(node.as_ref(), None, Some(effort.into()))?
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Tensor cannot be converted to PNG (not Image/Binary kind)")
+                })
+                .map(|t| (t, "png".to_string()))
         }
-        encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
+        Format::Jpg(quality) => {
+            let pixels = tensor.to_pixel_data(None)?.ok_or_else(|| {
+                anyhow::anyhow!("Tensor cannot be converted to pixel data (not Image/Binary kind)")
+            })?;
 
-        let jpg = match node {
-            Some(node) => write_jpeg_with_metadata(&bytes, &node)?,
-            None => bytes,
-        };
+            let mut bytes = Vec::new();
+            let mut encoder = JpegEncoder::new_with_quality(&mut bytes, quality);
+            let color_type = match tensor.channels {
+                1 => ExtendedColorType::L8,
+                3 => ExtendedColorType::Rgb8,
+                4 => ExtendedColorType::Rgba8,
+                _ => {
+                    anyhow::bail!("Unsupported number of channels: {}", tensor.channels)
+                }
+            };
 
-        Ok((jpg, "jpg".to_string()))
+            if tensor.width * tensor.height * tensor.channels != pixels.len() as u32 {
+                anyhow::bail!("Tensor dimensions do not match pixel data length");
+            }
+            encoder.encode(&pixels, tensor.width, tensor.height, color_type)?;
+
+            let jpg = match node {
+                Some(node) => write_jpeg_with_metadata(&bytes, &node)?,
+                None => bytes,
+            };
+
+            Ok((jpg, "jpg".to_string()))
+        }
     }
 }
 

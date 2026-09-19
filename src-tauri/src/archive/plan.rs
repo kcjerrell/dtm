@@ -8,15 +8,42 @@ use crate::{
     IntoTAResult, TAResult,
 };
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Format {
+    Jpg(u8),
+    Png(PngEffort),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PngEffort {
+    NoCompression,
+    Fastest,
+    Fast,
+    Balanced,
+    High,
+}
+
+impl From<PngEffort> for png::Compression {
+    fn from(value: PngEffort) -> Self {
+        match value {
+            PngEffort::NoCompression => Self::NoCompression,
+            PngEffort::Fastest => Self::Fastest,
+            PngEffort::Fast => Self::Fast,
+            PngEffort::Balanced => Self::Balanced,
+            PngEffort::High => Self::High,
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateDtArchiveOptions {
     /// Project to archive.
     pub project_id: i64,
-    /// Whether to use PNG instead of JPEG for archived images.
-    pub lossless: bool,
-    /// JPEG quality; this may also be used as the PNG effort.
-    pub quality: f32,
+    /// Image format and encoder settings for archived images.
+    pub format: Format,
     /// Directory where the archive will be saved.
     pub target: String,
 }
@@ -408,21 +435,25 @@ fn get_tensor_and_mask(node: &TensorHistoryNode) -> (i64, i64) {
 mod tests {
     use serde_json::json;
 
-    use super::{CreateDtArchiveOptions, DtArchivePreview, TensorCounts};
+    use super::{CreateDtArchiveOptions, DtArchivePreview, Format, PngEffort, TensorCounts};
 
     #[test]
     fn archive_api_types_use_camel_case_json_fields() {
         let opts_json = json!({
             "projectId": 42,
-            "lossless": true,
-            "quality": 80.0,
+            "format": { "png": "balanced" },
             "target": "/archives",
         });
         let opts: CreateDtArchiveOptions = serde_json::from_value(opts_json.clone()).unwrap();
 
         assert_eq!(opts.project_id, 42);
+        assert_eq!(opts.format, Format::Png(PngEffort::Balanced));
 
         assert_eq!(serde_json::to_value(opts).unwrap(), opts_json);
+        assert_eq!(
+            serde_json::to_value(Format::Jpg(80)).unwrap(),
+            json!({ "jpg": 80 })
+        );
 
         let preview = DtArchivePreview {
             gen_images: 1,

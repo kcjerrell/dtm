@@ -177,7 +177,11 @@ function DetailsContent(props: DetailsContentProps) {
                             <DataItem.GuidanceScale value={config.guidanceScale} />
                             <DataItem.Shift value={config.shift} />
                         </Row>
-                        <DataItem label={"Prompt"} data={details?.prompt ?? item.prompt} maxLines={6} />
+                        <DataItem
+                            label={"Prompt"}
+                            data={details?.prompt ?? item.prompt}
+                            maxLines={6}
+                        />
                         <DataItem
                             label={"Negative Prompt"}
                             data={details?.negativePrompt ?? item.negative_prompt}

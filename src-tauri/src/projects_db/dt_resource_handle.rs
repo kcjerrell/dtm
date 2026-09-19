@@ -85,7 +85,7 @@ impl ResourceHandle for DtResourceHandle {
                         .with_context(|| format!("failed to convert raw tensor '{name}'"))?;
                     println!("got tensor: {:?}", instants.record());
                     let png = tensor
-                        .to_png(node, size)
+                        .to_png(node, size, None)
                         .with_context(|| format!("failed to convert tensor '{name}' to PNG"))?;
                     println!("got png: {:?}", instants.record());
                     return Ok(png);

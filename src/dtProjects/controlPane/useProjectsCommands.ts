@@ -1,155 +1,157 @@
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { useCallback, useMemo } from "react";
-import { DtpService } from "@/commands";
+import { revealItemInDir } from "@tauri-apps/plugin-opener"
+import { useCallback, useMemo } from "react"
+import { DtpService } from "@/commands"
 import {
-  FaMagnifyingGlass,
-  FiDownload,
-  FiEye,
-  FiEyeOff,
-  FiFolder,
-  FiRefreshCw,
-  MdBlock,
-} from "@/components/icons/icons";
-import { toaster } from "@/components/ui/toaster";
-import { getSpacer, type ICommand } from "@/types";
-import { plural } from "@/utils/helpers";
-import { showMenu } from "@/utils/menu";
-import { useDTP } from "../state/context";
-import type { ProjectState } from "../state/projects";
+    FaMagnifyingGlass,
+    FiDownload,
+    FiEye,
+    FiEyeOff,
+    FiFolder,
+    FiRefreshCw,
+    MdBlock,
+} from "@/components/icons/icons"
+import { toaster } from "@/components/ui/toaster"
+import { getSpacer, type ICommand } from "@/types"
+import { plural } from "@/utils/helpers"
+import { showMenu } from "@/utils/menu"
+import { useDTP } from "../state/context"
+import type { ProjectState } from "../state/projects"
 
 export function useProjectsCommands(): [
-  (selected: ProjectState[]) => Promise<(() => void | Promise<void>) | null>,
-  ICommand<ProjectState>[],
+    (selected: ProjectState[]) => Promise<(() => void | Promise<void>) | null>,
+    ICommand<ProjectState>[],
 ] {
-  const { projects, uiState } = useDTP();
-  const snap = projects.useSnap();
+    const { projects, uiState } = useDTP()
+    const snap = projects.useSnap()
 
-  const commands: ICommand<ProjectState>[] = useMemo(
-    () => [
-      {
-        id: "hideEmpty",
-        toolbarOnly: true,
-        label: "Hide empty projects",
-        tipText: "Hide projects with no matches when searching",
-        icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
-        action: async () => {
-          projects?.toggleShowEmptyProjects();
-        },
-        requiresSelection: false,
-      },
-      getSpacer<ProjectState, undefined>("toolbar"),
-      {
-        id: "explore",
-        label: "Explore project",
-        tipText: "Browse project tables and data",
-        icon: FaMagnifyingGlass,
-        getEnabled: (selected) =>
-          !!import.meta.env.DEV && selected?.length === 1,
-        action: (selected) => {
-          uiState.showDialog({
-            dialogType: "explorer",
-            props: { projectId: selected[0].id },
-          });
-        },
-        toolbarEnableMode: "hide",
-      },
-      {
-        id: "archive",
-        getLabel: (selected) => `Archivce project${plural(selected.length)}`,
-        tipText: "Convert project to DT Archive",
-        icon: FiDownload,
-        action: (selected) => {
-          uiState.showDialog({
-            dialogType: "dt-archive",
-            props: { projectIds: selected.map((p) => p.id) },
-          });
-        },
-        requiresSelection: true,
-        getEnabled(selected) {
-          return selected.length > 0 && selected.every((p) => p && !p.excluded);
-        },
-        toolbarEnableMode: "hide",
-      },
-      {
-        id: "export",
-        getLabel: (selected) => `Export project${plural(selected.length)}`,
-        tipText: "Export project images to zip archives",
-        icon: FiDownload,
-        action: (selected) => {
-          uiState.showDialog({
-            dialogType: "project-export",
-            props: { projectIds: selected.map((p) => p.id) },
-          });
-        },
-        requiresSelection: true,
-        getEnabled(selected) {
-          return selected.length > 0 && selected.every((p) => p && !p.excluded);
-        },
-        toolbarEnableMode: "hide",
-      },
-      {
-        id: "exclude",
-        getLabel: (selected) => {
-          const verb = selected[0]?.excluded ? "Show" : "Hide";
-          const noun = plural(selected.length, "project", "projects");
-          return `${verb} ${noun}`;
-        },
-        tipText:
-          "Hidden projects will not be scanned and their images won't be listed.",
-        getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
-        action: (selected) => {
-          projects?.setExclude(selected, !selected[0]?.excluded);
-        },
-        requiresSelection: true,
-        toolbarEnableMode: "hide",
-      },
-      {
-        id: "openFolder",
-        label: "Open folder",
-        tipText: "Open project folder in file manager.",
-        icon: FiFolder,
-        action: async (selected) => {
-          await revealItemInDir(selected.map((f) => f.full_path));
-        },
-        requiresSelection: true,
-        toolbarEnableMode: "hide",
-      },
-      {
-        id: "scan",
-        getLabel: (selected) =>
-          selected.length > 0
-            ? `Rescan project${plural(selected.length)}`
-            : "Rescan all projects",
-        getTipText: (selected) =>
-          selected.length > 0
-            ? `Rescan project${plural(selected.length)} to repair indexed images and metadata`
-            : "Rescan all projects for changes",
-        icon: FiRefreshCw,
-        action: async (selected) => {
-          try {
-            if (!selected?.length) {
-              await DtpService.sync();
-            } else {
-              await DtpService.syncProjects(selected.map((f) => f.id));
-            }
-          } catch (error) {
-            toaster.create({ type: "error", title: "Project synchronization failed", description: String(error) });
-          }
-        },
-        requiresSelection: false,
-      },
-    ],
-    [projects, snap.showEmptyProjects, uiState.showDialog],
-  );
+    const commands: ICommand<ProjectState>[] = useMemo(
+        () => [
+            {
+                id: "hideEmpty",
+                toolbarOnly: true,
+                label: "Hide empty projects",
+                tipText: "Hide projects with no matches when searching",
+                icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
+                action: async () => {
+                    projects?.toggleShowEmptyProjects()
+                },
+                requiresSelection: false,
+            },
+            getSpacer<ProjectState, undefined>("toolbar"),
+            {
+                id: "explore",
+                label: "Explore project",
+                tipText: "Browse project tables and data",
+                icon: FaMagnifyingGlass,
+                getEnabled: (selected) => !!import.meta.env.DEV && selected?.length === 1,
+                action: (selected) => {
+                    uiState.showDialog({
+                        dialogType: "explorer",
+                        props: { projectId: selected[0].id },
+                    })
+                },
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "archive",
+                getLabel: (selected) => `Archive project${plural(selected.length)}`,
+                tipText: "Convert project to DT Archive",
+                icon: FiDownload,
+                action: (selected) => {
+                    uiState.showDialog({
+                        dialogType: "dt-archive",
+                        props: { projectIds: selected.map((p) => p.id) },
+                    })
+                },
+                requiresSelection: true,
+                getEnabled(selected) {
+                    return selected.length > 0 && selected.every((p) => p && !p.excluded)
+                },
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "export",
+                getLabel: (selected) => `Export project${plural(selected.length)}`,
+                tipText: "Export project images to zip archives",
+                icon: FiDownload,
+                action: (selected) => {
+                    uiState.showDialog({
+                        dialogType: "project-export",
+                        props: { projectIds: selected.map((p) => p.id) },
+                    })
+                },
+                requiresSelection: true,
+                getEnabled(selected) {
+                    return selected.length > 0 && selected.every((p) => p && !p.excluded)
+                },
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "exclude",
+                getLabel: (selected) => {
+                    const verb = selected[0]?.excluded ? "Show" : "Hide"
+                    const noun = plural(selected.length, "project", "projects")
+                    return `${verb} ${noun}`
+                },
+                tipText: "Hidden projects will not be scanned and their images won't be listed.",
+                getIcon: (selected) => (selected[0]?.excluded ? FiRefreshCw : MdBlock),
+                action: (selected) => {
+                    projects?.setExclude(selected, !selected[0]?.excluded)
+                },
+                requiresSelection: true,
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "openFolder",
+                label: "Open folder",
+                tipText: "Open project folder in file manager.",
+                icon: FiFolder,
+                action: async (selected) => {
+                    await revealItemInDir(selected.map((f) => f.full_path))
+                },
+                requiresSelection: true,
+                toolbarEnableMode: "hide",
+            },
+            {
+                id: "scan",
+                getLabel: (selected) =>
+                    selected.length > 0
+                        ? `Rescan project${plural(selected.length)}`
+                        : "Rescan all projects",
+                getTipText: (selected) =>
+                    selected.length > 0
+                        ? `Rescan project${plural(selected.length)} to repair indexed images and metadata`
+                        : "Rescan all projects for changes",
+                icon: FiRefreshCw,
+                action: async (selected) => {
+                    try {
+                        if (!selected?.length) {
+                            await DtpService.sync()
+                        } else {
+                            await DtpService.syncProjects(selected.map((f) => f.id))
+                        }
+                    } catch (error) {
+                        toaster.create({
+                            type: "error",
+                            title: "Project synchronization failed",
+                            description: String(error),
+                        })
+                    }
+                },
+                requiresSelection: false,
+            },
+        ],
+        [projects, snap.showEmptyProjects, uiState.showDialog],
+    )
 
-  const selectMenuCommand = useCallback(
-    async (selected: ProjectState[]) => {
-      const command = await showMenu(commands, selected);
-      if (!command) return null;
-      return () => command.action?.(selected);
-    },
-    [commands],
-  );
+    const selectMenuCommand = useCallback(
+        async (selected: ProjectState[]) => {
+            const command = await showMenu(commands, selected)
+            if (!command) return null
+            return () => command.action?.(selected)
+        },
+        [commands],
+    )
 
-  return [selectMenuCommand, commands] as const;
+    return [selectMenuCommand, commands] as const
 }

@@ -91,14 +91,11 @@ fn should_regenerate_preview(
     cached_opts: &CreateDtArchiveOptions,
     opts: &CreateDtArchiveOptions,
 ) -> bool {
-    let lossless_changed = cached_opts.lossless != opts.lossless;
-
-    // Quality does not affect conversion yet, but compare it here so the cache policy is explicit.
-    let _quality_changed = cached_opts.quality != opts.quality;
+    let format_changed = cached_opts.format != opts.format;
     // The target directory does not affect either the plan or preview.
     let _target_changed = cached_opts.target != opts.target;
 
-    lossless_changed
+    format_changed
 }
 
 async fn generate_dt_archive_preview(
@@ -220,7 +217,7 @@ async fn convert_sample_tensors(
             index: plan_item.index,
             ..Default::default()
         });
-        item.convert(project_ref.clone(), opts.lossless).await?;
+        item.convert(project_ref.clone(), opts.format).await?;
 
         let data = item.data.ok_or_else(|| {
             anyhow::anyhow!("conversion produced no data for '{}'", plan_item.name)
@@ -325,17 +322,12 @@ fn estimate_pose(people: i32) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::archive::{Format, PngEffort};
 
-    fn options(
-        project_id: i64,
-        lossless: bool,
-        quality: f32,
-        target: &str,
-    ) -> CreateDtArchiveOptions {
+    fn options(project_id: i64, format: Format, target: &str) -> CreateDtArchiveOptions {
         CreateDtArchiveOptions {
             project_id,
-            lossless,
-            quality,
+            format,
             target: target.to_string(),
         }
     }
@@ -352,21 +344,21 @@ mod tests {
     }
 
     #[test]
-    fn only_lossless_changes_regenerate_the_preview() {
-        let cached = options(1, false, 80.0, "/first");
+    fn only_format_changes_regenerate_the_preview() {
+        let cached = options(1, Format::Jpg(80), "/first");
 
         assert!(!should_regenerate_preview(&cached, &cached));
         assert!(should_regenerate_preview(
             &cached,
-            &options(1, true, 80.0, "/first")
+            &options(1, Format::Png(PngEffort::Balanced), "/first")
+        ));
+        assert!(should_regenerate_preview(
+            &cached,
+            &options(1, Format::Jpg(90), "/first")
         ));
         assert!(!should_regenerate_preview(
             &cached,
-            &options(1, false, 90.0, "/first")
-        ));
-        assert!(!should_regenerate_preview(
-            &cached,
-            &options(1, false, 80.0, "/second")
+            &options(1, Format::Jpg(80), "/second")
         ));
     }
 
@@ -378,7 +370,7 @@ mod tests {
             PLAN_CACHE.insert(
                 project_id,
                 PlanCacheEntry {
-                    opts: options(project_id, false, 80.0, "/target"),
+                    opts: options(project_id, Format::Jpg(80), "/target"),
                     plan: empty_plan(),
                     preview: DtArchivePreview::default(),
                 },

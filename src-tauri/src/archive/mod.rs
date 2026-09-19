@@ -19,7 +19,8 @@ pub use commands::{clear_dt_archive_plan_cache, create_dt_archive_plan};
 pub use cache::DTZipCache;
 pub use dt_zip::DTZip;
 pub use plan::{
-    CreateDtArchiveOptions, DtArchivePlan, DtArchivePlanItem, DtArchivePreview, TensorCounts,
+    CreateDtArchiveOptions, DtArchivePlan, DtArchivePlanItem, DtArchivePreview, Format, PngEffort,
+    TensorCounts,
 };
 
 use plan::copy_everything_plan;

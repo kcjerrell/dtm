@@ -78,7 +78,7 @@ function Explorer(props: ExplorerProps) {
                             <PanelButton
                                 onClick={async () => {
                                     if (!minRowidRef.current) {
-                                        return;
+                                        return
                                     }
                                     const value = parseInt(minRowidRef.current.value, 10)
                                     console.log(minRowidRef.current.value)
@@ -159,7 +159,9 @@ interface CellProps<T> extends ChakraProps {
 }
 
 function TensorData(
-    props: CellProps<NonNullable<TensorHistoryNode["tensordata"]>[0]> & { projectId: number },
+    props: CellProps<NonNullable<TensorHistoryNode["tensordata"]>[0]> & {
+        projectId: number
+    },
 ) {
     const { item, projectId } = props
     const tensorNames = item.tensor_names

@@ -1,10 +1,12 @@
+export type PngEffort = "no_compression" | "fastest" | "fast" | "balanced" | "high"
+
+export type Format = { jpg: number } | { png: PngEffort }
+
 export type CreateDtArchiveOptions = {
     /** Project to archive. */
     projectId: number
-    /** Whether to use PNG instead of JPEG for archived images. */
-    lossless: boolean
-    /** JPEG quality; this may also be used as the PNG effort. */
-    quality: number
+    /** Image format and encoder settings for archived images. */
+    format: Format
     /** Directory where the archive will be saved. */
     target: string
 }

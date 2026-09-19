@@ -23,7 +23,7 @@ export const Panel = chakra("div", {
         },
         variant: {
             float: {
-                borderRadius: "lg",
+                borderRadius: "xl",
                 boxShadow: "pane1",
             },
             fixed: {},

@@ -214,6 +214,7 @@ impl Tensor {
         &self,
         history_node: Option<&TensorHistoryNode>,
         size: Option<u32>,
+        compression: Option<png::Compression>,
     ) -> Result<Option<Vec<u8>>> {
         let pixels = match self.to_pixel_data(size)? {
             Some(p) => p,
@@ -226,8 +227,14 @@ impl Tensor {
         };
         let channels = self.channels;
 
-        let png =
-            write_png_with_usercomment(&pixels, width, height, channels as usize, history_node)?;
+        let png = write_png_with_usercomment(
+            &pixels,
+            width,
+            height,
+            channels as usize,
+            history_node,
+            compression,
+        )?;
         // let png = encode_png(&pixels, width, height, channels as usize)?;
 
         Ok(Some(png))

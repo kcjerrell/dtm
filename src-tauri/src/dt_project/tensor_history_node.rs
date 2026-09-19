@@ -615,7 +615,7 @@ mod tests {
         assert_eq!(metadata.uc, "legacy negative prompt");
         assert_eq!(metadata.model, "test-model");
 
-        let png = write_png_with_usercomment(&[0, 0, 0], 1, 1, 3, Some(&node)).unwrap();
+        let png = write_png_with_usercomment(&[0, 0, 0], 1, 1, 3, Some(&node), None).unwrap();
         assert!(png
             .windows(b"legacy positive prompt".len())
             .any(|window| window == b"legacy positive prompt"));

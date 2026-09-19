@@ -130,7 +130,7 @@ pub async fn copy_project(
         &project_ref,
         temp_dir.join("project.zip"),
         dest_conn,
-        opts.lossless,
+        opts.format,
     )
     .await
     .context("failed to process and pack tensor items into archive")?;

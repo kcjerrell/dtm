@@ -34,7 +34,7 @@ function ControlPane(props: ControlPane) {
             width={"full"}
             paddingY={0}
             paddingX={0}
-            borderRadius={"md"}
+            borderRadius={"none"}
             variant={"float"}
             bgColor={"grayc.16"}
             _dark={{

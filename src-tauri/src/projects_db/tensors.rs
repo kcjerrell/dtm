@@ -112,6 +112,7 @@ pub fn decode_tensor(tensor: TensorRaw, options: DecodeTensorOptions) -> Result<
             height,
             tensor.channels as usize,
             history_node.as_ref(),
+            None,
         )
         .with_context(|| format!("failed to encode tensor {} as PNG", tensor.name)),
         false => Ok(pixels),
@@ -356,6 +357,7 @@ pub fn write_png_with_usercomment(
     height: u32,
     channels: usize,
     history_node: Option<&TensorHistoryNode>,
+    compression: Option<png::Compression>,
 ) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let cursor = Cursor::new(&mut out);
@@ -369,6 +371,9 @@ pub fn write_png_with_usercomment(
         4 => ColorType::Rgba,
         _ => return Err(anyhow::anyhow!("Unsupported channel count ({})", channels)),
     });
+    if let Some(compression) = compression {
+        encoder.set_compression(compression);
+    }
 
     let mut writer = encoder
         .write_header()

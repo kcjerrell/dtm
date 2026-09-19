@@ -15,7 +15,7 @@ use crate::{
     util::{update_gate::PrintUpdate, InstantsTotal},
 };
 
-use super::CopyTensorItem;
+use super::{CopyTensorItem, Format};
 
 use anyhow::{Context, Result};
 
@@ -25,9 +25,9 @@ pub async fn copy_tensors(
     project_ref: &DtProjectRef,
     archive_path: PathBuf,
     db_conn: sqlx::pool::PoolConnection<sqlx::Sqlite>,
-    lossless: bool,
+    format: Format,
 ) -> Result<()> {
-    let convert = ConvertWorker::new(project_ref.clone(), 7, lossless);
+    let convert = ConvertWorker::new(project_ref.clone(), 7, format);
     let zip = ZipWorker::new(archive_path.clone());
     let db = DbWorker::new(db_conn);
 
@@ -131,15 +131,15 @@ pub trait Worker {
 struct ConvertWorker {
     project_ref: DtProjectRef,
     concurrency: usize,
-    lossless: bool,
+    format: Format,
 }
 
 impl ConvertWorker {
-    pub fn new(project_ref: DtProjectRef, concurrency: usize, lossless: bool) -> Self {
+    pub fn new(project_ref: DtProjectRef, concurrency: usize, format: Format) -> Self {
         Self {
             project_ref,
             concurrency,
-            lossless,
+            format,
         }
     }
 }
@@ -155,7 +155,7 @@ impl Worker for ConvertWorker {
     ) -> Result<JoinHandle<Result<()>>> {
         let project_ref = self.project_ref.clone();
         let concurrency = self.concurrency;
-        let lossless = self.lossless;
+        let format = self.format;
         let handle = tokio::spawn(async move {
             let semaphore = Arc::new(Semaphore::new(concurrency));
             let mut tasks: JoinSet<Result<()>> = JoinSet::new();
@@ -176,7 +176,7 @@ impl Worker for ConvertWorker {
                     let _permit = permit;
 
                     if item.result.is_ok() {
-                        item.result = item.convert(project_ref, lossless).await;
+                        item.result = item.convert(project_ref, format).await;
                         if let Err(ref e) = item.result {
                             log::warn!(
                                 "ConvertWorker: failed to convert item {}: {}",
