@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn only_format_changes_regenerate_the_preview() {
-        let cached = options(1, Format::Jpg(80), "/first");
+        let cached = options(1, Format::Jpg(90), "/first");
 
         assert!(!should_regenerate_preview(&cached, &cached));
         assert!(should_regenerate_preview(
@@ -358,7 +358,7 @@ mod tests {
         ));
         assert!(!should_regenerate_preview(
             &cached,
-            &options(1, Format::Jpg(80), "/second")
+            &options(1, Format::Jpg(90), "/second")
         ));
     }
 
@@ -370,7 +370,7 @@ mod tests {
             PLAN_CACHE.insert(
                 project_id,
                 PlanCacheEntry {
-                    opts: options(project_id, Format::Jpg(80), "/target"),
+                    opts: options(project_id, Format::Jpg(90), "/target"),
                     plan: empty_plan(),
                     preview: DtArchivePreview::default(),
                 },

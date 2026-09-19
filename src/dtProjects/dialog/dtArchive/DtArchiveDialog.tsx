@@ -1,4 +1,5 @@
 import {
+    createListCollection,
     Field,
     FormatByte,
     Grid,
@@ -19,6 +20,8 @@ import {
     createDtArchive,
     createDtArchivePlan,
     type DtArchivePreview,
+    type Format,
+    type PngEffort,
     type TensorCounts,
 } from "@/commands"
 import {
@@ -27,8 +30,16 @@ import {
     PanelListItem,
     PanelSection,
     PanelSectionHeader,
+    SliderWithInput,
 } from "@/components"
 import PanelList from "@/components/PanelList"
+import {
+    SelectContent,
+    SelectItem,
+    SelectRoot,
+    SelectTrigger,
+    SelectValueText,
+} from "@/components/ui/select"
 import { useDTP } from "@/dtProjects/state/context"
 import type { ProjectState } from "@/dtProjects/state/projects"
 import { makeSelectable, type Selectable, useSelectable } from "@/hooks/useSelectableV"
@@ -43,6 +54,20 @@ type ProjectItemState = Selectable<{
 }>
 
 type ArchiveFormat = "jpg" | "png"
+
+const DEFAULT_FORMAT = "jpg" as ArchiveFormat
+const DEFAULT_PNG_EFFORT = "balanced" as PngEffort
+const DEFAULT_JPG_QUALITY = 90 as number
+
+const pngEffortItems: { label: string; value: PngEffort }[] = [
+    { label: "No compression", value: "no_compression" },
+    { label: "Fastest", value: "fastest" },
+    { label: "Fast", value: "fast" },
+    { label: "Balanced", value: "balanced" },
+    { label: "High", value: "high" },
+]
+
+const pngEffortCollection = createListCollection({ items: pngEffortItems })
 
 const tensorLabels: Record<keyof TensorCounts, string> = {
     tensorHistory: "Images",
@@ -63,6 +88,8 @@ type ProjectPlanState = {
 type DtArchiveDialogState = {
     outputDir: string
     format: ArchiveFormat
+    jpgQuality: number
+    pngEffort: PngEffort
     isPlanning: boolean
     isArchiving: boolean
     planError: string
@@ -99,9 +126,12 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
             const preview = proxyMap<number, ProjectPlanState>(
                 projectIds.map((p) => [p, { status: "queued" }]),
             )
+            const { format, pngEffort, jpgQuality } = getFormatFromSetting(formatSetting)
             const state = {
                 outputDir: folderSetting ?? "",
-                format: formatSetting as ArchiveFormat,
+                format,
+                jpgQuality,
+                pngEffort,
                 isPlanning: false,
                 isArchiving: false,
                 planError: "",
@@ -154,13 +184,14 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
         }
 
         startLoader(state)
-    }, [snap.format, snap.outputDir])
+    }, [snap.format, snap.jpgQuality, snap.outputDir, snap.pngEffort])
 
     const createArchives = useCallback(async () => {
         if (!state.outputDir || projectIds.length === 0) return
 
         const outputDir = state.outputDir
         const format = state.format
+        const imageFormat = getImageFormat(state)
 
         state.isArchiving = true
         state.archiveError = ""
@@ -168,12 +199,12 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
             for (const projectId of projectIds) {
                 await createDtArchive({
                     projectId,
-                    format: format === "png" ? { png: "balanced" } : { jpg: 80 },
+                    format: imageFormat,
                     target: outputDir,
                 })
             }
 
-            setFormatSetting(format)
+            setFormatSetting(imageFormat)
             setFolderSetting(outputDir)
         } catch (error) {
             console.error("Failed to create DTArchive", error)
@@ -294,6 +325,49 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
                                 ? "Smaller archive using JPEG images."
                                 : "Larger archive using lossless PNG images."}
                         </Text>
+                        {snap.format === "jpg" ? (
+                            <SliderWithInput
+                                aria-label={"JPEG quality"}
+                                label={"JPEG quality"}
+                                value={snap.jpgQuality}
+                                min={1}
+                                max={100}
+                                step={1}
+                                strictStep
+                                size="sm"
+                                onValueChange={(quality) => {
+                                    state.jpgQuality = quality
+                                }}
+                            />
+                        ) : (
+                            <Field.Root width={"full"}>
+                                <Field.Label>PNG compression effort</Field.Label>
+                                <SelectRoot
+                                    collection={pngEffortCollection}
+                                    value={[snap.pngEffort]}
+                                    onValueChange={(details) => {
+                                        const effort = details.value[0] as PngEffort | undefined
+                                        if (effort !== undefined) state.pngEffort = effort
+                                    }}
+                                    size="sm"
+                                >
+                                    <SelectTrigger
+                                        aria-label={"PNG compression effort"}
+                                        data-defctx={true}
+                                        layerStyle={"borderA"}
+                                    >
+                                        <SelectValueText placeholder="Select PNG effort" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {pngEffortCollection.items.map((item) => (
+                                            <SelectItem item={item} key={item.value}>
+                                                {item.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </SelectRoot>
+                            </Field.Root>
+                        )}
                     </VStack>
                 </VStack>
             </PanelSection>
@@ -362,7 +436,7 @@ async function startLoader(state: DtArchiveDialogState) {
         const optsGen = state.optsGeneration
         const preview = await createDtArchivePlan({
             projectId: projectId,
-            format: state.format === "png" ? { png: "balanced" } : { jpg: 80 },
+            format: getImageFormat(state),
             target: state.outputDir,
         })
         // if optsgen has changed, this preview is stale. The status will be have been changed already
@@ -373,6 +447,32 @@ async function startLoader(state: DtArchiveDialogState) {
     }
 
     state.isPlanning = false
+}
+
+function getImageFormat(state: DtArchiveDialogState): Format {
+    return state.format === "png" ? { png: state.pngEffort } : { jpg: state.jpgQuality }
+}
+
+function getFormatFromSetting(dtArchiveFormat?: Format | null) {
+    if (dtArchiveFormat && typeof dtArchiveFormat === "object") {
+        if ("png" in dtArchiveFormat)
+            return {
+                format: "png" as ArchiveFormat,
+                pngEffort: dtArchiveFormat.png,
+                jpgQuality: DEFAULT_JPG_QUALITY,
+            }
+        if ("jpg" in dtArchiveFormat)
+            return {
+                format: "jpg" as ArchiveFormat,
+                jpgQuality: dtArchiveFormat.jpg,
+                pngEffort: DEFAULT_PNG_EFFORT,
+            }
+    }
+    return {
+        format: DEFAULT_FORMAT as ArchiveFormat,
+        pngEffort: DEFAULT_PNG_EFFORT,
+        jpgQuality: DEFAULT_JPG_QUALITY,
+    }
 }
 
 function ArchivePlanDetails({ preview }: { preview?: Snapshot<DtArchivePreview> }) {

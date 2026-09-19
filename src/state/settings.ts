@@ -3,6 +3,7 @@ import { store } from "@tauri-store/valtio"
 import { nanoid } from "nanoid"
 import { type RefObject, useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
+import type { Format } from "@/commands"
 import { getStoreName } from "@/utils/helpers"
 
 let settingStore: ReturnType<typeof initStore> | undefined
@@ -17,7 +18,7 @@ const defaultSettings = {
     "vidExport.videoSource": "preview",
     "projectExport.outputDir": "",
     "projectExport.source": "preview",
-    "dtArchive.format": "jpg" as "jpg" | "png",
+    "dtArchive.format": { "jpg": 90 } as Format,
     "dtArchive.folder": null as string | null,
     "ui.imageSize": 200,
     "ui.defaultMute": true,

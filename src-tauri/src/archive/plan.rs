@@ -451,8 +451,8 @@ mod tests {
 
         assert_eq!(serde_json::to_value(opts).unwrap(), opts_json);
         assert_eq!(
-            serde_json::to_value(Format::Jpg(80)).unwrap(),
-            json!({ "jpg": 80 })
+            serde_json::to_value(Format::Jpg(90)).unwrap(),
+            json!({ "jpg": 90 })
         );
 
         let preview = DtArchivePreview {
