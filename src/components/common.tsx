@@ -330,6 +330,14 @@ export const PanelButton = chakra(
                         bgColor: "highlight",
                     },
                 },
+                info: {
+                    color: "white",
+                    fontWeight: "600",
+                    bgColor: "info.1",
+                    _hover: {
+                        bgColor: "info"
+                    }
+                }
             },
         },
         defaultVariants: { tone: "none" },

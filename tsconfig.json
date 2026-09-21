@@ -2,12 +2,7 @@
   "compilerOptions": {
     "target": "esnext",
     "useDefineForClassFields": true,
-    "lib": [
-      "ES2024",
-      "ESNext.Collection",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2024", "ESNext.Collection", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
     /* Bundler mode */
@@ -25,27 +20,18 @@
     // "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"],
     },
-    "types": [
-
-    ]
+    "types": [],
   },
-  "include": [
-    "./src",
-    "./src/global.ts",
-  ],
-  "exclude": [
-    "src/scratch/*"
-  ],
+  "include": ["./src", "./src/global.ts"],
+  "exclude": [],
   "references": [
     {
-      "path": "./tsconfig.node.json"
+      "path": "./tsconfig.node.json",
     },
     {
-      "path": "./tsconfig.wdio.json"
-    }
-  ]
+      "path": "./tsconfig.wdio.json",
+    },
+  ],
 }
