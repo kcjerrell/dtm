@@ -26,7 +26,7 @@ export const viewDescription = [
             />
         ),
     },
-    { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: true },
+    { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: false },
 ].filter((item) => import.meta.env.DEV || !item.devOnly)
 // ].filter((item) => !item.devOnly)
 

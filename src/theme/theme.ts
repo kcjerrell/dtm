@@ -139,7 +139,7 @@ const themeConfig = defineConfig({
             position: "relative",
         },
         ".blink-anim": {
-            animation: "infinite linear blink-anim",
+            animation: "infinite steps(1, end) blink-anim",
         },
     },
     theme: {
@@ -369,8 +369,20 @@ const themeConfig = defineConfig({
                 to: { opacity: 1 },
             },
             "blink-anim": {
-                "0%, 49.999%": { opacity: 0 },
-                "50%, 100%": { opacity: 1 },
+                // "0%, 49.999%": { opacity: 0 },
+                "0%, 49.999%": { visibility: "hidden" },
+                // "50%, 100%": { opacity: 1 },
+                "50%, 100%": { visibility: "visible" },
+            },
+            "flip-button": {
+                "0%": { transform: "rotateY(0deg) skewY(0deg)" },
+                "40%, 49%": { transform: "rotateY(-90deg) skewY(20deg)" },
+                "50%, 100%": { transform: "rotateY(0deg) skewY(0deg)" },
+            },
+            "flip-button-inv": {
+                "0%, 50%": { transform: "rotateY(0deg) skewY(0deg)" },
+                "90%, 99%": { transform: "rotateY(90deg) skewY(-20deg)" },
+                "100%": { transform: "rotateY(0deg) skewY(0deg)" },
             },
         },
     },

@@ -221,6 +221,8 @@ function prepareComparison(
         throw new Error("Could not get a 2D rendering context for image comparison")
     }
 
+    context.imageSmoothingEnabled = false
+
     context.clearRect(0, 0, width, height)
     context.drawImage(imageA, 0, 0, widthA, heightA)
     const pixelsA = context.getImageData(0, 0, width, height).data

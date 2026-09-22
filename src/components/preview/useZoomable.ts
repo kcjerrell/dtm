@@ -14,10 +14,21 @@ export function useZoomable(
     motionRef: RefObject<HTMLElement | null>,
     options: {
         contentSize?: { width: number; height: number }
+        contentOffset?: { left: number; top: number }
+        viewportSize?: { width: number; height: number }
+        mapZoomPoint?: (clientX: number, clientY: number) => { clientX: number; clientY: number }
         onZoomOutBoundary?: () => void
+        maxZoom?: number
     } = {},
 ) {
-    const { contentSize, onZoomOutBoundary } = options
+    const {
+        contentSize,
+        contentOffset,
+        viewportSize,
+        mapZoomPoint,
+        onZoomOutBoundary,
+        maxZoom = MAX_ZOOM,
+    } = options
     const posRef = useRef({ x: 0, y: 0, scale: 1 })
     const xMv = useSpring(posRef.current.x, SPRING)
     const yMv = useSpring(posRef.current.y, SPRING)
@@ -40,31 +51,37 @@ export function useZoomable(
         (currX: number, currY: number, currScale: number) => {
             if (!contentSize) return { x: currX, y: currY }
 
-            const winW = window.innerWidth
-            const winH = window.innerHeight
+            const viewport = motionRef.current
+            const viewportWidth = viewportSize?.width ?? viewport?.clientWidth ?? window.innerWidth
+            const viewportHeight =
+                viewportSize?.height ?? viewport?.clientHeight ?? window.innerHeight
 
-            // The image is initially "contain"ed.
-            // So contentSize.width <= winW and contentSize.height <= winH.
+            const clampAxis = (
+                position: number,
+                contentLength: number,
+                viewportLength: number,
+                offset: number,
+            ) => {
+                const scaledLength = contentLength * currScale
+                if (scaledLength <= viewportLength) {
+                    return viewportLength / 2 - (offset + contentLength / 2)
+                }
 
-            const scaledW = contentSize.width * currScale
-            const scaledH = contentSize.height * currScale
-
-            let maxX = 0
-            let maxY = 0
-
-            if (scaledW > winW) {
-                maxX = (scaledW - winW) / 2
+                const scaleOverflow = (scaledLength - contentLength) / 2
+                const min = viewportLength - offset - contentLength - scaleOverflow
+                const max = -offset + scaleOverflow
+                return Math.min(Math.max(position, min), max)
             }
-            if (scaledH > winH) {
-                maxY = (scaledH - winH) / 2
-            }
+
+            const contentLeft = contentOffset?.left ?? (viewportWidth - contentSize.width) / 2
+            const contentTop = contentOffset?.top ?? (viewportHeight - contentSize.height) / 2
 
             return {
-                x: Math.min(Math.max(currX, -maxX), maxX),
-                y: Math.min(Math.max(currY, -maxY), maxY),
+                x: clampAxis(currX, contentSize.width, viewportWidth, contentLeft),
+                y: clampAxis(currY, contentSize.height, viewportHeight, contentTop),
             }
         },
-        [contentSize],
+        [contentOffset, contentSize, motionRef, viewportSize],
     )
 
     const zoom = useCallback(
@@ -81,15 +98,21 @@ export function useZoomable(
 
             const mult = pinch ? 2 : 1
             let newScale = scale * (1 - delta * mult * ZOOM_SENSITIVITY)
-            newScale = Math.min(Math.max(newScale, MIN_ZOOM), MAX_ZOOM)
+            newScale = Math.min(Math.max(newScale, MIN_ZOOM), maxZoom)
 
             const ratio = newScale / scale
 
-            const cx = window.innerWidth / 2
-            const cy = window.innerHeight / 2
+            const viewportRect = motionRef.current?.getBoundingClientRect()
+            const cx = viewportRect
+                ? viewportRect.left + viewportRect.width / 2
+                : window.innerWidth / 2
+            const cy = viewportRect
+                ? viewportRect.top + viewportRect.height / 2
+                : window.innerHeight / 2
 
-            const mouseX = clientX - cx
-            const mouseY = clientY - cy
+            const zoomPoint = mapZoomPoint?.(clientX, clientY) ?? { clientX, clientY }
+            const mouseX = zoomPoint.clientX - cx
+            const mouseY = zoomPoint.clientY - cy
 
             const newX = mouseX - (mouseX - x) * ratio
             const newY = mouseY - (mouseY - y) * ratio
@@ -99,7 +122,7 @@ export function useZoomable(
             posRef.current = { x: clamped.x, y: clamped.y, scale: newScale }
             setMv()
         },
-        [setMv, clampPos, getElapsed, onZoomOutBoundary],
+        [setMv, clampPos, getElapsed, mapZoomPoint, motionRef, onZoomOutBoundary, maxZoom],
     )
 
     useEffect(() => {
@@ -115,6 +138,13 @@ export function useZoomable(
         return () => el.removeEventListener("wheel", onWheel)
     }, [motionRef, zoom])
 
+    useEffect(() => {
+        const { x, y, scale } = posRef.current
+        const clamped = clampPos(x, y, scale)
+        posRef.current = { x: clamped.x, y: clamped.y, scale }
+        setMv()
+    }, [clampPos, setMv])
+
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         if (e.button !== 0) return
 
@@ -122,7 +152,7 @@ export function useZoomable(
         hasMoved.current = false
         lastPos.current = { x: e.clientX, y: e.clientY }
 
-        const target = e.target as HTMLElement
+        const target = e.currentTarget as HTMLElement
         target.setPointerCapture(e.pointerId)
     }, [])
 
@@ -155,8 +185,8 @@ export function useZoomable(
         if (!isDragging.current) return
         isDragging.current = false
 
-        const target = e.target as HTMLElement
-        target.releasePointerCapture(e.pointerId)
+        const target = e.currentTarget as HTMLElement
+        if (target.hasPointerCapture(e.pointerId)) target.releasePointerCapture(e.pointerId)
     }, [])
 
     const onClickCapture = useCallback((e: React.MouseEvent) => {
@@ -171,6 +201,7 @@ export function useZoomable(
             onPointerDown,
             onPointerMove,
             onPointerUp,
+            onPointerCancel: onPointerUp,
             onClickCapture,
         }),
         [onPointerDown, onPointerMove, onPointerUp, onClickCapture],
