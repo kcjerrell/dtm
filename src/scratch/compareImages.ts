@@ -25,6 +25,8 @@ export interface CompareDifferenceOptions {
 
 const DEFAULT_BRIGHTNESS_GAIN = 4
 const DEFAULT_BRIGHTNESS_THRESHOLD = 0.005
+const BRIGHTNESS_BASE_SHADE = 0x80
+const BRIGHTNESS_DIFF_MIN_ALPHA = 0.7
 const DEFAULT_COLOR_GAIN = 8
 const DEFAULT_COLOR_THRESHOLD = 0.005
 const DEFAULT_COLOR_SATURATION = 1
@@ -50,8 +52,8 @@ interface ComparisonBuffers {
 /**
  * Draws signed perceptual-lightness differences into `canvas`.
  *
- * White means B is brighter, black means B is darker, and opacity encodes the fixed-scale
- * magnitude of the difference.
+ * Transparent gray means there is no difference. White means B is brighter, black means B is
+ * darker, and opacity ramps from 70% to 100% with the fixed-scale magnitude of the difference.
  */
 export function compareBrightness(
     imageA: HTMLImageElement,
@@ -74,8 +76,14 @@ export function compareBrightness(
         rgbaToVisibleOklab(pixelsB, offset, lab, 4)
 
         const delta = lab[4] - lab[0]
-        const alpha = differenceAlpha(Math.abs(delta), threshold, gain)
-        const shade = delta > 0 ? 255 : 0
+        const difference = clamp01(Math.max(0, Math.abs(delta) - threshold) * gain)
+        const hasDifference = difference > 0
+        const shade = hasDifference ? (delta > 0 ? 255 : 0) : BRIGHTNESS_BASE_SHADE
+        const alpha = hasDifference
+            ? Math.round(
+                  (BRIGHTNESS_DIFF_MIN_ALPHA + (1 - BRIGHTNESS_DIFF_MIN_ALPHA) * difference) * 255,
+              )
+            : 0
 
         output.data[offset] = shade
         output.data[offset + 1] = shade

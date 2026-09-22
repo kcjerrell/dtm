@@ -1,5 +1,5 @@
 import { Box, Flex, Grid, HStack, Kbd } from "@chakra-ui/react"
-import { motion, useMotionValue, useSpring, useTransform } from "motion/react"
+import { motion, SpringOptions, useMotionValue, useSpring, useTransform } from "motion/react"
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef } from "react"
 import type { Snapshot } from "valtio"
 import { CheckRoot, Panel } from "@/components"
@@ -10,11 +10,11 @@ import { useProxyRef } from "@/hooks/valtioHooks"
 import { compareBrightness, compareColor, compareDifference } from "./compareImages"
 
 const TRAIL_SPRING = {
-    stiffness: 140,
-    damping: 26,
-    mass: 0.6,
+    stiffness: 20,
+    damping: 10,
+    mass: 1,
     restDelta: 0.0005,
-}
+} as SpringOptions
 const MAX_TRAIL_LENGTH = 0.3
 const TRAIL_FEATHER_WIDTH = 0.08
 const MIN_VISIBLE_TRAIL_LENGTH = 0.002
@@ -201,6 +201,7 @@ function ImageCompare() {
         [sliderMv, trailingMv],
         ([slider, trailing]) => trailMask(slider, trailing),
     )
+    const brightnessDirectionFilterMv = useMotionValue("none")
 
     const altAnimationDuration = `${3 / snap.altSpeed}s`
     const altAnimationState = snap.shiftHeld || snap.altSpeedInput === 0 ? "paused" : "running"
@@ -241,8 +242,8 @@ function ImageCompare() {
             try {
                 if (effect === "brightness") {
                     compareBrightness(imgARef.current, imgBRef.current, canvasRef.current, {
-                        gain: 20,
-                        threshold: 0.01,
+                        gain: 4,
+                        threshold: 0.02,
                     })
                 } else if (effect === "color") {
                     compareColor(imgARef.current, imgBRef.current, canvasRef.current, {
@@ -563,6 +564,10 @@ function ImageCompare() {
                                         width: "100%",
                                         height: "100%",
                                         pointerEvents: "none",
+                                        filter:
+                                            sliderTrail === "brightness"
+                                                ? brightnessDirectionFilterMv
+                                                : "none",
                                     }}
                                 />
                             </motion.div>
@@ -605,18 +610,25 @@ function ImageCompare() {
                                     if (!divider || !viewport) return
                                     const dividerRect = divider.getBoundingClientRect()
                                     const viewportRect = viewport.getBoundingClientRect()
-                                    sliderMv.set(
-                                        Math.min(
-                                            Math.max(
-                                                (dividerRect.x -
-                                                    viewportRect.x +
-                                                    dividerRect.width / 2) /
-                                                    viewportRect.width,
-                                                0,
-                                            ),
-                                            1,
+                                    const nextSliderPosition = Math.min(
+                                        Math.max(
+                                            (dividerRect.x -
+                                                viewportRect.x +
+                                                dividerRect.width / 2) /
+                                                viewportRect.width,
+                                            0,
                                         ),
+                                        1,
                                     )
+                                    const previousSliderPosition = sliderMv.get()
+                                    if (nextSliderPosition !== previousSliderPosition) {
+                                        brightnessDirectionFilterMv.set(
+                                            nextSliderPosition < previousSliderPosition
+                                                ? "invert(1)"
+                                                : "none",
+                                        )
+                                    }
+                                    sliderMv.set(nextSliderPosition)
                                 }}
                             >
                                 <Box
