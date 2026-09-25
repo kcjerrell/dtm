@@ -22,7 +22,7 @@ export function useSubscribeValue<T extends Record<string, unknown>, K extends k
     }, [proxy, key])
 }
 
-type UseProxyRefOpts<T> = {
+export type UseProxyRefOpts<T> = {
     sync?: boolean
     load?: (state: T) => Promise<void>
 }
@@ -53,6 +53,32 @@ export function useProxyRef<T extends object>(init: () => T, opts?: UseProxyRefO
     }, [])
 
     return { state, snap }
+}
+/**
+ * Initialize a valtio proxy state and store it in a ref. Returns the state proxy only - to obtain a snapshot
+ * use `useSnapshot` from valtio
+ * @param init initialization function for the state. This will be wrapped in proxy by the hook
+ * @param opts.load optional async function that will be called exactly once after the first render
+ * @param opts.sync ignored
+ * @returns
+ */
+export function useProxyRefState<T extends object>(init: () => T, opts?: UseProxyRefOpts<T>) {
+    const state = useInit(() => proxy(init()))
+
+    const ranLoad = useRef(false)
+
+    const runLoad = useEffectEvent(() => {
+        if (!ranLoad.current && opts?.load) {
+            ranLoad.current = true
+            opts.load(state).catch((e) => console.error(e))
+        }
+    })
+
+    useEffect(() => {
+        runLoad()
+    }, [])
+
+    return state
 }
 
 export function debounceWatch<T extends object>(

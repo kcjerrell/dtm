@@ -1,13 +1,14 @@
-import { Box, Flex, Grid, HStack, Kbd } from "@chakra-ui/react"
-import { motion, SpringOptions, useMotionValue, useSpring, useTransform } from "motion/react"
+import { Box, Flex, Grid, HStack, Kbd, VStack } from "@chakra-ui/react"
+import { useDebounceFn } from "ahooks"
+import { motion, type SpringOptions, useMotionValue, useSpring, useTransform } from "motion/react"
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef } from "react"
 import type { Snapshot } from "valtio"
-import { CheckRoot, Panel } from "@/components"
+import { Panel } from "@/components"
 import { PanelButton, PanelSectionHeader } from "@/components/common"
 import { useZoomable } from "@/components/preview/useZoomable"
 import { Slider } from "@/components/ui/slider"
 import { useProxyRef } from "@/hooks/valtioHooks"
-import { compareBrightness, compareColor, compareDifference } from "./compareImages"
+import { compareBrightness, compareColor, compareDifference } from "../components/imageCompare/CompareImages"
 
 const TRAIL_SPRING = {
     stiffness: 20,
@@ -26,10 +27,15 @@ const ALT_ANIM_STYLE = {
     animationDelay: "calc(var(--alt-duration) * var(--alt-phase) * -1)",
 } as CSSProperties
 
-const TEST_IMG_A =
-    "asset://localhost//Users/kcjer/Library/Application%20Support/com.kcjer.dtm/dev_images/38dzby284dv6.png"
-const TEST_IMG_B =
-    "asset://localhost//Users/kcjer/Library/Application%20Support/com.kcjer.dtm/dev_images/vm0kgvlpyklm.jpg"
+const TEST_PATH_ROOT =
+    "asset://localhost//Users/kcjer/Library/Application Support/com.kcjer.dtm/dev_images/"
+const TEST_IMAGES = [
+    "38dzby284dv6.png",
+    "vm0kgvlpyklm.jpg",
+    "bhdlwrwhdnd9.png",
+    "cf68acpkwowm.png",
+].map((n) => TEST_PATH_ROOT + n)
+const [TEST_IMG_A, TEST_IMG_B] = [TEST_IMAGES[2], TEST_IMAGES[3]]
 
 type SliderEffect = "brightness" | "color" | "difference" | "none"
 type SbsLayout = "horizontal" | "vertical"
@@ -41,6 +47,10 @@ type ImageCompareState = {
     sliderTrail: SliderEffect
     /** The slider trail effect currently stored in the canvas */
     canvasContents: SliderEffect
+    /** minimum perceptual difference shown by the slider effect */
+    sliderThreshold: number
+    /** multiplier applied to perceptual differences above the threshold */
+    sliderGain: number
     /** true while the slider is currently being dragged */
     sliderDragging: boolean
 
@@ -60,6 +70,7 @@ type ImageCompareState = {
     /** state for zoom/pan and canvas alignment */
     viewportWidth: number
     viewportHeight: number
+    viewportPixelRatio: number
     imageAWidth: number
     imageAHeight: number
     imageBWidth: number
@@ -80,14 +91,21 @@ function containSize(
     return { width: contentWidth * scale, height: contentHeight * scale }
 }
 
-function trailMask(sliderPosition: number, trailingPosition: number) {
+type TrailDirection = "right" | "left"
+
+function trailMask(sliderPosition: number, trailingPosition: number, direction: TrailDirection) {
     const distance = sliderPosition - trailingPosition
-    if (Math.abs(distance) < MIN_VISIBLE_TRAIL_LENGTH) return TRANSPARENT_MASK
+    if (
+        Math.abs(distance) < MIN_VISIBLE_TRAIL_LENGTH ||
+        (direction === "right" ? distance < 0 : distance > 0)
+    ) {
+        return TRANSPARENT_MASK
+    }
 
     const slider = Math.min(Math.max(sliderPosition, 0), 1)
     const trailing = Math.min(Math.max(trailingPosition, 0), 1)
 
-    if (distance > 0) {
+    if (direction === "right") {
         const trailStart = Math.max(trailing, slider - MAX_TRAIL_LENGTH)
         const featherEnd = Math.min(slider, trailStart + TRAIL_FEATHER_WIDTH)
 
@@ -112,12 +130,80 @@ function trailMask(sliderPosition: number, trailingPosition: number) {
         transparent 100%)`
 }
 
+interface ViewportCanvasGeometry {
+    contentLeft: number
+    contentTop: number
+    contentWidth: number
+    contentHeight: number
+    viewportWidth: number
+    viewportHeight: number
+    pixelRatio: number
+}
+
+function drawComparisonRegion(
+    source: HTMLCanvasElement | null,
+    target: HTMLCanvasElement | null,
+    geometry: ViewportCanvasGeometry,
+) {
+    if (!target) return
+
+    const pixelWidth = Math.max(1, Math.round(geometry.viewportWidth * geometry.pixelRatio))
+    const pixelHeight = Math.max(1, Math.round(geometry.viewportHeight * geometry.pixelRatio))
+    if (target.width !== pixelWidth) target.width = pixelWidth
+    if (target.height !== pixelHeight) target.height = pixelHeight
+
+    const context = target.getContext("2d")
+    if (!context) return
+
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, pixelWidth, pixelHeight)
+
+    if (!source?.width || !source.height || !geometry.contentWidth || !geometry.contentHeight) {
+        return
+    }
+
+    const visibleLeft = Math.max(0, geometry.contentLeft)
+    const visibleTop = Math.max(0, geometry.contentTop)
+    const visibleRight = Math.min(
+        geometry.viewportWidth,
+        geometry.contentLeft + geometry.contentWidth,
+    )
+    const visibleBottom = Math.min(
+        geometry.viewportHeight,
+        geometry.contentTop + geometry.contentHeight,
+    )
+    const visibleWidth = visibleRight - visibleLeft
+    const visibleHeight = visibleBottom - visibleTop
+    if (visibleWidth <= 0 || visibleHeight <= 0) return
+
+    const sourceX = ((visibleLeft - geometry.contentLeft) / geometry.contentWidth) * source.width
+    const sourceY = ((visibleTop - geometry.contentTop) / geometry.contentHeight) * source.height
+    const sourceWidth = (visibleWidth / geometry.contentWidth) * source.width
+    const sourceHeight = (visibleHeight / geometry.contentHeight) * source.height
+
+    context.imageSmoothingEnabled = false
+    context.setTransform(geometry.pixelRatio, 0, 0, geometry.pixelRatio, 0, 0)
+    context.drawImage(
+        source,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        visibleLeft,
+        visibleTop,
+        visibleWidth,
+        visibleHeight,
+    )
+}
+
 function ImageCompare() {
     const { state, snap } = useProxyRef<ImageCompareState>(() => ({
         mode: "slider",
         sliderTrail: "none",
         sliderDragging: false,
         canvasContents: "none",
+        sliderThreshold: 0.02,
+        sliderGain: 10,
         shiftHeld: false,
         altSpeedInput: 5,
         altSpeed: 5,
@@ -125,6 +211,7 @@ function ImageCompare() {
         sbsLayout: "horizontal",
         viewportWidth: 0,
         viewportHeight: 0,
+        viewportPixelRatio: 1,
         imageAWidth: 0,
         imageAHeight: 0,
         imageBWidth: 0,
@@ -133,10 +220,14 @@ function ImageCompare() {
 
     // the actual sliderTrail mode depends on shiftHeld
     const [sliderTrail, sliderButtonTone] = getSliderTrailAndTone(snap)
+    const showWholeEffect =
+        snap.mode === "slider" && snap.shiftHeld && !snap.sliderDragging && sliderTrail !== "none"
 
     const imgARef = useRef<HTMLImageElement>(null)
     const imgBRef = useRef<HTMLImageElement>(null)
-    const canvasRef = useRef<HTMLCanvasElement>(null)
+    const offscreenCanvasRef = useRef<HTMLCanvasElement>(null)
+    const normalCanvasRef = useRef<HTMLCanvasElement>(null)
+    const invertedCanvasRef = useRef<HTMLCanvasElement>(null)
     const viewportRef = useRef<HTMLDivElement>(null)
     const sbsPaneARef = useRef<HTMLDivElement>(null)
     const sbsPaneBRef = useRef<HTMLDivElement>(null)
@@ -144,16 +235,10 @@ function ImageCompare() {
 
     const contentWidth = Math.max(snap.imageAWidth, snap.imageBWidth)
     const contentHeight = Math.max(snap.imageAHeight, snap.imageBHeight)
-    const contentSize = useMemo(
+    const viewportContentSize = useMemo(
         () => containSize(contentWidth, contentHeight, snap.viewportWidth, snap.viewportHeight),
         [contentHeight, contentWidth, snap.viewportHeight, snap.viewportWidth],
     )
-    const contentLeft = (snap.viewportWidth - contentSize.width) / 2
-    const contentTop = (snap.viewportHeight - contentSize.height) / 2
-    const imageAWidth = contentWidth ? `${(snap.imageAWidth / contentWidth) * 100}%` : "0%"
-    const imageAHeight = contentHeight ? `${(snap.imageAHeight / contentHeight) * 100}%` : "0%"
-    const imageBWidth = contentWidth ? `${(snap.imageBWidth / contentWidth) * 100}%` : "0%"
-    const imageBHeight = contentHeight ? `${(snap.imageBHeight / contentHeight) * 100}%` : "0%"
     const sbsViewportSize = useMemo(
         () => ({
             width: snap.viewportWidth / (snap.sbsLayout === "horizontal" ? 2 : 1),
@@ -161,6 +246,22 @@ function ImageCompare() {
         }),
         [snap.sbsLayout, snap.viewportHeight, snap.viewportWidth],
     )
+    const sbsContentSize = useMemo(
+        () =>
+            containSize(contentWidth, contentHeight, sbsViewportSize.width, sbsViewportSize.height),
+        [contentHeight, contentWidth, sbsViewportSize.height, sbsViewportSize.width],
+    )
+    const contentSize = snap.mode === "sbs" ? sbsContentSize : viewportContentSize
+    const contentViewportSize =
+        snap.mode === "sbs"
+            ? sbsViewportSize
+            : { width: snap.viewportWidth, height: snap.viewportHeight }
+    const contentLeft = (contentViewportSize.width - contentSize.width) / 2
+    const contentTop = (contentViewportSize.height - contentSize.height) / 2
+    const imageAWidth = contentWidth ? `${(snap.imageAWidth / contentWidth) * 100}%` : "0%"
+    const imageAHeight = contentHeight ? `${(snap.imageAHeight / contentHeight) * 100}%` : "0%"
+    const imageBWidth = contentWidth ? `${(snap.imageBWidth / contentWidth) * 100}%` : "0%"
+    const imageBHeight = contentHeight ? `${(snap.imageBHeight / contentHeight) * 100}%` : "0%"
     const contentOffset = useMemo(
         () => ({ left: contentLeft, top: contentTop }),
         [contentLeft, contentTop],
@@ -189,23 +290,72 @@ function ImageCompare() {
         contentSize,
         contentOffset,
         viewportSize: snap.mode === "sbs" ? sbsViewportSize : undefined,
+        zoomViewportRef: snap.mode === "sbs" ? sbsPaneARef : undefined,
         mapZoomPoint: snap.mode === "sbs" ? mapSbsZoomPoint : undefined,
         maxZoom: 16,
     })
 
     const sliderMv = useMotionValue(0.5)
     const dividerXMv = useMotionValue(0)
-    const clipMv = useTransform(sliderMv, (value) => `inset(0 ${(1 - value) * 100}% 0 0)`)
+    const clipMv = useTransform(sliderMv, (value) => `inset(0 0 0 ${value * 100}%)`)
     const trailingMv = useSpring(sliderMv, TRAIL_SPRING)
-    const canvasMaskMv = useTransform<number, string>(
+    const normalCanvasMaskMv = useTransform<number, string>(
         [sliderMv, trailingMv],
-        ([slider, trailing]) => trailMask(slider, trailing),
+        ([slider, trailing]) => trailMask(slider, trailing, "right"),
     )
-    const brightnessDirectionFilterMv = useMotionValue("none")
+    const invertedCanvasMaskMv = useTransform<number, string>(
+        [sliderMv, trailingMv],
+        ([slider, trailing]) => trailMask(slider, trailing, "left"),
+    )
 
     const altAnimationDuration = `${3 / snap.altSpeed}s`
     const altAnimationState = snap.shiftHeld || snap.altSpeedInput === 0 ? "paused" : "running"
     const altPhase = ((snap.shiftHeld && snap.altSpeedInput === 0 ? 0.5 : 0) + snap.altPhase) % 1
+
+    const copyComparisonBuffer = useCallback(
+        (effect: SliderEffect = state.canvasContents) => {
+            if (
+                effect !== "none" &&
+                (zoomStyle.x.isAnimating() ||
+                    zoomStyle.y.isAnimating() ||
+                    zoomStyle.scale.isAnimating())
+            ) {
+                return
+            }
+
+            const scale = zoomStyle.scale.get()
+            const scaledWidth = contentSize.width * scale
+            const scaledHeight = contentSize.height * scale
+            const geometry = {
+                contentLeft:
+                    contentLeft + zoomStyle.x.get() + (contentSize.width - scaledWidth) / 2,
+                contentTop:
+                    contentTop + zoomStyle.y.get() + (contentSize.height - scaledHeight) / 2,
+                contentWidth: scaledWidth,
+                contentHeight: scaledHeight,
+                viewportWidth: snap.viewportWidth,
+                viewportHeight: snap.viewportHeight,
+                pixelRatio: snap.viewportPixelRatio,
+            }
+            const source = effect === "none" ? null : offscreenCanvasRef.current
+
+            drawComparisonRegion(source, normalCanvasRef.current, geometry)
+            drawComparisonRegion(source, invertedCanvasRef.current, geometry)
+        },
+        [
+            contentLeft,
+            contentSize.height,
+            contentSize.width,
+            contentTop,
+            snap.viewportHeight,
+            snap.viewportPixelRatio,
+            snap.viewportWidth,
+            state,
+            zoomStyle.scale,
+            zoomStyle.x,
+            zoomStyle.y,
+        ],
+    )
 
     const onLoad = useCallback(
         (img: "a" | "b", element: HTMLImageElement) => {
@@ -216,53 +366,78 @@ function ImageCompare() {
                 state.imageBWidth = element.naturalWidth
                 state.imageBHeight = element.naturalHeight
             }
-
-            const canvas = canvasRef.current
-            const imageA = imgARef.current
-            const imageB = imgBRef.current
-            if (!canvas || !imageA?.naturalWidth || !imageB?.naturalWidth) return
-
-            const width = Math.max(imageA.naturalWidth, imageB.naturalWidth)
-            const height = Math.max(imageA.naturalHeight, imageB.naturalHeight)
-            if (canvas.width !== width) canvas.width = width
-            if (canvas.height !== height) canvas.height = height
-
-            const ctx = canvas.getContext("2d")
-            if (!ctx) return
-            ctx.imageSmoothingEnabled = false
         },
         [state],
     )
 
     const drawComparison = useCallback(
-        (effect: Exclude<SliderEffect, "none">) => {
-            state.sliderTrail = effect
-            if (!canvasRef.current || !imgARef.current || !imgBRef.current) return
+        (effect: Exclude<SliderEffect, "none">, selectEffect = true) => {
+            if (selectEffect) state.sliderTrail = effect
+            if (!imgARef.current || !imgBRef.current) return
+
+            // Keep the native-resolution comparison buffer detached from the viewport DOM.
+            const offscreenCanvas = offscreenCanvasRef.current ?? document.createElement("canvas")
+            offscreenCanvasRef.current = offscreenCanvas
 
             try {
                 if (effect === "brightness") {
-                    compareBrightness(imgARef.current, imgBRef.current, canvasRef.current, {
-                        gain: 4,
-                        threshold: 0.02,
+                    compareBrightness(imgARef.current, imgBRef.current, offscreenCanvas, {
+                        gain: state.sliderGain,
+                        threshold: state.sliderThreshold,
                     })
                 } else if (effect === "color") {
-                    compareColor(imgARef.current, imgBRef.current, canvasRef.current, {
-                        gain: 20,
-                        threshold: 0.01,
+                    compareColor(imgARef.current, imgBRef.current, offscreenCanvas, {
+                        gain: state.sliderGain,
+                        threshold: state.sliderThreshold,
                     })
                 } else {
-                    compareDifference(imgARef.current, imgBRef.current, canvasRef.current, {
-                        gain: 20,
-                        threshold: 0.01,
+                    compareDifference(imgARef.current, imgBRef.current, offscreenCanvas, {
+                        gain: state.sliderGain,
+                        threshold: state.sliderThreshold,
                     })
                 }
                 state.canvasContents = effect
+                copyComparisonBuffer(effect)
             } catch (error) {
                 console.error(error)
             }
         },
-        [state],
+        [copyComparisonBuffer, state],
     )
+
+    const { run: updateEffectParam } = useDebounceFn(
+        () => {
+            if (state.sliderTrail !== "none") drawComparison(state.sliderTrail, false)
+        },
+        { wait: 500 },
+    )
+
+    useEffect(() => {
+        let animationFrame: number | undefined
+        // Leave the viewport canvases untouched while the image is moving, then refresh once the
+        // last transform spring settles.
+        const copyAfterTransformSettles = () => {
+            if (animationFrame !== undefined) cancelAnimationFrame(animationFrame)
+            animationFrame = requestAnimationFrame(() => {
+                animationFrame = undefined
+                copyComparisonBuffer()
+            })
+        }
+        const unsubscribeX = zoomStyle.x.on("animationComplete", copyAfterTransformSettles)
+        const unsubscribeY = zoomStyle.y.on("animationComplete", copyAfterTransformSettles)
+        const unsubscribeScale = zoomStyle.scale.on("animationComplete", copyAfterTransformSettles)
+
+        return () => {
+            if (animationFrame !== undefined) cancelAnimationFrame(animationFrame)
+            unsubscribeX()
+            unsubscribeY()
+            unsubscribeScale()
+        }
+    }, [copyComparisonBuffer, zoomStyle.scale, zoomStyle.x, zoomStyle.y])
+
+    useEffect(() => {
+        copyComparisonBuffer()
+    }, [copyComparisonBuffer])
 
     useEffect(() => {
         const viewport = viewportRef.current
@@ -272,19 +447,44 @@ function ImageCompare() {
             const width = viewport.clientWidth
             state.viewportWidth = width
             state.viewportHeight = viewport.clientHeight
+            state.viewportPixelRatio = window.devicePixelRatio || 1
             dividerXMv.set((sliderMv.get() - 0.5) * width)
         }
         const observer = new ResizeObserver(updateSize)
         observer.observe(viewport)
+        window.addEventListener("resize", updateSize)
         updateSize()
 
-        return () => observer.disconnect()
+        return () => {
+            observer.disconnect()
+            window.removeEventListener("resize", updateSize)
+        }
     }, [dividerXMv, sliderMv, state])
 
     useEffect(() => {
         const keydown = (e: KeyboardEvent) => {
             if (e.key === "Shift") {
                 state.shiftHeld = true
+            } else if (e.code === "Space") {
+                if (state.mode === "alt") {
+                    if (state.altSpeedInput === 0) state.altSpeedInput = state.altSpeed
+                    else state.altSpeedInput = 0
+                } else if (state.mode === "slider") {
+                    if (state.sliderTrail === "none") drawComparison("brightness")
+                    else if (state.sliderTrail === "brightness") drawComparison("color")
+                    else if (state.sliderTrail === "color") drawComparison("difference")
+                    else {
+                        state.sliderTrail = "none"
+                        state.canvasContents = "none"
+                        copyComparisonBuffer("none")
+                    }
+                } else if (state.mode === "sbs") {
+                    state.sbsLayout = state.sbsLayout === "horizontal" ? "vertical" : "horizontal"
+                }
+            } else if (e.code === "Tab") {
+                e.preventDefault()
+                state.mode =
+                    state.mode === "slider" ? "alt" : state.mode === "alt" ? "sbs" : "slider"
             }
         }
         const keyup = (e: KeyboardEvent) => {
@@ -292,14 +492,14 @@ function ImageCompare() {
                 state.shiftHeld = false
             }
         }
-        document.addEventListener("keydown", keydown, { passive: true })
-        document.addEventListener("keyup", keyup, { passive: true })
+        document.addEventListener("keydown", keydown)
+        document.addEventListener("keyup", keyup)
 
         return () => {
             document.removeEventListener("keydown", keydown)
             document.removeEventListener("keyup", keyup)
         }
-    }, [state])
+    }, [state, copyComparisonBuffer, drawComparison])
 
     return (
         <Flex width={"full"} height={"full"} padding={8}>
@@ -528,7 +728,32 @@ function ImageCompare() {
                                 </motion.div>
                             </div>
                         </motion.div>
-                        <motion.div
+                        <motion.canvas
+                            id="image-compare-canvas"
+                            ref={normalCanvasRef}
+                            style={{
+                                display:
+                                    snap.mode === "slider" &&
+                                    sliderTrail !== "none" &&
+                                    !showWholeEffect
+                                        ? "block"
+                                        : "none",
+                                position: "absolute",
+                                inset: 0,
+                                width: "100%",
+                                height: "100%",
+                                zIndex: 2,
+                                pointerEvents: "none",
+                                filter: sliderTrail === "difference" ? "none" : "invert(1)",
+                                maskImage: normalCanvasMaskMv,
+                                WebkitMaskImage: normalCanvasMaskMv,
+                                maskRepeat: "no-repeat",
+                                WebkitMaskRepeat: "no-repeat",
+                            }}
+                        />
+                        <motion.canvas
+                            id="image-compare-canvas-inverted"
+                            ref={invertedCanvasRef}
                             style={{
                                 display:
                                     snap.mode === "slider" && sliderTrail !== "none"
@@ -536,42 +761,16 @@ function ImageCompare() {
                                         : "none",
                                 position: "absolute",
                                 inset: 0,
+                                width: "100%",
+                                height: "100%",
                                 zIndex: 2,
                                 pointerEvents: "none",
-                                maskImage: canvasMaskMv,
-                                WebkitMaskImage: canvasMaskMv,
+                                maskImage: showWholeEffect ? "none" : invertedCanvasMaskMv,
+                                WebkitMaskImage: showWholeEffect ? "none" : invertedCanvasMaskMv,
                                 maskRepeat: "no-repeat",
                                 WebkitMaskRepeat: "no-repeat",
                             }}
-                        >
-                            <motion.div
-                                style={{
-                                    ...zoomStyle,
-                                    position: "absolute",
-                                    left: contentLeft,
-                                    top: contentTop,
-                                    width: contentSize.width,
-                                    height: contentSize.height,
-                                    transformOrigin: "center center",
-                                }}
-                            >
-                                <motion.canvas
-                                    id="image-compare-canvas"
-                                    ref={canvasRef}
-                                    style={{
-                                        position: "absolute",
-                                        inset: 0,
-                                        width: "100%",
-                                        height: "100%",
-                                        pointerEvents: "none",
-                                        filter:
-                                            sliderTrail === "brightness"
-                                                ? brightnessDirectionFilterMv
-                                                : "none",
-                                    }}
-                                />
-                            </motion.div>
-                        </motion.div>
+                        />
                         <Box
                             asChild
                             _hover={{ "& > *": { bgColor: "grays.12" } }}
@@ -620,14 +819,6 @@ function ImageCompare() {
                                         ),
                                         1,
                                     )
-                                    const previousSliderPosition = sliderMv.get()
-                                    if (nextSliderPosition !== previousSliderPosition) {
-                                        brightnessDirectionFilterMv.set(
-                                            nextSliderPosition < previousSliderPosition
-                                                ? "invert(1)"
-                                                : "none",
-                                        )
-                                    }
                                     sliderMv.set(nextSliderPosition)
                                 }}
                             >
@@ -675,50 +866,105 @@ function ImageCompare() {
                     </HStack>
                     <ShiftHint snap={snap} gridArea={"hint"} />
                     {snap.mode === "slider" && (
-                        <HStack gridArea={"opts"}>
-                            <PanelSectionHeader>Effect</PanelSectionHeader>
-                            <PanelButton
-                                tone={sliderTrail === "none" ? sliderButtonTone : "none"}
-                                onClick={() => {
-                                    state.sliderTrail = "none"
-                                    state.canvasContents = "none"
-                                    if (!canvasRef.current) return
-                                    const ctx = canvasRef.current.getContext("2d")
-                                    ctx?.clearRect(
-                                        0,
-                                        0,
-                                        canvasRef.current.width,
-                                        canvasRef.current.height,
-                                    )
-                                }}
-                            >
-                                None
-                            </PanelButton>
-                            <PanelButton
-                                tone={sliderTrail === "brightness" ? sliderButtonTone : "none"}
-                                onClick={() => {
-                                    drawComparison("brightness")
-                                }}
-                            >
-                                Brightness
-                            </PanelButton>
-                            <PanelButton
-                                tone={sliderTrail === "color" ? sliderButtonTone : "none"}
-                                onClick={() => {
-                                    drawComparison("color")
-                                }}
-                            >
-                                Color
-                            </PanelButton>
-                            <PanelButton
-                                tone={sliderTrail === "difference" ? sliderButtonTone : "none"}
-                                onClick={() => {
-                                    drawComparison("difference")
-                                }}
-                            >
-                                Difference
-                            </PanelButton>
-                        </HStack>
+                        <VStack gridArea={"opts"} alignItems={"stretch"}>
+                            <HStack>
+                                <PanelSectionHeader>Effect</PanelSectionHeader>
+                                <PanelButton
+                                    tone={sliderTrail === "none" ? sliderButtonTone : "none"}
+                                    onClick={() => {
+                                        state.sliderTrail = "none"
+                                        state.canvasContents = "none"
+                                        copyComparisonBuffer("none")
+                                    }}
+                                >
+                                    None
+                                </PanelButton>
+                                <PanelButton
+                                    tone={sliderTrail === "brightness" ? sliderButtonTone : "none"}
+                                    onClick={() => {
+                                        drawComparison("brightness")
+                                    }}
+                                >
+                                    Brightness
+                                </PanelButton>
+                                <PanelButton
+                                    tone={sliderTrail === "color" ? sliderButtonTone : "none"}
+                                    onClick={() => {
+                                        drawComparison("color")
+                                    }}
+                                >
+                                    Color
+                                </PanelButton>
+                                <PanelButton
+                                    tone={sliderTrail === "difference" ? sliderButtonTone : "none"}
+                                    onClick={() => {
+                                        drawComparison("difference")
+                                    }}
+                                >
+                                    Difference
+                                </PanelButton>
+                            </HStack>
+                            <HStack>
+                                <PanelSectionHeader>Threshold</PanelSectionHeader>
+                                <Slider
+                                    minWidth={"10rem"}
+                                    min={0}
+                                    max={0.2}
+                                    step={0.01}
+                                    value={[snap.sliderThreshold]}
+                                    onValueChange={(value) => {
+                                        state.sliderThreshold = value.value[0]
+                                        updateEffectParam()
+                                    }}
+                                    mx={1}
+                                />
+                                {/*<NumberInputRoot
+                                    width={"6rem"}
+                                    min={0}
+                                    step={0.001}
+                                    value={snap.sliderThreshold.toString()}
+                                    onValueChange={(details) => {
+                                        if (Number.isFinite(details.valueAsNumber)) {
+                                            state.sliderThreshold = details.valueAsNumber
+                                            if (state.canvasContents !== "none") {
+                                                drawComparison(state.canvasContents, false)
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <NumberInputField aria-label={"Effect threshold"} />
+                                </NumberInputRoot>*/}
+                                <PanelSectionHeader>Gain</PanelSectionHeader>
+                                <Slider
+                                    minWidth={"10rem"}
+                                    min={1}
+                                    max={20}
+                                    step={1}
+                                    value={[snap.sliderGain]}
+                                    onValueChange={(value) => {
+                                        state.sliderGain = value.value[0]
+                                        updateEffectParam()
+                                    }}
+                                    mx={1}
+                                />
+                                {/*<NumberInputRoot
+                                    width={"6rem"}
+                                    min={0}
+                                    step={1}
+                                    value={snap.sliderGain.toString()}
+                                    onValueChange={(details) => {
+                                        if (Number.isFinite(details.valueAsNumber)) {
+                                            state.sliderGain = details.valueAsNumber
+                                            if (state.canvasContents !== "none") {
+                                                drawComparison(state.canvasContents, false)
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <NumberInputField aria-label={"Effect gain"} />
+                                </NumberInputRoot>*/}
+                            </HStack>
+                        </VStack>
                     )}
                     {snap.mode === "alt" && (
                         <HStack gridArea={"opts"}>
@@ -783,6 +1029,7 @@ function ImageCompare() {
 function getSliderTrailAndTone(snap: ImageCompareState): [SliderEffect, "info" | "selected"] {
     const tone = snap.shiftHeld ? "info" : "selected"
     if (snap.shiftHeld) {
+        if (!snap.sliderDragging) return [snap.canvasContents, tone]
         if (snap.sliderTrail === "none") return [snap.canvasContents, tone]
         return ["none", tone]
     }
@@ -800,7 +1047,11 @@ function getSliderTrailAndTone(snap: ImageCompareState): [SliderEffect, "info" |
  */
 function getShiftText(snap: ImageCompareState): string | null {
     if (snap.mode === "slider") {
-        if (!snap.sliderDragging) return null
+        if (!snap.sliderDragging) {
+            if (snap.canvasContents === "none") return null
+            if (snap.shiftHeld) return "hide whole effect"
+            return "show whole effect"
+        }
         // trail effect is active
         if (snap.sliderTrail !== "none") {
             if (snap.shiftHeld) return "show trail effect"

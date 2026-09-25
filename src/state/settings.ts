@@ -137,7 +137,7 @@ export function useSetting<K extends SettingsKey>(
 /**
  * Hook to use an app-wide setting in a non-reactive context. Mirrors the useRef() api
  * @param key The setting key
- * @returns A ref to the setting value
+ * @returns A ref to the setting value. Assign a new value to `current` will update the setting.
  */
 export function useSettingRef<K extends SettingsKey>(key: K): RefObject<Settings[K]> {
     const store = getSettingStore()

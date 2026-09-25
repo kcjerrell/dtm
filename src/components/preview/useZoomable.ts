@@ -16,6 +16,7 @@ export function useZoomable(
         contentSize?: { width: number; height: number }
         contentOffset?: { left: number; top: number }
         viewportSize?: { width: number; height: number }
+        zoomViewportRef?: RefObject<HTMLElement | null>
         mapZoomPoint?: (clientX: number, clientY: number) => { clientX: number; clientY: number }
         onZoomOutBoundary?: () => void
         maxZoom?: number
@@ -25,6 +26,7 @@ export function useZoomable(
         contentSize,
         contentOffset,
         viewportSize,
+        zoomViewportRef,
         mapZoomPoint,
         onZoomOutBoundary,
         maxZoom = MAX_ZOOM,
@@ -102,7 +104,9 @@ export function useZoomable(
 
             const ratio = newScale / scale
 
-            const viewportRect = motionRef.current?.getBoundingClientRect()
+            const viewportRect =
+                zoomViewportRef?.current?.getBoundingClientRect() ??
+                motionRef.current?.getBoundingClientRect()
             const cx = viewportRect
                 ? viewportRect.left + viewportRect.width / 2
                 : window.innerWidth / 2
@@ -122,7 +126,16 @@ export function useZoomable(
             posRef.current = { x: clamped.x, y: clamped.y, scale: newScale }
             setMv()
         },
-        [setMv, clampPos, getElapsed, mapZoomPoint, motionRef, onZoomOutBoundary, maxZoom],
+        [
+            setMv,
+            clampPos,
+            getElapsed,
+            mapZoomPoint,
+            motionRef,
+            onZoomOutBoundary,
+            maxZoom,
+            zoomViewportRef,
+        ],
     )
 
     useEffect(() => {
