@@ -45,6 +45,9 @@ export interface ModeViewProps<T = unknown> extends MotionProps {
     containerStyle?: MotionStyle
     selfProps?: T
 }
+export interface ModeSettingProps<T = unknown> extends ChakraProps {
+    selfProps?: T
+}
 export interface ImageCompareMode<T = unknown> {
     name: string
     useMode: (
@@ -54,7 +57,7 @@ export interface ImageCompareMode<T = unknown> {
     ) => UseModeResult<T>
     Button: React.FC<ModeButtonProps>
     View: React.FC<ModeViewProps<T>>
-    Settings: React.FC<T>
+    Settings: React.FC<ModeSettingProps<T>>
 }
 
 type ImageCompareHooksContextType = {

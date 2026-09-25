@@ -12,7 +12,7 @@ export type ImageCompareState = {
     imageBSrc?: string
 
     /** The active comparison mode: slider, alternate, or side-by-side */
-    mode: "slider" | "alt" | "sbs"
+    mode: string
     /** The selected slider trail effect */
     sliderTrail: SliderEffect
     /** The slider trail effect currently stored in the canvas */

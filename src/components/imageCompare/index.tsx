@@ -695,6 +695,15 @@ function ImageCompare(props: ImageCompareProps) {
                             }}
                         >
                             <PanelSectionHeader>Mode</PanelSectionHeader>
+                            {modes.map(([Mode, _]) => (
+                                <Mode.Button
+                                    key={Mode.name}
+                                    selected={snap.mode === Mode.name}
+                                    onClick={() => {
+                                        state.mode = Mode.name
+                                    }}
+                                />
+                            ))}
                             <IconButton
                                 tone={snap.mode === "slider" ? "selected" : "none"}
                                 onClick={() => {
@@ -703,12 +712,6 @@ function ImageCompare(props: ImageCompareProps) {
                             >
                                 <TfiSplitH />
                             </IconButton>
-                            <AltMode.Button
-                                selected={snap.mode === "alt"}
-                                onClick={() => {
-                                    state.mode = "alt"
-                                }}
-                            />
                             <IconButton
                                 tone={snap.mode === "sbs" ? "selected" : "none"}
                                 onClick={() => {
@@ -836,8 +839,12 @@ function ImageCompare(props: ImageCompareProps) {
                             </HStack>
                         )}
 
-                        {/* alt mode buttons */}
-                        <AltMode.Settings />
+                        {modes.map(([Mode, value]) => (
+                            <Mode.Settings
+                                key={Mode.name}
+                                selfProps={value.selfProps}
+                            />
+                        ))}
 
                         {/* sbs layout buttons */}
                         {snap.mode === "sbs" && (
