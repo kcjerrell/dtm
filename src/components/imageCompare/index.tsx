@@ -1,13 +1,11 @@
 import { Box, chakra, HStack, Kbd } from "@chakra-ui/react"
 import { type MotionStyle, motion } from "motion/react"
 import { type ReactElement, useCallback, useEffect, useMemo } from "react"
-import { LuStretchHorizontal, LuStretchVertical } from "react-icons/lu"
-import { RiLayoutColumnFill } from "react-icons/ri"
 import type { Snapshot } from "valtio"
 import { PanelSectionHeader } from "@/components/common"
-import IconButton from "../IconButton"
 import AltMode from "./AltMode"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
+import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
@@ -50,13 +48,15 @@ function ImageCompare(props: ImageCompareProps) {
     const { ...restProps } = props
     const [Provider, state, snap] = ImageCompareContext.useCreate(props)
     const [HooksProvider, hooks] = useCreateImageCompareContext(state, snap)
-    const { refs, mv, zoomHandlers, zoomStyle } = hooks
+    const { refs, zoomHandlers, zoomStyle } = hooks
 
     const contentSize = snap.contentSize
     const contentOffset = snap.contentOffset
 
-    const altMode = AltMode.useMode(state, snap, hooks)
     const sliderMode = SliderMode.useMode(state, snap, hooks)
+    const altMode = AltMode.useMode(state, snap, hooks)
+    const sbsMode = SbsMode.useMode(state, snap, hooks)
+    
     const imageContainerStyle: MotionStyle = useMemo(
         () => ({
             ...zoomStyle,
@@ -71,11 +71,11 @@ function ImageCompare(props: ImageCompareProps) {
     )
 
     const modes = [
-        bindMode(AltMode, altMode, imageContainerStyle),
         bindMode(SliderMode, sliderMode, imageContainerStyle),
+        bindMode(AltMode, altMode, imageContainerStyle),
+        bindMode(SbsMode, sbsMode, imageContainerStyle),
     ]
     const activeMode = modes.find((mode) => mode.name === snap.mode)
-    const { copyComparisonBuffer, drawComparison } = sliderMode.selfProps
 
     const onLoadA = useCallback(
         (element: HTMLImageElement) => {
@@ -91,18 +91,6 @@ function ImageCompare(props: ImageCompareProps) {
                 state.shiftHeld = true
             } else if (e.code === "Space") {
                 activeMode?.keyHandlers?.space?.()
-                // if (state.mode === "slider") {
-                //     if (state.sliderTrail === "none") drawComparison("brightness")
-                //     else if (state.sliderTrail === "brightness") drawComparison("color")
-                //     else if (state.sliderTrail === "color") drawComparison("difference")
-                //     else {
-                //         state.sliderTrail = "none"
-                //         state.canvasContents = "none"
-                //         copyComparisonBuffer("none")
-                //     }
-                // } else if (state.mode === "sbs") {
-                //     state.sbsLayout = state.sbsLayout === "horizontal" ? "vertical" : "horizontal"
-                // }
             } else if (e.code === "Tab") {
                 e.preventDefault()
                 state.mode =
@@ -152,7 +140,6 @@ function ImageCompare(props: ImageCompareProps) {
                             id="image-compare-stage"
                             style={{
                                 ...imageContainerStyle,
-                                display: snap.mode === "sbs" ? "none" : "block",
                                 imageRendering: "pixelated",
                             }}
                         >
@@ -187,6 +174,7 @@ function ImageCompare(props: ImageCompareProps) {
                                 width: "1px",
                                 height: "1.75rem",
                                 boxShadow: "lg",
+                                marginRight: 2
                             }}
                         >
                             <PanelSectionHeader>Mode</PanelSectionHeader>
@@ -202,40 +190,9 @@ function ImageCompare(props: ImageCompareProps) {
                                     />
                                 )
                             })}
-                            <IconButton
-                                tone={snap.mode === "sbs" ? "selected" : "none"}
-                                onClick={() => {
-                                    state.mode = "sbs"
-                                }}
-                            >
-                                <RiLayoutColumnFill />
-                            </IconButton>
                         </HStack>
 
                         {modes.map((mode) => mode.settings)}
-
-                        {/* sbs layout buttons */}
-                        {snap.mode === "sbs" && (
-                            <HStack>
-                                <PanelSectionHeader>Layout</PanelSectionHeader>
-                                <IconButton
-                                    tone={snap.sbsLayout === "horizontal" ? "selected" : "none"}
-                                    onClick={() => {
-                                        state.sbsLayout = "horizontal"
-                                    }}
-                                >
-                                    <LuStretchHorizontal />
-                                </IconButton>
-                                <IconButton
-                                    tone={snap.sbsLayout === "vertical" ? "selected" : "none"}
-                                    onClick={() => {
-                                        state.sbsLayout = "vertical"
-                                    }}
-                                >
-                                    <LuStretchVertical />
-                                </IconButton>
-                            </HStack>
-                        )}
                     </HStack>
 
                     {/* hint text */}
