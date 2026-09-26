@@ -1,6 +1,6 @@
 import { Box, HoverCard, HStack, VStack } from "@chakra-ui/react"
 import { useDebounceFn } from "ahooks"
-import { motion } from "motion/react"
+import { motion, useTransform } from "motion/react"
 import { useCallback, useEffect, useMemo } from "react"
 import { FaToggleOff } from "react-icons/fa"
 import { ImBrightnessContrast } from "react-icons/im"
@@ -9,6 +9,7 @@ import { MdOutlineColorLens } from "react-icons/md"
 import { TbAdjustmentsHorizontal } from "react-icons/tb"
 import { TfiSplitH } from "react-icons/tfi"
 import type { Snapshot } from "valtio"
+import { subscribeKey } from "valtio/utils"
 import { PanelSectionHeader } from "@/components/common"
 import { Slider } from "@/components/ui/slider"
 import IconButton from "../IconButton"
@@ -22,6 +23,7 @@ import {
     type UseModeResult,
     useImageCompareHooks,
 } from "./hooks"
+import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
 
 interface ViewportCanvasGeometry {
@@ -36,8 +38,9 @@ interface ViewportCanvasGeometry {
 
 interface SliderModeProps {
     sliderTrail: SliderEffect
+    displayedEffect: SliderEffect
+    effectDisplay: SliderEffectDisplay
     sliderButtonTone: "info" | "selected"
-    showWholeEffect: boolean
     selectEffect: (effect: SliderEffect) => void
     updateEffectParam: () => void
 }
@@ -114,21 +117,30 @@ function useMode(
     const contentSize = snap.contentSize
     const contentOffset = snap.contentOffset
 
-    const [sliderTrail, sliderButtonTone] = getSliderTrailAndTone(snap)
-    const showWholeEffect =
-        snap.mode === "slider" && snap.shiftHeld && !snap.sliderDragging && sliderTrail !== "none"
+    const sliderTrail = snap.sliderTrail
+    const effectDisplay = snap.sliderEffectDisplay
+    const displayedEffect = effectDisplay === "full" ? snap.canvasContents : sliderTrail
+    const sliderButtonTone = snap.shiftHeld ? "info" : "selected"
+
+    useEffect(
+        () =>
+            subscribeKey(
+                state,
+                "shiftHeld",
+                (shiftHeld) => {
+                    state.sliderEffectDisplay = transitionSliderEffectDisplay(
+                        state.sliderEffectDisplay,
+                        shiftHeld ? "shiftDown" : "shiftUp",
+                        state.sliderDragging,
+                    )
+                },
+                true,
+            ),
+        [state],
+    )
 
     const copyComparisonBuffer = useCallback(
         (effect: SliderEffect = state.canvasContents) => {
-            if (
-                effect !== "none" &&
-                (zoomStyle.x.isAnimating() ||
-                    zoomStyle.y.isAnimating() ||
-                    zoomStyle.scale.isAnimating())
-            ) {
-                return
-            }
-
             const scale = zoomStyle.scale.get()
             const scaledWidth = contentSize.width * scale
             const scaledHeight = contentSize.height * scale
@@ -164,6 +176,29 @@ function useMode(
         ],
     )
 
+    const copySettledComparisonBuffer = useCallback(
+        (effect: SliderEffect = state.canvasContents) => {
+            if (
+                effect !== "none" &&
+                (zoomStyle.x.isAnimating() ||
+                    zoomStyle.y.isAnimating() ||
+                    zoomStyle.scale.isAnimating())
+            ) {
+                return
+            }
+            copyComparisonBuffer(effect)
+        },
+        [copyComparisonBuffer, state, zoomStyle.scale, zoomStyle.x, zoomStyle.y],
+    )
+
+    const copyActiveComparisonBuffer = useCallback(
+        (effect: SliderEffect = state.canvasContents) => {
+            if (state.sliderEffectDisplay === "full") copyComparisonBuffer(effect)
+            else copySettledComparisonBuffer(effect)
+        },
+        [copyComparisonBuffer, copySettledComparisonBuffer, state],
+    )
+
     const drawComparison = useCallback(
         (effect: Exclude<SliderEffect, "none">, selectEffect = true) => {
             if (selectEffect) state.sliderTrail = effect
@@ -191,12 +226,12 @@ function useMode(
                     })
                 }
                 state.canvasContents = effect
-                copyComparisonBuffer(effect)
+                copyActiveComparisonBuffer(effect)
             } catch (error) {
                 console.error(error)
             }
         },
-        [copyComparisonBuffer, state, refs],
+        [copyActiveComparisonBuffer, state, refs],
     )
 
     const { run: updateEffectParam } = useDebounceFn(
@@ -208,16 +243,19 @@ function useMode(
 
     useEffect(() => {
         let animationFrame: number | undefined
-        const copyAfterTransformSettles = () => {
-            if (animationFrame !== undefined) cancelAnimationFrame(animationFrame)
+        const scheduleCopy = () => {
+            if (animationFrame !== undefined) return
             animationFrame = requestAnimationFrame(() => {
                 animationFrame = undefined
-                copyComparisonBuffer()
+                if (effectDisplay === "full") copyComparisonBuffer()
+                else copySettledComparisonBuffer()
             })
         }
-        const unsubscribeX = zoomStyle.x.on("animationComplete", copyAfterTransformSettles)
-        const unsubscribeY = zoomStyle.y.on("animationComplete", copyAfterTransformSettles)
-        const unsubscribeScale = zoomStyle.scale.on("animationComplete", copyAfterTransformSettles)
+        const eventName = effectDisplay === "full" ? "change" : "animationComplete"
+        const unsubscribeX = zoomStyle.x.on(eventName, scheduleCopy)
+        const unsubscribeY = zoomStyle.y.on(eventName, scheduleCopy)
+        const unsubscribeScale = zoomStyle.scale.on(eventName, scheduleCopy)
+        scheduleCopy()
 
         return () => {
             if (animationFrame !== undefined) cancelAnimationFrame(animationFrame)
@@ -225,23 +263,26 @@ function useMode(
             unsubscribeY()
             unsubscribeScale()
         }
-    }, [copyComparisonBuffer, zoomStyle.scale, zoomStyle.x, zoomStyle.y])
-
-    useEffect(() => {
-        copyComparisonBuffer()
-    }, [copyComparisonBuffer])
+    }, [
+        copyComparisonBuffer,
+        copySettledComparisonBuffer,
+        effectDisplay,
+        zoomStyle.scale,
+        zoomStyle.x,
+        zoomStyle.y,
+    ])
 
     const selectEffect = useCallback(
         (effect: SliderEffect) => {
             if (effect === "none") {
                 state.sliderTrail = "none"
                 state.canvasContents = "none"
-                copyComparisonBuffer("none")
+                copyActiveComparisonBuffer("none")
             } else {
                 drawComparison(effect)
             }
         },
-        [copyComparisonBuffer, drawComparison, state],
+        [copyActiveComparisonBuffer, drawComparison, state],
     )
 
     const keyHandlers = useMemo(
@@ -256,12 +297,20 @@ function useMode(
     const selfProps = useMemo(
         () => ({
             sliderTrail,
+            displayedEffect,
+            effectDisplay,
             sliderButtonTone,
-            showWholeEffect,
             selectEffect,
             updateEffectParam,
         }),
-        [selectEffect, showWholeEffect, sliderButtonTone, sliderTrail, updateEffectParam],
+        [
+            displayedEffect,
+            effectDisplay,
+            selectEffect,
+            sliderButtonTone,
+            sliderTrail,
+            updateEffectParam,
+        ],
     )
 
     return { selfProps, keyHandlers }
@@ -271,9 +320,17 @@ function View(props: ModeViewProps<SliderModeProps>) {
     const { containerStyle, selfProps } = props
     const [state, snap] = ImageCompareContext.useContext()
     const { refs, mv } = useImageCompareHooks()
+    const leftOfSliderClipMv = useTransform(
+        mv.sliderMv,
+        (value) => `inset(0 ${(1 - value) * 100}% 0 0)`,
+    )
     if (!selfProps) return null
 
-    const { showWholeEffect, sliderTrail } = selfProps
+    const { displayedEffect, effectDisplay } = selfProps
+    const showEffect =
+        snap.mode === "slider" && displayedEffect !== "none" && effectDisplay !== "hidden"
+    const showFullEffect = effectDisplay === "full"
+    const showSplitEffect = showFullEffect && displayedEffect !== "difference"
 
     return (
         <>
@@ -315,7 +372,7 @@ function View(props: ModeViewProps<SliderModeProps>) {
                 ref={refs.normalCanvasRef}
                 style={{
                     display:
-                        snap.mode === "slider" && sliderTrail !== "none" && !showWholeEffect
+                        showEffect && (effectDisplay === "trail" || showSplitEffect)
                             ? "block"
                             : "none",
                     position: "absolute",
@@ -324,8 +381,9 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     height: "100%",
                     zIndex: 2,
                     pointerEvents: "none",
-                    maskImage: mv.normalCanvasMaskMv,
-                    WebkitMaskImage: mv.normalCanvasMaskMv,
+                    clipPath: showSplitEffect ? leftOfSliderClipMv : "none",
+                    maskImage: showSplitEffect ? "none" : mv.normalCanvasMaskMv,
+                    WebkitMaskImage: showSplitEffect ? "none" : mv.normalCanvasMaskMv,
                     maskRepeat: "no-repeat",
                     WebkitMaskRepeat: "no-repeat",
                     mixBlendMode: "normal",
@@ -336,16 +394,17 @@ function View(props: ModeViewProps<SliderModeProps>) {
                 id="image-compare-canvas-inverted"
                 ref={refs.invertedCanvasRef}
                 style={{
-                    display: snap.mode === "slider" && sliderTrail !== "none" ? "block" : "none",
+                    display: showEffect ? "block" : "none",
                     position: "absolute",
                     inset: 0,
                     width: "100%",
                     height: "100%",
                     zIndex: 2,
                     pointerEvents: "none",
-                    filter: showWholeEffect || sliderTrail === "difference" ? "none" : "invert(1)",
-                    maskImage: showWholeEffect ? "none" : mv.invertedCanvasMaskMv,
-                    WebkitMaskImage: showWholeEffect ? "none" : mv.invertedCanvasMaskMv,
+                    filter: displayedEffect === "difference" ? "none" : "invert(1)",
+                    clipPath: showSplitEffect ? mv.clipMv : "none",
+                    maskImage: showFullEffect ? "none" : mv.invertedCanvasMaskMv,
+                    WebkitMaskImage: showFullEffect ? "none" : mv.invertedCanvasMaskMv,
                     maskRepeat: "no-repeat",
                     WebkitMaskRepeat: "no-repeat",
                     mixBlendMode: "normal",
@@ -379,9 +438,19 @@ function View(props: ModeViewProps<SliderModeProps>) {
                         event.stopPropagation()
                     }}
                     onDragStart={() => {
+                        state.sliderEffectDisplay = transitionSliderEffectDisplay(
+                            state.sliderEffectDisplay,
+                            "dragStart",
+                            state.sliderDragging,
+                        )
                         state.sliderDragging = true
                     }}
                     onDragEnd={() => {
+                        state.sliderEffectDisplay = transitionSliderEffectDisplay(
+                            state.sliderEffectDisplay,
+                            "dragEnd",
+                            state.sliderDragging,
+                        )
                         state.sliderDragging = false
                     }}
                     onDrag={() => {
@@ -506,18 +575,6 @@ function Button(props: ModeButtonProps) {
             <TfiSplitH />
         </IconButton>
     )
-}
-
-function getSliderTrailAndTone(
-    snap: Snapshot<ImageCompareState>,
-): [SliderEffect, "info" | "selected"] {
-    const tone = snap.shiftHeld ? "info" : "selected"
-    if (snap.shiftHeld) {
-        if (!snap.sliderDragging) return [snap.canvasContents, tone]
-        if (snap.sliderTrail === "none") return [snap.canvasContents, tone]
-        return ["none", tone]
-    }
-    return [snap.sliderTrail, tone]
 }
 
 export default {

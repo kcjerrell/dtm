@@ -214,23 +214,18 @@ function ImageCompare(props: ImageCompareProps) {
  */
 function getShiftText(snap: ImageCompareState): string | null {
     if (snap.mode === "slider") {
-        if (!snap.sliderDragging) {
+        if (snap.sliderEffectDisplay === "full") {
             if (snap.canvasContents === "none") return null
-            if (snap.shiftHeld) return "hide whole effect"
-            return "show whole effect"
+            return snap.sliderDragging ? "show trail effect" : "hide whole effect"
         }
-        // trail effect is active
-        if (snap.sliderTrail !== "none") {
-            if (snap.shiftHeld) return "show trail effect"
-            return "hide trail effect"
+        if (snap.sliderEffectDisplay === "hidden") {
+            return snap.sliderTrail === "none" ? null : "show trail effect"
         }
-        // trail effect is disabled but loaded
-        if (snap.canvasContents !== "none") {
-            if (snap.shiftHeld) return "hide trail effect"
-            return "show trail effect"
+        if (snap.shiftHeld) return null
+        if (snap.sliderDragging) {
+            return snap.sliderTrail === "none" ? null : "hide trail effect"
         }
-        // no effect is loaded
-        return null
+        return snap.canvasContents === "none" ? null : "show whole effect"
     }
     if (snap.mode === "alt") {
         // animation is active

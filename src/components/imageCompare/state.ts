@@ -1,5 +1,6 @@
 import { buildStateContext } from "@/hooks/buildStateContext"
 import type { ImageCompareProps } from "."
+import type { SliderEffectDisplay } from "./sliderEffectDisplay"
 
 export type SliderEffect = "brightness" | "color" | "difference" | "none"
 export type SbsLayout = "horizontal" | "vertical"
@@ -22,6 +23,8 @@ export type ImageCompareState = {
     sliderGain: number
     /** true while the slider is currently being dragged */
     sliderDragging: boolean
+    /** controls whether the slider effect is trailing, hidden, or shown in full */
+    sliderEffectDisplay: SliderEffectDisplay
 
     /** the value of the speed slider (0 to 10) */
     altSpeedInput: number
@@ -56,6 +59,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         mode: "slider",
         sliderTrail: "none",
         sliderDragging: false,
+        sliderEffectDisplay: "trail",
         canvasContents: "none",
         sliderThreshold: 0.02,
         sliderGain: 10,
