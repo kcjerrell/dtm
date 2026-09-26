@@ -38,13 +38,15 @@ interface SliderModeProps {
     sliderTrail: SliderEffect
     sliderButtonTone: "info" | "selected"
     showWholeEffect: boolean
-    copyComparisonBuffer: (effect?: SliderEffect) => void
-    drawComparison: (effect: Exclude<SliderEffect, "none">, selectEffect?: boolean) => void
+    selectEffect: (effect: SliderEffect) => void
     updateEffectParam: () => void
 }
 
-interface SliderModeResult extends UseModeResult<SliderModeProps> {
-    selfProps: SliderModeProps
+const NEXT_SLIDER_EFFECT: Record<SliderEffect, SliderEffect> = {
+    none: "brightness",
+    brightness: "color",
+    color: "difference",
+    difference: "none",
 }
 
 function drawComparisonRegion(
@@ -107,7 +109,7 @@ function useMode(
     state: ImageCompareState,
     snap: Snapshot<ImageCompareState>,
     hooks: ImageCompareHooksContextType,
-): SliderModeResult {
+): UseModeResult<SliderModeProps> {
     const { refs, zoomStyle } = hooks
     const contentSize = snap.contentSize
     const contentOffset = snap.contentOffset
@@ -229,26 +231,40 @@ function useMode(
         copyComparisonBuffer()
     }, [copyComparisonBuffer])
 
+    const selectEffect = useCallback(
+        (effect: SliderEffect) => {
+            if (effect === "none") {
+                state.sliderTrail = "none"
+                state.canvasContents = "none"
+                copyComparisonBuffer("none")
+            } else {
+                drawComparison(effect)
+            }
+        },
+        [copyComparisonBuffer, drawComparison, state],
+    )
+
+    const keyHandlers = useMemo(
+        () => ({
+            space: () => {
+                selectEffect(NEXT_SLIDER_EFFECT[state.sliderTrail])
+            },
+        }),
+        [selectEffect, state],
+    )
+
     const selfProps = useMemo(
         () => ({
             sliderTrail,
             sliderButtonTone,
             showWholeEffect,
-            copyComparisonBuffer,
-            drawComparison,
+            selectEffect,
             updateEffectParam,
         }),
-        [
-            copyComparisonBuffer,
-            drawComparison,
-            showWholeEffect,
-            sliderButtonTone,
-            sliderTrail,
-            updateEffectParam,
-        ],
+        [selectEffect, showWholeEffect, sliderButtonTone, sliderTrail, updateEffectParam],
     )
 
-    return { selfProps }
+    return { selfProps, keyHandlers }
 }
 
 function View(props: ModeViewProps<SliderModeProps>) {
@@ -408,42 +424,33 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     const [state, snap] = ImageCompareContext.useContext()
     if (snap.mode !== "slider" || !selfProps) return null
 
-    const {
-        copyComparisonBuffer,
-        drawComparison,
-        sliderButtonTone,
-        sliderTrail,
-        updateEffectParam,
-    } = selfProps
+    const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
 
     return (
         <HStack {...restProps}>
             <PanelSectionHeader>Effect</PanelSectionHeader>
             <IconButton
                 tone={sliderTrail === "none" ? sliderButtonTone : "none"}
-                onClick={() => {
-                    state.sliderTrail = "none"
-                    state.canvasContents = "none"
-                    copyComparisonBuffer("none")
-                }}
+                onClick={() => selectEffect("none")}
             >
-                <FaToggleOff />
+                X
+                {/*<FaToggleOff />*/}
             </IconButton>
             <IconButton
                 tone={sliderTrail === "brightness" ? sliderButtonTone : "none"}
-                onClick={() => drawComparison("brightness")}
+                onClick={() => selectEffect("brightness")}
             >
                 <ImBrightnessContrast />
             </IconButton>
             <IconButton
                 tone={sliderTrail === "color" ? sliderButtonTone : "none"}
-                onClick={() => drawComparison("color")}
+                onClick={() => selectEffect("color")}
             >
                 <MdOutlineColorLens />
             </IconButton>
             <IconButton
                 tone={sliderTrail === "difference" ? sliderButtonTone : "none"}
-                onClick={() => drawComparison("difference")}
+                onClick={() => selectEffect("difference")}
             >
                 <IoInvertMode />
             </IconButton>

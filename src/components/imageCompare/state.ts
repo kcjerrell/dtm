@@ -1,5 +1,4 @@
 import { buildStateContext } from "@/hooks/buildStateContext"
-import { useRef } from "react"
 import type { ImageCompareProps } from "."
 
 export type SliderEffect = "brightness" | "color" | "difference" | "none"
@@ -46,46 +45,48 @@ export type ImageCompareState = {
     imageBWidth: number
     imageBHeight: number
 
-    contentSize: { width: number, height: number },
-    contentOffset: { left: number, top: number },
+    contentSize: { width: number; height: number }
+    contentOffset: { left: number; top: number }
 }
 
-export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCompareProps>((props?: ImageCompareProps) => ({
-    imageASrc: props?.a,
-    imageBSrc: props?.b,
-    mode: "slider",
-    sliderTrail: "none",
-    sliderDragging: false,
-    canvasContents: "none",
-    sliderThreshold: 0.02,
-    sliderGain: 10,
-    shiftHeld: false,
-    altSpeedInput: 5,
-    altSpeed: 5,
-    altPhase: 0.0,
-    sbsLayout: "horizontal",
-    viewportWidth: 0,
-    viewportHeight: 0,
-    viewportPixelRatio: 1,
-    imageAWidth: 0,
-    imageAHeight: 0,
-    imageBWidth: 0,
-    imageBHeight: 0,
-    get contentSize() {
-        const contentWidth = Math.max(this.imageAWidth, this.imageBWidth)
-        const contentHeight = Math.max(this.imageAHeight, this.imageBHeight)
-        const viewportHeight = this.viewportHeight
-        const viewportWidth = this.viewportWidth
+export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCompareProps>(
+    (props?: ImageCompareProps) => ({
+        imageASrc: props?.a,
+        imageBSrc: props?.b,
+        mode: "slider",
+        sliderTrail: "none",
+        sliderDragging: false,
+        canvasContents: "none",
+        sliderThreshold: 0.02,
+        sliderGain: 10,
+        shiftHeld: false,
+        altSpeedInput: 5,
+        altSpeed: 5,
+        altPhase: 0.0,
+        sbsLayout: "horizontal",
+        viewportWidth: 0,
+        viewportHeight: 0,
+        viewportPixelRatio: 1,
+        imageAWidth: 0,
+        imageAHeight: 0,
+        imageBWidth: 0,
+        imageBHeight: 0,
+        get contentSize() {
+            const contentWidth = Math.max(this.imageAWidth, this.imageBWidth)
+            const contentHeight = Math.max(this.imageAHeight, this.imageBHeight)
+            const viewportHeight = this.viewportHeight
+            const viewportWidth = this.viewportWidth
 
-        return containSize(contentWidth, contentHeight, viewportWidth, viewportHeight)
-    },
-    get contentOffset() {
-        const contentLeft = (this.viewportWidth - this.contentSize.width) / 2
-        const contentTop = (this.viewportHeight - this.contentSize.height) / 2
+            return containSize(contentWidth, contentHeight, viewportWidth, viewportHeight)
+        },
+        get contentOffset() {
+            const contentLeft = (this.viewportWidth - this.contentSize.width) / 2
+            const contentTop = (this.viewportHeight - this.contentSize.height) / 2
 
-        return { left: contentLeft, top: contentTop }
-    }
-}))
+            return { left: contentLeft, top: contentTop }
+        },
+    }),
+)
 
 function containSize(
     contentWidth: number,

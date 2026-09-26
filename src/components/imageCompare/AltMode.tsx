@@ -1,6 +1,6 @@
 import { Grid, HStack } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { useMemo, type CSSProperties } from "react"
+import { type CSSProperties, useMemo } from "react"
 import { PiRepeatBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
 import { IconButton } from "@/components"

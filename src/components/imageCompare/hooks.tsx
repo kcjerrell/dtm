@@ -7,7 +7,15 @@ import {
     useSpring,
     useTransform,
 } from "motion/react"
-import { createContext, type RefObject, useContext, useMemo, useRef, useEffect } from "react"
+import {
+    createContext,
+    type RefObject,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+} from "react"
 import type { Snapshot } from "valtio"
 import { useZoomable } from "@/components/preview/useZoomable"
 import type { IconButtonProps } from "../IconButton"
@@ -99,9 +107,40 @@ export function useCreateImageCompareContext(
         () => ({ left: snap.contentOffset.left, top: snap.contentOffset.top }),
         [snap.contentOffset.left, snap.contentOffset.top],
     )
+    const sbsViewportSize = useMemo(
+        () => ({
+            width: snap.viewportWidth / (snap.sbsLayout === "horizontal" ? 2 : 1),
+            height: snap.viewportHeight / (snap.sbsLayout === "vertical" ? 2 : 1),
+        }),
+        [snap.sbsLayout, snap.viewportHeight, snap.viewportWidth],
+    )
+    const mapSbsZoomPoint = useCallback((clientX: number, clientY: number) => {
+        const paneA = sbsPaneARef.current?.getBoundingClientRect()
+        const paneB = sbsPaneBRef.current?.getBoundingClientRect()
+
+        if (
+            paneA &&
+            paneB &&
+            paneB.width > 0 &&
+            paneB.height > 0 &&
+            clientX >= paneB.left &&
+            clientX <= paneB.right &&
+            clientY >= paneB.top &&
+            clientY <= paneB.bottom
+        ) {
+            return {
+                clientX: paneA.left + ((clientX - paneB.left) / paneB.width) * paneA.width,
+                clientY: paneA.top + ((clientY - paneB.top) / paneB.height) * paneA.height,
+            }
+        }
+        return { clientX, clientY }
+    }, [])
     const { handlers: zoomHandlers, style: zoomStyle } = useZoomable(viewportRef, {
         contentSize,
         contentOffset,
+        viewportSize: snap.mode === "sbs" ? sbsViewportSize : undefined,
+        zoomViewportRef: snap.mode === "sbs" ? sbsPaneARef : undefined,
+        mapZoomPoint: snap.mode === "sbs" ? mapSbsZoomPoint : undefined,
         maxZoom: 16,
     })
 
