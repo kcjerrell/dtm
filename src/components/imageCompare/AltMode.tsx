@@ -1,12 +1,19 @@
-import { motion, MotionProps, MotionStyle } from "motion/react"
-import { ImageCompareContext, ImageCompareState as Ics } from "./state"
-import { CSSProperties, useMemo, useRef } from "react"
 import { Grid, HStack } from "@chakra-ui/react"
-import { IconButton, PanelButton } from "@/components"
-import { Slider } from "../ui/slider"
-import { ImageCompareMode, ModeButtonProps, ModeViewProps, useImageCompareHooks } from "./hooks"
-import { Snapshot } from "valtio"
+import { motion } from "motion/react"
+import { useMemo, type CSSProperties } from "react"
 import { PiRepeatBold } from "react-icons/pi"
+import type { Snapshot } from "valtio"
+import { IconButton } from "@/components"
+import { Slider } from "../ui/slider"
+import type {
+    ImageCompareHooksContextType,
+    ImageCompareMode,
+    ModeButtonProps,
+    ModeSettingProps,
+    ModeViewProps,
+    UseModeResult,
+} from "./hooks"
+import { ImageCompareContext, type ImageCompareState } from "./state"
 
 const ALT_ANIM_STYLE = {
     animationDuration: "var(--alt-duration)",
@@ -14,11 +21,11 @@ const ALT_ANIM_STYLE = {
     animationDelay: "calc(var(--alt-duration) * var(--alt-phase) * -1)",
 } as CSSProperties
 
-interface AltModeViewProps extends MotionProps {
-    containerStyle: MotionStyle
-}
-
-function useMode(_: Ics, snap: Snapshot<Ics>){
+function useMode(
+    state: ImageCompareState,
+    snap: Snapshot<ImageCompareState>,
+    _hooks: ImageCompareHooksContextType,
+): UseModeResult<never> {
     const altAnimationDuration = `${3 / snap.altSpeed}s`
     const altAnimationState = snap.shiftHeld || snap.altSpeedInput === 0 ? "paused" : "running"
     const altPhase = ((snap.shiftHeld && snap.altSpeedInput === 0 ? 0.5 : 0) + snap.altPhase) % 1
@@ -31,11 +38,21 @@ function useMode(_: Ics, snap: Snapshot<Ics>){
         } as CSSProperties,
     }
 
-    return { rootProps }
+    const keyHandlers = useMemo(
+        () => ({
+            space: () => {
+                if (state.altSpeedInput === 0) state.altSpeedInput = state.altSpeed
+                else state.altSpeedInput = 0
+            },
+        }),
+        [state],
+    )
+
+    return { rootProps, keyHandlers }
 }
 
-function View(props: ModeViewProps) {
-    const { containerStyle, ...restProps } = props
+function View(props: ModeViewProps<never>) {
+    const { containerStyle, selfProps: _selfProps, ...restProps } = props
     const [_, snap] = ImageCompareContext.useContext()
 
     return (
@@ -68,13 +85,14 @@ function View(props: ModeViewProps) {
     )
 }
 
-function Settings(props: ChakraProps) {
+function Settings(props: ModeSettingProps<never>) {
+    const { selfProps: _selfProps, ...restProps } = props
     const [state, snap] = ImageCompareContext.useContext()
 
     if (snap.mode !== "alt") return null
 
     return (
-        <HStack gridArea={"opts"} {...props}>
+        <HStack gridArea={"opts"} {...restProps}>
             <Grid
                 gridTemplateAreas={"button"}
                 transformStyle={"preserve-3d"}
@@ -114,10 +132,7 @@ function Settings(props: ChakraProps) {
 function Button(props: ModeButtonProps) {
     const { selected, ...restProps } = props
     return (
-        <IconButton
-            tone={selected ? "selected" : "none"}
-            {...restProps}
-        >
+        <IconButton tone={selected ? "selected" : "none"} {...restProps}>
             <PiRepeatBold />
         </IconButton>
     )
@@ -128,5 +143,5 @@ export default {
     View,
     Button,
     Settings,
-    useMode
-} as ImageCompareMode<AltModeViewProps>
+    useMode,
+} satisfies ImageCompareMode<never>

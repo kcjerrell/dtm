@@ -5,21 +5,13 @@ import {
     type SpringOptions,
     useMotionValue,
     useSpring,
-    useTransform
+    useTransform,
 } from "motion/react"
-import {
-    createContext,
-    type PropsWithChildren,
-    type RefObject,
-    useCallback,
-    useContext,
-    useMemo,
-    useRef,
-} from "react"
-import { Snapshot } from "valtio"
-import { IconButtonProps } from "../IconButton"
-import { TrailDirection } from "."
-import { ImageCompareState } from "./state"
+import { createContext, type RefObject, useContext, useMemo, useRef, useEffect } from "react"
+import type { Snapshot } from "valtio"
+import { useZoomable } from "@/components/preview/useZoomable"
+import type { IconButtonProps } from "../IconButton"
+import type { ImageCompareState } from "./state"
 
 const TRAIL_SPRING = {
     stiffness: 20,
@@ -35,8 +27,7 @@ const TRANSPARENT_MASK = "linear-gradient(to right, transparent, transparent)"
 export type UseModeResult<T = unknown> = {
     rootProps?: ChakraProps
     selfProps?: T
-    onKeyDown?: React.KeyboardEventHandler
-    onKeyUp?: React.KeyboardEventHandler
+    keyHandlers?: Record<"space", () => void>
 }
 export interface ModeButtonProps extends IconButtonProps {
     selected: boolean
@@ -60,7 +51,7 @@ export interface ImageCompareMode<T = unknown> {
     Settings: React.FC<ModeSettingProps<T>>
 }
 
-type ImageCompareHooksContextType = {
+export type ImageCompareHooksContextType = {
     refs: {
         imgARef: RefObject<HTMLImageElement | null>
         imgBRef: RefObject<HTMLImageElement | null>
@@ -80,11 +71,16 @@ type ImageCompareHooksContextType = {
         normalCanvasMaskMv: MotionValue<string>
         invertedCanvasMaskMv: MotionValue<string>
     }
+    zoomHandlers: ReturnType<typeof useZoomable>["handlers"]
+    zoomStyle: ReturnType<typeof useZoomable>["style"]
 }
 
 const ImageCompareHooksContext = createContext<ImageCompareHooksContextType | undefined>(undefined)
 
-export function useCreateImageCompareContext() {
+export function useCreateImageCompareContext(
+    state: ImageCompareState,
+    snap: Snapshot<ImageCompareState>,
+) {
     const imgARef = useRef<HTMLImageElement>(null)
     const imgBRef = useRef<HTMLImageElement>(null)
     const offscreenCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -94,6 +90,20 @@ export function useCreateImageCompareContext() {
     const sbsPaneARef = useRef<HTMLDivElement>(null)
     const sbsPaneBRef = useRef<HTMLDivElement>(null)
     const dragRef = useRef<HTMLDivElement>(null)
+
+    const contentSize = useMemo(
+        () => ({ width: snap.contentSize.width, height: snap.contentSize.height }),
+        [snap.contentSize.height, snap.contentSize.width],
+    )
+    const contentOffset = useMemo(
+        () => ({ left: snap.contentOffset.left, top: snap.contentOffset.top }),
+        [snap.contentOffset.left, snap.contentOffset.top],
+    )
+    const { handlers: zoomHandlers, style: zoomStyle } = useZoomable(viewportRef, {
+        contentSize,
+        contentOffset,
+        maxZoom: 16,
+    })
 
     const sliderMv = useMotionValue(0.5)
     const dividerXMv = useMotionValue(0)
@@ -129,18 +139,44 @@ export function useCreateImageCompareContext() {
                 normalCanvasMaskMv,
                 invertedCanvasMaskMv,
             },
+            zoomHandlers,
+            zoomStyle,
         }),
-        [sliderMv, trailingMv, dividerXMv, clipMv, normalCanvasMaskMv, invertedCanvasMaskMv],
+        [
+            sliderMv,
+            trailingMv,
+            dividerXMv,
+            clipMv,
+            normalCanvasMaskMv,
+            invertedCanvasMaskMv,
+            zoomHandlers,
+            zoomStyle,
+        ],
     ) as ImageCompareHooksContextType
 
-    const Provider = useCallback(
-        (props: PropsWithChildren) => {
-            return <ImageCompareHooksContext value={cv}>{props.children}</ImageCompareHooksContext>
-        },
-        [cv],
-    )
+    useEffect(() => {
+        const viewport = cv.refs.viewportRef.current
+        if (!viewport) return
 
-    return [Provider, cv] as const
+        const updateSize = () => {
+            const width = viewport.clientWidth
+            state.viewportWidth = width
+            state.viewportHeight = viewport.clientHeight
+            state.viewportPixelRatio = window.devicePixelRatio || 1
+            cv.mv.dividerXMv.set((cv.mv.sliderMv.get() - 0.5) * width)
+        }
+        const observer = new ResizeObserver(updateSize)
+        observer.observe(viewport)
+        window.addEventListener("resize", updateSize)
+        updateSize()
+
+        return () => {
+            observer.disconnect()
+            window.removeEventListener("resize", updateSize)
+        }
+    }, [cv, state])
+
+    return [ImageCompareHooksContext, cv] as const
 }
 
 export function useImageCompareHooks(): ImageCompareHooksContextType {
@@ -150,7 +186,7 @@ export function useImageCompareHooks(): ImageCompareHooksContextType {
     return cv
 }
 
-function trailMask(sliderPosition: number, trailingPosition: number, direction: TrailDirection) {
+function trailMask(sliderPosition: number, trailingPosition: number, direction: "right" | "left") {
     const distance = sliderPosition - trailingPosition
     if (
         Math.abs(distance) < MIN_VISIBLE_TRAIL_LENGTH ||
