@@ -1,13 +1,16 @@
-import { Box, chakra, HStack, Kbd } from "@chakra-ui/react"
-import { type MotionStyle, motion } from "motion/react"
+import { Box, chakra, Grid, HStack, Kbd } from "@chakra-ui/react"
+import { AnimatePresence, type MotionStyle, motion } from "motion/react"
 import { type ReactElement, useCallback, useEffect, useMemo } from "react"
+import { MdBlurOff, MdBlurOn } from "react-icons/md"
 import type { Snapshot } from "valtio"
 import { PanelSectionHeader } from "@/components/common"
+import IconButton from "../IconButton"
 import AltMode from "./AltMode"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
+import { ToolbarSection, ToolbarSeparator } from "./common"
 
 export interface ImageCompareProps extends ChakraProps {
     a: string
@@ -56,7 +59,7 @@ function ImageCompare(props: ImageCompareProps) {
     const sliderMode = SliderMode.useMode(state, snap, hooks)
     const altMode = AltMode.useMode(state, snap, hooks)
     const sbsMode = SbsMode.useMode(state, snap, hooks)
-    
+
     const imageContainerStyle: MotionStyle = useMemo(
         () => ({
             ...zoomStyle,
@@ -116,6 +119,7 @@ function ImageCompare(props: ImageCompareProps) {
             <Provider>
                 <GridRoot
                     cursor={snap.sliderDragging ? "none" : undefined}
+                    imageRendering={snap.smoothing ? "smooth" : "pixelated"}
                     // defining anim duration on common parent
                     {...(activeMode?.rootProps ?? {})}
                     {...restProps}
@@ -140,7 +144,6 @@ function ImageCompare(props: ImageCompareProps) {
                             id="image-compare-stage"
                             style={{
                                 ...imageContainerStyle,
-                                imageRendering: "pixelated",
                             }}
                         >
                             <motion.img
@@ -156,7 +159,6 @@ function ImageCompare(props: ImageCompareProps) {
                                     width: "100%",
                                     height: "100%",
                                     pointerEvents: "none",
-                                    imageRendering: "pixelated",
                                 }}
                                 onLoad={(event) => onLoadA(event.currentTarget)}
                             />
@@ -165,19 +167,26 @@ function ImageCompare(props: ImageCompareProps) {
                         {modes.map((mode) => mode.view)}
                     </Box>
 
-                    {/* mode buttons */}
+                    {/* toolbar */}
                     <HStack gridArea={"buttons"} px={8} py={2}>
-                        <HStack
-                            _after={{
-                                content: '""',
-                                bgColor: "gray",
-                                width: "1px",
-                                height: "1.75rem",
-                                boxShadow: "lg",
-                                marginRight: 2
-                            }}
-                        >
-                            <PanelSectionHeader>Mode</PanelSectionHeader>
+                        <ToolbarSection>
+                            <IconButton
+                                tipTitle={snap.smoothing ? "Disable smoothing" : "Enable smoothing"}
+                                tipText={
+                                    snap.smoothing
+                                        ? "Click to disable smoothing on scaled-up images."
+                                        : "Click to enable smoothing on scaled-up images."
+                                }
+                                onClick={() => {
+                                    state.smoothing = !snap.smoothing
+                                }}
+                            >
+                                {snap.smoothing ? <MdBlurOn /> : <MdBlurOff />}
+                            </IconButton>
+                        </ToolbarSection>
+                        <ToolbarSeparator />
+                        <ToolbarSection>
+                            {/*<PanelSectionHeader>Mode</PanelSectionHeader>*/}
                             {modes.map((mode) => {
                                 const ModeButton = mode.Button
                                 return (
@@ -190,9 +199,48 @@ function ImageCompare(props: ImageCompareProps) {
                                     />
                                 )
                             })}
-                        </HStack>
+                        </ToolbarSection>
 
-                        {modes.map((mode) => mode.settings)}
+                        <ToolbarSeparator />
+
+                        <Grid
+                            overflow={"clip"}
+                            gridTemplateRows={"100%"}
+                            gridTemplateColumns={"100%"}
+                        >
+                            <AnimatePresence mode={"sync"}>
+                                {modes.map((mode) => {
+                                    if (mode.name !== snap.mode) return null
+                                    return (
+                                        <motion.div
+                                            key={mode.name}
+                                            initial={{
+                                                x: "-100%",
+                                                opacity: 1,
+                                            }}
+                                            animate={{ x: "0%", opacity: 1 }}
+                                            exit={{
+                                                // x: "-100%",
+                                                opacity: 0,
+                                                transition: {
+                                                    duration: 0.2,
+                                                    ease: "circOut",
+                                                    delay: 0,
+                                                },
+                                            }}
+                                            transition={{
+                                                duration: 0.2,
+                                                ease: "circOut",
+                                                delay: 0.1,
+                                            }}
+                                            style={{ gridRow: "1", gridColumn: "1" }}
+                                        >
+                                            {mode.settings}
+                                        </motion.div>
+                                    )
+                                })}
+                            </AnimatePresence>
+                        </Grid>
                     </HStack>
 
                     {/* hint text */}

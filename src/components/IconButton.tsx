@@ -269,7 +269,7 @@ const IconButton = (props: IconButtonProps) => {
 
     if (tip || tipTitle || tipText) {
         return (
-            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText}>
+            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText} whiteSpace={"normal"}>
                 {button}
             </Tooltip>
         )

@@ -282,13 +282,13 @@ export const PanelButton = chakra(
     Button,
     {
         base: {
-            bgColor: "bg.3",
+            // bgColor: "bg.3",
             margin: 0,
             color: "fg.2",
             height: "min-content",
             paddingY: 2,
             fontWeight: "500",
-            boxShadow: "0px 1px 5px -3px #00000055",
+            // boxShadow: "0px 1px 5px -3px #00000055",
             _disabled: {
                 cursor: "default",
             },

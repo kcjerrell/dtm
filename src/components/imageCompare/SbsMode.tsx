@@ -1,4 +1,4 @@
-import { Box, HStack } from "@chakra-ui/react"
+import { Box, HStack, Kbd } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { useMemo } from "react"
 import { LuStretchHorizontal, LuStretchVertical } from "react-icons/lu"
@@ -16,6 +16,7 @@ import {
     useImageCompareHooks,
 } from "./hooks"
 import { ImageCompareContext, type ImageCompareState } from "./state"
+import { ToolbarSection } from "./common"
 
 function useMode(
     state: ImageCompareState,
@@ -46,10 +47,9 @@ function View(props: ModeViewProps<never>) {
                 display: snap.mode === "sbs" ? "flex" : "none",
                 position: "absolute",
                 inset: 0,
-                flexDirection: snap.sbsLayout === "horizontal" ? "row" : "column",
+                flexDirection: snap.sbsLayout === "horizontal" ? "column" : "row",
                 zIndex: 1,
                 pointerEvents: "none",
-                imageRendering: "pixelated",
             }}
             {...restProps}
         >
@@ -83,7 +83,6 @@ function View(props: ModeViewProps<never>) {
                             width: "100%",
                             height: "100%",
                             pointerEvents: "none",
-                            imageRendering: "pixelated",
                         }}
                         onLoad={(event) => {
                             state.imageBWidth = event.currentTarget.naturalWidth
@@ -100,19 +99,8 @@ function Settings(props: ModeSettingProps<never>) {
     const { selfProps: _selfProps, ...restProps } = props
     const [state, snap] = ImageCompareContext.useContext()
 
-    if (snap.mode !== "sbs") return null
-
     return (
-        <HStack {...restProps}>
-            <PanelSectionHeader>Layout</PanelSectionHeader>
-            <IconButton
-                tone={snap.sbsLayout === "horizontal" ? "selected" : "none"}
-                onClick={() => {
-                    state.sbsLayout = "horizontal"
-                }}
-            >
-                <LuStretchHorizontal />
-            </IconButton>
+        <ToolbarSection {...restProps}>
             <IconButton
                 tone={snap.sbsLayout === "vertical" ? "selected" : "none"}
                 onClick={() => {
@@ -121,14 +109,31 @@ function Settings(props: ModeSettingProps<never>) {
             >
                 <LuStretchVertical />
             </IconButton>
-        </HStack>
+            <IconButton
+                tone={snap.sbsLayout === "horizontal" ? "selected" : "none"}
+                onClick={() => {
+                    state.sbsLayout = "horizontal"
+                }}
+            >
+                <LuStretchHorizontal />
+            </IconButton>
+        </ToolbarSection>
     )
 }
 
 function Button(props: ModeButtonProps) {
     const { selected, ...restProps } = props
+
+    const tip = `View, pan, and zoom images in synced side-by-side panes. Press Space to switch
+                 between horizontal and vertical panes.`
+
     return (
-        <IconButton tone={selected ? "selected" : "none"} {...restProps}>
+        <IconButton
+            tone={selected ? "selected" : "none"}
+            tipTitle={"Side-by-side"}
+            tipText={tip}
+            {...restProps}
+        >
             <RiLayoutColumnFill />
         </IconButton>
     )

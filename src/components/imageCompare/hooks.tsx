@@ -109,8 +109,8 @@ export function useCreateImageCompareContext(
     )
     const sbsViewportSize = useMemo(
         () => ({
-            width: snap.viewportWidth / (snap.sbsLayout === "horizontal" ? 2 : 1),
-            height: snap.viewportHeight / (snap.sbsLayout === "vertical" ? 2 : 1),
+            width: snap.viewportWidth / (snap.sbsLayout === "vertical" ? 2 : 1),
+            height: snap.viewportHeight / (snap.sbsLayout === "horizontal" ? 2 : 1),
         }),
         [snap.sbsLayout, snap.viewportHeight, snap.viewportWidth],
     )

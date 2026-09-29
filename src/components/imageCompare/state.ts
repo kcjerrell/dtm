@@ -3,6 +3,7 @@ import type { ImageCompareProps } from "."
 import type { SliderEffectDisplay } from "./sliderEffectDisplay"
 
 export type SliderEffect = "brightness" | "color" | "difference" | "none"
+/** Names follow the stretch-axis icons: horizontal stacks panes; vertical places them side by side. */
 export type SbsLayout = "horizontal" | "vertical"
 
 export type ImageCompareState = {
@@ -10,6 +11,9 @@ export type ImageCompareState = {
     imageASrc?: string
     /** the url for image b */
     imageBSrc?: string
+
+    /** whether to apply smoothing to the images */
+    smoothing: boolean
 
     /** The active comparison mode: slider, alternate, or side-by-side */
     mode: string
@@ -56,10 +60,11 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
     (props?: ImageCompareProps) => ({
         imageASrc: props?.a,
         imageBSrc: props?.b,
+        smoothing: true,
         mode: "slider",
-        sliderTrail: "none",
+        sliderTrail: "none" as SliderEffect,
         sliderDragging: false,
-        sliderEffectDisplay: "trail",
+        sliderEffectDisplay: "trail" as SliderEffectDisplay,
         canvasContents: "none",
         sliderThreshold: 0.02,
         sliderGain: 10,
@@ -67,7 +72,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         altSpeedInput: 5,
         altSpeed: 5,
         altPhase: 0.0,
-        sbsLayout: "horizontal",
+        sbsLayout: "vertical",
         viewportWidth: 0,
         viewportHeight: 0,
         viewportPixelRatio: 1,

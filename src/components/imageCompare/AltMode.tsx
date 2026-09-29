@@ -1,10 +1,11 @@
-import { Grid, HStack } from "@chakra-ui/react"
+import { Grid } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type CSSProperties, useMemo } from "react"
 import { PiRepeatBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
 import { IconButton } from "@/components"
-import { Slider } from "../ui/slider"
+import { TriangleSlider } from "../ui/slider"
+import { ToolbarSection } from "./common"
 import type {
     ImageCompareHooksContextType,
     ImageCompareMode,
@@ -76,7 +77,6 @@ function View(props: ModeViewProps<never>) {
                     inset: 0,
                     width: "100%",
                     height: "100%",
-                    imageRendering: "pixelated",
                     ...ALT_ANIM_STYLE,
                 }}
                 className="blink-anim"
@@ -89,21 +89,24 @@ function Settings(props: ModeSettingProps<never>) {
     const { selfProps: _selfProps, ...restProps } = props
     const [state, snap] = ImageCompareContext.useContext()
 
-    if (snap.mode !== "alt") return null
-
     return (
-        <HStack gridArea={"opts"} {...restProps}>
-            <Grid
-                gridTemplateAreas={"button"}
-                transformStyle={"preserve-3d"}
-                perspectiveOrigin={"80px"}
-            >
-                <IconButton gridArea={"button"} size={"sm"}>
+        <ToolbarSection fontSize={"sm"} fontWeight={"500"} {...restProps}>
+            <Grid>
+                <IconButton
+                    gridColumn={"1"}
+                    gridRow={"1"}
+                    size={"sm"}
+                    fontSize={"xs"}
+                    bgColor={"bg.2"}
+                >
                     A
                 </IconButton>
                 <IconButton
-                    gridArea={"button"}
+                    gridColumn={"1"}
+                    gridRow={"1"}
                     size={"sm"}
+                    fontSize={"xs"}
+                    bgColor={"bg.2"}
                     className={"blink-anim"}
                     style={{
                         ...ALT_ANIM_STYLE,
@@ -112,11 +115,13 @@ function Settings(props: ModeSettingProps<never>) {
                     B
                 </IconButton>
             </Grid>
-            Slower
-            <Slider
-                minWidth={"10rem"}
+            {/*Slow*/}
+            <TriangleSlider
+                size={"sm"}
+                width={"6rem"}
                 min={0}
                 max={10}
+                aria-label={["Alternation speed"]}
                 value={[snap.altSpeedInput]}
                 onValueChange={(value) => {
                     state.altSpeedInput = value.value[0]
@@ -124,15 +129,36 @@ function Settings(props: ModeSettingProps<never>) {
                 }}
                 mx={1}
             />
-            Faster
-        </HStack>
+            {/*Fast*/}
+        </ToolbarSection>
     )
 }
 
 function Button(props: ModeButtonProps) {
     const { selected, ...restProps } = props
+
+    // const tip = (
+    //     <>
+    //         <PanelSectionHeader fontWeight={"600"}>Swap</PanelSectionHeader>
+    //         <p>
+    //             Images switch back and forth at a customizable rate. Hold <Kbd>Shift</Kbd> to
+    //             temporarily pause the animation, or <Kbd>Space</Kbd> to stop it. Holding
+    //             <Kbd>Shift</Kbd> while stopped will switch to the other image.
+    //         </p>
+    //     </>
+    // )
+
+    const tip = `Images switch back and forth at a customizable rate. Hold Shift to temporarily
+                 pause the animation or Space to stop it. Hold Shift while stopped to switch
+                 between images.`
+
     return (
-        <IconButton tone={selected ? "selected" : "none"} {...restProps}>
+        <IconButton
+            tone={selected ? "selected" : "none"}
+            tipTitle={"Swap"}
+            tipText={tip}
+            {...restProps}
+        >
             <PiRepeatBold />
         </IconButton>
     )

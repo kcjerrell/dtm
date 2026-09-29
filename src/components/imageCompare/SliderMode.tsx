@@ -25,6 +25,7 @@ import {
 } from "./hooks"
 import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
+import { ToolbarSection } from "./common"
 
 interface ViewportCanvasGeometry {
     contentLeft: number
@@ -56,6 +57,7 @@ function drawComparisonRegion(
     source: HTMLCanvasElement | null,
     target: HTMLCanvasElement | null,
     geometry: ViewportCanvasGeometry,
+    smoothing: boolean,
 ) {
     if (!target) return
 
@@ -93,7 +95,7 @@ function drawComparisonRegion(
     const sourceWidth = (visibleWidth / geometry.contentWidth) * source.width
     const sourceHeight = (visibleHeight / geometry.contentHeight) * source.height
 
-    context.imageSmoothingEnabled = false
+    context.imageSmoothingEnabled = smoothing
     context.setTransform(geometry.pixelRatio, 0, 0, geometry.pixelRatio, 0, 0)
     context.drawImage(
         source,
@@ -157,8 +159,8 @@ function useMode(
             }
             const source = effect === "none" ? null : refs.offscreenCanvasRef.current
 
-            drawComparisonRegion(source, refs.normalCanvasRef.current, geometry)
-            drawComparisonRegion(source, refs.invertedCanvasRef.current, geometry)
+            drawComparisonRegion(source, refs.normalCanvasRef.current, geometry, snap.smoothing)
+            drawComparisonRegion(source, refs.invertedCanvasRef.current, geometry, snap.smoothing)
         },
         [
             contentOffset.left,
@@ -168,6 +170,7 @@ function useMode(
             snap.viewportHeight,
             snap.viewportPixelRatio,
             snap.viewportWidth,
+            snap.smoothing,
             state,
             zoomStyle.scale,
             zoomStyle.x,
@@ -357,7 +360,6 @@ function View(props: ModeViewProps<SliderModeProps>) {
                             inset: 0,
                             width: "100%",
                             height: "100%",
-                            imageRendering: "pixelated",
                         }}
                         onLoad={(event) => {
                             state.imageBWidth = event.currentTarget.naturalWidth
@@ -491,19 +493,17 @@ function View(props: ModeViewProps<SliderModeProps>) {
 function Settings(props: ModeSettingProps<SliderModeProps>) {
     const { selfProps, ...restProps } = props
     const [state, snap] = ImageCompareContext.useContext()
-    if (snap.mode !== "slider" || !selfProps) return null
 
-    const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
+    if (!selfProps) return null
+        const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
 
     return (
-        <HStack {...restProps}>
-            <PanelSectionHeader>Effect</PanelSectionHeader>
+        <ToolbarSection {...restProps}>
             <IconButton
                 tone={sliderTrail === "none" ? sliderButtonTone : "none"}
                 onClick={() => selectEffect("none")}
             >
-                X
-                {/*<FaToggleOff />*/}
+                X{/*<FaToggleOff />*/}
             </IconButton>
             <IconButton
                 tone={sliderTrail === "brightness" ? sliderButtonTone : "none"}
@@ -532,7 +532,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 </HoverCard.Trigger>
                 <HoverCard.Positioner>
                     <HoverCard.Content bgColor={"bg.1"} borderRadius={"lg"} boxShadow={"pane1"}>
-                        <HoverCard.Arrow css={{"--arrow-background": "{colors.bg.1}"}}/>
+                        <HoverCard.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
                         <VStack gap={0}>
                             <PanelSectionHeader>Threshold</PanelSectionHeader>
                             <Slider
@@ -564,14 +564,22 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                     </HoverCard.Content>
                 </HoverCard.Positioner>
             </HoverCard.Root>
-        </HStack>
+        </ToolbarSection>
     )
 }
 
 function Button(props: ModeButtonProps) {
     const { selected, ...restProps } = props
+
+    const tip = `Drag the divider to compare images. Press Space to switch between effects that
+                 highlight the differences between the images.`
     return (
-        <IconButton tone={selected ? "selected" : "none"} {...restProps}>
+        <IconButton
+            tone={selected ? "selected" : "none"}
+            tipTitle={"Slider"}
+            tipText={tip}
+            {...restProps}
+        >
             <TfiSplitH />
         </IconButton>
     )
