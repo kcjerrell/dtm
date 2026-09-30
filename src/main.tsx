@@ -1,6 +1,5 @@
-import '@wdio/tauri-plugin';
+import "@wdio/tauri-plugin"
 import { ChakraProvider } from "@chakra-ui/react"
-import { invoke } from "@tauri-apps/api/core"
 import { motion } from "motion/react"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
@@ -9,55 +8,17 @@ import App from "./App"
 import { ColorModeProvider } from "./components/ui/color-mode"
 import { Hotkey } from "./hooks/keyboard"
 import "./index.css"
-import { loadSettingsStore } from "./state/settings"
-import { addTestHooks } from "./testHooks"
-import { themeHelpers } from "./theme/helpers"
+import Lifecycle from "./lifecycle"
 import { system } from "./theme/theme"
-import { forwardConsoleAll } from "./utils/tauriLogger"
 
 const _global = globalThis as unknown as {
     _reactRoot?: ReturnType<typeof createRoot>
 }
 
 async function bootstrap() {
-    if (!import.meta.env.DEV) forwardConsoleAll()
-    window.toJSON = (object: unknown) => JSON.parse(JSON.stringify(object))
-
-    addTestHooks()
-
-    // this store must be initialized and await so installId is determinate
-    // if allowed to lazy load, update check may run before settings have synced from storage
-    await loadSettingsStore()
-
-    // const hash = document.location?.hash?.slice(1)
-    // if (hash === "mini") AppStore.setView("mini")
-    // else if (hash === "vid") AppStore.setView("vid")
+    await Lifecycle.init()
 
     const RootComponent = App
-
-    themeHelpers.applySize()
-
-    if (import.meta.env.DEV) {
-        const _global = globalThis as unknown as {
-            _devKeyPressHandler?: (e: KeyboardEvent) => void
-        }
-        if (_global._devKeyPressHandler) {
-            window.removeEventListener("keypress", _global._devKeyPressHandler)
-        }
-        _global._devKeyPressHandler = async (e: KeyboardEvent) => {
-            if (e.key === "`") {
-                invoke("show_dev_window")
-            }
-        }
-        window.addEventListener("keypress", _global._devKeyPressHandler)
-    }
-
-    // this ensures that the window appears even if an error is thrown in the initial render
-    // if (hash !== "dev") {
-    //     setTimeout(() => {
-    //         getCurrentWindow().show()
-    //     }, 3000)
-    // }
 
     const container = document.getElementById("root")
     if (container) {
@@ -71,7 +32,7 @@ async function bootstrap() {
                     <ColorModeProvider>
                         <HotkeysProvider initiallyActiveScopes={["app"]}>
                             <RootComponent />
-                            <Hotkey handlers={{ "meta+r": () => location.reload() }} />
+                            <Hotkey handlers={{ "meta+r": () => Lifecycle.reload().catch(console.error) }} />
                         </HotkeysProvider>
                     </ColorModeProvider>
                 </ChakraProvider>

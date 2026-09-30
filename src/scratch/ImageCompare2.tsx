@@ -15,7 +15,7 @@ const [TEST_IMG_A, TEST_IMG_B] = [TEST_IMAGES[2], TEST_IMAGES[3]]
 function Empty() {
     return (
         <CheckRoot width={"full"} height={"full"} padding={0}>
-                <ImageCompare a={TEST_IMG_A} b={TEST_IMG_B} />
+            <ImageCompare.Root a={TEST_IMG_A} b={TEST_IMG_B} />
         </CheckRoot>
     )
 }

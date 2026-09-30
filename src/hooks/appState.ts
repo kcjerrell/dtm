@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { store } from "@tauri-store/valtio";
 // import { check } from "@/mocks/tauri-updater"
 import type { SidebarVariant } from "@/components/sidebar/Sidebar";
+import Lifecycle from "@/lifecycle";
 import { getInstallId } from "@/state/settings";
 import { getStoreName } from "@/utils/helpers";
 import { isMacOS } from "@/utils/platform";
@@ -48,9 +49,7 @@ const appStore = store(
   },
 );
 appStore.start();
-window.addEventListener("unloaded", () => {
-  appStore.stop();
-});
+Lifecycle.onExit(() => appStore.stop(), true);
 const appState: AppStateType = appStore.state;
 
 async function getOsVersionHeaderValue(): Promise<string> {

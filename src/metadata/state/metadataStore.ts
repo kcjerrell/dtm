@@ -2,6 +2,7 @@ import { readFile } from "@tauri-apps/plugin-fs"
 import { store } from "@tauri-store/valtio"
 import * as exifr from "exifr"
 import { proxy, subscribe } from "valtio"
+import Lifecycle from "@/lifecycle"
 import { getSetting } from "@/state/settings"
 import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
@@ -108,10 +109,10 @@ function initStore() {
             loader()
         }
     })
-    window.addEventListener("unload", () => {
-        cleanUp()
-        getStore().stop()
-    })
+    Lifecycle.onExit(async () => {
+        await cleanUp()
+        await storeInstance.stop()
+    }, true)
     return storeInstance
 }
 

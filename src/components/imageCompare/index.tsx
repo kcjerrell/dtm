@@ -1,20 +1,64 @@
 import { Box, chakra, Grid, HStack, Kbd } from "@chakra-ui/react"
 import { AnimatePresence, type MotionStyle, motion } from "motion/react"
-import { type ReactElement, useCallback, useEffect, useMemo } from "react"
+import {
+    Children,
+    createContext,
+    isValidElement,
+    type ReactElement,
+    type ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+} from "react"
 import { MdBlurOff, MdBlurOn } from "react-icons/md"
 import type { Snapshot } from "valtio"
 import { PanelSectionHeader } from "@/components/common"
 import IconButton from "../IconButton"
 import AltMode from "./AltMode"
+import { ToolbarSection, ToolbarSeparator } from "./common"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
-import { ToolbarSection, ToolbarSeparator } from "./common"
 
 export interface ImageCompareProps extends ChakraProps {
     a: string
     b: string
+    children?: ReactNode
+}
+
+export interface ImageSelectorProps {
+    image: "a" | "b"
+    children: ReactNode
+}
+
+interface ImageSelectorContextValue {
+    image: "a" | "b"
+    setImage: (url: string) => void
+}
+
+const ImageSelectorContext = createContext<ImageSelectorContextValue | undefined>(undefined)
+
+export function useImageSelector(): ImageSelectorContextValue {
+    const context = useContext(ImageSelectorContext)
+    if (!context) throw new Error("useImageSelector must be used within ImageCompare.ImageSelector")
+    return context
+}
+
+function ImageSelector(props: ImageSelectorProps) {
+    const { image, children } = props
+    const state = ImageCompareContext.useContextState()
+    const setImage = useCallback(
+        (url: string) => {
+            if (image === "a") state.imageASrc = url
+            else state.imageBSrc = url
+        },
+        [image, state],
+    )
+    const value = useMemo(() => ({ image, setImage }), [image, setImage])
+
+    return <ImageSelectorContext value={value}>{children}</ImageSelectorContext>
 }
 
 interface BoundMode {
@@ -47,8 +91,8 @@ function bindMode<T>(
     }
 }
 
-function ImageCompare(props: ImageCompareProps) {
-    const { ...restProps } = props
+function Root(props: ImageCompareProps) {
+    const { children, ...restProps } = props
     const [Provider, state, snap] = ImageCompareContext.useCreate(props)
     const [HooksProvider, hooks] = useCreateImageCompareContext(state, snap)
     const { refs, zoomHandlers, zoomStyle } = hooks
@@ -79,6 +123,12 @@ function ImageCompare(props: ImageCompareProps) {
         bindMode(SbsMode, sbsMode, imageContainerStyle),
     ]
     const activeMode = modes.find((mode) => mode.name === snap.mode)
+    const imageSelectors = Children.toArray(children)
+        .filter(
+            (child): child is ReactElement<ImageSelectorProps> =>
+                isValidElement(child) && child.type === ImageSelector,
+        )
+        .sort((a, b) => (a.props.image === b.props.image ? 0 : a.props.image === "a" ? -1 : 1))
 
     const onLoadA = useCallback(
         (element: HTMLImageElement) => {
@@ -169,6 +219,12 @@ function ImageCompare(props: ImageCompareProps) {
 
                     {/* toolbar */}
                     <HStack gridArea={"buttons"} px={8} py={2}>
+                        {imageSelectors.length > 0 && (
+                            <>
+                                <ToolbarSection>{imageSelectors}</ToolbarSection>
+                                <ToolbarSeparator />
+                            </>
+                        )}
                         <ToolbarSection>
                             <IconButton
                                 tipTitle={snap.smoothing ? "Disable smoothing" : "Enable smoothing"}
@@ -323,5 +379,7 @@ const GridRoot = chakra("div", {
         bgColor: "bg.2",
     },
 })
+
+const ImageCompare = { Root, ImageSelector }
 
 export default ImageCompare

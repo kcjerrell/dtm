@@ -42,7 +42,10 @@ export class ImageItem extends MediaItem {
     }
 
     async loadMetadata() {
-        if (this.$isBinding) return
+        if (this.$isBinding) {
+            console.log("load metadata supressed")
+            return
+        }
         if (this._metadataStatus) return
         this._metadataStatus = "pending"
 
@@ -190,7 +193,11 @@ export class ImageItem extends MediaItem {
 
 export async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
     const { projectId, imageId } = dtpImage
-    const history = await DTProject.listTensorHistoryNodes({ projectId, previewId: imageId, select: "tensordata" })
+    const history = await DTProject.listTensorHistoryNodes({
+        projectId,
+        previewId: imageId,
+        select: "tensordata",
+    })
     if (!history[0]) return
     const image = await DtpService.getResourceImage(
         dtpImage.projectId,

@@ -1,4 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   type AboutMetadata,
   CheckMenuItem,
@@ -8,7 +9,6 @@ import {
   Submenu,
 } from "@tauri-apps/api/menu";
 import { open } from "@tauri-apps/plugin-dialog";
-import { exit } from "@tauri-apps/plugin-process";
 import { toggleColorMode } from "./components/ui/color-mode";
 import AppStore from "./hooks/appState";
 import { postMessage } from "./state/Messages";
@@ -109,7 +109,7 @@ async function createAppMenus() {
         text: "Quit DTM",
         accelerator: isMacOS ? "Command+Q" : "Ctrl+Q",
         action: async () => {
-          await exit(0);
+          await getCurrentWindow().close();
         },
       }),
     ],
