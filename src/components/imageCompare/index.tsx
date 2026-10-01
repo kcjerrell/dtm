@@ -13,7 +13,6 @@ import {
 } from "react"
 import { MdBlurOff, MdBlurOn } from "react-icons/md"
 import type { Snapshot } from "valtio"
-import { PanelSectionHeader } from "@/components/common"
 import IconButton from "../IconButton"
 import AltMode from "./AltMode"
 import { ToolbarSection, ToolbarSeparator } from "./common"
