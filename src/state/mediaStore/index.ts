@@ -1,4 +1,5 @@
 import { Mutex } from "async-mutex"
+import { proxy, subscribe as subscribeProxy } from "valtio"
 
 export const MEDIA_STORE_VERSION = 1
 
@@ -45,6 +46,8 @@ export type RawMediaState = {
 export interface MediaState extends RawMediaState {
     version: typeof MEDIA_STORE_VERSION
 }
+type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T
+export type ReactiveMediaState = DeepReadonly<MediaState>
 
 /** Future migration loaders are supplied by the caller, never imported here. */
 export interface MigrationContext {
@@ -284,9 +287,9 @@ async function createBackingStore(
     ])
     const id = getStoreName("media")
     let loaded: unknown = { media: {} }
-    const backing = store<RawMediaState>(
+    const backing = store<{ payload: RawMediaState }>(
         id,
-        { media: {} },
+        { payload: { media: {} } },
         {
             autoStart: false,
             save: false,
@@ -294,11 +297,16 @@ async function createBackingStore(
             saveOnExit: false,
             hooks: {
                 beforeFrontendSync(state) {
-                    loaded = state
+                    // Root patches are merged by the plugin. Keeping the entire logical
+                    // state under one stable key gives each commit replacement semantics.
+                    loaded = Object.hasOwn(state, "payload") ? state.payload : state
                     return null
                 },
                 beforeBackendSync() {
                     return null
+                },
+                error(error) {
+                    throw error
                 },
             },
         },
@@ -314,8 +322,8 @@ async function createBackingStore(
             await backing.start()
         },
         async commit(state) {
-            await invoke("plugin:valtio|patch", { id, state })
-            Object.assign(backing.state, state)
+            await invoke("plugin:valtio|patch", { id, state: { payload: state } })
+            backing.state.payload = state
         },
         async saveNow() {
             // Unload saves unconditionally in tauri-store; keep saving denied
@@ -361,8 +369,12 @@ export function createMediaStore(
     const mutex = new Mutex()
     let loading: Promise<void> | undefined
     let backing: MediaBackingStore
-    let state: MediaState
+    const state = proxy<MediaState>({ version: MEDIA_STORE_VERSION, media: {} })
     const collections = new Map<CollectionKey, unknown>()
+    function replaceState(next: MediaState) {
+        state.version = next.version
+        state.media = next.media
+    }
     function load(): Promise<void> {
         loading ??= mutex.runExclusive(async () => {
             backing = await (factory
@@ -378,7 +390,7 @@ export function createMediaStore(
                 await backing.commit(next)
                 await backing.saveNow()
             }
-            state = next
+            replaceState(next)
         })
         return loading
     }
@@ -394,7 +406,7 @@ export function createMediaStore(
             const next = validateMediaState(draft)
             await backing.commit(next)
             await backing.saveNow()
-            state = next
+            replaceState(next)
             return result
         })
     }
@@ -419,7 +431,16 @@ export function createMediaStore(
             if (orphaned) delete s.media[id]
             return { id, removed: true, orphaned }
         }
-        const list = () => read((s) => Object.values(s.media).filter((m) => m.collections[key]))
+        const list = () =>
+            read((s) =>
+                Object.values(s.media)
+                    .filter((m) => m.collections[key])
+                    .sort((a, b) => {
+                        const added =
+                            (a.collections[key]?.addedAt ?? 0) - (b.collections[key]?.addedAt ?? 0)
+                        return added || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+                    }),
+            )
         const api: MediaCollection<K> = {
             read: list,
             list,
@@ -481,7 +502,14 @@ export function createMediaStore(
         collections.set(key, api)
         return api
     }
-    return { load, read: () => read((s) => s), collection }
+    return {
+        load,
+        state: state as ReactiveMediaState,
+        subscribe: (callback: () => void, notifyInSync?: boolean) =>
+            subscribeProxy(state, callback, notifyInSync),
+        read: () => read((s) => s),
+        collection,
+    }
 }
 
 export const mediaStore = createMediaStore()

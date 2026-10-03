@@ -27,7 +27,7 @@ async function bootstrap() {
         }
 
         _global._reactRoot.render(
-            <StrictMode>
+            // <StrictMode>
                 <ChakraProvider value={system}>
                     <ColorModeProvider>
                         <HotkeysProvider initiallyActiveScopes={["app"]}>
@@ -36,7 +36,7 @@ async function bootstrap() {
                         </HotkeysProvider>
                     </ColorModeProvider>
                 </ChakraProvider>
-            </StrictMode>,
+            // </StrictMode>,
         )
     }
 }

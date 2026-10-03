@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
     createMediaStore,
     type MediaMigration,
@@ -23,13 +23,24 @@ const compare = (pin?: number) => ({
 function setup(raw: unknown = { version: 1, media: {} }, steps: MediaMigration[] = []) {
     let persisted = raw
     const backing = {
-        read: () => persisted,
+        read: () =>
+            persisted &&
+            typeof persisted === "object" &&
+            !Array.isArray(persisted) &&
+            Object.hasOwn(persisted, "payload")
+                ? (persisted as { payload: unknown }).payload
+                : persisted,
         start: vi.fn(async () => {}),
         commit: vi.fn(async (s: MediaState) => {
-            persisted = structuredClone(s)
+            if (!persisted || typeof persisted !== "object" || Array.isArray(persisted))
+                persisted = {}
+            // The real plugin extends its root map. The stable payload key is what
+            // gives MediaStore commits replacement semantics within that merge.
+            Object.assign(persisted, { payload: structuredClone(s) })
         }),
         saveNow: vi.fn(async () => {}),
         stop: vi.fn(async () => {}),
+        persisted: () => structuredClone(persisted),
     }
     const factory = vi.fn(async () => backing)
     const store = createMediaStore(factory, steps)
@@ -151,6 +162,37 @@ describe("MediaStore collections", () => {
         await Promise.all([a, b])
         expect((await s.metadata.list()).map((m) => m.id)).toEqual(["a", "b"])
     })
+    it("lists by collection addedAt and id, independent of creation, attachment and pins", async () => {
+        const s = setup()
+        await s.compare.add(media("c"), compare())
+        await s.compare.add(media("b"), compare())
+        await s.compare.add(media("a"), compare())
+        await s.metadata.attach("c", { addedAt: 2, pin: 1 })
+        await s.metadata.attach("b", { addedAt: 1, pin: 3 })
+        await s.metadata.attach("a", { addedAt: 1, pin: 2 })
+
+        expect((await s.metadata.read()).map((m) => m.id)).toEqual(["a", "b", "c"])
+        expect((await s.metadata.list()).map((m) => m.id)).toEqual(["a", "b", "c"])
+    })
+    it("keeps one reactive state identity and publishes only successful changes", async () => {
+        const s = setup()
+        const state = s.store.state
+        await s.store.load()
+        expect(s.store.state).toBe(state)
+
+        const subscriber = vi.fn()
+        const unsubscribe = s.store.subscribe(subscriber, true)
+        await expect(
+            s.metadata.add({ ...media("bad"), createdAt: Number.NaN }, { addedAt: 1 }),
+        ).rejects.toThrow("finite")
+        expect(subscriber).not.toHaveBeenCalled()
+
+        await s.metadata.add(media("a"), { addedAt: 1 })
+        expect(s.store.state).toBe(state)
+        expect(s.store.state.media.a.id).toBe("a")
+        expect(subscriber).toHaveBeenCalledTimes(1)
+        unsubscribe()
+    })
 })
 
 describe("migrations", () => {
@@ -214,6 +256,45 @@ describe("migrations", () => {
         expect(good.backing.commit).toHaveBeenCalledTimes(1)
         expect(good.backing.saveNow).toHaveBeenCalledTimes(1)
     })
+    it("replaces a migrated payload despite merge-patched stale root keys", async () => {
+        const raw = { legacy: "stale", media: { removed: true } }
+        const migration: MediaMigration = {
+            from: undefined,
+            to: 1,
+            migrate: async () => ({ version: 1, media: {} }),
+        }
+        const first = setup(raw, [migration])
+        await first.store.load()
+
+        expect(first.backing.persisted()).toEqual({
+            legacy: "stale",
+            media: { removed: true },
+            payload: { version: 1, media: {} },
+        })
+
+        const reloaded = createMediaStore(async () => first.backing)
+        await expect(reloaded.load()).resolves.toBeUndefined()
+        expect(await reloaded.read()).toEqual({ version: 1, media: {} })
+        expect(first.backing.commit).toHaveBeenCalledTimes(1)
+        expect(first.backing.saveNow).toHaveBeenCalledTimes(1)
+    })
+    it("does not publish failed migrations", async () => {
+        const s = setup({ media: {} }, [
+            {
+                from: undefined,
+                to: 1,
+                migrate: async () => {
+                    throw new Error("broken")
+                },
+            },
+        ])
+        const subscriber = vi.fn()
+        const unsubscribe = s.store.subscribe(subscriber, true)
+        await expect(s.store.load()).rejects.toThrow("broken")
+        expect(subscriber).not.toHaveBeenCalled()
+        expect(s.store.state.media).toEqual({})
+        unsubscribe()
+    })
     it("validates final migration output before committing", async () => {
         const s = setup({ media: {} }, [
             { from: undefined, to: 1, migrate: async () => ({ version: 1, media: [] }) },
@@ -256,6 +337,7 @@ const adapter = vi.hoisted(() => ({
     calls: [] as string[],
     options: {} as Record<string, unknown>,
     state: {} as Record<string, unknown>,
+    startError: undefined as unknown,
     onExit: vi.fn(),
 }))
 vi.mock("@tauri-store/valtio", () => ({
@@ -267,8 +349,13 @@ vi.mock("@tauri-store/valtio", () => ({
             state,
             start: async () => {
                 adapter.calls.push("start")
-                const result = options.hooks.beforeFrontendSync(adapter.raw)
-                if (result) Object.assign(state, result)
+                try {
+                    if (adapter.startError) throw adapter.startError
+                    const result = options.hooks.beforeFrontendSync(adapter.raw)
+                    if (result) Object.assign(state, result)
+                } catch (error) {
+                    if (options.hooks.error) await options.hooks.error(error)
+                }
             },
             stop: async () => {
                 adapter.calls.push("stop")
@@ -286,14 +373,30 @@ vi.mock("@tauri-store/valtio", () => ({
     },
 }))
 vi.mock("@tauri-apps/api/core", () => ({
-    invoke: async (command: string) => {
+    invoke: async (command: string, args?: { state?: Record<string, unknown> }) => {
         adapter.calls.push(command)
+        if (
+            command === "plugin:valtio|patch" &&
+            args?.state &&
+            adapter.raw &&
+            typeof adapter.raw === "object" &&
+            !Array.isArray(adapter.raw)
+        )
+            Object.assign(adapter.raw, args.state)
     },
 }))
 vi.mock("@/lifecycle", () => ({ default: { onExit: adapter.onExit } }))
 vi.mock("@/utils/helpers", () => ({ getStoreName: (name: string) => `dev_${name}` }))
 
 describe("Tauri adapter", () => {
+    beforeEach(() => {
+        adapter.raw = { version: 1, media: {} }
+        adapter.calls = []
+        adapter.options = {}
+        adapter.state = {}
+        adapter.startError = undefined
+        adapter.onExit.mockClear()
+    })
     it("creates only on load and patches before immediate saving", async () => {
         expect(adapter.calls).toEqual([])
         const store = createMediaStore()
@@ -314,16 +417,30 @@ describe("Tauri adapter", () => {
             "saveNow",
             "denySave",
         ])
-        expect(adapter.state.version).toBe(1)
+        expect((adapter.state.payload as MediaState).version).toBe(1)
+        expect(adapter.raw).toMatchObject({
+            version: 1,
+            payload: { version: 1, media: { a: expect.any(Object) } },
+        })
     })
     it("never stamps or saves a versionless backing store", async () => {
-        adapter.calls = []
         adapter.raw = { media: {} }
         const store = createMediaStore()
         await expect(store.load()).rejects.toThrow("migration not implemented")
         expect(adapter.calls).toEqual(["create", "denySave", "start"])
-        expect(adapter.state).toEqual({ media: {} })
+        expect(adapter.state).toEqual({ payload: { media: {} } })
         await adapter.onExit.mock.calls.at(-1)?.[0]()
         expect(adapter.calls).toEqual(["create", "denySave", "start", "stop"])
+    })
+    it("propagates startup errors without migration, commit or save", async () => {
+        const original = new Error("load failed")
+        const migrate = vi.fn(async () => ({ version: 1, media: {} }))
+        adapter.startError = original
+        adapter.raw = { media: {} }
+        const store = createMediaStore(undefined, [{ from: undefined, to: 1, migrate }])
+
+        await expect(store.load()).rejects.toBe(original)
+        expect(migrate).not.toHaveBeenCalled()
+        expect(adapter.calls).toEqual(["create", "denySave", "start"])
     })
 })
