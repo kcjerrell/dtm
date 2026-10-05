@@ -1,4 +1,9 @@
+export const VALID_IMAGE_TYPES = ["png", "tiff", "jpg", "webp"]
+export const VALID_VIDEO_TYPES = ["mp4", "webm", "mov", "m4v"]
+export const VALID_MEDIA_TYPES = [...VALID_IMAGE_TYPES, ...VALID_VIDEO_TYPES]
+
 export type DtProjectStorage = {
+    kind: "dtp"
     projectFile: string
     nodeId?: number
 } & (
@@ -12,7 +17,7 @@ export type DtProjectStorage = {
 
 export type MediaStorage =
     // for media saved in MediaStore, backed by a file in appdata/images
-    | { kind: "dtm"; id: string }
+    | { kind: "app"; fname: string }
     // for local files
     | { kind: "file"; path: string }
     // for remote files
@@ -20,7 +25,7 @@ export type MediaStorage =
     // for resources in a dt project
     | DtProjectStorage
 
-export interface MediaSource extends Record<string, unknown> {
+export interface MediaItemSource extends Record<string, unknown> {
     loadedFrom?: string
     type?: string
     uti?: string | null
@@ -34,37 +39,55 @@ export interface MediaSource extends Record<string, unknown> {
 export interface MediaState {
     id: string
     type: string
-    source: MediaSource
+    url: string
+    thumbUrl: string
+    source: MediaItemSource
     storage: MediaStorage
     createdAt: number
-    $col: Record<string, object>
+}
+
+export interface MediaStateCol extends MediaState {
+    $col: Record<string, Record<string, unknown>>
 }
 
 export type MediaStoreType = {
     version: number
-    items: MediaState[]
-    collections: Record<string, CollectionState>
+    items: MediaStateCol[]
+    collections: Record<string, CollectionState<Record<string, unknown>, { id: string }>>
+}
+
+export type MediaStoreApi = {
+    save: (
+        kind: MediaStorage["kind"],
+        data: Uint8Array | string,
+        type: string,
+        source: MediaState["source"],
+        colData: MediaStateCol["$col"],
+    ) => Promise<string>
+    remove: (ids: string[], collectionId: string) => void
+    clear: (collectionId: string) => void
+    waitForReady: () => Promise<void>
 }
 
 export type CollectionState<
     T extends Record<string, unknown> = Record<string, unknown>,
-    F extends object = CollectionItem<T>,
+    F extends { id: string } = CollectionItem<T>,
 > = {
     id: string
     items: F[]
 }
 
-export type CollectionItem<T extends Record<string, unknown> = Record<string, unknown>> = Omit<
-    MediaState,
-    "$col"
-> &
-    T
+export type CollectionItem<T extends Record<string, unknown> = Record<string, unknown>> =
+    MediaState & T
 
-export type UseCreateCollectionOptions<T extends Record<string, unknown>, F = unknown> = {
+export type UseCreateCollectionOptions<
+    T extends Record<string, unknown>,
+    F extends { id: string } = CollectionItem<T>,
+> = {
     itemFactory?: MediaCollectionItemFactory<T, F>
 }
 
 export type MediaCollectionItemFactory<
     T extends Record<string, unknown> = Record<string, unknown>,
-    F = unknown,
-> = (item: MediaState, getState: () => T, setState: (state: Partial<T>) => void) => F
+    F extends { id: string } = CollectionItem<T>,
+> = (source: MediaState, state: T) => F

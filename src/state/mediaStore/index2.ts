@@ -1,125 +1,194 @@
-import { Mutex } from "async-mutex"
-import { MediaStoreType, MediaState, CollectionState, UseCreateCollectionOptions, CollectionItem, MediaCollectionItemFactory } from "./types"
 import { store as createStore } from "@tauri-store/valtio"
-import { getStoreName } from "@/utils/helpers"
+import { customAlphabet } from "nanoid"
+import { proxy } from "valtio"
 import Lifecycle from "@/lifecycle"
-import { useCallback, useEffect, useMemo } from "react"
-import { getItemFactory } from "./MediaItem"
-import { useProxyRefState } from "@/hooks/valtioHooks"
+import { getStoreName } from "@/utils/helpers"
+import { getCollections } from "./collections"
+import { removeFile, saveFile } from "./files"
+import {
+    type MediaCollectionItemFactory,
+    type MediaState,
+    type MediaStateCol,
+    type MediaStorage,
+    MediaStoreApi,
+    type MediaStoreType,
+    VALID_MEDIA_TYPES,
+} from "./types"
+import { batch } from "valtio-reactive"
+
+const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
 function createMediaStore() {
     const tauriStore: ReturnType<typeof initStore> = initStore()
     const store = tauriStore.state
+    const { promise: isReady, resolve: resolveReady } = Promise.withResolvers<boolean>()
 
-    const updateColsCallbacks = {} as Record<string, () => void>
+    const itemFactories = {} as Record<
+        string,
+        MediaCollectionItemFactory<Record<string, unknown>, { id: string }>
+    >
 
     function initStore() {
         const storeInstance = createStore<MediaStoreType>(
             getStoreName("media"),
-            { version: 1, items: [] as MediaState[], collections: {} },
+            { version: 1, items: [] as MediaStateCol[], collections: {} },
             {
-                autoStart: true,
+                autoStart: false,
                 syncStrategy: "debounce",
                 syncInterval: 1000,
                 saveOnChange: true,
-                filterKeys: ["views"],
+                filterKeys: ["collections"],
                 filterKeysStrategy: "omit",
             },
         )
         Lifecycle.onExit(() => storeInstance.stop(), true)
+        queueMicrotask(async () => {
+            await storeInstance.start()
+            resolveReady(true)
+        })
         return storeInstance
     }
 
+    async function waitForReady() {
+        await isReady
+    }
+
+    function getNewId() {
+        const ids = store.items.map((item) => item.id)
+        let id = nanoid()
+        while (id in ids) id = nanoid()
+        return id
+    }
+
     /**
-     * defaultValue must be a stable reference
-     * opts.itemFactory must be a stable reference
-     *
+     * Internal. To save items to the media store, create a collection first
      */
-    function useCreateCollection<T extends Record<string, unknown>>(
-        collectionId: string,
-        defaultValue: T,
-    ): CollectionState<T, CollectionItem<T>>
+    async function save(
+        kind: MediaStorage["kind"],
+        data: Uint8Array | string,
+        type: string,
+        source: MediaState["source"],
+        colData: MediaStateCol["$col"],
+    ) {
+        if (!data || data.length === 0) throw new Error("missing data")
+        if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
+        if (!colData || typeof colData !== "object" || Object.keys(colData).length === 0)
+            throw new Error("cannot save media unless it belongs to a collection")
 
-    function useCreateCollection<T extends Record<string, unknown>, F extends object>(
-        collectionId: string,
-        defaultValue: T,
-        opts: {
-            itemFactory: MediaCollectionItemFactory<T, F>
-        },
-    ): CollectionState<T, F>
-    function useCreateCollection<T extends Record<string, unknown>, F>(
-        collectionId: string,
-        defaultValue: T,
-        opts?: UseCreateCollectionOptions<T, F>,
-    ): CollectionState<T> {
-        const { itemFactory: optsItemFactory } = opts ?? {}
+        const id = getNewId()
 
-        const itemFactory = useMemo(() => {
-            console.log("getItemFactory", collectionId)
-            if (optsItemFactory) return optsItemFactory
-            return getItemFactory(collectionId, defaultValue) as MediaCollectionItemFactory<T, CollectionItem<T>
-        }, [collectionId, defaultValue, optsItemFactory])
+        switch (kind) {
+            case "app": {
+                if (!(data instanceof Uint8Array)) throw new Error("data must be a Uint8Array")
 
-        const getItems = useCallback(() => {
-            console.log("getItems", collectionId)
-            return store.items
-                .filter((item) => collectionId in item.$col)
-                .map((item) =>
-                    itemFactory(
-                        item,
-                        () => item.$col[collectionId] as T,
-                        (state: Partial<T>) => {
-                            if (!item.$col[collectionId]) {
-                                item.$col[collectionId] = { ...defaultValue }
-                            }
-                            for (const key in state) {
-                                item.$col[collectionId][key] = state[key]
-                            }
-                        },
-                    ),
-                )
-        }, [itemFactory, collectionId, defaultValue])
+                const { fname, url } = await saveFile(id, data, type)
 
-        const collectionState: CollectionState<T, F> = useProxyRefState(() => ({
-            id: collectionId,
-            items: getItems(),
-        }))
+                const item: MediaStateCol = proxy({
+                    id,
+                    url,
+                    thumbUrl: url,
+                    type,
+                    source,
+                    storage: { kind, fname },
+                    createdAt: Date.now(),
+                    $col: colData,
+                })
 
-        useEffect(() => {
-            console.log("subscribing", collectionId)
+                store.items.push(item)
 
-            if (collectionId in store.collections) {
-                throw new Error("collectionId already in store.collections")
+                for (const collectionId in colData) {
+                    const collection = store.collections[collectionId]
+                    const factory = itemFactories[collectionId]
+                    if (collection && factory) {
+                        const cItem = factory(item, item.$col[collectionId])
+                        collection.items.push(cItem)
+                    }
+                }
+
+                return id
             }
-            store.collections[collectionId] = collectionState
-
-            if (collectionId in updateColsCallbacks) {
-                throw new Error("collectionId already in updateCollections")
-            }
-            updateColsCallbacks[collectionId] = () => {
-                collectionState.items = getItems()
-            }
-
-            return () => {
-                console.log("unsubscribing", collectionId)
-                delete store.collections[collectionId]
-                delete updateColsCallbacks[collectionId]
-            }
-        }, [collectionState, getItems, collectionId])
-
-        return collectionState
-    }
-
-    function useCollection(collectionId: string) {
-        if (collectionId in store.collections) {
-            return store.collections[collectionId]
+            case "file":
+                throw new Error("not yet supported")
+            case "url":
+                throw new Error("not yet supported")
+            case "dtp":
+                throw new Error("not yet supported")
         }
-        return null
     }
+
+    /** Internal. Use the collection api to remove items from a collection */
+    function remove(ids: string[], collectionId: string) {
+        const removeIds = new Set(ids)
+
+        // remove collection data from items
+        for (const item of store.items) {
+            if (removeIds.has(item.id)) {
+                delete item.$col[collectionId]
+            }
+        }
+
+        // get items still in collection
+        const remainingItemIds = new Set(
+            store.items.filter((item) => collectionId in item.$col).map((item) => item.id),
+        )
+
+        // reconcile collection view
+        const keepItems = store.collections[collectionId].items.filter((item) =>
+            remainingItemIds.has(item.id),
+        )
+        store.collections[collectionId].items.splice(
+            0,
+            store.collections[collectionId].items.length,
+            ...keepItems,
+        )
+
+        clearUnusedItems()
+    }
+
+    function clear(collectionId: string) {
+        for (const item of store.items) {
+            if (collectionId in item.$col) {
+                delete item.$col[collectionId]
+            }
+        }
+
+        store.collections[collectionId].items.splice(
+            0,
+            store.collections[collectionId].items.length,
+        )
+
+        clearUnusedItems()
+    }
+
+    function clearUnusedItems() {
+        const keepItems = [] as MediaStateCol[]
+        const clearItems = [] as MediaStateCol[]
+        for (const item of store.items) {
+            if (Object.keys(item.$col).length === 0) clearItems.push(item)
+            else keepItems.push(item)
+        }
+
+        store.items.splice(0, store.items.length, ...keepItems)
+
+        setTimeout(async () => {
+            for (const item of clearItems) {
+                if (item.storage.kind === "app") {
+                    await removeFile(item.storage.fname)
+                }
+            }
+        }, 200)
+    }
+
+    const api: MediaStoreApi = { save, remove, clear, waitForReady }
+
+    const { defineCollection, useCollection, getCollection } = getCollections(store, api, itemFactories)
 
     return {
-        useCreateCollection,
+        defineCollection,
+        getCollection,
         useCollection,
+        api,
+        waitForReady
     }
 }
 

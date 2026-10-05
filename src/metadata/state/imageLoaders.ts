@@ -314,3 +314,19 @@ export function extractPaths(text: string): {
 
     return { urls }
 }
+
+export async function loadImageFromFile(file: File): Promise<{buffer: Uint8Array, type: string}> {
+    // todo
+}
+
+export async function loadImageFromUrl(url: string): Promise<{buffer: Uint8Array, type: string}> {
+    // todo
+}
+
+export async function loadImageFromDtp(projectId: number, imageId: number): Promise<{buffer: Uint8Array, type: string}> {
+    // todo
+}
+
+export async function loadImageFromPose(data: string): Promise<{buffer: Uint8Array, type: string}> {
+    // todo
+}

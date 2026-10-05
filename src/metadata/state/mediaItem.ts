@@ -1,7 +1,8 @@
+import { customAlphabet } from "nanoid"
+import type { MediaState } from "@/state/mediaStore/types"
 import type { DrawThingsMetaData } from "@/types"
 import { isVideo } from "@/utils/imageStore"
 import type { ExifType } from "./metadataStore"
-import { customAlphabet } from "nanoid"
 
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
@@ -26,22 +27,37 @@ export interface MediaItemSource extends Record<string, unknown> {
 }
 
 abstract class MediaItem {
-    id: string
-    pin?: number | null | undefined
-    loadedAt: number
-    source: MediaItemSource
-    type: string
-    $isBinding = false
+    mediaItem: MediaState
+    mdState: { pin: number }
 
-    constructor(opts: MediaItemConstructorOpts) {
-        if (!opts.source) throw new Error("ImageItem must have a source")
-        if (!opts.type) throw new Error("ImageItem must have a type")
+    constructor(item: MediaState, state: { pin: number }) {
+        if (!item.source) throw new Error("ImageItem must have a source")
+        if (!item.type) throw new Error("ImageItem must have a type")
 
-        this.id = MediaItem.getNewId(opts.id)
-        this.pin = opts.pin
-        this.loadedAt = opts.loadedAt ?? Date.now()
-        this.source = { type: opts.type, ...opts.source }
-        this.type = opts.type
+        this.mediaItem = item
+        this.mdState = state
+    }
+
+    get id(): string {
+        return this.mediaItem.id
+    }
+    get pin(): number | null {
+        return this.mdState.pin
+    }
+    get loadedAt(): number {
+        return this.mediaItem.createdAt
+    }
+    get source(): MediaItemSource {
+        return this.mediaItem.source
+    }
+    get type(): string {
+        return this.mediaItem.type
+    }
+    get url(): string {
+        return this.mediaItem.url
+    }
+    get thumbUrl(): string {
+        return this.mediaItem.thumbUrl
     }
 
     get isVideo() {
@@ -50,8 +66,8 @@ abstract class MediaItem {
 
     abstract get metadata(): ExifType | null | undefined
     abstract get dtData(): DrawThingsMetaData | null | undefined
-    abstract get thumbUrl(): string | undefined
-    abstract get url(): string | undefined
+    // abstract get thumbUrl(): string | undefined
+    // abstract get url(): string | undefined
 
     abstract hasMetadata(): Promise<boolean>
 
@@ -81,7 +97,7 @@ abstract class MediaItem {
     }
 
     static getPlaceholder(opts: MediaItemConstructorOpts) {
-        return new LoadingItem(opts)
+        throw new Error("remove")
     }
 }
 

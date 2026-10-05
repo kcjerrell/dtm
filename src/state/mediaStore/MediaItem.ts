@@ -1,10 +1,10 @@
 import { snapshot } from "valtio"
-import { CollectionItem, MediaCollectionItemFactory, MediaState } from "./types"
+import type { CollectionItem, MediaCollectionItemFactory, MediaState, MediaStateCol } from "./types"
 
-export class MediaItemBase implements Omit<MediaState, "$col"> {
-    state: MediaState
+export class MediaItemBase implements MediaState {
+    state: MediaStateCol
 
-    constructor(state: MediaState) {
+    constructor(state: MediaStateCol) {
         this.state = state
     }
 
@@ -55,5 +55,6 @@ export function getItemFactory<T extends Record<string, unknown>>(
         })
     }
 
-    return (source: MediaState) => new Item(source) as unknown as CollectionItem<T>
+    // The store passes the original item, including its internal collection data.
+    return (source) => new Item(source as MediaStateCol) as unknown as CollectionItem<T>
 }

@@ -4,6 +4,7 @@ import { ImageItem } from "./ImageItem"
 import { loadImage2 } from "./imageLoaders"
 import type MediaItem from "./mediaItem"
 import { addImageItem, selectImage, waitForMetadataStore } from "./metadataStore"
+import { getMetadataStore } from "./metadataStore2"
 
 export async function sendToMetadata(
     imageData: Uint8Array<ArrayBuffer>,
@@ -16,16 +17,20 @@ export async function sendToMetadata(
     //     compareImageSource(im.source, source),
     // ) as Nullable<MediaItem>
 
-    await waitForMetadataStore()
-    const image = await ImageItem.fromBuffer(imageData, type, source)
-    if (image) {
-        let imageItem: MediaItem = image
-        imageItem = addImageItem(image)
-        if (imageItem) {
-            selectImage(imageItem)
-            updateSetting("app.currentView", "metadata")
-        }
-    }
+    // await waitForMetadataStore()
+    // const image = await ImageItem.fromBuffer(imageData, type, source)
+    // if (image) {
+    //     let imageItem: MediaItem = image
+    //     imageItem = addImageItem(image)
+    //     if (imageItem) {
+    //         selectImage(imageItem)
+    //         updateSetting("app.currentView", "metadata")
+    //     }
+    // }
+
+    const mdStore = await getMetadataStore()
+    await mdStore.addItem(imageData, type, source)
+    updateSetting("app.currentView", "metadata")
 }
 
 export function handleDrop(data: unknown) {

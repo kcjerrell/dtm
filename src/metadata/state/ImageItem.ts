@@ -1,5 +1,6 @@
 import { DtpService } from "@/commands"
 import DTProject from "@/commands/DTProject"
+import type { MediaState } from "@/state/mediaStore/types"
 import type { DrawThingsMetaData } from "@/types"
 import { fetchImage, getLocalImage } from "@/utils/clipboard"
 import ImageStore, { isVideo } from "@/utils/imageStore"
@@ -18,11 +19,9 @@ export class ImageItem extends MediaItem {
     private _dtData?: DrawThingsMetaData | null
     private _metadataStatus?: "pending" | "done"
     private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
-    private _url?: string
-    private _thumbUrl?: string
 
-    private constructor(opts: ImageItemConstructorOpts) {
-        super(opts)
+    constructor(mediaItem: MediaState, state: { pin: number }) {
+        super(mediaItem, state)
     }
 
     get isVideo() {
@@ -42,37 +41,25 @@ export class ImageItem extends MediaItem {
     }
 
     async loadMetadata() {
-        if (this.$isBinding) {
-            console.log("load metadata supressed")
-            return
-        }
         if (this._metadataStatus) return
         this._metadataStatus = "pending"
 
-        if (!this._url) {
+        if (!this.url) {
             this._metadataStatus = "done"
             this._metadataPromise?.resolve()
             return
         }
 
         try {
-            const metadata = await getExif(this._url)
+            const metadata = await getExif(this.url)
             this._metadata = metadata as ExifType
             this._dtData = getDrawThingsDataFromExif(metadata as ExifType) ?? null
         } catch (e) {
-            console.warn("couldn't load metadata from ", this._url, e)
+            console.warn("couldn't load metadata from ", this.url, e)
         } finally {
             this._metadataStatus = "done"
             this._metadataPromise?.resolve()
         }
-    }
-
-    get thumbUrl() {
-        return this._thumbUrl
-    }
-
-    get url() {
-        return this._url
     }
 
     async hasMetadata(): Promise<boolean> {
@@ -81,13 +68,8 @@ export class ImageItem extends MediaItem {
         return !!this.dtData
     }
 
-    private async loadEntry() {
-        const entry = await ImageStore.get(this.id)
-        this._url = entry?.url
-        this._thumbUrl = entry?.thumbUrl
-    }
-
     private async saveBufferEntry(buffer: Uint8Array) {
+        throw new Error("remove")
         try {
             const entry = await ImageStore.save(this.id, buffer, this.type)
             this._url = entry?.url
@@ -104,6 +86,7 @@ export class ImageItem extends MediaItem {
     }
 
     static async fromJSON(json: ReturnType<ImageItem["toJSON"]>) {
+        throw new Error("remove")
         const item = new ImageItem(json)
         // retrieve url and thumbUrl from imagestore
         await item.loadEntry()

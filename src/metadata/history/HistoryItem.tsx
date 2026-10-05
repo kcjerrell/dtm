@@ -4,15 +4,17 @@ import { useEffect, useRef } from "react"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import type MediaItem from "../state/mediaItem"
 import { useVideoThumbnail } from "./VideoThumbnailProvider"
+import { useSnapshot } from "valtio"
 
 interface HistoryItemProps extends BoxProps {
-    image: ReadonlyState<MediaItem>
+    image: MediaItem
     isSelected: boolean
     onSelect?: () => void
     isPinned?: boolean
 }
 function HistoryItem(props: HistoryItemProps) {
-    const { image, isSelected, onSelect, isPinned, ...restProps } = props
+    const { image: imageState, isSelected, onSelect, isPinned, ...restProps } = props
+    const image = useSnapshot(imageState)
     const ref = useRef<HTMLDivElement>(null)
 
     const Thumbnail = image?.isVideo ? VideoThumbnail : ImageThumbnail
@@ -72,6 +74,7 @@ function HistoryItem(props: HistoryItemProps) {
 
 const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
     const { item, ...restProps } = props
+    console.log(item)
     return <motion.img src={item?.thumbUrl} {...restProps} />
 }
 
