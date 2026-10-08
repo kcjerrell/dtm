@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core"
 import { store as createStore } from "@tauri-store/valtio"
 import { customAlphabet } from "nanoid"
 import { proxy } from "valtio"
@@ -14,6 +15,7 @@ import {
     type MediaStoreType,
     type UseCreateCollectionOptions,
     VALID_MEDIA_TYPES,
+    VALID_VIDEO_TYPES,
 } from "./types"
 
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
@@ -44,7 +46,7 @@ function createMediaStore() {
                 saveOnChange: true,
                 filterKeys: ["collections"],
                 filterKeysStrategy: "omit",
-                saveOnExit: true
+                saveOnExit: true,
             },
         )
         Lifecycle.onExit(async () => {
@@ -112,54 +114,68 @@ function createMediaStore() {
     ) {
         if (!data || data.length === 0) throw new Error("missing data")
         if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
+        if (VALID_VIDEO_TYPES.includes(type) && kind !== "file" && kind !== "url")
+            throw new Error("videos must be referenced by file or URL")
         if (!colData || typeof colData !== "object" || Object.keys(colData).length === 0)
             throw new Error("cannot save media unless it belongs to a collection")
 
         const id = getNewId()
+        let storage: MediaStorage
+        let url: string
 
         switch (kind) {
             case "app": {
                 if (!(data instanceof Uint8Array)) throw new Error("data must be a Uint8Array")
 
-                const { fname, url } = await MediaStoreFiles.saveFile(id, data, type)
-
-                const item: MediaStateCol = proxy({
-                    id,
-                    url,
-                    thumbUrl: url,
-                    type,
-                    source,
-                    storage: { kind, fname },
-                    createdAt: Date.now(),
-                    $col: colData,
-                })
-
-                store.items.push(item)
-
-                for (const collectionId in colData) {
-                    const collection = store.collections[collectionId]
-                    const factory = collectionOpts[collectionId]?.itemFactory
-                    if (collection && factory) {
-                        try {
-                            const cItem = factory(item, item.$col[collectionId])
-                            collection.items.push(cItem)
-                        } catch (e) {
-                            console.error(e)
-                            clearUnusedItems()
-                            throw e
-                        }
-                    }
-                }
-
-                return id
+                const saved = await MediaStoreFiles.saveFile(id, data, type)
+                storage = { kind, fname: saved.fname }
+                url = saved.url
+                break
             }
-            case "file":
-                throw new Error("not yet supported")
-            case "url":
-                throw new Error("not yet supported")
+            case "file": {
+                if (typeof data !== "string" || !data.startsWith("/"))
+                    throw new Error("file storage requires an absolute path")
+                storage = { kind, path: data }
+                url = convertFileSrc(data)
+                break
+            }
+            case "url": {
+                if (typeof data !== "string" || !/^https?:\/\//i.test(data))
+                    throw new Error("URL storage requires an HTTP(S) URL")
+                storage = { kind, url: data }
+                url = data
+                break
+            }
             case "dtp":
                 throw new Error("not yet supported")
         }
+
+        const item: MediaStateCol = proxy({
+            id,
+            url,
+            thumbUrl: url,
+            type,
+            source,
+            storage,
+            createdAt: Date.now(),
+            $col: colData,
+        })
+
+        store.items.push(item)
+        for (const collectionId in colData) {
+            const collection = store.collections[collectionId]
+            const factory = collectionOpts[collectionId]?.itemFactory
+            if (collection && factory) {
+                try {
+                    collection.items.push(factory(item, item.$col[collectionId]))
+                } catch (e) {
+                    console.error(e)
+                    clearUnusedItems()
+                    throw e
+                }
+            }
+        }
+        return id
     }
 
     function getItem(id: string) {
@@ -262,9 +278,11 @@ function createMediaStore() {
     async function saveCopy(id: string, dest: string) {
         const item = getItem(id)
         if (!item) return
-        if (item.storage.kind !== "app") return
-
-        await MediaStoreFiles.saveCopy(item.storage.fname, dest)
+        if (item.storage.kind === "app") {
+            await MediaStoreFiles.saveCopy(item.storage.fname, dest)
+        } else if (item.storage.kind === "file") {
+            await MediaStoreFiles.saveFileCopy(item.storage.path, dest)
+        }
     }
 
     const api: MediaStoreApi = { save, remove, clear, waitForReady, syncCollectionItems }

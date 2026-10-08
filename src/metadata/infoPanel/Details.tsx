@@ -3,7 +3,8 @@ import MeasureGrid from "@/components/measureGrid/MeasureGrid"
 import { useFfmpeg } from "@/hooks/useFfmpeg"
 import type { ImageSource } from "@/types"
 import type MdItem from "../state/MdItem"
-import type { MdVideo } from "../state/MdVideo"
+import { MdVideo } from "../state/MdVideo"
+import { useMetadataStore } from "../state/metadataStore2"
 import DataItem from "./DataItem"
 import SourceDetails from "./SourceDetails"
 
@@ -15,9 +16,10 @@ interface DetailsProps extends ChakraProps {
 
 function Details(props: DetailsProps) {
     const { imageSnap, onItemCollapseChanged, expandItems, ...rest } = props
+    const mdStore = useMetadataStore()
     const ffmpeg = useFfmpeg(true, () => {
-        if (!imageSnap?.isVideo) return
-        ;(imageSnap as MdVideo).loadMetadata(true)
+        const item = imageSnap?.id && mdStore.collection.getItemById(imageSnap.id)
+        if (item instanceof MdVideo) void item.loadMetadata(true)
     })
 
     const exif = imageSnap?.metadata ?? {}
@@ -35,7 +37,10 @@ function Details(props: DetailsProps) {
             minWidth={0}
         >
             <SourceDetails imageSource={imageSource} />
-            {imageSnap?.isVideo && (
+            {imageSnap?.isVideo && imageSnap.storage.kind === "url" && (
+                <Text>Video metadata is only available for local files.</Text>
+            )}
+            {imageSnap?.isVideo && imageSnap.storage.kind === "file" && (
                 <>
                     <ffmpeg.FfmpegComponent
                         macMessage="FFmpeg must be downloaded to load video metadata."

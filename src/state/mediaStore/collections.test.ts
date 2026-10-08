@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { LoadedImage } from "@/metadata/state/imageLoaders"
+import type { LoadedImage, LoadedMedia } from "@/metadata/state/imageLoaders"
 import { getCollections, MediaCollection } from "./collections"
 import { getItemFactory, MediaItemBase } from "./MediaItem"
 import type {
@@ -16,6 +16,9 @@ const loaders = vi.hoisted(() => ({
     loadImageFromDtp: vi.fn<() => Promise<LoadedImage | undefined>>(),
     loadImageFromPose: vi.fn<() => Promise<LoadedImage | undefined>>(),
     loadImageFromPasteboard: vi.fn<() => Promise<LoadedImage[]>>(),
+    loadMediaFromFile: vi.fn<() => Promise<LoadedMedia | undefined>>(),
+    loadMediaFromUrl: vi.fn<() => Promise<LoadedMedia | undefined>>(),
+    loadMediaFromPasteboard: vi.fn<() => Promise<LoadedMedia[]>>(),
 }))
 vi.mock("@/metadata/state/imageLoaders", () => loaders)
 
@@ -113,6 +116,7 @@ const singleImageCases = [
 beforeEach(() => {
     vi.resetAllMocks()
     loaders.loadImageFromPasteboard.mockResolvedValue([])
+    loaders.loadMediaFromPasteboard.mockResolvedValue([])
 })
 
 describe("collection options", () => {
@@ -162,6 +166,36 @@ describe("collection options", () => {
         expect(collectionOpts.custom.getPersistIds).toBe(getPersistIds)
         expect(collectionOpts.custom.onItemsChanged).toBe(onItemsChanged)
         expect(collectionOpts.custom.getPersistIds?.()).toEqual(["item-1"])
+    })
+})
+
+describe("referenced video collection items", () => {
+    it.each([
+        ["file", "/videos/movie.mov", "mov"],
+        ["url", "https://example.test/movie.mp4", "mp4"],
+    ] as const)("saves %s without caching bytes", async (kind, location, type) => {
+        const { collection, api, items } = setup()
+        const video: LoadedMedia = { kind, location, type, source }
+        const result = await collection.addMedia(video, state)
+        expect(api.save).toHaveBeenCalledExactlyOnceWith(kind, location, type, source, {
+            test: state,
+        })
+        expect(result).toBe(items[0])
+    })
+
+    it("adds mixed pasteboard media through their respective storage kinds", async () => {
+        const { collection, api } = setup()
+        loaders.loadMediaFromPasteboard.mockResolvedValue([
+            acquired,
+            { kind: "file", location: "/videos/movie.mp4", type: "mp4", source },
+        ])
+        expect(await collection.addMediaFromPasteboard("drag")).toHaveLength(2)
+        expect(api.save).toHaveBeenNthCalledWith(1, "app", buffer, "png", acquired.source, {
+            test: expect.any(Object),
+        })
+        expect(api.save).toHaveBeenNthCalledWith(2, "file", "/videos/movie.mp4", "mp4", source, {
+            test: expect.any(Object),
+        })
     })
 })
 

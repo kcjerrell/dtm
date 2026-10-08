@@ -2,11 +2,16 @@ import { proxy } from "valtio"
 import { computed } from "valtio-reactive"
 import MediaStore from "@/state/mediaStore"
 import type { MediaCollection } from "@/state/mediaStore/collections"
-import { type MediaItemSource, VALID_IMAGE_TYPES } from "@/state/mediaStore/types"
+import {
+    type MediaItemSource,
+    VALID_IMAGE_TYPES,
+    VALID_VIDEO_TYPES,
+} from "@/state/mediaStore/types"
 import { getSetting } from "@/state/settings"
 import { bindProxy } from "@/utils/valtio"
 import { MdImage } from "./MdImage"
 import type MdItem from "./MdItem"
+import { MdVideo } from "./MdVideo"
 
 type MetadataStore = {
     state: {
@@ -22,6 +27,8 @@ type MetadataStore = {
     selectImage: (id: string | null) => void
     clearAll: (keepPins?: boolean) => void
     addItem: (data: Uint8Array, type: string, source: MediaItemSource) => Promise<void>
+    addMediaFromFile: (file: string, source?: MediaItemSource) => Promise<void>
+    addMediaFromUrl: (url: string, source?: MediaItemSource) => Promise<void>
 
     pinImage(useCurrent: true, pin: boolean): void
     pinImage(image: MdItem, pin: boolean): void
@@ -48,7 +55,7 @@ function initStore(): MetadataStore {
             itemFactory: (item, state) => {
                 let mdItem: MdItem | undefined
                 if (VALID_IMAGE_TYPES.includes(item.type)) mdItem = new MdImage(item, state)
-                // else if (VALID_VIDEO_TYPES.includes(item.type)) return new MdVideo(item, state)
+                else if (VALID_VIDEO_TYPES.includes(item.type)) mdItem = new MdVideo(item, state)
                 if (!mdItem) throw new Error(`Invalid item type: ${item.type}`)
 
                 return bindProxy(proxy(mdItem))
@@ -101,6 +108,16 @@ function initStore(): MetadataStore {
         if (item) selectImage(item.id)
     }
 
+    async function addMediaFromFile(file: string, source?: MediaItemSource) {
+        const item = await collection.addMediaFromFile(file, source)
+        if (item) selectImage(item.id)
+    }
+
+    async function addMediaFromUrl(url: string, source?: MediaItemSource) {
+        const item = await collection.addMediaFromUrl(url, source)
+        if (item) selectImage(item.id)
+    }
+
     function pinImage(useCurrent: true, pin: boolean): void
     function pinImage(item: MdItem, pin: boolean): void
     function pinImage(arg: true | MdItem, pin: boolean): void {
@@ -123,6 +140,8 @@ function initStore(): MetadataStore {
         selectImage,
         clearAll,
         addItem,
+        addMediaFromFile,
+        addMediaFromUrl,
         pinImage,
     }
 }

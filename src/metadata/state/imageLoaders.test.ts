@@ -9,6 +9,9 @@ import {
     loadImageFromPasteboard,
     loadImageFromPose,
     loadImageFromUrl,
+    loadMediaFromFile,
+    loadMediaFromPasteboard,
+    loadMediaFromUrl,
 } from "./imageLoaders"
 
 const io = vi.hoisted(() => ({
@@ -163,6 +166,75 @@ describe("loadImageFromUrl", () => {
     it("ignores a fetched video even at an image URL", async () => {
         io.fetchImage.mockResolvedValue({ data: png, type: "video/mp4" })
         expect(await loadImageFromUrl("https://example.test/image.png")).toBeUndefined()
+    })
+})
+
+describe("video acquisition", () => {
+    it.each(["/videos/a cat.mp4", "file:///videos/a%20cat.mp4", "files:///videos/a%20cat.mp4"])(
+        "references local video %s without reading its bytes",
+        async (file) => {
+            expect(await loadMediaFromFile(file, source)).toEqual({
+                kind: "file",
+                location: "/videos/a cat.mp4",
+                type: "mp4",
+                source: { ...source, file: "/videos/a cat.mp4", url: null },
+            })
+            expect(io.getLocalImage).not.toHaveBeenCalled()
+        },
+    )
+
+    it("references a remote video with query parameters without fetching its bytes", async () => {
+        const url = "https://example.test/movie.webm?token=123"
+        expect(await loadMediaFromUrl(url, source)).toEqual({
+            kind: "url",
+            location: url,
+            type: "webm",
+            source: { ...source, url },
+        })
+        expect(io.fetchImage).not.toHaveBeenCalled()
+    })
+
+    it("acquires mixed Finder images and videos in order", async () => {
+        io.getClipboardTypes.mockResolvedValue(["NSFilenamesPboardType"])
+        io.getClipboardText.mockResolvedValue({
+            NSFilenamesPboardType: plist.build(["/images/cat.png", "/videos/movie.mov"]),
+        })
+        io.getLocalImage.mockResolvedValue(png)
+        expect(await loadMediaFromPasteboard("drag")).toEqual([
+            {
+                buffer: png,
+                type: "png",
+                source: {
+                    loadedFrom: "drop",
+                    uti: "NSFilenamesPboardType",
+                    url: "/images/cat.png",
+                    file: "/images/cat.png",
+                },
+            },
+            {
+                kind: "file",
+                location: "/videos/movie.mov",
+                type: "mov",
+                source: {
+                    loadedFrom: "drop",
+                    uti: "NSFilenamesPboardType",
+                    file: "/videos/movie.mov",
+                    url: null,
+                },
+            },
+        ])
+        expect(io.getLocalImage).toHaveBeenCalledTimes(1)
+    })
+
+    it("recognizes a video-only clipboard URL", async () => {
+        io.getClipboardTypes.mockResolvedValue(["public.utf8-plain-text"])
+        io.getClipboardText.mockResolvedValue({
+            "public.utf8-plain-text": "https://example.test/movie.mp4",
+        })
+        expect(await loadMediaFromPasteboard("general")).toMatchObject([
+            { kind: "url", type: "mp4", location: "https://example.test/movie.mp4" },
+        ])
+        expect(io.fetchImage).not.toHaveBeenCalled()
     })
 })
 

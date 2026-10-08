@@ -15,8 +15,8 @@ import type { ICommand1 } from "@/types"
 import { save } from "@/utils/tauri"
 import { loadImage2 } from "../state/interop"
 import type MdItem from "../state/MdItem"
-import PinnedIcon from "./PinnedIcon"
 import { useMetadataStore } from "../state/metadataStore2"
+import PinnedIcon from "./PinnedIcon"
 
 export function useMediaItemCommands() {
     const mdStore = useMetadataStore()
@@ -42,6 +42,7 @@ export function useMediaItemCommands() {
                     label: "Copy image",
                     icon: FiCopy,
                     requiresSelection: true,
+                    getEnabled: (item) => !!item && !item.isVideo && item.storage.kind === "app",
                     onClick: async (item) => {
                         if (!item) return
                         await item.copyImageToClipboard()
@@ -85,14 +86,18 @@ export function useMediaItemCommands() {
                         if (!item) return
                         const savePath = await save({
                             canCreateDirectories: true,
-                            title: "Save image",
-                            filters: [{ name: "Image", extensions: [item.type] }],
+                            title: item.isVideo ? "Save video" : "Save image",
+                            filters: [
+                                { name: item.isVideo ? "Video" : "Image", extensions: [item.type] },
+                            ],
                         })
                         if (savePath) {
                             await item.saveCopy(savePath)
                         }
                     },
                     requiresSelection: true,
+                    getEnabled: (item) =>
+                        !!item && (item.storage.kind === "app" || item.storage.kind === "file"),
                     icon: FiSave,
                 },
                 {

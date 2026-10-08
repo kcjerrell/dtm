@@ -26,6 +26,15 @@ export type LoadedImage = {
     source?: MediaItemSource
 }
 
+export type LoadedVideo = {
+    kind: "file" | "url"
+    location: string
+    type: string
+    source?: MediaItemSource
+}
+
+export type LoadedMedia = LoadedImage | LoadedVideo
+
 const prioritizedTypes = [
     "NSFilenamesPboardType",
     "public.utf8-plain-text",
@@ -52,13 +61,24 @@ export const clipboardTextTypes = [
 export async function loadImageFromPasteboard(
     pasteboard: "general" | "drag",
 ): Promise<LoadedImage[]> {
-    let firstItem: LoadedImage | undefined
-    for await (const result of loadItems(pasteboard)) {
+    return (await collectPasteboard(pasteboard, false)) as LoadedImage[]
+}
+
+export async function loadMediaFromPasteboard(
+    pasteboard: "general" | "drag",
+): Promise<LoadedMedia[]> {
+    return collectPasteboard(pasteboard, true)
+}
+
+async function collectPasteboard(pasteboard: "general" | "drag", includeVideo: boolean) {
+    let firstItem: LoadedMedia | undefined
+    for await (const result of loadItems(pasteboard, includeVideo)) {
         if (!result) continue
         // Finder supplies distinct files, not alternate representations of one image.
         if (Array.isArray(result)) return result
 
         firstItem ??= result
+        if ("kind" in result) continue
         try {
             if (getDrawThingsDataFromExif(await getExif(result.buffer))) return [result]
         } catch (e) {
@@ -70,7 +90,8 @@ export async function loadImageFromPasteboard(
 
 async function* loadItems(
     pasteboard: "general" | "drag",
-): AsyncGenerator<LoadedImage | LoadedImage[] | undefined> {
+    includeVideo = false,
+): AsyncGenerator<LoadedMedia | LoadedMedia[] | undefined> {
     const types = await getOverrideOr(
         "pasteboardTypes",
         async () => await getClipboardTypes(pasteboard),
@@ -114,9 +135,12 @@ async function* loadItems(
 
             // Special handling for bulk file loading
             if (uti === "NSFilenamesPboardType" && result.urls) {
-                const items: LoadedImage[] = []
+                const items: LoadedMedia[] = []
                 for (const url of result.urls) {
-                    const item = await loadImageFromUrl(url, { ...utiSource, url })
+                    const item = await (includeVideo ? loadMediaFromUrl : loadImageFromUrl)(url, {
+                        ...utiSource,
+                        url,
+                    })
                     if (item) items.push(item)
                 }
                 yield items
@@ -136,7 +160,10 @@ async function* loadItems(
             // Handle URLs (web or local)
             if (result.urls) {
                 for (const url of result.urls) {
-                    const item = await loadImageFromUrl(url, { ...utiSource, url })
+                    const item = await (includeVideo ? loadMediaFromUrl : loadImageFromUrl)(url, {
+                        ...utiSource,
+                        url,
+                    })
                     if (item) yield item
                 }
             }
@@ -286,6 +313,44 @@ export async function loadImageFromBuffer(
     // Video acquisition is deliberately left to the upcoming video migration.
     if (!buffer?.length || !VALID_IMAGE_TYPES.includes(type)) return undefined
     return { buffer, type, source }
+}
+
+export async function loadMediaFromFile(
+    file: string,
+    source?: MediaItemSource,
+): Promise<LoadedMedia | undefined> {
+    const normalized = file.startsWith("files://") ? file.replace("files://", "file://") : file
+    try {
+        const filePath = normalized.startsWith("file://")
+            ? decodeURIComponent(new URL(normalized).pathname)
+            : normalized
+        const type = determineType(filePath)
+        if (type && VALID_VIDEO_TYPES.includes(type)) {
+            return {
+                kind: "file",
+                location: filePath,
+                type,
+                source: { ...source, file: filePath, url: null },
+            }
+        }
+    } catch (e) {
+        console.warn("couldn't load media from file", file, e)
+        return undefined
+    }
+    return loadImageFromFile(file, source)
+}
+
+export async function loadMediaFromUrl(
+    url: string,
+    source?: MediaItemSource,
+): Promise<LoadedMedia | undefined> {
+    url = preprocess(url)
+    if (isLocalUrl(url)) return loadMediaFromFile(url, source)
+    const type = determineType(url)
+    if (type && VALID_VIDEO_TYPES.includes(type)) {
+        return { kind: "url", location: url, type, source: { ...source, url } }
+    }
+    return loadImageFromUrl(url, source)
 }
 
 export async function loadImageFromFile(

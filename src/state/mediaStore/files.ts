@@ -77,7 +77,12 @@ async function saveCopy(fname: string, dest: string) {
     })
 }
 
+async function saveFileCopy(source: string, dest: string) {
+    await fs.copyFile(source, dest)
+}
+
 export const MediaStoreFiles = {
+    saveFileCopy,
     saveFile,
     removeFile,
     copyToClipboard,
