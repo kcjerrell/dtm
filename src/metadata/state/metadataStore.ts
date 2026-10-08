@@ -1,15 +1,15 @@
-import { readFile } from "@tauri-apps/plugin-fs"
+
 import { store } from "@tauri-store/valtio"
-import * as exifr from "exifr"
+
 import { proxy, subscribe } from "valtio"
 import Lifecycle from "@/lifecycle"
 import { getSetting } from "@/state/settings"
 import { getStoreName } from "@/utils/helpers"
 import ImageStore, { isVideo } from "@/utils/imageStore"
 import { bindProxy } from "@/utils/valtio"
-import { ImageItem } from "./ImageItem"
-import MediaItem from "./mediaItem"
-import { VideoItem } from "./VideoItem"
+import { MdImage } from "./MdImage"
+import MdItem from "./MdItem"
+import { MdVideo } from "./MdVideo"
 
 const storeReady = Promise.withResolvers<void>()
 export function waitForMetadataStore() {
@@ -18,7 +18,7 @@ export function waitForMetadataStore() {
 }
 
 const initialStoreValues = {
-    items: [] as MediaItem[],
+    items: [] as MdItem[],
     currentIndex: null as number | null,
     zoomPreview: false,
     showHistory: false,
@@ -32,7 +32,7 @@ function initStore() {
         getStoreName("metadata"),
         {
             ...initialStoreValues,
-            get currentItem(): MediaItem | undefined {
+            get currentItem(): MdItem | undefined {
                 const s = getMetadataStore()
                 if (s.currentIndex === null) return undefined
                 return s.items[s.currentIndex]
@@ -67,14 +67,14 @@ function initStore() {
 
                     if ("items" in state && Array.isArray(state.items)) {
                         state.items = state.items.map(
-                            (im: MediaItem | ReturnType<MediaItem["toJSON"]>) => {
-                                if (im instanceof MediaItem) return im
+                            (im: MdItem | ReturnType<MdItem["toJSON"]>) => {
+                                if (im instanceof MdItem) return im
 
                                 // we'll create a placeholder for the item
-                                const placeholder = MediaItem.getPlaceholder(im)
+                                const placeholder = MdItem.getPlaceholder(im)
 
                                 if (isVideo(im.type)) {
-                                    VideoItem.fromJSON(im)
+                                    MdVideo.fromJSON(im)
                                         .then((video) => {
                                             replacePlaceholder(bindProxy(proxy(video)))
                                         })
@@ -83,7 +83,7 @@ function initStore() {
                                             removePlaceholder(placeholder)
                                         })
                                 } else {
-                                    ImageItem.fromJSON(im)
+                                    MdImage.fromJSON(im)
                                         .then((im) => {
                                             replacePlaceholder(bindProxy(proxy(im)))
                                         })
@@ -136,7 +136,7 @@ export function resetMetadataStore() {
     }
 }
 
-export type MediaItemParam = ReadonlyState<MediaItem> | MediaItem | number | null
+export type MediaItemParam = ReadonlyState<MdItem> | MdItem | number | null
 
 // TODO: revisit
 async function cleanUp() {
@@ -214,7 +214,7 @@ export async function clearAll(keepTabs = false) {
     await syncImageStore()
 }
 
-async function clearItem(items: Pick<MediaItem, "id">[]) {
+async function clearItem(items: Pick<MdItem, "id">[]) {
     const ids = items.map((item) => item.id)
     getMetadataStore().items = getMetadataStore().items.filter((item) => !ids.includes(item.id))
     await syncImageStore()
@@ -225,7 +225,7 @@ export async function clearCurrent() {
     if (cur) await clearItem([cur])
 }
 
-export function addImageItem(item: MediaItem) {
+export function addImageItem(item: MdItem) {
     const store = getMetadataStore()
     const itemState = bindProxy(proxy(item))
     store.items.push(itemState)
@@ -233,14 +233,14 @@ export function addImageItem(item: MediaItem) {
     return itemState
 }
 
-function replacePlaceholder(item: MediaItem) {
+function replacePlaceholder(item: MdItem) {
     const store = getMetadataStore()
     const index = store.items.findIndex((im) => im.id === item.id)
     if (index === -1) return
     store.items[index] = item
 }
 
-function removePlaceholder(item: MediaItem) {
+function removePlaceholder(item: MdItem) {
     const store = getMetadataStore()
     const index = store.items.findIndex((im) => im.id === item.id)
     if (index === -1) return
@@ -251,27 +251,4 @@ export function setMetadataIsImageLoading(value: boolean) {
     getMetadataStore().isLoadingImage = value
 }
 
-export type ExifType = Record<string, Record<string, unknown>>
-export async function getExif(imagePath: string): Promise<ExifType | null>
-export async function getExif(imageDataBuffer: ArrayBuffer): Promise<ExifType | null>
-export async function getExif(arg: ArrayBuffer | string): Promise<ExifType | null> {
-    let data = typeof arg !== "string" ? arg : null
-
-    if (data === null) data = (await readFile(arg as string)).buffer
-
-    try {
-        // return await ExifReader.load(data, { async: true })
-        const exif = await exifr.parse(data, {
-            xmp: { multiSegment: true, parse: true },
-            makerNote: true,
-            userComment: true,
-            icc: true,
-            iptc: true,
-            mergeOutput: false,
-        })
-        return exif
-    } catch (e) {
-        console.warn(e)
-        return null
-    }
-}
+export { type ExifType, getExif } from "./imageMetadata"

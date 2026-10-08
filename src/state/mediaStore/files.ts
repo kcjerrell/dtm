@@ -1,5 +1,5 @@
 import { path } from "@tauri-apps/api"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import { convertFileSrc, invoke } from "@tauri-apps/api/core"
 import * as fs from "@tauri-apps/plugin-fs"
 import { getStoreName } from "@/utils/helpers"
 import { VALID_MEDIA_TYPES } from "./types"
@@ -32,7 +32,7 @@ async function getFullPath(arg1: string, arg2?: string): Promise<string> {
     throw new Error("invalid arguments")
 }
 
-export async function saveFile(
+async function saveFile(
     id: string,
     data: Uint8Array,
     type: string,
@@ -57,6 +57,29 @@ export async function saveFile(
 }
 
 /** fname is the filename for a file in appdata/media */
-export async function removeFile(fname: string) {
-    await fs.remove(await getFullPath(fname))
+async function removeFile(fname: string) {
+    try {
+        await fs.remove(await getFullPath(fname))
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+async function copyToClipboard(fname: string) {
+    const data = await fs.readFile(await getFullPath(fname))
+    await invoke("write_clipboard_binary", { ty: `public.${fname.split(".").pop()}`, data })
+}
+
+async function saveCopy(fname: string, dest: string) {
+    const data = await fs.readFile(await getFullPath(fname))
+    await fs.writeFile(dest, data, {
+        createNew: true,
+    })
+}
+
+export const MediaStoreFiles = {
+    saveFile,
+    removeFile,
+    copyToClipboard,
+    saveCopy,
 }

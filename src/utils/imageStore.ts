@@ -2,8 +2,8 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core"
 import * as path from "@tauri-apps/api/path"
 import * as fs from "@tauri-apps/plugin-fs"
 import { store as createStore } from "@tauri-store/valtio"
-import Lifecycle from "@/lifecycle"
 import { Mutex } from "async-mutex"
+import Lifecycle from "@/lifecycle"
 import { getStoreName } from "./helpers"
 
 let _appDataDir: string

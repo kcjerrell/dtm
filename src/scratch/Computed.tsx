@@ -3,6 +3,9 @@ import { Fragment } from "react/jsx-runtime"
 import { useSnapshot } from "valtio"
 import { CheckRoot, Panel } from "@/components"
 import { addItem, useCollection } from "@/state/mediaStore/scratch"
+import MediaStore from "@/state/mediaStore"
+
+await MediaStore.waitForReady()
 
 function Empty() {
     return (

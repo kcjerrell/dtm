@@ -1,0 +1,289 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { LoadedImage } from "@/metadata/state/imageLoaders"
+import { getCollections, MediaCollection } from "./collections"
+import { getItemFactory, MediaItemBase } from "./MediaItem"
+import type {
+    MediaItemSource,
+    MediaState,
+    MediaStoreApi,
+    MediaStoreType,
+    UseCreateCollectionOptions,
+} from "./types"
+
+const loaders = vi.hoisted(() => ({
+    loadImageFromFile: vi.fn<() => Promise<LoadedImage | undefined>>(),
+    loadImageFromUrl: vi.fn<() => Promise<LoadedImage | undefined>>(),
+    loadImageFromDtp: vi.fn<() => Promise<LoadedImage | undefined>>(),
+    loadImageFromPose: vi.fn<() => Promise<LoadedImage | undefined>>(),
+    loadImageFromPasteboard: vi.fn<() => Promise<LoadedImage[]>>(),
+}))
+vi.mock("@/metadata/state/imageLoaders", () => loaders)
+
+type ItemState = { selected: boolean; settings: { label: string } }
+class Item extends MediaItemBase<ItemState> {
+    constructor(
+        id: string,
+        public label: string,
+        state: ItemState,
+    ) {
+        const media: MediaState = {
+            id,
+            type: "png",
+            url: "",
+            thumbUrl: "",
+            source: {},
+            storage: { kind: "app", fname: `${id}.png` },
+            createdAt: 0,
+        }
+        super(media, state)
+    }
+}
+type Collection = MediaCollection<ItemState, Item>
+
+const buffer = new Uint8Array([1, 2, 3])
+const source: MediaItemSource = { loadedFrom: "test" }
+const acquired: LoadedImage = {
+    buffer,
+    type: "png",
+    source: { loadedFrom: "loader", file: "/images/acquired.png" },
+}
+const state: ItemState = { selected: true, settings: { label: "explicit" } }
+
+function setup() {
+    const items: Item[] = []
+    const store: MediaStoreType = {
+        version: 1,
+        items: [],
+        collections: { test: { id: "test", items } },
+    }
+    const api: MediaStoreApi = {
+        save: vi
+            .fn<MediaStoreApi["save"]>()
+            .mockImplementation(async (_kind, _data, _type, _source, colData) => {
+                const item = new Item(
+                    `item-${items.length + 1}`,
+                    "collection facade",
+                    colData.test as ItemState,
+                )
+                items.push(item)
+                return item.id
+            }),
+        remove: vi.fn(),
+        clear: vi.fn(),
+        waitForReady: vi.fn<MediaStoreApi["waitForReady"]>().mockResolvedValue(undefined),
+        syncCollectionItems: vi.fn(),
+    }
+    const defaults: ItemState = { selected: false, settings: { label: "default" } }
+    const collection = new MediaCollection<ItemState, Item>("test", defaults, store, api)
+    const addItem = vi.spyOn(collection, "addItem")
+    return { collection, addItem, api, items, defaults, store }
+}
+
+const singleImageCases = [
+    {
+        name: "file",
+        loader: loaders.loadImageFromFile,
+        args: ["/images/cat.png", source],
+        add: (collection: Collection, state?: ItemState) =>
+            collection.addImageFromFile("/images/cat.png", source, state),
+    },
+    {
+        name: "URL",
+        loader: loaders.loadImageFromUrl,
+        args: ["https://example.test/cat.png", source],
+        add: (collection: Collection, state?: ItemState) =>
+            collection.addImageFromUrl("https://example.test/cat.png", source, state),
+    },
+    {
+        name: "Draw Things project",
+        loader: loaders.loadImageFromDtp,
+        args: [7, 11],
+        add: (collection: Collection, state?: ItemState) =>
+            collection.addImageFromDtp(7, 11, state),
+    },
+    {
+        name: "pose",
+        loader: loaders.loadImageFromPose,
+        args: ['{"people":[],"width":512,"height":512}', source],
+        add: (collection: Collection, state?: ItemState) =>
+            collection.addImageFromPose('{"people":[],"width":512,"height":512}', source, state),
+    },
+]
+
+beforeEach(() => {
+    vi.resetAllMocks()
+    loaders.loadImageFromPasteboard.mockResolvedValue([])
+})
+
+describe("collection options", () => {
+    it("registers the default factory when no options are supplied", () => {
+        const { store, api } = setup()
+        const collectionOpts: Record<
+            string,
+            UseCreateCollectionOptions<
+                Record<string, unknown>,
+                MediaItemBase<Record<string, unknown>>
+            >
+        > = {}
+        const { defineCollection } = getCollections(store, api, collectionOpts)
+        defineCollection("default", { selected: false })
+
+        const factory = collectionOpts.default.itemFactory
+        expect(factory).toBeTypeOf("function")
+        const media: MediaState = {
+            id: "item-1",
+            type: "png",
+            url: "image.png",
+            thumbUrl: "thumb.png",
+            source: {},
+            storage: { kind: "app", fname: "item-1.png" },
+            createdAt: 1,
+        }
+        expect(factory?.(media, { selected: true }).id).toBe("item-1")
+    })
+
+    it("keeps the supplied factory and callbacks accessible to the media store", () => {
+        const { store, api } = setup()
+        const collectionOpts: Record<
+            string,
+            UseCreateCollectionOptions<
+                Record<string, unknown>,
+                MediaItemBase<Record<string, unknown>>
+            >
+        > = {}
+        const { defineCollection } = getCollections(store, api, collectionOpts)
+        const itemFactory = (media: MediaState, state: ItemState) =>
+            new Item(media.id, "custom", state)
+        const getPersistIds = vi.fn(() => ["item-1"])
+        const onItemsChanged = vi.fn()
+        defineCollection("custom", state, { itemFactory, getPersistIds, onItemsChanged })
+
+        expect(collectionOpts.custom.itemFactory).toBe(itemFactory)
+        expect(collectionOpts.custom.getPersistIds).toBe(getPersistIds)
+        expect(collectionOpts.custom.onItemsChanged).toBe(onItemsChanged)
+        expect(collectionOpts.custom.getPersistIds?.()).toEqual(["item-1"])
+    })
+})
+
+describe("default item factory", () => {
+    it("returns a MediaItemBase facade backed by the collection state", () => {
+        const state: ItemState = { selected: false, settings: { label: "default" } }
+        const media: MediaState = {
+            id: "item-1",
+            type: "png",
+            url: "image.png",
+            thumbUrl: "thumb.png",
+            source: {},
+            storage: { kind: "app", fname: "item-1.png" },
+            createdAt: 1,
+        }
+
+        const item = getItemFactory("test", state)(media, state)
+
+        expect(item).toBeInstanceOf(MediaItemBase)
+        expect(item.id).toBe("item-1")
+        expect(item.selected).toBe(false)
+        item.selected = true
+        expect(state.selected).toBe(true)
+    })
+})
+
+describe.each(singleImageCases)(
+    "MediaCollection acquisition from $name",
+    ({ loader, args, add }) => {
+        it("delegates acquisition, forwards the loaded source and state, and returns the collection item", async () => {
+            const { collection, addItem, api, items } = setup()
+            loader.mockResolvedValue(acquired)
+            const result = await add(collection, state)
+            expect(loader).toHaveBeenCalledExactlyOnceWith(...args)
+            expect(addItem).toHaveBeenCalledExactlyOnceWith(buffer, "png", acquired.source, state)
+            expect(addItem.mock.calls[0][3]).toBe(state)
+            expect(api.save).toHaveBeenCalledExactlyOnceWith(
+                "app",
+                buffer,
+                "png",
+                acquired.source,
+                {
+                    test: state,
+                },
+            )
+            expect(result).toBe(items[0])
+            expect(result?.id).toBe("item-1")
+            expect(result?.label).toBe("collection facade")
+        })
+
+        it("does not add or save anything when acquisition returns undefined", async () => {
+            const { collection, addItem, api } = setup()
+            loader.mockResolvedValue(undefined)
+            expect(await add(collection, state)).toBeUndefined()
+            expect(loader).toHaveBeenCalledExactlyOnceWith(...args)
+            expect(addItem).not.toHaveBeenCalled()
+            expect(api.save).not.toHaveBeenCalled()
+        })
+
+        it("defaults a missing loaded source to an empty object", async () => {
+            const { collection, addItem } = setup()
+            loader.mockResolvedValue({ buffer, type: "png" })
+            await add(collection, state)
+            expect(addItem).toHaveBeenCalledExactlyOnceWith(buffer, "png", {}, state)
+        })
+
+        it("returns undefined when addItem cannot resolve the saved collection item", async () => {
+            const { collection, addItem } = setup()
+            loader.mockResolvedValue(acquired)
+            addItem.mockResolvedValue(undefined)
+            expect(await add(collection, state)).toBeUndefined()
+            expect(addItem).toHaveBeenCalledExactlyOnceWith(buffer, "png", acquired.source, state)
+        })
+    },
+)
+
+describe("MediaCollection pasteboard acquisition", () => {
+    it.each(["general", "drag"] as const)(
+        "adds all %s images in order, forwards state, and returns collection items",
+        async (pasteboard) => {
+            const { collection, addItem, items } = setup()
+            const second: LoadedImage = { buffer: new Uint8Array([4, 5, 6]), type: "jpg" }
+            loaders.loadImageFromPasteboard.mockResolvedValue([acquired, second])
+            const result = await collection.addImageFromPasteboard(pasteboard, state)
+            expect(loaders.loadImageFromPasteboard).toHaveBeenCalledExactlyOnceWith(pasteboard)
+            expect(addItem).toHaveBeenCalledTimes(2)
+            expect(addItem).toHaveBeenNthCalledWith(1, buffer, "png", acquired.source, state)
+            expect(addItem).toHaveBeenNthCalledWith(2, second.buffer, "jpg", {}, state)
+            expect(result).toEqual(items)
+            expect(result[0]).toBe(items[0])
+            expect(result[1]).toBe(items[1])
+        },
+    )
+
+    it("returns an empty array without adding anything for an empty acquisition", async () => {
+        const { collection, addItem, api } = setup()
+        expect(await collection.addImageFromPasteboard("general", state)).toEqual([])
+        expect(loaders.loadImageFromPasteboard).toHaveBeenCalledExactlyOnceWith("general")
+        expect(addItem).not.toHaveBeenCalled()
+        expect(api.save).not.toHaveBeenCalled()
+    })
+
+    it("omits unresolved collection items from the returned array", async () => {
+        const { collection, addItem } = setup()
+        const item = new Item("resolved", "collection facade", state)
+        loaders.loadImageFromPasteboard.mockResolvedValue([acquired, acquired])
+        addItem.mockResolvedValueOnce(undefined).mockResolvedValueOnce(item)
+        expect(await collection.addImageFromPasteboard("general", state)).toEqual([item])
+        expect(addItem).toHaveBeenCalledTimes(2)
+    })
+
+    it("leaves omitted state to addItem so each image gets independent collection defaults", async () => {
+        const { collection, addItem, api, defaults } = setup()
+        loaders.loadImageFromPasteboard.mockResolvedValue([acquired, acquired])
+        await collection.addImageFromPasteboard("general")
+        expect(addItem).toHaveBeenNthCalledWith(1, buffer, "png", acquired.source, undefined)
+        expect(addItem).toHaveBeenNthCalledWith(2, buffer, "png", acquired.source, undefined)
+        const [first, second] = vi.mocked(api.save).mock.calls.map((call) => call[4].test)
+        expect(first).toEqual(defaults)
+        expect(second).toEqual(defaults)
+        expect(first).not.toBe(defaults)
+        expect(first).not.toBe(second)
+        expect(first.settings).not.toBe(second.settings)
+    })
+})

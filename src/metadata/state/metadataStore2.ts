@@ -1,29 +1,36 @@
-import MediaStore from "@/state/mediaStore/index2"
-import { VALID_IMAGE_TYPES, VALID_VIDEO_TYPES, MediaItemSource } from "@/state/mediaStore/types"
-import { ImageItem } from "./ImageItem"
-import { VideoItem } from "./VideoItem"
-import MediaItem from "./mediaItem"
-import { MediaCollection } from "@/state/mediaStore/collections"
 import { proxy } from "valtio"
 import { computed } from "valtio-reactive"
+import MediaStore from "@/state/mediaStore"
+import type { MediaCollection } from "@/state/mediaStore/collections"
+import { type MediaItemSource, VALID_IMAGE_TYPES } from "@/state/mediaStore/types"
 import { getSetting } from "@/state/settings"
+import { bindProxy } from "@/utils/valtio"
+import { MdImage } from "./MdImage"
+import type MdItem from "./MdItem"
 
 type MetadataStore = {
     state: {
         isLoadingImage: boolean
-        currentItem?: MediaItem
+        currentItem?: MdItem
         settings: {
             clearHistoryOnExit: boolean
             clearPinsOnExit: boolean
         }
+        items: MdItem[]
     }
-    collection: MediaCollection<{ pin: number | null }, MediaItem>
-    selectImage: (id: string) => void
+    collection: MediaCollection<{ pin: number | null }, MdItem>
+    selectImage: (id: string | null) => void
     clearAll: (keepPins?: boolean) => void
     addItem: (data: Uint8Array, type: string, source: MediaItemSource) => Promise<void>
+
+    pinImage(useCurrent: true, pin: boolean): void
+    pinImage(image: MdItem, pin: boolean): void
 }
 
 let _mdStore: MetadataStore
+
+const getPin = (item: { pin?: number | null }) => item.pin
+const getId = (item: { id: string }) => item.id
 
 function getStore() {
     if (!_mdStore) {
@@ -33,16 +40,31 @@ function getStore() {
 }
 
 function initStore(): MetadataStore {
-    const collection = MediaStore.defineCollection<{ pin: number | null }, MediaItem>(
+    console.log("initstore md")
+    const collection = MediaStore.defineCollection<{ pin: number | null }, MdItem>(
         "metadata",
         { pin: null as number | null },
         {
-            itemFactory: (item, state) =>
-                VALID_IMAGE_TYPES.includes(item.type)
-                    ? new ImageItem(item, state)
-                    : VALID_VIDEO_TYPES.includes(item.type)
-                      ? new VideoItem(item, state)
-                      : undefined,
+            itemFactory: (item, state) => {
+                let mdItem: MdItem | undefined
+                if (VALID_IMAGE_TYPES.includes(item.type)) mdItem = new MdImage(item, state)
+                // else if (VALID_VIDEO_TYPES.includes(item.type)) return new MdVideo(item, state)
+                if (!mdItem) throw new Error(`Invalid item type: ${item.type}`)
+
+                return bindProxy(proxy(mdItem))
+            },
+            onItemsChanged: () => {
+                console.trace(
+                    "Metadata on items changed",
+                    state.items.map((it) => it.id),
+                )
+                if (state.currentItem && !state.items.includes(state.currentItem)) {
+                    state.currentItem = undefined
+                }
+            },
+            getPersistIds: () => {
+                return state.items.filter(getPin).map(getId)
+            },
         },
     )
 
@@ -55,16 +77,19 @@ function initStore(): MetadataStore {
         settings,
         isLoadingImage: false,
         currentItem: undefined,
+        get items() {
+            return collection.items
+        },
     })
 
-    function selectImage(id: string) {
-        const item = collection.getItemById(id)
+    function selectImage(id: string | null) {
+        const item = id ? collection.getItemById(id) : undefined
         state.currentItem = item
     }
 
     function clearAll(keepPins?: boolean) {
         if (keepPins) {
-            const ids = collection.items.filter((item) => item.pin).map((item) => item.id)
+            const ids = collection.items.filter((item) => !item.pin).map((item) => item.id)
             collection.removeItems(ids)
         } else {
             collection.clear()
@@ -72,7 +97,24 @@ function initStore(): MetadataStore {
     }
 
     async function addItem(data: Uint8Array, type: string, source: MediaItemSource) {
-        await collection.addItem(data, type, source)
+        const item = await collection.addItem(data, type, source)
+        if (item) selectImage(item.id)
+    }
+
+    function pinImage(useCurrent: true, pin: boolean): void
+    function pinImage(item: MdItem, pin: boolean): void
+    function pinImage(arg: true | MdItem, pin: boolean): void {
+        const item = arg === true ? state.currentItem : arg
+        if (item) item.cState.pin = pin ? Number.POSITIVE_INFINITY : null
+        reconcilePins()
+    }
+
+    function reconcilePins() {
+        const pinned = collection.items.filter((item) => item.pin !== null)
+        pinned.sort((a, b) => (a.pin ?? 0) - (b.pin ?? 0))
+        pinned.forEach((item, index) => {
+            item.cState.pin = index + 1
+        })
     }
 
     return {
@@ -81,6 +123,7 @@ function initStore(): MetadataStore {
         selectImage,
         clearAll,
         addItem,
+        pinImage,
     }
 }
 

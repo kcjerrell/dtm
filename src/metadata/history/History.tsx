@@ -2,7 +2,6 @@ import { chakra, type StackProps } from "@chakra-ui/react"
 import { motion, useMotionValue } from "motion/react"
 import { useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
-import { selectImage } from "../state/metadataStore"
 import { useMetadataStore } from "../state/metadataStore2"
 import HistoryItem from "./HistoryItem"
 
@@ -89,7 +88,7 @@ function History(props: HistoryProps) {
                             key={image.id}
                             image={image}
                             isSelected={currentItem?.id === image.id}
-                            onSelect={() => selectImage(image)}
+                            onSelect={() => mdStore.selectImage(image.id)}
                             isPinned={image.pin != null}
                         />
                     ))}

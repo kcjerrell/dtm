@@ -1,81 +1,73 @@
-import { Snapshot, useSnapshot } from "valtio"
-import { getItemFactory } from "./MediaItem"
+import { type Snapshot, useSnapshot } from "valtio"
+import { effect } from "valtio-reactive"
+import {
+    loadImageFromDtp,
+    loadImageFromFile,
+    loadImageFromPasteboard,
+    loadImageFromPose,
+    loadImageFromUrl,
+} from "@/metadata/state/imageLoaders"
+import { getItemFactory, type MediaItemBase } from "./MediaItem"
 import type {
     CollectionItem,
-    CollectionState,
-    MediaCollectionItemFactory,
     MediaItemSource,
     MediaStoreApi,
     MediaStoreType,
-    UseCreateCollectionOptions,
+    UseCreateCollectionOptions as CollectionOptions,
 } from "./types"
-
-type Unsubscribe = () => void
-type ItemFactories = Record<
-    string,
-    MediaCollectionItemFactory<Record<string, unknown>, { id: string }>
->
 
 export function getCollections(
     store: MediaStoreType,
     api: MediaStoreApi,
-    itemFactories: ItemFactories,
+    collectionOpts: Record<string, CollectionOptions>,
 ) {
-    function defineCollection<T extends Record<string, unknown>>(
+    function defineCollection<
+        T extends Record<string, unknown>,
+        F extends MediaItemBase<T> = CollectionItem<T>,
+    >(
         collectionId: string,
         defaultValue: T,
-        opts?: { itemFactory?: undefined },
-    ): MediaCollection<T, CollectionItem<T>>
-
-    function defineCollection<T extends Record<string, unknown>, F extends { id: string }>(
-        collectionId: string,
-        defaultValue: T,
-        opts: {
-            itemFactory: MediaCollectionItemFactory<T, F>
-        },
-    ): MediaCollection<T, F>
-    function defineCollection<T extends Record<string, unknown>, F extends { id: string }>(
-        collectionId: string,
-        defaultValue: T,
-        opts?: UseCreateCollectionOptions<T, F>,
-    ): MediaCollection<T, CollectionItem<T>>
-    function defineCollection<T extends Record<string, unknown>, F extends { id: string }>(
-        collectionId: string,
-        defaultValue: T,
-        opts?: UseCreateCollectionOptions<T, F>,
-    ): MediaCollection<T, CollectionItem<T> | F> {
+        opts: CollectionOptions<T, F> = {},
+    ): MediaCollection<T, F> {
         console.debug("defineCollection", collectionId)
-        const itemFactory = opts?.itemFactory ?? getItemFactory(collectionId, defaultValue)
-
-        const getItems = () =>
-            store.items
-                .filter((item) => collectionId in item.$col)
-                .map((item) => itemFactory(item, item.$col[collectionId] as T))
-
         if (collectionId in store.collections) {
-            console.debug(store.collections)
             throw new Error("collectionId already in store.collections")
         }
-        if (collectionId in itemFactories) {
-            throw new Error("collectionId already in itemFactories")
+        if (collectionId in collectionOpts) {
+            throw new Error("collectionId already in collectionOpts")
         }
+
+        const cOpts = {...opts}
+        cOpts.itemFactory ??= getItemFactory(collectionId, defaultValue) as unknown as NonNullable<
+            CollectionOptions<T, F>["itemFactory"]
+        >
+        const onItemsChanged = cOpts.onItemsChanged
 
         store.collections[collectionId] = {
             id: collectionId,
-            items: getItems(),
+            items: [],
         }
 
-        itemFactories[collectionId] = itemFactory as MediaCollectionItemFactory<
-            Record<string, unknown>,
-            { id: string }
-        >
-
-        const unsub = () => {
-            delete store.collections[collectionId]
-            delete itemFactories[collectionId]
-        }
+        collectionOpts[collectionId] = cOpts as CollectionOptions
 
         const collection = new MediaCollection<T, F>(collectionId, defaultValue, store, api)
+
+        if (onItemsChanged) {
+            let onItemsChangedScheduled = false
+            let lastLength = 0
+            effect(() => {
+                const length = store.collections[collectionId].items.length
+                if (length === lastLength) return
+                lastLength = length
+                if (!onItemsChangedScheduled) {
+                    onItemsChangedScheduled = true
+                    queueMicrotask(() => {
+                        onItemsChangedScheduled = false
+                        onItemsChanged()
+                    })
+                }
+            })
+        }
 
         return collection
     }
@@ -98,13 +90,19 @@ export function getCollections(
     }
 }
 
-export class MediaCollection<T extends Record<string, unknown>, F extends { id: string }> {
+export class MediaCollection<
+    T extends Record<string, unknown>,
+    F extends MediaItemBase<T> = CollectionItem<T>,
+> {
     constructor(
         public readonly collectionId: string,
         private readonly defaultItemState: T,
         private readonly store: MediaStoreType,
         private readonly storeApi: MediaStoreApi,
-    ) {}
+    ) {
+        // runs in microtask so to ensure initialization is complete before callbacks are called
+        queueMicrotask(() => this.storeApi.syncCollectionItems(this.collectionId))
+    }
 
     private get collectionState() {
         return this.store.collections[this.collectionId]
@@ -169,23 +167,44 @@ export class MediaCollection<T extends Record<string, unknown>, F extends { id: 
         return itemsState.filter((_, i) => filterFn(snap.items[i] as Snapshot<F>))
     }
 
-    async addImageFromFile(file: File, source: MediaItemSource, state?: T): Promise<void> {
-        // todo
+    async addImageFromFile(
+        file: string,
+        source?: MediaItemSource,
+        state?: T,
+    ): Promise<F | undefined> {
+        const image = await loadImageFromFile(file, source)
+        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
-    async addImageFromUrl(url: string, source: MediaItemSource, state?: T): Promise<void> {
-        // todo
+    async addImageFromUrl(
+        url: string,
+        source?: MediaItemSource,
+        state?: T,
+    ): Promise<F | undefined> {
+        const image = await loadImageFromUrl(url, source)
+        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
-    async addImageFromDtp(projectId: number, imageId: number, state?: T): Promise<void> {
-        // todo
+    async addImageFromDtp(projectId: number, imageId: number, state?: T): Promise<F | undefined> {
+        const image = await loadImageFromDtp(projectId, imageId)
+        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
-    async addImageFromPose(data: string, source: MediaItemSource, state?: T): Promise<void> {
-        // todo
+    async addImageFromPose(
+        data: string,
+        source?: MediaItemSource,
+        state?: T,
+    ): Promise<F | undefined> {
+        const image = await loadImageFromPose(data, source)
+        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
-    async addImageFromPasteboard(pasteboard: "general" | "drag", state?: T): Promise<void> {
-        // todo
+    async addImageFromPasteboard(pasteboard: "general" | "drag", state?: T): Promise<F[]> {
+        const items: F[] = []
+        for (const image of await loadImageFromPasteboard(pasteboard)) {
+            const item = await this.addItem(image.buffer, image.type, image.source ?? {}, state)
+            if (item) items.push(item)
+        }
+        return items
     }
 }

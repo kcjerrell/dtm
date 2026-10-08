@@ -3,16 +3,17 @@ import { getVideoMetadata } from "@/commands"
 import type { DrawThingsMetaData } from "@/types"
 import { determineType } from "@/utils/mediaTypes"
 import { getDrawThingsDataFromVideo } from "../helpers"
-import { isLocalUrl } from "./ImageItem"
-import MediaItem, { type MediaItemConstructorOpts, type MediaItemSource } from "./mediaItem"
-import type { ExifType } from "./metadataStore"
+import type { MediaItemSource } from "@/state/mediaStore/types"
+import { isLocalUrl } from "./imageLoaders"
+import type { ExifType } from "./imageMetadata"
+import MdItem, { type MdItemConstructorOpts } from "./MdItem"
 
-export interface VideoItemConstructorOpts extends MediaItemConstructorOpts {
+export interface MdVideoConstructorOpts extends MdItemConstructorOpts {
     url: string
     filePath?: string | undefined
 }
 
-export class VideoItem extends MediaItem {
+export class MdVideo extends MdItem {
     private _metadata?: ExifType | null
     private _dtData?: DrawThingsMetaData | null
     private _metadataStatus?: "pending" | "done" | "failed"
@@ -20,7 +21,7 @@ export class VideoItem extends MediaItem {
     private _url?: string
     private _filePath?: string
 
-    constructor(opts: VideoItemConstructorOpts) {
+    constructor(opts: MdVideoConstructorOpts) {
         super(opts)
 
         this._url = opts.url
@@ -86,9 +87,9 @@ export class VideoItem extends MediaItem {
         }
     }
 
-    static async fromJSON(json: Partial<ReturnType<VideoItem["toJSON"]>>) {
+    static async fromJSON(json: Partial<ReturnType<MdVideo["toJSON"]>>) {
         if (!json.url || !json.filePath) throw new Error("Invalid video item json")
-        const item = new VideoItem(json as VideoItemConstructorOpts)
+        const item = new MdVideo(json as MdVideoConstructorOpts)
         return item
     }
 
@@ -103,7 +104,7 @@ export class VideoItem extends MediaItem {
             const mediaType = determineType(filePath)
             if (!mediaType) return undefined
 
-            return new VideoItem({
+            return new MdVideo({
                 type: mediaType,
                 source,
                 url: convertFileSrc(filePath),
@@ -118,13 +119,13 @@ export class VideoItem extends MediaItem {
     static async fromUrl(url: string, source: MediaItemSource) {
         if (isLocalUrl(url)) {
             const filePath = url.startsWith("files://") ? url.replace("files://", "file://") : url
-            return await VideoItem.fromFile(filePath, { ...source, url: undefined, file: url })
+            return await MdVideo.fromFile(filePath, { ...source, url: undefined, file: url })
         }
 
         const mediaType = determineType(url)
         if (!mediaType) return undefined
 
-        return new VideoItem({
+        return new MdVideo({
             type: mediaType,
             source: { ...source, url },
             url: url,

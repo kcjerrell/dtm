@@ -1,3 +1,5 @@
+import type { MediaItemBase } from "./MediaItem"
+
 export const VALID_IMAGE_TYPES = ["png", "tiff", "jpg", "webp"]
 export const VALID_VIDEO_TYPES = ["mp4", "webm", "mov", "m4v"]
 export const VALID_MEDIA_TYPES = [...VALID_IMAGE_TYPES, ...VALID_VIDEO_TYPES]
@@ -53,7 +55,10 @@ export interface MediaStateCol extends MediaState {
 export type MediaStoreType = {
     version: number
     items: MediaStateCol[]
-    collections: Record<string, CollectionState<Record<string, unknown>, { id: string }>>
+    collections: Record<
+        string,
+        CollectionState<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
+    >
 }
 
 export type MediaStoreApi = {
@@ -67,27 +72,30 @@ export type MediaStoreApi = {
     remove: (ids: string[], collectionId: string) => void
     clear: (collectionId: string) => void
     waitForReady: () => Promise<void>
+    syncCollectionItems: (collectionId: string) => void
 }
 
 export type CollectionState<
     T extends Record<string, unknown> = Record<string, unknown>,
-    F extends { id: string } = CollectionItem<T>,
+    F extends MediaItemBase<T> = CollectionItem<T>,
 > = {
     id: string
     items: F[]
 }
 
 export type CollectionItem<T extends Record<string, unknown> = Record<string, unknown>> =
-    MediaState & T
+    MediaItemBase<T> & T
 
 export type UseCreateCollectionOptions<
-    T extends Record<string, unknown>,
-    F extends { id: string } = CollectionItem<T>,
+    T extends Record<string, unknown> = Record<string, unknown>,
+    F extends MediaItemBase<T> = CollectionItem<T>,
 > = {
     itemFactory?: MediaCollectionItemFactory<T, F>
+    onItemsChanged?: () => void
+    getPersistIds?: () => string[]
 }
 
 export type MediaCollectionItemFactory<
     T extends Record<string, unknown> = Record<string, unknown>,
-    F extends { id: string } = CollectionItem<T>,
+    F extends MediaItemBase<T> = CollectionItem<T>,
 > = (source: MediaState, state: T) => F

@@ -141,15 +141,13 @@ async function createAppMenus() {
             ],
           });
           if (imagePath == null) return;
-          const [{ ImageItem }, { addImageItem }] = await Promise.all([
-            import("./metadata/state/ImageItem"),
-            import("./metadata/state/metadataStore"),
-          ]);
-          const item = await ImageItem.fromFile(imagePath, {
+          const { getMetadataStore } = await import("./metadata/state/metadataStore2");
+          const mdStore = await getMetadataStore();
+          const item = await mdStore.collection.addImageFromFile(imagePath, {
             loadedFrom: "open",
             file: imagePath,
           });
-          if (item) addImageItem(item);
+          if (item) mdStore.selectImage(item.id);
         },
       }),
       ...(isMacOS
@@ -159,7 +157,7 @@ async function createAppMenus() {
               id: "file_openPasteboard",
               action: async () => {
                 const { loadImage2 } =
-                  await import("./metadata/state/imageLoaders");
+                  await import("./metadata/state/interop");
                 await loadImage2("general");
               },
             }),
@@ -170,25 +168,27 @@ async function createAppMenus() {
         text: "Close",
         id: "file_close",
         action: async () => {
-          const { clearCurrent } =
-            await import("./metadata/state/metadataStore");
-          await clearCurrent();
+          const { getMetadataStore } = await import("./metadata/state/metadataStore2");
+          const mdStore = await getMetadataStore();
+          mdStore.selectImage(null);
         },
       }),
       await MenuItem.new({
         text: "Close unpinned",
         id: "file_closeUnpinned",
         action: async () => {
-          const { clearAll } = await import("./metadata/state/metadataStore");
-          await clearAll(true);
+          const { getMetadataStore } = await import("./metadata/state/metadataStore2");
+          const mdStore = await getMetadataStore();
+          mdStore.clearAll(true);
         },
       }),
       await MenuItem.new({
         text: "Close all",
         id: "file_closeAll",
         action: async () => {
-          const { clearAll } = await import("./metadata/state/metadataStore");
-          await clearAll(false);
+          const { getMetadataStore } = await import("./metadata/state/metadataStore2");
+          const mdStore = await getMetadataStore();
+          mdStore.clearAll(false);
         },
       }),
     ],

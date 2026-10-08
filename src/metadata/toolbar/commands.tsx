@@ -12,18 +12,17 @@ import {
 } from "@/components/icons/icons"
 import { postMessage } from "@/state/Messages"
 import type { ICommand1 } from "@/types"
-import ImageStore from "@/utils/imageStore"
 import { save } from "@/utils/tauri"
-import { loadImage2 } from "../state/imageLoaders"
-import type MediaItem from "../state/mediaItem"
-import { clearAll, getMetadataStore, pinImage } from "../state/metadataStore"
+import { loadImage2 } from "../state/interop"
+import type MdItem from "../state/MdItem"
 import PinnedIcon from "./PinnedIcon"
+import { useMetadataStore } from "../state/metadataStore2"
 
 export function useMediaItemCommands() {
-    const state = getMetadataStore()
-    const snap = useSnapshot(state)
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
 
-    const commands: ICommand1<MediaItem>[] = useMemo(
+    const commands: ICommand1<MdItem>[] = useMemo(
         () =>
             [
                 {
@@ -45,19 +44,19 @@ export function useMediaItemCommands() {
                     requiresSelection: true,
                     onClick: async (item) => {
                         if (!item) return
-                        await ImageStore.copy(item?.id)
+                        await item.copyImageToClipboard()
                     },
                 },
                 {
                     id: "pinImage",
                     getLabel: (item) => (item?.pin ? "Unpin image" : "Pin image"),
-                    icon: (props: { item: MediaItem }) => <PinnedIcon pin={props.item?.pin} />,
+                    icon: (props: { item: MdItem }) => <PinnedIcon pin={props.item?.pin} />,
                     requiresSelection: true,
                     onClick: async (item) => {
                         if (!item) return
                         const isPinned = typeof item?.pin === "number"
                         const pin = !isPinned
-                        pinImage(true, pin)
+                        mdStore.pinImage(true, pin)
                         postMessage({
                             message: pin ? "Image pinned" : "Pin removed",
                             uType: "pinimage",
@@ -69,7 +68,7 @@ export function useMediaItemCommands() {
                 {
                     id: "clearUnpinned",
                     label: "Clear unpinned images",
-                    onClick: () => clearAll(true),
+                    onClick: () => mdStore.clearAll(true),
                     getEnabled: () => {
                         return (
                             snap.items.length > 0 &&
@@ -90,7 +89,7 @@ export function useMediaItemCommands() {
                             filters: [{ name: "Image", extensions: [item.type] }],
                         })
                         if (savePath) {
-                            await ImageStore.saveCopy(item.id, savePath)
+                            await item.saveCopy(savePath)
                         }
                     },
                     requiresSelection: true,
@@ -118,8 +117,8 @@ export function useMediaItemCommands() {
                     toolbarEnableMode: "hide",
                     icon: TbBrowser,
                 },
-            ] as ICommand1<MediaItem>[],
-        [snap.items],
+            ] as ICommand1<MdItem>[],
+        [snap.items, mdStore],
     )
 
     return commands

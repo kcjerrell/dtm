@@ -1,9 +1,5 @@
 import { updateSetting } from "@/state/settings"
 import type { ImageSource } from "@/types"
-import { ImageItem } from "./ImageItem"
-import { loadImage2 } from "./imageLoaders"
-import type MediaItem from "./mediaItem"
-import { addImageItem, selectImage, waitForMetadataStore } from "./metadataStore"
 import { getMetadataStore } from "./metadataStore2"
 
 export async function sendToMetadata(
@@ -11,26 +7,23 @@ export async function sendToMetadata(
     type: string,
     source: ImageSource,
 ) {
-    // check if the item already has been sent to the store
-    // const state = getMetadataStore()
-    // let imageItem = state.items.find((im) =>
-    //     compareImageSource(im.source, source),
-    // ) as Nullable<MediaItem>
-
-    // await waitForMetadataStore()
-    // const image = await ImageItem.fromBuffer(imageData, type, source)
-    // if (image) {
-    //     let imageItem: MediaItem = image
-    //     imageItem = addImageItem(image)
-    //     if (imageItem) {
-    //         selectImage(imageItem)
-    //         updateSetting("app.currentView", "metadata")
-    //     }
-    // }
-
     const mdStore = await getMetadataStore()
     await mdStore.addItem(imageData, type, source)
     updateSetting("app.currentView", "metadata")
+}
+
+export async function loadImage2(pasteboard: "general" | "drag") {
+    const mdStore = await getMetadataStore()
+    mdStore.state.isLoadingImage = true
+    try {
+        const items = await mdStore.collection.addImageFromPasteboard(pasteboard)
+        const lastItem = items.at(-1)
+        if (lastItem) mdStore.selectImage(lastItem.id)
+    } catch (e) {
+        console.error("error loading image", e)
+    } finally {
+        mdStore.state.isLoadingImage = false
+    }
 }
 
 export function handleDrop(data: unknown) {
