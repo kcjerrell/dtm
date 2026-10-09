@@ -1,3 +1,4 @@
+import { MediaCollection } from "./collections"
 import type { MediaItemBase } from "./MediaItem"
 
 export const VALID_IMAGE_TYPES = ["png", "tiff", "jpg", "webp"]
@@ -53,7 +54,10 @@ export interface MediaStateCol extends MediaState {
 }
 
 export type MediaStoreType = {
-    version: number
+    version: {
+        $store: number
+        [collectionId: string]: number | undefined
+    }
     items: MediaStateCol[]
     collections: Record<
         string,
@@ -81,18 +85,53 @@ export type CollectionState<
 > = {
     id: string
     items: F[]
+    /** will be false until the collection's first sync */
+    isReady: boolean
 }
 
 export type CollectionItem<T extends Record<string, unknown> = Record<string, unknown>> =
     MediaItemBase<T> & T
 
-export type UseCreateCollectionOptions<
+export type CollectionOptions<
     T extends Record<string, unknown> = Record<string, unknown>,
     F extends MediaItemBase<T> = CollectionItem<T>,
 > = {
     itemFactory?: MediaCollectionItemFactory<T, F>
     onItemsChanged?: () => void
     getPersistIds?: () => string[]
+    /**
+     * The version number for the collection item's data type. If the provided value is different
+     * than the stored value, migration callbacks will be called. The first time a collection is
+     * created, the `from` value will be undefined.
+     */
+    version?: number
+    /**
+      This will be called when version number changes *before* the collection is populated. Item
+      state can be mutated directly. The return value should contain the updated state for each
+      item. If no changes are required, this will be `return items.map((item) => item.state)`
+     * @param from The version number from the stored data. Will be undefined on first use
+     * @param to The current version as specified
+     * @param items An array of each collection items base media state and (outdated) collection
+     * data
+     * @returns Each item's state, updated for the current version.
+     */
+    onMigrate?: (
+        from: number | undefined,
+        to: number,
+        items: { media: MediaState; state: unknown }[],
+    ) => T[]
+    /**
+     * This will be called when version number changes *after* the collection is populated. Items
+     * can be added/removed through the collection.
+     * @param from The version number from the stored data. Will be undefined on first use
+     * @param to The current version as specified
+     * @param collection The media collection instance
+     */
+    postMigrate?: (
+        from: number | undefined,
+        to: number,
+        collection: MediaCollection<T, F>,
+    ) => void | Promise<void>
 }
 
 export type MediaCollectionItemFactory<

@@ -14,8 +14,9 @@ import {
 import { getItemFactory, type MediaItemBase } from "./MediaItem"
 import type {
     CollectionItem,
-    UseCreateCollectionOptions as CollectionOptions,
+    CollectionOptions,
     MediaItemSource,
+    MediaState,
     MediaStoreApi,
     MediaStoreType,
 } from "./types"
@@ -50,17 +51,23 @@ export function getCollections(
         >
         const onItemsChanged = cOpts.onItemsChanged
 
-        store.collections[collectionId] = {
-            id: collectionId,
-            items: [],
-        }
-
+        const {
+            promise: ready,
+            resolve: resolveReady,
+            reject: rejectReady,
+        } = Promise.withResolvers<void>()
+        // A collection may never be awaited; still let waitForReady report the failure to callers.
+        void ready.catch(() => {})
         collectionOpts[collectionId] = cOpts as CollectionOptions<
             Record<string, unknown>,
             MediaItemBase<Record<string, unknown>>
         >
-
-        const collection = new MediaCollection<T, F>(collectionId, defaultValue, store, api)
+        store.collections[collectionId] = {
+            id: collectionId,
+            items: [],
+            isReady: false,
+        }
+        const collection = new MediaCollection<T, F>(collectionId, defaultValue, store, api, ready)
 
         if (onItemsChanged) {
             let onItemsChangedScheduled = false
@@ -78,6 +85,44 @@ export function getCollections(
                 }
             })
         }
+
+        void (async () => {
+            let storedVersion: number | undefined
+            let needsMigration = false
+            try {
+                await api.waitForReady()
+                storedVersion = store.version[collectionId]
+                const version = cOpts.version
+                needsMigration = version !== undefined && version !== storedVersion
+                if (needsMigration && version !== undefined && cOpts.onMigrate) {
+                    const storeItems = store.items.filter((item) => collectionId in item.$col)
+                    const migrateItems = storeItems.map((item) => ({
+                        media: item as MediaState,
+                        state: item.$col[collectionId],
+                    }))
+                    const migratedState = cOpts.onMigrate(storedVersion, version, migrateItems)
+                    if (migratedState.length !== storeItems.length)
+                        throw new Error("Migration must return all items")
+                    storeItems.forEach((item, i) => {
+                        item.$col[collectionId] = migratedState[i]
+                    })
+                }
+                store.version[collectionId] = cOpts.version
+                api.syncCollectionItems(collectionId)
+                resolveReady()
+            } catch (error) {
+                rejectReady(error)
+                return
+            }
+
+            if (needsMigration && cOpts.version !== undefined && cOpts.postMigrate) {
+                try {
+                    await cOpts.postMigrate(storedVersion, cOpts.version, collection)
+                } catch (error) {
+                    console.error(`${collectionId} post-migration failed:`, error)
+                }
+            }
+        })()
 
         return collection
     }
@@ -109,10 +154,8 @@ export class MediaCollection<
         private readonly defaultItemState: T,
         private readonly store: MediaStoreType,
         private readonly storeApi: MediaStoreApi,
-    ) {
-        // runs in microtask so to ensure initialization is complete before callbacks are called
-        queueMicrotask(() => this.storeApi.syncCollectionItems(this.collectionId))
-    }
+        private readonly ready: Promise<void> = storeApi.waitForReady(),
+    ) {}
 
     private get collectionState() {
         return this.store.collections[this.collectionId]
@@ -182,7 +225,7 @@ export class MediaCollection<
     }
 
     async waitForReady(): Promise<void> {
-        await this.storeApi.waitForReady()
+        await this.ready
     }
 
     /**

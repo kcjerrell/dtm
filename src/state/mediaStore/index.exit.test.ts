@@ -6,6 +6,7 @@ const fixtures = vi.hoisted(() => ({
     items: [] as MediaStateCol[],
     state: undefined as MediaStoreType | undefined,
     onExit: vi.fn<(callback: () => Promise<void>) => void>(),
+    start: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     removeFile: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
     removeOrphanedFiles: vi
         .fn<(files: ReadonlySet<string>) => Promise<void>>()
@@ -19,7 +20,7 @@ vi.mock("@tauri-store/valtio", () => ({
     store: (_name: string, initial: MediaStoreType) => {
         const state = proxy({ ...initial, items: structuredClone(fixtures.items) })
         fixtures.state = state
-        return { state, start: async () => {} }
+        return { state, start: () => fixtures.start() }
     },
 }))
 
@@ -42,6 +43,7 @@ beforeEach(() => {
     vi.useFakeTimers()
     fixtures.items = []
     fixtures.state = undefined
+    fixtures.start.mockResolvedValue(undefined)
     fixtures.removeFile.mockResolvedValue(undefined)
     fixtures.removeOrphanedFiles.mockResolvedValue(undefined)
 })
@@ -49,6 +51,41 @@ beforeEach(() => {
 afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+})
+
+describe("media-store hydration", () => {
+    it("migrates persisted items only after start restores them", async () => {
+        const loading = Promise.withResolvers<void>()
+        fixtures.start.mockImplementation(async () => {
+            await loading.promise
+            fixtures.state?.items.push(item("restored", ["images"]))
+            if (fixtures.state) fixtures.state.version.images = 1
+        })
+        const { default: mediaStore } = await import("./index")
+        const onMigrate = vi.fn((_from: number | undefined, _to: number, items: unknown[]) =>
+            items.map(() => ({ migrated: true })),
+        )
+        const postMigrate = vi.fn()
+        const collection = mediaStore.defineCollection(
+            "images",
+            { migrated: false },
+            {
+                version: 2,
+                onMigrate,
+                postMigrate,
+            },
+        )
+        expect(onMigrate).not.toHaveBeenCalled()
+        loading.resolve()
+
+        await collection.waitForReady()
+        await vi.waitFor(() => expect(postMigrate).toHaveBeenCalledOnce())
+        expect(onMigrate).toHaveBeenCalledWith(1, 2, [
+            { media: fixtures.state?.items[0], state: {} },
+        ])
+        expect(collection.items[0].migrated).toBe(true)
+        expect(fixtures.state?.version.images).toBe(2)
+    })
 })
 
 describe("media-store exit cleanup", () => {

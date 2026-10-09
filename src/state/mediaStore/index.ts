@@ -8,12 +8,12 @@ import { getCollections } from "./collections"
 import { MediaStoreFiles } from "./files"
 import type { MediaItemBase } from "./MediaItem"
 import {
+    type CollectionOptions,
     type MediaState,
     type MediaStateCol,
     type MediaStorage,
     type MediaStoreApi,
     type MediaStoreType,
-    type UseCreateCollectionOptions,
     VALID_MEDIA_TYPES,
     VALID_VIDEO_TYPES,
 } from "./types"
@@ -32,13 +32,13 @@ function createMediaStore() {
 
     const collectionOpts = {} as Record<
         string,
-        UseCreateCollectionOptions<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
+        CollectionOptions<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
     >
 
     function initStore() {
         const storeInstance = createStore<MediaStoreType>(
             getStoreName("media"),
-            { version: 1, items: [] as MediaStateCol[], collections: {} },
+            { version: { $store: 1 }, items: [] as MediaStateCol[], collections: {} },
             {
                 autoStart: false,
                 // syncStrategy: "debounce",
@@ -70,9 +70,6 @@ function createMediaStore() {
                 await storeInstance.start()
                 isReady = true
                 const collectionIds = Object.keys(store.collections)
-                for (const collectionId of collectionIds) {
-                    syncCollectionItems(collectionId)
-                }
                 console.debug(
                     `Media store started (${collectionIds.length ? collectionIds.join(", ") : "no collections"})`,
                 )
@@ -90,6 +87,7 @@ function createMediaStore() {
                 }, 3000)
             } catch (error) {
                 rejectReady(error)
+                isReady = false
             }
         })
         return storeInstance
@@ -224,12 +222,10 @@ function createMediaStore() {
     function syncCollectionItems(collectionId: string) {
         if (!isReady) return
 
+        const cState = store.collections[collectionId]
         const synced = [] as MediaItemBase[]
-
         const storeItems = store.items.filter((item) => collectionId in item.$col)
-        const collectionItemMap = new Map(
-            store.collections[collectionId].items.map((item) => [item.id, item]),
-        )
+        const collectionItemMap = new Map(cState.items.map((item) => [item.id, item]))
         const factory = collectionOpts[collectionId]?.itemFactory
         if (!factory) return
 
@@ -244,7 +240,9 @@ function createMediaStore() {
             }
         }
 
-        clearArray(store.collections[collectionId].items, synced)
+        clearArray(cState.items, synced)
+
+        cState.isReady = true
     }
 
     function clearUnusedItems() {
