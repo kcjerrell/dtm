@@ -12,6 +12,7 @@ async function getAppDataDir() {
 }
 
 let _imageFolder: string
+const savingFiles = new Set<string>()
 async function getMediaFolder() {
     if (_imageFolder) return _imageFolder
 
@@ -42,6 +43,8 @@ async function saveFile(
         throw new Error("invalid or unsupported media type")
     if (!data || data.length === 0) throw new Error("data is empty or missing")
 
+    const fname = `${id}.${type}`
+    savingFiles.add(fname)
     try {
         const fullPath = await getFullPath(id, type)
 
@@ -53,6 +56,19 @@ async function saveFile(
     } catch (e) {
         console.error(e)
         throw e
+    } finally {
+        savingFiles.delete(fname)
+    }
+}
+
+async function removeOrphanedFiles(referencedFiles: ReadonlySet<string>) {
+    const entries = await fs.readDir(await getMediaFolder())
+    for (const entry of entries) {
+        if (!entry.isFile || entry.isSymlink || !/^[0-9a-z]{12}\.[a-z0-9]+$/.test(entry.name))
+            continue
+        if (!VALID_MEDIA_TYPES.includes(entry.name.slice(13))) continue
+        if (referencedFiles.has(entry.name) || savingFiles.has(entry.name)) continue
+        await removeFile(entry.name)
     }
 }
 
@@ -85,6 +101,7 @@ export const MediaStoreFiles = {
     saveFileCopy,
     saveFile,
     removeFile,
+    removeOrphanedFiles,
     copyToClipboard,
     saveCopy,
 }

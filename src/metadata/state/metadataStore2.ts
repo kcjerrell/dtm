@@ -61,15 +61,15 @@ function initStore(): MetadataStore {
                 return bindProxy(proxy(mdItem))
             },
             onItemsChanged: () => {
-                console.trace(
-                    "Metadata on items changed",
-                    state.items.map((it) => it.id),
-                )
+                const state = getStore().state
                 if (state.currentItem && !state.items.includes(state.currentItem)) {
                     state.currentItem = undefined
                 }
             },
             getPersistIds: () => {
+                const state = getStore().state
+                if (!state.settings.clearHistoryOnExit) return state.items.map(getId)
+                if (state.settings.clearPinsOnExit) return []
                 return state.items.filter(getPin).map(getId)
             },
         },

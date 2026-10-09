@@ -50,26 +50,20 @@ function createMediaStore() {
             },
         )
         Lifecycle.onExit(async () => {
-            const persistIds = [] as string[]
-            const opts = Object.values(collectionOpts)
-            for (const cOpt of opts) {
-                if (cOpt.getPersistIds) {
-                    const cids = cOpt.getPersistIds()
-                    persistIds.push(...cids)
+            const persistIds = {} as Record<string, Set<string>>
+            const collectionIds = Object.keys(collectionOpts)
+            for (const cId of collectionIds) {
+                persistIds[cId] = new Set(collectionOpts[cId].getPersistIds?.())
+            }
+            for (const item of store.items) {
+                for (const cId of Object.keys(item.$col)) {
+                    // only data for collection that were actually loaded will be deleted
+                    if (persistIds[cId] && !persistIds[cId].has(item.id)) {
+                        delete item.$col[cId]
+                    }
                 }
             }
-            const persistItems = []
-            const removeItems = []
-            for (const item of store.items) {
-                if (persistIds.includes(item.id)) persistItems.push(item)
-                else removeItems.push(item)
-            }
-            clearArray(store.items, persistItems)
-            // await storeInstance.saveAllNow()
-            for (const item of removeItems) {
-                if (item.storage.kind === "app")
-                    await MediaStoreFiles.removeFile(item.storage.fname)
-            }
+            await clearUnusedItems()
         }, false)
         queueMicrotask(async () => {
             try {
@@ -83,6 +77,17 @@ function createMediaStore() {
                     `Media store started (${collectionIds.length ? collectionIds.join(", ") : "no collections"})`,
                 )
                 resolveReady(true)
+                // Defer disk enumeration so restoring the store does not wait for orphan cleanup.
+                setTimeout(() => {
+                    const referencedFiles = new Set(
+                        store.items.flatMap((item) =>
+                            item.storage.kind === "app" ? [item.storage.fname] : [],
+                        ),
+                    )
+                    void MediaStoreFiles.removeOrphanedFiles(referencedFiles).catch((error) => {
+                        console.error("Failed to clean up orphaned media files", error)
+                    })
+                }, 3000)
             } catch (error) {
                 rejectReady(error)
             }
@@ -252,13 +257,25 @@ function createMediaStore() {
 
         clearArray(store.items, keepItems)
 
-        setTimeout(async () => {
+        const { promise, resolve, reject } = Promise.withResolvers<void>()
+
+        queueMicrotask(async () => {
+            const errors: unknown[] = []
             for (const item of clearItems) {
-                if (item.storage.kind === "app") {
-                    await MediaStoreFiles.removeFile(item.storage.fname)
+                try {
+                    if (item.storage.kind === "app") {
+                        await MediaStoreFiles.removeFile(item.storage.fname)
+                    }
+                } catch (e) {
+                    console.error(e)
+                    errors.push(e)
                 }
             }
-        }, 200)
+            if (errors.length) reject(errors)
+            resolve()
+        })
+
+        return promise
     }
 
     async function copyImageToClipboard(id: string) {
