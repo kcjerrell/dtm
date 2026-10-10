@@ -1,5 +1,6 @@
 import { MediaItemBase } from "@/state/mediaStore/MediaItem"
 import { type MediaItemSource, type MediaState, VALID_VIDEO_TYPES } from "@/state/mediaStore/types"
+import { getSetting } from "@/state/settings"
 import type { DrawThingsMetaData } from "@/types"
 import type { ExifType } from "./imageMetadata"
 
@@ -21,6 +22,13 @@ abstract class MdItem extends MediaItemBase<{ pin: number | null }> {
 
     get pin(): number | null {
         return this.cState.pin
+    }
+
+    get clearOnExit(): boolean {
+        return (
+            getSetting("metadata.clearHistoryOnExit") &&
+            (getSetting("metadata.clearPinsOnExit") || this.pin == null)
+        )
     }
 
     get isVideo() {

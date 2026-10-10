@@ -50,17 +50,13 @@ function createMediaStore() {
             },
         )
         Lifecycle.onExit(async () => {
-            const persistIds = {} as Record<string, Set<string>>
-            const collectionIds = Object.keys(collectionOpts)
-            for (const cId of collectionIds) {
-                persistIds[cId] = new Set(collectionOpts[cId].getPersistIds?.())
-            }
-            for (const item of store.items) {
-                for (const cId of Object.keys(item.$col)) {
-                    // only data for collection that were actually loaded will be deleted
-                    if (persistIds[cId] && !persistIds[cId].has(item.id)) {
-                        delete item.$col[cId]
-                    }
+            const itemsById = new Map(store.items.map((item) => [item.id, item]))
+            for (const [cId, collection] of Object.entries(store.collections)) {
+                if (!collection.isReady) continue
+                for (const collectionItem of collection.items) {
+                    if (!collectionItem.clearOnExit) continue
+                    const item = itemsById.get(collectionItem.id)
+                    if (item) delete item.$col[cId]
                 }
             }
             await clearUnusedItems()

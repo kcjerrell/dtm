@@ -38,6 +38,10 @@ export class MediaItemBase<T = Record<string, unknown>> implements MediaState {
         return this.mState.thumbUrl
     }
 
+    get clearOnExit(): boolean {
+        return false
+    }
+
     async copyImageToClipboard() {
         const mdStore = (await import("./index")).default
         await mdStore.copyImageToClipboard(this.id)

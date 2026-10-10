@@ -153,14 +153,11 @@ describe("collection options", () => {
         const { defineCollection } = getCollections(store, api, collectionOpts)
         const itemFactory = (media: MediaState, state: ItemState) =>
             new Item(media.id, "custom", state)
-        const getPersistIds = vi.fn(() => ["item-1"])
         const onItemsChanged = vi.fn()
-        defineCollection("custom", state, { itemFactory, getPersistIds, onItemsChanged })
+        defineCollection("custom", state, { itemFactory, onItemsChanged })
 
         expect(collectionOpts.custom.itemFactory).toBe(itemFactory)
-        expect(collectionOpts.custom.getPersistIds).toBe(getPersistIds)
         expect(collectionOpts.custom.onItemsChanged).toBe(onItemsChanged)
-        expect(collectionOpts.custom.getPersistIds?.()).toEqual(["item-1"])
     })
 })
 

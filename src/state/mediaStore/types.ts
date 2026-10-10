@@ -1,4 +1,4 @@
-import { MediaCollection } from "./collections"
+import type { MediaCollection } from "./collections"
 import type { MediaItemBase } from "./MediaItem"
 
 export const VALID_IMAGE_TYPES = ["png", "tiff", "jpg", "webp"]
@@ -99,7 +99,6 @@ export type CollectionOptions<
 > = {
     itemFactory?: MediaCollectionItemFactory<T, F>
     onItemsChanged?: () => void
-    getPersistIds?: () => string[]
     /**
      * The version number for the collection item's data type. If the provided value is different
      * than the stored value, migration callbacks will be called. The first time a collection is

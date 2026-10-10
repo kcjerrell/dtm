@@ -1,6 +1,7 @@
 import { proxy } from "valtio"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { MediaStateCol, MediaStoreType } from "./types"
+import { MediaItemBase } from "./MediaItem"
+import type { MediaState, MediaStateCol, MediaStoreType } from "./types"
 
 const fixtures = vi.hoisted(() => ({
     items: [] as MediaStateCol[],
@@ -39,6 +40,16 @@ function item(id: string, collections: string[]): MediaStateCol {
         createdAt: 0,
         $col: Object.fromEntries(collections.map((id) => [id, {}])),
     }
+}
+
+class ExitItem extends MediaItemBase<{ clear: boolean }> {
+    get clearOnExit() {
+        return this.cState.clear === true
+    }
+}
+
+const exitOptions = {
+    itemFactory: (media: MediaState, state: { clear: boolean }) => new ExitItem(media, state),
 }
 
 beforeEach(() => {
@@ -92,6 +103,19 @@ describe("media-store hydration", () => {
 })
 
 describe("media-store exit cleanup", () => {
+    it("retains loaded collection items by default", async () => {
+        fixtures.items = [item("retained", ["a"])]
+        const { default: mediaStore } = await import("./index")
+        const collection = mediaStore.defineCollection("a", {})
+        await collection.waitForReady()
+
+        await fixtures.onExit.mock.calls[0][0]()
+
+        expect(fixtures.state?.items).toHaveLength(1)
+        expect(fixtures.state?.items[0].$col).toEqual({ a: {} })
+        expect(fixtures.removeFile).not.toHaveBeenCalled()
+    })
+
     it("sweeps orphans on exit after cleanup and retains unloaded collections", async () => {
         fixtures.items = [item("only-b", ["b"])]
         const { default: mediaStore } = await import("./index")
@@ -109,8 +133,9 @@ describe("media-store exit cleanup", () => {
         const removal = Promise.withResolvers<void>()
         fixtures.removeFile.mockImplementation(async () => removal.promise)
         const { default: mediaStore } = await import("./index")
-        mediaStore.defineCollection("a", {}, { getPersistIds: () => [] })
-        await mediaStore.waitForReady()
+        const collection = mediaStore.defineCollection("a", { clear: false }, exitOptions)
+        await collection.waitForReady()
+        collection.items[0].cState.clear = true
 
         const exiting = fixtures.onExit.mock.calls[0][0]()
         await vi.waitFor(() => expect(fixtures.removeFile).toHaveBeenCalledOnce())
@@ -144,8 +169,9 @@ describe("media-store exit cleanup", () => {
     it("keeps items for collections that were never defined", async () => {
         fixtures.items = [item("only-a", ["a"]), item("only-b", ["b"])]
         const { default: mediaStore } = await import("./index")
-        mediaStore.defineCollection("a", {}, { getPersistIds: () => [] })
-        await mediaStore.waitForReady()
+        const collection = mediaStore.defineCollection("a", { clear: false }, exitOptions)
+        await collection.waitForReady()
+        collection.items[0].cState.clear = true
 
         await fixtures.onExit.mock.calls[0][0]()
 
@@ -160,9 +186,10 @@ describe("media-store exit cleanup", () => {
     it("removes only the rejecting collection's data from shared items", async () => {
         fixtures.items = [item("shared", ["a", "b"]), item("only-b", ["b"])]
         const { default: mediaStore } = await import("./index")
-        mediaStore.defineCollection("a", {}, { getPersistIds: () => ["shared"] })
-        mediaStore.defineCollection("b", {}, { getPersistIds: () => [] })
-        await mediaStore.waitForReady()
+        const a = mediaStore.defineCollection("a", { clear: false }, exitOptions)
+        const b = mediaStore.defineCollection("b", { clear: false }, exitOptions)
+        await Promise.all([a.waitForReady(), b.waitForReady()])
+        for (const collectionItem of b.items) collectionItem.cState.clear = true
 
         await fixtures.onExit.mock.calls[0][0]()
 
@@ -177,8 +204,9 @@ describe("media-store exit cleanup", () => {
     it("does not remove a shared file if an unloaded collection still owns it", async () => {
         fixtures.items = [item("shared", ["a", "b"])]
         const { default: mediaStore } = await import("./index")
-        mediaStore.defineCollection("a", {}, { getPersistIds: () => [] })
-        await mediaStore.waitForReady()
+        const collection = mediaStore.defineCollection("a", { clear: false }, exitOptions)
+        await collection.waitForReady()
+        collection.items[0].cState.clear = true
 
         await fixtures.onExit.mock.calls[0][0]()
 

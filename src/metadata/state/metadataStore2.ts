@@ -41,9 +41,6 @@ type MetadataStore = {
 
 let _mdStore: MetadataStore
 
-const getPin = (item: { pin?: number | null }) => item.pin
-const getId = (item: { id: string }) => item.id
-
 type LegacyMetadataItem = {
     id?: unknown
     type?: unknown
@@ -141,12 +138,6 @@ function initStore(): MetadataStore {
                 if (state.currentItem && !state.items.includes(state.currentItem)) {
                     state.currentItem = undefined
                 }
-            },
-            getPersistIds: () => {
-                const state = getStore().state
-                if (!state.settings.clearHistoryOnExit) return state.items.map(getId)
-                if (state.settings.clearPinsOnExit) return []
-                return state.items.filter(getPin).map(getId)
             },
             version: 1,
             postMigrate: async () => {
