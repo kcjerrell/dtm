@@ -79,11 +79,11 @@ function History(props: HistoryProps) {
                 onScroll={updateScroll}
             >
                 <HistoryContent aria-label="Image history" role="tablist" {...restProps}>
-                    {imageItems.map((image) => (
+                    {imageItems.map((image, i) => (
                         <HistoryItem
                             role={"tab"}
                             aria-controls={`image-${image.id}`}
-                            id={`image-item-${image.id}`}
+                            id={`image-item-${i}`}
                             aria-selected={currentItem?.id === image.id}
                             key={image.id}
                             image={image}
