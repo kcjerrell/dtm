@@ -124,7 +124,6 @@ function getStore() {
 }
 
 function initStore(): MetadataStore {
-    console.log("initstore md")
     const collection = MediaStore.defineCollection<{ pin: number | null }, MdItem>(
         "metadata",
         { pin: null as number | null },

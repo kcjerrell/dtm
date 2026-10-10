@@ -64,6 +64,12 @@ function createMediaStore() {
                 }
             }
             await clearUnusedItems()
+            const referencedFiles = new Set(
+                store.items.flatMap((item) =>
+                    item.storage.kind === "app" ? [item.storage.fname] : [],
+                ),
+            )
+            await MediaStoreFiles.removeOrphanedFiles(referencedFiles)
         }, false)
         queueMicrotask(async () => {
             try {
@@ -74,17 +80,6 @@ function createMediaStore() {
                     `Media store started (${collectionIds.length ? collectionIds.join(", ") : "no collections"})`,
                 )
                 resolveReady(true)
-                // Defer disk enumeration so restoring the store does not wait for orphan cleanup.
-                setTimeout(() => {
-                    const referencedFiles = new Set(
-                        store.items.flatMap((item) =>
-                            item.storage.kind === "app" ? [item.storage.fname] : [],
-                        ),
-                    )
-                    void MediaStoreFiles.removeOrphanedFiles(referencedFiles).catch((error) => {
-                        console.error("Failed to clean up orphaned media files", error)
-                    })
-                }, 3000)
             } catch (error) {
                 rejectReady(error)
                 isReady = false
@@ -113,14 +108,16 @@ function createMediaStore() {
         data: Uint8Array | string,
         type: string,
         source: MediaState["source"],
-        colData: MediaStateCol["$col"],
+        collectionId: string,
+        collectionData: Record<string, unknown>,
     ) {
         if (!data || data.length === 0) throw new Error("missing data")
         if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
         if (VALID_VIDEO_TYPES.includes(type) && kind !== "file" && kind !== "url")
             throw new Error("videos must be referenced by file or URL")
-        if (!colData || typeof colData !== "object" || Object.keys(colData).length === 0)
-            throw new Error("cannot save media unless it belongs to a collection")
+        const collection = store.collections[collectionId]
+        const factory = collectionOpts[collectionId]?.itemFactory
+        if (!collection || !factory) throw new Error(`unknown media collection: ${collectionId}`)
 
         const id = getNewId()
         let storage: MediaStorage
@@ -161,23 +158,18 @@ function createMediaStore() {
             source,
             storage,
             createdAt: Date.now(),
-            $col: colData,
+            $col: { [collectionId]: collectionData },
         })
 
-        store.items.push(item)
-        for (const collectionId in colData) {
-            const collection = store.collections[collectionId]
-            const factory = collectionOpts[collectionId]?.itemFactory
-            if (collection && factory) {
-                try {
-                    collection.items.push(factory(item, item.$col[collectionId]))
-                } catch (e) {
-                    console.error(e)
-                    clearUnusedItems()
-                    throw e
-                }
-            }
+        let collectionItem: MediaItemBase
+        try {
+            collectionItem = factory(item, item.$col[collectionId])
+        } catch (error) {
+            if (storage.kind === "app") await MediaStoreFiles.removeFile(storage.fname)
+            throw error
         }
+        store.items.push(item)
+        collection.items.push(collectionItem)
         return id
     }
 

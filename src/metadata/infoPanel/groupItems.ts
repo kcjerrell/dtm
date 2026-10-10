@@ -25,9 +25,6 @@ export function groupItems(root: Record<string, unknown>) {
                 group.items.push({ key: k2, value: v2 })
             }
         }
-
-        groups.push(group)
     }
-    console.log(groups)
     return groups
 }

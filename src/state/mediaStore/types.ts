@@ -71,7 +71,8 @@ export type MediaStoreApi = {
         data: Uint8Array | string,
         type: string,
         source: MediaState["source"],
-        colData: MediaStateCol["$col"],
+        collectionId: string,
+        collectionData: Record<string, unknown>,
     ) => Promise<string>
     remove: (ids: string[], collectionId: string) => void
     clear: (collectionId: string) => void

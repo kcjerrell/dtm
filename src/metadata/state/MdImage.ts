@@ -10,16 +10,6 @@ export class MdImage extends MdItem {
     private _metadataStatus?: "pending" | "done"
     private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
 
-    constructor(
-        item: MediaState,
-        state: {
-            pin: number | null
-        },
-    ) {
-        super(item, state)
-        console.log("Mdimage constructor")
-    }
-
     get metadata() {
         if (!this._metadata && !this._metadataStatus) this.loadMetadata()
 

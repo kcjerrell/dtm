@@ -188,9 +188,7 @@ export class MediaCollection<
         state?: T,
     ) {
         const itemState = state ?? structuredClone(this.defaultItemState)
-        const id = await this.storeApi.save(kind, data, type, source, {
-            [this.collectionId]: itemState,
-        })
+        const id = await this.storeApi.save(kind, data, type, source, this.collectionId, itemState)
         return this.items.find((it) => it.id === id)
     }
 

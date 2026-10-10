@@ -1,5 +1,5 @@
 import { proxy } from "valtio"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { MediaStateCol, MediaStoreType } from "./types"
 
 const fixtures = vi.hoisted(() => ({
@@ -8,6 +8,10 @@ const fixtures = vi.hoisted(() => ({
     onExit: vi.fn<(callback: () => Promise<void>) => void>(),
     start: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     removeFile: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
+    saveFile:
+        vi.fn<
+            (id: string, data: Uint8Array, type: string) => Promise<{ fname: string; url: string }>
+        >(),
     removeOrphanedFiles: vi
         .fn<(files: ReadonlySet<string>) => Promise<void>>()
         .mockResolvedValue(undefined),
@@ -40,17 +44,16 @@ function item(id: string, collections: string[]): MediaStateCol {
 beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    vi.useFakeTimers()
+
     fixtures.items = []
     fixtures.state = undefined
     fixtures.start.mockResolvedValue(undefined)
     fixtures.removeFile.mockResolvedValue(undefined)
     fixtures.removeOrphanedFiles.mockResolvedValue(undefined)
-})
-
-afterEach(() => {
-    vi.clearAllTimers()
-    vi.useRealTimers()
+    fixtures.saveFile.mockImplementation(async (id, _data, type) => ({
+        fname: `${id}.${type}`,
+        url: `asset://${id}.${type}`,
+    }))
 })
 
 describe("media-store hydration", () => {
@@ -89,16 +92,53 @@ describe("media-store hydration", () => {
 })
 
 describe("media-store exit cleanup", () => {
-    it("defers the orphan sweep until after startup and includes unloaded collections", async () => {
+    it("sweeps orphans on exit after cleanup and retains unloaded collections", async () => {
         fixtures.items = [item("only-b", ["b"])]
         const { default: mediaStore } = await import("./index")
         await mediaStore.waitForReady()
 
         expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
-        await vi.advanceTimersByTimeAsync(3000)
+        await fixtures.onExit.mock.calls[0][0]()
         expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
             new Set(["only-b.png"]),
         )
+    })
+
+    it("waits for item removal before sweeping orphaned files", async () => {
+        fixtures.items = [item("only-a", ["a"])]
+        const removal = Promise.withResolvers<void>()
+        fixtures.removeFile.mockImplementation(async () => removal.promise)
+        const { default: mediaStore } = await import("./index")
+        mediaStore.defineCollection("a", {}, { getPersistIds: () => [] })
+        await mediaStore.waitForReady()
+
+        const exiting = fixtures.onExit.mock.calls[0][0]()
+        await vi.waitFor(() => expect(fixtures.removeFile).toHaveBeenCalledOnce())
+        expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
+        removal.resolve()
+        await exiting
+        expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(new Set())
+    })
+
+    it("does not persist an item if its factory fails", async () => {
+        const { default: mediaStore } = await import("./index")
+        const collection = mediaStore.defineCollection(
+            "broken",
+            {},
+            {
+                itemFactory: () => {
+                    throw new Error("factory failed")
+                },
+            },
+        )
+        await collection.waitForReady()
+
+        await expect(collection.addItem(new Uint8Array([1]), "png", {})).rejects.toThrow(
+            "factory failed",
+        )
+        expect(fixtures.state?.items).toEqual([])
+        expect(collection.items).toEqual([])
+        expect(fixtures.removeFile).toHaveBeenCalledOnce()
     })
 
     it("keeps items for collections that were never defined", async () => {
@@ -112,6 +152,9 @@ describe("media-store exit cleanup", () => {
         expect(fixtures.state?.items.map((it) => it.id)).toEqual(["only-b"])
         expect(fixtures.state?.items[0].$col).toEqual({ b: {} })
         expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("only-a.png")
+        expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
+            new Set(["only-b.png"]),
+        )
     })
 
     it("removes only the rejecting collection's data from shared items", async () => {
@@ -126,6 +169,9 @@ describe("media-store exit cleanup", () => {
         expect(fixtures.state?.items.map((it) => it.id)).toEqual(["shared"])
         expect(fixtures.state?.items[0].$col).toEqual({ a: {} })
         expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("only-b.png")
+        expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
+            new Set(["shared.png"]),
+        )
     })
 
     it("does not remove a shared file if an unloaded collection still owns it", async () => {
@@ -138,5 +184,8 @@ describe("media-store exit cleanup", () => {
 
         expect(fixtures.state?.items[0].$col).toEqual({ b: {} })
         expect(fixtures.removeFile).not.toHaveBeenCalled()
+        expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
+            new Set(["shared.png"]),
+        )
     })
 })

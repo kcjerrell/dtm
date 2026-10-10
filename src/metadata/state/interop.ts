@@ -1,3 +1,4 @@
+import { Mutex } from "async-mutex"
 import { updateSetting } from "@/state/settings"
 import type { ImageSource } from "@/types"
 import { getMetadataStore } from "./metadataStore2"
@@ -12,18 +13,22 @@ export async function sendToMetadata(
     updateSetting("app.currentView", "metadata")
 }
 
+const pasteboardLoadMutex = new Mutex()
+
 export async function loadImage2(pasteboard: "general" | "drag") {
     const mdStore = await getMetadataStore()
-    mdStore.state.isLoadingImage = true
-    try {
-        const items = await mdStore.collection.addMediaFromPasteboard(pasteboard)
-        const lastItem = items.at(-1)
-        if (lastItem) mdStore.selectImage(lastItem.id)
-    } catch (e) {
-        console.error("error loading image", e)
-    } finally {
-        mdStore.state.isLoadingImage = false
-    }
+    await pasteboardLoadMutex.runExclusive(async () => {
+        mdStore.state.isLoadingImage = true
+        try {
+            const items = await mdStore.collection.addMediaFromPasteboard(pasteboard)
+            const lastItem = items.at(-1)
+            if (lastItem) mdStore.selectImage(lastItem.id)
+        } catch (e) {
+            console.error("error loading image", e)
+        } finally {
+            mdStore.state.isLoadingImage = false
+        }
+    })
 }
 
 export function handleDrop(data: unknown) {

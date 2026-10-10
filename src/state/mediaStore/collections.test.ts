@@ -63,11 +63,11 @@ function setup() {
     const api: MediaStoreApi = {
         save: vi
             .fn<MediaStoreApi["save"]>()
-            .mockImplementation(async (_kind, _data, _type, _source, colData) => {
+            .mockImplementation(async (_kind, _data, _type, _source, _collectionId, itemState) => {
                 const item = new Item(
                     `item-${items.length + 1}`,
                     "collection facade",
-                    colData.test as ItemState,
+                    itemState as ItemState,
                 )
                 items.push(item)
                 return item.id
@@ -289,9 +289,14 @@ describe("referenced video collection items", () => {
         const { collection, api, items } = setup()
         const video: LoadedMedia = { kind, location, type, source }
         const result = await collection.addMedia(video, state)
-        expect(api.save).toHaveBeenCalledExactlyOnceWith(kind, location, type, source, {
-            test: state,
-        })
+        expect(api.save).toHaveBeenCalledExactlyOnceWith(
+            kind,
+            location,
+            type,
+            source,
+            "test",
+            state,
+        )
         expect(result).toBe(items[0])
     })
 
@@ -302,12 +307,24 @@ describe("referenced video collection items", () => {
             { kind: "file", location: "/videos/movie.mp4", type: "mp4", source },
         ])
         expect(await collection.addMediaFromPasteboard("drag")).toHaveLength(2)
-        expect(api.save).toHaveBeenNthCalledWith(1, "app", buffer, "png", acquired.source, {
-            test: expect.any(Object),
-        })
-        expect(api.save).toHaveBeenNthCalledWith(2, "file", "/videos/movie.mp4", "mp4", source, {
-            test: expect.any(Object),
-        })
+        expect(api.save).toHaveBeenNthCalledWith(
+            1,
+            "app",
+            buffer,
+            "png",
+            acquired.source,
+            "test",
+            expect.any(Object),
+        )
+        expect(api.save).toHaveBeenNthCalledWith(
+            2,
+            "file",
+            "/videos/movie.mp4",
+            "mp4",
+            source,
+            "test",
+            expect.any(Object),
+        )
     })
 })
 
@@ -349,9 +366,8 @@ describe.each(singleImageCases)(
                 buffer,
                 "png",
                 acquired.source,
-                {
-                    test: state,
-                },
+                "test",
+                state,
             )
             expect(result).toBe(items[0])
             expect(result?.id).toBe("item-1")
@@ -425,7 +441,7 @@ describe("MediaCollection pasteboard acquisition", () => {
         await collection.addImageFromPasteboard("general")
         expect(addItem).toHaveBeenNthCalledWith(1, buffer, "png", acquired.source, undefined)
         expect(addItem).toHaveBeenNthCalledWith(2, buffer, "png", acquired.source, undefined)
-        const [first, second] = vi.mocked(api.save).mock.calls.map((call) => call[4].test)
+        const [first, second] = vi.mocked(api.save).mock.calls.map((call) => call[5] as ItemState)
         expect(first).toEqual(defaults)
         expect(second).toEqual(defaults)
         expect(first).not.toBe(defaults)
