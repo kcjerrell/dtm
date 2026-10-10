@@ -193,7 +193,6 @@ impl ProjectSync {
 
     pub async fn from_id(pdb: &ProjectsDb, project_id: i64) -> anyhow::Result<Self> {
         let entity = pdb.get_project(project_id).await?;
-
         let folder = pdb
             .get_watch_folder(entity.watchfolder_id)
             .await?

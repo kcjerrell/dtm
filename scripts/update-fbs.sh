@@ -24,7 +24,7 @@ mkdir -p "$TARGET_DIR/fbs"
 for FILE in "${FILES[@]}"; do
   echo "Downloading $FILE..."
   curl -sSL "$BASE_URL/$FILE" -o "$TARGET_DIR/fbs/$FILE"
-  
+
   echo "Processing $FILE..."
   # Remove " (indexed)" and " (primary)" from the files
   sed -i.bak -e 's/ (indexed)//g' -e 's/ (primary)//g' "$TARGET_DIR/fbs/$FILE"

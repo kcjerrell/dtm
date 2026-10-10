@@ -109,6 +109,22 @@ export function getVersionLabel(version?: string) {
             return "LTX-2"
         case "ltx2.3":
             return "LTX-2.3"
+        case "cosmos2.5_2b":
+            return "Anima"
+        case "ernie_image":
+            return "ERNIE Image"
+        case "ideogram_4":
+            return "Ideogram 4"
+        case "krea_2":
+            return "Krea 2"
+        case "minimax_h3":
+            return "MiniMax H3"
+        case "seedvr2_3b":
+            return "SeedVR2 3B"
+        case "seedvr2_7b":
+            return "SeedVR2 7B"
+        case "z_image":
+            return "Z-Image"
         default:
             return version
     }

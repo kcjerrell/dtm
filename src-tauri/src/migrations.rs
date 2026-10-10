@@ -24,7 +24,6 @@ pub async fn run_migrations(app: AppHandle) -> Result<()> {
     Migrator::up(&db, None)
         .await
         .with_context(|| format!("Failed to run database migrations on '{db_url}'"))?;
-
     let current_version = Version::parse(&app.package_info().version.to_string())
         .context("Failed to parse current version")?;
 
