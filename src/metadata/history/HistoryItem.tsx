@@ -74,7 +74,7 @@ function HistoryItem(props: HistoryItemProps) {
 
 const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MdItem> }) => {
     const { item, ...restProps } = props
-    console.log(item)
+
     return <motion.img src={item?.thumbUrl} {...restProps} />
 }
 

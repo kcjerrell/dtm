@@ -6,6 +6,7 @@ import type MdItem from "../state/MdItem"
 import { MdVideo } from "../state/MdVideo"
 import { useMetadataStore } from "../state/metadataStore2"
 import DataItem from "./DataItem"
+import { groupItems } from "./groupItems"
 import SourceDetails from "./SourceDetails"
 
 interface DetailsProps extends ChakraProps {
@@ -92,27 +93,6 @@ function Details(props: DetailsProps) {
             })}
         </VStack>
     )
-}
-
-type MetaDataGroup = {
-    name: string
-    items: { key: string; value: unknown }[]
-}
-
-function groupItems(root: Record<string, unknown>) {
-    const groups: MetaDataGroup[] = []
-
-    for (const [k, v] of Object.entries(root)) {
-        const group: MetaDataGroup = { name: k, items: [] }
-
-        for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) {
-            group.items.push({ key: k2, value: v2 })
-        }
-
-        groups.push(group)
-    }
-
-    return groups
 }
 
 export default Details

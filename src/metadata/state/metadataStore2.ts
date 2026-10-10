@@ -1,5 +1,9 @@
+import * as path from "@tauri-apps/api/path"
+import * as fs from "@tauri-apps/plugin-fs"
+import { store as createStore } from "@tauri-store/valtio"
 import { proxy } from "valtio"
 import { computed } from "valtio-reactive"
+import { loadMediaFromFile, loadMediaFromUrl } from "@/metadata/state/imageLoaders"
 import MediaStore from "@/state/mediaStore"
 import type { MediaCollection } from "@/state/mediaStore/collections"
 import {
@@ -8,6 +12,7 @@ import {
     VALID_VIDEO_TYPES,
 } from "@/state/mediaStore/types"
 import { getSetting } from "@/state/settings"
+import { getStoreName } from "@/utils/helpers"
 import { bindProxy } from "@/utils/valtio"
 import { MdImage } from "./MdImage"
 import type MdItem from "./MdItem"
@@ -38,6 +43,78 @@ let _mdStore: MetadataStore
 
 const getPin = (item: { pin?: number | null }) => item.pin
 const getId = (item: { id: string }) => item.id
+
+type LegacyMetadataItem = {
+    id?: unknown
+    type?: unknown
+    source?: unknown
+    pin?: unknown
+}
+
+type LegacyMetadataStore = {
+    items: LegacyMetadataItem[]
+}
+
+function getLegacySource(source: unknown): MediaItemSource {
+    if (typeof source !== "object" || source === null || Array.isArray(source)) return {}
+    return source as MediaItemSource
+}
+
+async function migrateLegacyMetadata(collection: MetadataStore["collection"]) {
+    const legacyStore = createStore<LegacyMetadataStore>(
+        getStoreName("metadata"),
+        { items: [] },
+        { autoStart: false },
+    )
+
+    try {
+        await legacyStore.start()
+        const appDataDir = await path.appDataDir()
+        const imageStoreFolder = await path.join(appDataDir, getStoreName("images"))
+        for (const legacyItem of legacyStore.state.items) {
+            if (typeof legacyItem.id !== "string" || typeof legacyItem.type !== "string") continue
+
+            const source = getLegacySource(legacyItem.source)
+            const pin = typeof legacyItem.pin === "number" ? legacyItem.pin : null
+            try {
+                let item: MdItem | undefined
+                if (VALID_IMAGE_TYPES.includes(legacyItem.type)) {
+                    const imagePath = await path.join(
+                        imageStoreFolder,
+                        `${legacyItem.id}.${legacyItem.type}`,
+                    )
+                    if ((await path.dirname(imagePath)) !== imageStoreFolder) {
+                        console.warn("skipping legacy image outside the image store", legacyItem.id)
+                        continue
+                    }
+                    item = await collection.addMediaFromFile(imagePath, source)
+                    if (item) {
+                        try {
+                            await fs.remove(imagePath)
+                        } catch (error) {
+                            console.warn("failed to remove migrated legacy image", imagePath, error)
+                        }
+                    }
+                } else if (VALID_VIDEO_TYPES.includes(legacyItem.type)) {
+                    const location = source.file ?? source.url
+                    const media =
+                        typeof location !== "string"
+                            ? undefined
+                            : source.file
+                              ? await loadMediaFromFile(location, source)
+                              : await loadMediaFromUrl(location, source)
+                    if (media) item = await collection.addMedia(media)
+                }
+
+                if (item) item.cState.pin = pin && pin > 0 ? 1 : null
+            } catch (error) {
+                console.warn("failed to migrate legacy metadata item", legacyItem.id, error)
+            }
+        }
+    } finally {
+        await legacyStore.stop()
+    }
+}
 
 function getStore() {
     if (!_mdStore) {
@@ -71,6 +148,11 @@ function initStore(): MetadataStore {
                 if (!state.settings.clearHistoryOnExit) return state.items.map(getId)
                 if (state.settings.clearPinsOnExit) return []
                 return state.items.filter(getPin).map(getId)
+            },
+            version: 1,
+            postMigrate: async () => {
+                await migrateLegacyMetadata(collection)
+                reconcilePins()
             },
         },
     )

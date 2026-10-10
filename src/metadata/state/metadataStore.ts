@@ -17,6 +17,8 @@ export function waitForMetadataStore() {
     return storeReady.promise
 }
 
+throw new Error("this module is deprecated")
+
 const initialStoreValues = {
     items: [] as MdItem[],
     currentIndex: null as number | null,
