@@ -83,7 +83,7 @@ function History(props: HistoryProps) {
                         <HistoryItem
                             role={"tab"}
                             aria-controls={`image-${image.id}`}
-                            id={`image-item-${i}`}
+                            id={`image-item-${i + 1}`}
                             aria-selected={currentItem?.id === image.id}
                             key={image.id}
                             image={image}
