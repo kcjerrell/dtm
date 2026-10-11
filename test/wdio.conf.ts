@@ -10,6 +10,12 @@ const __dirname = dirname(__filename)
 
 dotenvConfig({ path: resolve(__dirname, ".env"), override: false })
 
+const appBinaryPath = resolve(
+    __dirname,
+    "..",
+    process.platform === "linux" ? "scripts/linux-app.sh" : "src-tauri/target/debug/dtm",
+)
+
 const SCREENSHOT_DIR = resolve(__dirname, "artifacts", "screenshots")
 
 function safeFileName(value: string) {
@@ -37,9 +43,8 @@ export const config: Options.Testrunner & Record<string, unknown> = {
         [
             "@wdio/tauri-service",
             {
-                appBinaryPath: "./src-tauri/target/debug/dtm",
-                autoInstallTauriDriver: true,
-                tauriDriverPort: 4445,
+                appBinaryPath,
+                driverProvider: "embedded",
             },
         ],
     ],
@@ -48,11 +53,11 @@ export const config: Options.Testrunner & Record<string, unknown> = {
         {
             browserName: "tauri",
             "tauri:options": {
-                application: "./src-tauri/target/debug/dtm",
+                application: appBinaryPath,
                 webviewOptions: { width: 800, height: 600 },
             },
             "wdio:tauriServiceOptions": {
-                captureBackendLogs: false,
+                captureBackendLogs: true,
             },
         } as TauriCapabilities,
     ],

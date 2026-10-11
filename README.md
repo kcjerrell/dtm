@@ -72,13 +72,27 @@ npm run dev
 ```
 
 #### Linux
-Note: Linux support is rudimentary and intended to enable cloud-based Agentic AI workflows
+Linux is used only for tests in the Debian 13 x86_64 cloud environment. Native
+packages are extracted under `/workspace/.tools` without root; the launcher maps
+WebKit's helper directory with PRoot and runs under Xvfb and D-Bus.
+
 ```bash
-bash ./bootstrap-ubuntu.sh
-npm install
-npm run gen:icons
-npm run dev
+bash scripts/bootstrap-linux.sh
+source scripts/linux-env.sh
+bash scripts/verify-linux.sh
+npm ci
+npm run gen-icons
+bash scripts/test-setup.sh
+npm run tauri -- build --debug --no-bundle
+npm run wdio
+# Run one spec with the same launcher:
+npm run wdio -- --spec ./test/specs/tauri-wdio.e2e.ts
 ```
+
+The launcher also starts Vite when the existing debug binary was built in dev
+mode. Linux test app data and diagnostics live under `work/`; failure screenshots
+are saved under `test/artifacts/screenshots/`. Source `scripts/linux-env.sh` before
+Cargo commands or rebuilding the app in a new shell.
 
 #### Tests
 ```bash
