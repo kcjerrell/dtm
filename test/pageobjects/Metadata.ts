@@ -31,7 +31,7 @@ class Metadata {
     }
 
     async getDataItemValue(label: string, opts?: WaitForOpts & { noThrow?: boolean }) {
-        const el = $(`//dt[.='${label}']/following-sibling::dd`)
+        const el = $(`//*[@id='metadata']//dt[normalize-space(.)='${label}']/following-sibling::dd[1]`)
         try {
             await el.waitForDisplayed(opts)
             const text = await el.getText()
@@ -59,6 +59,9 @@ class Metadata {
     }
 
     toolbar = {
+        get toolbar() {
+            return $('[role="toolbar"][aria-label="Metadata viewer actions"]')
+        },
         get loadFromClipboard() {
             return $("aria/Load image from clipboard")
         },

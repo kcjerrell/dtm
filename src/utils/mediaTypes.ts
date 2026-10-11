@@ -22,6 +22,10 @@ const MIME_TO_EXT: Record<string, string> = {
     "video/x-matroska": "mkv",
 }
 
+const EXT_TO_MIME: Record<string, string> = Object.fromEntries(
+    Object.entries(MIME_TO_EXT).map(([mime, ext]) => [ext, mime]),
+)
+
 const UTI_TO_EXT: Record<string, string> = {
     "public.jpeg": "jpg",
     "public.png": "png",
@@ -38,6 +42,10 @@ const UTI_TO_EXT: Record<string, string> = {
     "public.mkv": "mkv",
     "public.webm": "webm",
 }
+
+const EXT_TO_UTI: Record<string, string> = Object.fromEntries(
+    Object.entries(UTI_TO_EXT).map(([uti, ext]) => [ext, uti]),
+)
 
 const EXT_NORMALIZE: Record<string, string> = {
     jpeg: "jpg",
@@ -147,6 +155,18 @@ function detectFromString(input: string): string | undefined {
 }
 
 /* ------------------ MAIN ENTRY ------------------ */
+
+export function getMimeTypeFromExtension(ext?: string): string | undefined {
+    if (!ext) return undefined
+    const normalizedExt = ext.toLowerCase().replace(/^\./, "")
+    return EXT_TO_MIME[normalizedExt]
+}
+
+export function getUtiFromExtension(ext?: string): string | undefined {
+    if (!ext) return undefined
+    const normalizedExt = ext.toLowerCase().replace(/^\./, "")
+    return EXT_TO_UTI[normalizedExt]
+}
 
 export function determineType(input: Input | undefined | null | unknown): string | undefined {
     if (!input) return

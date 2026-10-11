@@ -5,6 +5,7 @@ import { useSnapshot } from "valtio"
 import { AppRoot, CheckRoot, Sidebar, ViewContainer } from "@/components"
 import { Preview, useIsPreviewActive } from "@/components/preview"
 import { useColorMode } from "./components/ui/color-mode"
+import { Toaster } from "./components/ui/toaster"
 import AppStore from "./hooks/appState"
 import { useDragWindow } from "./hooks/useDragWindow"
 import { useMetadataDrop } from "./hooks/useDrop"
@@ -85,6 +86,7 @@ function App() {
                 </CheckRoot>
             </LayoutGroup>
             <Preview />
+            <Toaster />
         </AppRoot>
     )
 }

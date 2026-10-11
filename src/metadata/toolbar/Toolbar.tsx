@@ -3,16 +3,16 @@ import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import { useSnapshot } from "valtio"
 import CommandButton from "@/components/Command1Button"
 import { useMessages } from "@/state/Messages"
-import type MediaItem from "../state/mediaItem"
-import { getMetadataStore } from "../state/metadataStore"
+import type MdItem from "../state/MdItem"
 import { useMediaItemCommands } from "./commands"
 import { ContentHeaderContainer, ToolbarButtonGroup, ToolbarContainer, ToolbarRoot } from "./parts"
+import { useMetadataStore } from "../state/metadataStore2"
 
 function Toolbar(props: ChakraProps) {
     const { ...restProps } = props
 
-    const state = getMetadataStore()
-    const snap = useSnapshot(state)
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
 
     const commands = useMediaItemCommands()
 
@@ -38,7 +38,7 @@ function Toolbar(props: ChakraProps) {
 
     return (
         <ContentHeaderContainer data-tauri-drag-region {...restProps}>
-            <ToolbarContainer>
+            <ToolbarContainer role="toolbar" aria-label="Metadata viewer actions">
                 <ToolbarRoot borderBottom={messageChannel.messages.length ? "0px" : "1px"}>
                     <ToolbarButtonGroup
                         layout={"size"}
@@ -50,7 +50,7 @@ function Toolbar(props: ChakraProps) {
                                     <CommandButton
                                         key={command.id}
                                         command={command}
-                                        selectedItem={snap.currentItem as MediaItem}
+                                        selectedItem={snap.currentItem as MdItem}
                                     />
                                 ))}
                             </AnimatePresence>

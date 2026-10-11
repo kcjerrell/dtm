@@ -3,6 +3,7 @@ import { store } from "@tauri-store/valtio"
 import { nanoid } from "nanoid"
 import { type RefObject, useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
+import type { Format } from "@/commands"
 import { getStoreName } from "@/utils/helpers"
 
 let settingStore: ReturnType<typeof initStore> | undefined
@@ -17,6 +18,8 @@ const defaultSettings = {
     "vidExport.videoSource": "preview",
     "projectExport.outputDir": "",
     "projectExport.source": "preview",
+    "dtArchive.format": { "jpg": 90 } as Format,
+    "dtArchive.folder": null as string | null,
     "ui.imageSize": 200,
     "ui.defaultMute": true,
     "app.currentView": "metadata",
@@ -134,7 +137,7 @@ export function useSetting<K extends SettingsKey>(
 /**
  * Hook to use an app-wide setting in a non-reactive context. Mirrors the useRef() api
  * @param key The setting key
- * @returns A ref to the setting value
+ * @returns A ref to the setting value. Assign a new value to `current` will update the setting.
  */
 export function useSettingRef<K extends SettingsKey>(key: K): RefObject<Settings[K]> {
     const store = getSettingStore()

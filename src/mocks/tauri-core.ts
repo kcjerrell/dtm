@@ -59,6 +59,31 @@ export const invoke = async (cmd: string, args?: any) => {
       return { width: 512, height: 512, channels: 3 };
     case "dt_project_find_predecessor_candidates":
       return [];
+    case "create_dt_archive_plan":
+      return {
+        tensors: {
+          tensorHistory: 0,
+          binaryMask: 0,
+          shuffle: 0,
+          custom: 0,
+          depthMap: 0,
+          colorPalette: 0,
+          audio: 0,
+          scribble: 0,
+        },
+        genImages: 0,
+        genVideos: 0,
+        videoFrames: 0,
+        primaryTensors: 0,
+        extraTensors: 0,
+        thumbhalf: [0, 0],
+        filesize: 0,
+        estimate: 0,
+        fileInUse: false,
+      };
+    case "create_dt_archive":
+    case "clear_dt_archive_plan_cache":
+      return undefined;
     case "read_clipboard_types":
       return [];
     case "read_clipboard_strings":

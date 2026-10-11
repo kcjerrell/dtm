@@ -1,9 +1,8 @@
-import { useProxyRef } from "@/hooks/valtioHooks"
 import { Box, Button, type ButtonProps } from "@chakra-ui/react"
 import {
     createContext,
     type PropsWithChildren,
-    RefObject,
+    type RefObject,
     useCallback,
     useContext,
     useRef,
@@ -42,14 +41,14 @@ export function CollapseRoot(props: PropsWithChildren<CollapseRootProps>) {
 
     const height = useRef(0)
     const contentRef = useRef<HTMLDivElement>(null)
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const timeoutRef = useRef<number | null>(null)
 
     const scheduleChange = useCallback(
         (state: CollapseState) => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current)
             }
-            timeoutRef.current = setTimeout(() => {
+            timeoutRef.current = window.setTimeout(() => {
                 setState(state)
                 timeoutRef.current = null
             }, duration * 1000)

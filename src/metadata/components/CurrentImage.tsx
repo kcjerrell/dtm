@@ -3,12 +3,13 @@ import { motion } from "motion/react"
 import { useRef } from "react"
 import { useSnapshot } from "valtio"
 import { showPreview } from "@/components/preview"
-import { getMetadataStore } from "../state/metadataStore"
 import { useThresholdDelay } from "@/hooks/useDecay"
+import { useMetadataStore } from "../state/metadataStore2"
 
 function CurrentImage() {
-    const snap = useSnapshot(getMetadataStore())
-    const { currentItem: currentImage } = snap
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
+    const { currentItem } = snap
 
     const imgRef = useRef<HTMLImageElement>(null)
 
@@ -21,9 +22,9 @@ function CurrentImage() {
     return (
         <Img
             data-testid="current-image"
-            key={currentImage?.id}
+            key={currentItem?.id}
             ref={imgRef}
-            src={currentImage?.url}
+            src={currentItem?.url}
             onClick={(e) => showPreview(e.currentTarget)}
             onWheel={(e) => {
                 if (e.deltaY < 0) wheelBump(0 - e.deltaY)

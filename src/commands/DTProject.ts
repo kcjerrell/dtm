@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
 import { TensorHistoryNode, type TensorHistoryNodeResponse } from "./DTProjectTypes"
-import type { TensorDataRow } from "./DtpServiceTypes"
 
 type TensorHistoryNodeSelect = "tensordata" | "clip" | "moodboard" | "legacy_prompts"
 
@@ -15,6 +14,7 @@ type ListTensorHistoryNodeOpts = {
     rowid?: number
     projectId?: number
     projectPath?: string
+    previewId?: number
 }
 
 async function listTensorHistoryNodes(
@@ -41,25 +41,6 @@ function getSelectOpt(selectOpt?: TensorHistoryNodeSelect | TensorHistoryNodeSel
     return undefined
 }
 
-export interface TensorDataOpts {
-    lineage?: number
-    logicalTime?: number
-    idx?: number
-    first?: number
-    last?: number
-}
-
-async function tensorData(projectPath: string, opts?: TensorDataOpts): Promise<TensorDataRow[]> {
-    return await invoke<TensorDataRow[]>("dt_project_tensordata", {
-        projectPath,
-        lineage: opts?.lineage,
-        logicalTime: opts?.logicalTime,
-        idx: opts?.idx,
-        first: opts?.first,
-        last: opts?.last,
-    })
-}
-
 async function getTensorHistory(projectId: number, rowId: number) {
     const rows = await listTensorHistoryNodes({
         projectId,
@@ -71,7 +52,6 @@ async function getTensorHistory(projectId: number, rowId: number) {
 
 const DTProject = {
     listTensorHistoryNodes,
-    tensorData,
     getTensorHistory,
 }
 

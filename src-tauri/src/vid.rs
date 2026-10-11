@@ -47,7 +47,7 @@ pub async fn get_video_metadata(app: AppHandle, path: String) -> TAResult<String
         false => {
             log::warn!(
                 "video metadata: {}",
-                String::from_utf8_lossy(&output.stderr).to_string()
+                String::from_utf8_lossy(&output.stderr)
             );
             return Ok(String::default());
         }

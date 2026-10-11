@@ -1,4 +1,5 @@
-use crate::projects_db::{dtos::project::ProjectExtra, folder_cache, DTProject};
+use crate::projects_db::{dtos::project::ProjectExtra, DtProjectRef};
+use anyhow::Context;
 use dashmap::DashMap;
 use entity::{
     images::{self, Entity as Images},
@@ -16,21 +17,35 @@ use super::{MixedError, ProjectsDb};
 
 static PROJECT_PATH_CACHE: Lazy<DashMap<i64, String>> = Lazy::new(DashMap::new);
 
+pub(super) fn clear_project_paths() {
+    PROJECT_PATH_CACHE.clear();
+}
+
 impl ProjectsDb {
     pub async fn add_project(
         &self,
         watch_folder_id: i64,
         relative_path: &str,
     ) -> anyhow::Result<ProjectExtra> {
-        let watch_folder_path = folder_cache::get_folder(watch_folder_id)
-            .ok_or_else(|| anyhow::anyhow!("Watch folder not found in cache"))?;
-        let full_path = std::path::Path::new(&watch_folder_path).join(relative_path);
+        let folder = self
+            .get_watch_folder(watch_folder_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("watch folder {watch_folder_id} not found"))?;
+        let full_path = std::path::Path::new(&folder.path).join(relative_path);
         let full_path_str = full_path
             .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path"))?;
+            .ok_or_else(|| anyhow::anyhow!("invalid path encoding: {}", full_path.display()))?;
 
-        let dt_project = DTProject::get(full_path_str).await?;
-        let fingerprint = dt_project.get_fingerprint().await?;
+        let project_ref = DtProjectRef::Path(full_path_str.to_string());
+        let dt_project = project_ref.get_project().await.with_context(|| {
+            format!("failed to open project database at {}", full_path.display())
+        })?;
+        let fingerprint = dt_project.get_fingerprint().await.with_context(|| {
+            format!(
+                "failed to calculate fingerprint for project at {}",
+                full_path.display()
+            )
+        })?;
 
         let project = ActiveModel {
             path: Set(relative_path.to_string()),
@@ -49,15 +64,31 @@ impl ProjectsDb {
                 .to_owned(),
             )
             .exec_with_returning(&self.db)
-            .await?;
+            .await
+            .with_context(|| format!("failed to insert project record '{relative_path}' for watch folder {watch_folder_id}"))?;
 
-        let project = self.get_project(project.id).await?;
+        let project = self
+            .get_project(project.id)
+            .await
+            .with_context(|| format!("failed to load created project {}", project.id))?;
 
         Ok(project)
     }
 
     pub async fn remove_project(&self, id: i64) -> Result<Option<i64>, MixedError> {
-        let _ = Projects::delete_by_id(id).exec(&self.db).await?;
+        let project = self.get_project(id).await?;
+        let result = Projects::delete_by_id(id).exec(&self.db).await?;
+        PROJECT_PATH_CACHE.remove(&id);
+        crate::dt_project::close_folder(&project.full_path).await;
+        if project.full_path.ends_with(".dtm.zip") {
+            crate::archive::DTZipCache::invalidate(&project.full_path)
+                .await
+                .map_err(|error| MixedError::Other(format!("{error:#}")))?;
+        }
+        if result.rows_affected == 0 {
+            return Ok(None);
+        }
+        self.rebuild_images_fts_debounced();
 
         Ok(Some(id))
     }
@@ -156,6 +187,8 @@ impl ProjectsDb {
             .await?
             .ok_or_else(|| MixedError::Other(format!("Project {project_id} not found")))?;
 
+        let project_path = self.get_project(project_id).await?.full_path;
+
         let mut project: projects::ActiveModel = project.into();
         project.excluded = Set(exclude);
         project.modified = Set(None);
@@ -171,44 +204,16 @@ impl ProjectsDb {
                 .exec(&self.db)
                 .await?;
             log::debug!("Deleted {} images", result.rows_affected);
+            self.rebuild_images_fts_debounced();
+            crate::dt_project::close_folder(&project_path).await;
+            if project_path.ends_with(".dtm.zip") {
+                crate::archive::DTZipCache::invalidate(&project_path)
+                    .await
+                    .map_err(|error| MixedError::Other(format!("{error:#}")))?;
+            }
         }
 
         Ok(())
-    }
-
-    pub async fn get_dt_project(
-        &self,
-        project_ref: crate::projects_db::DtProjectRef,
-    ) -> anyhow::Result<std::sync::Arc<DTProject>> {
-        match project_ref {
-            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
-            crate::projects_db::DtProjectRef::Id(id) => {
-                let project = self.get_project(id).await?;
-                Ok(DTProject::get(&project.full_path).await?)
-            }
-            crate::projects_db::DtProjectRef::Path(path) => Ok(DTProject::get(&path).await?),
-        }
-    }
-
-    /// Returns a persistent, standalone `DTProject` (bypassing the shared cache).
-    /// Use this for long-running operations like exports, where the caller needs
-    /// the connection to stay open for the duration of the work.
-    pub async fn open_dt_project(
-        &self,
-        project_ref: crate::projects_db::DtProjectRef,
-    ) -> Result<std::sync::Arc<DTProject>, MixedError> {
-        match project_ref {
-            crate::projects_db::DtProjectRef::Db(project) => Ok(project),
-            crate::projects_db::DtProjectRef::Id(id) => {
-                let project = self.get_project(id).await?;
-                Ok(std::sync::Arc::new(
-                    DTProject::open(&project.full_path).await?,
-                ))
-            }
-            crate::projects_db::DtProjectRef::Path(path) => {
-                Ok(std::sync::Arc::new(DTProject::open(&path).await?))
-            }
-        }
     }
 }
 
@@ -222,7 +227,10 @@ fn project_query() -> sea_orm::Select<entity::prelude::Projects> {
         .column_as(Expr::col((Images, images::Column::NodeId)).max(), "last_id")
         .join(JoinType::LeftJoin, projects::Relation::WatchFolders.def())
         .column_as(Expr::value(""), "name")
-        .column_as(Expr::value(""), "full_path")
+        .column_as(
+            Expr::cust("watch_folders.path || '/' || projects.path"),
+            "full_path",
+        )
         .column_as(
             Expr::col((watch_folders::Entity, watch_folders::Column::IsMissing)),
             "is_missing",

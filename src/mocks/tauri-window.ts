@@ -9,6 +9,9 @@ export const getCurrentWindow = () => ({
   destroy: async () => {
     console.log("[Mock] Window destroy");
   },
+  close: async () => {
+    console.log("[Mock] Window close");
+  },
   show: async () => {
     console.log("[Mock] Window show");
   },

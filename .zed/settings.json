@@ -1,0 +1,31 @@
+{
+  "languages": {
+    "TypeScript": {
+      "tab_size": 4,
+      "hard_tabs": false,
+      "prettier": { "allowed": false },
+      "formatter": {
+        "language_server": { "name": "biome" },
+      },
+      "language_servers": ["!eslint", "..."],
+    },
+    "TSX": {
+      "tab_size": 4,
+      "hard_tabs": false,
+      "prettier": { "allowed": false },
+      "formatter": {
+        "language_server": { "name": "biome" },
+      },
+      "language_servers": ["!eslint", "..."],
+    },
+    "JavaScript": {
+      "tab_size": 4,
+      "hard_tabs": false,
+      "prettier": { "allowed": false },
+      "formatter": {
+        "language_server": { "name": "biome" },
+      },
+      "language_servers": ["!eslint", "..."],
+    },
+  },
+}

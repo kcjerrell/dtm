@@ -8,34 +8,18 @@ pub struct TACommandError(pub anyhow::Error);
 impl std::error::Error for TACommandError {}
 impl std::fmt::Display for TACommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        #[cfg(any(debug_assertions, feature = "show_errs_in_release"))]
-        {
-            write!(f, "{:#}", self.0)
-        }
-
-        #[cfg(not(any(debug_assertions, feature = "show_errs_in_release")))]
-        {
-            write!(f, "{}", self.0)
-        }
+        write!(f, "{:#}", self.0)
     }
 }
 
-// Every "renspose" from a tauri command needs to be serializeable into json with serde.
+// Every "respose" from a tauri command needs to be serializeable into json with serde.
 // This is why we cannot use `anyhow` directly. This piece of code fixes that.
 impl Serialize for TACommandError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        #[cfg(any(debug_assertions, feature = "show_errs_in_release"))]
-        {
-            serializer.serialize_str(&format!("{:#}", self.0))
-        }
-
-        #[cfg(not(any(debug_assertions, feature = "show_errs_in_release")))]
-        {
-            serializer.serialize_str("errors disabled in production.")
-        }
+        serializer.serialize_str(&format!("{:#}", self.0))
     }
 }
 
@@ -49,7 +33,7 @@ impl From<anyhow::Error> for TACommandError {
 /// Use this as your command's return type.
 ///
 /// Example usage:
-/// ```
+/// ```text
 /// #[tauri::command]
 /// fn test() -> anyhow_tauri::TAResult<String> {
 ///     Ok("No error thrown.".into())
@@ -71,7 +55,7 @@ where
     /// This is a "quality of life" improvement.
     ///
     /// Example usage:
-    /// ```
+    /// ```text
     /// #[tauri::command]
     /// fn test_into_ta_result() -> anyhow_tauri::TAResult<String> {
     ///     function_that_succeeds().into_ta_result()
@@ -88,7 +72,7 @@ impl<T> IntoTAResult<T> for anyhow::Error {
     /// This is a "quality of life" improvement.
     ///
     /// Example usage:
-    /// ```
+    /// ```text
     /// #[tauri::command]
     /// fn test_into_ta_result() -> anyhow_tauri::TAResult<String> {
     ///     function_that_succeeds().into_ta_result()
@@ -105,7 +89,7 @@ pub trait IntoEmptyTAResult<T> {
     /// Usefull whenever you want to create `Result<(), TACommandError>` (or `TAResult<()>`)
     ///
     /// Example usage:
-    /// ```
+    /// ```text
     /// #[tauri::command]
     /// fn test_into_ta_empty_result() -> anyhow_tauri::TAResult<()> {
     ///     anyhow::anyhow!("Showcase of the .into_ta_empty_result()").into_ta_empty_result()
@@ -122,7 +106,7 @@ impl IntoEmptyTAResult<()> for anyhow::Error {
 /// Mirrors the `anyhow::bail!` implementation, but calls `.into_ta_result()` afterwards.
 ///
 /// Example usage:
-/// ```
+/// ```text
 /// #[tauri::command]
 /// fn test_bail() -> anyhow_tauri::TAResult<String> {
 ///     anyhow_tauri::bail!("Showcase of the .bail!()")
@@ -144,7 +128,7 @@ macro_rules! bail {
 /// Mirrors the `anyhow::ensure!` implementation, but calls `.into_ta_result()` afterwards.
 ///
 /// Example usage:
-/// ```
+/// ```text
 /// #[tauri::command]
 /// fn test_ensure() -> anyhow_tauri::TAResult<String> {
 ///     anyhow_tauri::ensure!(1 == 2); // this should throw

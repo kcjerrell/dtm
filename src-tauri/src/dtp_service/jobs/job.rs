@@ -15,8 +15,12 @@ where
     Self: Send + Sync,
 {
     fn get_label(&self) -> String;
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String>;
-    fn start_event(self: &Self) -> Option<DTPEvent> {
+    /// Serialize a folder's job tree without occupying worker slots while waiting.
+    async fn folder_scope(&self, _ctx: &JobContext) -> Result<Option<i64>, String> {
+        Ok(None)
+    }
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String>;
+    fn start_event(&self) -> Option<DTPEvent> {
         None
     }
     async fn on_complete(&self, _ctx: &JobContext) {}

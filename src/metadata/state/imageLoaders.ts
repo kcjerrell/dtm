@@ -1,14 +1,39 @@
 import * as plist from "plist"
+import { DtpService } from "@/commands"
+import DTProject from "@/commands/DTProject"
+import {
+    type MediaItemSource,
+    VALID_IMAGE_TYPES,
+    VALID_VIDEO_TYPES,
+} from "@/state/mediaStore/types"
 import { getOverrideOr } from "@/testHooks"
-import { getClipboardBinary, getClipboardText, getClipboardTypes } from "@/utils/clipboard"
-import { isVideo } from "@/utils/imageStore"
+import {
+    fetchImage,
+    getClipboardBinary,
+    getClipboardText,
+    getClipboardTypes,
+    getLocalImage,
+} from "@/utils/clipboard"
 import { determineType } from "@/utils/mediaTypes"
-import { ImageItem } from "./ImageItem"
-import type MediaItem from "./mediaItem"
-import type { MediaItemSource } from "./mediaItem"
-import { addImageItem, setMetadataIsImageLoading } from "./metadataStore"
+import { drawPose } from "@/utils/pose"
+import { getDrawThingsDataFromExif } from "../helpers"
+import { getExif } from "./imageMetadata"
 import { tryRead } from "./utiReaders"
-import { VideoItem } from "./VideoItem"
+
+export type LoadedImage = {
+    buffer: Uint8Array
+    type: string
+    source?: MediaItemSource
+}
+
+export type LoadedVideo = {
+    kind: "file" | "url"
+    location: string
+    type: string
+    source?: MediaItemSource
+}
+
+export type LoadedMedia = LoadedImage | LoadedVideo
 
 const prioritizedTypes = [
     "NSFilenamesPboardType",
@@ -32,54 +57,41 @@ export const clipboardTextTypes = [
     "public.url",
 ]
 
-export async function loadImage2(pasteboard: "general" | "drag") {
-    let firstItem: MediaItem | null = null
-    setMetadataIsImageLoading(true)
-    try {
-        for await (const result of loadItems(pasteboard)) {
-            console.debug("item", result)
-            if (!result) continue
-            // Special case for NSFilenamesPboardType (array of items)
-            if (Array.isArray(result)) {
-                for (const item of result) {
-                    if (item) addImageItem(item)
-                }
-                return
-            }
-
-            const item = result as MediaItem
-
-            // Prioritize items with Draw Things metadata
-            if (await item.hasMetadata()) {
-                addImageItem(item)
-                return
-            }
-
-            // Fallback to the first available item if no metadata is found
-            if (!firstItem) {
-                firstItem = item
-            }
-        }
-
-        if (firstItem) {
-            addImageItem(firstItem)
-        }
-    } catch (e) {
-        console.error("error loading image", e)
-    } finally {
-        setMetadataIsImageLoading(false)
-    }
+/** Select candidates before saving anything to a collection. */
+export async function loadImageFromPasteboard(
+    pasteboard: "general" | "drag",
+): Promise<LoadedImage[]> {
+    return (await collectPasteboard(pasteboard, false)) as LoadedImage[]
 }
 
-// let dump = [] as string[]
-// async function dumpData(text) {
-//     dump.push(text)
-//     writeTextFile(await path.join(await path.appDataDir(), "clipdump.json"), JSON.stringify(dump))
-// }
+export async function loadMediaFromPasteboard(
+    pasteboard: "general" | "drag",
+): Promise<LoadedMedia[]> {
+    return collectPasteboard(pasteboard, true)
+}
+
+async function collectPasteboard(pasteboard: "general" | "drag", includeVideo: boolean) {
+    let firstItem: LoadedMedia | undefined
+    for await (const result of loadItems(pasteboard, includeVideo)) {
+        if (!result) continue
+        // Finder supplies distinct files, not alternate representations of one image.
+        if (Array.isArray(result)) return result
+
+        firstItem ??= result
+        if ("kind" in result) continue
+        try {
+            if (getDrawThingsDataFromExif(await getExif(result.buffer))) return [result]
+        } catch (e) {
+            console.warn("couldn't check pasteboard image metadata", e)
+        }
+    }
+    return firstItem ? [firstItem] : []
+}
 
 async function* loadItems(
     pasteboard: "general" | "drag",
-): AsyncGenerator<MediaItem | (MediaItem | undefined)[] | undefined> {
+    includeVideo = false,
+): AsyncGenerator<LoadedMedia | LoadedMedia[] | undefined> {
     const types = await getOverrideOr(
         "pasteboardTypes",
         async () => await getClipboardTypes(pasteboard),
@@ -117,20 +129,18 @@ async function* loadItems(
             const utiSource = { ...source, uti }
 
             if (result.pose) {
-                yield await ImageItem.fromPose(data as string, utiSource)
+                yield await loadImageFromPose(data as string, utiSource)
                 return
             }
 
             // Special handling for bulk file loading
             if (uti === "NSFilenamesPboardType" && result.urls) {
-                // const items = await settledValues(
-                //     result.urls.map((f) => createMediaItem(f, { ...utiSource, file: f })),
-                // )
-                const items = [] as MediaItem[]
+                const items: LoadedMedia[] = []
                 for (const url of result.urls) {
-                    console.debug("trying url", url)
-                    const item = await createMediaItem(url, { ...utiSource, url })
-                    console.debug("item for", url, item)
+                    const item = await (includeVideo ? loadMediaFromUrl : loadImageFromUrl)(url, {
+                        ...utiSource,
+                        url,
+                    })
                     if (item) items.push(item)
                 }
                 yield items
@@ -139,21 +149,28 @@ async function* loadItems(
 
             // Handle binary data from clipboard
             if (result.data) {
-                const item = await createMediaItem(result.data.buffer, utiSource, result.data.type)
+                const item = await loadImageFromBuffer(
+                    result.data.buffer,
+                    result.data.type,
+                    utiSource,
+                )
                 if (item) yield item
             }
 
             // Handle URLs (web or local)
             if (result.urls) {
                 for (const url of result.urls) {
-                    const item = await createMediaItem(url, { ...utiSource, url })
+                    const item = await (includeVideo ? loadMediaFromUrl : loadImageFromUrl)(url, {
+                        ...utiSource,
+                        url,
+                    })
                     if (item) yield item
                 }
             }
 
             // Handle DTP internal references
             if (result.dtpImage) {
-                const item = await ImageItem.fromDtpImage(
+                const item = await loadImageFromDtp(
                     result.dtpImage.projectId,
                     result.dtpImage.imageId,
                 )
@@ -165,34 +182,7 @@ async function* loadItems(
     }
 }
 
-/**
- * Factory helper to create either an ImageItem or VideoItem based on type.
- */
-async function createMediaItem(
-    input: string | Uint8Array,
-    source: MediaItemSource,
-    typeHint?: string,
-): Promise<MediaItem | undefined> {
-    const processedInput = preprocess(input)
-    const mediaType = typeHint ?? determineType(processedInput)
-    if (!mediaType) return undefined
-    console.debug("media type", mediaType)
-    if (isVideo(mediaType)) {
-        if (typeof processedInput === "string")
-            return await VideoItem.fromUrl(processedInput, source)
-        // Videos are not loaded from binary data — only from paths/URLs
-        console.warn(
-            "Ignoring video binary data from clipboard; videos must be loaded from path/URL",
-        )
-        return undefined
-    } else {
-        if (typeof processedInput === "string")
-            return await ImageItem.fromUrl(processedInput, source)
-        return await ImageItem.fromBuffer(processedInput, mediaType, source)
-    }
-}
-
-function preprocess(input: string | Uint8Array) {
+function preprocess(input: string) {
     try {
         if (
             typeof input === "string" &&
@@ -313,4 +303,145 @@ export function extractPaths(text: string): {
     }
 
     return { urls }
+}
+
+export async function loadImageFromBuffer(
+    buffer: Uint8Array | null | undefined,
+    type: string,
+    source?: MediaItemSource,
+): Promise<LoadedImage | undefined> {
+    // Video acquisition is deliberately left to the upcoming video migration.
+    if (!buffer?.length || !VALID_IMAGE_TYPES.includes(type)) return undefined
+    return { buffer, type, source }
+}
+
+export async function loadMediaFromFile(
+    file: string,
+    source?: MediaItemSource,
+): Promise<LoadedMedia | undefined> {
+    const normalized = file.startsWith("files://") ? file.replace("files://", "file://") : file
+    try {
+        const filePath = normalized.startsWith("file://")
+            ? decodeURIComponent(new URL(normalized).pathname)
+            : normalized
+        const type = determineType(filePath)
+        if (type && VALID_VIDEO_TYPES.includes(type)) {
+            return {
+                kind: "file",
+                location: filePath,
+                type,
+                source: { ...source, file: filePath, url: null },
+            }
+        }
+    } catch (e) {
+        console.warn("couldn't load media from file", file, e)
+        return undefined
+    }
+    return loadImageFromFile(file, source)
+}
+
+export async function loadMediaFromUrl(
+    url: string,
+    source?: MediaItemSource,
+): Promise<LoadedMedia | undefined> {
+    url = preprocess(url)
+    if (isLocalUrl(url)) return loadMediaFromFile(url, source)
+    const type = determineType(url)
+    if (type && VALID_VIDEO_TYPES.includes(type)) {
+        return { kind: "url", location: url, type, source: { ...source, url } }
+    }
+    return loadImageFromUrl(url, source)
+}
+
+export async function loadImageFromFile(
+    file: string,
+    source?: MediaItemSource,
+): Promise<LoadedImage | undefined> {
+    try {
+        const normalized = file.startsWith("files://") ? file.replace("files://", "file://") : file
+        const filePath = normalized.startsWith("file://")
+            ? decodeURIComponent(new URL(normalized).pathname)
+            : normalized
+        const fileType = determineType(filePath)
+        if (fileType && VALID_VIDEO_TYPES.includes(fileType)) return undefined
+        const data = await getLocalImage(filePath)
+        if (!data) return undefined
+        const type = fileType ?? determineType(data)
+        if (!type) return undefined
+        return await loadImageFromBuffer(data, type, { ...source, file: filePath })
+    } catch (e) {
+        console.warn("couldn't load image from file", file, e)
+        return undefined
+    }
+}
+
+/** Accepts a remote URL or a local file path/URL. */
+export async function loadImageFromUrl(
+    url: string,
+    source?: MediaItemSource,
+): Promise<LoadedImage | undefined> {
+    url = preprocess(url)
+    if (isLocalUrl(url)) return loadImageFromFile(url, { ...source, url: null })
+
+    const urlType = determineType(url)
+    if (urlType && VALID_VIDEO_TYPES.includes(urlType)) return undefined
+    const fetched = await fetchImage(url)
+    if (!fetched) return undefined
+    const type = determineType(fetched.type)
+    if (!type) return undefined
+    return loadImageFromBuffer(fetched.data, type, { ...source, url })
+}
+
+export async function loadImageFromDtp(
+    projectId: number,
+    imageId: number,
+): Promise<LoadedImage | undefined> {
+    try {
+        const result = await loadDtpImage({ projectId, imageId })
+        if (!result) return undefined
+        return await loadImageFromBuffer(result.image, "png", {
+            loadedFrom: "project",
+            projectFile: result.projectFile,
+            nodeId: result.history.rowid,
+            tensorId: result.history.tensorHistoryName,
+        })
+    } catch (e) {
+        console.warn("couldn't load image from dtp image", projectId, imageId, e)
+        return undefined
+    }
+}
+
+export async function loadImageFromPose(
+    data: string,
+    source?: MediaItemSource,
+): Promise<LoadedImage | undefined> {
+    const pose = JSON.parse(data)
+    const buffer = await drawPose(pose)
+    return loadImageFromBuffer(buffer, "png", { ...source, pose })
+}
+
+export async function loadDtpImage(dtpImage: { projectId: number; imageId: number }) {
+    const { projectId, imageId } = dtpImage
+    const history = await DTProject.listTensorHistoryNodes({
+        projectId,
+        previewId: imageId,
+        select: "tensordata",
+    })
+    if (!history[0]) return
+    const image = await DtpService.getResourceImage(
+        projectId,
+        history[0].rowid,
+        history[0].tensorHistoryName,
+    )
+    return { image, projectFile: history[0].project_path, history: history[0] }
+}
+
+export function isLocalUrl(url: string): boolean {
+    if (url.startsWith("/") || url.startsWith("file://") || url.startsWith("files://")) return true
+    try {
+        const parsed = new URL(url)
+        return parsed.protocol !== "http:" && parsed.protocol !== "https:"
+    } catch {
+        return true
+    }
 }

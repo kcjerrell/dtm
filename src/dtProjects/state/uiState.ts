@@ -1,12 +1,13 @@
 import { proxy, useSnapshot } from "valtio"
 import { proxySet } from "valtio/utils"
-import type { ImageExtra, TensorHistoryExtra } from "@/commands"
+import type { ImageExtra } from "@/commands"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import DTPService from "@/commands/DtpService"
 import type { ScanProgress } from "@/commands/DtpServiceTypes"
 import urls from "@/commands/urls"
+import { toaster } from "@/components/ui/toaster"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
-import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import { drawPose } from "@/utils/pose"
 import type { DialogState } from "../dialog/types"
 import { type CanvasStack, isCanvasStack, type SubItem, type TensorType } from "../types"
 import type { ProjectState } from "./projects"
@@ -25,7 +26,7 @@ export type UIControllerState = {
         subItem?: SubItem | CanvasStack
         subItemSourceRect?: DOMRect | null
         lastItem?: ImageExtra | null
-        candidates?: TensorHistoryExtra[]
+        candidates?: TensorHistoryNode[]
         sourceRect?: DOMRect | null
         width?: number
         height?: number
@@ -76,6 +77,9 @@ export class UIController extends DTPStateController<UIControllerState> {
     constructor() {
         super("uiState")
 
+        this.container.on("sync_failed", (error) => {
+            toaster.create({ type: "error", title: "Project synchronization failed", description: error })
+        })
         this.container.on("import_started", () => this.startImport())
         this.container.on("import_progress", (progress) => this.updateImport(progress))
         this.container.on("import_completed", () => this.endImport())
@@ -151,6 +155,10 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showDetailsOverlay(item: ImageExtra) {
+        if (this._clearDetailsOverlayTimer) {
+            window.clearTimeout(this._clearDetailsOverlayTimer)
+            this._clearDetailsOverlayTimer = undefined
+        }
         const detailsOverlay = this.state.detailsView
         detailsOverlay.isOpen = true
         detailsOverlay.item = item
@@ -167,7 +175,7 @@ export class UIController extends DTPStateController<UIControllerState> {
 
         const candidates = await this.container
             .getService("details")
-            ?.getPredecessorCandidates(item)
+            ?.getPredecessorCandidates(itemDetails)
         detailsOverlay.candidates = candidates ?? []
 
         this.raise("onItemChanged", { item })
@@ -177,10 +185,11 @@ export class UIController extends DTPStateController<UIControllerState> {
         return useSnapshot(this.state.detailsView)
     }
 
+    _clearDetailsOverlayTimer?: number
     hideDetailsOverlay() {
         const detailsOverlay = this.state.detailsView
         detailsOverlay.isOpen = false
-        setTimeout(() => {
+        this._clearDetailsOverlayTimer = window.setTimeout(() => {
             detailsOverlay.item = undefined
             detailsOverlay.candidates = []
             detailsOverlay.subItem = undefined
@@ -235,9 +244,8 @@ export class UIController extends DTPStateController<UIControllerState> {
     }
 
     async showSubItemPose(projectId: number, tensorId: string) {
-        const poseData = await DTPService.decodeTensor(projectId, tensorId, false)
-        const points = tensorToPoints(poseData)
-        const pose = pointsToPose(points, 1024, 1024)
+        const poseData = await DTPService.getResourceJson(projectId, null, tensorId)
+        const pose = JSON.parse(poseData)
         const image = await drawPose(pose, 4)
         const details = this.state.detailsView
         if (!image || !details.item) return

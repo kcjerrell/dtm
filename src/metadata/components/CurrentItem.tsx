@@ -1,7 +1,7 @@
 import { Box, Flex, Spinner } from "@chakra-ui/react"
 import { useSnapshot } from "valtio"
 import { SpinnerRoot } from "@/components/common"
-import { getMetadataStore } from "../state/metadataStore"
+import { useMetadataStore } from "../state/metadataStore2"
 import CurrentImage from "./CurrentImage"
 import CurrentVideo from "./CurrentVideo"
 
@@ -10,19 +10,20 @@ interface CurrentItemProps extends ChakraProps {}
 function CurrentItem(props: CurrentItemProps) {
     const { ...restProps } = props
 
-    const snap = useSnapshot(getMetadataStore())
-    const { currentItem: currentImage, isLoadingImage } = snap
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
+    const { currentItem, isLoadingImage } = snap
 
     let Item: React.ComponentType | null = null
-    if (currentImage?.url) {
-        Item = currentImage.isVideo ? CurrentVideo : CurrentImage
+    if (currentItem?.url) {
+        Item = currentItem.isVideo ? CurrentVideo : CurrentImage
     }
 
     return (
         <Box
             role={"tabpanel"}
-            id={`image-${(snap.currentIndex ?? 0) + 1}`}
-            aria-labelledby={`image-item-${(snap.currentIndex ?? 0) + 1}`}
+            id={`image-${(currentItem?.id ?? "no-item")}`}
+            aria-labelledby={`image-item-${(currentItem?.id ?? "no-item")}`}
             position={"relative"}
             flex={"1 1 auto"}
             display="flex"
@@ -30,12 +31,12 @@ function CurrentItem(props: CurrentItemProps) {
             alignItems="center"
             minWidth={0}
             minHeight={0}
-            padding={currentImage ? 1 : 8}
+            padding={currentItem ? 1 : 8}
             width={"100%"}
             {...restProps}
         >
             {Item ? (
-                <Item key={currentImage?.id} />
+                <Item key={currentItem?.id} />
             ) : (
                 <Flex
                     position={"relative"}
