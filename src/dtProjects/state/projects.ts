@@ -37,31 +37,30 @@ export function getProjectPathParts(project: ProjectSortItem) {
     }
 }
 
-function compareProjectPaths(a: ProjectSortItem, b: ProjectSortItem) {
-    const aPath = getProjectPathParts(a)
-    const bPath = getProjectPathParts(b)
-    const aParts = [...aPath.subpath, aPath.projectName]
-    const bParts = [...bPath.subpath, bPath.projectName]
-    const sharedLength = Math.min(aParts.length, bParts.length)
-
-    for (let i = 0; i < sharedLength; i++) {
-        const comparison = aParts[i].toLowerCase().localeCompare(bParts[i].toLowerCase())
-        if (comparison === 0) continue
-        return comparison
-    }
-
-    // A project is listed before a folder with the same name.
-    return aParts.length - bParts.length
+const projectSort = (a: ProjectSortItem, b: ProjectSortItem): number => {
+    return a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase())
 }
 
-const projectSort = (a: ProjectSortItem, b: ProjectSortItem): number => {
-    if (!getSetting("projects.showSubpathInProjectList")) {
-        const aName = getProjectPathParts(a).projectName
-        const bName = getProjectPathParts(b).projectName
-        return aName.toLowerCase().localeCompare(bName.toLowerCase())
+const projectSortSubpath = (a: ProjectSortItem, b: ProjectSortItem): number => {
+    const aa = a.path.split("/")
+    const bb = b.path.split("/")
+
+    for (let i = 0; i < Math.min(aa.length, bb.length); i++) {
+        if (aa[i] === bb[i]) continue
+
+        const aIsDir = i < aa.length - 1
+        const bIsDir = i < bb.length - 1
+
+        // Directories before files
+        if (aIsDir !== bIsDir) {
+            return aIsDir ? -1 : 1
+        }
+
+        // Same kind: alphabetical
+        return aa[i].localeCompare(bb[i])
     }
 
-    return compareProjectPaths(a, b)
+    return aa.length - bb.length
 }
 
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
@@ -79,9 +78,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         super("projects")
 
         this.container.on("project_added", (project) => {
-            this.state.projects.push(this.createProjectState(project))
-            this.state.projects.sort(projectSort)
-            this.state.projectsCount++
+            // this.state.projects.push(this.createProjectState(project))
+            // this.sortProjects()
+            // this.state.projectsCount++
             this.loadProjectsDebounced()
         })
 
@@ -91,10 +90,22 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
         this.container.on("project_removed", (projectId) => {
             const projectState = this.state.projects.find((p) => p.id === projectId)
-            if (projectState) {
-                va.remove(this.state.projects, projectState)
-                this.state.projectsCount--
+            if (!projectState) return
+
+            va.remove(this.state.projects, projectState)
+            this.state.projectsCount--
+
+            if (projectState?.selected) {
+                va.remove(this.state.selectedProjects, projectState)
             }
+
+            const folder = this.state.folders.find(
+                (f) => f.watchfolder.id === projectState?.watchfolder_id,
+            )
+            if (folder) {
+                va.remove(folder.projects, projectState)
+            }
+
             this.loadProjectsDebounced()
         })
 
@@ -122,28 +133,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
         this.unwatchFns.push(
             subscribeSetting("projects.showSubpathInProjectList", () => {
-                this.sortProjects()
+                this.loadProjects()
             }),
         )
-    }
-
-    private sortProjects() {
-        const projectIndexes = new Map<number, number>()
-        this.state.folders.forEach((folder) => {
-            folder.projects.sort(projectSort)
-            folder.projects.forEach((project) => {
-                projectIndexes.set(project.id, projectIndexes.size)
-            })
-        })
-        this.state.projects.sort((a, b) => {
-            const aIndex = projectIndexes.get(a.id)
-            const bIndex = projectIndexes.get(b.id)
-
-            if (aIndex === undefined && bIndex === undefined) return projectSort(a, b)
-            if (aIndex === undefined) return 1
-            if (bIndex === undefined) return -1
-            return aIndex - bIndex
-        })
     }
 
     updateProject(projectId: number, data: Partial<ProjectExtra>) {
@@ -165,7 +157,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     async loadProjects() {
         const wfs = this.container.getService("watchFolders")
         const watchfolders = await wfs.loadWatchFolders()
-        const dtpProjects = (await DTPService.listProjects()).sort(projectSort)
+        const dtpProjects = await DTPService.listProjects()
+        const sortFn = getSetting("projects.showSubpathInProjectList")
+            ? projectSortSubpath
+            : projectSort
         const selected = this.state.selectedProjects.map((p) => ({ id: p.id }))
 
         const folders = groupMap(
@@ -175,7 +170,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 const folder = watchfolders.find((f) => f.id === folderId)
                 return {
                     watchfolder: folder,
-                    projects: folderProjects,
+                    projects: folderProjects.sort(sortFn),
                 }
             },
         ).filter(
@@ -261,7 +256,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         this.loadProjectsTimeout = setTimeout(async () => {
             await this.loadProjects()
             await this.container.getService("models").refreshModels()
-        }, 2000)
+        }, 1000)
     }
 
     /**
@@ -302,7 +297,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         for (const project of this.state.projects) {
             project.setSelected(projectIds.has(project.id))
         }
-        va.set(this.state.selectedProjects, projects)
+        va.set(
+            this.state.selectedProjects,
+            this.state.projects.filter((p) => p.selected),
+        )
     }
 
     /// set selection to every project in the watchfolder
