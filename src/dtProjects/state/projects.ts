@@ -18,7 +18,7 @@ export interface ProjectState extends Selectable<ProjectExtra> {
 export type ProjectsControllerState = {
     projects: ProjectState[]
     selectedProjects: ProjectState[]
-    showEmptyProjects: boolean
+    hideEmptyProjects: boolean
     projectsCount: number
     folders: {
         watchfolder: WatchFolderState
@@ -67,7 +67,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     state = proxy<ProjectsControllerState>({
         projects: [],
         selectedProjects: [],
-        showEmptyProjects: false,
+        hideEmptyProjects: false,
         projectsCount: 0,
         folders: [],
     })
@@ -187,6 +187,18 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         this.container.emit("projectsLoaded")
     }
 
+    private getVisibleProjects() {
+        const { imageSource, projectImageCounts } = this.container.getService("images").state
+        const showAltCount = !!imageSource.filters?.length || !!imageSource.search
+        return this.state.projects.filter(
+            (p) =>
+                !showAltCount ||
+                !this.state.hideEmptyProjects ||
+                p.selected ||
+                !!projectImageCounts?.[p.id],
+        )
+    }
+
     private lastSelectedProject: ProjectState | null = null
     selectItem(
         project: ProjectState,
@@ -208,10 +220,11 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
         // this is the tricky one
         else if (modifier === "shift") {
-            const lastIndex = this.state.projects.findIndex(
+            const visibleProjects = this.getVisibleProjects()
+            const lastIndex = visibleProjects.findIndex(
                 (p) => p.id === this.lastSelectedProject?.id,
             )
-            const currentIndex = this.state.projects.findIndex((p) => p.id === item.id)
+            const currentIndex = visibleProjects.findIndex((p) => p.id === item.id)
             if (currentIndex === -1) return
 
             // if there is no lastselected index, just select/deselect the item
@@ -220,9 +233,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             } else {
                 const from = Math.min(lastIndex, currentIndex)
                 const to = Math.max(lastIndex, currentIndex)
-                this.state.projects.forEach((p, i) => {
-                    if (i >= from && i <= to && !p.excluded) p.setSelected(true)
-                    else p.setSelected(false)
+                const rangeIds = new Set(visibleProjects.slice(from, to + 1).map((p) => p.id))
+                this.state.projects.forEach((p) => {
+                    p.setSelected(rangeIds.has(p.id) && !p.excluded)
                 })
             }
         }
@@ -313,16 +326,18 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             (f) => f.watchfolder.id === watchfolder.id,
         )?.projects
         if (!folderGroup) return
-        const select = !areEquivalent(
-            selectedIds,
-            folderGroup.filter((p) => !p.excluded).map((p) => p.id),
+        const visibleIds = new Set(
+            this.getVisibleProjects()
+                .filter((p) => p.watchfolder_id === watchfolder.id && !p.excluded)
+                .map((p) => p.id),
         )
+        const select = !areEquivalent(selectedIds, [...visibleIds])
 
         const selected: ProjectState[] = []
 
         if (select) {
             for (const project of this.state.projects) {
-                project.setSelected(project.watchfolder_id === watchfolder.id && !project.excluded)
+                project.setSelected(visibleIds.has(project.id))
                 if (project.selected) selected.push(project)
             }
         } else {
@@ -343,8 +358,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
     }
 
-    toggleShowEmptyProjects() {
-        this.state.showEmptyProjects = !this.state.showEmptyProjects
+    toggleHideEmptyProjects() {
+        this.state.hideEmptyProjects = !this.state.hideEmptyProjects
     }
 
     private createProjectState(project: ProjectExtra) {

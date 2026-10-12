@@ -1,7 +1,8 @@
 import { Box, FormatByte, HStack } from "@chakra-ui/react"
 import PanelList from "@/components/PanelList2"
-import type { ProjectState } from "@/dtProjects/state/projects"
 import TabContent from "@/components/TabContent"
+import type { ProjectState } from "@/dtProjects/state/projects"
+import { useSetting } from "@/state/settings"
 import { useDTP } from "../../state/context"
 import { useProjectsCommands } from "../useProjectsCommands"
 import HiddenProjectsGroup from "./HiddenProjectsGroup"
@@ -15,12 +16,8 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
     const { projects, images } = useDTP()
     const snap = projects.useSnap()
     const { imageSource, projectImageCounts } = images.useSnap()
-
-    const isFiltering =
-        !!imageSource?.filters?.length ||
-        !!imageSource?.search ||
-        imageSource?.showImage !== imageSource?.showVideo
-    const showEmpty = snap.showEmptyProjects || !isFiltering
+    const [showSubpath] = useSetting("projects.showSubpathInProjectList")
+    const showAltCount = !!imageSource.filters?.length || !!imageSource.search
 
     const [showContextMenu, toolbarCommands] = useProjectsCommands()
     // const { Menu, onContextMenu } = useCommandMenu(toolbarCommands, snap.selectedProjects)
@@ -67,6 +64,9 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                                     key={p.path}
                                     project={p}
                                     altCount={projectImageCounts?.[p.id] ?? 0}
+                                    showAltCount={showAltCount}
+                                    hideIfEmpty={snap.hideEmptyProjects}
+                                    showSubpath={showSubpath}
                                     onContextMenu={async (_) => {
                                         const command = await showContextMenu(
                                             projects.state.selectedProjects,
@@ -79,6 +79,10 @@ function ProjectsPanel(props: ProjectsPanelComponentProps) {
                             ))}
                             <HiddenProjectsGroup
                                 projects={excludedProjects}
+                                projectImageCounts={projectImageCounts}
+                                showAltCount={showAltCount}
+                                hideIfEmpty={snap.hideEmptyProjects}
+                                showSubpath={showSubpath}
                                 onProjectContextMenu={async (_) => {
                                     const command = await showContextMenu(
                                         projects.state.selectedProjects,

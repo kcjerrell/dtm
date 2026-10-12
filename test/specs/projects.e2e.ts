@@ -1,5 +1,8 @@
+import fse from "fs-extra"
 import App from "../pageobjects/App"
 import DTProjects from "../pageobjects/DTProjects"
+import { shiftClick } from "../util/helpers"
+import { getTestDataPath } from "../util/paths"
 import {
     addProject,
     removeProject,
@@ -76,6 +79,87 @@ describe("Projects", () => {
 
         // verify all images are shown again
         await expect(DTProjects.images).toBeElementsArrayOfSize(countBefore)
+    })
+
+    it("hides zero-match projects when searching without including them in shift selection", async () => {
+        const firstName = "test-project-0"
+        const firstPath = getTestDataPath("temp", "folder-a", `${firstName}.sqlite3`)
+        const sourcePath = getTestDataPath("projects", "test-project-c-9.sqlite3")
+        await fse.copy(sourcePath, firstPath)
+
+        let hideEmptyEnabled = false
+        try {
+            await App.selectView("projects")
+            const first = DTProjects.getProject(firstName)
+            const empty = DTProjects.projectA
+            const last = DTProjects.projectC
+            await first.waitForDisplayed({ timeout: 15000 })
+            await expect(empty).toBeDisplayed()
+            await expect(last).toBeDisplayed()
+
+            if (await DTProjects.imageToolbar.projects.isExisting()) {
+                await DTProjects.imageToolbar.projects.moveTo()
+                await DTProjects.imageToolbar.clearProjects.click()
+            }
+
+            await $("aria/Search tab").click()
+            await $("aria/Reset search").click()
+            await $('textarea[placeholder="Search"]').setValue("skyscraper")
+            await $("aria/Apply search").click()
+            await $("aria/Projects tab").click()
+
+            const resultCount = (project: ChainablePromiseElement) =>
+                project.$(":scope > div:last-child").getText()
+            await browser.waitUntil(
+                async () =>
+                    Number(await resultCount(first)) > 0 &&
+                    (await resultCount(empty)) === "0" &&
+                    Number(await resultCount(last)) > 0,
+                { timeout: 15000, timeoutMsg: "Project search counts did not update" },
+            )
+            await expect(empty).toBeDisplayed()
+
+            await $("aria/Hide empty projects").click()
+            hideEmptyEnabled = true
+            await empty.waitForDisplayed({ reverse: true })
+            await expect(first).toBeDisplayed()
+            await expect(last).toBeDisplayed()
+
+            await first.click()
+            await shiftClick(last)
+            await expect(first).toHaveAttribute("aria-selected", "true")
+            await expect(last).toHaveAttribute("aria-selected", "true")
+            await expect(empty).toHaveAttribute("aria-selected", "false")
+            await DTProjects.imageToolbar.projects.moveTo()
+            await DTProjects.imageToolbar.clearProjects.click()
+
+            await $("aria/Hide empty projects").click()
+            hideEmptyEnabled = false
+            await empty.waitForDisplayed()
+            await empty.click()
+            await expect(empty).toHaveAttribute("aria-selected", "true")
+            await $("aria/Hide empty projects").click()
+            hideEmptyEnabled = true
+            await expect(empty).toBeDisplayed()
+            await empty.click()
+            await empty.waitForDisplayed({ reverse: true })
+
+            await $("aria/Search tab").click()
+            await $("aria/Reset search").click()
+            await $("aria/Apply search").click()
+            await $("aria/Projects tab").click()
+            await empty.waitForDisplayed()
+            await expect(first).toBeDisplayed()
+            await expect(last).toBeDisplayed()
+        } finally {
+            await fse.remove(firstPath)
+            await $("aria/Search tab").click()
+            await $("aria/Reset search").click()
+            await $("aria/Apply search").click()
+            await $("aria/Projects tab").click()
+            if (hideEmptyEnabled) await $("aria/Hide empty projects").click()
+            await DTProjects.getProject(firstName).waitForExist({ reverse: true, timeout: 15000 })
+        }
     })
 })
 
