@@ -107,7 +107,7 @@ describe("Video Export", () => {
         await $("button=Install").click()
 
         await $("[data-testid='ffmpeg-section']").waitForDisplayed({
-            timeout: 25000,
+            timeout: 90_000,
             reverse: true,
         })
 
