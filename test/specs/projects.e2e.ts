@@ -90,12 +90,12 @@ describe("Projects", () => {
         let hideEmptyEnabled = false
         try {
             await App.selectView("projects")
-            const first = DTProjects.getProject(firstName)
-            const empty = DTProjects.projectA
-            const last = DTProjects.projectC
-            await first.waitForDisplayed({ timeout: 15000 })
-            await expect(empty).toBeDisplayed()
-            await expect(last).toBeDisplayed()
+            const first = () => DTProjects.getProject(firstName)
+            const empty = () => DTProjects.projectA
+            const last = () => DTProjects.projectC
+            await first().waitForDisplayed({ timeout: 15000 })
+            await expect(empty()).toBeDisplayed()
+            await expect(last()).toBeDisplayed()
 
             if (await DTProjects.imageToolbar.projects.isExisting()) {
                 await DTProjects.imageToolbar.projects.moveTo()
@@ -108,8 +108,8 @@ describe("Projects", () => {
             await $("aria/Apply search").click()
             await $("aria/Projects tab").click()
 
-            const resultCount = (project: ChainablePromiseElement) =>
-                project.$(":scope > div:last-child").getText()
+            const resultCount = (project: () => ChainablePromiseElement) =>
+                project().$(":scope > div:last-child").getText()
             await browser.waitUntil(
                 async () =>
                     Number(await resultCount(first)) > 0 &&
@@ -117,40 +117,40 @@ describe("Projects", () => {
                     Number(await resultCount(last)) > 0,
                 { timeout: 15000, timeoutMsg: "Project search counts did not update" },
             )
-            await expect(empty).toBeDisplayed()
+            await expect(empty()).toBeDisplayed()
 
             await $("aria/Hide empty projects").click()
             hideEmptyEnabled = true
-            await empty.waitForDisplayed({ reverse: true })
-            await expect(first).toBeDisplayed()
-            await expect(last).toBeDisplayed()
+            await empty().waitForDisplayed({ reverse: true })
+            await expect(first()).toBeDisplayed()
+            await expect(last()).toBeDisplayed()
 
-            await first.click()
-            await shiftClick(last)
-            await expect(first).toHaveAttribute("aria-selected", "true")
-            await expect(last).toHaveAttribute("aria-selected", "true")
-            await expect(empty).toHaveAttribute("aria-selected", "false")
+            await first().click()
+            await shiftClick(last())
+            await expect(first()).toHaveAttribute("aria-selected", "true")
+            await expect(last()).toHaveAttribute("aria-selected", "true")
+            await expect(empty()).toHaveAttribute("aria-selected", "false")
             await DTProjects.imageToolbar.projects.moveTo()
             await DTProjects.imageToolbar.clearProjects.click()
 
             await $("aria/Hide empty projects").click()
             hideEmptyEnabled = false
-            await empty.waitForDisplayed()
-            await empty.click()
-            await expect(empty).toHaveAttribute("aria-selected", "true")
+            await empty().waitForDisplayed()
+            await empty().click()
+            await expect(empty()).toHaveAttribute("aria-selected", "true")
             await $("aria/Hide empty projects").click()
             hideEmptyEnabled = true
-            await expect(empty).toBeDisplayed()
-            await empty.click()
-            await empty.waitForDisplayed({ reverse: true })
+            await expect(empty()).toBeDisplayed()
+            await empty().click()
+            await empty().waitForDisplayed({ reverse: true })
 
             await $("aria/Search tab").click()
             await $("aria/Reset search").click()
             await $("aria/Apply search").click()
             await $("aria/Projects tab").click()
-            await empty.waitForDisplayed()
-            await expect(first).toBeDisplayed()
-            await expect(last).toBeDisplayed()
+            await empty().waitForDisplayed()
+            await expect(first()).toBeDisplayed()
+            await expect(last()).toBeDisplayed()
         } finally {
             await fse.remove(firstPath)
             await $("aria/Search tab").click()
