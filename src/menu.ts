@@ -43,10 +43,17 @@ async function createAppMenus() {
     const clearPinsUnsub = subscribeSetting("metadata.clearPinsOnExit", async () => {
         await updateMenu()
     })
+    const showProjectSubpathsUnsub = subscribeSetting(
+        "projects.showSubpathInProjectList",
+        async () => {
+            await updateMenu()
+        },
+    )
 
     _global._menuUnsubscribe = () => {
         clearHistoryUnsub()
         clearPinsUnsub()
+        showProjectSubpathsUnsub()
     }
 
     // Will become the application submenu on MacOS
@@ -239,6 +246,7 @@ async function createAppMenus() {
 type CreateOptionMenuOpts = {
     clearPinsOnExit?: boolean
     clearHistoryOnExit?: boolean
+    showSubpathInProjectList?: boolean
 }
 
 async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
@@ -280,6 +288,18 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
                     updateSetting("metadata.clearHistoryOnExit", !opts?.clearHistoryOnExit)
                 },
             }),
+            await Separator(),
+            await CheckMenuItem.new({
+                text: "Project name includes subfolder",
+                id: "options_showSubpathInProjectList",
+                checked: opts?.showSubpathInProjectList,
+                action: async () => {
+                    updateSetting(
+                        "projects.showSubpathInProjectList",
+                        !opts?.showSubpathInProjectList,
+                    )
+                },
+            }),
         ],
     })
 }
@@ -298,5 +318,6 @@ async function createOpts(): Promise<CreateOptionMenuOpts> {
     return {
         clearHistoryOnExit: getSetting("metadata.clearHistoryOnExit"),
         clearPinsOnExit: getSetting("metadata.clearPinsOnExit"),
+        showSubpathInProjectList: getSetting("projects.showSubpathInProjectList"),
     }
 }

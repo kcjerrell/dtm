@@ -1,4 +1,4 @@
-import { Box, HStack, Text, VStack } from "@chakra-ui/react"
+import { Box, HStack, Switch, Text, VStack } from "@chakra-ui/react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
 import {
@@ -66,6 +66,9 @@ export function SettingsPanel(props: DialogProps<SettingsDialogState>) {
     const { watchFolders, uiState } = useDTP()
 
     const [imageSize, setImageSize] = useSetting("ui.imageSize")
+    const [showSubpathInProjectList, setShowSubpathInProjectList] = useSetting(
+        "projects.showSubpathInProjectList",
+    )
 
     const { folders } = watchFolders.useSnap()
 
@@ -150,9 +153,30 @@ export function SettingsPanel(props: DialogProps<SettingsDialogState>) {
                 )}
             </PanelList>
 
-            <PanelSection variant={"dialog"} marginTop={4} paddingX={4} paddingY={2}>
-                <PanelSectionHeader>Image Size</PanelSectionHeader>
+            <PanelSection variant={"dialog"} marginTop={4} paddingX={4} paddingY={2} gap={3}>
+                <HStack width={"100%"} alignItems={"flex-start"} gap={4}>
+                    <VStack flex={"1 1 auto"} alignItems={"stretch"} gap={0}>
+                        <Text fontWeight={"600"}>Project name includes subfolder</Text>
+                        <Text fontWeight={"normal"}>
+                            In the project list, show each project's folder path before its name so
+                            projects in nested folders are easier to distinguish.
+                        </Text>
+                    </VStack>
+                    <Switch.Root
+                        data-testid="show-subpath-in-project-list-setting"
+                        flex={"0 0 auto"}
+                        alignSelf={"flex-start"}
+                        checked={showSubpathInProjectList}
+                        onCheckedChange={(event) => setShowSubpathInProjectList(!!event.checked)}
+                    >
+                        <Switch.HiddenInput aria-label="Project name includes subfolder" />
+                        <Switch.Control bgColor={"gray.500"} _checked={{ bgColor: "highlight.1" }}>
+                            <Switch.Thumb bgColor={"white"} />
+                        </Switch.Control>
+                    </Switch.Root>
+                </HStack>
                 <Box>
+                    <PanelSectionHeader>Image Size</PanelSectionHeader>
                     <Slider
                         min={50}
                         max={400}

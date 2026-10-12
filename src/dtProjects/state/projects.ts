@@ -2,6 +2,7 @@ import { proxy } from "valtio"
 import type { ProjectExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
+import { getSetting, subscribeSetting } from "@/state/settings"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import { areEquivalent, arrayIfOnly, groupMap } from "@/utils/helpers"
 import va from "@/utils/valtio"
@@ -25,32 +26,43 @@ export type ProjectsControllerState = {
     }[]
 }
 
-const projectSort = (
-    a: {
-        name: string
-        id: number
-        fingerprint: string
-        path: string
-        image_count: number | null
-        last_id: number | null
-        filesize: number | null
-        modified: number | null
-        missing_on: number | null
-        excluded: boolean
-    },
-    b: {
-        name: string
-        id: number
-        fingerprint: string
-        path: string
-        image_count: number | null
-        last_id: number | null
-        filesize: number | null
-        modified: number | null
-        missing_on: number | null
-        excluded: boolean
-    },
-): number => a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+type ProjectSortItem = Pick<ProjectExtra, "name" | "path">
+
+export function getProjectPathParts(project: ProjectSortItem) {
+    const pathParts = project.path.split(/[\\/]/)
+    const filename = pathParts.at(-1) ?? project.name
+    return {
+        subpath: pathParts.slice(0, -1),
+        projectName: filename.replace(/\.sqlite3$/i, ""),
+    }
+}
+
+function compareProjectPaths(a: ProjectSortItem, b: ProjectSortItem) {
+    const aPath = getProjectPathParts(a)
+    const bPath = getProjectPathParts(b)
+    const aParts = [...aPath.subpath, aPath.projectName]
+    const bParts = [...bPath.subpath, bPath.projectName]
+    const sharedLength = Math.min(aParts.length, bParts.length)
+
+    for (let i = 0; i < sharedLength; i++) {
+        const comparison = aParts[i].toLowerCase().localeCompare(bParts[i].toLowerCase())
+        if (comparison === 0) continue
+        return comparison
+    }
+
+    // A project is listed before a folder with the same name.
+    return aParts.length - bParts.length
+}
+
+const projectSort = (a: ProjectSortItem, b: ProjectSortItem): number => {
+    if (!getSetting("projects.showSubpathInProjectList")) {
+        const aName = getProjectPathParts(a).projectName
+        const bName = getProjectPathParts(b).projectName
+        return aName.toLowerCase().localeCompare(bName.toLowerCase())
+    }
+
+    return compareProjectPaths(a, b)
+}
 
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
     state = proxy<ProjectsControllerState>({
@@ -107,6 +119,31 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 projectState.isScanning = false
             }
         })
+
+        this.unwatchFns.push(
+            subscribeSetting("projects.showSubpathInProjectList", () => {
+                this.sortProjects()
+            }),
+        )
+    }
+
+    private sortProjects() {
+        const projectIndexes = new Map<number, number>()
+        this.state.folders.forEach((folder) => {
+            folder.projects.sort(projectSort)
+            folder.projects.forEach((project) => {
+                projectIndexes.set(project.id, projectIndexes.size)
+            })
+        })
+        this.state.projects.sort((a, b) => {
+            const aIndex = projectIndexes.get(a.id)
+            const bIndex = projectIndexes.get(b.id)
+
+            if (aIndex === undefined && bIndex === undefined) return projectSort(a, b)
+            if (aIndex === undefined) return 1
+            if (bIndex === undefined) return -1
+            return aIndex - bIndex
+        })
     }
 
     updateProject(projectId: number, data: Partial<ProjectExtra>) {
@@ -128,7 +165,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     async loadProjects() {
         const wfs = this.container.getService("watchFolders")
         const watchfolders = await wfs.loadWatchFolders()
-        const dtpProjects = await (await DTPService.listProjects()).sort(projectSort)
+        const dtpProjects = (await DTPService.listProjects()).sort(projectSort)
         const selected = this.state.selectedProjects.map((p) => ({ id: p.id }))
 
         const folders = groupMap(

@@ -47,6 +47,7 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     // specs: [resolve(__dirname, "specs", "**/*.e2e.ts")],
 
     specs: [
+        "./specs/project-subpath.e2e.ts",
         "./specs/projects-a.e2e.ts",
         "./specs/model-selector-popup.e2e.ts",
         "./specs/projects.e2e.ts",

@@ -1,7 +1,8 @@
 import { Box, HStack, Spinner } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import { PanelListItem } from "@/components"
-import type { ProjectState } from "@/dtProjects/state/projects"
+import { getProjectPathParts, type ProjectState } from "@/dtProjects/state/projects"
+import { useSetting } from "@/state/settings"
 
 export interface ProjectListItemProps extends Omit<ChakraProps, "onContextMenu"> {
     project: Snapshot<ProjectState>
@@ -10,6 +11,7 @@ export interface ProjectListItemProps extends Omit<ChakraProps, "onContextMenu">
 }
 function ProjectListItem(props: ProjectListItemProps) {
     const { project, altCount, onContextMenu, ...restProps } = props
+    const [showSubpath] = useSetting("projects.showSubpathInProjectList")
 
     let count: number | string = project.image_count ?? 0
     let countStyle: string | undefined
@@ -18,7 +20,7 @@ function ProjectListItem(props: ProjectListItemProps) {
         countStyle = "italic"
     }
 
-    const projectName = project.path.split("/").pop()?.slice(0, -8)
+    const { subpath, projectName } = getProjectPathParts(project)
 
     return (
         <PanelListItem
@@ -40,16 +42,34 @@ function ProjectListItem(props: ProjectListItemProps) {
             }}
             {...restProps}
         >
-            <HStack justifyContent={"space-between"}>
+            <HStack justifyContent={"space-between"} minWidth={0}>
                 {/* <Box margin={0} scale={1.25}>
                     <PiImage />
                 </Box> */}
 
-                <Box flex={"1 1 auto"}>
+                <Box
+                    flex={"1 1 0"}
+                    minWidth={0}
+                    overflow={"hidden"}
+                    textOverflow={"ellipsis"}
+                    whiteSpace={"normal"}
+                    overflowWrap={"normal"}
+                >
+                    {showSubpath && subpath.length > 0 && (
+                        <Box as={"span"} fontSize={"sm"}>
+                            {subpath.join(" > ")}
+                            {" > "}
+                        </Box>
+                    )}
                     {projectName}
                     {project.isMissing && " (missing)"}
                 </Box>
-                <Box color={"fg.3"} fontStyle={countStyle} fontVariantNumeric={"tabular-nums"}>
+                <Box
+                    color={"fg.3"}
+                    flexShrink={0}
+                    fontStyle={countStyle}
+                    fontVariantNumeric={"tabular-nums"}
+                >
                     {project.isScanning ? <Spinner size={"xs"} /> : count}
                 </Box>
             </HStack>
