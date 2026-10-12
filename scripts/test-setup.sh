@@ -1,20 +1,15 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-curl -L "https://github.com/kcjerrell/dtm/releases/download/test-data-v3/test_data_v3.zip" -o test_data.zip
-unzip -o test_data.zip -d .
-rm test_data.zip
+TEST_DATA_ARCHIVE="test_data_v4.zip"
+curl --fail --location --retry 3 \
+  "https://github.com/kcjerrell/dtm/releases/download/test-data-v4/$TEST_DATA_ARCHIVE" \
+  --output "$TEST_DATA_ARCHIVE"
+unzip -o "$TEST_DATA_ARCHIVE" -d .
+rm "$TEST_DATA_ARCHIVE"
 mkdir -p test_data/temp
 
-# Preload ffmpeg archives used by the in-app installer so tests can seed app_data/temp
-# instead of waiting on network every run.
-FFMPEG_CACHE_DIR="test_data/ffmpeg"
-mkdir -p "$FFMPEG_CACHE_DIR"
-
-if [ ! -f "$FFMPEG_CACHE_DIR/ffmpeg.7z" ]; then
-  curl -L "https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z" -o "$FFMPEG_CACHE_DIR/ffmpeg.7z"
-fi
-
-if [ ! -f "$FFMPEG_CACHE_DIR/ffprobe.7z" ]; then
-  curl -L "https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z" -o "$FFMPEG_CACHE_DIR/ffprobe.7z"
-fi
+# These checksum-pinned macOS archives are bundled in test-data-v4. The WDIO
+# helpers stage them in the app data directory, avoiding Evermeet during tests.
+echo "845140e046f7abbfcf480d70eb1657ca09eb8fa775834518a1f43a5b867c96f9  test_data/ffmpeg/ffmpeg.7z" | shasum -a 256 -c -
+echo "58e55ca02ad775d7a0776e050ce74752262fc2e622ba04d08b8f79e3f81251cd  test_data/ffmpeg/ffprobe.7z" | shasum -a 256 -c -

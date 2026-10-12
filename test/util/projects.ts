@@ -1,6 +1,6 @@
-import path from "path"
+import { execSync } from "node:child_process"
+import path from "node:path"
 import fse from "fs-extra"
-import { execSync } from "child_process"
 import * as plist from "plist"
 import { getTestDataPath } from "./paths"
 
@@ -43,6 +43,22 @@ export async function resetProjects() {
     // default projects for folder-a are test-project-a2 and test-project-c-9
     await addProject(TestFolder.folderA, TestProject.projectA)
     await addProject(TestFolder.folderA, TestProject.projectC)
+}
+
+export async function arrangeNestedProjects() {
+    await resetProjects()
+
+    const folderAPath = path.join(testDataTempDir, TestFolder.folderA)
+    const folderBPath = path.join(testDataTempDir, TestFolder.folderB)
+    const sourceA = getSourceProjectPath(TestProject.projectA)
+    const sourceC = getSourceProjectPath(TestProject.projectC)
+
+    await fse.copy(sourceA, path.join(folderAPath, "lineage 2.sqlite3"))
+    await fse.copy(sourceA, path.join(folderAPath, "lineage 2 copy", "project.sqlite3"))
+    await fse.copy(sourceA, path.join(folderAPath, "subfolder", "2601.sqlite3"))
+    await fse.copy(sourceA, path.join(folderAPath, "subfolder", "another project.sqlite3"))
+    await fse.copy(sourceC, path.join(folderAPath, "subfolder", "nested", "project 3.sqlite3"))
+    await fse.copy(sourceA, path.join(folderBPath, "test-project-b.sqlite3"))
 }
 
 export async function addProject(folder: TestFolder, project: TestProject) {

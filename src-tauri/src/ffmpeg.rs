@@ -4,6 +4,7 @@ use reqwest;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::fs;
 use tokio::process::Command;
@@ -13,6 +14,7 @@ const FFMPEG_SHA256: &str = "845140e046f7abbfcf480d70eb1657ca09eb8fa775834518a1f
 
 const FFPROBE_URL: &str = "https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z";
 const FFPROBE_SHA256: &str = "58e55ca02ad775d7a0776e050ce74752262fc2e622ba04d08b8f79e3f81251cd";
+const VERSION_CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, serde::Serialize, Default)]
 struct DownloadProgress {
@@ -21,6 +23,37 @@ struct DownloadProgress {
     received: u64,
     msg: Option<String>,
     state: Option<String>,
+}
+
+async fn validate_tool(path: &Path, name: &str) -> Result<()> {
+    let output = tokio::time::timeout(
+        VERSION_CHECK_TIMEOUT,
+        Command::new(path).arg("-version").output(),
+    )
+    .await
+    .with_context(|| format!("timed out preparing {} at {}", name, path.display()))?
+    .with_context(|| format!("failed to execute {} at {}", name, path.display()))?;
+
+    let version = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    if !output.status.success()
+        || !version
+            .to_ascii_lowercase()
+            .contains(&format!("{name} version"))
+    {
+        bail!(
+            "{} at {} did not identify itself as a compatible executable (status: {}; output: {})",
+            name,
+            path.display(),
+            output.status,
+            version.trim()
+        );
+    }
+
+    Ok(())
 }
 
 pub async fn get_ffmpeg_path(app: &AppHandle) -> Result<PathBuf> {
@@ -70,6 +103,7 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<()> {
     let mut total_downloaded: u64 = 0;
     let mut task_sizes: Vec<Option<u64>> = vec![None; tasks.len()];
     let client = reqwest::Client::new();
+    let mut first_run_checks = Vec::with_capacity(tasks.len());
 
     for (i, (name, url, sha256)) in tasks.iter().enumerate() {
         let archive_path = temp_dir.join(format!("{}.7z", name));
@@ -189,6 +223,30 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<()> {
         fs::remove_file(&archive_path)
             .await
             .context("Failed to remove archive")?;
+
+        // macOS may spend a significant amount of time on the first launch of
+        // these downloaded binaries. Start that work now and do not report the
+        // installation as complete until both executables have responded.
+        let binary_path = bin_dir.join(name);
+        let name = *name;
+        let _ = app.emit(
+            "ffmpeg_download_progress",
+            DownloadProgress {
+                msg: Some(format!("Preparing {} for first use", name)),
+                state: Some("verifying".to_string()),
+                ..Default::default()
+            },
+        );
+        first_run_checks.push((
+            name,
+            tokio::spawn(async move { validate_tool(&binary_path, name).await }),
+        ));
+    }
+
+    for (name, check) in first_run_checks {
+        check
+            .await
+            .with_context(|| format!("failed to join {} first-run validation", name))??;
     }
 
     let _ = app.emit(
