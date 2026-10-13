@@ -22,7 +22,10 @@ export async function loadImage2(pasteboard: "general" | "drag") {
         try {
             const items = await mdStore.collection.addMediaFromPasteboard(pasteboard)
             const lastItem = items.at(-1)
-            if (lastItem) mdStore.selectImage(lastItem.id)
+            if (lastItem) {
+                await lastItem.hasMetadata()
+                mdStore.selectImage(lastItem.id)
+            }
         } catch (e) {
             console.error("error loading image", e)
         } finally {
