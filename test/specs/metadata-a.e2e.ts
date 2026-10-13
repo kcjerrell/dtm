@@ -194,7 +194,7 @@ describe("Metadata", () => {
         // paste the image
         await md.toolbar.loadFromClipboard.click()
 
-        browser.waitUntil(
+        await browser.waitUntil(
             async () => {
                 return (await md.history.getItemCount()) === 3
             },
