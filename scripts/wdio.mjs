@@ -53,6 +53,12 @@ function run(command, args) {
     })
 }
 
+// Linux tests need the local native libraries, a virtual display, and a D-Bus session.
+// Re-enter this launcher inside that environment so Vite inherits it too.
+if (process.platform === "linux" && process.env.DTM_WDIO_LINUX !== "1") {
+    process.exit(await run("bash", ["./scripts/wdio-linux.sh", ...process.argv.slice(2)]))
+}
+
 const mode = runtimeMode(appBinary)
 let viteProcess
 
