@@ -2,23 +2,25 @@ import { Box, HStack, Spinner } from "@chakra-ui/react"
 import type { Snapshot } from "valtio"
 import { PanelListItem } from "@/components"
 import { getProjectPathParts, type ProjectState } from "@/dtProjects/state/projects"
-import { useSetting } from "@/state/settings"
 
 export interface ProjectListItemProps extends Omit<ChakraProps, "onContextMenu"> {
     project: Snapshot<ProjectState>
     altCount?: number
+    showAltCount: boolean
+    hideIfEmpty: boolean
+    showSubpath: boolean
     onContextMenu?: (e: React.MouseEvent) => void
 }
 function ProjectListItem(props: ProjectListItemProps) {
-    const { project, altCount, onContextMenu, ...restProps } = props
-    const [showSubpath] = useSetting("projects.showSubpathInProjectList")
-
-    let count: number | string = project.image_count ?? 0
-    let countStyle: string | undefined
-    if (altCount !== count) {
-        count = altCount || ""
-        countStyle = "italic"
-    }
+    const {
+        project,
+        altCount,
+        showAltCount,
+        hideIfEmpty,
+        showSubpath,
+        onContextMenu,
+        ...restProps
+    } = props
 
     const { subpath, projectName } = getProjectPathParts(project)
 
@@ -30,6 +32,9 @@ function ProjectListItem(props: ProjectListItemProps) {
             data-project-id={project.id}
             data-selected={project.selected || undefined}
             position={"relative"}
+            display={
+                showAltCount && hideIfEmpty && !project.selected && !altCount ? "none" : undefined
+            }
             selectable
             selected={project.selected}
             asChild
@@ -67,10 +72,16 @@ function ProjectListItem(props: ProjectListItemProps) {
                 <Box
                     color={"fg.3"}
                     flexShrink={0}
-                    fontStyle={countStyle}
+                    fontStyle={showAltCount ? "italic" : undefined}
                     fontVariantNumeric={"tabular-nums"}
                 >
-                    {project.isScanning ? <Spinner size={"xs"} /> : count}
+                    {project.isScanning ? (
+                        <Spinner size={"xs"} />
+                    ) : showAltCount ? (
+                        (altCount ?? 0)
+                    ) : (
+                        (project.image_count ?? 0)
+                    )}
                 </Box>
             </HStack>
         </PanelListItem>
