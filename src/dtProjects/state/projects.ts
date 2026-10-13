@@ -2,6 +2,7 @@ import { proxy } from "valtio"
 import type { ProjectExtra } from "@/commands"
 import DTPService from "@/commands/DtpService"
 import { makeSelectable, type Selectable } from "@/hooks/useSelectableV"
+import { getSetting, subscribeSetting } from "@/state/settings"
 import type { ContainerEvent } from "@/utils/container/StateController"
 import { areEquivalent, arrayIfOnly, groupMap } from "@/utils/helpers"
 import va from "@/utils/valtio"
@@ -17,7 +18,7 @@ export interface ProjectState extends Selectable<ProjectExtra> {
 export type ProjectsControllerState = {
     projects: ProjectState[]
     selectedProjects: ProjectState[]
-    showEmptyProjects: boolean
+    hideEmptyProjects: boolean
     projectsCount: number
     folders: {
         watchfolder: WatchFolderState
@@ -25,38 +26,48 @@ export type ProjectsControllerState = {
     }[]
 }
 
-const projectSort = (
-    a: {
-        name: string
-        id: number
-        fingerprint: string
-        path: string
-        image_count: number | null
-        last_id: number | null
-        filesize: number | null
-        modified: number | null
-        missing_on: number | null
-        excluded: boolean
-    },
-    b: {
-        name: string
-        id: number
-        fingerprint: string
-        path: string
-        image_count: number | null
-        last_id: number | null
-        filesize: number | null
-        modified: number | null
-        missing_on: number | null
-        excluded: boolean
-    },
-): number => a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+type ProjectSortItem = Pick<ProjectExtra, "name" | "path">
+
+export function getProjectPathParts(project: ProjectSortItem) {
+    const pathParts = project.path.split(/[\\/]/)
+    const filename = pathParts.at(-1) ?? project.name
+    return {
+        subpath: pathParts.slice(0, -1),
+        projectName: filename.replace(/\.sqlite3$/i, ""),
+    }
+}
+
+const projectSort = (a: ProjectSortItem, b: ProjectSortItem): number => {
+    return a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase())
+}
+
+const projectSortSubpath = (a: ProjectSortItem, b: ProjectSortItem): number => {
+    const aa = a.path.split("/")
+    const bb = b.path.split("/")
+
+    for (let i = 0; i < Math.min(aa.length, bb.length); i++) {
+        if (aa[i] === bb[i]) continue
+
+        const aIsDir = i < aa.length - 1
+        const bIsDir = i < bb.length - 1
+
+        // Directories before files
+        if (aIsDir !== bIsDir) {
+            return aIsDir ? -1 : 1
+        }
+
+        // Same kind: alphabetical
+        return aa[i].localeCompare(bb[i])
+    }
+
+    return aa.length - bb.length
+}
 
 class ProjectsController extends DTPStateController<ProjectsControllerState> {
     state = proxy<ProjectsControllerState>({
         projects: [],
         selectedProjects: [],
-        showEmptyProjects: false,
+        hideEmptyProjects: false,
         projectsCount: 0,
         folders: [],
     })
@@ -67,9 +78,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         super("projects")
 
         this.container.on("project_added", (project) => {
-            this.state.projects.push(this.createProjectState(project))
-            this.state.projects.sort(projectSort)
-            this.state.projectsCount++
+            // this.state.projects.push(this.createProjectState(project))
+            // this.sortProjects()
+            // this.state.projectsCount++
             this.loadProjectsDebounced()
         })
 
@@ -79,10 +90,22 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
 
         this.container.on("project_removed", (projectId) => {
             const projectState = this.state.projects.find((p) => p.id === projectId)
-            if (projectState) {
-                va.remove(this.state.projects, projectState)
-                this.state.projectsCount--
+            if (!projectState) return
+
+            va.remove(this.state.projects, projectState)
+            this.state.projectsCount--
+
+            if (projectState?.selected) {
+                va.remove(this.state.selectedProjects, projectState)
             }
+
+            const folder = this.state.folders.find(
+                (f) => f.watchfolder.id === projectState?.watchfolder_id,
+            )
+            if (folder) {
+                va.remove(folder.projects, projectState)
+            }
+
             this.loadProjectsDebounced()
         })
 
@@ -107,6 +130,12 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 projectState.isScanning = false
             }
         })
+
+        this.unwatchFns.push(
+            subscribeSetting("projects.showSubpathInProjectList", () => {
+                this.loadProjects()
+            }),
+        )
     }
 
     updateProject(projectId: number, data: Partial<ProjectExtra>) {
@@ -128,7 +157,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     async loadProjects() {
         const wfs = this.container.getService("watchFolders")
         const watchfolders = await wfs.loadWatchFolders()
-        const dtpProjects = await (await DTPService.listProjects()).sort(projectSort)
+        const dtpProjects = await DTPService.listProjects()
+        const sortFn = getSetting("projects.showSubpathInProjectList")
+            ? projectSortSubpath
+            : projectSort
         const selected = this.state.selectedProjects.map((p) => ({ id: p.id }))
 
         const folders = groupMap(
@@ -138,7 +170,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
                 const folder = watchfolders.find((f) => f.id === folderId)
                 return {
                     watchfolder: folder,
-                    projects: folderProjects,
+                    projects: folderProjects.sort(sortFn),
                 }
             },
         ).filter(
@@ -153,6 +185,18 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         this.state.projectsCount = this.state.projects.length
         this.hasLoaded = true
         this.container.emit("projectsLoaded")
+    }
+
+    private getVisibleProjects() {
+        const { imageSource, projectImageCounts } = this.container.getService("images").state
+        const showAltCount = !!imageSource.filters?.length || !!imageSource.search
+        return this.state.projects.filter(
+            (p) =>
+                !showAltCount ||
+                !this.state.hideEmptyProjects ||
+                p.selected ||
+                !!projectImageCounts?.[p.id],
+        )
     }
 
     private lastSelectedProject: ProjectState | null = null
@@ -176,10 +220,11 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
         // this is the tricky one
         else if (modifier === "shift") {
-            const lastIndex = this.state.projects.findIndex(
+            const visibleProjects = this.getVisibleProjects()
+            const lastIndex = visibleProjects.findIndex(
                 (p) => p.id === this.lastSelectedProject?.id,
             )
-            const currentIndex = this.state.projects.findIndex((p) => p.id === item.id)
+            const currentIndex = visibleProjects.findIndex((p) => p.id === item.id)
             if (currentIndex === -1) return
 
             // if there is no lastselected index, just select/deselect the item
@@ -188,9 +233,9 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             } else {
                 const from = Math.min(lastIndex, currentIndex)
                 const to = Math.max(lastIndex, currentIndex)
-                this.state.projects.forEach((p, i) => {
-                    if (i >= from && i <= to && !p.excluded) p.setSelected(true)
-                    else p.setSelected(false)
+                const rangeIds = new Set(visibleProjects.slice(from, to + 1).map((p) => p.id))
+                this.state.projects.forEach((p) => {
+                    p.setSelected(rangeIds.has(p.id) && !p.excluded)
                 })
             }
         }
@@ -224,7 +269,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         this.loadProjectsTimeout = window.setTimeout(async () => {
             await this.loadProjects()
             await this.container.getService("models").refreshModels()
-        }, 2000)
+        }, 1000)
     }
 
     /**
@@ -265,7 +310,10 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         for (const project of this.state.projects) {
             project.setSelected(projectIds.has(project.id))
         }
-        va.set(this.state.selectedProjects, projects)
+        va.set(
+            this.state.selectedProjects,
+            this.state.projects.filter((p) => p.selected),
+        )
     }
 
     /// set selection to every project in the watchfolder
@@ -278,16 +326,18 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
             (f) => f.watchfolder.id === watchfolder.id,
         )?.projects
         if (!folderGroup) return
-        const select = !areEquivalent(
-            selectedIds,
-            folderGroup.filter((p) => !p.excluded).map((p) => p.id),
+        const visibleIds = new Set(
+            this.getVisibleProjects()
+                .filter((p) => p.watchfolder_id === watchfolder.id && !p.excluded)
+                .map((p) => p.id),
         )
+        const select = !areEquivalent(selectedIds, [...visibleIds])
 
         const selected: ProjectState[] = []
 
         if (select) {
             for (const project of this.state.projects) {
-                project.setSelected(project.watchfolder_id === watchfolder.id && !project.excluded)
+                project.setSelected(visibleIds.has(project.id))
                 if (project.selected) selected.push(project)
             }
         } else {
@@ -308,8 +358,8 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
         }
     }
 
-    toggleShowEmptyProjects() {
-        this.state.showEmptyProjects = !this.state.showEmptyProjects
+    toggleHideEmptyProjects() {
+        this.state.hideEmptyProjects = !this.state.hideEmptyProjects
     }
 
     private createProjectState(project: ProjectExtra) {

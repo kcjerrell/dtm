@@ -31,9 +31,9 @@ export function useProjectsCommands(): [
                 toolbarOnly: true,
                 label: "Hide empty projects",
                 tipText: "Hide projects with no matches when searching",
-                icon: snap.showEmptyProjects ? FiEyeOff : FiEye,
+                icon: snap.hideEmptyProjects ? FiEyeOff : FiEye,
                 action: async () => {
-                    projects?.toggleShowEmptyProjects()
+                    projects?.toggleHideEmptyProjects()
                 },
                 requiresSelection: false,
             },
@@ -141,7 +141,7 @@ export function useProjectsCommands(): [
                 requiresSelection: false,
             },
         ],
-        [projects, snap.showEmptyProjects, uiState.showDialog],
+        [projects, snap.hideEmptyProjects, uiState.showDialog],
     )
 
     const selectMenuCommand = useCallback(

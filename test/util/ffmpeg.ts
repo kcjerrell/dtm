@@ -29,9 +29,10 @@ export async function stageFfmpegArchives() {
     for (const archiveName of ["ffmpeg.7z", "ffprobe.7z"]) {
         const src = path.join(ffmpegArchiveFixtureDir, archiveName)
         const dest = path.join(ffmpegTempDir, archiveName)
-        if (await fse.pathExists(src)) {
-            await fse.copy(src, dest, { overwrite: true })
+        if (!(await fse.pathExists(src))) {
+            throw new Error(`Missing bundled FFmpeg test fixture: ${src}`)
         }
+        await fse.copy(src, dest, { overwrite: true })
     }
 }
 
@@ -141,7 +142,7 @@ export async function ensureFfmpeg() {
     await $("button=Install").click()
 
     await $("[data-testid='ffmpeg-section']").waitForDisplayed({
-        timeout: 25000,
+        timeout: 90_000,
         reverse: true,
     })
     await exportButton.waitForEnabled({ timeout: 30000 })

@@ -20,14 +20,15 @@ fetch() {
 }
 
 cd "$ROOT_DIR"
-fetch "https://github.com/kcjerrell/dtm/releases/download/test-data-v3/test_data_v3.zip" \
-  "$CACHE_DIR/test_data_v3.zip"
-unzip -o "$CACHE_DIR/test_data_v3.zip" -d .
+TEST_DATA_ARCHIVE="$CACHE_DIR/test_data_v4.zip"
+fetch "https://github.com/kcjerrell/dtm/releases/download/test-data-v4/test_data_v4.zip" \
+  "$TEST_DATA_ARCHIVE"
+unzip -o "$TEST_DATA_ARCHIVE" -d .
 
 mkdir -p test_data/temp
 
-# Preload the macOS archives used by the in-app installer. Linux uses validated
-# system tools and must never stage or execute these Evermeet artifacts.
+# Linux uses validated system tools and must never stage or execute the bundled
+# macOS archives.
 if [[ "$(uname -s)" != "Darwin" ]]; then
   command -v ffmpeg >/dev/null || { echo "error: install ffmpeg (sudo apt-get install -y ffmpeg)" >&2; exit 1; }
   command -v ffprobe >/dev/null || { echo "error: install ffprobe (sudo apt-get install -y ffmpeg)" >&2; exit 1; }
@@ -36,10 +37,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 0
 fi
 
-FFMPEG_CACHE_DIR="test_data/ffmpeg"
-mkdir -p "$FFMPEG_CACHE_DIR"
-
-fetch "https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z" "$CACHE_DIR/ffmpeg-8.0.1.7z"
-fetch "https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z" "$CACHE_DIR/ffprobe-8.0.1.7z"
-cp "$CACHE_DIR/ffmpeg-8.0.1.7z" "$FFMPEG_CACHE_DIR/ffmpeg.7z"
-cp "$CACHE_DIR/ffprobe-8.0.1.7z" "$FFMPEG_CACHE_DIR/ffprobe.7z"
+# These checksum-pinned macOS archives are bundled in test-data-v4. The WDIO
+# helpers stage them in the app data directory, avoiding Evermeet during tests.
+echo "845140e046f7abbfcf480d70eb1657ca09eb8fa775834518a1f43a5b867c96f9  test_data/ffmpeg/ffmpeg.7z" | shasum -a 256 -c -
+echo "58e55ca02ad775d7a0776e050ce74752262fc2e622ba04d08b8f79e3f81251cd  test_data/ffmpeg/ffprobe.7z" | shasum -a 256 -c -

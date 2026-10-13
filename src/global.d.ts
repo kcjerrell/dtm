@@ -15,6 +15,7 @@ declare global {
     type ChakraProps = Omit<BoxProps, "direction">
 
     interface Window {
+        __E2E_FILE_PATH__?: string
         __reset_db(): Promise<void>
         __reset_metadata_store(): Promise<void>
         toJSON<T>(object: T): T

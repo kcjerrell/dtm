@@ -19,6 +19,7 @@ const FFMPEG_SHA256: &str = "845140e046f7abbfcf480d70eb1657ca09eb8fa775834518a1f
 const FFPROBE_URL: &str = "https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z";
 #[cfg(target_os = "macos")]
 const FFPROBE_SHA256: &str = "58e55ca02ad775d7a0776e050ce74752262fc2e622ba04d08b8f79e3f81251cd";
+const VERSION_CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, serde::Serialize, Default)]
 struct DownloadProgress {
@@ -28,8 +29,6 @@ struct DownloadProgress {
     msg: Option<String>,
     state: Option<String>,
 }
-
-const VERSION_CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[cfg(not(target_os = "linux"))]
 fn cached_tool_path(app: &AppHandle, name: &str) -> Result<PathBuf> {
@@ -277,7 +276,9 @@ pub async fn download_ffmpeg(app: AppHandle) -> Result<()> {
             .await
             .context("Failed to remove archive")?;
 
-        // Start the first-run work immediately so it can overlap the next download.
+        // macOS may spend a significant amount of time on the first launch of
+        // these downloaded binaries. Start that work now and do not report the
+        // installation as complete until both executables have responded.
         let binary_path = bin_dir.join(name);
         let name = *name;
         let _ = app.emit(

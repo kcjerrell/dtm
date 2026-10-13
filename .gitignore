@@ -31,5 +31,6 @@ stats.html
 temp/
 src-tauri/test_data
 test_data/
+# Generated test-data release archives
 test_data*.zip
 test/artifacts/

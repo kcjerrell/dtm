@@ -27,6 +27,7 @@ const defaultSettings = {
     "app.installId": null as string | null,
     "metadata.clearHistoryOnExit": true,
     "metadata.clearPinsOnExit": false,
+    "projects.showSubpathInProjectList": false,
 }
 type Settings = typeof defaultSettings
 type SettingsKey = keyof Settings

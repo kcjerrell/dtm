@@ -6,11 +6,23 @@ import ProjectListItem from "./ProjectListItem"
 
 interface HiddenProjectsGroupProps extends ChakraProps {
     projects: ProjectState[]
+    projectImageCounts?: Readonly<Record<number, number>>
+    showAltCount: boolean
+    hideIfEmpty: boolean
+    showSubpath: boolean
     onProjectContextMenu: React.MouseEventHandler
 }
 
 function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
-    const { projects, onProjectContextMenu, ...restProps } = props
+    const {
+        projects,
+        projectImageCounts,
+        showAltCount,
+        hideIfEmpty,
+        showSubpath,
+        onProjectContextMenu,
+        ...restProps
+    } = props
 
     const [showExcluded, setShowExcluded] = useState(false)
     const [height, setHeight] = useState(0)
@@ -39,7 +51,7 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
             gap={"inherit"}
             padding={0}
             margin={0}
-            onStateChange={state => setShowExcluded(state === "open")}
+            onStateChange={(state) => setShowExcluded(state === "open")}
             {...restProps}
         >
             <PanelListItem
@@ -72,6 +84,10 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
                         marginLeft={2}
                         key={p.path}
                         project={p}
+                        altCount={projectImageCounts?.[p.id] ?? 0}
+                        showAltCount={showAltCount}
+                        hideIfEmpty={hideIfEmpty}
+                        showSubpath={showSubpath}
                         onContextMenu={(e) => {
                             onProjectContextMenu(e)
                         }}
