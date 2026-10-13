@@ -11,10 +11,10 @@ use tokio::sync::Semaphore;
 
 use crate::IntoTAResult;
 use crate::{
+    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
     dtp_service::{AppHandleWrapper, DTPService},
     projects_db::{
         decode_tensor,
-        dt_project::{TensorHistoryNode, ThnData, ThnFilter},
         dtos::image::{ImageExtra, ListImagesOptions},
         write_jpeg_with_metadata, DecodeTensorOptions, DtProjectRef, DtResourceHandle,
         DtResourceRef,
@@ -85,8 +85,8 @@ impl DTPService {
             let project = db.get_project(*project_id).await.into_ta_result()?;
 
             // persistent reference, shared across the per-image tasks
-            let dt_project = db
-                .open_dt_project(DtProjectRef::Id(*project_id))
+            let dt_project = DtProjectRef::Id(*project_id)
+                .open_project()
                 .await
                 .into_ta_result()?;
 
@@ -140,7 +140,7 @@ impl DTPService {
                     let nodes = dt_project
                         .get_tensor_history_nodes(
                             Some(ThnFilter::Rowid(image.node_id)),
-                            Some(ThnData::tensordata()),
+                            Some(ThnData::tensordata().and_legacy_prompts()),
                         )
                         .await?;
                     let node = match nodes.into_iter().next() {
@@ -150,8 +150,6 @@ impl DTPService {
                             return Ok(());
                         }
                     };
-                    let node_data = node.node_data();
-
                     if use_tensor {
                         // full quality: decode the generated tensor to png, embedding metadata
                         let name = match resolve_tensor_name(&node) {
@@ -168,7 +166,7 @@ impl DTPService {
                                 tensor,
                                 DecodeTensorOptions {
                                     as_png: true,
-                                    history_node: Some(node_data),
+                                    history_node: Some(node),
                                     size: None,
                                 },
                             )?;
@@ -178,8 +176,8 @@ impl DTPService {
                     } else {
                         // faster: use the preview jpeg directly, writing metadata into the jpg
                         let handle = DtResourceHandle::new(
-                            DtProjectRef::Id(project_id),
-                            DtResourceRef::Thumb(image.preview_id),
+                            &DtProjectRef::Id(project_id),
+                            &DtResourceRef::Thumb(image.preview_id),
                         );
                         let jpg = handle
                             .get_preview(false)
@@ -187,7 +185,7 @@ impl DTPService {
                             .ok_or_else(|| anyhow::anyhow!("Failed to get preview"))?;
                         let path = temp_dir.join(format!("{}.jpg", filename_base));
                         tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-                            let jpg = write_jpeg_with_metadata(&jpg, &node_data)?;
+                            let jpg = write_jpeg_with_metadata(&jpg, &node)?;
                             fs::write(path, jpg).map_err(anyhow::Error::from)
                         })
                         .await??;

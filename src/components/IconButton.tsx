@@ -1,11 +1,12 @@
 import { chakra } from "@chakra-ui/react"
 import type { ComponentProps, ReactNode } from "react"
 import { Tooltip } from "."
+import { PanelButton } from "./common"
 
 // from the chakra ui button recipe
 // https://github.com/chakra-ui/chakra-ui/blob/main/packages/react/src/theme/recipes/button.ts
 
-const Base = chakra("button", {
+const Base = chakra(PanelButton, {
     base: {
         color: "fg.3",
         aspectRatio: "1",
@@ -268,7 +269,7 @@ const IconButton = (props: IconButtonProps) => {
 
     if (tip || tipTitle || tipText) {
         return (
-            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText}>
+            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText} whiteSpace={"normal"}>
                 {button}
             </Tooltip>
         )

@@ -26,14 +26,14 @@ export const viewDescription = [
             />
         ),
     },
-    { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: true },
+    { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: false },
 ].filter((item) => import.meta.env.DEV || !item.devOnly)
 // ].filter((item) => !item.devOnly)
 
 export const views = {
     metadata: lazy(() => import("./metadata/Metadata")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
-    scratch: lazy(() => import("./scratch/Scratch3")),
+    scratch: lazy(() => import("./scratch/Computed")),
 }
 
 export function getView(view: string): ComponentType<ChakraProps> {

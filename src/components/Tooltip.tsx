@@ -18,7 +18,7 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
             <Text fontWeight={600} color={"fg.2"} fontSize={"sm"}>
                 {tipTitle}
             </Text>
-            <Text color={"fg.2"} fontSize={"sm"}>
+            <Text color={"fg.2"} fontSize={"sm"} whiteSpace={"normal"}>
                 {tipText}
             </Text>
         </VStack>

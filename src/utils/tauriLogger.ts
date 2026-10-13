@@ -12,6 +12,7 @@ function forwardConsole(
 }
 
 export function forwardConsoleAll() {
+    console.log("forward console messages")
     forwardConsole("log", trace)
     forwardConsole("debug", debug)
     forwardConsole("info", info)

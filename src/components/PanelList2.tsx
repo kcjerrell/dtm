@@ -4,12 +4,11 @@ import type { Snapshot } from "valtio"
 import { PiInfo } from "@/components/icons/icons"
 import type { Selectable } from "@/hooks/useSelectableV"
 import type { ICommand } from "@/types"
-import { PaneListContainer, PanelListItem, PanelSectionHeader, Tooltip } from "."
+import { PaneListContainer, PanelSectionHeader, Tooltip } from "."
 import CommandButton from "./CommandButton"
 import { PaneListScrollContainer, PanelListScrollContent, PanelSection } from "./common"
 
 interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
-    emptyListText?: string | boolean
     commands?: ICommand<T, C>[]
     commandContext?: C
     header?: string
@@ -26,7 +25,6 @@ interface PanelListComponentProps<T, C = undefined> extends ChakraProps {
 function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
     const {
         children,
-        emptyListText: emptyListTextProp,
         commands,
         commandContext,
         header,
@@ -70,13 +68,6 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
             ro.disconnect()
         }
     }, [])
-
-    const emptyListText =
-        emptyListTextProp === false
-            ? null
-            : typeof emptyListTextProp === "string"
-              ? emptyListTextProp
-              : "(No items)"
 
     return (
         <PanelSection {...boxProps}>
@@ -138,16 +129,6 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                         <PanelListScrollContent id={"plcontent"}>{children}</PanelListScrollContent>
                     </PaneListScrollContainer>
                 </Box>
-
-                {!emptyListText && (
-                    <PanelListItem
-                        bgColor={"transparent"}
-                        fontStyle={"italic"}
-                        textAlign={"center"}
-                    >
-                        {emptyListText}
-                    </PanelListItem>
-                )}
 
                 <HStack justifyContent={"flex-end"} marginTop={"auto"} bottom={0} paddingX={2}>
                     {commands?.map((command) => (

@@ -1,5 +1,6 @@
 import type { ComponentType } from "react"
 import type { FallbackProps } from "react-error-boundary"
+import Lifecycle from "./lifecycle"
 
 function ErrorFallback({ error }: FallbackProps) {
 	// Call resetErrorBoundary() to reset the error boundary and retry the render.
@@ -41,7 +42,7 @@ function ErrorFallback({ error }: FallbackProps) {
 				>
 					Copy
 				</button>
-				<button className={"error-button"} type="button" onClick={() => document.location.reload()}>
+				<button className={"error-button"} type="button" onClick={() => Lifecycle.reload().catch(console.error)}>
 					Reload
 				</button>
 			</div>

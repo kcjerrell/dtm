@@ -23,7 +23,7 @@ export const Panel = chakra("div", {
         },
         variant: {
             float: {
-                borderRadius: "lg",
+                borderRadius: "xl",
                 boxShadow: "pane1",
             },
             fixed: {},
@@ -282,13 +282,13 @@ export const PanelButton = chakra(
     Button,
     {
         base: {
-            bgColor: "bg.3",
+            // bgColor: "bg.3",
             margin: 0,
             color: "fg.2",
             height: "min-content",
             paddingY: 2,
             fontWeight: "500",
-            boxShadow: "0px 1px 5px -3px #00000055",
+            // boxShadow: "0px 1px 5px -3px #00000055",
             _disabled: {
                 cursor: "default",
             },
@@ -306,7 +306,7 @@ export const PanelButton = chakra(
                 success: {
                     color: "grayc.2",
                     fontWeight: "600",
-                    bgColor: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)", // "color-mix(in srgb, {colors.bg.1} 70%, {colors.green.500} 30%)",
+                    bgColor: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)",
                     border: "2px solid {colors.success.1}",
                     _hover: {
                         bgColor: "success.1/90",
@@ -330,6 +330,14 @@ export const PanelButton = chakra(
                         bgColor: "highlight",
                     },
                 },
+                info: {
+                    color: "white",
+                    fontWeight: "600",
+                    bgColor: "info.1",
+                    _hover: {
+                        bgColor: "info"
+                    }
+                }
             },
         },
         defaultVariants: { tone: "none" },

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { proxy, useSnapshot } from "valtio"
 import { capitalize } from "@/utils/helpers"
 import { InfoPaneContainer } from "../Containers"
-import { useCurrentImage } from "../state/hooks"
+import { useMetadataStore } from "../state/metadataStore2"
 import Config from "./Config"
 import Details from "./Details"
 import TabContent from "../../components/TabContent"
@@ -20,7 +20,8 @@ interface InfoPanelProps extends ChakraProps {}
 function InfoPanel(props: InfoPanelProps) {
     const { ...rest } = props
 
-    const currentImage = useCurrentImage()
+    const mdStore = useMetadataStore()
+    const { currentItem: currentImage } = useSnapshot(mdStore.state)
 
     // each image item has its own selected tab and expanded detail items
     // as well as scroll position per tab
