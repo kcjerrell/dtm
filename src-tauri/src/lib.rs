@@ -230,11 +230,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init());
 
-    #[cfg(feature = "e2e")]
-    let builder = builder
-        .plugin(tauri_plugin_wdio::init())
-        .plugin(tauri_plugin_wdio_webdriver::init());
-
     #[cfg(target_os = "macos")]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -244,7 +239,7 @@ pub fn run() {
                 .build(),
         );
 
-    builder
+    let builder = builder
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -271,7 +266,14 @@ pub fn run() {
                 ])
                 .max_file_size(200000)
                 .build(),
-        )
+        );
+
+    #[cfg(feature = "e2e")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,

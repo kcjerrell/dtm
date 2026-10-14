@@ -26,9 +26,20 @@ for (const dependency of ["tauri-plugin-wdio", "tauri-plugin-wdio-webdriver"]) {
 }
 
 const gatedRegistrations = lib.match(
-    /#\[cfg\(feature = "e2e"\)\][\s\S]*?\.plugin\(tauri_plugin_wdio::init\(\)\)[\s\S]*?\.plugin\(tauri_plugin_wdio_webdriver::init\(\)\);/,
+    /#\[cfg\(feature = "e2e"\)\]\s*let builder = builder\s*\.plugin\(tauri_plugin_wdio::init\(\)\)\s*\.plugin\(tauri_plugin_wdio_webdriver::init\(\)\);/,
 )
 if (!gatedRegistrations) throw new Error("both WDIO plugin registrations must be e2e-gated")
+
+const logRegistration = lib.indexOf(".plugin(\n            tauri_plugin_log::Builder::new()")
+const invokeHandler = lib.indexOf(".invoke_handler(")
+if (
+    logRegistration === -1 ||
+    gatedRegistrations.index <= logRegistration ||
+    invokeHandler === -1 ||
+    gatedRegistrations.index + gatedRegistrations[0].length > invokeHandler
+) {
+    throw new Error("the e2e-gated WDIO plugins must be registered after logging and before invoke_handler")
+}
 requireMatch(
     lib,
     /#\[cfg\(feature = "e2e"\)\][\s\S]*?CapabilityBuilder::new\("e2e-wdio"\)[\s\S]*?\.permission\("wdio:default"\)/,
