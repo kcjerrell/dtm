@@ -36,6 +36,22 @@ pub fn prepared_sidecar_path(target_triple: &str) -> PathBuf {
         .join(format!("bun-{target_triple}"))
 }
 
+#[cfg(test)]
+fn supported_target_triple(os: &str, arch: &str) -> Option<&'static str> {
+    match (os, arch) {
+        ("linux", "x86_64") => Some("x86_64-unknown-linux-gnu"),
+        ("linux", "aarch64") => Some("aarch64-unknown-linux-gnu"),
+        ("macos", "x86_64") => Some("x86_64-apple-darwin"),
+        ("macos", "aarch64") => Some("aarch64-apple-darwin"),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+fn compilation_target_triple() -> Option<&'static str> {
+    supported_target_triple(std::env::consts::OS, std::env::consts::ARCH)
+}
+
 /// Locate Bun in an installed application bundle without consulting `PATH`.
 pub fn bundled_sidecar_path(current_exe: &Path) -> Result<PathBuf> {
     let directory = current_exe.parent().with_context(|| {
@@ -222,10 +238,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn maps_supported_compilation_targets_to_bun_artifacts() {
+        assert_eq!(
+            supported_target_triple("linux", "x86_64"),
+            Some("x86_64-unknown-linux-gnu")
+        );
+        assert_eq!(
+            supported_target_triple("linux", "aarch64"),
+            Some("aarch64-unknown-linux-gnu")
+        );
+        assert_eq!(
+            supported_target_triple("macos", "x86_64"),
+            Some("x86_64-apple-darwin")
+        );
+        assert_eq!(
+            supported_target_triple("macos", "aarch64"),
+            Some("aarch64-apple-darwin")
+        );
+        assert_eq!(supported_target_triple("windows", "x86_64"), None);
+        assert_eq!(supported_target_triple("linux", "riscv64"), None);
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn pinned_bun_runs_noop_and_force_kills_descendant_group() {
-        let target = option_env!("TARGET").unwrap_or("x86_64-unknown-linux-gnu");
+        let Some(target) = compilation_target_triple() else {
+            eprintln!(
+                "skipping prepared Bun integration test; unsupported compilation target {}-{}",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
+            return;
+        };
         let path = prepared_sidecar_path(target);
         if !path.is_file() {
             eprintln!(
