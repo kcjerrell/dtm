@@ -1876,6 +1876,7 @@ dependencies = [
  "image",
  "img-parts",
  "itertools 0.15.0",
+ "libc",
  "little_exif",
  "log",
  "migration",
