@@ -10,12 +10,18 @@ const viteUrl = "http://localhost:1420"
 
 function runtimeMode(binaryPath) {
     const binary = readFileSync(binaryPath)
+    if (!binary.includes(Buffer.from("DTM_WDIO_ENABLED=1\0"))) {
+        throw new Error(
+            `${binaryPath} does not contain the test-only WDIO plugins. ` +
+                "Build it with `npm run build:e2e` (or run Tauri with Cargo feature `e2e`).",
+        )
+    }
     if (binary.includes(Buffer.from("DTM_TAURI_RUNTIME_MODE=dev\0"))) return "dev"
     if (binary.includes(Buffer.from("DTM_TAURI_RUNTIME_MODE=build\0"))) return "build"
 
     throw new Error(
         `Cannot determine the Tauri runtime mode for ${binaryPath}. ` +
-            "Rebuild it once with either `npm run dev` or `npm run build:debug`.",
+            "Rebuild it once with either `npm run dev:e2e` or `npm run build:e2e`.",
     )
 }
 

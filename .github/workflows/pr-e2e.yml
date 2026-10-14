@@ -44,11 +44,11 @@ jobs:
       - name: Generate icons
         run: npm run gen-icons
         
-      - name: Build debug app
+      - name: Build E2E app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run build:debug
+        run: npm run build:e2e
 
       - name: Set up test data
         run: sh scripts/test-setup.sh

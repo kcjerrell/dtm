@@ -10,12 +10,14 @@
   },
   "scripts": {
     "dev": "tauri dev",
+    "dev:e2e": "tauri dev --features e2e",
     "dev:web": "MOCK_TAURI=true vite",
     "dev:vite": "vite",
     "build": "vite build",
     "build:mac": "dotenv -- tauri build",
     "build:universal": "dotenv -- tauri build --target universal-apple-darwin",
     "build:debug": "dotenv -- tauri build --debug",
+    "build:e2e": "dotenv -- tauri build --debug --features e2e",
     "clean:vite": "rm --recursive node_modules/.vite & rm --recursive  node_modules/.vite-temp",
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",
@@ -23,7 +25,8 @@
     "generate:entities": "dotenv -e .env -- sh -c 'sea-orm-cli generate entity --database-url \"$DB_URL\" --ignore-tables images_fts,images_fts_data,images_fts_docsize,images_fts_idx,images_fts_config,images_fts_content --output-dir src-tauri/entity/src --with-serde serialize --entity-format dense'",
     "update-fbs": "./scripts/update-fbs.sh",
     "version": "tsx ./scripts/version.ts",
-    "wdio": "node ./scripts/wdio.mjs"
+    "wdio": "node ./scripts/wdio.mjs",
+    "check:wdio-security": "node ./scripts/check-wdio-security.mjs"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.37.0",

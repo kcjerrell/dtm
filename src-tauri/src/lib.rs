@@ -50,6 +50,12 @@ static DTM_TAURI_RUNTIME_MODE: &str = if cfg!(dev) {
     "DTM_TAURI_RUNTIME_MODE=build\0"
 };
 
+// The WDIO launcher checks this marker so it cannot silently test a binary
+// that was built without the explicit E2E execution surfaces.
+#[cfg(feature = "e2e")]
+#[used]
+static DTM_WDIO_ENABLED: &str = "DTM_WDIO_ENABLED=1\0";
+
 #[tauri::command]
 fn read_clipboard_types(pasteboard: Option<String>) -> TAResult<Vec<String>> {
     Ok(clipboard::read_clipboard_types(pasteboard).map_err(anyhow::Error::msg)?)
@@ -224,6 +230,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init());
 
+    #[cfg(feature = "e2e")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
     #[cfg(target_os = "macos")]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -261,8 +272,6 @@ pub fn run() {
                 .max_file_size(200000)
                 .build(),
         )
-        .plugin(tauri_plugin_wdio::init())
-        .plugin(tauri_plugin_wdio_webdriver::init())
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,
@@ -339,6 +348,13 @@ pub fn run() {
         //     project_db: Mutex::new(None)
         // })
         .setup(|app| {
+            #[cfg(feature = "e2e")]
+            app.add_capability(
+                tauri::ipc::CapabilityBuilder::new("e2e-wdio")
+                    .windows(["main", "dev"])
+                    .permission("wdio:default"),
+            )?;
+
             tauri::async_runtime::block_on(run_migrations(app.handle().clone())).map_err(
                 |error| format!("failed to migrate the application database: {error:#}"),
             )?;
