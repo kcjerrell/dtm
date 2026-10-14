@@ -16,6 +16,7 @@ pub mod dt_project;
 pub mod dtp_service;
 mod ffmpeg;
 pub mod projects_db;
+pub mod script;
 pub(crate) mod util;
 use archive::{clear_dt_archive_plan_cache, create_dt_archive, create_dt_archive_plan};
 use dtp_service::dtp_connect;

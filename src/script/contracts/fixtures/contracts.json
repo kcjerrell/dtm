@@ -1,0 +1,57 @@
+{
+  "projectManifest": { "schemaVersion": 1, "projectId": "project-1", "displayName": "Example", "entryFile": "process.ts" },
+  "controls": [
+    { "type": "image", "id": "image", "label": "Image", "sourceRange": { "start": { "line": 1, "column": 1, "offset": 0 }, "end": { "line": 1, "column": 10, "offset": 9 } }, "required": true },
+    { "type": "number", "id": "count", "label": "Count", "sourceRange": { "start": { "line": 2, "column": 1, "offset": 10 }, "end": { "line": 2, "column": 10, "offset": 19 } }, "defaultValue": 2.0, "min": 0.0, "max": 10.0, "step": 1.0 },
+    { "type": "slider", "id": "strength", "label": "Strength", "sourceRange": { "start": { "line": 3, "column": 1, "offset": 20 }, "end": { "line": 3, "column": 10, "offset": 29 } }, "defaultValue": 0.5, "min": 0.0, "max": 1.0, "step": 0.1 },
+    { "type": "boolean", "id": "enabled", "label": "Enabled", "sourceRange": { "start": { "line": 4, "column": 1, "offset": 30 }, "end": { "line": 4, "column": 10, "offset": 39 } }, "defaultValue": true },
+    { "type": "text", "id": "caption", "label": "Caption", "sourceRange": { "start": { "line": 5, "column": 1, "offset": 40 }, "end": { "line": 5, "column": 10, "offset": 49 } }, "defaultValue": "hello" }
+  ],
+  "values": [{ "type": "number", "value": 0.5 }, { "type": "boolean", "value": true }, { "type": "text", "value": "hello" }],
+  "selectedInputs": [
+    { "type": "localFile", "inputId": "image", "displayName": "local.png", "selectionToken": "selection-token" },
+    { "type": "drawThings", "inputId": "mask", "displayName": "DT image", "resourceId": "resource-1" }
+  ],
+  "materializedInputs": [{ "inputId": "image", "fileName": "input-1.png", "mediaType": "image/png", "byteLength": 1234, "contentHash": "sha256:input" }],
+  "diagnostics": [
+    { "source": "typescript", "severity": "error", "message": "syntax", "code": "TS1005", "location": { "file": "process.ts", "range": { "start": { "line": 1, "column": 1, "offset": 0 }, "end": { "line": 1, "column": 2, "offset": 1 } } } },
+    { "source": "analyzer", "severity": "warning", "message": "analysis" },
+    { "source": "bun", "severity": "info", "message": "compile" },
+    { "source": "userRuntime", "severity": "error", "message": "exception" },
+    { "source": "runner", "severity": "error", "message": "protocol" },
+    { "source": "outputValidation", "severity": "error", "message": "invalid output" },
+    { "source": "timeout", "severity": "error", "message": "timed out" },
+    { "source": "cancellation", "severity": "info", "message": "cancelled" },
+    { "source": "dependency", "severity": "warning", "message": "dependency" }
+  ],
+  "runRequest": {
+    "projectId": "project-1", "clientRequestId": "request-1",
+    "source": { "sourceRevision": 4, "contentHash": "sha256:source", "source": "source", "instrumentedSource": "instrumented", "sourceMap": "map" },
+    "valueRevision": 5, "inputRevision": 6,
+    "values": { "strength": { "type": "number", "value": 0.5 }, "enabled": { "type": "boolean", "value": true }, "caption": { "type": "text", "value": "hello" } },
+    "inputs": [{ "type": "localFile", "inputId": "image", "displayName": "local.png", "selectionToken": "selection-token" }]
+  },
+  "runManifest": {
+    "schemaVersion": 1,
+    "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 },
+    "source": { "sourceRevision": 4, "contentHash": "sha256:source", "source": "source", "instrumentedSource": "instrumented", "sourceMap": "map" },
+    "values": { "strength": { "type": "number", "value": 0.5 } },
+    "inputs": [{ "inputId": "image", "fileName": "input-1.png", "mediaType": "image/png", "byteLength": 1234, "contentHash": "sha256:input" }]
+  },
+  "outputs": [
+    { "previewUrl": "dtm://script-output/opaque-token", "mediaType": "image/png", "byteLength": 4321, "width": 64, "height": 32 },
+    { "previewUrl": "dtm://script-output/opaque-token-2", "mediaType": "image/jpeg", "byteLength": 3210 }
+  ],
+  "events": [
+    { "type": "queued", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 } },
+    { "type": "started", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "startedAt": "2026-01-02T03:04:05Z" },
+    { "type": "log", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "stream": "stdout", "message": "hello" },
+    { "type": "log", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "stream": "stderr", "message": "warning" },
+    { "type": "diagnostic", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "diagnostic": { "source": "runner", "severity": "warning", "message": "notice" } },
+    { "type": "succeeded", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "output": { "previewUrl": "dtm://script-output/opaque-token", "mediaType": "image/png", "byteLength": 4321, "width": 64, "height": 32 } },
+    { "type": "failed", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "diagnostic": { "source": "userRuntime", "severity": "error", "message": "boom" } },
+    { "type": "cancelled", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "reason": "superseded" },
+    { "type": "cancelled", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "reason": "user" },
+    { "type": "cancelled", "identity": { "projectId": "project-1", "runId": "run-1", "clientRequestId": "request-1", "sourceRevision": 4, "valueRevision": 5, "inputRevision": 6 }, "reason": "shutdown" }
+  ]
+}
