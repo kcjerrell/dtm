@@ -19,6 +19,11 @@ export default defineConfig(async () => ({
     target: "esnext",
     assetsInlineLimit: 0,
   },
+  // Monaco's editor and TypeScript services are emitted as native module workers.
+  // Keep this additive so other workers continue to use Vite's normal pipeline.
+  worker: {
+    format: "es",
+  },
   plugins: [
     reactDevtools ? htmlInjectionPlugin({
       order: "pre",
