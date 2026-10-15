@@ -1,8 +1,7 @@
-import { Box, HoverCard, HStack, VStack } from "@chakra-ui/react"
+import { Box, HoverCard, VStack } from "@chakra-ui/react"
 import { useDebounceFn } from "ahooks"
 import { motion, useTransform } from "motion/react"
 import { useCallback, useEffect, useMemo } from "react"
-import { FaToggleOff } from "react-icons/fa"
 import { ImBrightnessContrast } from "react-icons/im"
 import { IoInvertMode } from "react-icons/io5"
 import { MdOutlineColorLens } from "react-icons/md"
@@ -13,7 +12,8 @@ import { subscribeKey } from "valtio/utils"
 import { PanelSectionHeader } from "@/components/common"
 import { Slider } from "@/components/ui/slider"
 import IconButton from "../IconButton"
-import { compareBrightness, compareColor, compareDifference } from "./CompareImages"
+import { ToolbarSection } from "./common"
+import { compareBrightness, compareColor, compareDifference } from "./compareImages"
 import {
     type ImageCompareHooksContextType,
     type ImageCompareMode,
@@ -25,7 +25,6 @@ import {
 } from "./hooks"
 import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
-import { ToolbarSection } from "./common"
 
 interface ViewportCanvasGeometry {
     contentLeft: number
