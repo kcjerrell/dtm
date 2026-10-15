@@ -1,7 +1,7 @@
-import { Box, HoverCard, VStack } from "@chakra-ui/react"
+import { Box, HoverCard, Popover, Portal, VStack } from "@chakra-ui/react"
 import { useDebounceFn } from "ahooks"
 import { motion, useTransform } from "motion/react"
-import { useCallback, useEffect, useMemo } from "react"
+import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ImBrightnessContrast } from "react-icons/im"
 import { IoInvertMode } from "react-icons/io5"
 import { MdOutlineColorLens } from "react-icons/md"
@@ -25,6 +25,9 @@ import {
 } from "./hooks"
 import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
+import { useRootElementRef } from "@/hooks/useRootElement"
+import { usePopoverContext } from "@chakra-ui/react/popover"
+import { useTimeout } from "@/hooks/useTimeout";
 
 interface ViewportCanvasGeometry {
     contentLeft: number
@@ -493,8 +496,22 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     const { selfProps, ...restProps } = props
     const [state, snap] = ImageCompareContext.useContext()
 
+    const viewRef = useRootElementRef("view")
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+    // const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [startTimeout, cancelTimeout] = useTimeout({
+        fn: setIsSettingsOpen,
+        arg: false,
+        delay: 600
+    })
+
+    const onEnter = useCallback(() => {
+        cancelTimeout()
+        setIsSettingsOpen(true)
+    }, [cancelTimeout])
+
     if (!selfProps) return null
-        const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
+    const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
 
     return (
         <ToolbarSection {...restProps}>
@@ -523,47 +540,99 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 <IoInvertMode />
             </IconButton>
 
-            <HoverCard.Root openDelay={0} closeDelay={400}>
-                <HoverCard.Trigger asChild>
-                    <IconButton>
-                        <TbAdjustmentsHorizontal />
-                    </IconButton>
-                </HoverCard.Trigger>
-                <HoverCard.Positioner>
-                    <HoverCard.Content bgColor={"bg.1"} borderRadius={"lg"} boxShadow={"pane1"}>
-                        <HoverCard.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
-                        <VStack gap={0}>
-                            <PanelSectionHeader>Threshold</PanelSectionHeader>
-                            <Slider
-                                minWidth="10rem"
-                                min={0}
-                                max={0.2}
-                                step={0.01}
-                                value={[snap.sliderThreshold]}
-                                onValueChange={(value) => {
-                                    state.sliderThreshold = value.value[0]
-                                    updateEffectParam()
-                                }}
-                                mx={1}
-                            />
-                            <PanelSectionHeader>Gain</PanelSectionHeader>
-                            <Slider
-                                minWidth="10rem"
-                                min={1}
-                                max={20}
-                                step={1}
-                                value={[snap.sliderGain]}
-                                onValueChange={(value) => {
-                                    state.sliderGain = value.value[0]
-                                    updateEffectParam()
-                                }}
-                                mx={1}
-                            />
-                        </VStack>
-                    </HoverCard.Content>
-                </HoverCard.Positioner>
-            </HoverCard.Root>
+            <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
+                <Popover.Trigger asChild>
+                    <SettingsButton onEnter={onEnter} onLeave={startTimeout} />
+                </Popover.Trigger>
+                <Portal container={viewRef}>
+                    <Popover.Positioner>
+                        <SettingsContent
+                            state={state}
+                            snap={snap}
+                            updateEffectParam={updateEffectParam}
+                            onEnter={onEnter}
+                            onLeave={startTimeout}
+                        />
+                    </Popover.Positioner>
+                </Portal>
+            </Popover.Root>
         </ToolbarSection>
+    )
+}
+
+type PopoverContext = ReturnType<typeof usePopoverContext>
+type PopoverTriggers = {
+    onEnter: (context: PopoverContext) => void
+    onLeave: (context: PopoverContext) => void
+}
+
+function SettingsButton(props: ComponentProps<typeof IconButton> & PopoverTriggers) {
+    const { onEnter, onLeave, ...restProps } = props
+
+    const context = usePopoverContext()
+
+    return (
+        <IconButton
+            onMouseEnter={() => onEnter(context)}
+            onMouseLeave={() => onLeave(context)}
+            {...restProps}
+        >
+            <TbAdjustmentsHorizontal />
+        </IconButton>
+    )
+}
+
+interface SettingsContentProps extends ComponentProps<typeof Popover.Content> {
+    state: ReturnType<(typeof ImageCompareContext)["useContext"]>[0]
+    snap: ReturnType<(typeof ImageCompareContext)["useContext"]>[1]
+    updateEffectParam: () => void
+}
+
+function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
+    const { state, snap, updateEffectParam, onEnter, onLeave, ...restProps } = props
+
+    const context = usePopoverContext()
+
+    return (
+        <Popover.Content
+            bgColor={"bg.1"}
+            borderRadius={"lg"}
+            boxShadow={"pane1"}
+            width={"max-content"}
+            padding={2}
+            onMouseEnter={() => onEnter(context)}
+            onMouseLeave={() => onLeave(context)}
+        >
+            <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
+            <VStack gap={0}>
+                <PanelSectionHeader>Threshold</PanelSectionHeader>
+                <Slider
+                    minWidth="12rem"
+                    min={0}
+                    max={0.2}
+                    step={0.01}
+                    value={[snap.sliderThreshold]}
+                    onValueChange={(value) => {
+                        state.sliderThreshold = value.value[0]
+                        updateEffectParam()
+                    }}
+                    mx={1}
+                />{" "}
+                <PanelSectionHeader> Gain</PanelSectionHeader>
+                <Slider
+                    minWidth="10rem"
+                    min={1}
+                    max={20}
+                    step={1}
+                    value={[snap.sliderGain]}
+                    onValueChange={(value) => {
+                        state.sliderGain = value.value[0]
+                        updateEffectParam()
+                    }}
+                    mx={1}
+                />
+            </VStack>
+        </Popover.Content>
     )
 }
 

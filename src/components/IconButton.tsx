@@ -40,6 +40,9 @@ const Base = chakra(PanelButton, {
             _hover: { scale: 1 },
         },
         _icon: {},
+        _focusVisible: {
+            outline: "none",
+        },
     },
 
     variants: {

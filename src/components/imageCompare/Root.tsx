@@ -152,7 +152,6 @@ function Root(props: ImageCompareRootProps) {
                         touchAction={"none"}
                         // className={"check-bg"}
                         // bgColor={"bg.1"}
-                        boxShadow={"0px 0px 5px -1px #00000055, 0px 3px 12px -3px #00000055"}
                         {...zoomHandlers}
                     >
                         {/* image a base */}
@@ -184,7 +183,13 @@ function Root(props: ImageCompareRootProps) {
                     </Box>
 
                     {/* toolbar */}
-                    <HStack gridArea={"buttons"} px={8} py={2} {...toolbarProps}>
+                    <HStack
+                        gridArea={"buttons"}
+                        px={8}
+                        py={2}
+                        boxShadow={"0px 0px 5px -1px #00000055, 0px 3px 12px -3px #00000055"}
+                        {...toolbarProps}
+                    >
                         {imageSelectors.length > 0 && (
                             <>
                                 <ToolbarSection>{imageSelectors}</ToolbarSection>
