@@ -119,6 +119,19 @@ createImageProcess(async (dtm) => dtm.param(1))`)
         ])
     })
 
+    it("normalizes an omitted object step like the positional overload", () => {
+        const objectResult = analyze(`createImageProcess(async (dtm) => {
+ const strength = dtm.param(0, { min: 0, max: 10 })
+})`)
+        const positionalResult = analyze(`createImageProcess(async (dtm) => {
+ const strength = dtm.param(0, 0, 10)
+})`)
+        const { sourceRange: _objectRange, ...objectControl } = objectResult.controls[0]
+        const { sourceRange: _positionalRange, ...positionalControl } = positionalResult.controls[0]
+        expect(objectControl).toEqual(positionalControl)
+        expect(objectControl).toMatchObject({ type: "slider", min: 0, max: 10, step: 1 })
+    })
+
     it("validates static overloads and constraints", () => {
         const cases = [
             "dtm.input({ ...options })",

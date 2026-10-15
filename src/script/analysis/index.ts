@@ -292,6 +292,7 @@ function parseControl(
         ) {
             return fail("Numeric constraints must be static number literals.")
         }
+        if (min !== undefined && max !== undefined && step === undefined) step = 1
     }
 
     const id = readString(options?.id)
