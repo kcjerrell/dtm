@@ -1,4 +1,4 @@
-import type * as Monaco from "monaco-editor"
+import type * as Monaco from "monaco-editor/editor/editor.api.js"
 
 export const DTM_DECLARATION_URI = "file:///dtm/dtm-api.d.ts"
 
@@ -38,8 +38,8 @@ declare function createImageProcess(
 `
 
 /** Register the replaceable virtual library owned by one editor lifecycle. */
-export function registerDtmDeclarations(
-    typescriptDefaults: Pick<typeof Monaco.languages.typescript.typescriptDefaults, "addExtraLib">,
-): Monaco.IDisposable {
+export function registerDtmDeclarations(typescriptDefaults: {
+    addExtraLib(content: string, filePath?: string): Monaco.IDisposable
+}): Monaco.IDisposable {
     return typescriptDefaults.addExtraLib(DTM_DECLARATION, DTM_DECLARATION_URI)
 }
