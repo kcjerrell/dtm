@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: ready for task creation
+Status: Waves 0–2 integrated; S14/S15 implemented locally; S20 awaits review repairs
 
 Target branch: `origin/scripts`
 
@@ -13,6 +13,8 @@ Task brief template: [codex-task-template.md](./codex-task-template.md)
 ## Delivery model
 
 Implementation is performed by Codex Cloud tasks. Every task starts from the latest orchestrator-pushed `origin/scripts`, works on a dedicated branch, and returns a reviewable commit or commit series. Subtasks do not merge other branches and do not expand their assigned scope. The orchestrator reviews and merges tasks in dependency order.
+
+Execution override for S14 and S15 (2026-10-15): run local subtasks sequentially in the existing checkout, with medium reasoning, without worktrees or additional delegation. The orchestrator reviews and validates S14 before dispatching S15. These subtasks do not commit, push, or change branches; their changes remain available for local review.
 
 Do not launch every task from the original baseline. Work proceeds in waves. After a wave is merged and validated, the orchestrator pushes the updated `scripts` branch; the next wave starts from that new SHA.
 
@@ -312,11 +314,28 @@ Required tests:
 
 ## Wave 3: backend leaves and service
 
-S14 and S15 may run in parallel after S00 and should be merged before S20. Start S20 only after S11, S13, S14, and S15 are all present on `origin/scripts`.
+Wave 2 was reviewed at `20aa547b033076cfc4871d13e4d4c141bd37e5f3`. S10–S13 are substantially implemented; the focused 28 frontend and 33 Rust script tests pass. The feature is not yet wired into the application.
+
+S14 and S15 can proceed independently of the repairs below. For the current execution, run S14 first, review and validate it, then run S15 in the same local checkout. Start S20 only after S11, S13, S14, S15, and the following prerequisite repairs have been reviewed and integrated. Publish the resulting branch before any later Cloud task starts.
+
+### Review repairs required before S20
+
+- S10: detect unsupported nested calls capturing the actual DTM callback parameter and return a source-ranged analyzer error rather than runnable source that fails with `dtm.param is not a function`. Preserve the exclusion of unrelated/shadowed receivers; do not expand the MVP grammar to nested control discovery.
+- S13: accept a valid existing run-local output directory when user code creates and returns a file within it. Add a real Bun regression test for this case; preserve containment and output validation at the S15 boundary.
+- S13/S20 interface: add internal executor notifications for actual process start and bounded logs during execution, plus structured failure phase/location information sufficient to distinguish Bun import/compile, user-runtime, and runner/protocol diagnostics. Preserve raw stderr and the frozen frontend wire contracts unless a separately reviewed change is necessary.
+- S13 test seam: extend the fake executor with explicitly controlled start/completion and cancellation observation so S20 can test overlapping requests, late completion, and shutdown without sleeps. The current immediate-result queue is insufficient for those lifecycle tests.
+
+These are focused follow-ups, not a redesign. Assign explicit ownership of `executor.rs`, `bun.rs`, and `runtime/**` when dispatching the repairs or S20; do not hide prerequisite repairs inside unrelated input/output leaves. Packaged WKWebView, universal/Intel Bun, signing/notarization, and DMG packaging remain later platform gates.
 
 ### S14 — Input selection and materialization
 
 Objective: convert approved input selections into run-local files without passing image bytes through JSON.
+
+Local status (2026-10-15): implemented and reviewed in the existing checkout. Eight focused input tests and the 41-test script-library union pass, including a real Bun staging/preparation/transfer/execution round trip. Changes remain uncommitted. Application command wiring remains S40 work.
+
+Integration API: `InputApprovals` owns expiring local-selection capabilities; `InputResources` injects `ResourceHandle` resolution. Call `stage_inputs`, populate the immutable manifest from `StagedInputs::inputs()`, call executor `prepare`, consume staging with `transfer`, then `execute_prepared`. Dropping staging or an unstarted preparation cleans private files.
+
+Known bound: local copies stream with byte limits; the existing `ResourceHandle::get_image` API allocates its complete encoded image before this module can enforce a byte cap. PNG/JPEG validity checking temporarily decodes within dimension/allocation limits, retaining no decoded image afterward. Cancellation is checked around decoding. Windows-specific entropy support has not been validated locally.
 
 Scope:
 
@@ -325,6 +344,9 @@ Scope:
 - Detect and return filename and media-type metadata.
 - Reject missing, unsupported, oversized, or invalid inputs.
 - Never hard-link an original input into an untrusted run directory.
+- Stage and validate approved copies before freezing the run manifest: compute byte length, content hash, and detected media type from the staged bytes, then prepare the immutable run and transfer the staged copies to its declared input paths. Avoid rereading large originals solely to obtain manifest metadata; never move or link the originals. Keep this staging API usable without Tauri application wiring or a connected Projects database.
+- Use backend-owned opaque approval tokens for local selections; do not accept arbitrary frontend filesystem paths as run selections. Keep Draw Things resource resolution behind an injectable adapter.
+- Generate isolated backend filenames independently of display names. The same approved file/resource may be selected by multiple controls, and different sources may share a basename; neither is a duplicate input identity.
 
 Primary paths:
 
@@ -337,10 +359,18 @@ Required tests:
 - Resource and local-file paths produce the same runtime contract.
 - Multiple inputs use isolated IDs and filenames.
 - Cancellation or failure cleans partial copies.
+- Manifest metadata describes the actual staged bytes, including when the original changes after selection.
+- Traversal in staged paths, duplicate input IDs or actual staging filenames, and unapproved or expired selections fail closed. Repeated source selections and duplicate display names remain supported.
 
 ### S15 — Output registry and script-output protocol
 
 Objective: validate file-backed results and expose only opaque preview URLs.
+
+Local status (2026-10-15): implemented and reviewed after S14, in the same checkout with medium reasoning. Eight output tests, two protocol tests, and the 51-test script-library union pass. `cargo check --locked`, Rust formatting, and diff integrity checks also pass. Coverage includes real Bun execution through authorization capture, output validation/retention, protocol response, and run-directory cleanup. Changes remain uncommitted; global protocol routing remains S40 work.
+
+Integration API: call `AuthorizedOutputRoot::from_prepared(&prepared)` before `execute_prepared` consumes the run. After successful execution, call `OutputRegistry::register(&anchor, &output)` and retain the returned `OutputLease` for the last-good preview. `protocol::respond` acquires a read lease and returns owned response bytes. `expire`, `evict`, and `clear` revoke token lookups; private copies remain until their final lease drops. The service must keep the private storage root alive until leases finish. Registration and protocol reads are blocking operations and must run on blocking workers from async application handlers.
+
+S15 reuses S14's bounded PNG/JPEG validator and secure token helper; future task bases must include both leaves. Retention accounts for revoked-but-leased files and permits one additional bounded file during serialized validation. Secure descriptor-relative output containment is implemented on Unix; other platforms fail closed pending a safe handle implementation. Packaged WKWebView protocol behavior and non-macOS execution are unverified. A Unix socket test fixture encountered sandbox `EPERM` and was removed; directory/FIFO rejection remains covered without opening sockets.
 
 Scope:
 
@@ -349,6 +379,9 @@ Scope:
 - Create an opaque-token registry with explicit lifetime/eviction behavior.
 - Implement a responder for `dtm://script-output/<token>` without modifying the global protocol router.
 - Keep the registry independent of `DTPService`.
+- Detect image media type from validated file contents rather than trusting the runner's declaration or filename (the current runner defaults byte/path results to PNG). Reject malformed images and enforce bounded validation without unnecessary full-image decoding.
+- Define ownership of retained output files and active response leases explicitly. Token expiry/replacement must not remove files still needed by an active preview or response; expose a cleanup boundary for the future service.
+- Capture the authorized run-directory handle from the prepared execution before spawning user code. Validate results beneath that handle's fixed `output/` subtree; canonicalizing a script-controlled output directory after execution must never establish its authorization. S20 must retain this anchor through result registration.
 
 Primary paths:
 
@@ -362,6 +395,9 @@ Required tests:
 - Tokens reveal no filesystem path.
 - Replacing an output does not delete a file still needed by the active preview.
 - Oversized and unsupported files are rejected.
+- Misleading media-type declarations/extensions and malformed image contents cannot bypass validation.
+- Replacing the run/output directory or its descendants with symlinks cannot redefine the authorized root.
+- Protocol responses preserve the detected content type and do not expose filesystem paths in error bodies.
 
 ### S20 — Script service, trust gate, and event lifecycle
 
@@ -382,6 +418,8 @@ Primary paths:
 - `src-tauri/src/script/service.rs`
 - `src-tauri/src/script/commands.rs`
 - script-local tests
+
+Prerequisite interface ownership must also explicitly include `executor.rs`, `bun.rs`, and `runtime/**` if the reviewed S13 follow-ups have not already landed. Do not start the service against an unreviewed replacement executor contract.
 
 Required tests use the fake executor:
 

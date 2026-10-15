@@ -1,7 +1,10 @@
 pub mod bun;
 pub mod bun_probe;
 pub mod executor;
+pub mod input;
+pub mod output;
 pub mod paths;
 pub mod project_commands;
 pub mod project_store;
+pub mod protocol;
 pub mod types;
