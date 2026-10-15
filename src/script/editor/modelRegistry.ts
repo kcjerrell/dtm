@@ -12,11 +12,6 @@ export type EditorMarkerOwner = (typeof EDITOR_MARKER_OWNERS)[keyof typeof EDITO
 export interface EditorMonacoApi {
     Uri: typeof Monaco.Uri
     editor: typeof Monaco.editor
-    languages: {
-        typescript: {
-            typescriptDefaults: Parameters<typeof registerDtmDeclarations>[0]
-        }
-    }
 }
 
 export interface ModelRevisionEvent {
@@ -57,8 +52,11 @@ export class ScriptModelRegistry implements Monaco.IDisposable {
     readonly #declarations: Monaco.IDisposable
     #disposed = false
 
-    constructor(private readonly monaco: EditorMonacoApi) {
-        this.#declarations = registerDtmDeclarations(monaco.languages.typescript.typescriptDefaults)
+    constructor(
+        private readonly monaco: EditorMonacoApi,
+        typescriptDefaults: Parameters<typeof registerDtmDeclarations>[0],
+    ) {
+        this.#declarations = registerDtmDeclarations(typescriptDefaults)
     }
 
     open(uri: Monaco.Uri, source: string): ScriptProjectModel {

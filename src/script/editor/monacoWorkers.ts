@@ -1,15 +1,14 @@
+import type { Environment } from "monaco-editor/editor/editor.api.js"
 import EditorWorker from "monaco-editor/editor/editor.worker?worker"
 import TypeScriptWorker from "monaco-editor/language/typescript/ts.worker?worker"
+import "monaco-editor/languages/definitions/javascript/register.js"
+import "monaco-editor/languages/definitions/typescript/register.js"
 
-type MonacoEnvironment = {
-    getWorker?(moduleId: string, label: string): Worker
-}
-
-const environment = (globalThis as typeof globalThis & { MonacoEnvironment?: MonacoEnvironment })
-    .MonacoEnvironment
+const monacoGlobal = globalThis as typeof globalThis & { MonacoEnvironment?: Environment }
+const environment = monacoGlobal.MonacoEnvironment
 const previousGetWorker = environment?.getWorker?.bind(environment)
 
-;(globalThis as typeof globalThis & { MonacoEnvironment?: MonacoEnvironment }).MonacoEnvironment = {
+monacoGlobal.MonacoEnvironment = {
     ...environment,
     getWorker(moduleId, label) {
         if (label === "typescript" || label === "javascript") return new TypeScriptWorker()

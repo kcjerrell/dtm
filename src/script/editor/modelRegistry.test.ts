@@ -60,7 +60,6 @@ function createMonaco() {
 
     const monaco = {
         Uri: { parse: (value: string) => ({ toString: () => value }) },
-        languages: { typescript: { typescriptDefaults: { addExtraLib } } },
         editor: {
             getModel: (uri: Monaco.Uri) => models.get(uri.toString()) ?? null,
             createModel: (source: string, _language: string, uri: Monaco.Uri) => {
@@ -81,8 +80,8 @@ function uri(monaco: EditorMonacoApi, name: string) {
 
 describe("ScriptModelRegistry", () => {
     it("keeps one stable model and emits deterministic revision events", () => {
-        const { monaco } = createMonaco()
-        const registry = new ScriptModelRegistry(monaco)
+        const { monaco, addExtraLib } = createMonaco()
+        const registry = new ScriptModelRegistry(monaco, { addExtraLib })
         const project = registry.open(uri(monaco, "one"), "const value = 1")
         const events: Array<{ revision: number; dirty: boolean }> = []
         project.onDidChangeRevision((event) => events.push(event))
@@ -103,8 +102,8 @@ describe("ScriptModelRegistry", () => {
     })
 
     it("disposes a project's model, markers, and registered providers", () => {
-        const { monaco, setModelMarkers } = createMonaco()
-        const registry = new ScriptModelRegistry(monaco)
+        const { monaco, addExtraLib, setModelMarkers } = createMonaco()
+        const registry = new ScriptModelRegistry(monaco, { addExtraLib })
         const project = registry.open(uri(monaco, "dispose"), "")
         const disposeProvider = vi.fn()
         project.addProvider({ dispose: disposeProvider })
@@ -119,8 +118,8 @@ describe("ScriptModelRegistry", () => {
     })
 
     it("makes stale handles inert after reopening the same URI", () => {
-        const { monaco, setModelMarkers } = createMonaco()
-        const registry = new ScriptModelRegistry(monaco)
+        const { monaco, addExtraLib, setModelMarkers } = createMonaco()
+        const registry = new ScriptModelRegistry(monaco, { addExtraLib })
         const projectUri = uri(monaco, "reopened")
         const old = registry.open(projectUri, "old")
         old.dispose()
@@ -143,7 +142,7 @@ describe("ScriptModelRegistry", () => {
 
     it("loads declarations once per registry and releases them on disposal", () => {
         const { monaco, addExtraLib, declarationDispose } = createMonaco()
-        const registry = new ScriptModelRegistry(monaco)
+        const registry = new ScriptModelRegistry(monaco, { addExtraLib })
         registry.open(uri(monaco, "a"), "")
         registry.open(uri(monaco, "b"), "")
         expect(addExtraLib).toHaveBeenCalledTimes(1)
@@ -152,8 +151,8 @@ describe("ScriptModelRegistry", () => {
     })
 
     it("preserves separate model undo stacks and editor view states when switching", () => {
-        const { monaco } = createMonaco()
-        const registry = new ScriptModelRegistry(monaco)
+        const { monaco, addExtraLib } = createMonaco()
+        const registry = new ScriptModelRegistry(monaco, { addExtraLib })
         const first = registry.open(uri(monaco, "first"), "first")
         const second = registry.open(uri(monaco, "second"), "second")
         const firstState = { cursorState: [], viewState: {} } as never

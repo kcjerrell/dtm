@@ -1,4 +1,4 @@
-import type * as Monaco from "monaco-editor"
+import type * as Monaco from "monaco-editor/editor/editor.api.js"
 
 export interface RuntimeInlayHint {
     offset: number

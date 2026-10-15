@@ -1,6 +1,9 @@
 import "./monacoWorkers"
 import * as monaco from "monaco-editor/editor/editor.api.js"
-import "monaco-editor/language/typescript/monaco.contribution.js"
+import {
+    getTypeScriptWorker,
+    typescriptDefaults,
+} from "monaco-editor/language/typescript/monaco.contribution.js"
 import { registerDtmDeclarations } from "./dtmDeclarations"
 import { createRuntimeInlayHintProvider } from "./inlayHints"
 
@@ -19,7 +22,7 @@ export interface MonacoViabilityHarness extends monaco.IDisposable {
 
 /** Internal-only probe. It is deliberately not wired into application navigation. */
 export function createMonacoViabilityHarness(container: HTMLElement): MonacoViabilityHarness {
-    const declarations = registerDtmDeclarations(monaco.languages.typescript.typescriptDefaults)
+    const declarations = registerDtmDeclarations(typescriptDefaults)
     const model = monaco.editor.createModel(
         HARNESS_SOURCE,
         "typescript",
@@ -37,7 +40,7 @@ export function createMonacoViabilityHarness(container: HTMLElement): MonacoViab
         editor,
         model,
         async verifyLanguageFeatures() {
-            const workerFactory = await monaco.languages.typescript.getTypeScriptWorker()
+            const workerFactory = await getTypeScriptWorker()
             const worker = await workerFactory(model.uri)
             const diagnostics = await worker.getSemanticDiagnostics(model.uri.toString())
             const completionOffset = model.getValue().indexOf("dtm.input") + "dtm.".length
@@ -48,7 +51,8 @@ export function createMonacoViabilityHarness(container: HTMLElement): MonacoViab
 
             return {
                 diagnosticCodes: diagnostics.map(({ code }) => String(code)),
-                completionLabels: completions?.entries.map(({ name }) => name) ?? [],
+                completionLabels:
+                    completions?.entries.map((entry: { name: string }) => entry.name) ?? [],
             }
         },
         dispose() {
