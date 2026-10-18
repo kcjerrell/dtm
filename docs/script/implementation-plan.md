@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Waves 0–2 integrated; S14/S15 implemented locally; S20 awaits review repairs
+Status: Waves 0–2 and S14/S15 integrated; prerequisite repairs validated locally; ready for S20
 
 Target branch: `origin/scripts`
 
@@ -318,20 +318,29 @@ Wave 2 was reviewed at `20aa547b033076cfc4871d13e4d4c141bd37e5f3`. S10–S13 are
 
 S14 and S15 can proceed independently of the repairs below. For the current execution, run S14 first, review and validate it, then run S15 in the same local checkout. Start S20 only after S11, S13, S14, S15, and the following prerequisite repairs have been reviewed and integrated. Publish the resulting branch before any later Cloud task starts.
 
-### Review repairs required before S20
+### Review repairs before S20 — completed locally
 
-- S10: detect unsupported nested calls capturing the actual DTM callback parameter and return a source-ranged analyzer error rather than runnable source that fails with `dtm.param is not a function`. Preserve the exclusion of unrelated/shadowed receivers; do not expand the MVP grammar to nested control discovery.
-- S13: accept a valid existing run-local output directory when user code creates and returns a file within it. Add a real Bun regression test for this case; preserve containment and output validation at the S15 boundary.
-- S13/S20 interface: add internal executor notifications for actual process start and bounded logs during execution, plus structured failure phase/location information sufficient to distinguish Bun import/compile, user-runtime, and runner/protocol diagnostics. Preserve raw stderr and the frozen frontend wire contracts unless a separately reviewed change is necessary.
-- S13 test seam: extend the fake executor with explicitly controlled start/completion and cancellation observation so S20 can test overlapping requests, late completion, and shutdown without sleeps. The current immediate-result queue is insufficient for those lifecycle tests.
+Local repair status (2026-10-15): the four items below are implemented against `be3921c` in the existing checkout. The 60-test Rust script-library union and 29 frontend script tests pass, including actual bundled Bun execution. Focused strict TypeScript, Biome, frontend production build, Rust check/formatting, and diff integrity checks pass. Repair changes remain uncommitted; a later Cloud task still needs a committed/pushed exact base containing them. No S20 service or application wiring is included.
 
-These are focused follow-ups, not a redesign. Assign explicit ownership of `executor.rs`, `bun.rs`, and `runtime/**` when dispatching the repairs or S20; do not hide prerequisite repairs inside unrelated input/output leaves. Packaged WKWebView, universal/Intel Bun, signing/notarization, and DMG packaging remain later platform gates.
+- S10 now rejects nested calls capturing the actual DTM callback parameter with source-ranged diagnostics. Unrelated/shadowed receivers remain ignored; nested control discovery remains outside the MVP grammar.
+- S13 now accepts a valid existing run-local output directory when user code creates and returns a file within it. A real Bun regression covers this case; the S15 containment/validation boundary is preserved.
+- The S13/S20 interface now emits actual process-start and bounded live-log notifications and returns structured import/compile, user-runtime, and runner/protocol failures. Raw stderr and the frozen frontend wire contracts are preserved.
+- The S13 fake now supports explicitly gated start/completion, live logs, and cancellation observation for overlapping-request, late-completion, and shutdown tests without sleeps. The immediate-result convenience queue remains available.
+
+S20 should consume the reviewed interface below. Any additional executor/runtime changes require explicit task ownership; keep unrelated input/output leaves focused. Packaged WKWebView, universal/Intel Bun, signing/notarization, and DMG packaging remain later platform gates.
+
+S20 executor integration contract:
+
+- Use `ScriptExecutor::execute_prepared_observed(prepared, cancellation, ExecutionObserver::new(sink))` after input transfer and output-root authorization capture. Existing `execute_prepared`/`execute` convenience methods use a no-op observer. Each event carries the immutable `RunIdentity`; `Started` occurs only after spawn and before any logs. Observers may be called concurrently by stdout/stderr readers and must return promptly without panicking or holding a service lock across execution. The executor introduces no unbounded event queue.
+- `ExecutionEventKind::Log` contains deltas capped at 64 KiB of raw bytes per stream, with a truncation flag. Streams continue draining after the cap; split UTF-8 sequences are preserved. `ExecutionResult.logs` contains authoritative final aggregates, which must not be appended as a second set of deltas.
+- `ExecutionTerminal::Failed(ExecutionFailure)` distinguishes `Import`, `UserRuntime`, and `Runner`, with a bounded message, optional stack, and optional one-based instrumented-entry location. Bun aggregate build diagnostics supply the first underlying diagnostic and its position. Preserve the immutable source map for later mapping; these raw locations have not been mapped to editor source. Raw stderr remains separately capped. Host preparation/spawn/IO errors remain `anyhow::Result::Err` with context.
+- `FakeExecutor::queue_controlled()` returns a per-run control. Dispatch execution, await `entered()`, open `start()`, observe `Started`, inject optional `log()` deltas, and finish with `complete(terminal)`. `cancelled()` observes explicit cancellation or sender-disappearance shutdown. Cancellation does not auto-complete a controlled fake: tests may deliberately finish an old run successfully after cancellation. Await the execution task before service-owned cleanup. Fake preparation creates real isolated input directories, allowing the S14/S15 adapters to compose in service tests.
 
 ### S14 — Input selection and materialization
 
 Objective: convert approved input selections into run-local files without passing image bytes through JSON.
 
-Local status (2026-10-15): implemented and reviewed in the existing checkout. Eight focused input tests and the 41-test script-library union pass, including a real Bun staging/preparation/transfer/execution round trip. Changes remain uncommitted. Application command wiring remains S40 work.
+Local status (2026-10-15): implemented and reviewed in the existing checkout, then integrated in `be3921c`. Eight focused input tests and the original 41-test script-library union passed, including a real Bun staging/preparation/transfer/execution round trip; the current repair gate above covers the expanded suite. Application command wiring remains S40 work.
 
 Integration API: `InputApprovals` owns expiring local-selection capabilities; `InputResources` injects `ResourceHandle` resolution. Call `stage_inputs`, populate the immutable manifest from `StagedInputs::inputs()`, call executor `prepare`, consume staging with `transfer`, then `execute_prepared`. Dropping staging or an unstarted preparation cleans private files.
 
@@ -366,7 +375,7 @@ Required tests:
 
 Objective: validate file-backed results and expose only opaque preview URLs.
 
-Local status (2026-10-15): implemented and reviewed after S14, in the same checkout with medium reasoning. Eight output tests, two protocol tests, and the 51-test script-library union pass. `cargo check --locked`, Rust formatting, and diff integrity checks also pass. Coverage includes real Bun execution through authorization capture, output validation/retention, protocol response, and run-directory cleanup. Changes remain uncommitted; global protocol routing remains S40 work.
+Local status (2026-10-15): implemented and reviewed after S14, in the same checkout with medium reasoning, then integrated in `be3921c`. Eight output tests, two protocol tests, and the original 51-test script-library union passed. `cargo check --locked`, Rust formatting, and diff integrity checks also passed; the current repair gate above covers the expanded suite. Coverage includes real Bun execution through authorization capture, output validation/retention, protocol response, and run-directory cleanup. Global protocol routing remains S40 work.
 
 Integration API: call `AuthorizedOutputRoot::from_prepared(&prepared)` before `execute_prepared` consumes the run. After successful execution, call `OutputRegistry::register(&anchor, &output)` and retain the returned `OutputLease` for the last-good preview. `protocol::respond` acquires a read lease and returns owned response bytes. `expire`, `evict`, and `clear` revoke token lookups; private copies remain until their final lease drops. The service must keep the private storage root alive until leases finish. Registration and protocol reads are blocking operations and must run on blocking workers from async application handlers.
 
@@ -419,14 +428,14 @@ Primary paths:
 - `src-tauri/src/script/commands.rs`
 - script-local tests
 
-Prerequisite interface ownership must also explicitly include `executor.rs`, `bun.rs`, and `runtime/**` if the reviewed S13 follow-ups have not already landed. Do not start the service against an unreviewed replacement executor contract.
+Use the reviewed executor integration contract above. No executor redesign or frontend wire-contract change is required for S20. Read `executor.rs` and `executor/fake.rs` alongside the input/output leaves before implementing the service.
 
 Required tests use the fake executor:
 
 - Untrusted projects cannot run or auto-run.
 - At most one process is active.
 - Late completion from an old run cannot replace current output.
-- Cancellation escalation happens once and reaches a terminal event.
+- The service requests cancellation once and awaits a single terminal outcome. The executor owns process-group TERM/KILL escalation; its actual process cleanup remains covered by real Bun tests, rather than simulated signal assertions in the fake.
 - Service shutdown stops the runner before temp cleanup.
 - Event revisions match the immutable request snapshot.
 

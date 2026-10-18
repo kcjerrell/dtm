@@ -9,13 +9,13 @@ const revision = 7 as SourceRevision
 const analyze = (source: string) => analyzeScript({ source, sourceRevision: revision })
 
 describe("analyzeScript", () => {
-    it("ignores comments, strings, unrelated receivers, and nested callbacks", () => {
+    it("ignores comments, strings, unrelated receivers, and shadowed nested parameters", () => {
         const result = analyze(`
 // createImageProcess(async (dtm) => dtm.param(1))
 const text = "dtm.param(2)"
 createImageProcess(async (dtm) => {
   other.param(3)
-  const nested = () => dtm.param(4)
+  const nested = (dtm: OtherContext) => dtm.param(4)
   const realValue = dtm.param(5)
 })`)
         expect(result.diagnostics).toEqual([])
@@ -23,6 +23,33 @@ createImageProcess(async (dtm) => {
         expect(result.controls[0]).toMatchObject({ label: "Real Value", defaultValue: 5 })
         expect(result.instrumentedSource).toContain("other.param(3)")
         expect(result.instrumentedSource).toContain("dtm.param(4)")
+    })
+
+    it("rejects nested controls capturing the real callback parameter", () => {
+        for (const nested of [
+            "const value = () => dtm.param(1); value()",
+            "function input() { return dtm.input() }; input()",
+            "[1].map(() => (() => dtm.param(1))())",
+            "const object = { value() { return dtm.param(1) } }",
+        ]) {
+            const source = `createImageProcess(async (dtm) => { ${nested} })`
+            const result = analyze(source)
+            expect(result.controls).toEqual([])
+            expect(result.instrumentedSource).toBeUndefined()
+            expect(result.diagnostics).toEqual([
+                expect.objectContaining({
+                    code: "nested-control",
+                    location: expect.objectContaining({
+                        range: expect.objectContaining({
+                            start: expect.objectContaining({ offset: source.indexOf("dtm.") }),
+                        }),
+                    }),
+                }),
+            ])
+        }
+        const concise = analyze("createImageProcess((dtm) => () => dtm.param(1))")
+        expect(concise.diagnostics).toEqual([expect.objectContaining({ code: "nested-control" })])
+        expect(concise.instrumentedSource).toBeUndefined()
     })
 
     it("matches the callback parameter by binding identity", () => {

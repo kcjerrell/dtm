@@ -95,10 +95,8 @@ export function analyzeScript(request: AnalysisRequest): AnalysisResponse {
     const ids = new Map<string, ts.CallExpression>()
     let occurrence = 0
 
-    const visitCallback = (node: ts.Node): void => {
-        // DTM calls inside another function do not execute as direct callback operations and may
-        // capture or shadow the callback parameter, so they are deliberately outside the MVP.
-        if (node !== callback.body && ts.isFunctionLike(node)) return
+    const visitCallback = (node: ts.Node, nested = false): void => {
+        nested ||= ts.isFunctionLike(node)
         if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
             const property = node.expression
             const method = property.name.text
@@ -107,6 +105,18 @@ export function analyzeScript(request: AnalysisRequest): AnalysisResponse {
                 ts.isIdentifier(property.expression) &&
                 checker.getSymbolAtLocation(property.expression) === parameterSymbol
             ) {
+                if (nested) {
+                    diagnostics.push(
+                        analyzerDiagnostic(
+                            sourceFile.file,
+                            fileName,
+                            node,
+                            "DTM controls must be called directly in the createImageProcess callback, not inside a nested function.",
+                            "nested-control",
+                        ),
+                    )
+                    return
+                }
                 occurrence += 1
                 const parsed = parseControl(
                     node,
@@ -147,7 +157,7 @@ export function analyzeScript(request: AnalysisRequest): AnalysisResponse {
                 }
             }
         }
-        ts.forEachChild(node, visitCallback)
+        ts.forEachChild(node, (child) => visitCallback(child, nested))
     }
     visitCallback(callback.body)
 
