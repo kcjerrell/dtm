@@ -14,6 +14,7 @@ import {
 import { MdBlurOff, MdBlurOn } from "react-icons/md"
 import type { Snapshot } from "valtio"
 import IconButton from "../IconButton"
+import AlignMode from "./AlignMode"
 import AltMode from "./AltMode"
 import { ToolbarSection, ToolbarSeparator } from "./common"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
@@ -74,6 +75,7 @@ function Root(props: ImageCompareRootProps) {
     const sliderMode = SliderMode.useMode(state, snap, hooks)
     const altMode = AltMode.useMode(state, snap, hooks)
     const sbsMode = SbsMode.useMode(state, snap, hooks)
+    const alignMode = AlignMode.useMode()
 
     const imageContainerStyle: MotionStyle = useMemo(
         () => ({
@@ -92,6 +94,7 @@ function Root(props: ImageCompareRootProps) {
         bindMode(SliderMode, sliderMode, imageContainerStyle),
         bindMode(AltMode, altMode, imageContainerStyle),
         bindMode(SbsMode, sbsMode, imageContainerStyle),
+        bindMode(AlignMode, alignMode, imageContainerStyle),
     ]
     const activeMode = modes.find((mode) => mode.name === snap.mode)
     const imageSelectors = Children.toArray(children)
@@ -120,14 +123,29 @@ function Root(props: ImageCompareRootProps) {
 
     useEffect(() => {
         const keydown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return
             if (e.key === "Shift") {
                 state.shiftHeld = true
-            } else if (e.code === "Space") {
+                return
+            }
+            // Preserve normal keyboard interaction in controls and the alignment overlay.
+            if (
+                e.target instanceof Element &&
+                e.target.closest(
+                    "button, input, textarea, select, [contenteditable='true'], [role='slider'], [data-image-align], [data-image-compare-controls]",
+                )
+            )
+                return
+            if (e.code === "Space") {
                 activeMode?.keyHandlers?.space?.()
             } else if (e.code === "Tab") {
                 e.preventDefault()
+                const names = ["slider", "alt", "sbs", "align"]
                 state.mode =
-                    state.mode === "slider" ? "alt" : state.mode === "alt" ? "sbs" : "slider"
+                    names[
+                        (names.indexOf(state.mode) + (e.shiftKey ? -1 : 1) + names.length) %
+                            names.length
+                    ]
             }
         }
         const keyup = (e: KeyboardEvent) => {

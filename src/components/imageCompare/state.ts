@@ -15,7 +15,7 @@ export type ImageCompareState = {
     /** whether to apply smoothing to the images */
     smoothing: boolean
 
-    /** The active comparison mode: slider, alternate, or side-by-side */
+    /** The active comparison mode: slider, alternate, side-by-side, or align */
     mode: string
     /** The selected slider trail effect */
     sliderTrail: SliderEffect
@@ -39,6 +39,9 @@ export type ImageCompareState = {
 
     /** arrange side-by-side images in a row or column */
     sbsLayout: SbsLayout
+
+    /** Image B opacity while manually aligning the images. */
+    alignOpacity: number
 
     /** whether or not the shift key is behind held down */
     shiftHeld: boolean
@@ -78,6 +81,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         altSpeed: 5,
         altPhase: 0.0,
         sbsLayout: "vertical",
+        alignOpacity: 0.5,
         viewportWidth: 0,
         viewportHeight: 0,
         viewportPixelRatio: 1,
