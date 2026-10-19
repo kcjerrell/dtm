@@ -1,8 +1,10 @@
-import { Box, chakra, Grid, HStack, Kbd } from "@chakra-ui/react"
+import { Box, chakra, Flex, Grid, HStack, Kbd } from "@chakra-ui/react"
 import { AnimatePresence, type MotionStyle, motion } from "motion/react"
 import {
     Children,
+    type CSSProperties,
     isValidElement,
+    type PropsWithChildren,
     type ReactElement,
     type ReactNode,
     useCallback,
@@ -16,15 +18,17 @@ import AltMode from "./AltMode"
 import { ToolbarSection, ToolbarSeparator } from "./common"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import ImageSelector, { type ImageSelectorProps } from "./ImageSelector"
+import { getComparisonImageStyle } from "./imageGeometry"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
 export interface ImageCompareRootProps extends ChakraProps {
-    a: string
-    b: string
+    a?: string
+    b?: string
     children?: ReactNode
     toolbarProps?: ChakraProps
+    imageProps?: CSSProperties
 }
 
 interface BoundMode {
@@ -58,10 +62,11 @@ function bindMode<T>(
 }
 
 function Root(props: ImageCompareRootProps) {
-    const { children, toolbarProps, ...restProps } = props
+    const { children, imageProps, toolbarProps, a, b, ...restProps } = props
     const [Provider, state, snap] = ImageCompareContext.useCreate(props)
     const [HooksProvider, hooks] = useCreateImageCompareContext(state, snap)
     const { refs, zoomHandlers, zoomStyle } = hooks
+    const { setImages } = hooks
 
     const contentSize = snap.contentSize
     const contentOffset = snap.contentOffset
@@ -96,6 +101,11 @@ function Root(props: ImageCompareRootProps) {
         )
         .sort((a, b) => (a.props.image === b.props.image ? 0 : a.props.image === "a" ? -1 : 1))
 
+    const topLayer = Children.toArray(children).find(
+        (child): child is ReactElement<TopLayerProps> =>
+            isValidElement(child) && child.type === TopLayer,
+    )
+
     const onLoadA = useCallback(
         (element: HTMLImageElement) => {
             state.imageAWidth = element.naturalWidth
@@ -103,6 +113,10 @@ function Root(props: ImageCompareRootProps) {
         },
         [state],
     )
+
+    useEffect(() => {
+        void setImages(a, b)
+    }, [a, b, setImages])
 
     useEffect(() => {
         const keydown = (e: KeyboardEvent) => {
@@ -150,9 +164,11 @@ function Root(props: ImageCompareRootProps) {
                         minHeight={0}
                         overflow={"hidden"}
                         touchAction={"none"}
+                        margin={"1rem"}
                         // className={"check-bg"}
                         // bgColor={"bg.1"}
                         {...zoomHandlers}
+                        // css={{ "& img": imageProps, "& canvas": imageProps }}
                     >
                         {/* image a base */}
                         <motion.div
@@ -169,10 +185,7 @@ function Root(props: ImageCompareRootProps) {
                                 src={snap.imageASrc}
                                 alt=""
                                 style={{
-                                    position: "absolute",
-                                    inset: 0,
-                                    width: "100%",
-                                    height: "100%",
+                                    ...getComparisonImageStyle(snap, "a"),
                                     pointerEvents: "none",
                                 }}
                                 onLoad={(event) => onLoadA(event.currentTarget)}
@@ -181,6 +194,8 @@ function Root(props: ImageCompareRootProps) {
 
                         {modes.map((mode) => mode.view)}
                     </Box>
+
+                    {topLayer}
 
                     {/* toolbar */}
                     <HStack
@@ -273,6 +288,20 @@ function Root(props: ImageCompareRootProps) {
                 </GridRoot>
             </Provider>
         </HooksProvider>
+    )
+}
+
+interface TopLayerProps extends PropsWithChildren {
+    show: boolean
+}
+
+export function TopLayer(props: TopLayerProps) {
+    const { show, children } = props
+
+    return (
+        <Flex display={show ? "flex" : "none"} gridArea={"image"} zIndex={1}>
+            {children}
+        </Flex>
     )
 }
 

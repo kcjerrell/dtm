@@ -81,6 +81,7 @@ export type ImageCompareHooksContextType = {
     }
     zoomHandlers: ReturnType<typeof useZoomable>["handlers"]
     zoomStyle: ReturnType<typeof useZoomable>["style"]
+    setImages: (imgAUrl?: string, imgBUrl?: string) => Promise<void>
 }
 
 const ImageCompareHooksContext = createContext<ImageCompareHooksContextType | undefined>(undefined)
@@ -156,6 +157,42 @@ export function useCreateImageCompareContext(
         ([slider, trailing]) => trailMask(slider, trailing, "left"),
     )
 
+    const setImages = useCallback(
+        async (imageA?: string, imageB?: string) => {
+            const changedA = state.imageASrc !== imageA
+            const changedB = state.imageBSrc !== imageB
+            if (!changedA && !changedB) return
+
+            state.imageASrc = imageA
+            state.imageBSrc = imageB
+            // Dimensions are populated by the rendered images' load handlers.
+            if (changedA) {
+                state.imageAWidth = 0
+                state.imageAHeight = 0
+            }
+            if (changedB) {
+                state.imageBWidth = 0
+                state.imageBHeight = 0
+            }
+            state.imageBOffset = { x: 0, y: 0 }
+            state.imageBScale = 1
+
+            // Comparison pixels and alignment belong to the previous pair.
+            state.canvasContents = "none"
+            for (const canvas of [
+                offscreenCanvasRef.current,
+                normalCanvasRef.current,
+                invertedCanvasRef.current,
+            ]) {
+                if (canvas) {
+                    canvas.width = 0
+                    canvas.height = 0
+                }
+            }
+        },
+        [state],
+    )
+
     const cv = useMemo(
         () => ({
             refs: {
@@ -179,6 +216,7 @@ export function useCreateImageCompareContext(
             },
             zoomHandlers,
             zoomStyle,
+            setImages,
         }),
         [
             sliderMv,
@@ -189,6 +227,7 @@ export function useCreateImageCompareContext(
             invertedCanvasMaskMv,
             zoomHandlers,
             zoomStyle,
+            setImages,
         ],
     ) as ImageCompareHooksContextType
 

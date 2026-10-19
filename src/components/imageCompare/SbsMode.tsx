@@ -1,11 +1,11 @@
-import { Box, HStack, Kbd } from "@chakra-ui/react"
+import { Box } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { useMemo } from "react"
 import { LuStretchHorizontal, LuStretchVertical } from "react-icons/lu"
 import { RiLayoutColumnFill } from "react-icons/ri"
 import type { Snapshot } from "valtio"
-import { PanelSectionHeader } from "@/components/common"
 import IconButton from "../IconButton"
+import { ToolbarSection } from "./common"
 import {
     type ImageCompareHooksContextType,
     type ImageCompareMode,
@@ -15,8 +15,8 @@ import {
     type UseModeResult,
     useImageCompareHooks,
 } from "./hooks"
+import { getComparisonImageStyle } from "./imageGeometry"
 import { ImageCompareContext, type ImageCompareState } from "./state"
-import { ToolbarSection } from "./common"
 
 function useMode(
     state: ImageCompareState,
@@ -70,7 +70,7 @@ function View(props: ModeViewProps<never>) {
                 overflow="hidden"
                 bgColor="bg.1"
             >
-                <motion.div style={containerStyle}>
+                <motion.div style={{ ...containerStyle, overflow: "hidden" }}>
                     <motion.img
                         id="img-b-sbs"
                         crossOrigin="anonymous"
@@ -78,10 +78,7 @@ function View(props: ModeViewProps<never>) {
                         src={snap.imageBSrc}
                         alt=""
                         style={{
-                            position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
+                            ...getComparisonImageStyle(snap, "b"),
                             pointerEvents: "none",
                         }}
                         onLoad={(event) => {

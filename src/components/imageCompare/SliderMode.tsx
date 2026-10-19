@@ -1,7 +1,8 @@
-import { Box, HoverCard, Popover, Portal, VStack } from "@chakra-ui/react"
+import { Box, HStack, Popover, Portal, VStack } from "@chakra-ui/react"
+import { usePopoverContext } from "@chakra-ui/react/popover"
 import { useDebounceFn } from "ahooks"
 import { motion, useTransform } from "motion/react"
-import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type ComponentProps, useCallback, useEffect, useMemo, useState } from "react"
 import { ImBrightnessContrast } from "react-icons/im"
 import { IoInvertMode } from "react-icons/io5"
 import { MdOutlineColorLens } from "react-icons/md"
@@ -9,11 +10,12 @@ import { TbAdjustmentsHorizontal } from "react-icons/tb"
 import { TfiSplitH } from "react-icons/tfi"
 import type { Snapshot } from "valtio"
 import { subscribeKey } from "valtio/utils"
-import { PanelSectionHeader } from "@/components/common"
+import { Panel, PanelSectionHeader } from "@/components/common"
 import { Slider } from "@/components/ui/slider"
+import { useRootElementRef } from "@/hooks/useRootElement"
+import { useTimeout } from "@/hooks/useTimeout"
 import IconButton from "../IconButton"
 import { ToolbarSection } from "./common"
-import { compareBrightness, compareColor, compareDifference } from "./compareImages"
 import {
     type ImageCompareHooksContextType,
     type ImageCompareMode,
@@ -23,11 +25,10 @@ import {
     type UseModeResult,
     useImageCompareHooks,
 } from "./hooks"
+import { getComparisonImageStyle } from "./imageGeometry"
 import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
-import { useRootElementRef } from "@/hooks/useRootElement"
-import { usePopoverContext } from "@chakra-ui/react/popover"
-import { useTimeout } from "@/hooks/useTimeout";
+import { useSliderComparison } from "./useSliderComparison"
 
 interface ViewportCanvasGeometry {
     contentLeft: number
@@ -124,7 +125,7 @@ function useMode(
     const sliderTrail = snap.sliderTrail
     const effectDisplay = snap.sliderEffectDisplay
     const displayedEffect = effectDisplay === "full" ? snap.canvasContents : sliderTrail
-    const sliderButtonTone = snap.shiftHeld ? "info" : "selected"
+    const sliderButtonTone = snap.shiftHeld ? ("info" as const) : ("selected" as const)
 
     useEffect(
         () =>
@@ -204,47 +205,9 @@ function useMode(
         [copyComparisonBuffer, copySettledComparisonBuffer, state],
     )
 
-    const drawComparison = useCallback(
-        (effect: Exclude<SliderEffect, "none">, selectEffect = true) => {
-            if (selectEffect) state.sliderTrail = effect
-            if (!refs.imgARef.current || !refs.imgBRef.current) return
+    const generateComparison = useSliderComparison(state, snap, refs, copyActiveComparisonBuffer)
 
-            const offscreenCanvas =
-                refs.offscreenCanvasRef.current ?? document.createElement("canvas")
-            refs.offscreenCanvasRef.current = offscreenCanvas
-
-            try {
-                if (effect === "brightness") {
-                    compareBrightness(refs.imgARef.current, refs.imgBRef.current, offscreenCanvas, {
-                        gain: state.sliderGain,
-                        threshold: state.sliderThreshold,
-                    })
-                } else if (effect === "color") {
-                    compareColor(refs.imgARef.current, refs.imgBRef.current, offscreenCanvas, {
-                        gain: state.sliderGain,
-                        threshold: state.sliderThreshold,
-                    })
-                } else {
-                    compareDifference(refs.imgARef.current, refs.imgBRef.current, offscreenCanvas, {
-                        gain: state.sliderGain,
-                        threshold: state.sliderThreshold,
-                    })
-                }
-                state.canvasContents = effect
-                copyActiveComparisonBuffer(effect)
-            } catch (error) {
-                console.error(error)
-            }
-        },
-        [copyActiveComparisonBuffer, state, refs],
-    )
-
-    const { run: updateEffectParam } = useDebounceFn(
-        () => {
-            if (state.sliderTrail !== "none") drawComparison(state.sliderTrail, false)
-        },
-        { wait: 500 },
-    )
+    const { run: updateEffectParam } = useDebounceFn(generateComparison, { wait: 500 })
 
     useEffect(() => {
         let animationFrame: number | undefined
@@ -279,15 +242,13 @@ function useMode(
 
     const selectEffect = useCallback(
         (effect: SliderEffect) => {
+            state.sliderTrail = effect
             if (effect === "none") {
-                state.sliderTrail = "none"
                 state.canvasContents = "none"
                 copyActiveComparisonBuffer("none")
-            } else {
-                drawComparison(effect)
             }
         },
-        [copyActiveComparisonBuffer, drawComparison, state],
+        [copyActiveComparisonBuffer, state],
     )
 
     const keyHandlers = useMemo(
@@ -346,10 +307,11 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     inset: 0,
                     zIndex: 1,
                     clipPath: mv.clipMv,
+                    backgroundColor: "var(--chakra-colors-bg-1)",
                     pointerEvents: "none",
                 }}
             >
-                <motion.div style={containerStyle}>
+                <motion.div style={{ ...containerStyle, overflow: "hidden" }}>
                     <motion.img
                         id="img-b-slider"
                         crossOrigin="anonymous"
@@ -358,10 +320,7 @@ function View(props: ModeViewProps<SliderModeProps>) {
                         src={snap.imageBSrc}
                         alt=""
                         style={{
-                            position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
+                            ...getComparisonImageStyle(snap, "b"),
                         }}
                         onLoad={(event) => {
                             state.imageBWidth = event.currentTarget.naturalWidth
@@ -475,16 +434,12 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     }}
                 >
                     <Box
-                        backgroundColor="grays.8"
-                        style={{
-                            width: "1px",
-                            height: "100%",
-                            margin: "auto",
-                            borderLeft: "2px solid black",
-                            borderRight: "2px solid black",
-                            boxSizing: "content-box",
-                            pointerEvents: "none",
-                        }}
+                        backgroundColor={"grays.8"}
+                        width={"2px"}
+                        height="100%"
+                        margin="auto"
+                        boxSizing="content-box"
+                        pointerEvents="none"
                     />
                 </motion.div>
             </Box>
@@ -498,17 +453,17 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
 
     const viewRef = useRootElementRef("view")
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-    // const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const [startTimeout, cancelTimeout] = useTimeout({
-        fn: setIsSettingsOpen,
-        arg: false,
-        delay: 600
+    const [startCloseTimer, cancelCloseTimer] = useTimeout({
+        fn: () => {
+            setIsSettingsOpen(false)
+        },
+        delay: 600,
     })
 
     const onEnter = useCallback(() => {
-        cancelTimeout()
+        cancelCloseTimer()
         setIsSettingsOpen(true)
-    }, [cancelTimeout])
+    }, [cancelCloseTimer])
 
     if (!selfProps) return null
     const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
@@ -542,7 +497,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
 
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
                 <Popover.Trigger asChild>
-                    <SettingsButton onEnter={onEnter} onLeave={startTimeout} />
+                    <SettingsButton onEnter={onEnter} onLeave={startCloseTimer} />
                 </Popover.Trigger>
                 <Portal container={viewRef}>
                     <Popover.Positioner>
@@ -551,7 +506,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                             snap={snap}
                             updateEffectParam={updateEffectParam}
                             onEnter={onEnter}
-                            onLeave={startTimeout}
+                            onLeave={startCloseTimer}
                         />
                     </Popover.Positioner>
                 </Portal>
@@ -595,43 +550,68 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
 
     return (
         <Popover.Content
-            bgColor={"bg.1"}
-            borderRadius={"lg"}
-            boxShadow={"pane1"}
-            width={"max-content"}
-            padding={2}
-            onMouseEnter={() => onEnter(context)}
-            onMouseLeave={() => onLeave(context)}
+            // borderRadius={"lg"}
+            // boxShadow={"pane1"}
+            // padding={4}
+            asChild
         >
-            <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
-            <VStack gap={0}>
-                <PanelSectionHeader>Threshold</PanelSectionHeader>
-                <Slider
-                    minWidth="12rem"
-                    min={0}
-                    max={0.2}
-                    step={0.01}
-                    value={[snap.sliderThreshold]}
-                    onValueChange={(value) => {
-                        state.sliderThreshold = value.value[0]
-                        updateEffectParam()
-                    }}
-                    mx={1}
-                />{" "}
-                <PanelSectionHeader> Gain</PanelSectionHeader>
-                <Slider
-                    minWidth="10rem"
-                    min={1}
-                    max={20}
-                    step={1}
-                    value={[snap.sliderGain]}
-                    onValueChange={(value) => {
-                        state.sliderGain = value.value[0]
-                        updateEffectParam()
-                    }}
-                    mx={1}
-                />
-            </VStack>
+            <Panel
+                variant={"float"}
+                bgColor={"bg.1"}
+                width={"15rem"}
+                onMouseEnter={() => onEnter(context)}
+                onMouseLeave={() => onLeave(context)}
+                padding={3}
+            >
+                <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
+                <VStack gap={1}>
+                    <HStack
+                        padding={0}
+                        color={"fg.1"}
+                        justifyContent={"space-between"}
+                        width={"full"}
+                    >
+                        <PanelSectionHeader>Threshold</PanelSectionHeader>
+                        <Box>{snap.sliderThreshold}</Box>
+                    </HStack>
+                    <Slider
+                        // minWidth="12rem"
+                        width={"full"}
+                        min={0}
+                        max={0.2}
+                        step={0.01}
+                        value={[snap.sliderThreshold]}
+                        onValueChange={(value) => {
+                            state.sliderThreshold = value.value[0]
+                            updateEffectParam()
+                        }}
+                        mx={1}
+                        marginBottom={"2"}
+                    />{" "}
+                    <HStack
+                        padding={1}
+                        color={"fg.1"}
+                        justifyContent={"space-between"}
+                        width={"full"}
+                    >
+                        <PanelSectionHeader>Gain</PanelSectionHeader>
+                        <Box>{snap.sliderGain}</Box>
+                    </HStack>
+                    <Slider
+                        width={"full"}
+                        // minWidth="12rem"
+                        min={1}
+                        max={20}
+                        step={1}
+                        value={[snap.sliderGain]}
+                        onValueChange={(value) => {
+                            state.sliderGain = value.value[0]
+                            updateEffectParam()
+                        }}
+                        mx={1}
+                    />
+                </VStack>
+            </Panel>
         </Popover.Content>
     )
 }

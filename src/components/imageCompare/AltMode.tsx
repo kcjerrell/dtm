@@ -14,6 +14,7 @@ import type {
     ModeViewProps,
     UseModeResult,
 } from "./hooks"
+import { getComparisonImageStyle } from "./imageGeometry"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
 const ALT_ANIM_STYLE = {
@@ -61,9 +62,13 @@ function View(props: ModeViewProps<never>) {
             style={{
                 display: snap.mode === "alt" ? "block" : "none",
                 ...containerStyle,
+                ...ALT_ANIM_STYLE,
+                backgroundColor: "var(--chakra-colors-bg-1)",
+                overflow: "hidden",
                 zIndex: 1,
                 pointerEvents: "none",
             }}
+            className="blink-anim"
             {...restProps}
         >
             <motion.img
@@ -73,13 +78,8 @@ function View(props: ModeViewProps<never>) {
                 src={snap.imageBSrc}
                 alt="b"
                 style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: "100%",
-                    height: "100%",
-                    ...ALT_ANIM_STYLE,
+                    ...getComparisonImageStyle(snap, "b"),
                 }}
-                className="blink-anim"
             />
         </motion.div>
     )

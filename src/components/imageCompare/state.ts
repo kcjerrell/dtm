@@ -1,5 +1,5 @@
 import { buildStateContext } from "@/hooks/buildStateContext"
-import type { ImageCompareProps } from "."
+import type { ImageCompareRootProps } from "./Root"
 import type { SliderEffectDisplay } from "./sliderEffectDisplay"
 
 export type SliderEffect = "brightness" | "color" | "difference" | "none"
@@ -52,12 +52,17 @@ export type ImageCompareState = {
     imageBWidth: number
     imageBHeight: number
 
+    /** B's translation from its default centered position, in image A pixels. */
+    imageBOffset: { x: number; y: number }
+    /** Uniform multiplier relative to B's default fitted size. */
+    imageBScale: number
+
     contentSize: { width: number; height: number }
     contentOffset: { left: number; top: number }
 }
 
-export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCompareProps>(
-    (props?: ImageCompareProps) => ({
+export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCompareRootProps>(
+    (props?: ImageCompareRootProps) => ({
         imageASrc: props?.a,
         imageBSrc: props?.b,
         smoothing: true,
@@ -80,6 +85,8 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         imageAHeight: 0,
         imageBWidth: 0,
         imageBHeight: 0,
+        imageBOffset: { x: 0, y: 0 },
+        imageBScale: 1,
         get contentSize() {
             const contentWidth = Math.max(this.imageAWidth, this.imageBWidth)
             const contentHeight = Math.max(this.imageAHeight, this.imageBHeight)

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useRef } from "react"
 
-type UseTimeoutOptions<T = undefined> = {
-    fn: (arg?: T) => void | Promise<void>
-    arg?: T
+type UseTimeoutOptions = {
+    fn: () => void | Promise<void>
     delay?: number
     /**
      * Sets what should happen when calling start while the timout is already active.
@@ -11,32 +10,37 @@ type UseTimeoutOptions<T = undefined> = {
      */
     behavior?: "reset" | "ignore"
 }
-export function useTimeout<T = unknown>(opts: UseTimeoutOptions<T>) {
-    const { fn, delay = 100, behavior = "reset", arg } = opts
+export function useTimeout(opts: UseTimeoutOptions) {
+    const { fn, delay = 100, behavior = "reset" } = opts
 
-    const ref = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const fnRef = useRef<() => Promise<void> | void>(fn)
 
     const start = useCallback(() => {
-        if (ref.current && behavior === "ignore") return
-        if (ref.current) {
-            clearTimeout(ref.current)
+        if (timeoutRef.current && behavior === "ignore") return
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
         }
-        ref.current = setTimeout(async () => {
-            ref.current = null
-            await fn(arg)
+        timeoutRef.current = setTimeout(async () => {
+            timeoutRef.current = null
+            await fnRef.current()
         }, delay)
-    }, [behavior, delay, fn, arg])
+    }, [behavior, delay])
 
     const cancel = useCallback(() => {
-        if (ref.current) {
-            clearTimeout(ref.current)
-            ref.current = null
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
         }
     }, [])
+
+    useEffect(() => {
+        fnRef.current = fn
+    }, [fn])
 
     useEffect(() => {
         return () => cancel()
     }, [cancel])
 
-    return [start, cancel]
+    return [start, cancel] as const
 }

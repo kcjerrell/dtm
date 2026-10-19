@@ -1,11 +1,22 @@
-export interface CompareBrightnessOptions {
+import { getComparisonGeometry } from "./imageGeometry"
+
+export interface CompareImageOptions {
+    /** Translation from B's centered fit, in native image A pixels. */
+    imageBOffset?: { x: number; y: number }
+    /** Uniform scale around B's center, relative to its proportional fit. Defaults to 1. */
+    imageBScale?: number
+    /** Smooth resampling of the inputs. Defaults to false. */
+    smoothing?: boolean
+}
+
+export interface CompareBrightnessOptions extends CompareImageOptions {
     /** Multiplies the perceptual difference remaining after `threshold`. */
     gain?: number
     /** Suppresses absolute OKLab lightness differences at or below this value. */
     threshold?: number
 }
 
-export interface CompareColorOptions {
+export interface CompareColorOptions extends CompareImageOptions {
     /** Multiplies the perceptual difference remaining after `threshold`. */
     gain?: number
     /** Suppresses OKLab chroma-vector magnitudes at or below this value. */
@@ -14,7 +25,7 @@ export interface CompareColorOptions {
     saturation?: number
 }
 
-export interface CompareDifferenceOptions {
+export interface CompareDifferenceOptions extends CompareImageOptions {
     /** Multiplies the perceptual difference remaining after `threshold`. */
     gain?: number
     /** Suppresses OKLab distances at or below this value. */
@@ -65,7 +76,7 @@ export function compareBrightness(
         imageA: pixelsA,
         imageB: pixelsB,
         output,
-    } = prepareComparison(imageA, imageB, canvas)
+    } = prepareComparison(imageA, imageB, canvas, opts)
     const gain = nonnegativeOption(opts.gain, DEFAULT_BRIGHTNESS_GAIN)
     const threshold = nonnegativeOption(opts.threshold, DEFAULT_BRIGHTNESS_THRESHOLD)
     const lab = new Float64Array(8)
@@ -109,7 +120,7 @@ export function compareColor(
         imageA: pixelsA,
         imageB: pixelsB,
         output,
-    } = prepareComparison(imageA, imageB, canvas)
+    } = prepareComparison(imageA, imageB, canvas, opts)
     const gain = nonnegativeOption(opts.gain, DEFAULT_COLOR_GAIN)
     const threshold = nonnegativeOption(opts.threshold, DEFAULT_COLOR_THRESHOLD)
     const saturation = nonnegativeOption(opts.saturation, DEFAULT_COLOR_SATURATION)
@@ -169,7 +180,7 @@ export function compareDifference(
         imageA: pixelsA,
         imageB: pixelsB,
         output,
-    } = prepareComparison(imageA, imageB, canvas)
+    } = prepareComparison(imageA, imageB, canvas, opts)
     const gain = nonnegativeOption(opts.gain, DEFAULT_DIFFERENCE_GAIN)
     const threshold = nonnegativeOption(opts.threshold, DEFAULT_DIFFERENCE_THRESHOLD)
     const color = parseCssColor(context, opts.color ?? DEFAULT_DIFFERENCE_COLOR)
@@ -197,25 +208,32 @@ export function compareDifference(
 }
 
 /**
- * Uses the union of both native image bounds. Images are top-left aligned and are not resampled;
- * pixels outside the smaller image are transparent. This preserves pixel-level correspondence
- * and exposes size differences instead of hiding them through stretching or cropping.
+ * Proportionally fits both images into a centered surface at the maximum native dimensions.
+ * B is then scaled and translated; content outside the fixed surface is clipped. Clearing
+ * before each draw gives both equal-sized input buffers transparent, zero-filled padding.
  */
 function prepareComparison(
     imageA: HTMLImageElement,
     imageB: HTMLImageElement,
     canvas: HTMLCanvasElement,
+    opts: CompareImageOptions,
 ): ComparisonBuffers {
     const widthA = imageDimension(imageA.naturalWidth, imageA.width)
     const heightA = imageDimension(imageA.naturalHeight, imageA.height)
     const widthB = imageDimension(imageB.naturalWidth, imageB.width)
     const heightB = imageDimension(imageB.naturalHeight, imageB.height)
-    const width = Math.max(widthA, widthB)
-    const height = Math.max(heightA, heightB)
-
-    if (width === 0 || height === 0) {
+    if (!widthA || !heightA || !widthB || !heightB) {
         throw new Error("Cannot compare images with empty dimensions")
     }
+
+    const { width, height, a, b } = getComparisonGeometry({
+        imageAWidth: widthA,
+        imageAHeight: heightA,
+        imageBWidth: widthB,
+        imageBHeight: heightB,
+        imageBOffset: opts.imageBOffset,
+        imageBScale: opts.imageBScale,
+    })
 
     // Assigning both dimensions also resets transforms, compositing, and other caller state.
     canvas.width = width
@@ -226,14 +244,14 @@ function prepareComparison(
         throw new Error("Could not get a 2D rendering context for image comparison")
     }
 
-    context.imageSmoothingEnabled = false
+    context.imageSmoothingEnabled = opts.smoothing ?? false
 
     context.clearRect(0, 0, width, height)
-    context.drawImage(imageA, 0, 0, widthA, heightA)
+    context.drawImage(imageA, a.x, a.y, a.width, a.height)
     const pixelsA = context.getImageData(0, 0, width, height).data
 
     context.clearRect(0, 0, width, height)
-    context.drawImage(imageB, 0, 0, widthB, heightB)
+    context.drawImage(imageB, b.x, b.y, b.width, b.height)
     const pixelsB = context.getImageData(0, 0, width, height).data
 
     return {

@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from "react"
+import { useImageCompareHooks } from "./hooks"
 import { ImageCompareContext } from "./state"
 
 export interface ImageSelectorProps {
@@ -22,12 +23,13 @@ export function useImageSelector(): ImageSelectorContextValue {
 function ImageSelector(props: ImageSelectorProps) {
     const { image, children } = props
     const state = ImageCompareContext.useContextState()
+    const { setImages } = useImageCompareHooks()
     const setImage = useCallback(
         (url: string) => {
-            if (image === "a") state.imageASrc = url
-            else state.imageBSrc = url
+            if (image === "a") void setImages(url, state.imageBSrc)
+            else void setImages(state.imageASrc, url)
         },
-        [image, state],
+        [image, setImages, state],
     )
     const value = useMemo(() => ({ image, setImage }), [image, setImage])
 

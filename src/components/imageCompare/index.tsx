@@ -1,6 +1,6 @@
 import ImageSelector from "./ImageSelector"
-import Root from "./Root"
+import Root, { TopLayer } from "./Root"
 
-const ImageCompare = { Root, ImageSelector }
+const ImageCompare = { Root, ImageSelector, TopLayer }
 
 export default ImageCompare
