@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Waves 0–2 and S14/S15 integrated; S20 implemented and validated locally
+Status: Backend through S20 committed; S30 implemented and validated locally
 
 Target branch: `origin/scripts`
 
@@ -460,6 +460,19 @@ S30, S31, and S32 can run in parallel after the relevant lower-level tasks are m
 ### S30 — Project/editor controller
 
 Objective: connect project persistence to Monaco with autosave and recoverable state.
+
+Local status (2026-10-21): implemented in `src/script/project/` in the existing checkout after S20 commit `5c2a3ff`. S30 changes remain uncommitted. Navigation and workspace mounting remain S41 work; no application entry or global command registration was added.
+
+Integration API:
+
+- Construct `ScriptProjectController` with injected `ProjectCommands`, model/editor bindings, local session storage, and an optional autosave delay (300 ms by default). Its Valtio `state` holds project manifests, current-project identity, loading/operation errors, and per-document revision/dirty/saving/saved/save-error metadata. Render with a snapshot; source, models, timers, write queues, and navigation generations stay outside render state.
+- `createProjectEditorBindings` composes the existing S12 `ScriptModelRegistry` and `ScriptEditorSession`, retaining per-project models and undo stacks. The host owns the registry and editor. `createProjectCommands(invoke)` supplies the existing list/create/open/rename calls and uses S20's `save_trusted_script_project` for revision-acknowledged saves that preserve existing trust without granting it.
+- Await `initialize()` to list projects and restore a known last project. `open`, `create`, and `rename` implement project operations; a newer navigation wins over a late load or restore. Initialization merges projects created while listing was pending. Open models retain unsaved work rather than being overwritten on another open.
+- Model revision events debounce autosaves. Each write captures source and revision together; writes for a project are serialized, rapid edits coalesce, and stale acknowledgements cannot mark newer source saved. A mismatched acknowledgement fails closed. Failed writes remain dirty with an error and can be retried with `flush()`; switching flushes the current model and stays on it if that save fails.
+- `createLocalProjectSessionStorage(storage)` keeps versioned last-project/view metadata only, caps metadata size and retained views, and ignores malformed/versionless data. Scroll/cursor events persist view state after a short debounce; switching and disposal capture it immediately. Session storage failures are reported separately and never prevent source saves. Restoration has no execution adapter and never auto-runs a project.
+- Await `dispose()` before editor/registry teardown. It flushes all dirty documents, persists the current view, and releases controller-owned subscriptions/models. If a save fails, disposal rejects and leaves the models available for retry; the host must retain the workspace rather than discarding that pending work. Unexpected process termination during a pending/failed save is not a durability guarantee.
+
+Validation (2026-10-21): all 17 new project/controller/session tests and the full 46-test frontend script union pass, including the unchanged Monaco worker/model tests that previously timed out. Scoped strict TypeScript (including tests), Biome, frontend production build, and diff integrity checks pass. The repository-wide TypeScript check still reports 19 errors outside `src/script/project/` (ImageCompare, archive dialog, metadata state, scratch files, and the existing contract fixture typing). Real application IPC, packaged UI restoration, and WDIO workspace integration remain later integration checks.
 
 Scope:
 
