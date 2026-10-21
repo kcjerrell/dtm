@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Waves 0–2 and S14/S15 integrated; prerequisite repairs validated locally; ready for S20
+Status: Waves 0–2 and S14/S15 integrated; S20 implemented and validated locally
 
 Target branch: `origin/scripts`
 
@@ -411,6 +411,20 @@ Required tests:
 ### S20 — Script service, trust gate, and event lifecycle
 
 Objective: compose storage, runner, input, and output leaves into a stateful service without global Tauri wiring.
+
+Local status (2026-10-20): `ImageScriptService` and the script command surface are implemented and validated in the existing checkout. Global application registration remains S40 work.
+
+Integration API and ownership:
+
+- Construct one global `ImageScriptService` with injected `ProjectStore`, executor, input approvals/resources, limits, and a prompt, nonblocking event sink. It works without `DTPService`. `output_registry()` supplies the registry for the later protocol routing.
+- `trust_project` acknowledges the UI's explicit trusted-script warning. Approval is session-local, never exported, and keyed to the saved project's source hash. Run admission reopens the project and revokes approval on changed contents. Opening a project never approves or runs it. Route editor saves through `save_project` / `save_trusted_script_project` to preserve approval across service-owned saves; using the original storage-only save command fails closed on the next run after a source change. S40 must choose the service save route.
+- `run` takes an owned request, recomputes its source hash, assigns an opaque backend run ID, and freezes source, map, values, revisions, and materialized inputs. Source/maps/value snapshots and admission are bounded (at most eight submissions). Syntax/analyzer blocking remains the frontend analyzer/controller's responsibility; this service consumes the prepared analysis snapshot rather than adding a second analyzer.
+- A serialized handoff prepares and transfers inputs and captures the output anchor before requesting cancellation of the prior run. It then awaits that executor's single terminal outcome and cleanup before executing the replacement. Caller disconnection cannot detach that join. `cancel` stops pending preparation and the active process; the first cancellation reason wins. A cancelled run's late success cannot publish an output.
+- Typed queued/started/log/diagnostic/terminal events retain immutable request revisions. Live logs are forwarded once. Failure phases remain distinct; `last_failure()` retains one bounded raw failure and its immutable source/map for later location mapping. Raw instrumented positions are not presented as editor positions.
+- Output validation and cleanup run on blocking workers. `last_success()` preserves the latest successful identity and preview metadata across subsequent failures. Finalization begins atomically after process termination: earlier cancellation wins; later Stop requests cannot revoke a preview being validated/published. The next process still waits for finalization.
+- Await `shutdown()` before application temp cleanup. It closes admission, cancels pending work/execution, joins the worker, clears retained registry lookups, and removes the private session workspace. Already-acquired response leases remain usable because their retained files live outside the session workspace. Normal run cleanup happens after each outcome; cleanup failures emit a warning and remaining session files are retried at shutdown. Explicit shutdown is required before dropping the application service.
+
+Validation (2026-10-20): all 72 Rust script-library tests pass, including twelve new service tests; `cargo check --locked`, Rust formatting, and diff integrity checks pass. Service regressions use controlled fake gates without synchronization sleeps; a real pinned-Bun round trip covers approved local input, event ordering, opaque preview bytes, original-file preservation, and cleanup. The final frontend script run passed 28/29 tests with one unchanged `monacoApi.browser.test.ts` model-lifecycle test hitting its existing five-second timeout, including in serial reruns. Earlier runs also timed out in the TypeScript-worker viability test, which passed in the final run. No frontend files or timeout limits were changed. Packaged UI/protocol behavior and WDIO feature integration were not tested; application wiring remains a later integration gate.
 
 Scope:
 
