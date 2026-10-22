@@ -77,10 +77,7 @@ class ProjectsController extends DTPStateController<ProjectsControllerState> {
     constructor() {
         super("projects")
 
-        this.container.on("project_added", (project) => {
-            // this.state.projects.push(this.createProjectState(project))
-            // this.sortProjects()
-            // this.state.projectsCount++
+        this.container.on("project_added", (_project) => {
             this.loadProjectsDebounced()
         })
 

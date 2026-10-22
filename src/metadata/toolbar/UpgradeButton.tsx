@@ -8,22 +8,13 @@ import { type ColorMode, useColorMode } from "@/components/ui/color-mode"
 import AppStore from "@/hooks/appState"
 import Spinner from "./Spinner"
 
-const statusTips = {
-    found: "Download update",
-    installed: "Click to finish update",
-    error: "Click to retry update",
-    downloading: "Downloading update",
-    installing: "Installing update",
-} as const
-
 const UpgradeButton = (props: Omit<ComponentProps<typeof SidebarButton>, "item">) => {
     const appSnap = useSnapshot(AppStore.store)
     const [message, setMessage] = useState<string | null>(null)
-    // const [prevStatus, setPrevStatus] = useState(appSnap.updateStatus)
 
     const showMessage = useCallback((message: string, timeout: number = 4000) => {
         setMessage(message)
-        setTimeout(() => setMessage(null), 4000)
+        setTimeout(() => setMessage(null), timeout)
     }, [])
 
     useEffect(() => {

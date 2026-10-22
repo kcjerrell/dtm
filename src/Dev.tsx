@@ -61,10 +61,7 @@ function Dev(props: DevComponentProps) {
                             objectSortKeys={true}
                             // collapsed={4}
                             displayDataTypes={false}
-                            shouldExpandNodeInitially={(
-                                isExpanded,
-                                { keys, level, keyName, value, parentValue },
-                            ) => {
+                            shouldExpandNodeInitially={(_isExpanded, { value }) => {
                                 if (Array.isArray(value)) return false
                                 return true
                             }}

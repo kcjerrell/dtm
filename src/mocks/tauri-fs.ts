@@ -17,13 +17,13 @@ export const readDir = async (path: string) => {
     return []
 }
 
-export const watch = async (path: string, cb: (event: any) => void, options?: any) => {
+export const watch = async (path: string, _cb: (event: any) => void, options?: any) => {
     console.log(`[Mock] watch: ${path}`, options)
     return () => {
         console.log(`[Mock] unwatch: ${path}`)
     }
 }
 
-export const writeTextFile = async (path: string, contents: string) => {
+export const writeTextFile = async (path: string, _contents: string) => {
     console.log(`[Mock] writeTextFile: ${path}`)
 }

@@ -181,7 +181,7 @@ export function makeSelectable<T extends object>(
         modifier?: "shift" | "cmd" | "context" | null,
     ) => void,
 ): Selectable<T> {
-    const onClick = handleClick ?? ((item: Selectable<T>, value: boolean) => item.toggleSelected())
+    const onClick = handleClick ?? ((item: Selectable<T>, _value: boolean) => item.toggleSelected())
 
     const p = proxy({
         ...item,

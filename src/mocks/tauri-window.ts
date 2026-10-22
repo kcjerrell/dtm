@@ -1,5 +1,5 @@
 export const getCurrentWindow = () => ({
-    onCloseRequested: async (cb: (event: any) => void) => {
+    onCloseRequested: async (_cb: (event: any) => void) => {
         console.log("[Mock] onCloseRequested")
         return () => {}
     },
