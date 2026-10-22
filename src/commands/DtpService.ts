@@ -95,10 +95,7 @@ async function getTensorSize(projectId: number, tensorId: string): Promise<Tenso
     return await invoke("dtp_get_tensor_size", { projectId, tensorId })
 }
 
-async function findPredecessor(
-    projectId: number,
-    rowId: number
-): Promise<TensorHistoryNode[]> {
+async function findPredecessor(projectId: number, rowId: number): Promise<TensorHistoryNode[]> {
     const result = await invoke<TensorHistoryNodeResponse[]>("dtp_find_predecessor", {
         projectId,
         rowId,

@@ -9,7 +9,7 @@ export const ToolbarSection = chakra(
             paddingX: 0,
             paddingY: 0,
             gap: 1,
-            overflow: "visible"
+            overflow: "visible",
         },
     },
     {

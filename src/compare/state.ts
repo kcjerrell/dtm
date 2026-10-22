@@ -1,10 +1,5 @@
-import MediaStore from "@/state/mediaStore";
+import MediaStore from "@/state/mediaStore"
 
 function initStore() {
-    const collection = MediaStore.defineCollection("icompare",
-        { pin: null as number | null },
-        {
-            
-        }
-    )
+    const collection = MediaStore.defineCollection("icompare", { pin: null as number | null }, {})
 }

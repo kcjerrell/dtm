@@ -25,11 +25,7 @@ function TensorThumbnail(props: ThumbnailProps) {
     }
 
     if (tensorId?.startsWith("audio")) {
-        return (
-            <ThumbnailBase {...restProps}>
-                🎵
-            </ThumbnailBase>
-        )
+        return <ThumbnailBase {...restProps}>🎵</ThumbnailBase>
     }
 
     const src = urls.tensor(projectId, tensorId, { size })

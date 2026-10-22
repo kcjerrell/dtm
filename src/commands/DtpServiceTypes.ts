@@ -316,7 +316,6 @@ export interface XTensorHistoryNode {
     audio: boolean
 }
 
-
 export interface TensorHistoryExtra {
     row_id: number
     lineage: number
@@ -371,4 +370,3 @@ export interface ArchivePlan {
     unused_nodes: number[]
     unused_tensormoodboarddata: number[]
 }
-

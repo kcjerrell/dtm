@@ -496,7 +496,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
             </IconButton>
 
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
-                <Popover.Trigger _expanded={{background: undefined}} asChild>
+                <Popover.Trigger _expanded={{ background: undefined }} asChild>
                     <SettingsButton
                         active={isSettingsOpen}
                         onEnter={onEnter}

@@ -8,7 +8,11 @@ import { PanelButton, PanelSectionHeader } from "@/components/common"
 import { useZoomable } from "@/components/preview/useZoomable"
 import { Slider } from "@/components/ui/slider"
 import { useProxyRef } from "@/hooks/valtioHooks"
-import { compareBrightness, compareColor, compareDifference } from "../components/imageCompare/CompareImages"
+import {
+    compareBrightness,
+    compareColor,
+    compareDifference,
+} from "../components/imageCompare/CompareImages"
 
 const TRAIL_SPRING = {
     stiffness: 20,

@@ -3,7 +3,7 @@ import type { Snapshot } from "valtio"
 import type { DTImageFull } from "@/commands"
 import { useDTP } from "../state/context"
 import { DTImageContext } from "./DTImageContext"
-import { TensorHistoryNode } from "@/commands/DTProjectTypes"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 type DTImageProviderProps = PropsWithChildren<{
     image?: Snapshot<TensorHistoryNode>

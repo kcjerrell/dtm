@@ -22,8 +22,8 @@ function CurrentItem(props: CurrentItemProps) {
     return (
         <Box
             role={"tabpanel"}
-            id={`image-${(currentItem?.id ?? "no-item")}`}
-            aria-labelledby={`image-item-${(currentItem?.id ?? "no-item")}`}
+            id={`image-${currentItem?.id ?? "no-item"}`}
+            aria-labelledby={`image-item-${currentItem?.id ?? "no-item"}`}
             position={"relative"}
             flex={"1 1 auto"}
             display="flex"

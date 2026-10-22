@@ -78,7 +78,11 @@ export class UIController extends DTPStateController<UIControllerState> {
         super("uiState")
 
         this.container.on("sync_failed", (error) => {
-            toaster.create({ type: "error", title: "Project synchronization failed", description: error })
+            toaster.create({
+                type: "error",
+                title: "Project synchronization failed",
+                description: error,
+            })
         })
         this.container.on("import_started", () => this.startImport())
         this.container.on("import_progress", (progress) => this.updateImport(progress))

@@ -5,7 +5,6 @@ import { type UseProxyRefOpts, useProxyRef, useProxyRefState } from "./valtioHoo
 type ContextInitializer<C extends object, P = unknown> = (props?: P) => C
 
 type BuildContextOptions<C extends object> = {
-
     nullDefault?: boolean
 }
 

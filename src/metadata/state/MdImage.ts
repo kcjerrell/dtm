@@ -1,4 +1,4 @@
-import type { MediaState } from "@/state/mediaStore/types";
+import type { MediaState } from "@/state/mediaStore/types"
 import type { DrawThingsMetaData } from "@/types"
 import { getDrawThingsDataFromExif } from "../helpers"
 import { type ExifType, getExif } from "./imageMetadata"

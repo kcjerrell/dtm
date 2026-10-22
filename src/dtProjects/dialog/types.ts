@@ -1,63 +1,62 @@
-import type { ImageExtra } from "@/commands";
-import type { TensorHistoryNode } from "@/commands/DTProjectTypes";
+import type { ImageExtra } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 export type VideoExportDialogState = {
-  dialogType: "clip-export-video";
-  props: {
-    image: ImageExtra;
-    historyNode: TensorHistoryNode;
-  };
-};
-
-export type FrameExportDialogState = {
-  dialogType: "clip-export-frames";
-  props: {
-    image: ImageExtra;
-    historyNode: TensorHistoryNode;
-  };
-};
-
-export type ProjectExportDialogState = {
-  dialogType: "project-export";
-  props: {
-    projectIds: number[];
-  };
-};
-
-export type DtArchiveDialogState = {
-  dialogType: "dt-archive";
-  props: {
-    projectIds: number[];
-  };
-};
-
-export type SettingsDialogState = {
-  dialogType: "settings";
-  props: Record<string, unknown>;
-};
-
-export type ExplorerDialogState = {
-  dialogType: "explorer";
-  props: Record<string, unknown>;
-};
-
-type UnknownDialogState = {
-  dialogType: "unknown";
-  props: Record<string, unknown>;
-};
-
-export interface DialogPropsBase extends ChakraProps {
-  onClose: () => void;
+    dialogType: "clip-export-video"
+    props: {
+        image: ImageExtra
+        historyNode: TensorHistoryNode
+    }
 }
 
-export type DialogProps<T extends DialogState = UnknownDialogState> =
-  DialogPropsBase & T["props"];
+export type FrameExportDialogState = {
+    dialogType: "clip-export-frames"
+    props: {
+        image: ImageExtra
+        historyNode: TensorHistoryNode
+    }
+}
+
+export type ProjectExportDialogState = {
+    dialogType: "project-export"
+    props: {
+        projectIds: number[]
+    }
+}
+
+export type DtArchiveDialogState = {
+    dialogType: "dt-archive"
+    props: {
+        projectIds: number[]
+    }
+}
+
+export type SettingsDialogState = {
+    dialogType: "settings"
+    props: Record<string, unknown>
+}
+
+export type ExplorerDialogState = {
+    dialogType: "explorer"
+    props: Record<string, unknown>
+}
+
+type UnknownDialogState = {
+    dialogType: "unknown"
+    props: Record<string, unknown>
+}
+
+export interface DialogPropsBase extends ChakraProps {
+    onClose: () => void
+}
+
+export type DialogProps<T extends DialogState = UnknownDialogState> = DialogPropsBase & T["props"]
 
 export type DialogState =
-  | VideoExportDialogState
-  | FrameExportDialogState
-  | ProjectExportDialogState
-  | DtArchiveDialogState
-  | SettingsDialogState
-  | ExplorerDialogState
-  | UnknownDialogState;
+    | VideoExportDialogState
+    | FrameExportDialogState
+    | ProjectExportDialogState
+    | DtArchiveDialogState
+    | SettingsDialogState
+    | ExplorerDialogState
+    | UnknownDialogState

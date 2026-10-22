@@ -28,14 +28,16 @@ async function bootstrap() {
 
         _global._reactRoot.render(
             // <StrictMode>
-                <ChakraProvider value={system}>
-                    <ColorModeProvider>
-                        <HotkeysProvider initiallyActiveScopes={["app"]}>
-                            <RootComponent />
-                            <Hotkey handlers={{ "meta+r": () => Lifecycle.reload().catch(console.error) }} />
-                        </HotkeysProvider>
-                    </ColorModeProvider>
-                </ChakraProvider>
+            <ChakraProvider value={system}>
+                <ColorModeProvider>
+                    <HotkeysProvider initiallyActiveScopes={["app"]}>
+                        <RootComponent />
+                        <Hotkey
+                            handlers={{ "meta+r": () => Lifecycle.reload().catch(console.error) }}
+                        />
+                    </HotkeysProvider>
+                </ColorModeProvider>
+            </ChakraProvider>,
             // </StrictMode>,
         )
     }

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { DtpService } from "@/commands"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
 import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
-import { OpenPose } from "@/utils/poseHelpers"
+import type { OpenPose } from "@/utils/poseHelpers"
 
 interface PoseImageComponentProps extends ChakraProps {
     projectId?: number

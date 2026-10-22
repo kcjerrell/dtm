@@ -80,7 +80,9 @@ function Empty() {
                 >
                     <Box></Box>
                     {snap.features.map((f) => (
-                        <Box key={f} px={0.5}>{f}</Box>
+                        <Box key={f} px={0.5}>
+                            {f}
+                        </Box>
                     ))}
                     {snap.versions.map((v) => {
                         const versionState = store.versions.find((vv) => vv.version === v.version)

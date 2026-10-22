@@ -109,9 +109,7 @@ describe("Video Export", () => {
         await expect($("body")).toHaveText(expect.stringContaining("Export Video"))
 
         await expect($("[data-testid='ffmpeg-section']")).toBeDisplayed()
-        await expect($("body")).toHaveText(
-            expect.stringContaining("FFmpeg"),
-        )
+        await expect($("body")).toHaveText(expect.stringContaining("FFmpeg"))
         const exportButton = $("aria/Export video")
         await expect(exportButton).toBeDisabled()
         await $("button=Install").click()

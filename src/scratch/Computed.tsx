@@ -44,7 +44,13 @@ function Computed(props) {
     return (
         <Fragment>
             {Array.from({ length: count }).map((_, i) => (
-                <Item key={state.items[i].id} state={state.items[i]} cid={cid} row={i + 1} col={props.col} />
+                <Item
+                    key={state.items[i].id}
+                    state={state.items[i]}
+                    cid={cid}
+                    row={i + 1}
+                    col={props.col}
+                />
             ))}
         </Fragment>
     )

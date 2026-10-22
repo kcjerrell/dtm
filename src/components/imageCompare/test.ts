@@ -1,5 +1,5 @@
-import { proxy } from "valtio";
-import { computed } from "valtio-reactive";
+import { proxy } from "valtio"
+import { computed } from "valtio-reactive"
 
 const state = proxy({ a: 5, b: 2, c: "hello" })
 
@@ -11,7 +11,7 @@ const derived = computed({
     sumSum() {
         console.log("updating sumSum")
         return derived.sum * derived.sum
-    }
+    },
 })
 
 console.log("sum", derived.sum)

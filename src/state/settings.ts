@@ -18,7 +18,7 @@ const defaultSettings = {
     "vidExport.videoSource": "preview",
     "projectExport.outputDir": "",
     "projectExport.source": "preview",
-    "dtArchive.format": { "jpg": 90 } as Format,
+    "dtArchive.format": { jpg: 90 } as Format,
     "dtArchive.folder": null as string | null,
     "ui.imageSize": 200,
     "ui.defaultMute": true,

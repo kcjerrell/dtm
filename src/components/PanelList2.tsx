@@ -50,7 +50,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
 
             el.dataset.top = canScrollTop ? "1" : "0"
             el.dataset.bottom = canScrollBottom ? "1" : "0"
-            
+
             if (el.parentElement) {
                 el.parentElement.dataset.top = canScrollTop ? "1" : "0"
                 el.parentElement.dataset.bottom = canScrollBottom ? "1" : "0"
@@ -122,10 +122,7 @@ function PanelList<T extends Selectable>(props: PanelListComponentProps<T>) {
                         },
                     }}
                 >
-                    <PaneListScrollContainer
-                        ref={scrollContainerRef}
-                        id={"plcontiner"}
-                    >
+                    <PaneListScrollContainer ref={scrollContainerRef} id={"plcontiner"}>
                         <PanelListScrollContent id={"plcontent"}>{children}</PanelListScrollContent>
                     </PaneListScrollContainer>
                 </Box>
