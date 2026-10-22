@@ -2,12 +2,12 @@ import { Spacer } from "@chakra-ui/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { proxy, useSnapshot } from "valtio"
 import { capitalize } from "@/utils/helpers"
+import TabContent from "../../components/TabContent"
+import Tabs from "../../components/tabs"
 import { InfoPaneContainer } from "../Containers"
 import { useMetadataStore } from "../state/metadataStore2"
 import Config from "./Config"
 import Details from "./Details"
-import TabContent from "../../components/TabContent"
-import Tabs from "../../components/tabs"
 
 type UIState = {
     tab: string

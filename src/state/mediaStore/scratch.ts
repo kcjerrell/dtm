@@ -1,9 +1,9 @@
-import { useProxyRefState } from "@/hooks/valtioHooks"
 import chance from "chance"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { proxy, snapshot } from "valtio"
-import { batch, computed, effect } from "valtio-reactive"
 import { subscribeKey } from "valtio/utils"
+import { batch, computed, effect } from "valtio-reactive"
+import { useProxyRefState } from "@/hooks/valtioHooks"
 
 export const store = proxy({
     items: [] as MediaItem[],

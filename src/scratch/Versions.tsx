@@ -1,7 +1,7 @@
 import { Box, Button, Grid, Input } from "@chakra-ui/react"
+import { useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 import { CheckRoot, Panel } from "@/components"
-import { useRef } from "react"
 
 class Version {
     constructor(

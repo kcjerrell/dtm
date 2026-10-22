@@ -4,9 +4,9 @@ import { useSnapshot } from "valtio"
 import CommandButton from "@/components/Command1Button"
 import { useMessages } from "@/state/Messages"
 import type MdItem from "../state/MdItem"
+import { useMetadataStore } from "../state/metadataStore2"
 import { useMediaItemCommands } from "./commands"
 import { ContentHeaderContainer, ToolbarButtonGroup, ToolbarContainer, ToolbarRoot } from "./parts"
-import { useMetadataStore } from "../state/metadataStore2"
 
 function Toolbar(props: ChakraProps) {
     const { ...restProps } = props

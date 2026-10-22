@@ -32,10 +32,7 @@ function ImageSelector(props: ImageSelectorProps) {
     return (
         <Popover.Root positioning={{ placement: "top" }} open={isOpen}>
             <Popover.Trigger asChild>
-                <IconButton
-                    onMouseEnter={() => onEnter()}
-                    onMouseLeave={() => startCloseTimer()}
-                >
+                <IconButton onMouseEnter={() => onEnter()} onMouseLeave={() => startCloseTimer()}>
                     A
                 </IconButton>
             </Popover.Trigger>

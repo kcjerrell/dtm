@@ -1,8 +1,8 @@
-import * as path from "./tauri-path"
-import * as core from "./tauri-core"
-import * as window from "./tauri-window"
 import * as app from "./tauri-app"
-import * as menu from "./tauri-menu"
+import * as core from "./tauri-core"
 import * as event from "./tauri-event"
+import * as menu from "./tauri-menu"
+import * as path from "./tauri-path"
+import * as window from "./tauri-window"
 
-export { path, core, window, app, menu, event }
+export { app, core, event, menu, path, window }

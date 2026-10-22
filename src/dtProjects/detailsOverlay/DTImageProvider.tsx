@@ -1,9 +1,9 @@
 import type { PropsWithChildren } from "react"
 import type { Snapshot } from "valtio"
 import type { DTImageFull } from "@/commands"
+import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 import { useDTP } from "../state/context"
 import { DTImageContext } from "./DTImageContext"
-import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 type DTImageProviderProps = PropsWithChildren<{
     image?: Snapshot<TensorHistoryNode>

@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef } from "react"
 import { proxy, subscribe, useSnapshot } from "valtio"
-import { useInit } from "./useInitRef"
 import { watch } from "valtio/utils"
+import { useInit } from "./useInitRef"
 
 export function useSubscribeValue<T extends Record<string, unknown>, K extends keyof T>(
     proxy: T,

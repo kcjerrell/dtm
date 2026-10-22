@@ -6,9 +6,9 @@ import { SettingsPanel } from "../settingsPanel/SettingsPanel"
 import { useDTP } from "../state/context"
 import FramesExportDialog from "./clipExport/FramesExportDialog"
 import VideoExportDialog from "./clipExport/VideoExportDialog"
+import DtArchiveDialog from "./dtArchive/DtArchiveDialog"
 import ProjectExportDialog from "./projectExport/ProjectExportDialog"
 import type { DialogProps, DialogState } from "./types"
-import DtArchiveDialog from "./dtArchive/DtArchiveDialog"
 
 type DialogComponent = (props: DialogProps) => JSX.Element
 type DialogType = {

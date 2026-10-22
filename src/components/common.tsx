@@ -1,6 +1,6 @@
-import { cs } from "@/utils/helpers"
 import { Button, chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
+import { cs } from "@/utils/helpers"
 
 export const MotionBox = chakra(motion.div, {}, { forwardProps: ["transition"] })
 
