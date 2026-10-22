@@ -34,7 +34,8 @@ describe("setImages", () => {
     it("starts with neutral B alignment", () => {
         const { result } = setup()
         expect(result.current.state.imageBOffset).toEqual({ x: 0, y: 0 })
-        expect(result.current.state.imageBScale).toBe(1)
+        expect(result.current.state.imageBScaleX).toBe(1)
+        expect(result.current.state.imageBScaleY).toBe(1)
     })
 
     it.each([
@@ -56,7 +57,10 @@ describe("setImages", () => {
                 state.imageAWidth = state.imageAHeight = 512
                 state.imageBWidth = state.imageBHeight = 768
                 state.imageBOffset = { x: 12, y: -20 }
-                state.imageBScale = 1.1
+                state.imageBScaleX = 1.2
+                state.imageBScaleY = 0.8
+                state.alignPinEnabled = true
+                state.pinState = { ax: 10, ay: 20, bx: 30, by: 40 }
                 state.sliderTrail = state.canvasContents = "difference"
                 await hooks.setImages(a, b)
             })
@@ -66,7 +70,10 @@ describe("setImages", () => {
             expect([state.imageAWidth, state.imageAHeight]).toEqual([widthA, widthA])
             expect([state.imageBWidth, state.imageBHeight]).toEqual([widthB, widthB])
             expect(state.imageBOffset).toEqual({ x: 0, y: 0 })
-            expect(state.imageBScale).toBe(1)
+            expect(state.imageBScaleX).toBe(1)
+            expect(state.imageBScaleY).toBe(1)
+            expect(state.pinState).toBeNull()
+            expect(state.alignPinEnabled).toBe(true)
             expect(state.sliderTrail).toBe("difference")
             expect(state.canvasContents).toBe("none")
             for (const canvas of canvases) expect([canvas.width, canvas.height]).toEqual([0, 0])
@@ -83,13 +90,18 @@ describe("setImages", () => {
             state.imageAWidth = state.imageAHeight = 512
             state.imageBWidth = state.imageBHeight = 768
             state.imageBOffset = { x: 12, y: -20 }
-            state.imageBScale = 1.1
+            state.imageBScaleX = 1.2
+            state.imageBScaleY = 0.8
+            state.alignPinEnabled = true
+            state.pinState = { ax: 10, ay: 20, bx: 30, by: 40 }
             state.sliderTrail = state.canvasContents = "difference"
             await hooks.setImages("a.png", "b.png")
         })
 
         expect(state.imageBOffset).toEqual({ x: 12, y: -20 })
-        expect(state.imageBScale).toBe(1.1)
+        expect(state.imageBScaleX).toBe(1.2)
+        expect(state.imageBScaleY).toBe(0.8)
+        expect(state.pinState).toEqual({ ax: 10, ay: 20, bx: 30, by: 40 })
         expect([state.imageAWidth, state.imageBWidth]).toEqual([512, 768])
         expect(state.canvasContents).toBe("difference")
         expect(canvas.width).toBe(300)

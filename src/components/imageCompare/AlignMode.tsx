@@ -1,17 +1,20 @@
 import { Box } from "@chakra-ui/react"
 import { motion, useTransform } from "motion/react"
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef } from "react"
-import { LuMove } from "react-icons/lu"
+import { LuCrosshair, LuMove } from "react-icons/lu"
 import IconButton from "../IconButton"
 import { Slider } from "../ui/slider"
 import AlignmentPanel from "./AlignmentPanel"
 import {
     type AlignmentCorner,
+    type AlignmentPin,
     type AlignmentRect,
+    alignAroundPin,
     getAlignmentScreenGeometry,
     resizeAlignment,
 } from "./alignmentGeometry"
 import { ToolbarSection } from "./common"
+import { applyEdgeMask } from "./edgeMask"
 import {
     type ImageCompareMode,
     type ModeButtonProps,
@@ -37,7 +40,9 @@ interface Gesture {
     rect: AlignmentRect
     pixelsPerA: number
     offset: { x: number; y: number }
-    scale: number
+    scaleX: number
+    scaleY: number
+    pinned?: { pin: AlignmentPin; dragged: { bx: number; by: number } }
 }
 
 function View(_props: ModeViewProps<never>) {
@@ -45,6 +50,63 @@ function View(_props: ModeViewProps<never>) {
     const { zoomStyle, refs } = useImageCompareHooks()
     const gesture = useRef<Gesture | null>(null)
     const outline = useRef<HTMLDivElement>(null)
+    const edgeCanvas = useRef<HTMLCanvasElement>(null)
+    const edgeSource = useRef<{ src: string; width: number; height: number } | null>(null)
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: snapshot dependencies trigger current state reads; placement and zoom reuse the buffer
+    useEffect(() => {
+        const image = refs.imgBRef.current
+        const clear = () => {
+            edgeSource.current = null
+            if (edgeCanvas.current) {
+                edgeCanvas.current.width = 0
+                edgeCanvas.current.height = 0
+            }
+        }
+        const update = () => {
+            const canvas = edgeCanvas.current
+            const src = state.imageBSrc
+            if (edgeSource.current?.src !== src) clear()
+            if (
+                !canvas ||
+                !image ||
+                !src ||
+                state.mode !== "align" ||
+                image.getAttribute("src") !== src ||
+                !image.complete ||
+                !image.naturalWidth ||
+                !image.naturalHeight
+            )
+                return
+            if (
+                edgeSource.current?.src === src &&
+                edgeSource.current.width === image.naturalWidth &&
+                edgeSource.current.height === image.naturalHeight
+            )
+                return
+            try {
+                canvas.width = image.naturalWidth
+                canvas.height = image.naturalHeight
+                const context = canvas.getContext("2d", { willReadFrequently: true })
+                if (!context) throw new Error("Could not get a 2D context for alignment edges")
+                context.drawImage(image, 0, 0)
+                const pixels = context.getImageData(0, 0, canvas.width, canvas.height)
+                applyEdgeMask(pixels)
+                context.putImageData(pixels, 0, 0)
+                edgeSource.current = { src, width: canvas.width, height: canvas.height }
+            } catch (error) {
+                clear()
+                console.error("Failed to generate image B alignment edges", error)
+            }
+        }
+        update()
+        image?.addEventListener("load", update)
+        image?.addEventListener("error", clear)
+        return () => {
+            image?.removeEventListener("load", update)
+            image?.removeEventListener("error", clear)
+        }
+    }, [state, refs.imgBRef, snap.mode, snap.imageBSrc, snap.imageBWidth, snap.imageBHeight])
     const ready =
         !!snap.imageASrc &&
         !!snap.imageBSrc &&
@@ -63,6 +125,14 @@ function View(_props: ModeViewProps<never>) {
     const top = useTransform(screen, (value) => value.rect.y)
     const width = useTransform(screen, (value) => value.rect.width)
     const height = useTransform(screen, (value) => value.rect.height)
+    const pinLeft = useTransform(
+        screen,
+        (value) => value.a.x + (snap.pinState?.ax ?? 0) * value.pixelsPerA,
+    )
+    const pinTop = useTransform(
+        screen,
+        (value) => value.a.y + (snap.pinState?.ay ?? 0) * value.pixelsPerA,
+    )
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: end gestures when the active mode or image pair changes
     useEffect(() => {
@@ -73,7 +143,15 @@ function View(_props: ModeViewProps<never>) {
                 current.target.releasePointerCapture(current.pointerId)
             }
         }
-    }, [snap.mode, snap.imageASrc, snap.imageBSrc, snap.viewportWidth, snap.viewportHeight])
+    }, [
+        snap.mode,
+        snap.imageASrc,
+        snap.imageBSrc,
+        snap.viewportWidth,
+        snap.viewportHeight,
+        snap.alignPinEnabled,
+        snap.pinState,
+    ])
 
     useEffect(() => {
         const viewport = refs.viewportRef.current
@@ -96,13 +174,13 @@ function View(_props: ModeViewProps<never>) {
             scale: zoomStyle.scale.get(),
         })
     const applyResize = (
-        start: Pick<Gesture, "rect" | "scale" | "offset" | "pixelsPerA">,
+        start: Pick<Gesture, "rect" | "scaleX" | "scaleY" | "offset" | "pixelsPerA">,
         corner: AlignmentCorner,
         dx: number,
         dy: number,
     ) => {
         const viewport = refs.viewportRef.current
-        if (!viewport || start.pixelsPerA <= 0) return
+        if (!viewport || start.pixelsPerA <= 0 || !start.rect.width || !start.rect.height) return
         const next = resizeAlignment(
             start.rect,
             corner,
@@ -112,7 +190,9 @@ function View(_props: ModeViewProps<never>) {
                 height: viewport.clientHeight,
             },
         )
-        state.imageBScale = (start.scale * next.width) / start.rect.width
+        const factor = next.width / start.rect.width
+        state.imageBScaleX = start.scaleX * factor
+        state.imageBScaleY = start.scaleY * factor
         state.imageBOffset = {
             x:
                 start.offset.x +
@@ -130,6 +210,25 @@ function View(_props: ModeViewProps<never>) {
         if (gesture.current) return
         const geometry = currentGeometry()
         if (geometry.pixelsPerA <= 0) return
+        const viewport = refs.viewportRef.current?.getBoundingClientRect()
+        if (!viewport) return
+        const x = event.clientX - viewport.left
+        const y = event.clientY - viewport.top
+        const point = {
+            ax: (x - geometry.a.x) / geometry.pixelsPerA,
+            ay: (y - geometry.a.y) / geometry.pixelsPerA,
+            bx: geometry.b.width
+                ? ((x - geometry.b.x) / geometry.b.width) * state.imageBWidth
+                : (state.pinState?.bx ?? 0),
+            by: geometry.b.height
+                ? ((y - geometry.b.y) / geometry.b.height) * state.imageBHeight
+                : (state.pinState?.by ?? 0),
+        }
+        if (state.alignPinEnabled && !state.pinState) {
+            // A collapsed image has no unique inverse coordinate; use Values or Reset first.
+            if (geometry.b.width && geometry.b.height) state.pinState = point
+            return
+        }
         const target = outline.current
         target.focus({ preventScroll: true })
         target.setPointerCapture(event.pointerId)
@@ -141,7 +240,12 @@ function View(_props: ModeViewProps<never>) {
             startY: event.clientY,
             ...geometry,
             offset: { ...state.imageBOffset },
-            scale: state.imageBScale,
+            scaleX: state.imageBScaleX,
+            scaleY: state.imageBScaleY,
+            pinned:
+                state.alignPinEnabled && state.pinState
+                    ? { pin: { ...state.pinState }, dragged: { bx: point.bx, by: point.by } }
+                    : undefined,
         }
     }
     const moveGesture = (event: PointerEvent) => {
@@ -150,7 +254,24 @@ function View(_props: ModeViewProps<never>) {
         event.stopPropagation()
         const dx = event.clientX - start.startX
         const dy = event.clientY - start.startY
-        if (start.corner) applyResize(start, start.corner, dx, dy)
+        if (start.pinned) {
+            const viewport = refs.viewportRef.current?.getBoundingClientRect()
+            if (!viewport) return
+            const geometry = currentGeometry()
+            const next = alignAroundPin(state, start.pinned.pin, start.pinned.dragged, {
+                ax: (event.clientX - viewport.left - geometry.a.x) / geometry.pixelsPerA,
+                ay: (event.clientY - viewport.top - geometry.a.y) / geometry.pixelsPerA,
+            })
+            if (
+                [
+                    next.imageBScaleX,
+                    next.imageBScaleY,
+                    next.imageBOffset.x,
+                    next.imageBOffset.y,
+                ].every(Number.isFinite)
+            )
+                Object.assign(state, next)
+        } else if (start.corner) applyResize(start, start.corner, dx, dy)
         else
             state.imageBOffset = {
                 x: start.offset.x + dx / start.pixelsPerA,
@@ -176,11 +297,17 @@ function View(_props: ModeViewProps<never>) {
         if (!direction) return
         event.preventDefault()
         event.stopPropagation()
+        if (state.alignPinEnabled) return
         const amount = event.shiftKey ? 10 : 1
         if (corner) {
             const geometry = currentGeometry()
             applyResize(
-                { ...geometry, scale: state.imageBScale, offset: { ...state.imageBOffset } },
+                {
+                    ...geometry,
+                    scaleX: state.imageBScaleX,
+                    scaleY: state.imageBScaleY,
+                    offset: { ...state.imageBOffset },
+                },
                 corner,
                 direction[0] * amount,
                 direction[1] * amount,
@@ -211,10 +338,10 @@ function View(_props: ModeViewProps<never>) {
                     top,
                     width,
                     height,
-                    outline: "1px solid white",
-                    boxShadow: "0 0 0 2px black",
+                    outline: snap.alignPinEnabled ? undefined : "1px solid white",
+                    boxShadow: snap.alignPinEnabled ? undefined : "0 0 0 2px black",
                     pointerEvents: "auto",
-                    cursor: "move",
+                    cursor: snap.alignPinEnabled && !snap.pinState ? "crosshair" : "move",
                     touchAction: "none",
                 }}
                 onPointerDown={(event) => startGesture(event)}
@@ -226,10 +353,10 @@ function View(_props: ModeViewProps<never>) {
                 }}
                 onKeyDown={(event) => keyAdjust(event)}
             >
-                <img
-                    src={snap.imageBSrc}
-                    alt="B"
-                    draggable={false}
+                <canvas
+                    ref={edgeCanvas}
+                    role="img"
+                    aria-label="B edges"
                     style={{
                         position: "absolute",
                         inset: 0,
@@ -237,30 +364,65 @@ function View(_props: ModeViewProps<never>) {
                         height: "100%",
                         maxWidth: "none",
                         opacity: snap.alignOpacity,
+                        imageRendering: "pixelated",
                         pointerEvents: "none",
+                        transform: `scale(${snap.imageBScaleX < 0 ? -1 : 1}, ${snap.imageBScaleY < 0 ? -1 : 1})`,
                     }}
                 />
-                {CORNERS.map(({ corner, name, cursor, ...position }) => (
-                    <button
-                        key={corner}
-                        type="button"
-                        aria-label={`Scale image B from ${name}`}
-                        style={{
-                            ...position,
-                            position: "absolute",
-                            width: 12,
-                            height: 12,
-                            padding: 0,
-                            background: "white",
-                            border: "1px solid black",
-                            cursor,
-                            touchAction: "none",
-                        }}
-                        onPointerDown={(event) => startGesture(event, corner)}
-                        onKeyDown={(event) => keyAdjust(event, corner)}
-                    />
-                ))}
+                {!snap.alignPinEnabled &&
+                    CORNERS.map(({ corner, name, cursor, ...position }) => (
+                        <button
+                            key={corner}
+                            type="button"
+                            aria-label={`Scale image B from ${name}`}
+                            style={{
+                                ...position,
+                                position: "absolute",
+                                width: 12,
+                                height: 12,
+                                padding: 0,
+                                background: "white",
+                                border: "1px solid black",
+                                cursor,
+                                touchAction: "none",
+                            }}
+                            onPointerDown={(event) => startGesture(event, corner)}
+                            onKeyDown={(event) => keyAdjust(event, corner)}
+                        />
+                    ))}
             </motion.div>
+            {snap.alignPinEnabled && snap.pinState && (
+                <motion.button
+                    type="button"
+                    aria-label="Remove alignment pin"
+                    title="Remove pin and choose a new anchor"
+                    style={{
+                        position: "absolute",
+                        left: pinLeft,
+                        top: pinTop,
+                        width: 24,
+                        height: 24,
+                        padding: 0,
+                        marginLeft: -12,
+                        marginTop: -12,
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#ffd740",
+                        background: "#0009",
+                        border: "1px solid currentColor",
+                        borderRadius: "50%",
+                        pointerEvents: "auto",
+                        cursor: "pointer",
+                        touchAction: "none",
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => {
+                        state.pinState = null
+                    }}
+                >
+                    <LuCrosshair size={18} />
+                </motion.button>
+            )}
         </Box>
     )
 }
@@ -271,6 +433,22 @@ function Settings(props: ModeSettingProps<never>) {
     return (
         <ToolbarSection {...rest}>
             <AlignmentPanel />
+            <IconButton
+                aria-label="Pin"
+                aria-pressed={snap.alignPinEnabled}
+                tone={snap.alignPinEnabled ? "selected" : "none"}
+                tipTitle="Pin alignment"
+                tipText="Click to anchor a point, then drag elsewhere in B to scale X and Y independently. Drag across the pin to flip an axis."
+                px={2}
+                aspectRatio="auto"
+                disabled={!snap.imageASrc || !snap.imageBSrc}
+                onClick={() => {
+                    state.alignPinEnabled = !state.alignPinEnabled
+                    state.pinState = null
+                }}
+            >
+                Pin
+            </IconButton>
             <Box fontSize="xs" alignSelf="center">
                 Opacity
             </Box>
@@ -291,7 +469,9 @@ function Settings(props: ModeSettingProps<never>) {
                 disabled={!snap.imageBSrc}
                 onClick={() => {
                     state.imageBOffset = { x: 0, y: 0 }
-                    state.imageBScale = 1
+                    state.imageBScaleX = 1
+                    state.imageBScaleY = 1
+                    state.pinState = null
                 }}
             >
                 Reset

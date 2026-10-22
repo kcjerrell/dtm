@@ -3,8 +3,9 @@ import { getComparisonGeometry } from "./imageGeometry"
 export interface CompareImageOptions {
     /** Translation from B's centered fit, in native image A pixels. */
     imageBOffset?: { x: number; y: number }
-    /** Uniform scale around B's center, relative to its proportional fit. Defaults to 1. */
-    imageBScale?: number
+    /** Independent width and height multipliers relative to the centered proportional fit. Both default to 1. */
+    imageBScaleX?: number
+    imageBScaleY?: number
     /** Smooth resampling of the inputs. Defaults to false. */
     smoothing?: boolean
 }
@@ -232,7 +233,8 @@ function prepareComparison(
         imageBWidth: widthB,
         imageBHeight: heightB,
         imageBOffset: opts.imageBOffset,
-        imageBScale: opts.imageBScale,
+        imageBScaleX: opts.imageBScaleX,
+        imageBScaleY: opts.imageBScaleY,
     })
 
     // Assigning both dimensions also resets transforms, compositing, and other caller state.
@@ -251,7 +253,12 @@ function prepareComparison(
     const pixelsA = context.getImageData(0, 0, width, height).data
 
     context.clearRect(0, 0, width, height)
-    context.drawImage(imageB, b.x, b.y, b.width, b.height)
+    // Negative drawImage dimensions do not flip pixels; use a signed transform instead.
+    context.save()
+    context.translate(b.x, b.y)
+    context.scale(b.width / widthB, b.height / heightB)
+    if (b.width !== 0 && b.height !== 0) context.drawImage(imageB, 0, 0, widthB, heightB)
+    context.restore()
     const pixelsB = context.getImageData(0, 0, width, height).data
 
     return {

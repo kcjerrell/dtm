@@ -301,7 +301,7 @@ function Root(props: ImageCompareRootProps) {
                                 })}
                             </AnimatePresence>
                         </Grid>
-                        <ShiftHint snap={snap} ml={"auto"} py={2} />
+                        <ShiftHint snap={snap} ml={"auto"} />
                     </HStack>
                 </GridRoot>
             </Provider>
@@ -371,7 +371,7 @@ function ShiftHint(props: ShiftHintProps) {
     const text = getShiftText(snap)
     if (!text) return null
     return (
-        <Box alignSelf={"center"} justifySelf={"center"} {...rest}>
+        <Box alignSelf={"center"} justifySelf={"center"} whiteSpace="nowrap" {...rest}>
             {verb}
             <Kbd>Shift</Kbd>
             to {text}

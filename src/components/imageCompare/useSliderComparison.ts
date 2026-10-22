@@ -59,7 +59,8 @@ export function useSliderComparison(
             imageB.naturalHeight,
             state.imageBOffset.x,
             state.imageBOffset.y,
-            state.imageBScale,
+            state.imageBScaleX,
+            state.imageBScaleY,
             state.smoothing,
             effect,
             state.sliderThreshold,
@@ -84,7 +85,8 @@ export function useSliderComparison(
                       : compareDifference
             compare(imageA, imageB, canvas, {
                 imageBOffset: state.imageBOffset,
-                imageBScale: state.imageBScale,
+                imageBScaleX: state.imageBScaleX,
+                imageBScaleY: state.imageBScaleY,
                 smoothing: state.smoothing,
                 gain: state.sliderGain,
                 threshold: state.sliderThreshold,
@@ -116,7 +118,8 @@ export function useSliderComparison(
         snap.imageBHeight,
         snap.imageBOffset.x,
         snap.imageBOffset.y,
-        snap.imageBScale,
+        snap.imageBScaleX,
+        snap.imageBScaleY,
         snap.smoothing,
         snap.sliderTrail,
     ])

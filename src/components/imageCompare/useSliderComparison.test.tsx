@@ -61,6 +61,37 @@ async function selectComparison(setupResult: ReturnType<typeof setup>) {
 }
 
 describe("slider comparison regeneration", () => {
+    it("regenerates independent axis changes and defers inactive changes", async () => {
+        const context = setup()
+        await selectComparison(context)
+        const { state } = context.result.current
+        await act(async () => {
+            state.imageBScaleX = 1.2
+        })
+        await act(async () => {
+            state.imageBScaleY = 0.8
+        })
+        expect(compareDifference).toHaveBeenCalledTimes(3)
+        expect(compareDifference).toHaveBeenLastCalledWith(
+            context.refs.imgARef.current,
+            context.refs.imgBRef.current,
+            context.refs.offscreenCanvasRef.current,
+            expect.objectContaining({ imageBScaleX: 1.2, imageBScaleY: 0.8 }),
+        )
+        await act(async () => {
+            state.mode = "align"
+        })
+        await act(async () => {
+            state.imageBScaleX = 0.9
+            state.imageBScaleY = 1.1
+        })
+        expect(compareDifference).toHaveBeenCalledTimes(3)
+        await act(async () => {
+            state.mode = "slider"
+        })
+        expect(compareDifference).toHaveBeenCalledTimes(4)
+    })
+
     it("defers changes while inactive and reuses an unchanged buffer on return", async () => {
         const context = setup()
         await selectComparison(context)
@@ -71,7 +102,7 @@ describe("slider comparison regeneration", () => {
         })
         await act(async () => {
             state.imageBOffset = { x: 12, y: -3 }
-            state.imageBScale = 1.2
+            state.imageBScaleX = 1.2
             state.smoothing = false
             context.result.current.generate()
         })
@@ -86,7 +117,7 @@ describe("slider comparison regeneration", () => {
             context.refs.offscreenCanvasRef.current,
             expect.objectContaining({
                 imageBOffset: { x: 12, y: -3 },
-                imageBScale: 1.2,
+                imageBScaleX: 1.2,
                 smoothing: false,
             }),
         )
@@ -131,7 +162,7 @@ describe("slider comparison regeneration", () => {
             state.imageBOffset.x = 5
         })
         await act(async () => {
-            state.imageBScale = 1.1
+            state.imageBScaleY = 1.1
         })
         await act(async () => {
             state.smoothing = false

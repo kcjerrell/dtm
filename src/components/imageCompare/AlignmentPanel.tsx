@@ -1,5 +1,7 @@
-import { Box, CloseButton, FloatingPanel, NumberInput, Portal, Text } from "@chakra-ui/react"
+import { Box, CloseButton, NumberInput, Popover, Portal, Text } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
+import { Panel } from "@/components/common"
+import { useRootElementRef } from "@/hooks/useRootElement"
 import IconButton from "../IconButton"
 import { NumberInputField, NumberInputLabel, NumberInputRoot } from "../ui/number-input"
 import { ImageCompareContext } from "./state"
@@ -59,89 +61,90 @@ function AlignmentField(props: {
 export default function AlignmentPanel() {
     const [state, snap] = ImageCompareContext.useContext()
     const [open, setOpen] = useState(false)
+    const viewRef = useRootElementRef("view")
     const disabled = !snap.imageASrc || !snap.imageBSrc || !snap.imageAWidth || !snap.imageBWidth
 
     return (
-        <FloatingPanel.Root
+        <Popover.Root
             open={open && snap.mode === "align"}
             onOpenChange={({ open }) => setOpen(open)}
-            defaultSize={{ width: 300, height: 330 }}
-            minSize={{ width: 260, height: 300 }}
-            defaultPosition={{ x: 24, y: 80 }}
-            allowOverflow={false}
-            persistRect
-            restoreFocus={snap.mode === "align"}
+            positioning={{ placement: "top" }}
         >
-            <FloatingPanel.Trigger asChild>
+            <Popover.Trigger asChild>
                 <IconButton aria-label="Adjust alignment" px={2} aspectRatio="auto">
                     Values
                 </IconButton>
-            </FloatingPanel.Trigger>
-            <Portal>
-                <FloatingPanel.Positioner>
-                    <FloatingPanel.Content
-                        data-image-compare-controls=""
-                        bgColor="bg.1"
-                        color="fg.1"
-                        borderWidth="1px"
-                        borderColor="grays.7"
-                        boxShadow="lg"
-                    >
-                        <FloatingPanel.Header bgColor="bg.2" p={3}>
-                            <FloatingPanel.DragTrigger>
-                                <FloatingPanel.Title fontSize="sm">
-                                    Image B alignment
-                                </FloatingPanel.Title>
-                            </FloatingPanel.DragTrigger>
-                            <FloatingPanel.Control>
-                                <FloatingPanel.CloseTrigger asChild>
-                                    <CloseButton size="xs" aria-label="Close alignment controls" />
-                                </FloatingPanel.CloseTrigger>
-                            </FloatingPanel.Control>
-                        </FloatingPanel.Header>
-                        <FloatingPanel.Body
-                            display="flex"
-                            flexDirection="column"
-                            gap={3}
-                            p={4}
-                            overflow="auto"
+            </Popover.Trigger>
+            <Portal container={viewRef}>
+                <Popover.Positioner>
+                    <Popover.Content asChild>
+                        <Panel
+                            variant="float"
+                            bgColor="bg.1"
+                            color="fg.1"
+                            width="18rem"
+                            maxHeight="var(--available-height)"
+                            overflowY="auto"
+                            data-image-compare-controls=""
                         >
-                            <AlignmentField
-                                label="X offset"
-                                value={snap.imageBOffset.x}
-                                step={1}
-                                disabled={disabled}
-                                onChange={(value) => {
-                                    state.imageBOffset.x = value
-                                }}
-                            />
-                            <AlignmentField
-                                label="Y offset"
-                                value={snap.imageBOffset.y}
-                                step={1}
-                                disabled={disabled}
-                                onChange={(value) => {
-                                    state.imageBOffset.y = value
-                                }}
-                            />
-                            <AlignmentField
-                                label="Scale (%)"
-                                value={snap.imageBScale * 100}
-                                step={0.1}
-                                min={0.01}
-                                disabled={disabled}
-                                onChange={(value) => {
-                                    state.imageBScale = value / 100
-                                }}
-                            />
-                            <Text fontSize="xs" color="fg.2">
-                                Offsets use image A pixels. 100% is the default fitted size.
-                            </Text>
-                        </FloatingPanel.Body>
-                        <FloatingPanel.ResizeTriggers axes={["e", "s", "se"]} />
-                    </FloatingPanel.Content>
-                </FloatingPanel.Positioner>
+                            <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
+                            <Popover.Header display="flex" alignItems="center" gap={2} p={3}>
+                                <Popover.Title fontSize="sm" flex={1}>
+                                    Image B alignment
+                                </Popover.Title>
+                                <Popover.CloseTrigger asChild position="static">
+                                    <CloseButton size="xs" aria-label="Close alignment controls" />
+                                </Popover.CloseTrigger>
+                            </Popover.Header>
+                            <Popover.Body display="flex" flexDirection="column" gap={3} p={4}>
+                                <AlignmentField
+                                    label="X offset"
+                                    value={snap.imageBOffset.x}
+                                    step={1}
+                                    disabled={disabled}
+                                    onChange={(value) => {
+                                        state.pinState = null
+                                        state.imageBOffset.x = value
+                                    }}
+                                />
+                                <AlignmentField
+                                    label="Y offset"
+                                    value={snap.imageBOffset.y}
+                                    step={1}
+                                    disabled={disabled}
+                                    onChange={(value) => {
+                                        state.pinState = null
+                                        state.imageBOffset.y = value
+                                    }}
+                                />
+                                <AlignmentField
+                                    label="Scale X (%)"
+                                    value={snap.imageBScaleX * 100}
+                                    step={0.1}
+                                    disabled={disabled}
+                                    onChange={(value) => {
+                                        state.pinState = null
+                                        state.imageBScaleX = value / 100
+                                    }}
+                                />
+                                <AlignmentField
+                                    label="Scale Y (%)"
+                                    value={snap.imageBScaleY * 100}
+                                    step={0.1}
+                                    disabled={disabled}
+                                    onChange={(value) => {
+                                        state.pinState = null
+                                        state.imageBScaleY = value / 100
+                                    }}
+                                />
+                                <Text fontSize="xs" color="fg.2">
+                                    Offsets use image A pixels. X and Y scales default to 100%.
+                                </Text>
+                            </Popover.Body>
+                        </Panel>
+                    </Popover.Content>
+                </Popover.Positioner>
             </Portal>
-        </FloatingPanel.Root>
+        </Popover.Root>
     )
 }

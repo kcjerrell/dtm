@@ -175,7 +175,9 @@ export function useCreateImageCompareContext(
                 state.imageBHeight = 0
             }
             state.imageBOffset = { x: 0, y: 0 }
-            state.imageBScale = 1
+            state.imageBScaleX = 1
+            state.imageBScaleY = 1
+            state.pinState = null
 
             // Comparison pixels and alignment belong to the previous pair.
             state.canvasContents = "none"

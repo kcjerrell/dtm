@@ -1,4 +1,5 @@
 import { buildStateContext } from "@/hooks/buildStateContext"
+import type { AlignmentPin } from "./alignmentGeometry"
 import type { ImageCompareRootProps } from "./Root"
 import type { SliderEffectDisplay } from "./sliderEffectDisplay"
 
@@ -42,6 +43,10 @@ export type ImageCompareState = {
 
     /** Image B opacity while manually aligning the images. */
     alignOpacity: number
+    /** Pin is enabled while choosing an anchor or dragging around an existing anchor. */
+    alignPinEnabled: boolean
+    /** Corresponding native pixel coordinates in A and B. */
+    pinState: AlignmentPin | null
 
     /** whether or not the shift key is behind held down */
     shiftHeld: boolean
@@ -57,8 +62,9 @@ export type ImageCompareState = {
 
     /** B's translation from its default centered position, in image A pixels. */
     imageBOffset: { x: number; y: number }
-    /** Uniform multiplier relative to B's default fitted size. */
-    imageBScale: number
+    /** Signed independent multipliers relative to B's default fitted width and height. */
+    imageBScaleX: number
+    imageBScaleY: number
 
     contentSize: { width: number; height: number }
     contentOffset: { left: number; top: number }
@@ -82,6 +88,8 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         altPhase: 0.0,
         sbsLayout: "vertical",
         alignOpacity: 0.5,
+        alignPinEnabled: false,
+        pinState: null,
         viewportWidth: 0,
         viewportHeight: 0,
         viewportPixelRatio: 1,
@@ -90,7 +98,8 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         imageBWidth: 0,
         imageBHeight: 0,
         imageBOffset: { x: 0, y: 0 },
-        imageBScale: 1,
+        imageBScaleX: 1,
+        imageBScaleY: 1,
         get contentSize() {
             const contentWidth = Math.max(this.imageAWidth, this.imageBWidth)
             const contentHeight = Math.max(this.imageAHeight, this.imageBHeight)

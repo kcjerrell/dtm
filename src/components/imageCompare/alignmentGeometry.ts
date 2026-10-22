@@ -23,12 +23,21 @@ export function getAlignmentScreenGeometry(
     const left =
         input.contentOffset.left + zoom.x + (input.contentSize.width * (1 - zoom.scale)) / 2
     const top = input.contentOffset.top + zoom.y + (input.contentSize.height * (1 - zoom.scale)) / 2
+    const project = (rect: AlignmentRect) => ({
+        x: left + rect.x * factor,
+        y: top + rect.y * factor,
+        width: rect.width * factor,
+        height: rect.height * factor,
+    })
+    const b = project(geometry.b)
     return {
+        a: project(geometry.a),
+        b,
         rect: {
-            x: left + geometry.b.x * factor,
-            y: top + geometry.b.y * factor,
-            width: geometry.b.width * factor,
-            height: geometry.b.height * factor,
+            x: Math.min(b.x, b.x + b.width),
+            y: Math.min(b.y, b.y + b.height),
+            width: Math.abs(b.width),
+            height: Math.abs(b.height),
         },
         pixelsPerA: input.imageAWidth > 0 ? (geometry.a.width / input.imageAWidth) * factor : 0,
     }
@@ -69,5 +78,74 @@ export function resizeAlignment(
         y: sy < 0 ? anchorY - rect.height * factor : anchorY,
         width: rect.width * factor,
         height: rect.height * factor,
+    }
+}
+
+export interface AlignmentPin {
+    ax: number
+    bx: number
+    ay: number
+    by: number
+}
+
+/** Solve both axes from two point correspondences, including zero and reflected scales. */
+export function alignAroundPin(
+    input: Parameters<typeof getComparisonGeometry>[0],
+    pin: AlignmentPin,
+    dragged: { bx: number; by: number },
+    pointer: { ax: number; ay: number },
+) {
+    const base = getComparisonGeometry({
+        ...input,
+        imageBOffset: { x: 0, y: 0 },
+        imageBScaleX: 1,
+        imageBScaleY: 1,
+    })
+    const fitA = base.a.width / input.imageAWidth
+    const fitB = base.b.width / input.imageBWidth
+    const axis = (
+        anchorA: number,
+        anchorB: number,
+        draggedB: number,
+        pointerA: number,
+        sizeB: number,
+        originA: number,
+        surfaceSize: number,
+        previousScale: number,
+    ) => {
+        // A point on the anchor's axis cannot determine that axis's scale.
+        const scale =
+            Math.abs(draggedB - anchorB) < 1e-6
+                ? previousScale
+                : ((pointerA - anchorA) * fitA) / ((draggedB - anchorB) * fitB)
+        const offset =
+            (originA + anchorA * fitA - surfaceSize / 2 - (anchorB - sizeB / 2) * fitB * scale) /
+            fitA
+        return { scale, offset }
+    }
+    const x = axis(
+        pin.ax,
+        pin.bx,
+        dragged.bx,
+        pointer.ax,
+        input.imageBWidth,
+        base.a.x,
+        base.width,
+        input.imageBScaleX ?? 1,
+    )
+    const y = axis(
+        pin.ay,
+        pin.by,
+        dragged.by,
+        pointer.ay,
+        input.imageBHeight,
+        base.a.y,
+        base.height,
+        input.imageBScaleY ?? 1,
+    )
+    return {
+        imageBScaleX: x.scale,
+        imageBScaleY: y.scale,
+        imageBOffset: { x: x.offset, y: y.offset },
     }
 }

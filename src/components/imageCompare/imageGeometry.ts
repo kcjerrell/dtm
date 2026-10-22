@@ -6,7 +6,8 @@ interface ImageGeometryInput {
     imageBWidth: number
     imageBHeight: number
     imageBOffset?: { x: number; y: number }
-    imageBScale?: number
+    imageBScaleX?: number
+    imageBScaleY?: number
 }
 
 /** A fixed, symmetric surface; B's adjustment never changes the surface or its origin. */
@@ -17,15 +18,16 @@ export function getComparisonGeometry(input: ImageGeometryInput) {
         imageBWidth,
         imageBHeight,
         imageBOffset = { x: 0, y: 0 },
-        imageBScale = 1,
+        imageBScaleX = 1,
+        imageBScaleY = 1,
     } = input
     if (
-        !Number.isFinite(imageBScale) ||
-        imageBScale <= 0 ||
+        !Number.isFinite(imageBScaleX) ||
+        !Number.isFinite(imageBScaleY) ||
         !Number.isFinite(imageBOffset.x) ||
         !Number.isFinite(imageBOffset.y)
     ) {
-        throw new Error("Image B alignment requires a positive finite scale and finite offsets")
+        throw new Error("Image B alignment requires finite scales and offsets")
     }
 
     const width = Math.max(imageAWidth, imageBWidth)
@@ -40,8 +42,8 @@ export function getComparisonGeometry(input: ImageGeometryInput) {
             : 0
     const aWidth = imageAWidth * fitA
     const aHeight = imageAHeight * fitA
-    const bWidth = imageBWidth * fitB * imageBScale
-    const bHeight = imageBHeight * fitB * imageBScale
+    const bWidth = imageBWidth * fitB * imageBScaleX
+    const bHeight = imageBHeight * fitB * imageBScaleY
 
     return {
         width,
@@ -66,10 +68,11 @@ export function getComparisonImageStyle(
     const percent = (value: number, total: number) => `${total > 0 ? (value / total) * 100 : 0}%`
     return {
         position: "absolute",
-        left: percent(rect.x, geometry.width),
-        top: percent(rect.y, geometry.height),
-        width: percent(rect.width, geometry.width),
-        height: percent(rect.height, geometry.height),
+        left: percent(Math.min(rect.x, rect.x + rect.width), geometry.width),
+        top: percent(Math.min(rect.y, rect.y + rect.height), geometry.height),
+        width: percent(Math.abs(rect.width), geometry.width),
+        height: percent(Math.abs(rect.height), geometry.height),
+        transform: `scale(${rect.width < 0 ? -1 : 1}, ${rect.height < 0 ? -1 : 1})`,
         maxWidth: "none",
         maxHeight: "none",
     }
