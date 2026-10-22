@@ -223,7 +223,7 @@ function GridImage(props: GridImageProps) {
     )
 }
 
-const Base = chakra("div", {
+const _Base = chakra("div", {
     base: {
         "& div": {
             opacity: 1,

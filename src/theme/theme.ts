@@ -138,6 +138,9 @@ const themeConfig = defineConfig({
             width: "100vw",
             position: "relative",
         },
+        ".blink-anim": {
+            animation: "infinite steps(1, end) blink-anim",
+        },
     },
     theme: {
         breakpoints: {
@@ -276,23 +279,27 @@ const themeConfig = defineConfig({
                     DEFAULT: {
                         value: {
                             _light: "#EC5F47",
-                            // _light: "#e9624dff",
-                            _dark: "#d25542",
+                            _dark: "#D25542",
                         },
                     },
                     "1": {
                         value: {
-                            _light: "#d25741ff",
-                            // _light: "#e9624dff",
-                            _dark: "#d25542",
+                            _light: "#D25542",
+                            _dark: "#B84F40",
                         },
                     },
                 },
                 info: {
                     DEFAULT: {
                         value: {
-                            _light: "#5098dbff",
-                            _dark: "#689fd3",
+                            _light: "#5098DB",
+                            _dark: "#689FD3",
+                        },
+                    },
+                    "1": {
+                        value: {
+                            _light: "#689FD3",
+                            _dark: "#5B8CBA",
                         },
                     },
                 },
@@ -360,6 +367,22 @@ const themeConfig = defineConfig({
             fadeIn: {
                 from: { opacity: 0 },
                 to: { opacity: 1 },
+            },
+            "blink-anim": {
+                // "0%, 49.999%": { opacity: 0 },
+                "0%, 49.999%": { visibility: "hidden" },
+                // "50%, 100%": { opacity: 1 },
+                "50%, 100%": { visibility: "visible" },
+            },
+            "flip-button": {
+                "0%": { transform: "rotateY(0deg) skewY(0deg)" },
+                "40%, 49%": { transform: "rotateY(-90deg) skewY(20deg)" },
+                "50%, 100%": { transform: "rotateY(0deg) skewY(0deg)" },
+            },
+            "flip-button-inv": {
+                "0%, 50%": { transform: "rotateY(0deg) skewY(0deg)" },
+                "90%, 99%": { transform: "rotateY(90deg) skewY(-20deg)" },
+                "100%": { transform: "rotateY(0deg) skewY(0deg)" },
             },
         },
     },

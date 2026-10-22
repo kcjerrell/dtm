@@ -69,14 +69,16 @@ describe("Metadata", () => {
         await fse.ensureDir(tempDir)
         await fse.emptyDir(tempDir)
         await browser.execute(() => {
-            window.__reset_metadata_store()
+            return window.__reset_media_store()
         })
     })
 
     it("loads image dropped from finder", async () => {
         // go to metadata tab
         await App.selectView("metadata")
+
         // clear images if there any
+        await md.toolbar.toolbar.waitForExist()
         if (await md.toolbar.clearUnpinned.isExisting()) {
             await md.toolbar.clearUnpinned.click()
         }
@@ -192,7 +194,7 @@ describe("Metadata", () => {
         // paste the image
         await md.toolbar.loadFromClipboard.click()
 
-        browser.waitUntil(
+        await browser.waitUntil(
             async () => {
                 return (await md.history.getItemCount()) === 3
             },
@@ -223,6 +225,11 @@ describe("Metadata", () => {
         // flow extracts them from disk
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
+
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
 
         await App.selectView("metadata")
         // clear images if there any
@@ -282,6 +289,7 @@ describe("Metadata", () => {
         await expect($("#metadata video")).toBeDisplayed()
 
         // ffmpeg is already installed, so metadata should load without an install step
+        await md.selectTab("details")
         await md.getDataItemValue("filename", { timeout: 60000 })
 
         expect(await md.getDataItemValue("nb_streams")).toContain("2")

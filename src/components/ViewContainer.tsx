@@ -1,8 +1,8 @@
+import { chakra } from "@chakra-ui/react"
 import { Activity, type PropsWithChildren, Suspense, useEffect, useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import ErrorFallback from "@/ErrorFallback"
 import { Loading } from "@/main"
-import { chakra } from "@chakra-ui/react"
 
 export function ViewContainer(
     props: PropsWithChildren<{

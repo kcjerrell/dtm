@@ -8,10 +8,11 @@ import {
     useRef,
 } from "react"
 import { proxy, type Snapshot } from "valtio"
+import { hasPrimaryModifier } from "@/utils/platform"
 
 type SelectableContextType<T extends Selectable = Selectable> = {
     getItems: () => T[]
-    mode: "single" | "multipleToggle" | "multipleModifier"
+    mode: "single" | "multipleToggle" | "multipleModifier" | "singleRequired"
     onSelectionChanged?: (selectedItems: T[]) => void
     keyFn: (item: T | Snapshot<T>) => string | number
     lastSelectedItem: React.RefObject<T | null>
@@ -41,6 +42,9 @@ function selectItem<T extends Selectable>(
         const newValue = value ?? !itemState.selected
         clearAllSelected(state)
         if (newValue) itemState.setSelected(newValue)
+    } else if (state.mode === "singleRequired") {
+        clearAllSelected(state)
+        itemState.setSelected(true)
     }
     // multiple toggle mode
     else if (state.mode === "multipleToggle") {
@@ -94,7 +98,7 @@ function selectItem<T extends Selectable>(
 
 type SelectableGroupOptions<T extends Selectable> = {
     onSelectionChanged?: (selectedItems: T[]) => void
-    mode?: "single" | "multipleToggle" | "multipleModifier"
+    mode?: "single" | "singleRequired" | "multipleToggle" | "multipleModifier"
     /** This should be a stable reference for cv to memoize */
     keyFn?: (item: T | Snapshot<T>) => string | number
 }
@@ -109,7 +113,10 @@ export function useSelectableGroup<T extends Selectable>(
     getItemsState: () => T[],
     opts: SelectableGroupOptions<T> = {},
 ) {
-    const { mode, keyFn, onSelectionChanged } = { ...defaultSelectableGroupOptions, ...opts }
+    const { mode, keyFn, onSelectionChanged } = {
+        ...defaultSelectableGroupOptions,
+        ...opts,
+    }
 
     const onSelectionChangedRef = useRef((_: T[]) => {})
     if (onSelectionChanged && onSelectionChanged !== onSelectionChangedRef.current) {
@@ -174,7 +181,7 @@ export function makeSelectable<T extends object>(
         modifier?: "shift" | "cmd" | "context" | null,
     ) => void,
 ): Selectable<T> {
-    const onClick = handleClick ?? ((item: Selectable<T>, value: boolean) => item.toggleSelected())
+    const onClick = handleClick ?? ((item: Selectable<T>, _value: boolean) => item.toggleSelected())
 
     const p = proxy({
         ...item,
@@ -190,7 +197,7 @@ export function makeSelectable<T extends object>(
             p.setSelected(!p._selected)
         },
         onClick(e?: React.MouseEvent) {
-            const modifier = e?.metaKey ? "cmd" : e?.shiftKey ? "shift" : undefined
+            const modifier = e && hasPrimaryModifier(e) ? "cmd" : e?.shiftKey ? "shift" : undefined
             onClick(p, p._selected, modifier)
         },
     })
@@ -204,6 +211,6 @@ export function makeSelectableList<T extends object>(items: T[]): Selectable<T>[
 
 function getModifier(e: React.MouseEvent) {
     if (e.shiftKey) return "shift"
-    if (e.metaKey) return "cmd"
+    if (hasPrimaryModifier(e)) return "cmd"
     return null
 }

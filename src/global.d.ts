@@ -17,7 +17,7 @@ declare global {
     interface Window {
         __E2E_FILE_PATH__?: string
         __reset_db(): Promise<void>
-        __reset_metadata_store(): Promise<void>
+        __reset_media_store(): Promise<void>
         toJSON<T>(object: T): T
         __E2E_TEST_OVERRIDE<K extends keyof E2ETestOverrides>(
             name: K,

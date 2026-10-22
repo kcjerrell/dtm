@@ -1,6 +1,6 @@
-import { cs } from "@/utils/helpers"
 import { Button, chakra } from "@chakra-ui/react"
 import { motion } from "motion/react"
+import { cs } from "@/utils/helpers"
 
 export const MotionBox = chakra(motion.div, {}, { forwardProps: ["transition"] })
 
@@ -23,7 +23,7 @@ export const Panel = chakra("div", {
         },
         variant: {
             float: {
-                borderRadius: "lg",
+                borderRadius: "xl",
                 boxShadow: "pane1",
             },
             fixed: {},
@@ -278,57 +278,134 @@ export const PanelListItem = chakra(
     { defaultProps: { tabIndex: 0 } },
 )
 
+// export const PanelButton = chakra(
+//     Button,
+//     {
+//         base: {
+//             margin: 0,
+//             color: "fg.2",
+//             height: "min-content",
+//             paddingY: 2,
+//             fontWeight: "500",
+//             _disabled: {
+//                 cursor: "default",
+//             },
+//         },
+//         variants: {
+//             tone: {
+//                 danger: {
+//                     bgColor: "color-mix(in srgb, {colors.bg.1} 70%, {colors.red.500} 30%)",
+//                     _hover: {
+//                         bgColor: "color-mix(in srgb, {colors.bg.1} 60%, {colors.red.500} 40%)",
+//                         border: "1px solid {colors.red.500/40}",
+//                         boxShadow: "0px 1px 5px -3px #00000055",
+//                     },
+//                 },
+//                 success: {
+//                     color: "grayc.2",
+//                     fontWeight: "600",
+//                     bgColor: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)",
+//                     border: "2px solid {colors.success.1}",
+//                     _hover: {
+//                         bgColor: "success.1/90",
+//                         // bgColor: "color-mix(in srgb, {colors.bg.1} 20%, {colors.highlight} 80%)",
+//                         border: "2px solid {colors.success.1}",
+//                         boxShadow: "0px 1px 5px -3px #00000055",
+//                     },
+//                 },
+//                 none: {
+//                     _hover: {
+//                         boxShadow: "0px 0px 4px -2px #00000088",
+//                         bgColor: "bg.0",
+//                     },
+//                 },
+//                 selected: {
+//                     color: "white",
+//                     fontWeight: "600",
+//                     bgColor: "highlight.1",
+//                     _hover: {
+//                         bgColor: "highlight",
+//                     },
+//                 },
+//                 info: {
+//                     color: "white",
+//                     fontWeight: "600",
+//                     bgColor: "info.1",
+//                     _hover: {
+//                         bgColor: "info"
+//                     }
+//                 }
+//             },
+//             active: {
+//                 true: {
+//
+//                 }
+//             }
+//         },
+//         defaultVariants: { tone: "none" },
+//     },
+//     { defaultProps: { size: "sm", variant: "subtle" } },
+// )
+
 export const PanelButton = chakra(
     Button,
     {
         base: {
-            bgColor: "bg.3",
             margin: 0,
             color: "fg.2",
             height: "min-content",
             paddingY: 2,
             fontWeight: "500",
-            boxShadow: "0px 1px 5px -3px #00000055",
+
             _disabled: {
                 cursor: "default",
+            },
+
+            _hover: {
+                background: "var(--hover-bg)",
+                borderColor: "var(--hover-border)",
+                boxShadow: "var(--hover-shadow)",
+            },
+
+            _expanded: {
+                background: "var(--hover-bg)",
+                borderColor: "var(--hover-border)",
+                boxShadow: "var(--hover-shadow)",
             },
         },
         variants: {
             tone: {
                 danger: {
-                    bgColor: "color-mix(in srgb, {colors.bg.1} 70%, {colors.red.500} 30%)",
-                    _hover: {
-                        bgColor: "color-mix(in srgb, {colors.bg.1} 60%, {colors.red.500} 40%)",
-                        border: "1px solid {colors.red.500/40}",
-                        boxShadow: "0px 1px 5px -3px #00000055",
-                    },
+                    background: "color-mix(in srgb, {colors.bg.1} 70%, {colors.red.500} 30%)",
+                    "--hover-bg": "color-mix(in srgb, {colors.bg.1} 60%, {colors.red.500} 40%)",
+                    "--hover-border": "{colors.red.500/40}",
+                    "--hover-shadow": "0px 1px 5px -3px #00000055",
                 },
                 success: {
                     color: "grayc.2",
                     fontWeight: "600",
-                    bgColor: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)", // "color-mix(in srgb, {colors.bg.1} 70%, {colors.green.500} 30%)",
+                    background: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)",
                     border: "2px solid {colors.success.1}",
-                    _hover: {
-                        bgColor: "success.1/90",
-                        // bgColor: "color-mix(in srgb, {colors.bg.1} 20%, {colors.highlight} 80%)",
-                        border: "2px solid {colors.success.1}",
-                        boxShadow: "0px 1px 5px -3px #00000055",
-                    },
+                    "--hover-bg": "{colors.success.1/90}",
+                    "--hover-border": "{colors.success.1}",
+                    "--hover-shadow": "0px 1px 5px -3px #00000055",
                 },
                 none: {
-                    _hover: {
-                        // border: "1px solid {colors.fg.2/20}",
-                        boxShadow: "0px 0px 4px -2px #00000088",
-                        bgColor: "bg.0",
-                    },
+                    "--hover-bg": "{colors.bg.0}",
+                    "--hover-shadow": "0px 0px 4px -2px #00000088",
+                    "--hover-border": "transparent",
                 },
                 selected: {
                     color: "white",
                     fontWeight: "600",
-                    bgColor: "highlight.1",
-                    _hover: {
-                        bgColor: "highlight",
-                    },
+                    background: "highlight.1",
+                    "--hover-bg": "{colors.highlight}",
+                },
+                info: {
+                    color: "white",
+                    fontWeight: "600",
+                    background: "info.1",
+                    "--hover-bg": "{colors.info}",
                 },
             },
         },

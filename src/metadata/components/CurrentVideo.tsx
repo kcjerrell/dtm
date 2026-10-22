@@ -3,17 +3,18 @@ import { motion } from "motion/react"
 import { useSnapshot } from "valtio"
 import { TMap } from "@/utils/TMap"
 import { useVideoThumbnail } from "../history/VideoThumbnailProvider"
-import { getMetadataStore } from "../state/metadataStore"
-import type { VideoItem } from "../state/VideoItem"
+import { useMetadataStore } from "../state/metadataStore2"
 
 const videoTime = TMap.withDefaultValue((_: string) => 0)
 
 function CurrentVideo() {
-    const state = getMetadataStore()
-    const snap = useSnapshot(state)
-    const currentItem = snap.currentItem as VideoItem
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
+    const { currentItem } = snap
 
     const videoRef = useVideoThumbnail(currentItem?.id, "video")
+
+    if (!currentItem) return null
 
     return (
         <Video
@@ -27,7 +28,7 @@ function CurrentVideo() {
             transition={{ duration: 0 }}
             ref={videoRef}
             onTimeUpdate={(e) => {
-                videoTime.set(currentItem?.id, e.currentTarget.currentTime)
+                videoTime.set(currentItem.id, e.currentTarget.currentTime)
             }}
             onLoadedMetadata={(e) => {
                 e.currentTarget.currentTime = videoTime.get(currentItem?.id)

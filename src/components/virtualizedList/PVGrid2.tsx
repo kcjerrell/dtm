@@ -27,8 +27,7 @@ export interface PVGridProps<T, C extends PVGridItemComponent<T> = PVGridItemCom
 
 export type PVGridItemComponent<T> = React.ComponentType<
     // biome-ignore lint/suspicious/noExplicitAny: <intentional>
-    PVGridBaseItemProps<T> & any
->
+    PVGridBaseItemProps<T> & any>
 
 export type PVGridBaseItemProps<T> = {
     item: T | null | undefined
