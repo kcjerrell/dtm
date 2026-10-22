@@ -496,8 +496,12 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
             </IconButton>
 
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
-                <Popover.Trigger asChild>
-                    <SettingsButton onEnter={onEnter} onLeave={startCloseTimer} />
+                <Popover.Trigger _expanded={{background: undefined}} asChild>
+                    <SettingsButton
+                        active={isSettingsOpen}
+                        onEnter={onEnter}
+                        onLeave={startCloseTimer}
+                    />
                 </Popover.Trigger>
                 <Portal container={viewRef}>
                     <Popover.Positioner>

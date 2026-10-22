@@ -37,3 +37,5 @@ test/artifacts/
 
 # Local Linux test runtime and diagnostics
 work/
+
+src-tauri/binaries

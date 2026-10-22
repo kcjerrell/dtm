@@ -10,7 +10,7 @@ const Base = chakra(PanelButton, {
     base: {
         color: "fg.3",
         aspectRatio: "1",
-        bgColor: "transparent",
+        background: "transparent",
         display: "inline-flex",
         appearance: "none",
         alignItems: "center",
@@ -48,11 +48,11 @@ const Base = chakra(PanelButton, {
     variants: {
         variant: {
             ghost: {
-                bgColor: "transparent",
+                background: "transparent",
                 border: "none",
             },
             inset: {
-                bgColor: "bg.1",
+                background: "bg.1",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 paddingBlock: 0.5,
@@ -116,7 +116,7 @@ const Base = chakra(PanelButton, {
         },
         toggled: {
             true: {
-                bgColor: "bg.2",
+                background: "bg.2",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 _hover: {
@@ -126,7 +126,7 @@ const Base = chakra(PanelButton, {
             },
             false: {
                 color: "fg.3/70",
-                bgColor: "bg.deep",
+                background: "bg.deep",
                 border: "1px solid {gray/30}",
                 _hover: {
                     color: "fg.3",
@@ -231,7 +231,7 @@ const Base = chakra(PanelButton, {
             variant: "ghost",
             toggled: true,
             css: {
-                bgColor: "unset",
+                background: "unset",
                 border: "none",
                 color: "fg.1",
                 _hover: {
@@ -243,7 +243,7 @@ const Base = chakra(PanelButton, {
             variant: "ghost",
             toggled: false,
             css: {
-                bgColor: "unset",
+                background: "unset",
                 border: "none",
                 color: "fg.3/70",
                 _hover: {
