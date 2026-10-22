@@ -1,7 +1,7 @@
 import { Box, Icon } from "@chakra-ui/react"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { motion } from "motion/react"
-import { type ComponentProps, useCallback, useEffect, useRef, useState } from "react"
+import { type ComponentProps, useCallback, useEffect, useState } from "react"
 import { useSnapshot } from "valtio"
 import Sidebar, { SidebarButton } from "@/components/sidebar/Sidebar"
 import { type ColorMode, useColorMode } from "@/components/ui/color-mode"

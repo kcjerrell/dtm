@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
 type UseTimeoutOptions = {
     fn: () => void | Promise<void>

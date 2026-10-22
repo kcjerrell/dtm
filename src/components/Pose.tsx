@@ -2,7 +2,7 @@ import { Image } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { DtpService } from "@/commands"
 import { uint8ArrayToBase64 } from "@/utils/helpers"
-import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import { drawPose } from "@/utils/pose"
 import type { OpenPose } from "@/utils/poseHelpers"
 
 interface PoseImageComponentProps extends ChakraProps {

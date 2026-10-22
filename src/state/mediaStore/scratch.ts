@@ -1,8 +1,7 @@
 import chance from "chance"
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { proxy, snapshot } from "valtio"
+import { useCallback, useEffect, useMemo } from "react"
+import { proxy } from "valtio"
 import { subscribeKey } from "valtio/utils"
-import { batch, computed, effect } from "valtio-reactive"
 import { useProxyRefState } from "@/hooks/valtioHooks"
 
 export const store = proxy({

@@ -1,11 +1,9 @@
 import { Popover, Portal } from "@chakra-ui/react"
 import { useCallback, useState } from "react"
-import { useSnapshot } from "valtio/react"
 import { IconButton } from "@/components"
 import { useRootElementRef } from "@/hooks/useRootElement"
 import { useTimeout } from "@/hooks/useTimeout"
 import { useMetadataStore } from "@/metadata/state/metadataStore2"
-import MediaStore from "@/state/mediaStore"
 
 export interface ImageSelectorProps extends ChakraProps {}
 

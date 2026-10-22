@@ -1,7 +1,6 @@
 import "@wdio/tauri-plugin"
 import { ChakraProvider } from "@chakra-ui/react"
 import { motion } from "motion/react"
-import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { HotkeysProvider } from "react-hotkeys-hook"
 import App from "./App"

@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react"
-import type { DTImageFull, Model } from "@/commands"
+import type { Model } from "@/commands"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
 
 export const DTImageContext = createContext<

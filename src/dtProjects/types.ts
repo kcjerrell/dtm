@@ -1,4 +1,4 @@
-import type { Model, ScanProgress, TensorDataRow } from "@/commands"
+import type { Model, ScanProgress } from "@/commands"
 import type { TensorData } from "@/commands/DTProjectTypes"
 import type { OpenPose } from "@/utils/poseHelpers"
 import type { BackendFilter } from "./state/search"

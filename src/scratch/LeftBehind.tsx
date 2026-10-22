@@ -1,9 +1,8 @@
-import { Box, Button, Grid, HStack, Input } from "@chakra-ui/react"
+import { Button, Grid, HStack, Input } from "@chakra-ui/react"
 import { path } from "@tauri-apps/api"
 import { invoke } from "@tauri-apps/api/core"
 import { proxy, useSnapshot } from "valtio"
 import type { ArchivePlan } from "@/commands"
-import urls from "@/commands/urls"
 import { CheckRoot, Panel } from "@/components"
 import TensorThumbnail from "@/dtProjects/detailsOverlay/TensorThumbnail"
 

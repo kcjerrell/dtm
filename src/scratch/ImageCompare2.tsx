@@ -1,5 +1,4 @@
-import { motion } from "motion/react"
-import { CheckRoot, Panel } from "@/components"
+import { CheckRoot } from "@/components"
 import ImageCompare from "@/components/imageCompare"
 
 const TEST_PATH_ROOT =

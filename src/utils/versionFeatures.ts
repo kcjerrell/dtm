@@ -1,4 +1,4 @@
-import { type DrawThingsConfig, DrawThingsMetaData } from "@/types"
+import type { DrawThingsConfig } from "@/types"
 
 const data: VersionData = {
     versions: [
