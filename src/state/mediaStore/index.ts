@@ -207,6 +207,20 @@ function createMediaStore() {
         clearUnusedItems()
     }
 
+    /** Clear all media while preserving registered collections and migration versions. */
+    async function reset() {
+        await waitForReady()
+        for (const item of store.items) {
+            for (const collectionId of Object.keys(item.$col)) {
+                delete item.$col[collectionId]
+            }
+        }
+        for (const collection of Object.values(store.collections)) {
+            clearArray(collection.items)
+        }
+        await clearUnusedItems()
+    }
+
     function syncCollectionItems(collectionId: string) {
         if (!isReady) return
 
@@ -301,6 +315,7 @@ function createMediaStore() {
         getCollection,
         useCollection,
         waitForReady,
+        reset,
         copyImageToClipboard,
         saveCopy,
     }

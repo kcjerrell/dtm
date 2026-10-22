@@ -46,3 +46,44 @@ describe("referenced video media-store entries", () => {
         expect(io.saveFile).not.toHaveBeenCalled()
     })
 })
+
+describe("media-store reset", () => {
+    it("clears every collection, awaits cached-file cleanup, and keeps collections usable", async () => {
+        const images = MediaStore.defineCollection("reset-images", {}, { version: 1 })
+        const videos = MediaStore.defineCollection("reset-videos", {})
+        await Promise.all([images.waitForReady(), videos.waitForReady()])
+        const imageItems = images.items
+        io.saveFile.mockResolvedValue({ fname: "cached.png", url: "asset://cached.png" })
+        await images.addItem(new Uint8Array([1]), "png", {})
+        await videos.addMedia({ kind: "file", location: "/videos/movie.mp4", type: "mp4" })
+        await videos.addMedia({
+            kind: "url",
+            location: "https://example.test/movie.mp4",
+            type: "mp4",
+        })
+
+        const cleanup = Promise.withResolvers<void>()
+        io.removeFile.mockReturnValueOnce(cleanup.promise)
+        let completed = false
+        const resetting = MediaStore.reset().then(() => {
+            completed = true
+        })
+        await vi.waitFor(() => expect(io.removeFile).toHaveBeenCalledWith("cached.png"))
+        expect(completed).toBe(false)
+        cleanup.resolve()
+        await resetting
+
+        expect(images.items).toBe(imageItems)
+        expect(images.items).toHaveLength(0)
+        expect(videos.items).toHaveLength(0)
+        expect(io.removeFile).toHaveBeenCalledTimes(1)
+        expect(MediaStore.getCollection("reset-images")?.isReady).toBe(true)
+        const item = await images.addMedia({
+            kind: "url",
+            location: "https://example.test/image.png",
+            type: "png",
+        })
+        expect(images.items).toEqual([item])
+        await MediaStore.reset()
+    })
+})

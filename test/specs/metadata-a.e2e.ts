@@ -69,7 +69,7 @@ describe("Metadata", () => {
         await fse.ensureDir(tempDir)
         await fse.emptyDir(tempDir)
         await browser.execute(() => {
-            window.__reset_metadata_store()
+            return window.__reset_media_store()
         })
     })
 

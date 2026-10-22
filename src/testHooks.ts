@@ -26,12 +26,10 @@ export function addTestHooks() {
     }
     window.__E2E_TEST_OVERRIDE_DATA = overrideData
 
-    window.__reset_metadata_store = async () => {
-        const { resetMetadataStore, waitForMetadataStore } = await import(
-            "./metadata/state/metadataStore"
-        )
-        await waitForMetadataStore()
-        resetMetadataStore()
+    window.__reset_media_store = async () => {
+        const { default: MediaStore } = await import("./state/mediaStore")
+        await MediaStore.waitForReady()
+        await MediaStore.reset()
     }
 
     window.__reset_db = reset_db
