@@ -107,7 +107,7 @@ function getItemFactory(cid: "ic" | "md") {
     return Item
 }
 
-const BASE_PROPS = ["id", "name"]
+const _BASE_PROPS = ["id", "name"]
 const COLL_PROPS = {
     ic: ["pin", "value"],
     md: ["pin", "something"],

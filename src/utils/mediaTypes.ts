@@ -147,7 +147,7 @@ function detectFromString(input: string): string | undefined {
         const url = new URL(input)
         const ext = url.pathname.split(".").pop()
         if (ext) return EXT_NORMALIZE[ext] || ext
-    } catch (e) {
+    } catch (_e) {
         // ignore
     }
 

@@ -165,7 +165,8 @@ function TensorData(
 ) {
     const { item, projectId } = props
     const tensorNames = item.tensor_names
-    const thumbnailName = tensorNames.find((n) => n.startsWith("tensor_history_")) ?? tensorNames[0]
+    const _thumbnailName =
+        tensorNames.find((n) => n.startsWith("tensor_history_")) ?? tensorNames[0]
     return (
         <Table.Row _dark={{ bgColor: "grayc.15" }}>
             <Table.Cell width={"5rem"} bgColor={"grayc.14"} />

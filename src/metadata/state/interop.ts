@@ -41,7 +41,7 @@ export function handleDrop(data: unknown) {
     }
 }
 
-function compareImageSource(a: ImageSource, b: ImageSource) {
+function _compareImageSource(a: ImageSource, b: ImageSource) {
     if (a.source !== b.source) return false
     if (a.file !== b.file) return false
     if (a.url !== b.url) return false

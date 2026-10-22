@@ -190,7 +190,7 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
         if (!state.outputDir || projectIds.length === 0) return
 
         const outputDir = state.outputDir
-        const format = state.format
+        const _format = state.format
         const imageFormat = getImageFormat(state)
 
         state.isArchiving = true

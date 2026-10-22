@@ -134,6 +134,7 @@ const SliderMarks = React.forwardRef<HTMLDivElement, SliderMarksProps>(
                     const value = typeof mark === "number" ? mark : mark.value
                     const label = typeof mark === "number" ? undefined : mark.label
                     return (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: best key for items
                         <ChakraSlider.Marker key={index} value={value}>
                             <ChakraSlider.MarkerIndicator />
                             {label}

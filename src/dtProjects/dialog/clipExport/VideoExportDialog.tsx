@@ -25,7 +25,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
     const [width, setWidth] = useState(defaultWidth)
     const [height, setHeight] = useState(defaultHeight)
     const [fps, setFps] = useState(historyNode.clip?.framesPerSecond ?? 25)
-    const audio = historyNode.clip?.audioId ? `audio_${historyNode.clip?.audioId}` : undefined
+    const _audio = historyNode.clip?.audioId ? `audio_${historyNode.clip?.audioId}` : undefined
 
     const [frameSourceSetting, setFrameSourceSetting] = useSetting("vidExport.videoSource")
     const [frameSource, setFrameSource] = useState<FrameSource>(frameSourceSetting as FrameSource)
@@ -167,7 +167,9 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                     variant={"subtle"}
                                     value={width.toString()}
                                     onValueChange={(e: { value: string | null }) =>
-                                        handleWidthChange(parseInt(e.value || "0") || defaultWidth)
+                                        handleWidthChange(
+                                            parseInt(e.value || "0", 10) || defaultWidth,
+                                        )
                                     }
                                     min={64}
                                     max={4096}
@@ -188,7 +190,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                     value={height.toString()}
                                     onValueChange={(e: { value: string | null }) =>
                                         handleHeightChange(
-                                            parseInt(e.value || "0") || defaultHeight,
+                                            parseInt(e.value || "0", 10) || defaultHeight,
                                         )
                                     }
                                     min={64}
@@ -225,7 +227,7 @@ function VideoExportDialog(props: DialogProps<VideoExportDialogState>) {
                                     variant={"subtle"}
                                     value={fps.toString()}
                                     onValueChange={(e: { value: string | null }) => {
-                                        const nextVal = parseInt(e.value || "0") || 1
+                                        const nextVal = parseInt(e.value || "0", 10) || 1
                                         // If the difference is exactly 2 or 1, it's likely a step from the trigger.
                                         // We snap to the next/prev even number in that case.
                                         const diff = nextVal - fps

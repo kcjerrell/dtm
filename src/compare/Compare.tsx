@@ -18,7 +18,7 @@ const TEST_IMAGES = [
     "bhdlwrwhdnd9.png",
     "cf68acpkwowm.png",
 ].map((n) => TEST_PATH_ROOT + n)
-const [TEST_IMG_A, TEST_IMG_B] = [TEST_IMAGES[2], TEST_IMAGES[3]]
+const [_TEST_IMG_A, _TEST_IMG_B] = [TEST_IMAGES[2], TEST_IMAGES[3]]
 
 type ImageSide = "A" | "B"
 

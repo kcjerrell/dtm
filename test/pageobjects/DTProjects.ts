@@ -124,17 +124,17 @@ class DTProjects {
 
     async getTotalProjects() {
         const text = await $("aria/Total projects").getText()
-        return parseInt(text.split(" ")[0])
+        return parseInt(text.split(" ")[0], 10)
     }
 
     async getTotalImages() {
         const text = await $("aria/Total images").getText()
-        return parseInt(text.split(" ")[0])
+        return parseInt(text.split(" ")[0], 10)
     }
 
     async getTotalFilesize() {
         const text = await $("aria/Total filesize").getText()
-        return parseInt(text.split(" ")[0])
+        return parseInt(text.split(" ")[0], 10)
     }
 
     async getDataItemValue(label: string, opts?: WaitForOpts & { noThrow?: boolean }) {

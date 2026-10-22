@@ -90,7 +90,7 @@ function DetailsImage(props: DetailsImageProps) {
             </DetailsImageContainer>
             {maskProps && (
                 <DetailsImageContainer
-                    key={src + "mask"}
+                    key={`${src}mask`}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}

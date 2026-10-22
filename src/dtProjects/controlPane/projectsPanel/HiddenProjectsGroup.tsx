@@ -25,7 +25,7 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
     } = props
 
     const [showExcluded, setShowExcluded] = useState(false)
-    const [height, setHeight] = useState(0)
+    const [_height, setHeight] = useState(0)
 
     const collapseRef = useRef<HTMLDivElement>(null)
 

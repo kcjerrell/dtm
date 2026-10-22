@@ -23,7 +23,7 @@ const limbSeq = [
     // [5, 17],
 ]
 
-const limbSeqData = [
+const _limbSeqData = [
     [1, 2, "right shoulder", 192, 130, 130],
     [1, 5],
     [2, 3],

@@ -1,6 +1,6 @@
 import type { DrawThingsConfig } from "@/types"
 
-const data: VersionData = {
+const _data: VersionData = {
     versions: [
         {
             version: "auraflow",

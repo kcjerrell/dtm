@@ -24,7 +24,7 @@ function ImageSelector(props: ImageSelectorProps) {
     }, [cancelCloseTimer])
 
     const store = useMetadataStore()
-    const images = store.collection.useMapItems()
+    const _images = store.collection.useMapItems()
     // const imagesSnap = useSnapshot(images)
 
     return (
