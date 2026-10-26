@@ -222,10 +222,21 @@ export async function setTestOverride(overrideData: E2ETestOverrides) {
 }
 
 export async function clearClipboard() {
+    if (process.platform === "linux") {
+        execFileSync("xclip", ["-selection", "clipboard", "-in"], {
+            input: "",
+            stdio: ["pipe", "ignore", "ignore"],
+        })
+        return
+    }
     return new Promise<void>((resolve, reject) => {
         exec("pbcopy < /dev/null", (err) => {
             if (err) reject(err)
             else resolve()
         })
     })
+}
+
+export function capitalize(text: string) {
+    return text.charAt(0).toUpperCase() + text.slice(1)
 }

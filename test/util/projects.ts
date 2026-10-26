@@ -127,11 +127,9 @@ export function mountDmg(dmgPath: string) {
     })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // biome-ignore lint/suspicious/noExplicitAny: hdiutil returns non-standard plist
     const parsed = plist.parse(output) as any
 
     // Find the mount point
-    // biome-ignore lint/suspicious/noExplicitAny: ...
     const mountPoint = parsed["system-entities"].map((e: any) => e["mount-point"]).find(Boolean)
 
     return mountPoint

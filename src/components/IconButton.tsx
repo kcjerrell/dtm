@@ -1,15 +1,16 @@
 import { chakra } from "@chakra-ui/react"
 import type { ComponentProps, ReactNode } from "react"
 import { Tooltip } from "."
+import { PanelButton } from "./common"
 
 // from the chakra ui button recipe
 // https://github.com/chakra-ui/chakra-ui/blob/main/packages/react/src/theme/recipes/button.ts
 
-const Base = chakra("button", {
+const Base = chakra(PanelButton, {
     base: {
         color: "fg.3",
         aspectRatio: "1",
-        bgColor: "transparent",
+        background: "transparent",
         display: "inline-flex",
         appearance: "none",
         alignItems: "center",
@@ -39,16 +40,19 @@ const Base = chakra("button", {
             _hover: { scale: 1 },
         },
         _icon: {},
+        _focusVisible: {
+            outline: "none",
+        },
     },
 
     variants: {
         variant: {
             ghost: {
-                bgColor: "transparent",
+                background: "transparent",
                 border: "none",
             },
             inset: {
-                bgColor: "bg.1",
+                background: "bg.1",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 paddingBlock: 0.5,
@@ -112,7 +116,7 @@ const Base = chakra("button", {
         },
         toggled: {
             true: {
-                bgColor: "bg.2",
+                background: "bg.2",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 _hover: {
@@ -122,7 +126,7 @@ const Base = chakra("button", {
             },
             false: {
                 color: "fg.3/70",
-                bgColor: "bg.deep",
+                background: "bg.deep",
                 border: "1px solid {gray/30}",
                 _hover: {
                     color: "fg.3",
@@ -227,7 +231,7 @@ const Base = chakra("button", {
             variant: "ghost",
             toggled: true,
             css: {
-                bgColor: "unset",
+                background: "unset",
                 border: "none",
                 color: "fg.1",
                 _hover: {
@@ -239,7 +243,7 @@ const Base = chakra("button", {
             variant: "ghost",
             toggled: false,
             css: {
-                bgColor: "unset",
+                background: "unset",
                 border: "none",
                 color: "fg.3/70",
                 _hover: {
@@ -268,7 +272,7 @@ const IconButton = (props: IconButtonProps) => {
 
     if (tip || tipTitle || tipText) {
         return (
-            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText}>
+            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText} whiteSpace={"normal"}>
                 {button}
             </Tooltip>
         )

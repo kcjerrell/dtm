@@ -1,7 +1,5 @@
 import type { RefObject } from "react"
-import { useSnapshot } from "valtio"
 import { useSetting } from "@/state/settings"
-import AppStore from "./appState"
 
 export type RootElement =
     | /** root react element, covers entire window */

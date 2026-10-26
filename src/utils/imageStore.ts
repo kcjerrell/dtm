@@ -3,6 +3,7 @@ import * as path from "@tauri-apps/api/path"
 import * as fs from "@tauri-apps/plugin-fs"
 import { store as createStore } from "@tauri-store/valtio"
 import { Mutex } from "async-mutex"
+import Lifecycle from "@/lifecycle"
 import { getStoreName } from "./helpers"
 
 let _appDataDir: string
@@ -49,7 +50,7 @@ function initStore() {
             saveOnChange: true,
         },
     )
-    window.addEventListener("unload", () => storeInstance.stop())
+    Lifecycle.onExit(() => storeInstance.stop(), true)
     return storeInstance
 }
 

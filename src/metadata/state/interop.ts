@@ -1,33 +1,37 @@
+import { Mutex } from "async-mutex"
 import { updateSetting } from "@/state/settings"
 import type { ImageSource } from "@/types"
-import { ImageItem } from "./ImageItem"
-import { loadImage2 } from "./imageLoaders"
-import type MediaItem from "./mediaItem"
-import { addImageItem, selectImage, waitForMetadataStore } from "./metadataStore"
+import { getMetadataStore } from "./metadataStore2"
 
 export async function sendToMetadata(
     imageData: Uint8Array<ArrayBuffer>,
     type: string,
     source: ImageSource,
 ) {
-    // check if the item already has been sent to the store
-    // const state = getMetadataStore()
-    // let imageItem = state.items.find((im) =>
-    //     compareImageSource(im.source, source),
-    // ) as Nullable<MediaItem>
+    const mdStore = await getMetadataStore()
+    await mdStore.addItem(imageData, type, source)
+    updateSetting("app.currentView", "metadata")
+}
 
-    // if (!imageItem) {
-    await waitForMetadataStore()
-    const image = await ImageItem.fromBuffer(imageData, type, source)
-    if (image) {
-        let imageItem: MediaItem = image
-        imageItem = addImageItem(image)
-        if (imageItem) {
-            selectImage(imageItem)
-            updateSetting("app.currentView", "metadata")
+const pasteboardLoadMutex = new Mutex()
+
+export async function loadImage2(pasteboard: "general" | "drag") {
+    const mdStore = await getMetadataStore()
+    await pasteboardLoadMutex.runExclusive(async () => {
+        mdStore.state.isLoadingImage = true
+        try {
+            const items = await mdStore.collection.addMediaFromPasteboard(pasteboard)
+            const lastItem = items.at(-1)
+            if (lastItem) {
+                await lastItem.hasMetadata()
+                mdStore.selectImage(lastItem.id)
+            }
+        } catch (e) {
+            console.error("error loading image", e)
+        } finally {
+            mdStore.state.isLoadingImage = false
         }
-    }
-    // }
+    })
 }
 
 export function handleDrop(data: unknown) {
@@ -37,7 +41,7 @@ export function handleDrop(data: unknown) {
     }
 }
 
-function compareImageSource(a: ImageSource, b: ImageSource) {
+function _compareImageSource(a: ImageSource, b: ImageSource) {
     if (a.source !== b.source) return false
     if (a.file !== b.file) return false
     if (a.url !== b.url) return false

@@ -7,7 +7,7 @@ import { arrayIfOnly } from "@/utils/helpers"
 import va from "@/utils/valtio"
 import { DTPStateController } from "./types"
 
-const modelInfoFilenames = {
+const _modelInfoFilenames = {
     "custom.json": "Model",
     "custom_controlnet.json": "Cnet",
     "custom_lora.json": "Lora",
@@ -114,12 +114,8 @@ class WatchFoldersController extends DTPStateController<WatchFoldersControllerSt
     }
 
     async pickDtFolder() {
-        try {
-            await DTPService.pickWatchFolder(true)
-            return true
-        } catch (e) {
-            throw e
-        }
+        await DTPService.pickWatchFolder(true)
+        return true
     }
 
     async pickWatchFolder() {

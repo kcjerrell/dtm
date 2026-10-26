@@ -1,4 +1,5 @@
-/** biome-ignore-all lint: does not need linting*/
+// biome-ignore-all lint: does not need linting
+// biome-ignore-all format: do not format
 if (window.location.hash === "#dev") {
 	throw new Error()
 }

@@ -1,18 +1,20 @@
 import { type BoxProps, chakra } from "@chakra-ui/react"
 import { type MotionProps, motion } from "motion/react"
 import { useEffect, useRef } from "react"
+import { useSnapshot } from "valtio"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
-import type MediaItem from "../state/mediaItem"
+import type MdItem from "../state/MdItem"
 import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
 interface HistoryItemProps extends BoxProps {
-    image: ReadonlyState<MediaItem>
+    image: MdItem
     isSelected: boolean
     onSelect?: () => void
     isPinned?: boolean
 }
 function HistoryItem(props: HistoryItemProps) {
-    const { image, isSelected, onSelect, isPinned, ...restProps } = props
+    const { image: imageState, isSelected, onSelect, isPinned, ...restProps } = props
+    const image = useSnapshot(imageState)
     const ref = useRef<HTMLDivElement>(null)
 
     const Thumbnail = image?.isVideo ? VideoThumbnail : ImageThumbnail
@@ -70,12 +72,13 @@ function HistoryItem(props: HistoryItemProps) {
     )
 }
 
-const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
+const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MdItem> }) => {
     const { item, ...restProps } = props
+
     return <motion.img src={item?.thumbUrl} {...restProps} />
 }
 
-const VideoThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
+const VideoThumbnail = (props: MotionProps & { item: ReadonlyState<MdItem> }) => {
     const { item, ...restProps } = props
 
     const canvasRef = useVideoThumbnail(item?.id, "thumbnail")

@@ -40,7 +40,12 @@ function GrantAccess(props: GrantAccessProps) {
                 After clicking the button, a file picker will open. Select the Documents folder.
             </Text>
             <Text>Note: DTM does not modify your projects.</Text>
-            <PanelButton alignSelf={"center"} tone={"success"} isLoading={isLoading} onClick={handleGrantAccess}>
+            <PanelButton
+                alignSelf={"center"}
+                tone={"success"}
+                isLoading={isLoading}
+                onClick={handleGrantAccess}
+            >
                 Select folder
             </PanelButton>
         </PanelSection>
