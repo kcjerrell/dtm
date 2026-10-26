@@ -78,7 +78,6 @@ function Overlay(props: DetailsOverlayProps) {
                         item={item}
                         itemDetails={itemDetails}
                         subItem={snap.subItem}
-                        showSpinner={showSpinner}
                         videoRef={videoContextRef}
                     />
                 )}

@@ -149,6 +149,11 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
         },
     )
 
+    const totalEstimate = [...snap.preview.values()].reduce(
+        (acc, curr) => acc + (curr.preview?.estimate || 0),
+        0,
+    )
+
     useEffect(() => {
         return () => {
             void clearDtArchivePlanCache().catch((error) => {
@@ -399,7 +404,7 @@ function DtArchiveDialog(props: DialogProps<ProjectExportDialogState>) {
                 <VStack alignItems="start" gap={0}>
                     {snap.preview && (
                         <Text color="fg.1">
-                            Estimated archive size: <FormatByte value={snap.preview.estimate} />
+                            Estimated archive size: <FormatByte value={totalEstimate} />
                         </Text>
                     )}
                     {snap.archiveError && (
@@ -484,7 +489,7 @@ function ArchivePlanDetails({ preview }: { preview?: Snapshot<DtArchivePreview> 
         <VStack alignItems="stretch" gap={3} fontSize="sm">
             <DetailsGrid>
                 <Detail label="Current project size">
-                    <FormatByte value={preview?.filesize} />
+                    {preview && <FormatByte value={preview?.filesize} />}
                 </Detail>
                 <Detail label="Generated images" value={preview?.genImages} />
                 <Detail label="Generated video clips" value={preview?.genVideos} />

@@ -10,7 +10,6 @@ export function useSubscribeValue<T extends Record<string, unknown>, K extends k
     const prevValue = useRef(proxy[key])
     const effectEvent = useEffectEvent(callback)
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: effect event
     useEffect(() => {
         const unsubscribe = subscribe(proxy, () => {
             if (proxy[key] === prevValue.current) return

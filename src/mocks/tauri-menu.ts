@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/complexity/noStaticOnlyClass: this matches tuauri's menu api */
 export class MenuItem {
     static async new(_opts: any) {
         return new MenuItem()

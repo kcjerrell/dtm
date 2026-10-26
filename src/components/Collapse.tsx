@@ -21,14 +21,14 @@ type CollapseContextType = {
 
 const CollapseContext = createContext<CollapseContextType | undefined>(undefined)
 
-interface CollapseRootProps extends ChakraProps {
+interface CollapseRootProps {
     /** duration of the collapse transition in seconds */
     duration: number
     onStateChange?: (state: "open" | "closed") => void
 }
 
 export function CollapseRoot(props: PropsWithChildren<CollapseRootProps>) {
-    const { children, duration, onStateChange, ...rest } = props
+    const { children, duration, onStateChange } = props
 
     const [state, setStateState] = useState<CollapseState>("closed")
     const setState = useCallback(

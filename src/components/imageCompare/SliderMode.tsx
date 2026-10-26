@@ -566,6 +566,7 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
                 onMouseEnter={() => onEnter(context)}
                 onMouseLeave={() => onLeave(context)}
                 padding={3}
+                {...restProps}
             >
                 <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
                 <VStack gap={1}>

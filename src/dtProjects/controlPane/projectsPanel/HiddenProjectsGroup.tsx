@@ -44,13 +44,6 @@ function HiddenProjectsGroup(props: HiddenProjectsGroupProps) {
     return (
         <CollapseRoot
             duration={0.2}
-            display={"flex"}
-            flexDirection={"column"}
-            justifyContent={"inherit"}
-            alignItems={"inherit"}
-            gap={"inherit"}
-            padding={0}
-            margin={0}
             onStateChange={(state) => setShowExcluded(state === "open")}
             {...restProps}
         >
