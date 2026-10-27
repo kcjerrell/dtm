@@ -298,6 +298,13 @@ function View(props: ModeViewProps<SliderModeProps>) {
     const showFullEffect = effectDisplay === "full"
     const showSplitEffect = showFullEffect && displayedEffect !== "difference"
 
+    function getFilter(side: "A" | "B") {
+        if (displayedEffect === "none" || displayedEffect === "difference") return "none"
+        let invert = side === "A"
+        if (showSplitEffect) invert = !invert
+        return invert ? "invert(1)" : "none"
+    }
+
     return (
         <>
             <motion.div
@@ -307,11 +314,16 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     inset: 0,
                     zIndex: 1,
                     clipPath: mv.clipMv,
-                    backgroundColor: "var(--chakra-colors-bg-1)",
                     pointerEvents: "none",
                 }}
             >
-                <motion.div style={{ ...containerStyle, overflow: "hidden" }}>
+                <motion.div
+                    style={{
+                        backgroundColor: "var(--chakra-colors-bg-1)",
+                        ...containerStyle,
+                        overflow: "hidden",
+                    }}
+                >
                     <motion.img
                         id="img-b-slider"
                         crossOrigin="anonymous"
@@ -331,8 +343,6 @@ function View(props: ModeViewProps<SliderModeProps>) {
             </motion.div>
 
             <motion.canvas
-                id="image-compare-canvas"
-                ref={refs.normalCanvasRef}
                 style={{
                     display:
                         showEffect && (effectDisplay === "trail" || showSplitEffect)
@@ -350,12 +360,15 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     maskRepeat: "no-repeat",
                     WebkitMaskRepeat: "no-repeat",
                     mixBlendMode: "normal",
+                    filter: getFilter("A"),
                 }}
+                id="image-compare-canvas-inverted"
+                ref={refs.invertedCanvasRef}
             />
 
             <motion.canvas
-                id="image-compare-canvas-inverted"
-                ref={refs.invertedCanvasRef}
+                id="image-compare-canvas"
+                ref={refs.normalCanvasRef}
                 style={{
                     display: showEffect ? "block" : "none",
                     position: "absolute",
@@ -364,13 +377,13 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     height: "100%",
                     zIndex: 2,
                     pointerEvents: "none",
-                    filter: displayedEffect === "difference" ? "none" : "invert(1)",
                     clipPath: showSplitEffect ? mv.clipMv : "none",
                     maskImage: showFullEffect ? "none" : mv.invertedCanvasMaskMv,
                     WebkitMaskImage: showFullEffect ? "none" : mv.invertedCanvasMaskMv,
                     maskRepeat: "no-repeat",
                     WebkitMaskRepeat: "no-repeat",
                     mixBlendMode: "normal",
+                    filter: getFilter("B"),
                 }}
             />
 

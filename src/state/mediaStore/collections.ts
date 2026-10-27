@@ -173,6 +173,14 @@ export class MediaCollection<
         return this.addStoredItem("app", data, type, source, state)
     }
 
+    async addExisting(id: string, state?: T) {
+        if (this.items.some((it) => it.id === id))
+            throw new Error("Item is already in this collection")
+        const itemState = state ?? structuredClone(this.defaultItemState)
+        this.storeApi.addExistingToCollection(id, this.collectionId, itemState)
+        return this.items.find((it) => it.id === id)
+    }
+
     async addMedia(item: LoadedMedia, state?: T) {
         if ("kind" in item) {
             return this.addStoredItem(item.kind, item.location, item.type, item.source ?? {}, state)

@@ -4,6 +4,7 @@ import type { CollectionItem, MediaCollectionItemFactory, MediaState, MediaState
 export class MediaItemBase<T = Record<string, unknown>> implements MediaState {
     private mState: MediaStateCol
     cState: T
+    private _clearOnExit = false
 
     constructor(mState: MediaState, cState: T) {
         this.mState = mState as MediaStateCol
@@ -39,7 +40,11 @@ export class MediaItemBase<T = Record<string, unknown>> implements MediaState {
     }
 
     get clearOnExit(): boolean {
-        return false
+        return this._clearOnExit
+    }
+
+    set clearOnExit(value: boolean) {
+        this._clearOnExit = value
     }
 
     async copyImageToClipboard() {

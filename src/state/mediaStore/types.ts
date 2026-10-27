@@ -78,7 +78,7 @@ export type MediaStoreApi = {
     clear: (collectionId: string) => void
     waitForReady: () => Promise<void>
     syncCollectionItems: (collectionId: string) => void
-}
+    addExistingToCollection: (id: string, collectionId: string, collectionData: Record<string, unknown>) => void}
 
 export type CollectionState<
     T extends Record<string, unknown> = Record<string, unknown>,
@@ -132,6 +132,8 @@ export type CollectionOptions<
         to: number,
         collection: MediaCollection<T, F>,
     ) => void | Promise<void>
+    /** Will be called before the media store is destroyed */
+    onExit?: () => void | Promise<void>
 }
 
 export type MediaCollectionItemFactory<

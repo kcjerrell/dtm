@@ -17,6 +17,8 @@ import { loadImage2 } from "../state/interop"
 import type MdItem from "../state/MdItem"
 import { useMetadataStore } from "../state/metadataStore2"
 import PinnedIcon from "./PinnedIcon"
+import { RiLayoutColumnFill } from "react-icons/ri"
+import { addMediaItem } from "@/compare/interop"
 
 export function useMediaItemCommands() {
     const mdStore = useMetadataStore()
@@ -121,6 +123,17 @@ export function useMediaItemCommands() {
                     getEnabled: (item) => item?.source?.url != null,
                     toolbarEnableMode: "hide",
                     icon: TbBrowser,
+                },
+                {
+                    id: "compare",
+                    label: "Compare image",
+                    onClick: async (item) => {
+                        if (!item?.id) return
+                        await addMediaItem(item.id)
+                    },
+                    getEnabled: (item) => !!item?.id,
+                    toolbarEnableMode: "hide",
+                    icon: RiLayoutColumnFill,
                 },
             ] as ICommand1<MdItem>[],
         [snap.items, mdStore],

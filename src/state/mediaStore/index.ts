@@ -50,6 +50,10 @@ function createMediaStore() {
             },
         )
         Lifecycle.onExit(async () => {
+            for (const cOpts of Object.values(collectionOpts)) {
+                await cOpts.onExit?.()
+            }
+
             const itemsById = new Map(store.items.map((item) => [item.id, item]))
             for (const [cId, collection] of Object.entries(store.collections)) {
                 if (!collection.isReady) continue
@@ -173,6 +177,33 @@ function createMediaStore() {
         return store.items.find((item) => item.id === id)
     }
 
+    function addExistingToCollection(
+        id: string,
+        collectionId: string,
+        collectionData: Record<string, unknown>,
+    ) {
+        const item = getItem(id)
+        if (!item) throw new Error(`Item ${id} not found`)
+        const collection = store.collections[collectionId]
+        const factory = collectionOpts[collectionId]?.itemFactory
+        if (!collection || !factory) throw new Error(`unknown media collection: ${collectionId}`)
+
+        if (collectionId in item.$col) {
+            throw new Error("Item is already in collection")
+        }
+        item.$col[collectionId] = collectionData
+        let collectionItem: MediaItemBase
+        try {
+            collectionItem = factory(item, item.$col[collectionId])
+        } catch (error) {
+            console.error("Failed to create collection item", error)
+            delete item.$col[collectionId]
+            throw error
+        }
+        collection.items.push(collectionItem)
+        return id
+    }
+
     /** Internal. Use the collection api to remove items from a collection */
     function remove(ids: string[], collectionId: string) {
         const removeIds = new Set(ids)
@@ -222,27 +253,29 @@ function createMediaStore() {
     }
 
     function syncCollectionItems(collectionId: string) {
+        console.log("sync collection items")
         if (!isReady) return
-
+        
         const cState = store.collections[collectionId]
         const synced = [] as MediaItemBase[]
         const storeItems = store.items.filter((item) => collectionId in item.$col)
         const collectionItemMap = new Map(cState.items.map((item) => [item.id, item]))
         const factory = collectionOpts[collectionId]?.itemFactory
         if (!factory) return
-
+        
         for (const storeItem of storeItems) {
             try {
                 synced.push(
                     collectionItemMap.get(storeItem.id) ??
-                        factory(storeItem, storeItem.$col[collectionId]),
+                    factory(storeItem, storeItem.$col[collectionId]),
                 )
             } catch (e) {
                 console.error(`${collectionId} factory failed for ${storeItem.id}:`, e)
             }
         }
-
+        
         clearArray(cState.items, synced)
+        console.log("sync collection items ready", cState.items)
 
         cState.isReady = true
     }
@@ -302,7 +335,14 @@ function createMediaStore() {
         }
     }
 
-    const api: MediaStoreApi = { save, remove, clear, waitForReady, syncCollectionItems }
+    const api: MediaStoreApi = {
+        save,
+        remove,
+        clear,
+        waitForReady,
+        syncCollectionItems,
+        addExistingToCollection,
+    }
 
     const { defineCollection, useCollection, getCollection } = getCollections(
         store,

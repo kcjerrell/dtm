@@ -76,7 +76,7 @@ function View(props: ModeViewProps<never>) {
                 crossOrigin="anonymous"
                 draggable={false}
                 src={snap.imageBSrc}
-                alt="b"
+                alt=""
                 style={{
                     ...getComparisonImageStyle(snap, "b"),
                 }}
