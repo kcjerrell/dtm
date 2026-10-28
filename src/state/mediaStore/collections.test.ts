@@ -1,9 +1,9 @@
+import { proxy } from "valtio"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { LoadedImage, LoadedMedia } from "@/metadata/state/imageLoaders"
 import { getCollections, MediaCollection } from "./collections"
 import { getItemFactory, MediaItemBase } from "./MediaItem"
 import type {
-    CollectionOptions,
     MediaItemSource,
     MediaState,
     MediaStateCol,
@@ -55,30 +55,37 @@ const state: ItemState = { selected: true, settings: { label: "explicit" } }
 
 function setup() {
     const items: Item[] = []
-    const store: MediaStoreType = {
-        version: { $store: 1 },
-        items: [],
-        collections: { test: { id: "test", items, isReady: false } },
-    }
+    const store = proxy<MediaStoreType>({ version: { $store: 1 }, items: [] })
     const api: MediaStoreApi = {
         save: vi
             .fn<MediaStoreApi["save"]>()
             .mockImplementation(async (_kind, _data, _type, _source, _collectionId, itemState) => {
-                const item = new Item(
-                    `item-${items.length + 1}`,
-                    "collection facade",
-                    itemState as ItemState,
-                )
-                items.push(item)
+                const item = {
+                    id: `item-${store.items.length + 1}`,
+                    type: _type,
+                    source: _source,
+                    url: "image.png",
+                    thumbUrl: "image.png",
+                    storage: { kind: "app" as const, fname: "image.png" },
+                    createdAt: 0,
+                    $col: { [_collectionId]: itemState },
+                }
+                store.items.push(item)
                 return item.id
             }),
-        remove: vi.fn(),
-        clear: vi.fn(),
+        remove: vi.fn().mockResolvedValue(undefined),
+        clear: vi.fn().mockResolvedValue(undefined),
         waitForReady: vi.fn<MediaStoreApi["waitForReady"]>().mockResolvedValue(undefined),
-        syncCollectionItems: vi.fn(),
+        addExistingToCollection: vi.fn(),
     }
     const defaults: ItemState = { selected: false, settings: { label: "default" } }
-    const collection = new MediaCollection<ItemState, Item>("test", defaults, store, api)
+    const collection = new MediaCollection<ItemState, Item>("test", defaults, store, api, {
+        itemFactory: (media, state) => {
+            const item = proxy(new Item(media.id, "collection facade", state))
+            items.push(item)
+            return item
+        },
+    })
     const addItem = vi.spyOn(collection, "addItem")
     return { collection, addItem, api, items, defaults, store }
 }
@@ -121,43 +128,42 @@ beforeEach(() => {
 })
 
 describe("collection options", () => {
-    it("registers the default factory when no options are supplied", () => {
+    it("creates a synchronous collection with a default factory and runtime lookup", async () => {
         const { store, api } = setup()
-        const collectionOpts: Record<
-            string,
-            CollectionOptions<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
-        > = {}
-        const { defineCollection } = getCollections(store, api, collectionOpts)
-        defineCollection("default", { selected: false })
-
-        const factory = collectionOpts.default.itemFactory
-        expect(factory).toBeTypeOf("function")
-        const media: MediaState = {
-            id: "item-1",
+        const registry = getCollections(store, api)
+        const collection = registry.defineCollection("default", { selected: false })
+        expect(registry.getCollection("default")).toBe(collection)
+        expect(registry.useCollection("default")).toBe(collection)
+        expect(registry.getCollection("missing")).toBeNull()
+        expect(() => registry.defineCollection("default", {})).toThrow("already registered")
+        store.items.push({
+            id: "default-item",
             type: "png",
-            url: "image.png",
-            thumbUrl: "thumb.png",
+            url: "",
+            thumbUrl: "",
             source: {},
-            storage: { kind: "app", fname: "item-1.png" },
-            createdAt: 1,
-        }
-        expect(factory?.(media, { selected: true }).id).toBe("item-1")
+            storage: { kind: "app", fname: "default.png" },
+            createdAt: 0,
+            $col: { default: { selected: true } },
+        })
+        await collection.waitForReady()
+        expect(collection.items[0]).toBeInstanceOf(MediaItemBase)
+        expect(collection.items[0].selected).toBe(true)
     })
 
-    it("keeps the supplied factory and callbacks accessible to the media store", () => {
+    it("keeps custom factories and callbacks within the collection", async () => {
         const { store, api } = setup()
-        const collectionOpts: Record<
-            string,
-            CollectionOptions<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
-        > = {}
-        const { defineCollection } = getCollections(store, api, collectionOpts)
-        const itemFactory = (media: MediaState, state: ItemState) =>
-            new Item(media.id, "custom", state)
+        const { defineCollection } = getCollections(store, api)
+        const itemFactory = vi.fn(
+            (media: MediaState, state: ItemState) => new Item(media.id, "custom", state),
+        )
         const onItemsChanged = vi.fn()
-        defineCollection("custom", state, { itemFactory, onItemsChanged })
-
-        expect(collectionOpts.custom.itemFactory).toBe(itemFactory)
-        expect(collectionOpts.custom.onItemsChanged).toBe(onItemsChanged)
+        const collection = defineCollection("custom", state, { itemFactory, onItemsChanged })
+        await collection.waitForReady()
+        const item = await collection.addItem(buffer, "png", source)
+        expect(item?.label).toBe("custom")
+        expect(itemFactory).toHaveBeenCalledOnce()
+        await vi.waitFor(() => expect(onItemsChanged).toHaveBeenCalledOnce())
     })
 })
 
@@ -180,15 +186,7 @@ describe("collection initialization", () => {
         const hydration = Promise.withResolvers<void>()
         api.waitForReady = vi.fn(() => hydration.promise)
         const events: string[] = []
-        api.syncCollectionItems = vi.fn((id) => {
-            events.push("sync")
-            const item = store.items[0]
-            store.collections[id].items.push(
-                new Item(item.id, "restored", item.$col[id] as ItemState),
-            )
-            store.collections[id].isReady = true
-        })
-        const { defineCollection } = getCollections(store, api, {})
+        const { defineCollection } = getCollections(store, api)
         const onMigrate = vi.fn(
             (_from: number | undefined, _to: number, items: { state: unknown }[]) => {
                 events.push("migrate")
@@ -205,12 +203,18 @@ describe("collection initialization", () => {
             version: 2,
             onMigrate,
             postMigrate,
+            itemFactory: (media, state) => {
+                events.push("map")
+                return getItemFactory("images", state)(media, state)
+            },
         })
         store.items.push(storedItem("images", { old: true }))
         store.version.images = 1
 
         expect(onMigrate).not.toHaveBeenCalled()
-        expect(store.collections.images.isReady).toBe(false)
+        expect(collection.isReady).toBe(false)
+        expect(collection.items).toEqual([])
+        expect(events).toEqual([])
         hydration.resolve()
         await collection.waitForReady()
         await vi.waitFor(() => expect(postMigrate).toHaveBeenCalledOnce())
@@ -218,7 +222,7 @@ describe("collection initialization", () => {
         expect(onMigrate).toHaveBeenCalledWith(1, 2, [
             { media: store.items[0], state: { old: true } },
         ])
-        expect(events).toEqual(["migrate", "sync", "post"])
+        expect(events).toEqual(["migrate", "map", "post"])
         expect(store.version.images).toBe(2)
     })
 
@@ -227,13 +231,14 @@ describe("collection initialization", () => {
         store.version.images = 1
         store.items.push(storedItem("images", { old: true }))
         const onMigrate = vi.fn(() => [{ selected: true, settings: { label: "new" } }])
-        const { defineCollection } = getCollections(store, api, {})
+        const { defineCollection } = getCollections(store, api)
         const collection = defineCollection("images", state, { version: 2, onMigrate })
 
         await collection.waitForReady()
         expect(onMigrate).toHaveBeenCalledOnce()
         expect(store.items[0].$col.images).toEqual({ selected: true, settings: { label: "new" } })
-        expect(api.syncCollectionItems).toHaveBeenCalledExactlyOnceWith("images")
+        expect(collection.isReady).toBe(true)
+        expect(collection.items[0].cState).toBe(store.items[0].$col.images)
         expect(store.version.images).toBe(2)
     })
 
@@ -242,7 +247,7 @@ describe("collection initialization", () => {
         const error = new Error("post-migration failed")
         const log = vi.spyOn(console, "error").mockImplementation(() => {})
         try {
-            const { defineCollection } = getCollections(store, api, {})
+            const { defineCollection } = getCollections(store, api)
             const collection = defineCollection("images", state, {
                 version: 2,
                 postMigrate: async () => {
@@ -261,7 +266,7 @@ describe("collection initialization", () => {
 
     it("rejects collection readiness on migration failure without blocking another collection", async () => {
         const { store, api } = setup()
-        const { defineCollection } = getCollections(store, api, {})
+        const { defineCollection } = getCollections(store, api)
         const error = new Error("migration failed")
         const failed = defineCollection("failed", state, {
             version: 2,
@@ -273,7 +278,8 @@ describe("collection initialization", () => {
 
         await expect(failed.waitForReady()).rejects.toBe(error)
         await expect(healthy.waitForReady()).resolves.toBeUndefined()
-        expect(api.syncCollectionItems).toHaveBeenCalledExactlyOnceWith("healthy")
+        expect(failed.isReady).toBe(false)
+        expect(healthy.isReady).toBe(true)
         expect(store.version.failed).toBeUndefined()
     })
 })

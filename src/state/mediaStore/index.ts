@@ -2,13 +2,12 @@ import { convertFileSrc } from "@tauri-apps/api/core"
 import { store as createStore } from "@tauri-store/valtio"
 import { customAlphabet } from "nanoid"
 import { proxy } from "valtio"
+import { batch } from "valtio-reactive"
 import Lifecycle from "@/lifecycle"
 import { clearArray, getStoreName } from "@/utils/helpers"
 import { getCollections } from "./collections"
 import { MediaStoreFiles } from "./files"
-import type { MediaItemBase } from "./MediaItem"
 import {
-    type CollectionOptions,
     type MediaState,
     type MediaStateCol,
     type MediaStorage,
@@ -28,41 +27,22 @@ function createMediaStore() {
         resolve: resolveReady,
         reject: rejectReady,
     } = Promise.withResolvers<boolean>()
-    let isReady = false
-
-    const collectionOpts = {} as Record<
-        string,
-        CollectionOptions<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
-    >
+    const pendingCleanup = new Set<Promise<void>>()
 
     function initStore() {
         const storeInstance = createStore<MediaStoreType>(
             getStoreName("media"),
-            { version: { $store: 1 }, items: [] as MediaStateCol[], collections: {} },
+            { version: { $store: 1 }, items: [] as MediaStateCol[] },
             {
                 autoStart: false,
                 // syncStrategy: "debounce",
                 // syncInterval: 1000,
                 saveOnChange: true,
-                filterKeys: ["collections"],
-                filterKeysStrategy: "omit",
                 saveOnExit: true,
             },
         )
         Lifecycle.onExit(async () => {
-            for (const cOpts of Object.values(collectionOpts)) {
-                await cOpts.onExit?.()
-            }
-
-            const itemsById = new Map(store.items.map((item) => [item.id, item]))
-            for (const [cId, collection] of Object.entries(store.collections)) {
-                if (!collection.isReady) continue
-                for (const collectionItem of collection.items) {
-                    if (!collectionItem.clearOnExit) continue
-                    const item = itemsById.get(collectionItem.id)
-                    if (item) delete item.$col[cId]
-                }
-            }
+            await collections.onExit()
             await clearUnusedItems()
             const referencedFiles = new Set(
                 store.items.flatMap((item) =>
@@ -74,15 +54,10 @@ function createMediaStore() {
         queueMicrotask(async () => {
             try {
                 await storeInstance.start()
-                isReady = true
-                const collectionIds = Object.keys(store.collections)
-                console.debug(
-                    `Media store started (${collectionIds.length ? collectionIds.join(", ") : "no collections"})`,
-                )
+                console.debug("Media store started")
                 resolveReady(true)
             } catch (error) {
                 rejectReady(error)
-                isReady = false
             }
         })
         return storeInstance
@@ -115,9 +90,8 @@ function createMediaStore() {
         if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
         if (VALID_VIDEO_TYPES.includes(type) && kind !== "file" && kind !== "url")
             throw new Error("videos must be referenced by file or URL")
-        const collection = store.collections[collectionId]
-        const factory = collectionOpts[collectionId]?.itemFactory
-        if (!collection || !factory) throw new Error(`unknown media collection: ${collectionId}`)
+        if (!collections.getCollection(collectionId))
+            throw new Error(`unknown media collection: ${collectionId}`)
 
         const id = getNewId()
         let storage: MediaStorage
@@ -161,15 +135,7 @@ function createMediaStore() {
             $col: { [collectionId]: collectionData },
         })
 
-        let collectionItem: MediaItemBase
-        try {
-            collectionItem = factory(item, item.$col[collectionId])
-        } catch (error) {
-            if (storage.kind === "app") await MediaStoreFiles.removeFile(storage.fname)
-            throw error
-        }
         store.items.push(item)
-        collection.items.push(collectionItem)
         return id
     }
 
@@ -184,100 +150,46 @@ function createMediaStore() {
     ) {
         const item = getItem(id)
         if (!item) throw new Error(`Item ${id} not found`)
-        const collection = store.collections[collectionId]
-        const factory = collectionOpts[collectionId]?.itemFactory
-        if (!collection || !factory) throw new Error(`unknown media collection: ${collectionId}`)
+        if (!collections.getCollection(collectionId))
+            throw new Error(`unknown media collection: ${collectionId}`)
 
         if (collectionId in item.$col) {
             throw new Error("Item is already in collection")
         }
         item.$col[collectionId] = collectionData
-        let collectionItem: MediaItemBase
-        try {
-            collectionItem = factory(item, item.$col[collectionId])
-        } catch (error) {
-            console.error("Failed to create collection item", error)
-            delete item.$col[collectionId]
-            throw error
-        }
-        collection.items.push(collectionItem)
         return id
     }
 
     /** Internal. Use the collection api to remove items from a collection */
     function remove(ids: string[], collectionId: string) {
         const removeIds = new Set(ids)
-        const keepIds = new Set()
 
-        for (const item of store.items) {
-            if (removeIds.has(item.id)) {
-                delete item.$col[collectionId]
+        return batch(() => {
+            for (const item of store.items) {
+                if (removeIds.has(item.id)) delete item.$col[collectionId]
             }
-            if (collectionId in item.$col) {
-                keepIds.add(item.id)
-            }
-        }
-
-        const keepItems = store.collections[collectionId].items.filter((item) =>
-            keepIds.has(item.id),
-        )
-
-        clearArray(store.collections[collectionId].items, keepItems)
-        clearUnusedItems()
+            return clearUnusedItems()
+        })
     }
 
     function clear(collectionId: string) {
-        for (const item of store.items) {
-            if (collectionId in item.$col) {
-                delete item.$col[collectionId]
+        return batch(() => {
+            for (const item of store.items) {
+                if (collectionId in item.$col) delete item.$col[collectionId]
             }
-        }
-
-        clearArray(store.collections[collectionId].items)
-
-        clearUnusedItems()
+            return clearUnusedItems()
+        })
     }
 
     /** Clear all media while preserving registered collections and migration versions. */
     async function reset() {
         await waitForReady()
-        for (const item of store.items) {
-            for (const collectionId of Object.keys(item.$col)) {
-                delete item.$col[collectionId]
+        await batch(() => {
+            for (const item of store.items) {
+                for (const collectionId of Object.keys(item.$col)) delete item.$col[collectionId]
             }
-        }
-        for (const collection of Object.values(store.collections)) {
-            clearArray(collection.items)
-        }
-        await clearUnusedItems()
-    }
-
-    function syncCollectionItems(collectionId: string) {
-        console.log("sync collection items")
-        if (!isReady) return
-        
-        const cState = store.collections[collectionId]
-        const synced = [] as MediaItemBase[]
-        const storeItems = store.items.filter((item) => collectionId in item.$col)
-        const collectionItemMap = new Map(cState.items.map((item) => [item.id, item]))
-        const factory = collectionOpts[collectionId]?.itemFactory
-        if (!factory) return
-        
-        for (const storeItem of storeItems) {
-            try {
-                synced.push(
-                    collectionItemMap.get(storeItem.id) ??
-                    factory(storeItem, storeItem.$col[collectionId]),
-                )
-            } catch (e) {
-                console.error(`${collectionId} factory failed for ${storeItem.id}:`, e)
-            }
-        }
-        
-        clearArray(cState.items, synced)
-        console.log("sync collection items ready", cState.items)
-
-        cState.isReady = true
+            return clearUnusedItems()
+        })
     }
 
     function clearUnusedItems() {
@@ -291,6 +203,10 @@ function createMediaStore() {
         clearArray(store.items, keepItems)
 
         const { promise, resolve, reject } = Promise.withResolvers<void>()
+
+        pendingCleanup.add(promise)
+        const forget = () => pendingCleanup.delete(promise)
+        void promise.then(forget, forget)
 
         queueMicrotask(async () => {
             const errors: unknown[] = []
@@ -308,7 +224,7 @@ function createMediaStore() {
             resolve()
         })
 
-        return promise
+        return Promise.all([...pendingCleanup]).then(() => {})
     }
 
     async function copyImageToClipboard(id: string) {
@@ -340,15 +256,11 @@ function createMediaStore() {
         remove,
         clear,
         waitForReady,
-        syncCollectionItems,
         addExistingToCollection,
     }
 
-    const { defineCollection, useCollection, getCollection } = getCollections(
-        store,
-        api,
-        collectionOpts,
-    )
+    const collections = getCollections(store, api)
+    const { defineCollection, useCollection, getCollection } = collections
 
     return {
         defineCollection,

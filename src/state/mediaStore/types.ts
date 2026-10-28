@@ -59,10 +59,6 @@ export type MediaStoreType = {
         [collectionId: string]: number | undefined
     }
     items: MediaStateCol[]
-    collections: Record<
-        string,
-        CollectionState<Record<string, unknown>, MediaItemBase<Record<string, unknown>>>
-    >
 }
 
 export type MediaStoreApi = {
@@ -74,20 +70,14 @@ export type MediaStoreApi = {
         collectionId: string,
         collectionData: Record<string, unknown>,
     ) => Promise<string>
-    remove: (ids: string[], collectionId: string) => void
-    clear: (collectionId: string) => void
+    remove: (ids: string[], collectionId: string) => Promise<void>
+    clear: (collectionId: string) => Promise<void>
     waitForReady: () => Promise<void>
-    syncCollectionItems: (collectionId: string) => void
-    addExistingToCollection: (id: string, collectionId: string, collectionData: Record<string, unknown>) => void}
-
-export type CollectionState<
-    T extends Record<string, unknown> = Record<string, unknown>,
-    F extends MediaItemBase<T> = CollectionItem<T>,
-> = {
-    id: string
-    items: F[]
-    /** will be false until the collection's first sync */
-    isReady: boolean
+    addExistingToCollection: (
+        id: string,
+        collectionId: string,
+        collectionData: Record<string, unknown>,
+    ) => void
 }
 
 export type CollectionItem<T extends Record<string, unknown> = Record<string, unknown>> =

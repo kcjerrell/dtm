@@ -53,7 +53,9 @@ function initStore() {
     const state: CompareStoreState = proxy({
         imageA: undefined,
         imageB: undefined,
-        items: collection.items,
+        get items() {
+            return collection.items
+        },
     })
 
     async function addNewItem(data: Uint8Array, type: string, source: MediaItemSource) {

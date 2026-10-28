@@ -1,4 +1,4 @@
-import { snapshot } from "valtio"
+import { useSnapshot } from "valtio"
 import type { CollectionItem, MediaCollectionItemFactory, MediaState, MediaStateCol } from "./types"
 
 export class MediaItemBase<T = Record<string, unknown>> implements MediaState {
@@ -59,7 +59,7 @@ export class MediaItemBase<T = Record<string, unknown>> implements MediaState {
 
     // this might not actually work
     useSnap() {
-        return snapshot(this)
+        return useSnapshot(this)
     }
 }
 

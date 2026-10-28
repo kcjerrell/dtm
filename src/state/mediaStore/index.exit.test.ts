@@ -145,7 +145,7 @@ describe("media-store exit cleanup", () => {
         expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(new Set())
     })
 
-    it("does not persist an item if its factory fails", async () => {
+    it("retains store items and files when a mapped-item factory fails", async () => {
         const { default: mediaStore } = await import("./index")
         const collection = mediaStore.defineCollection(
             "broken",
@@ -158,12 +158,104 @@ describe("media-store exit cleanup", () => {
         )
         await collection.waitForReady()
 
-        await expect(collection.addItem(new Uint8Array([1]), "png", {})).rejects.toThrow(
-            "factory failed",
+        const log = vi.spyOn(console, "error").mockImplementation(() => {})
+        try {
+            await expect(
+                collection.addItem(new Uint8Array([1]), "png", {}),
+            ).resolves.toBeUndefined()
+            expect(fixtures.state?.items).toHaveLength(1)
+            expect(fixtures.state?.items[0].$col).toEqual({ broken: {} })
+            expect(collection.items).toEqual([])
+            expect(fixtures.removeFile).not.toHaveBeenCalled()
+            const storedItem = fixtures.state?.items[0]
+            if (!storedItem) throw new Error("expected persisted store item")
+            await expect(collection.addExisting(storedItem.id)).rejects.toThrow(
+                "already in collection",
+            )
+        } finally {
+            log.mockRestore()
+        }
+    })
+
+    it("shares raw items between independent collection views and retains a failed attachment", async () => {
+        const { default: mediaStore } = await import("./index")
+        const a = mediaStore.defineCollection("a", { clear: false })
+        const b = mediaStore.defineCollection("b", { clear: false })
+        const broken = mediaStore.defineCollection(
+            "broken",
+            {},
+            {
+                itemFactory: () => {
+                    throw new Error("broken attachment view")
+                },
+            },
         )
+        await Promise.all([a.waitForReady(), b.waitForReady(), broken.waitForReady()])
+        const first = await a.addItem(new Uint8Array([1]), "png", {})
+        if (!first) throw new Error("expected source view")
+        const second = await b.addExisting(first.id)
+        expect(second).not.toBe(first)
+        expect(second?.id).toBe(first.id)
+        expect(fixtures.state?.items).toHaveLength(1)
+        expect(fixtures.saveFile).toHaveBeenCalledOnce()
+        const log = vi.spyOn(console, "error").mockImplementation(() => {})
+        try {
+            await expect(broken.addExisting(first.id)).resolves.toBeUndefined()
+            expect(fixtures.state?.items[0].$col).toEqual({
+                a: { clear: false },
+                b: { clear: false },
+                broken: {},
+            })
+            a.removeItems(first.id)
+            expect(a.items).toEqual([])
+            expect(b.items[0]).toBe(second)
+            expect(fixtures.removeFile).not.toHaveBeenCalled()
+            b.clear()
+            expect(fixtures.state?.items).toHaveLength(1)
+            expect(fixtures.state?.items[0].$col).toEqual({ broken: {} })
+            broken.clear()
+            await mediaStore.reset()
+            expect(fixtures.state?.items).toEqual([])
+            expect(fixtures.removeFile).toHaveBeenCalledOnce()
+        } finally {
+            log.mockRestore()
+        }
+    })
+
+    it("runs all exit callbacks before inspecting any mapped-item flags", async () => {
+        fixtures.items = [item("only-a", ["a"])]
+        const { default: mediaStore } = await import("./index")
+        const a = mediaStore.defineCollection("a", { clear: false }, exitOptions)
+        const b = mediaStore.defineCollection(
+            "b",
+            {},
+            {
+                onExit: () => {
+                    a.items[0].cState.clear = true
+                },
+            },
+        )
+        await Promise.all([a.waitForReady(), b.waitForReady()])
+        await fixtures.onExit.mock.calls[0][0]()
         expect(fixtures.state?.items).toEqual([])
-        expect(collection.items).toEqual([])
-        expect(fixtures.removeFile).toHaveBeenCalledOnce()
+        expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("only-a.png")
+    })
+
+    it("awaits cleanup already started by a public removal before sweeping files", async () => {
+        fixtures.items = [item("only-a", ["a"])]
+        const { default: mediaStore } = await import("./index")
+        const a = mediaStore.defineCollection("a", {})
+        await a.waitForReady()
+        const removal = Promise.withResolvers<void>()
+        fixtures.removeFile.mockImplementation(() => removal.promise)
+        a.removeItems("only-a")
+        expect(a.items).toEqual([])
+        const exiting = fixtures.onExit.mock.calls[0][0]()
+        await vi.waitFor(() => expect(fixtures.removeFile).toHaveBeenCalledOnce())
+        expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
+        removal.resolve()
+        await exiting
+        expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(new Set())
     })
 
     it("keeps items for collections that were never defined", async () => {
