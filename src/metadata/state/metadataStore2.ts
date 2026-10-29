@@ -30,7 +30,7 @@ type MetadataStore = {
     }
     collection: MediaCollection<{ pin: number | null }, MdItem>
     selectImage: (id: string | null) => void
-    clearAll: (keepPins?: boolean) => void
+    clearAll: (keepPins?: boolean) => Promise<void>
     addItem: (data: Uint8Array, type: string, source: MediaItemSource) => Promise<void>
     addMediaFromFile: (file: string, source?: MediaItemSource) => Promise<void>
     addMediaFromUrl: (url: string, source?: MediaItemSource) => Promise<void>
@@ -163,12 +163,13 @@ function initStore(): MetadataStore {
         state.currentItem = item
     }
 
-    function clearAll(keepPins?: boolean) {
+    async function clearAll(keepPins?: boolean) {
+        await collection.waitForReady()
         if (keepPins) {
             const ids = collection.items.filter((item) => !item.pin).map((item) => item.id)
-            collection.removeItems(ids)
+            await collection.removeItems(ids)
         } else {
-            collection.clear()
+            await collection.clear()
         }
     }
 

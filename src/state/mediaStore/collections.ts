@@ -70,10 +70,9 @@ export class MediaCollection<
 > {
     private readonly compItems: { items: F[] }
     private readonly itemMap: CollectionMap<T, F>
-    private readonly runtime = proxy({ isReady: false, storeVersion: 0 })
+    private readonly runtime = proxy({ storeVersion: 0 })
     private readonly subscribeItems = (callback: () => void) => subscribe(this.compItems, callback)
     private readonly getItems = () => this.compItems.items
-    private readonly ready: Promise<void>
 
     constructor(
         public readonly collectionId: string,
@@ -92,7 +91,6 @@ export class MediaCollection<
         let mappedItems: F[] = []
         this.compItems = computed({
             items: () => {
-                if (!this.runtime.isReady) return []
                 // Track structural identity even when a reorder has identical item data.
                 void this.runtime.storeVersion
                 const items = store.items
@@ -118,11 +116,6 @@ export class MediaCollection<
             true,
         )
 
-        this.ready = storeApi.waitForReady().then(() => {
-            this.runtime.isReady = true
-        })
-        // Collections may never be awaited; retain the rejection for waitForReady callers.
-        void this.ready.catch(() => {})
         this.observeItems()
     }
 
@@ -145,22 +138,19 @@ export class MediaCollection<
         })
     }
 
-    get isReady() {
-        return this.runtime.isReady
-    }
-
     get items(): F[] {
         return this.compItems.items
     }
 
     /** Internal collection lifecycle coordination. */
     async runExitCallback() {
+        await this.waitForReady()
         await this.options.onExit?.()
     }
 
     /** Internal. Inspect mapped-item policy here; the store only removes memberships. */
     async clearExitItems() {
-        if (!this.isReady) return
+        await this.waitForReady()
         const ids = this.items.filter((item) => item.clearOnExit).map((item) => item.id)
         if (ids.length) await this.storeApi.remove(ids, this.collectionId)
     }
@@ -170,21 +160,27 @@ export class MediaCollection<
     }
 
     async addItem(data: Uint8Array, type: string, source: MediaItemSource, state?: T) {
-        return this.addStoredItem("app", data, type, source, state)
+        return await this.addStoredItem("app", data, type, source, state)
     }
 
     async addExisting(id: string, state?: T) {
         await this.waitForReady()
         const itemState = state ?? structuredClone(this.defaultItemState)
-        this.storeApi.addExistingToCollection(id, this.collectionId, itemState)
+        await this.storeApi.addExistingToCollection(id, this.collectionId, itemState)
         return this.items.find((it) => it.id === id)
     }
 
     async addMedia(item: LoadedMedia, state?: T) {
         if ("kind" in item) {
-            return this.addStoredItem(item.kind, item.location, item.type, item.source ?? {}, state)
+            return await this.addStoredItem(
+                item.kind,
+                item.location,
+                item.type,
+                item.source ?? {},
+                state,
+            )
         }
-        return this.addItem(item.buffer, item.type, item.source ?? {}, state)
+        return await this.addItem(item.buffer, item.type, item.source ?? {}, state)
     }
 
     private async addStoredItem(
@@ -202,12 +198,12 @@ export class MediaCollection<
 
     async addMediaFromFile(file: string, source?: MediaItemSource, state?: T) {
         const media = await loadMediaFromFile(file, source)
-        if (media) return this.addMedia(media, state)
+        if (media) return await this.addMedia(media, state)
     }
 
     async addMediaFromUrl(url: string, source?: MediaItemSource, state?: T) {
         const media = await loadMediaFromUrl(url, source)
-        if (media) return this.addMedia(media, state)
+        if (media) return await this.addMedia(media, state)
     }
 
     async addMediaFromPasteboard(pasteboard: "general" | "drag", state?: T): Promise<F[]> {
@@ -219,23 +215,21 @@ export class MediaCollection<
         return items
     }
 
-    removeItems(ids: string[]): void
-    removeItems(id: string): void
-    removeItems(arg: string | string[]): void {
+    async removeItems(ids: string[]): Promise<void>
+    async removeItems(id: string): Promise<void>
+    async removeItems(arg: string | string[]): Promise<void> {
+        await this.waitForReady()
         const ids = Array.isArray(arg) ? arg : [arg]
-        void this.storeApi.remove(ids, this.collectionId).catch((error) => {
-            console.error(`${this.collectionId} removal failed:`, error)
-        })
+        await this.storeApi.remove(ids, this.collectionId)
     }
 
-    clear(): void {
-        void this.storeApi.clear(this.collectionId).catch((error) => {
-            console.error(`${this.collectionId} clear failed:`, error)
-        })
+    async clear(): Promise<void> {
+        await this.waitForReady()
+        await this.storeApi.clear(this.collectionId)
     }
 
     async waitForReady(): Promise<void> {
-        await this.ready
+        await this.storeApi.waitForReady()
     }
 
     /**
@@ -267,7 +261,7 @@ export class MediaCollection<
         state?: T,
     ): Promise<F | undefined> {
         const image = await loadImageFromFile(file, source)
-        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
+        if (image) return await this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
     async addImageFromUrl(
@@ -276,12 +270,12 @@ export class MediaCollection<
         state?: T,
     ): Promise<F | undefined> {
         const image = await loadImageFromUrl(url, source)
-        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
+        if (image) return await this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
     async addImageFromDtp(projectId: number, imageId: number, state?: T): Promise<F | undefined> {
         const image = await loadImageFromDtp(projectId, imageId)
-        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
+        if (image) return await this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
     async addImageFromPose(
@@ -290,7 +284,7 @@ export class MediaCollection<
         state?: T,
     ): Promise<F | undefined> {
         const image = await loadImageFromPose(data, source)
-        if (image) return this.addItem(image.buffer, image.type, image.source ?? {}, state)
+        if (image) return await this.addItem(image.buffer, image.type, image.source ?? {}, state)
     }
 
     async addImageFromPasteboard(pasteboard: "general" | "drag", state?: T): Promise<F[]> {

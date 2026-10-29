@@ -1,6 +1,8 @@
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
+import { RiLayoutColumnFill } from "react-icons/ri"
 import { useSnapshot } from "valtio"
+import { addMediaItem } from "@/compare/interop"
 import type { IconType } from "@/components/icons/icons"
 import {
     FiClipboard,
@@ -17,8 +19,6 @@ import { loadImage2 } from "../state/interop"
 import type MdItem from "../state/MdItem"
 import { useMetadataStore } from "../state/metadataStore2"
 import PinnedIcon from "./PinnedIcon"
-import { RiLayoutColumnFill } from "react-icons/ri"
-import { addMediaItem } from "@/compare/interop"
 
 export function useMediaItemCommands() {
     const mdStore = useMetadataStore()
@@ -71,7 +71,9 @@ export function useMediaItemCommands() {
                 {
                     id: "clearUnpinned",
                     label: "Clear unpinned images",
-                    onClick: () => mdStore.clearAll(true),
+                    onClick: async () => {
+                        await mdStore.clearAll(true)
+                    },
                     getEnabled: () => {
                         return (
                             snap.items.length > 0 &&

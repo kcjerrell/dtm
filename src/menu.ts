@@ -171,7 +171,7 @@ async function createAppMenus() {
                 action: async () => {
                     const { getMetadataStore } = await import("./metadata/state/metadataStore2")
                     const mdStore = await getMetadataStore()
-                    mdStore.clearAll(true)
+                    await mdStore.clearAll(true)
                 },
             }),
             await MenuItem.new({
@@ -180,7 +180,7 @@ async function createAppMenus() {
                 action: async () => {
                     const { getMetadataStore } = await import("./metadata/state/metadataStore2")
                     const mdStore = await getMetadataStore()
-                    mdStore.clearAll(false)
+                    await mdStore.clearAll(false)
                 },
             }),
         ],

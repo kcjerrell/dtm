@@ -35,7 +35,7 @@ describe("referenced video media-store entries", () => {
         expect(item?.url).toBe(expectedUrl)
         expect(io.saveFile).not.toHaveBeenCalled()
         if (!item) throw new Error("expected a video item")
-        collection.removeItems(item.id)
+        await collection.removeItems(item.id)
         expect(io.removeFile).not.toHaveBeenCalled()
     })
 
@@ -64,9 +64,11 @@ describe("media-store reset", () => {
         const cleanup = Promise.withResolvers<void>()
         io.removeFile.mockReturnValueOnce(cleanup.promise)
         let completed = false
-        const resetting = MediaStore.reset().then(() => {
+        async function resetStore() {
+            await MediaStore.reset()
             completed = true
-        })
+        }
+        const resetting = resetStore()
         await vi.waitFor(() => expect(io.removeFile).toHaveBeenCalledWith("cached.png"))
         expect(completed).toBe(false)
         cleanup.resolve()
@@ -75,7 +77,7 @@ describe("media-store reset", () => {
         expect(images.items).toHaveLength(0)
         expect(videos.items).toHaveLength(0)
         expect(io.removeFile).toHaveBeenCalledTimes(1)
-        expect(MediaStore.getCollection("reset-images")?.isReady).toBe(true)
+        expect(MediaStore.getCollection("reset-images")).toBe(images)
         const item = await images.addMedia({
             kind: "url",
             location: "https://example.test/image.png",

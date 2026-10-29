@@ -72,7 +72,7 @@ export type MediaStoreApi = {
         id: string,
         collectionId: string,
         collectionData: Record<string, unknown>,
-    ) => void
+    ) => Promise<string>
 }
 
 export type CollectionItem<T extends Record<string, unknown> = Record<string, unknown>> =

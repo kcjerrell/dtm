@@ -49,7 +49,7 @@ function setup() {
         save: vi.fn(),
         remove: vi.fn().mockResolvedValue(undefined),
         clear: vi.fn().mockResolvedValue(undefined),
-        addExistingToCollection: vi.fn(),
+        addExistingToCollection: vi.fn().mockResolvedValue("item"),
         waitForReady: async () => {},
     }
     const factory = vi.fn(getItemFactory("a", { selected: false }))
@@ -124,12 +124,13 @@ describe("collection-owned mapping", () => {
         await collection.waitForReady()
         const log = vi.spyOn(console, "error").mockImplementation(() => {})
         try {
-            factory.mockImplementationOnce(() => {
+            factory.mockImplementation(() => {
                 throw new Error("broken view")
             })
             store.items.push(stored("one"))
             expect(collection.items).toEqual([])
             expect(store.items[0].$col.a).toEqual({ selected: false })
+            factory.mockImplementation(getItemFactory("a", { selected: false }))
             store.items.push(stored("two"))
             expect(collection.items.map((item) => item.id)).toEqual(["one", "two"])
             expect(log).toHaveBeenCalledWith("a factory failed for one:", expect.any(Error))
@@ -140,6 +141,21 @@ describe("collection-owned mapping", () => {
 })
 
 describe("mapped-item hooks", () => {
+    it("updates from hydration without waiting for collection initialization", async () => {
+        const { store, collection } = setup()
+        const { result } = renderHook(() => collection.useMapItems())
+        expect(result.current).toEqual([])
+        await act(async () => {
+            store.items = [stored("restored")]
+        })
+        expect(result.current[0].id).toBe("restored")
+        expect(result.current[0]).toBe(collection.items[0])
+        await act(async () => {
+            result.current[0].selected = true
+        })
+        expect(store.items[0].$col.a.selected).toBe(true)
+    })
+
     it("returns live wrappers and follows additions, same-length replacement, reorder, and removal", async () => {
         const { store, collection } = setup()
         await collection.waitForReady()

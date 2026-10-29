@@ -76,7 +76,9 @@ function setup() {
         remove: vi.fn().mockResolvedValue(undefined),
         clear: vi.fn().mockResolvedValue(undefined),
         waitForReady: vi.fn<MediaStoreApi["waitForReady"]>().mockResolvedValue(undefined),
-        addExistingToCollection: vi.fn(),
+        addExistingToCollection: vi
+            .fn<MediaStoreApi["addExistingToCollection"]>()
+            .mockResolvedValue("item"),
     }
     const defaults: ItemState = { selected: false, settings: { label: "default" } }
     const collection = new MediaCollection<ItemState, Item>("test", defaults, store, api, {
@@ -167,6 +169,78 @@ describe("collection options", () => {
     })
 })
 
+describe("async collection mutations", () => {
+    it.each(["remove", "clear"] as const)(
+        "awaits readiness and completion of %s",
+        async (action) => {
+            const { store, api, defaults } = setup()
+            const loading = Promise.withResolvers<void>()
+            const cleanup = Promise.withResolvers<void>()
+            api.waitForReady = vi.fn(async () => {
+                await loading.promise
+            })
+            vi.mocked(api[action]).mockImplementation(async () => {
+                await cleanup.promise
+            })
+            const collection = new MediaCollection("pending", defaults, store, api)
+            const complete = vi.fn()
+            async function mutate() {
+                if (action === "remove") await collection.removeItems("item")
+                else await collection.clear()
+                complete()
+            }
+            const pending = mutate()
+            expect(api[action]).not.toHaveBeenCalled()
+            loading.resolve()
+            await vi.waitFor(() => expect(api[action]).toHaveBeenCalledOnce())
+            expect(complete).not.toHaveBeenCalled()
+            cleanup.resolve()
+            await pending
+            expect(complete).toHaveBeenCalledOnce()
+        },
+    )
+
+    it.each(["remove", "clear"] as const)("propagates %s failures", async (action) => {
+        const { collection, api } = setup()
+        const error = new Error("cleanup failed")
+        vi.mocked(api[action]).mockRejectedValue(error)
+        if (action === "remove") {
+            await expect(collection.removeItems("item")).rejects.toBe(error)
+        } else {
+            await expect(collection.clear()).rejects.toBe(error)
+        }
+    })
+
+    it("awaits attachment before looking up the mapped item", async () => {
+        const { collection, api, store } = setup()
+        const attachment = Promise.withResolvers<void>()
+        store.items.push({
+            id: "shared",
+            type: "png",
+            source: {},
+            url: "shared.png",
+            thumbUrl: "shared.png",
+            storage: { kind: "app", fname: "shared.png" },
+            createdAt: 0,
+            $col: { other: {} },
+        })
+        vi.mocked(api.addExistingToCollection).mockImplementation(
+            async (id, collectionId, data) => {
+                await attachment.promise
+                store.items[0].$col[collectionId] = data
+                return id
+            },
+        )
+        const pending = collection.addExisting("shared")
+        await vi.waitFor(() => expect(api.addExistingToCollection).toHaveBeenCalledOnce())
+        expect(collection.items).toEqual([])
+        attachment.resolve()
+        const item = await pending
+        expect(item?.id).toBe("shared")
+        expect(item).toBe(collection.items[0])
+    })
+})
+
 describe("collection initialization", () => {
     function storedItem(collectionId: string, itemState: Record<string, unknown>): MediaStateCol {
         return {
@@ -181,7 +255,7 @@ describe("collection initialization", () => {
         }
     }
 
-    it("maps persisted state only after the store finishes loading", async () => {
+    it("constructs synchronously and maps hydrated items without awaiting readiness", () => {
         const { store, api } = setup()
         const hydration = Promise.withResolvers<void>()
         api.waitForReady = vi.fn(() => hydration.promise)
@@ -191,31 +265,25 @@ describe("collection initialization", () => {
             version: 2,
             itemFactory: factory,
         })
-        const persistedState = { selected: false, settings: { label: "persisted" } }
-        store.items.push(storedItem("images", persistedState))
-
+        expect(api.waitForReady).not.toHaveBeenCalled()
         expect(factory).not.toHaveBeenCalled()
-        expect(collection.isReady).toBe(false)
         expect(collection.items).toEqual([])
-        hydration.resolve()
-        await collection.waitForReady()
+        const persistedState = { selected: false, settings: { label: "persisted" } }
+        store.items = [storedItem("images", persistedState)]
 
         expect(factory).toHaveBeenCalledExactlyOnceWith(store.items[0], store.items[0].$col.images)
-        expect(collection.isReady).toBe(true)
         expect(collection.items[0].cState).toBe(store.items[0].$col.images)
         expect(collection.items[0].cState).toEqual(persistedState)
+        expect(api.waitForReady).not.toHaveBeenCalled()
         expect(Object.keys(store)).toEqual(["items"])
     })
 
-    it("maps existing items when defined after hydration", async () => {
+    it("maps existing items immediately when defined after hydration", () => {
         const { store, api } = setup()
-        await api.waitForReady()
         store.items.push(storedItem("images", state))
         const { defineCollection } = getCollections(store, api)
         const collection = defineCollection("images", state)
 
-        await collection.waitForReady()
-        expect(collection.isReady).toBe(true)
         expect(collection.items[0].id).toBe("persisted")
         expect(collection.items[0].cState).toBe(store.items[0].$col.images)
     })
@@ -227,10 +295,9 @@ describe("collection initialization", () => {
         const factory = vi.fn(getItemFactory("images", state))
         const { defineCollection } = getCollections(store, api)
         const collection = defineCollection("images", state, { itemFactory: factory })
-        store.items.push(storedItem("images", state))
+        expect(api.waitForReady).not.toHaveBeenCalled()
 
         await expect(collection.waitForReady()).rejects.toBe(error)
-        expect(collection.isReady).toBe(false)
         expect(collection.items).toEqual([])
         expect(factory).not.toHaveBeenCalled()
     })

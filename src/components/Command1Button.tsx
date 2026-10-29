@@ -32,7 +32,9 @@ function CommandButton<T, C = undefined>(props: CommandButtonComponentProps<T, C
         afterExecute = (err) => {
             if (err) console.error(err)
         },
-        wrapper = (execute, selected, ctx) => execute(selected, ctx),
+        wrapper = async (execute, selected, ctx) => {
+            await execute(selected, ctx)
+        },
         disabled: disabledProp,
         ...restProps
     } = props

@@ -1,14 +1,17 @@
 import { proxy } from "valtio"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MediaItemBase } from "./MediaItem"
-import type { MediaState, MediaStateCol, MediaStoreType } from "./types"
+import type { MediaState, MediaStateCol, MediaStoreApi, MediaStoreType } from "./types"
 
 const fixtures = vi.hoisted(() => ({
     items: [] as MediaStateCol[],
     state: undefined as MediaStoreType | undefined,
+    api: undefined as MediaStoreApi | undefined,
     onExit: vi.fn<(callback: () => Promise<void>) => void>(),
     start: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     removeFile: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
+    copyToClipboard: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
+    saveCopy: vi.fn<(fname: string, dest: string) => Promise<void>>().mockResolvedValue(undefined),
     saveFile:
         vi.fn<
             (id: string, data: Uint8Array, type: string) => Promise<{ fname: string; url: string }>
@@ -21,6 +24,16 @@ const fixtures = vi.hoisted(() => ({
 vi.mock("@/lifecycle", () => ({ default: { onExit: fixtures.onExit } }))
 vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => `asset://${path}` }))
 vi.mock("./files", () => ({ MediaStoreFiles: fixtures }))
+vi.mock("./collections", async (importOriginal) => {
+    const original = await importOriginal<typeof import("./collections")>()
+    return {
+        ...original,
+        getCollections: (store: MediaStoreType, api: MediaStoreApi) => {
+            fixtures.api = api
+            return original.getCollections(store, api)
+        },
+    }
+})
 vi.mock("@tauri-store/valtio", () => ({
     store: (_name: string, initial: MediaStoreType) => {
         const state = proxy({ ...initial, items: structuredClone(fixtures.items) })
@@ -58,6 +71,7 @@ beforeEach(() => {
 
     fixtures.items = []
     fixtures.state = undefined
+    fixtures.api = undefined
     fixtures.start.mockResolvedValue(undefined)
     fixtures.removeFile.mockResolvedValue(undefined)
     fixtures.removeOrphanedFiles.mockResolvedValue(undefined)
@@ -68,6 +82,81 @@ beforeEach(() => {
 })
 
 describe("media-store hydration", () => {
+    it.each(["save", "remove", "clear", "attach"] as const)(
+        "waits for hydration before the internal %s action",
+        async (action) => {
+            const loading = Promise.withResolvers<void>()
+            fixtures.start.mockImplementation(async () => {
+                await loading.promise
+                fixtures.state?.items.push(item("restored", ["a"]))
+            })
+            const { default: mediaStore } = await import("./index")
+            mediaStore.defineCollection("a", {})
+            mediaStore.defineCollection("b", {})
+            const api = fixtures.api
+            if (!api) throw new Error("expected the internal store API")
+            const actions = {
+                save: async () => {
+                    await api.save("app", new Uint8Array([1]), "png", {}, "a", {})
+                },
+                remove: async () => {
+                    await api.remove(["restored"], "a")
+                },
+                clear: async () => {
+                    await api.clear("a")
+                },
+                attach: async () => {
+                    await api.addExistingToCollection("restored", "b", {})
+                },
+            }
+            const pending = actions[action]()
+            expect(fixtures.state?.items).toEqual([])
+            expect(fixtures.saveFile).not.toHaveBeenCalled()
+            expect(fixtures.removeFile).not.toHaveBeenCalled()
+            loading.resolve()
+            await pending
+
+            if (action === "save") {
+                expect(fixtures.state?.items).toHaveLength(2)
+                expect(fixtures.saveFile).toHaveBeenCalledOnce()
+            } else if (action === "attach") {
+                expect(fixtures.state?.items[0].$col).toEqual({ a: {}, b: {} })
+            } else {
+                expect(fixtures.state?.items).toEqual([])
+                expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("restored.png")
+            }
+        },
+    )
+
+    it.each(["copyImageToClipboard", "saveCopy"] as const)(
+        "waits for hydration before %s reads an item",
+        async (action) => {
+            const loading = Promise.withResolvers<void>()
+            fixtures.start.mockImplementation(async () => {
+                await loading.promise
+                fixtures.state?.items.push(item("restored", ["a"]))
+            })
+            const { default: mediaStore } = await import("./index")
+            const pending =
+                action === "saveCopy"
+                    ? mediaStore.saveCopy("restored", "/export.png")
+                    : mediaStore.copyImageToClipboard("restored")
+            expect(fixtures.copyToClipboard).not.toHaveBeenCalled()
+            expect(fixtures.saveCopy).not.toHaveBeenCalled()
+            loading.resolve()
+            await pending
+
+            if (action === "saveCopy") {
+                expect(fixtures.saveCopy).toHaveBeenCalledExactlyOnceWith(
+                    "restored.png",
+                    "/export.png",
+                )
+            } else {
+                expect(fixtures.copyToClipboard).toHaveBeenCalledExactlyOnceWith("restored.png")
+            }
+        },
+    )
+
     it("maps persisted items only after start restores them", async () => {
         const loading = Promise.withResolvers<void>()
         fixtures.start.mockImplementation(async () => {
@@ -80,13 +169,11 @@ describe("media-store hydration", () => {
         )
         const collection = mediaStore.defineCollection("images", {}, { itemFactory: factory })
         expect(factory).not.toHaveBeenCalled()
-        expect(collection.isReady).toBe(false)
         expect(collection.items).toEqual([])
         loading.resolve()
 
         await collection.waitForReady()
         expect(factory).toHaveBeenCalledExactlyOnceWith(fixtures.state?.items[0], {})
-        expect(collection.isReady).toBe(true)
         expect(collection.items[0].id).toBe("restored")
     })
 })
@@ -195,14 +282,14 @@ describe("media-store exit cleanup", () => {
                 b: { clear: false },
                 broken: {},
             })
-            a.removeItems(first.id)
+            await a.removeItems(first.id)
             expect(a.items).toEqual([])
             expect(b.items[0]).toBe(second)
             expect(fixtures.removeFile).not.toHaveBeenCalled()
-            b.clear()
+            await b.clear()
             expect(fixtures.state?.items).toHaveLength(1)
             expect(fixtures.state?.items[0].$col).toEqual({ broken: {} })
-            broken.clear()
+            await broken.clear()
             await mediaStore.reset()
             expect(fixtures.state?.items).toEqual([])
             expect(fixtures.removeFile).toHaveBeenCalledOnce()
@@ -237,12 +324,13 @@ describe("media-store exit cleanup", () => {
         await a.waitForReady()
         const removal = Promise.withResolvers<void>()
         fixtures.removeFile.mockImplementation(() => removal.promise)
-        a.removeItems("only-a")
-        expect(a.items).toEqual([])
+        const removing = a.removeItems("only-a")
+        await vi.waitFor(() => expect(a.items).toEqual([]))
         const exiting = fixtures.onExit.mock.calls[0][0]()
         await vi.waitFor(() => expect(fixtures.removeFile).toHaveBeenCalledOnce())
         expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
         removal.resolve()
+        await removing
         await exiting
         expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(new Set())
     })

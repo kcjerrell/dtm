@@ -73,7 +73,7 @@ function createMediaStore() {
     function getNewId() {
         const ids = store.items.map((item) => item.id)
         let id = nanoid()
-        while (id in ids) id = nanoid()
+        while (ids.includes(id)) id = nanoid()
         return id
     }
 
@@ -89,6 +89,7 @@ function createMediaStore() {
         collectionId: string,
         collectionData: Record<string, unknown>,
     ) {
+        await waitForReady()
         if (!data || data.length === 0) throw new Error("missing data")
         if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
         if (VALID_VIDEO_TYPES.includes(type) && kind !== "file" && kind !== "url")
@@ -146,11 +147,12 @@ function createMediaStore() {
         return store.items.find((item) => item.id === id)
     }
 
-    function addExistingToCollection(
+    async function addExistingToCollection(
         id: string,
         collectionId: string,
         collectionData: Record<string, unknown>,
     ) {
+        await waitForReady()
         const item = getItem(id)
         if (!item) throw new Error(`Item ${id} not found`)
         if (!collections.getCollection(collectionId))
@@ -164,38 +166,40 @@ function createMediaStore() {
     }
 
     /** Internal. Use the collection api to remove items from a collection */
-    function remove(ids: string[], collectionId: string) {
+    async function remove(ids: string[], collectionId: string) {
+        await waitForReady()
         const removeIds = new Set(ids)
 
-        return batch(() => {
+        await batch(async () => {
             for (const item of store.items) {
                 if (removeIds.has(item.id)) delete item.$col[collectionId]
             }
-            return clearUnusedItems()
+            await clearUnusedItems()
         })
     }
 
-    function clear(collectionId: string) {
-        return batch(() => {
+    async function clear(collectionId: string) {
+        await waitForReady()
+        await batch(async () => {
             for (const item of store.items) {
                 if (collectionId in item.$col) delete item.$col[collectionId]
             }
-            return clearUnusedItems()
+            await clearUnusedItems()
         })
     }
 
     /** Clear all media while preserving registered collections. */
     async function reset() {
         await waitForReady()
-        await batch(() => {
+        await batch(async () => {
             for (const item of store.items) {
                 for (const collectionId of Object.keys(item.$col)) delete item.$col[collectionId]
             }
-            return clearUnusedItems()
+            await clearUnusedItems()
         })
     }
 
-    function clearUnusedItems() {
+    async function clearUnusedItems() {
         const keepItems = [] as MediaStateCol[]
         const clearItems = [] as MediaStateCol[]
         for (const item of store.items) {
@@ -205,13 +209,7 @@ function createMediaStore() {
 
         clearArray(store.items, keepItems)
 
-        const { promise, resolve, reject } = Promise.withResolvers<void>()
-
-        pendingCleanup.add(promise)
-        const forget = () => pendingCleanup.delete(promise)
-        void promise.then(forget, forget)
-
-        queueMicrotask(async () => {
+        async function removeFiles() {
             const errors: unknown[] = []
             for (const item of clearItems) {
                 try {
@@ -223,14 +221,20 @@ function createMediaStore() {
                     errors.push(e)
                 }
             }
-            if (errors.length) reject(errors)
-            resolve()
-        })
+            if (errors.length) throw new AggregateError(errors, "Media cleanup failed")
+        }
 
-        return Promise.all([...pendingCleanup]).then(() => {})
+        const cleanup = removeFiles()
+        pendingCleanup.add(cleanup)
+        try {
+            await Promise.all([...pendingCleanup])
+        } finally {
+            pendingCleanup.delete(cleanup)
+        }
     }
 
     async function copyImageToClipboard(id: string) {
+        await waitForReady()
         const item = getItem(id)
         if (!item) return
 
@@ -245,6 +249,7 @@ function createMediaStore() {
     }
 
     async function saveCopy(id: string, dest: string) {
+        await waitForReady()
         const item = getItem(id)
         if (!item) return
         if (item.storage.kind === "app") {
