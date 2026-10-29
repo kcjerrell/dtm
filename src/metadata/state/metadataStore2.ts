@@ -57,6 +57,7 @@ function getLegacySource(source: unknown): MediaItemSource {
     return source as MediaItemSource
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Retained for a separate legacy import flow.
 async function migrateLegacyMetadata(collection: MetadataStore["collection"]) {
     const legacyStore = createStore<LegacyMetadataStore>(
         getStoreName("metadata"),
@@ -140,10 +141,6 @@ function initStore(): MetadataStore {
                 }
             },
             version: 1,
-            postMigrate: async () => {
-                await migrateLegacyMetadata(collection)
-                reconcilePins()
-            },
         },
     )
 

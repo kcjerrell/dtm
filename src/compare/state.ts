@@ -44,7 +44,6 @@ function initStore() {
                     const isPinned = !!item.cState.pin
                     if (isPinned && clearPins) item.clearOnExit = true
                     else if (!isPinned && clearItems) item.clearOnExit = true
-                    console.log("clear on exit", item.clearOnExit)
                 })
             },
         },
@@ -60,18 +59,29 @@ function initStore() {
 
     async function addNewItem(data: Uint8Array, type: string, source: MediaItemSource) {
         const item = await collection.addItem(data, type, source)
-        selectItem(item, "firstEmpty")
+        await selectItem(item, "firstEmpty")
     }
 
     async function addMediaItem(id: string) {
         if (!state.items.some((it) => it.id === id)) await collection.addExisting(id)
-        selectItem({ id }, "firstEmpty")
+        await selectItem({ id }, "firstEmpty")
     }
 
-    function selectItem(item: { id: string } | undefined, side: "A" | "B" | "firstEmpty") {
-        console.log("select item")
+    async function selectItem(item: { id: string } | undefined, side: "A" | "B" | "firstEmpty") {
+        if (!item) {
+            if (side === "A") state.imageA = undefined
+            if (side === "B") state.imageB = undefined
+            return
+        }
+
         const cItem = state.items.find((it) => it.id === item?.id)
         if (!cItem) return
+
+        const preload = new Image()
+        preload.src = cItem.url
+        await preload.decode()
+
+        // preload.onload = () => {
         if (side === "A") state.imageA = cItem
         if (side === "B") state.imageB = cItem
         if (side === "firstEmpty") {
@@ -80,6 +90,7 @@ function initStore() {
             else if (!state.imageB) state.imageB = cItem
         }
         console.log(state.imageA, state.imageB)
+        // }
     }
 
     return {

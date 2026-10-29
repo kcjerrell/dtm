@@ -27,21 +27,23 @@ function createMediaStore() {
         resolve: resolveReady,
         reject: rejectReady,
     } = Promise.withResolvers<boolean>()
+    let isReady = false;
     const pendingCleanup = new Set<Promise<void>>()
 
     function initStore() {
         const storeInstance = createStore<MediaStoreType>(
             getStoreName("media"),
-            { version: { $store: 1 }, items: [] as MediaStateCol[] },
+            { items: [] as MediaStateCol[] },
             {
                 autoStart: false,
-                // syncStrategy: "debounce",
-                // syncInterval: 1000,
                 saveOnChange: true,
                 saveOnExit: true,
             },
         )
         Lifecycle.onExit(async () => {
+            // skip cleanup if exitting before store has finished loading
+            if (!isReady) return
+
             await collections.onExit()
             await clearUnusedItems()
             const referencedFiles = new Set(
@@ -56,6 +58,7 @@ function createMediaStore() {
                 await storeInstance.start()
                 console.debug("Media store started")
                 resolveReady(true)
+                isReady = true
             } catch (error) {
                 rejectReady(error)
             }
@@ -181,7 +184,7 @@ function createMediaStore() {
         })
     }
 
-    /** Clear all media while preserving registered collections and migration versions. */
+    /** Clear all media while preserving registered collections. */
     async function reset() {
         await waitForReady()
         await batch(() => {

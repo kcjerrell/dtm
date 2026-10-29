@@ -78,7 +78,7 @@ export class MediaCollection<
     constructor(
         public readonly collectionId: string,
         private readonly defaultItemState: T,
-        private readonly store: MediaStoreType,
+        store: MediaStoreType,
         private readonly storeApi: MediaStoreApi,
         private readonly options: CollectionOptions<T, F> = {},
     ) {
@@ -118,52 +118,12 @@ export class MediaCollection<
             true,
         )
 
-        const { promise, resolve, reject } = Promise.withResolvers<void>()
-        this.ready = promise
-        // Collections may never be awaited; retain the rejection for waitForReady callers.
-        void promise.catch(() => {})
-        this.observeItems()
-        void this.initialize(resolve, reject)
-    }
-
-    private async initialize(resolve: () => void, reject: (error: unknown) => void) {
-        const { collectionId, options } = this
-        const store = this.store
-        let storedVersion: number | undefined
-        let needsMigration = false
-        try {
-            await this.storeApi.waitForReady()
-            storedVersion = store.version[collectionId]
-            const version = options.version
-            needsMigration = version !== undefined && version !== storedVersion
-            if (needsMigration && version !== undefined && options.onMigrate) {
-                const storeItems = store.items.filter((item) => collectionId in item.$col)
-                const migratedState = options.onMigrate(
-                    storedVersion,
-                    version,
-                    storeItems.map((item) => ({ media: item, state: item.$col[collectionId] })),
-                )
-                if (migratedState.length !== storeItems.length)
-                    throw new Error("Migration must return all items")
-                storeItems.forEach((item, i) => {
-                    item.$col[collectionId] = migratedState[i]
-                })
-            }
-            store.version[collectionId] = options.version
+        this.ready = storeApi.waitForReady().then(() => {
             this.runtime.isReady = true
-            resolve()
-        } catch (error) {
-            reject(error)
-            return
-        }
-
-        if (needsMigration && options.version !== undefined && options.postMigrate) {
-            try {
-                await options.postMigrate(storedVersion, options.version, this)
-            } catch (error) {
-                console.error(`${collectionId} post-migration failed:`, error)
-            }
-        }
+        })
+        // Collections may never be awaited; retain the rejection for waitForReady callers.
+        void this.ready.catch(() => {})
+        this.observeItems()
     }
 
     private observeItems() {

@@ -44,7 +44,7 @@ function stored(id: string, state = { selected: false }): MediaStateCol {
 }
 
 function setup() {
-    const store = proxy<MediaStoreType>({ version: { $store: 1 }, items: [] })
+    const store = proxy<MediaStoreType>({ items: [] })
     const api: MediaStoreApi = {
         save: vi.fn(),
         remove: vi.fn().mockResolvedValue(undefined),

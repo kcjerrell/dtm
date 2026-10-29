@@ -55,7 +55,7 @@ const state: ItemState = { selected: true, settings: { label: "explicit" } }
 
 function setup() {
     const items: Item[] = []
-    const store = proxy<MediaStoreType>({ version: { $store: 1 }, items: [] })
+    const store = proxy<MediaStoreType>({ items: [] })
     const api: MediaStoreApi = {
         save: vi
             .fn<MediaStoreApi["save"]>()
@@ -181,106 +181,58 @@ describe("collection initialization", () => {
         }
     }
 
-    it("migrates hydrated items before syncing and running postMigrate", async () => {
+    it("maps persisted state only after the store finishes loading", async () => {
         const { store, api } = setup()
         const hydration = Promise.withResolvers<void>()
         api.waitForReady = vi.fn(() => hydration.promise)
-        const events: string[] = []
         const { defineCollection } = getCollections(store, api)
-        const onMigrate = vi.fn(
-            (_from: number | undefined, _to: number, items: { state: unknown }[]) => {
-                events.push("migrate")
-                return items.map(() => state)
-            },
-        )
-        const postMigrate = vi.fn(
-            (_from: number | undefined, _to: number, collection: MediaCollection<ItemState>) => {
-                events.push("post")
-                expect(collection.items[0].cState).toEqual(state)
-            },
-        )
+        const factory = vi.fn(getItemFactory("images", state))
         const collection = defineCollection("images", state, {
             version: 2,
-            onMigrate,
-            postMigrate,
-            itemFactory: (media, state) => {
-                events.push("map")
-                return getItemFactory("images", state)(media, state)
-            },
+            itemFactory: factory,
         })
-        store.items.push(storedItem("images", { old: true }))
-        store.version.images = 1
+        const persistedState = { selected: false, settings: { label: "persisted" } }
+        store.items.push(storedItem("images", persistedState))
 
-        expect(onMigrate).not.toHaveBeenCalled()
+        expect(factory).not.toHaveBeenCalled()
         expect(collection.isReady).toBe(false)
         expect(collection.items).toEqual([])
-        expect(events).toEqual([])
         hydration.resolve()
         await collection.waitForReady()
-        await vi.waitFor(() => expect(postMigrate).toHaveBeenCalledOnce())
 
-        expect(onMigrate).toHaveBeenCalledWith(1, 2, [
-            { media: store.items[0], state: { old: true } },
-        ])
-        expect(events).toEqual(["migrate", "map", "post"])
-        expect(store.version.images).toBe(2)
-    })
-
-    it("migrates a collection defined after hydration", async () => {
-        const { store, api } = setup()
-        store.version.images = 1
-        store.items.push(storedItem("images", { old: true }))
-        const onMigrate = vi.fn(() => [{ selected: true, settings: { label: "new" } }])
-        const { defineCollection } = getCollections(store, api)
-        const collection = defineCollection("images", state, { version: 2, onMigrate })
-
-        await collection.waitForReady()
-        expect(onMigrate).toHaveBeenCalledOnce()
-        expect(store.items[0].$col.images).toEqual({ selected: true, settings: { label: "new" } })
+        expect(factory).toHaveBeenCalledExactlyOnceWith(store.items[0], store.items[0].$col.images)
         expect(collection.isReady).toBe(true)
         expect(collection.items[0].cState).toBe(store.items[0].$col.images)
-        expect(store.version.images).toBe(2)
+        expect(collection.items[0].cState).toEqual(persistedState)
+        expect(Object.keys(store)).toEqual(["items"])
     })
 
-    it("reports postMigrate failures without invalidating the completed migration", async () => {
+    it("maps existing items when defined after hydration", async () => {
         const { store, api } = setup()
-        const error = new Error("post-migration failed")
-        const log = vi.spyOn(console, "error").mockImplementation(() => {})
-        try {
-            const { defineCollection } = getCollections(store, api)
-            const collection = defineCollection("images", state, {
-                version: 2,
-                postMigrate: async () => {
-                    throw error
-                },
-            })
-            await expect(collection.waitForReady()).resolves.toBeUndefined()
-            await vi.waitFor(() =>
-                expect(log).toHaveBeenCalledWith("images post-migration failed:", error),
-            )
-            expect(store.version.images).toBe(2)
-        } finally {
-            log.mockRestore()
-        }
-    })
-
-    it("rejects collection readiness on migration failure without blocking another collection", async () => {
-        const { store, api } = setup()
+        await api.waitForReady()
+        store.items.push(storedItem("images", state))
         const { defineCollection } = getCollections(store, api)
-        const error = new Error("migration failed")
-        const failed = defineCollection("failed", state, {
-            version: 2,
-            onMigrate: () => {
-                throw error
-            },
-        })
-        const healthy = defineCollection("healthy", state)
+        const collection = defineCollection("images", state)
 
-        await expect(failed.waitForReady()).rejects.toBe(error)
-        await expect(healthy.waitForReady()).resolves.toBeUndefined()
-        expect(failed.isReady).toBe(false)
-        expect(healthy.isReady).toBe(true)
-        expect(store.version.failed).toBeUndefined()
+        await collection.waitForReady()
+        expect(collection.isReady).toBe(true)
+        expect(collection.items[0].id).toBe("persisted")
+        expect(collection.items[0].cState).toBe(store.items[0].$col.images)
+    })
+
+    it("rejects collection readiness when store loading fails", async () => {
+        const { store, api } = setup()
+        const error = new Error("store loading failed")
+        api.waitForReady = vi.fn().mockRejectedValue(error)
+        const factory = vi.fn(getItemFactory("images", state))
+        const { defineCollection } = getCollections(store, api)
+        const collection = defineCollection("images", state, { itemFactory: factory })
+        store.items.push(storedItem("images", state))
+
+        await expect(collection.waitForReady()).rejects.toBe(error)
+        expect(collection.isReady).toBe(false)
+        expect(collection.items).toEqual([])
+        expect(factory).not.toHaveBeenCalled()
     })
 })
 

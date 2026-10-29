@@ -1,4 +1,3 @@
-import type { MediaCollection } from "./collections"
 import type { MediaItemBase } from "./MediaItem"
 
 export const VALID_IMAGE_TYPES = ["png", "tiff", "jpg", "webp"]
@@ -54,10 +53,6 @@ export interface MediaStateCol extends MediaState {
 }
 
 export type MediaStoreType = {
-    version: {
-        $store: number
-        [collectionId: string]: number | undefined
-    }
     items: MediaStateCol[]
 }
 
@@ -89,39 +84,8 @@ export type CollectionOptions<
 > = {
     itemFactory?: MediaCollectionItemFactory<T, F>
     onItemsChanged?: () => void
-    /**
-     * The version number for the collection item's data type. If the provided value is different
-     * than the stored value, migration callbacks will be called. The first time a collection is
-     * created, the `from` value will be undefined.
-     */
+    /** The version number for the collection item's data type. Currently unused. */
     version?: number
-    /**
-      This will be called when version number changes *before* the collection is populated. Item
-      state can be mutated directly. The return value should contain the updated state for each
-      item. If no changes are required, this will be `return items.map((item) => item.state)`
-     * @param from The version number from the stored data. Will be undefined on first use
-     * @param to The current version as specified
-     * @param items An array of each collection items base media state and (outdated) collection
-     * data
-     * @returns Each item's state, updated for the current version.
-     */
-    onMigrate?: (
-        from: number | undefined,
-        to: number,
-        items: { media: MediaState; state: unknown }[],
-    ) => T[]
-    /**
-     * This will be called when version number changes *after* the collection is populated. Items
-     * can be added/removed through the collection.
-     * @param from The version number from the stored data. Will be undefined on first use
-     * @param to The current version as specified
-     * @param collection The media collection instance
-     */
-    postMigrate?: (
-        from: number | undefined,
-        to: number,
-        collection: MediaCollection<T, F>,
-    ) => void | Promise<void>
     /** Will be called before the media store is destroyed */
     onExit?: () => void | Promise<void>
 }
