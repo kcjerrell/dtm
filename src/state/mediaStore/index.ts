@@ -27,7 +27,7 @@ function createMediaStore() {
         resolve: resolveReady,
         reject: rejectReady,
     } = Promise.withResolvers<boolean>()
-    let isReady = false;
+    let isReady = false
     const pendingCleanup = new Set<Promise<void>>()
 
     function initStore() {

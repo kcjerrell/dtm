@@ -1,5 +1,6 @@
-import { useSyncExternalStore } from "react"
-import { getVersion, proxy, type Snapshot, subscribe, useSnapshot } from "valtio"
+import { useMemo } from "react"
+import { getVersion, proxy, type Snapshot, useSnapshot } from "valtio"
+import { proxySet } from "valtio/utils"
 import { computed, effect } from "valtio-reactive"
 import {
     type LoadedMedia,
@@ -70,9 +71,8 @@ export class MediaCollection<
 > {
     private readonly compItems: { items: F[] }
     private readonly itemMap: CollectionMap<T, F>
-    private readonly runtime = proxy({ storeVersion: 0 })
-    private readonly subscribeItems = (callback: () => void) => subscribe(this.compItems, callback)
-    private readonly getItems = () => this.compItems.items
+
+    private itemIds = proxySet() //new Set<string>()
 
     constructor(
         public readonly collectionId: string,
@@ -88,53 +88,51 @@ export class MediaCollection<
                 defaultItemState,
             ) as unknown as MediaCollectionItemFactory<T, F>)
         this.itemMap = new CollectionMap(collectionId, factory)
-        let mappedItems: F[] = []
         this.compItems = computed({
             items: () => {
-                // Track structural identity even when a reorder has identical item data.
-                void this.runtime.storeVersion
-                const items = store.items
-                    .filter((item) => collectionId in item.$col)
-                    .map((item) => this.itemMap.getItem(item))
-                    .filter((item): item is F => item !== undefined)
-                if (
-                    items.length !== mappedItems.length ||
-                    items.some((item, i) => item !== mappedItems[i])
-                )
-                    mappedItems = items
+                const mappedItems: F[] = []
+                for (const item of store.items) {
+                    if (!item.$col[collectionId]) continue
+
+                    const mappedItem = this.itemMap.getItem(item)
+                    if (!mappedItem) continue
+
+                    mappedItems.push(mappedItem)
+                }
                 return mappedItems
             },
         })
-
-        // valtio-reactive's nested comparisons can miss reordered proxies with equal data.
-        // A native subscription ensures computation also tracks structural identity changes.
-        subscribe(
-            store,
-            () => {
-                this.runtime.storeVersion++
-            },
-            true,
-        )
 
         this.observeItems()
     }
 
     private observeItems() {
-        const onItemsChanged = this.options.onItemsChanged
-        if (!onItemsChanged) return
-        let previous: F[] = []
+        const onItemsChanged = this.options.onItemsChanged ?? (() => void 0)
+        // if (!onItemsChanged) return
         let scheduled = false
         effect(() => {
-            const items = this.compItems.items
-            if (items.length === previous.length && items.every((item, i) => item === previous[i]))
-                return
-            previous = [...items]
-            if (scheduled) return
-            scheduled = true
-            queueMicrotask(() => {
-                scheduled = false
-                onItemsChanged()
-            })
+            let changed = false
+            const lastIds = new Map([...this.itemIds.values()].map((v) => [v, false]))
+            for (const item of this.compItems.items) {
+                if (!lastIds.has(item.id)) {
+                    changed = false
+                    this.itemIds.add(item.id)
+                }
+                lastIds.set(item.id, true)
+            }
+            for (const [id, seen] of lastIds.entries()) {
+                if (!seen) {
+                    changed = true
+                    this.itemIds.delete(id)
+                }
+            }
+            if (!scheduled && changed) {
+                scheduled = true
+                queueMicrotask(() => {
+                    scheduled = false
+                    onItemsChanged()
+                })
+            }
         })
     }
 
@@ -231,15 +229,34 @@ export class MediaCollection<
     async waitForReady(): Promise<void> {
         await this.storeApi.waitForReady()
     }
-
+    extSyncs = 0
     /**
      * Use this to get an array of collection items that will trigger a re-render when
      * items are added or removed. Returned items are not snapshots and will not trigger
      * render on change unless used with useSnapshot
      * @returns an array of collection items
      */
-    useMapItems(): F[] {
-        return useSyncExternalStore(this.subscribeItems, this.getItems, this.getItems)
+    useItemsState(): F[] {
+        // return useSyncExternalStore(
+        //     this.subscribeItems,
+        //     () => {
+        //         console.log("sync ext store", this.extSyncs++)
+        //         return this.getItems()
+        //     },
+        //     this.getItems,
+        // )
+        // const compItems = this.compItems
+        // const items = useSnapshot(compItems).items
+        // return Array.from({ length: items.length }, (_, i) => compItems.items[i])
+        // return useSnapshot(this.compItems).
+
+        const ids = useSnapshot(this.itemIds)
+        const items = useMemo(() => {
+            console.log("useItemsState useMemo ran", this.collectionId)
+            return Array.from({ length: ids.size }, (_, i) => this.compItems.items[i])
+        }, [ids])
+
+        return items
     }
 
     /**
@@ -250,9 +267,13 @@ export class MediaCollection<
      * @returns an array of collection items
      */
     useFilterMapItems(filterFn: (item: Snapshot<F>) => boolean): F[] {
-        const items = this.useMapItems()
+        const items = this.useItemsState()
         const snap = useSnapshot(this.compItems)
         return items.filter((_, i) => filterFn(snap.items[i] as Snapshot<F>))
+    }
+
+    useItemsSnap() {
+        return useSnapshot(this.compItems).items
     }
 
     async addImageFromFile(

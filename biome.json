@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
     "vcs": {
         "enabled": false,
         "clientKind": "git",
@@ -7,8 +7,7 @@
     },
     "files": {
         "ignoreUnknown": false,
-        "includes": ["./src/**/*.{js,jsx,ts,tsx}", "./test/**/*.{js,jsx,ts,tsx}"],
-        "experimentalScannerIgnores": ["reactDevtools.js"]
+        "includes": ["./src/**/*.{js,jsx,ts,tsx}", "./test/**/*.{js,jsx,ts,tsx}", "!!**/reactDevtools.js"]
     },
     "formatter": {
         "enabled": true,
@@ -21,7 +20,7 @@
     "linter": {
         "enabled": true,
         "rules": {
-            "recommended": true,
+            "preset": "recommended",
             "a11y": {
                 "noSvgWithoutTitle": "off"
             },

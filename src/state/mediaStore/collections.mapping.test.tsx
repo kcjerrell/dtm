@@ -143,7 +143,7 @@ describe("collection-owned mapping", () => {
 describe("mapped-item hooks", () => {
     it("updates from hydration without waiting for collection initialization", async () => {
         const { store, collection } = setup()
-        const { result } = renderHook(() => collection.useMapItems())
+        const { result } = renderHook(() => collection.useItemsState())
         expect(result.current).toEqual([])
         await act(async () => {
             store.items = [stored("restored")]
@@ -159,7 +159,7 @@ describe("mapped-item hooks", () => {
     it("returns live wrappers and follows additions, same-length replacement, reorder, and removal", async () => {
         const { store, collection } = setup()
         await collection.waitForReady()
-        const { result } = renderHook(() => collection.useMapItems())
+        const { result } = renderHook(() => collection.useItemsState())
         expect(result.current).toEqual([])
         await act(async () => {
             store.items.push(stored("one"), stored("two"))

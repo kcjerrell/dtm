@@ -57,7 +57,7 @@ function Computed(props) {
 }
 
 function Item(props) {
-    const { state, cid, row, col } = props
+    const { state, row, col } = props
     const snap = useSnapshot(state)
     // const snap = state
 

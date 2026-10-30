@@ -25,7 +25,6 @@ function Details(props: DetailsProps) {
 
     const exif = imageSnap?.metadata ?? {}
     const groups = groupItems(exif)
-    console.log(exif, groups)
 
     const imageSource = imageSnap?.source ?? ({} as ImageSource)
 

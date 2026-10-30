@@ -1,34 +1,22 @@
 import { Box, Grid, HStack, Icon, Image } from "@chakra-ui/react"
-import { AnimatePresence, motion } from "motion/react"
 import { type ComponentProps, useCallback, useRef, useState } from "react"
 import { RiLayoutColumnFill } from "react-icons/ri"
 import type { Snapshot } from "valtio"
 import { useSnapshot } from "valtio/react"
 import { IconButton, Panel } from "@/components"
 import { PanelSectionHeader } from "@/components/common"
+import type { IconButtonProps } from "@/components/IconButton"
+import { FiX } from "@/components/icons/icons"
 import ImageCompare from "@/components/imageCompare"
 import { useTimeout } from "@/hooks/useTimeout"
+import PinnedIcon from "@/metadata/toolbar/PinnedIcon"
 import { type CompareItem, useCompareStore } from "./state"
-import { IconButtonProps } from "@/components/IconButton"
-
-const TEST_PATH_ROOT =
-    "asset://localhost//Users/kcjer/Library/Application%20Support/com.kcjer.dtm/dev_images/"
-const TEST_IMAGES = [
-    "38dzby284dv6.png",
-    "vm0kgvlpyklm.jpg",
-    "bhdlwrwhdnd9.png",
-    "cf68acpkwowm.png",
-].map((n) => TEST_PATH_ROOT + n)
-const [_TEST_IMG_A, _TEST_IMG_B] = [TEST_IMAGES[2], TEST_IMAGES[3]]
 
 type ImageSide = "A" | "B"
 
-function Compare() {
-    // const { state, snap } = useProxyRef(() => ({
-    //     imgA: null as string | null,
-    //     imgB: null as string | null,
-    // }))
+let lastItems = [] as unknown[]
 
+function Compare() {
     const [isOpen, setIsOpen] = useState<ImageSide | null>(null)
     const [startCloseTimer, cancelCloseTimer] = useTimeout({
         fn: () => setIsOpen(null),
@@ -43,10 +31,22 @@ function Compare() {
         [cancelCloseTimer],
     )
 
-    const { state, selectItem, collection } = useCompareStore()
+    const { state, selectItem, collection, removeItem, pinItem } = useCompareStore()
     // const images = store.collection.useMapItems()
     const snap = useSnapshot(state)
-    const items = collection.useMapItems()
+    const items = collection
+        .useItemsSnap()
+        .toSorted(
+            (a, b) => (a.pin || Number.POSITIVE_INFINITY) - (b.pin || Number.POSITIVE_INFINITY),
+        )
+
+    if (items !== lastItems) {
+        console.log("ident change")
+        lastItems = items
+    } else {
+        console.log("render no change")
+    }
+
     const columns = 3 // snap.items.length < 6 ? 2 : 3
 
     // const selectedImages = computed({
@@ -97,7 +97,7 @@ function Compare() {
                         alignSelf={"end"}
                         justifySelf={"end"}
                         margin={2}
-                        width={"40%"}
+                        width={"45%"}
                         maxHeight={"70%"}
                         minHeight={0}
                         overflow={"hidden"}
@@ -159,11 +159,13 @@ function Compare() {
                                         isA={isA}
                                         isB={isB}
                                         onClick={async () => {
-                                            if (!isOpen) return
-                                            await selectItem(item, isOpen)
+                                            // if (!isOpen) return
+                                            // await selectItem(item, isOpen)
                                             // const side = `image${isOpen}` as keyof typeof state
                                             // if (side in state) state[side] = item.id
                                         }}
+                                        onRemoveItem={() => removeItem(item)}
+                                        onPinItem={() => pinItem(item.id, !item.pin)}
                                     />
                                 )
                             })}
@@ -181,10 +183,12 @@ interface ImageItemProps extends ChakraProps {
     item: Snapshot<CompareItem>
     index: number
     onSelectSide: (side: ImageSide, clear?: boolean) => void
+    onRemoveItem: () => void
+    onPinItem: () => void
 }
 
 function ImageItem(props: ImageItemProps) {
-    const { isA, isB, item, index, gridRow, gridColumn, onSelectSide, ...restProps } = props
+    const { isA, isB, item, index, onSelectSide, onRemoveItem, onPinItem, ...restProps } = props
     const [isHovered, setIsHovered] = useState(false)
     const controlsRef = useRef<HTMLDivElement>(null)
 
@@ -192,16 +196,22 @@ function ImageItem(props: ImageItemProps) {
     const showBButton = isHovered || isB
 
     return (
-        <>
+        <Box
+            width={"100%"}
+            height={"100%"}
+            position={"relative"}
+            className={"group"}
+            {...restProps}
+        >
             <Image
+                // position={"absolute"}
+                inset={0}
                 src={item.url}
                 alt={`Image ${index + 1}`}
                 width={"full"}
                 aspectRatio={1}
                 alignSelf={"start"}
                 objectFit={"cover"}
-                gridRow={gridRow}
-                gridColumn={gridColumn}
                 borderStyle={"solid"}
                 borderColor={isA ? "red.400" : isB ? "blue.400" : "transparent"}
                 borderRightColor={isB ? "blue.400" : undefined}
@@ -218,56 +228,75 @@ function ImageItem(props: ImageItemProps) {
                         setIsHovered(false)
                     }
                 }}
-                {...restProps}
             />
-            <AnimatePresence>
-                {(showAButton || showBButton) && (
-                    <HStack
-                        ref={controlsRef}
-                        gridRow={gridRow}
-                        gridColumn={gridColumn}
-                        alignSelf={"end"}
-                        zIndex={1}
-                        gap={0}
-                        padding={0}
-                        marginBottom={0}
-                        marginX={"auto"}
-                        onMouseLeave={() => setIsHovered(false)}
-                        borderRadius={"lg"}
-                        asChild
-                    >
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <AnimatePresence>
-                                <ImageABButton
-                                    key={`${index}A`}
-                                    index={index}
-                                    side={"A"}
-                                    isSelected={isA}
-                                    onClick={() => onSelectSide("A", isA)}
-                                    show={showAButton}
-                                    solo={showAButton && !showBButton}
-                                />
-                                <ImageABButton
-                                    key={`${index}B`}
-                                    index={index}
-                                    side={"B"}
-                                    isSelected={isB}
-                                    onClick={() => onSelectSide("B", isB)}
-                                    show={showBButton}
-                                    solo={showBButton && !showAButton}
-                                />
-                            </AnimatePresence>
-                        </motion.div>
-                    </HStack>
-                )}
-                {/*{!isHovered && isA && <motion.div layoutId={`${item.id}-A`}>A</motion.div>}*/}
-            </AnimatePresence>
-        </>
+            {/*<AnimatePresence>*/}
+            {/*{isHovered && (*/}
+            <IconButton
+                // gridRow={gridRow}
+                // gridColumn={gridColumn}
+                // alignSelf={"start"}
+                // justifySelf={"start"}
+                position={"absolute"}
+                top={0}
+                left={0}
+                visibility={"hidden"}
+                _groupHover={{ visibility: "visible" }}
+                onClick={() => onRemoveItem()}
+            >
+                <FiX />
+            </IconButton>
+            <IconButton
+                css={{
+                    "--hover-bg": "colors.transparent",
+                    "--hover-borders": "colors.transparent",
+                    "--hover-shadow": "colors.transparent",
+                }}
+                size={"xs"}
+                position={"absolute"}
+                top={0}
+                right={0}
+                visibility={item.pin ? "visible" : "hidden"}
+                _groupHover={{ visibility: "visible" }}
+                onClick={() => onPinItem()}
+                color={"grays.14"}
+            >
+                <PinnedIcon
+                    pin={item.pin}
+                    filter={
+                        "drop-shadow(0 0 1px rgba(0,0,0,1)) drop-shadow(0 0px 3px rgba(0.2,0.2,0.2,1))"
+                    }
+                />
+            </IconButton>
+            {/*)}*/}
+            <HStack
+                ref={controlsRef}
+                position={"absolute"}
+                bottom={0}
+                left={"50%"}
+                transform={"translateX(-50%)"}
+                zIndex={1}
+                gap={0}
+                padding={0}
+                borderRadius={"lg"}
+            >
+                <ImageABButton
+                    key={`${index}A`}
+                    index={index}
+                    side={"A"}
+                    isSelected={isA}
+                    onClick={() => onSelectSide("A", isA)}
+                    solo={showAButton && !showBButton}
+                />
+                <ImageABButton
+                    key={`${index}B`}
+                    index={index}
+                    side={"B"}
+                    isSelected={isB}
+                    onClick={() => onSelectSide("B", isB)}
+                    solo={showBButton && !showAButton}
+                />
+            </HStack>
+        </Box>
     )
 }
 
@@ -275,7 +304,6 @@ interface ImageABButtonProps extends ComponentProps<typeof IconButton> {
     index: number
     side: "A" | "B"
     isSelected?: boolean
-    show?: boolean
     solo?: boolean
 }
 
@@ -285,7 +313,7 @@ const selectedProps: IconButtonProps = {
 }
 
 function ImageABButton(props: ImageABButtonProps) {
-    const { index, side, isSelected, show, solo, ...restProps } = props
+    const { index, side, isSelected, solo, ...restProps } = props
 
     // const color = `${side === "A" ? "red" : "blue"}.400/${isSelected ? "100" : "50"}`
     const sideColor = side === "A" ? "red" : "blue"
@@ -305,10 +333,11 @@ function ImageABButton(props: ImageABButtonProps) {
             minHeight={"1.5rem"}
             height={"1.5rem"}
             // visibility={show ? "visible" : "hidden"}
-            opacity={show ? 1 : 0}
+            opacity={isSelected ? 1 : 0}
+            _groupHover={{ opacity: 1 }}
             aria-label={`Select image ${index + 1} for ${side}`}
             aria-pressed={isSelected}
-            color={`{colors.${sideColor}.500}`}
+            color={`{colors.${sideColor}.400}`}
             bgColor={"grays.4"}
             border={isSelected ? "none" : `1px solid`}
             borderBottom={"0px"}

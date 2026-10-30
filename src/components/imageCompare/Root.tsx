@@ -193,7 +193,7 @@ function Root(props: ImageCompareRootProps) {
                             id="image-compare-stage"
                             style={{
                                 ...imageContainerStyle,
-                                backgroundColor: "var(--chakra-colors-bg-2)"
+                                backgroundColor: "var(--chakra-colors-bg-2)",
                             }}
                         >
                             <motion.img

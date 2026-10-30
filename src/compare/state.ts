@@ -1,11 +1,10 @@
 import { proxy } from "valtio"
 import MediaStore from "@/state/mediaStore"
-import type { MediaItemBase } from "@/state/mediaStore/MediaItem"
-import type { MediaItemSource } from "@/state/mediaStore/types"
+import type { CollectionItem, MediaItemSource } from "@/state/mediaStore/types"
 import { getSetting } from "@/state/settings"
 
 type CompareItemState = { pin: number | null }
-export type CompareItem = MediaItemBase<CompareItemState>
+export type CompareItem = CollectionItem<CompareItemState>
 
 type CompareStoreState = {
     items: CompareItem[]
@@ -85,12 +84,30 @@ function initStore() {
         if (side === "A") state.imageA = cItem
         if (side === "B") state.imageB = cItem
         if (side === "firstEmpty") {
-            console.log(cItem, state.imageA, state.imageB)
             if (!state.imageA) state.imageA = cItem
             else if (!state.imageB) state.imageB = cItem
         }
-        console.log(state.imageA, state.imageB)
         // }
+    }
+
+    async function removeItem(item: { id: string }) {
+        await collection.removeItems([item.id])
+    }
+
+    function pinItem(id: string, value: boolean | number) {
+        const item = collection.getItemById(id)
+        if (!item) return
+        const newValue = typeof value === "number" ? value : value ? Number.POSITIVE_INFINITY : null
+        item.pin = newValue
+        reconcilePins()
+    }
+
+    function reconcilePins() {
+        const pinned = collection.items.filter((item) => item.pin)
+        pinned.sort((a, b) => (a.pin ?? 0) - (b.pin ?? 0))
+        for (let i = 0; i < pinned.length; i++) {
+            pinned[i].pin = i + 1
+        }
     }
 
     return {
@@ -99,6 +116,8 @@ function initStore() {
         addNewItem,
         addMediaItem,
         selectItem,
+        removeItem,
+        pinItem,
     }
 }
 

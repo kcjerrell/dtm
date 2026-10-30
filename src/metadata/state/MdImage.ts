@@ -10,7 +10,6 @@ export class MdImage extends MdItem {
     private _metadataPromise: PromiseWithResolvers<void> = Promise.withResolvers<void>()
 
     get metadata() {
-        console.log("get md")
         if (!this._metadata && !this._metadataStatus) this.loadMetadata()
 
         return this._metadata
@@ -23,7 +22,6 @@ export class MdImage extends MdItem {
     }
 
     async loadMetadata() {
-        console.log("loadmd")
         if (this._metadataStatus) return
         this._metadataStatus = "pending"
 
