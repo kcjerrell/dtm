@@ -71,9 +71,9 @@ export type ImageCompareState = {
 }
 
 export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCompareRootProps>(
-    (props?: ImageCompareRootProps) => ({
-        imageASrc: props?.a,
-        imageBSrc: props?.b,
+    (_props?: ImageCompareRootProps) => ({
+        imageASrc: undefined,
+        imageBSrc: undefined,
         smoothing: true,
         mode: "slider",
         sliderTrail: "none" as SliderEffect,

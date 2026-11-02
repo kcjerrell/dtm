@@ -1,4 +1,5 @@
 import { proxy } from "valtio"
+import { proxyMap, proxySet } from "valtio/utils"
 import MediaStore from "@/state/mediaStore"
 import type { CollectionItem, MediaItemSource } from "@/state/mediaStore/types"
 import { getSetting } from "@/state/settings"
@@ -10,6 +11,9 @@ type CompareStoreState = {
     items: CompareItem[]
     imageA: CompareItem | undefined
     imageB: CompareItem | undefined
+    isSelectorOpen: boolean
+    softRemovedItems: Set<string>
+    clearPinsUndo: Map<string, number>
 }
 
 let _store: ReturnType<typeof initStore>
@@ -54,6 +58,9 @@ function initStore() {
         get items() {
             return collection.items
         },
+        isSelectorOpen: false,
+        softRemovedItems: proxySet(),
+        clearPinsUndo: proxyMap(),
     })
 
     async function addNewItem(data: Uint8Array, type: string, source: MediaItemSource) {
@@ -66,7 +73,10 @@ function initStore() {
         await selectItem({ id }, "firstEmpty")
     }
 
-    async function selectItem(item: { id: string } | undefined, side: "A" | "B" | "firstEmpty") {
+    async function selectItem(
+        item: { id: string } | undefined,
+        side: "A" | "B" | "firstEmpty" | "firstEmptyOrB",
+    ) {
         if (!item) {
             if (side === "A") state.imageA = undefined
             if (side === "B") state.imageB = undefined
@@ -80,14 +90,16 @@ function initStore() {
         preload.src = cItem.url
         await preload.decode()
 
-        // preload.onload = () => {
         if (side === "A") state.imageA = cItem
         if (side === "B") state.imageB = cItem
         if (side === "firstEmpty") {
             if (!state.imageA) state.imageA = cItem
             else if (!state.imageB) state.imageB = cItem
         }
-        // }
+        if (side === "firstEmptyOrB") {
+            if (!state.imageA) state.imageA = cItem
+            else state.imageB = cItem
+        }
     }
 
     async function removeItem(item: { id: string }) {
@@ -100,6 +112,7 @@ function initStore() {
         const newValue = typeof value === "number" ? value : value ? Number.POSITIVE_INFINITY : null
         item.pin = newValue
         reconcilePins()
+        state.clearPinsUndo.clear()
     }
 
     function reconcilePins() {
@@ -107,6 +120,13 @@ function initStore() {
         pinned.sort((a, b) => (a.pin ?? 0) - (b.pin ?? 0))
         for (let i = 0; i < pinned.length; i++) {
             pinned[i].pin = i + 1
+        }
+    }
+
+    function clearPins() {
+        for (const item of collection.items) {
+            if (!item.pin) continue
+            item.pin = null
         }
     }
 
@@ -118,6 +138,7 @@ function initStore() {
         selectItem,
         removeItem,
         pinItem,
+        clearPins,
     }
 }
 

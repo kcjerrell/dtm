@@ -436,7 +436,8 @@ function Settings(props: ModeSettingProps<never>) {
             <IconButton
                 aria-label="Pin"
                 aria-pressed={snap.alignPinEnabled}
-                tone={snap.alignPinEnabled ? "selected" : "none"}
+                variant="toolbar"
+                                tbActive={snap.alignPinEnabled}
                 tipTitle="Pin alignment"
                 tipText="Click to anchor a point, then drag elsewhere in B to scale X and Y independently. Drag across the pin to flip an axis."
                 px={2}
@@ -464,6 +465,7 @@ function Settings(props: ModeSettingProps<never>) {
                 }}
             />
             <IconButton
+                variant="toolbar"
                 aria-label="Reset alignment"
                 tipTitle="Reset alignment"
                 disabled={!snap.imageBSrc}
@@ -485,7 +487,8 @@ function Button({ selected, ...rest }: ModeButtonProps) {
         <IconButton
             aria-label="Align"
             tipTitle="Align"
-            tone={selected ? "selected" : "none"}
+            variant="toolbar"
+                        tbActive={selected}
             tipText="Drag image B to align it. Drag a corner to scale it. Arrow keys nudge; hold Shift for larger steps."
             {...rest}
         >

@@ -7,7 +7,6 @@ import {
     type PropsWithChildren,
     type ReactElement,
     type ReactNode,
-    useCallback,
     useEffect,
     useMemo,
 } from "react"
@@ -67,7 +66,7 @@ function Root(props: ImageCompareRootProps) {
     const [Provider, state, snap] = ImageCompareContext.useCreate(props)
     const [HooksProvider, hooks] = useCreateImageCompareContext(state, snap)
     const { refs, zoomHandlers, zoomStyle } = hooks
-    const { setImages } = hooks
+    const { setImage } = hooks
 
     const contentSize = snap.contentSize
     const contentOffset = snap.contentOffset
@@ -102,24 +101,20 @@ function Root(props: ImageCompareRootProps) {
             (child): child is ReactElement<ImageSelectorProps> =>
                 isValidElement(child) && child.type === ImageSelector,
         )
-        .sort((a, b) => (a.props.image === b.props.image ? 0 : a.props.image === "a" ? -1 : 1))
+        .sort((a, b) => (a.props.image === b.props.image ? 0 : a.props.image === "A" ? -1 : 1))
 
     const topLayer = Children.toArray(children).find(
         (child): child is ReactElement<TopLayerProps> =>
             isValidElement(child) && child.type === TopLayer,
     )
 
-    const onLoadA = useCallback(
-        (element: HTMLImageElement) => {
-            state.imageAWidth = element.naturalWidth
-            state.imageAHeight = element.naturalHeight
-        },
-        [state],
-    )
+    useEffect(() => {
+        setImage("A", a)
+    }, [a, setImage])
 
     useEffect(() => {
-        void setImages(a, b)
-    }, [a, b, setImages])
+        setImage("B", b)
+    }, [b, setImage])
 
     useEffect(() => {
         const keydown = (e: KeyboardEvent) => {
@@ -207,7 +202,6 @@ function Root(props: ImageCompareRootProps) {
                                     ...getComparisonImageStyle(snap, "a"),
                                     pointerEvents: "none",
                                 }}
-                                onLoad={(event) => onLoadA(event.currentTarget)}
                             />
                         </motion.div>
 
@@ -220,7 +214,7 @@ function Root(props: ImageCompareRootProps) {
                     <HStack
                         gridArea={"buttons"}
                         px={8}
-                        py={2}
+                        py={1}
                         boxShadow={"0px 0px 5px -1px #00000055, 0px 3px 12px -3px #00000055"}
                         {...toolbarProps}
                     >
@@ -230,8 +224,9 @@ function Root(props: ImageCompareRootProps) {
                                 <ToolbarSeparator />
                             </>
                         )}
-                        <ToolbarSection>
+                        <ToolbarSection color={"fg.3"}>
                             <IconButton
+                                variant="toolbar"
                                 tipTitle={snap.smoothing ? "Disable smoothing" : "Enable smoothing"}
                                 tipText={
                                     snap.smoothing
@@ -247,7 +242,6 @@ function Root(props: ImageCompareRootProps) {
                         </ToolbarSection>
                         <ToolbarSeparator />
                         <ToolbarSection>
-                            {/*<PanelSectionHeader>Mode</PanelSectionHeader>*/}
                             {modes.map((mode) => {
                                 const ModeButton = mode.Button
                                 return (
@@ -316,9 +310,8 @@ interface TopLayerProps extends PropsWithChildren {
 
 export function TopLayer(props: TopLayerProps) {
     const { show, children } = props
-
     return (
-        <Flex display={show ? "flex" : "none"} gridArea={"image"} zIndex={1}>
+        <Flex display={show ? "flex" : "none"} gridArea={"image"} zIndex={50}>
             {children}
         </Flex>
     )

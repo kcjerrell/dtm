@@ -81,7 +81,7 @@ export type ImageCompareHooksContextType = {
     }
     zoomHandlers: ReturnType<typeof useZoomable>["handlers"]
     zoomStyle: ReturnType<typeof useZoomable>["style"]
-    setImages: (imgAUrl?: string, imgBUrl?: string) => Promise<void>
+    setImage: (side: "A" | "B", src: string | undefined) => Promise<void>
 }
 
 const ImageCompareHooksContext = createContext<ImageCompareHooksContextType | undefined>(undefined)
@@ -157,29 +157,32 @@ export function useCreateImageCompareContext(
         ([slider, trailing]) => trailMask(slider, trailing, "left"),
     )
 
-    const setImages = useCallback(
-        async (imageA?: string, imageB?: string) => {
-            const changedA = state.imageASrc !== imageA
-            const changedB = state.imageBSrc !== imageB
-            if (!changedA && !changedB) return
+    const loadImageGen = useRef({ A: 0, B: 0 })
+    const setImage = useCallback(
+        async (side: "A" | "B", src: string | undefined) => {
+            const [srcKey, wKey, hKey] = imgKeys(side)
 
-            state.imageASrc = imageA
-            state.imageBSrc = imageB
-            // Dimensions are populated by the rendered images' load handlers.
-            if (changedA) {
-                state.imageAWidth = 0
-                state.imageAHeight = 0
-            }
-            if (changedB) {
-                state.imageBWidth = 0
-                state.imageBHeight = 0
-            }
+            const loadGen = ++loadImageGen.current[side]
+
+            const changed = src !== state[srcKey]
+            if (!changed) return
+
+            const [w, h] = (await preloadImage(src)) ?? [512, 512]
+
+            if (loadGen !== loadImageGen.current[side]) return
+
+            // set loaded image state
+            state[srcKey] = src
+            state[wKey] = w
+            state[hKey] = h
+
+            // reset shared state
             state.imageBOffset = { x: 0, y: 0 }
             state.imageBScaleX = 1
             state.imageBScaleY = 1
             state.pinState = null
 
-            // Comparison pixels and alignment belong to the previous pair.
+            // Comparison pixels and alignment belong to the previous pair
             state.canvasContents = "none"
             for (const canvas of [
                 offscreenCanvasRef.current,
@@ -218,7 +221,7 @@ export function useCreateImageCompareContext(
             },
             zoomHandlers,
             zoomStyle,
-            setImages,
+            setImage,
         }),
         [
             sliderMv,
@@ -229,7 +232,7 @@ export function useCreateImageCompareContext(
             invertedCanvasMaskMv,
             zoomHandlers,
             zoomStyle,
-            setImages,
+            setImage,
         ],
     ) as ImageCompareHooksContextType
 
@@ -256,6 +259,22 @@ export function useCreateImageCompareContext(
     }, [cv, state])
 
     return [ImageCompareHooksContext, cv] as const
+}
+
+const imgKeys = (side: "A" | "B") =>
+    [
+        `image${side}Src` as "imageASrc" | "imageBSrc",
+        `image${side}Width` as "imageAWidth" | "imageBWidth",
+        `image${side}Height` as "imageAHeight" | "imageBHeight",
+    ] as const
+
+async function preloadImage(src: string | undefined) {
+    if (!src) return
+
+    const preload = new Image()
+    preload.src = src
+    await preload.decode()
+    return [preload.naturalWidth, preload.naturalHeight] as const
 }
 
 export function useImageCompareHooks(): ImageCompareHooksContextType {

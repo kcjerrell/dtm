@@ -334,10 +334,6 @@ function View(props: ModeViewProps<SliderModeProps>) {
                         style={{
                             ...getComparisonImageStyle(snap, "b"),
                         }}
-                        onLoad={(event) => {
-                            state.imageBWidth = event.currentTarget.naturalWidth
-                            state.imageBHeight = event.currentTarget.naturalHeight
-                        }}
                     />
                 </motion.div>
             </motion.div>
@@ -484,25 +480,33 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     return (
         <ToolbarSection {...restProps}>
             <IconButton
-                tone={sliderTrail === "none" ? sliderButtonTone : "none"}
+                variant="toolbar"
+                tbActive={sliderTrail === "none"}
+                tone={sliderTrail === "none" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("none")}
             >
                 X{/*<FaToggleOff />*/}
             </IconButton>
             <IconButton
-                tone={sliderTrail === "brightness" ? sliderButtonTone : "none"}
+                variant="toolbar"
+                tbActive={sliderTrail === "brightness"}
+                tone={sliderTrail === "brightness" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("brightness")}
             >
                 <ImBrightnessContrast />
             </IconButton>
             <IconButton
-                tone={sliderTrail === "color" ? sliderButtonTone : "none"}
+                variant="toolbar"
+                tbActive={sliderTrail === "color"}
+                tone={sliderTrail === "color" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("color")}
             >
                 <MdOutlineColorLens />
             </IconButton>
             <IconButton
-                tone={sliderTrail === "difference" ? sliderButtonTone : "none"}
+                variant="toolbar"
+                tbActive={sliderTrail === "difference"}
+                tone={sliderTrail === "difference" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("difference")}
             >
                 <IoInvertMode />
@@ -511,7 +515,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
                 <Popover.Trigger _expanded={{ background: undefined }} asChild>
                     <SettingsButton
-                        active={isSettingsOpen}
+                        tbActive={isSettingsOpen}
                         onEnter={onEnter}
                         onLeave={startCloseTimer}
                     />
@@ -545,6 +549,7 @@ function SettingsButton(props: ComponentProps<typeof IconButton> & PopoverTrigge
 
     return (
         <IconButton
+            variant="toolbar"
             onMouseEnter={() => onEnter(context)}
             onMouseLeave={() => onLeave(context)}
             {...restProps}
@@ -641,12 +646,13 @@ function Button(props: ModeButtonProps) {
                  highlight the differences between the images.`
     return (
         <IconButton
-            tone={selected ? "selected" : "none"}
+            variant="toolbar"
+            tbActive={selected}
             tipTitle={"Slider"}
             tipText={tip}
             {...restProps}
         >
-            <TfiSplitH />
+            <TfiSplitH stroke={"currentColor"} strokeWidth={0.5} />
         </IconButton>
     )
 }

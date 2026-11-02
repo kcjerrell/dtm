@@ -391,6 +391,7 @@ export const PanelButton = chakra(
                     "--hover-shadow": "0px 1px 5px -3px #00000055",
                 },
                 none: {
+                    background: "color-mix(in srgb, {colors.bg.1} 50%, {colors.bg.0} 50%)",
                     "--hover-bg": "{colors.bg.0}",
                     "--hover-shadow": "0px 0px 4px -2px #00000088",
                     "--hover-border": "transparent",
@@ -434,9 +435,9 @@ export const PanelSection = chakra("div", {
                 boxShadow: "0px 1px 8px -4px #00000044",
                 borderRadius: "lg",
                 border: "1px solid",
-                borderColor: "grayc.10",
+                borderColor: "grayc.13",
                 _dark: {
-                    borderColor: "grayc.14",
+                    borderColor: "grayc.13",
                 },
             },
             flat: {},
@@ -444,9 +445,9 @@ export const PanelSection = chakra("div", {
                 bgColor: "bg.2/50",
                 borderRadius: "lg",
                 border: "1px solid",
-                borderColor: "grayc.10",
+                borderColor: "grayc.14",
                 _dark: {
-                    borderColor: "grayc.14",
+                    borderColor: "grayc.15",
                 },
             },
         },

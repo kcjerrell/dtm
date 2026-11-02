@@ -1,13 +1,15 @@
 import { chakra } from "@chakra-ui/react"
 import type { ComponentProps, ReactNode } from "react"
 import { Tooltip } from "."
-import { PanelButton } from "./common"
 
 // from the chakra ui button recipe
 // https://github.com/chakra-ui/chakra-ui/blob/main/packages/react/src/theme/recipes/button.ts
 
-const Base = chakra(PanelButton, {
+const Base = chakra("button", {
     base: {
+        margin: 0,
+        height: "min-content",
+        paddingY: 2,
         color: "fg.3",
         aspectRatio: "1",
         background: "transparent",
@@ -26,23 +28,40 @@ const Base = chakra(PanelButton, {
         // cursor: "button",
         flexShrink: "0",
         outline: "0",
-        lineHeight: "1.2",
+        // lineHeight: "1.2",
         isolation: "isolate",
         fontWeight: "medium",
         transitionProperty: "common",
         transitionDuration: "moderate",
         focusVisibleRing: "outside",
         transformOrigin: "center center",
+        "& *": {
+            transformOrigin: "center center",
+        },
         _disabled: {
             layerStyle: "disabled",
             cursor: "default",
             pointerEvents: "none",
             _hover: { scale: 1 },
         },
+        _hover: {
+            color: "fg.2",
+            background: "var(--hover-bg)",
+            borderColor: "var(--hover-border)",
+            boxShadow: "var(--hover-shadow)",
+        },
+        _expanded: {
+            background: "var(--hover-bg)",
+            borderColor: "var(--hover-border)",
+            boxShadow: "var(--hover-shadow)",
+        },
         _icon: {},
         _focusVisible: {
             outline: "none",
         },
+        "--hover-bg": "{colors.bg.0/50}",
+        "--hover-shadow": "0px 0px 4px -2px #00000088",
+        "--hover-border": "transparent",
     },
 
     variants: {
@@ -78,8 +97,14 @@ const Base = chakra(PanelButton, {
                 "& > *": {
                     scale: 1,
                 },
+                _after: {
+                    scale: 1.1,
+                },
                 _hover: {
                     "& > *": {
+                        scale: 1.1,
+                    },
+                    _after: {
                         scale: 1.1,
                     },
                 },
@@ -113,6 +138,76 @@ const Base = chakra(PanelButton, {
                     marginRight: 0,
                 },
             },
+            toolbar: {
+                color: "fg.1",
+                _hover: {
+                    color: "fg.1",
+                },
+                transition: "all 0.2s ease",
+            },
+        },
+        tbActive: {
+            true: {
+                color: "fg.1",
+                background: "bg.0/50",
+                borderColor: "grayc.13",
+                _hover: {
+                    color: "fg.1",
+                },
+            },
+            false: {
+                opacity: 0.7,
+                _hover: {
+                    color: "fg.1",
+                    borderColor: "grayc.13",
+                },
+            },
+        },
+        tone: {
+            danger: {
+                background: "color-mix(in srgb, {colors.bg.1} 70%, {colors.red.500} 30%)",
+                "--hover-bg": "color-mix(in srgb, {colors.bg.1} 60%, {colors.red.500} 40%)",
+                "--hover-border": "{colors.red.500/40}",
+                "--hover-shadow": "0px 1px 5px -3px #00000055",
+            },
+            success: {
+                color: "grayc.2",
+                fontWeight: "600",
+                background: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)",
+                border: "2px solid {colors.success.1}",
+                "--hover-bg": "{colors.success.1/90}",
+                "--hover-border": "{colors.success.1}",
+                "--hover-shadow": "0px 1px 5px -3px #00000055",
+            },
+            none: {
+                // "--hover-bg": "{colors.bg.0/50}",
+                // "--hover-shadow": "0px 0px 4px -2px #00000088",
+                // "--hover-border": "transparent",
+            },
+            selected: {
+                color: "white",
+                fontWeight: "600",
+                background: "highlight.1",
+                "--hover-bg": "{colors.highlight}",
+            },
+            active: {
+                color: "{colors.fg.1}",
+                fontWeight: "600",
+                background: "{colors.bg.3}",
+                boxShadow: "0px 0px 4px -2px #00000088",
+                "--hover-bg": "{colors.bg.0/50}",
+                "--hover-shadow": "0px 0px 4px -2px #00000088",
+                "--hover-border": "transparent",
+                _hover: {
+                    color: "fg.1",
+                },
+            },
+            info: {
+                color: "white",
+                fontWeight: "600",
+                background: "info.1",
+                "--hover-bg": "{colors.info}",
+            },
         },
         toggled: {
             true: {
@@ -133,6 +228,20 @@ const Base = chakra(PanelButton, {
                 },
             },
         },
+        strike: {
+            true: {
+                position: "relative",
+                _after: {
+                    content: '""',
+                    position: "absolute",
+                    background: "currentColor",
+                    height: "0.15em",
+                    width: "75%",
+                    transform: "rotate(45deg)",
+                },
+            },
+            false: {},
+        },
         size: {
             min: {
                 h: "min-content",
@@ -141,8 +250,8 @@ const Base = chakra(PanelButton, {
                 minW: 0,
                 textStyle: "xs",
                 _icon: {
-                    width: "5",
-                    height: "5",
+                    width: "4",
+                    height: "4",
                 },
             },
             "2xs": {
@@ -228,6 +337,13 @@ const Base = chakra(PanelButton, {
 
     compoundVariants: [
         {
+            tbActive: true,
+            tone: "info",
+            css: {
+                background: "color-mix(in srgb, {colors.info.1} 50%, {colors.bg.0} 50%)",
+            },
+        },
+        {
             variant: "ghost",
             toggled: true,
             css: {
@@ -251,11 +367,31 @@ const Base = chakra(PanelButton, {
                 },
             },
         },
+        {
+            strike: true,
+            size: "sm",
+            css: {
+                _after: {
+                    width: "75%",
+                },
+            },
+        },
+        {
+            strike: true,
+            size: "xs",
+            css: {
+                _after: {
+                    width: "60%",
+                },
+            },
+        },
     ],
 
     defaultVariants: {
+        tone: "none",
         variant: "simple",
         size: "sm",
+        strike: false,
     },
 })
 

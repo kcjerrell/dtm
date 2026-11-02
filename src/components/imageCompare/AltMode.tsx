@@ -93,6 +93,7 @@ function Settings(props: ModeSettingProps<never>) {
         <ToolbarSection fontSize={"sm"} fontWeight={"500"} {...restProps}>
             <Grid>
                 <IconButton
+                    variant="toolbar"
                     gridColumn={"1"}
                     gridRow={"1"}
                     size={"sm"}
@@ -102,6 +103,7 @@ function Settings(props: ModeSettingProps<never>) {
                     A
                 </IconButton>
                 <IconButton
+                    variant="toolbar"
                     gridColumn={"1"}
                     gridRow={"1"}
                     size={"sm"}
@@ -154,7 +156,8 @@ function Button(props: ModeButtonProps) {
 
     return (
         <IconButton
-            tone={selected ? "selected" : "none"}
+            variant="toolbar"
+                        tbActive={selected}
             tipTitle={"Swap"}
             tipText={tip}
             {...restProps}

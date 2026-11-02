@@ -18,7 +18,7 @@ const Root = chakra(
             alignItems: "stretch",
             gap: 0,
             paddingTop: "30px",
-            bgColor: "grayc.14",
+            bgColor: "grayc.15",
             _dark: {
                 bgColor: "grayc.17",
             },

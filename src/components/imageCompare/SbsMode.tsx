@@ -81,10 +81,6 @@ function View(props: ModeViewProps<never>) {
                             ...getComparisonImageStyle(snap, "b"),
                             pointerEvents: "none",
                         }}
-                        onLoad={(event) => {
-                            state.imageBWidth = event.currentTarget.naturalWidth
-                            state.imageBHeight = event.currentTarget.naturalHeight
-                        }}
                     />
                 </motion.div>
             </Box>
@@ -99,7 +95,8 @@ function Settings(props: ModeSettingProps<never>) {
     return (
         <ToolbarSection {...restProps}>
             <IconButton
-                tone={snap.sbsLayout === "vertical" ? "selected" : "none"}
+                variant="toolbar"
+                                tbActive={snap.sbsLayout === "vertical"}
                 onClick={() => {
                     state.sbsLayout = "vertical"
                 }}
@@ -107,7 +104,8 @@ function Settings(props: ModeSettingProps<never>) {
                 <LuStretchVertical />
             </IconButton>
             <IconButton
-                tone={snap.sbsLayout === "horizontal" ? "selected" : "none"}
+                variant="toolbar"
+                                tbActive={snap.sbsLayout === "horizontal"}
                 onClick={() => {
                     state.sbsLayout = "horizontal"
                 }}
@@ -126,7 +124,8 @@ function Button(props: ModeButtonProps) {
 
     return (
         <IconButton
-            tone={selected ? "selected" : "none"}
+            variant="toolbar"
+                        tbActive={selected}
             tipTitle={"Side-by-side"}
             tipText={tip}
             {...restProps}

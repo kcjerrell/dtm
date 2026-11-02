@@ -10,41 +10,41 @@ import { buttonRecipe } from "./button"
 
 const IS_TAHOE = version().startsWith("26")
 
-const grayValues = [
-    "#0e0f10", // 0    17
-    "#141617", // 1    16
-    "#1f2224", // 2    15
-    "#232629", // 3    14
-    "#2e3235", // 4    13
-    "#353940", // 5    12
-    "#434753", // 6    11
-    "#565e67", // 7    10
-    "#8e97a2", // 8    9
-    "#b9bfc5", // 9    8
-    "#c7c9ca", // 10   7
-    "#dbdddf", // 11   6
-    "#dedfe1", // 12   5
-    "#e0e1e2", // 13   4
-    "#e4e6e7", // 14   3
-    "#e8eaeb", // 15   2
-    "#EDEFF0", // 16   1
-    "#f2f3f4", // 17   0
+const GRAY = [
+    "#0e0f10", // 0
+    "#191b1d", // 1
+    "#26292c", // 2
+    "#34393e", // 3
+    "#444a50", // 4
+    "#545b62", // 5
+    "#646b72", // 6
+    "#747c83", // 7
+    "#858c93", // 8
+    "#949ba2", // 9
+    "#a4aab0", // 10
+    "#b2b7bc", // 11
+    "#c0c5c9", // 12
+    "#cdd1d5", // 13
+    "#d9dcdf", // 14
+    "#e4e6e8", // 15
+    "#edeeef", // 16
+    "#f2f3f4", // 17
 ]
 
-const grays = grayValues.reduce(
+const grays = GRAY.reduce(
     (acc, value, index) => {
         acc[index] = { value }
         return acc
     },
     {} as Record<number, { value: string }>,
 )
-const grayc = Array.from({ length: grayValues.length }).reduce<
+const grayc = Array.from({ length: GRAY.length }).reduce<
     Record<number, { value: { _light: string; _dark: string } }>
 >((acc, _, index) => {
     acc[index] = {
         value: {
-            _light: grayValues[index],
-            _dark: grayValues[grayValues.length - 1 - index],
+            _light: GRAY[index],
+            _dark: GRAY[GRAY.length - 1 - index],
         },
     }
     return acc
@@ -111,7 +111,7 @@ const themeConfig = defineConfig({
             // scrollbarGutter: "stable",
             _scrollbar: { backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" },
             _scrollbarThumb: {
-                backgroundColor: "fg.2/50",
+                backgroundColor: "fg.2/30",
                 width: "4px",
                 borderRadius: "2px 7px 7px 2px",
                 boxShadow: "pane1",

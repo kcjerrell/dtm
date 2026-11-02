@@ -3,12 +3,12 @@ import { useImageCompareHooks } from "./hooks"
 import { ImageCompareContext } from "./state"
 
 export interface ImageSelectorProps {
-    image: "a" | "b"
+    image: "A" | "B"
     children: ReactNode
 }
 
 interface ImageSelectorContextValue {
-    image: "a" | "b"
+    image: "A" | "B"
     setImage: (url: string) => void
 }
 
@@ -22,16 +22,18 @@ export function useImageSelector(): ImageSelectorContextValue {
 
 function ImageSelector(props: ImageSelectorProps) {
     const { image, children } = props
-    const state = ImageCompareContext.useContextState()
-    const { setImages } = useImageCompareHooks()
-    const setImage = useCallback(
-        (url: string) => {
-            if (image === "a") void setImages(url, state.imageBSrc)
-            else void setImages(state.imageASrc, url)
-        },
-        [image, setImages, state],
+
+    const { setImage } = useImageCompareHooks()
+
+    const value = useMemo(
+        () => ({
+            image,
+            setImage: (url: string) => {
+                setImage(image, url)
+            },
+        }),
+        [image, setImage],
     )
-    const value = useMemo(() => ({ image, setImage }), [image, setImage])
 
     return <ImageSelectorContext value={value}>{children}</ImageSelectorContext>
 }

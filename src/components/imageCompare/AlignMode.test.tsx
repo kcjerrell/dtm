@@ -73,7 +73,7 @@ afterEach(() => {
 async function setup() {
     let state = {} as ImageCompareState
     function Harness() {
-        const [Provider, current] = ImageCompareContext.useCreate({ a: "a.png", b: "b.png" })
+        const [Provider, current] = ImageCompareContext.useCreate()
         state = current
         return (
             <Provider>
@@ -89,6 +89,8 @@ async function setup() {
     await act(async () => {
         Object.assign(state, {
             mode: "align",
+            imageASrc: "a.png",
+            imageBSrc: "b.png",
             viewportWidth: 500,
             viewportHeight: 500,
             imageAWidth: 100,

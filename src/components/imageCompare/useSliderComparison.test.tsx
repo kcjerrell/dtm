@@ -37,7 +37,7 @@ function setup(loaded = true) {
     }
     const onGenerated = vi.fn()
     function useContext() {
-        const [, state, snap] = ImageCompareContext.useCreate({ a: "a.png", b: "b.png" })
+        const [, state, snap] = ImageCompareContext.useCreate()
         const generate = useSliderComparison(state, snap, refs, onGenerated)
         return { state, generate }
     }
@@ -55,6 +55,8 @@ function setup(loaded = true) {
 async function selectComparison(setupResult: ReturnType<typeof setup>) {
     await act(async () => {
         const { state } = setupResult.result.current
+        state.imageASrc = "a.png"
+        state.imageBSrc = "b.png"
         state.imageAWidth = state.imageAHeight = state.imageBWidth = state.imageBHeight = 512
         state.sliderTrail = "difference"
     })
