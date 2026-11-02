@@ -1,6 +1,5 @@
-import { createContext, type ReactNode, useCallback, useContext, useMemo } from "react"
+import { createContext, type ReactNode, useContext, useMemo } from "react"
 import { useImageCompareHooks } from "./hooks"
-import { ImageCompareContext } from "./state"
 
 export interface ImageSelectorProps {
     image: "A" | "B"
@@ -37,5 +36,6 @@ function ImageSelector(props: ImageSelectorProps) {
 
     return <ImageSelectorContext value={value}>{children}</ImageSelectorContext>
 }
+ImageSelector.slot = "ImageCompare.ImageSelector"
 
 export default ImageSelector

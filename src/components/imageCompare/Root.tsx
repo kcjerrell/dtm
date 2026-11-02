@@ -99,13 +99,19 @@ function Root(props: ImageCompareRootProps) {
     const imageSelectors = Children.toArray(children)
         .filter(
             (child): child is ReactElement<ImageSelectorProps> =>
-                isValidElement(child) && child.type === ImageSelector,
+                isValidElement(child) &&
+                typeof child.type === "function" &&
+                "slot" in child.type &&
+                child.type.slot === "ImageCompare.ImageSelector",
         )
         .sort((a, b) => (a.props.image === b.props.image ? 0 : a.props.image === "A" ? -1 : 1))
 
     const topLayer = Children.toArray(children).find(
-        (child): child is ReactElement<TopLayerProps> =>
-            isValidElement(child) && child.type === TopLayer,
+        (child) =>
+            isValidElement(child) &&
+            typeof child.type === "function" &&
+            "slot" in child.type &&
+            child.type.slot === "ImageCompare.TopLayer",
     )
 
     useEffect(() => {
@@ -177,11 +183,7 @@ function Root(props: ImageCompareRootProps) {
                         minHeight={0}
                         overflow={"hidden"}
                         touchAction={"none"}
-                        margin={"1rem"}
-                        // className={"check-bg"}
-                        // bgColor={"bg.1"}
                         {...zoomHandlers}
-                        // css={{ "& img": imageProps, "& canvas": imageProps }}
                     >
                         {/* image a base */}
                         <motion.div
@@ -316,6 +318,7 @@ export function TopLayer(props: TopLayerProps) {
         </Flex>
     )
 }
+TopLayer.slot = "ImageCompare.TopLayer"
 
 /**
  * Returns the text to use in the last part of the shift hint.

@@ -52,7 +52,6 @@ function Compare() {
             <ImageCompare.Root
                 a={snap.imageA?.url}
                 b={snap.imageB?.url}
-                imageProps={{ padding: "1rem" }}
                 toolbarProps={{ bgColor: "bg.1" }}
             >
                 <ImageCompare.ImageSelector image={"A"}>
