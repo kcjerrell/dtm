@@ -211,6 +211,7 @@ export class ScriptControlsController {
             return true
         } catch (error) {
             item.error = error instanceof Error ? error.message : "Invalid value."
+            this.#emit("value")
             return false
         }
     }

@@ -179,9 +179,13 @@ export function invokeScriptCommand(command: string, args: Record<string, unknow
             else TRUSTED.delete(id)
             return { value: args.sourceRevision }
         }
-        case "trust_script_project":
-            TRUSTED.set(id, requireProject(projects(), id).source)
+        case "trust_script_project": {
+            const { source } = requireProject(projects(), id)
+            if (args.expectedSource !== source)
+                throw new Error("Saved script changed before approval")
+            TRUSTED.set(id, source)
             return { value: undefined }
+        }
         case "revoke_script_project_trust":
             TRUSTED.delete(id)
             if (active?.projectId === id) cancel("user")

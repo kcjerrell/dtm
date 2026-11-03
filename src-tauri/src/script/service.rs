@@ -139,7 +139,11 @@ impl ImageScriptService {
 
     /// Explicit warning acknowledgement belongs to the calling UI. Trust never
     /// comes from a run request, portable manifest, or project-open operation.
-    pub async fn trust_project(&self, project_id: ProjectId) -> Result<()> {
+    pub async fn trust_project(
+        &self,
+        project_id: ProjectId,
+        expected_source: String,
+    ) -> Result<()> {
         let _scheduler = self.0.scheduler.lock().await;
         let store = self.0.store.clone();
         let project = tokio::task::spawn_blocking(move || store.open(&project_id)).await??;
@@ -147,9 +151,15 @@ impl ImageScriptService {
         if state.closed {
             bail!("script service is shut down");
         }
-        state
-            .trusted
-            .insert(project.manifest.project_id.0, hash(&project.source));
+        let id = project.manifest.project_id.0;
+        let saved_hash = hash(&project.source);
+        if project.source != expected_source {
+            if state.trusted.get(&id) != Some(&saved_hash) {
+                state.trusted.remove(&id);
+            }
+            bail!("the saved script changed before approval; review it and try again");
+        }
+        state.trusted.insert(id, saved_hash);
         Ok(())
     }
 

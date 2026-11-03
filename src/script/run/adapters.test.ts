@@ -9,9 +9,10 @@ it("maps typed commands to the existing S20 command surface without eager IPC", 
         <T>(command: string, args?: Record<string, unknown>) => invoke(command, args) as Promise<T>,
     )
     expect(invoke).not.toHaveBeenCalled()
-    await commands.trust(request().projectId)
+    await commands.trust(request().projectId, "reviewed source")
     expect(invoke).toHaveBeenLastCalledWith("trust_script_project", {
         projectId: request().projectId,
+        expectedSource: "reviewed source",
     })
     await commands.run(request())
     expect(invoke).toHaveBeenLastCalledWith("run_script", { request: request() })

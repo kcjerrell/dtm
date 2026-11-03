@@ -52,11 +52,15 @@ export function sameRevisions(a: RunRevisions, b: RunRevisions): boolean {
     )
 }
 
+type ProjectRunCommands = Omit<RunCommands, "trust"> & {
+    trust(projectId: ProjectId): Promise<void>
+}
+
 /** One project lifetime. Source, request handles and subscriptions stay outside
  * Valtio. The host supplies already-analyzed snapshots and owns scheduling. */
 export class ScriptRunController {
     readonly state: RunState
-    readonly #commands: RunCommands
+    readonly #commands: ProjectRunCommands
     readonly #events: RunEventSource
     #unsubscribe: (() => void) | undefined
     #connecting: Promise<void> | undefined
@@ -66,6 +70,7 @@ export class ScriptRunController {
           })
         | undefined
     #submission = 0
+    #stopSubmission?: number
     #trustGeneration = 0
     #disposed = false
     #logLength = 0
@@ -73,7 +78,11 @@ export class ScriptRunController {
     readonly #liveRuns = new Map<string, RunIdentity>()
     readonly #usedRequests = new Set<string>()
 
-    constructor(options: { projectId: ProjectId; commands: RunCommands; events: RunEventSource }) {
+    constructor(options: {
+        projectId: ProjectId
+        commands: ProjectRunCommands
+        events: RunEventSource
+    }) {
         this.#commands = options.commands
         this.#events = options.events
         this.state = proxy<RunState>({
@@ -181,6 +190,7 @@ export class ScriptRunController {
             if (
                 this.#disposed ||
                 generation !== this.#submission ||
+                this.#stopSubmission === generation ||
                 trustGeneration !== this.#trustGeneration ||
                 this.state.trust !== "trusted" ||
                 (this.state.desired && !sameRevisions(revisions, this.state.desired))
@@ -256,9 +266,10 @@ export class ScriptRunController {
             this.#settled = true
             this.state.active = this.#liveRuns.size > 0
             if (!this.state.active) this.state.stopping = false
-            this.state.phase = event.type
+            const stopped = this.#stopSubmission === this.#submission && event.type === "succeeded"
+            this.state.phase = stopped ? "cancelled" : event.type
             this.state.error = null
-            if (stale) return true
+            if (stale || stopped) return true
         }
         switch (event.type) {
             case "queued":
@@ -300,6 +311,7 @@ export class ScriptRunController {
     async stop(): Promise<boolean> {
         if (this.#disposed || !this.state.active || this.state.stopping) return false
         const generation = this.#submission
+        this.#stopSubmission = generation
         this.state.stopping = true
         this.state.error = null
         try {
@@ -312,6 +324,7 @@ export class ScriptRunController {
                 this.state.active &&
                 this.state.stopping
             ) {
+                this.#stopSubmission = undefined
                 this.state.stopping = false
                 this.state.error = "Could not stop the script. Try again."
             }

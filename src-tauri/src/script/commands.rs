@@ -21,9 +21,10 @@ pub fn cancel_script(service: State<'_, ImageScriptService>) -> CommandResult<()
 pub async fn trust_script_project(
     service: State<'_, ImageScriptService>,
     project_id: ProjectId,
+    expected_source: String,
 ) -> CommandResult<()> {
     service
-        .trust_project(project_id)
+        .trust_project(project_id, expected_source)
         .await
         .map_err(command_error)
 }

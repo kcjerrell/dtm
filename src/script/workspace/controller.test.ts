@@ -44,11 +44,19 @@ function setup(selectImage = vi.fn(async (): Promise<SelectedInput | null> => nu
     const emit = (event: ScriptRunEvent) => {
         for (const listener of listeners) listener(event)
     }
+    const subscribe = vi.fn(async (listener: (event: ScriptRunEvent) => unknown) => {
+        listeners.add(listener)
+        return () => {
+            listeners.delete(listener)
+        }
+    })
     let identity: RunIdentity | undefined
+    let nextRun = 0
     const run = vi.fn(async (request: RunRequest) => {
+        if (identity) emit({ type: "cancelled", identity, reason: "superseded" })
         identity = {
             projectId: request.projectId,
-            runId: "backend-run" as RunId,
+            runId: `backend-run-${++nextRun}` as RunId,
             clientRequestId: request.clientRequestId,
             sourceRevision: request.source.sourceRevision,
             valueRevision: request.valueRevision,
@@ -107,12 +115,7 @@ function setup(selectImage = vi.fn(async (): Promise<SelectedInput | null> => nu
         },
         editor,
         analysis,
-        events: {
-            subscribe: async (listener) => {
-                listeners.add(listener)
-                return () => listeners.delete(listener)
-            },
-        },
+        events: { subscribe },
         run: { run, trust, stop },
         session: {
             load: () => ({ schemaVersion: 1, lastProjectId: ids[0], views: {} }),
@@ -136,6 +139,7 @@ function setup(selectImage = vi.fn(async (): Promise<SelectedInput | null> => nu
         emit,
         revokeInput,
         disposeEditor,
+        subscribe,
     }
 }
 
@@ -260,4 +264,323 @@ describe("Image Scripts workspace", () => {
         expect(original.controls.runtimeSnapshot().inputs).toEqual([])
         await workspace.dispose()
     })
+})
+
+describe("live scheduling and global run ownership", () => {
+    it("debounces typing and leaves the active run intact through invalid source", async () => {
+        vi.useFakeTimers()
+        const h = setup()
+        const { workspace } = h
+        try {
+            await workspace.projects.initialize()
+            const project = workspace.getProject(ids[0])
+            if (!project) throw new Error("Missing project")
+            await workspace.analyzeCurrent()
+            expect(await project.run.trust(true)).toBe(true)
+            workspace.setLive(true)
+            await vi.advanceTimersByTimeAsync(0)
+            expect(h.run).toHaveBeenCalledTimes(1)
+
+            project.model.model.setValue(script("const value ="))
+            await vi.advanceTimersByTimeAsync(180)
+            expect(project.controls.state.analysisStatus).toBe("invalid")
+            expect(h.run).toHaveBeenCalledTimes(1)
+            expect(h.stop).not.toHaveBeenCalled()
+            expect(project.run.state.active).toBe(true)
+
+            project.model.model.setValue(script("return 'a'"))
+            await vi.advanceTimersByTimeAsync(50)
+            project.model.model.setValue(script("return 'ab'"))
+            await vi.advanceTimersByTimeAsync(50)
+            const finalSource = script("return 'abc'")
+            project.model.model.setValue(finalSource)
+            await vi.advanceTimersByTimeAsync(179)
+            expect(h.run).toHaveBeenCalledTimes(1)
+            await vi.advanceTimersByTimeAsync(1)
+            expect(h.run).toHaveBeenCalledTimes(2)
+            expect(h.run.mock.calls.at(-1)?.[0].source.source).toBe(finalSource)
+            expect(h.stop).not.toHaveBeenCalled()
+            await workspace.stop()
+            await workspace.dispose()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it("runs a slider commit immediately and blocks invalid numeric draft replacements", async () => {
+        vi.useFakeTimers()
+        const h = setup()
+        const { workspace } = h
+        try {
+            await workspace.projects.initialize()
+            const project = workspace.getProject(ids[0])
+            if (!project) throw new Error("Missing project")
+            project.model.model.setValue(
+                script(
+                    "dtm.param(0, { id: 'slider', min: 0, max: 10, step: 1 }); dtm.param(2, { id: 'number' }); return 'image'",
+                ),
+            )
+            await workspace.analyzeCurrent()
+            expect(await project.run.trust(true)).toBe(true)
+            workspace.setLive(true)
+            await vi.advanceTimersByTimeAsync(0)
+            expect(h.run).toHaveBeenCalledTimes(1)
+            const previous = project.run.state.identity
+            if (!previous) throw new Error("Missing first run")
+
+            project.controls.setValue("slider", { type: "number", value: 3 })
+            project.controls.setValue("slider", { type: "number", value: 4 })
+            h.emit({
+                type: "succeeded",
+                identity: previous,
+                output: {
+                    previewUrl: `dtm://script-output/${"a".repeat(64)}`,
+                    mediaType: "image/png",
+                    byteLength: 1,
+                },
+            })
+            expect(project.run.state.preview).toBeNull()
+            await vi.advanceTimersByTimeAsync(179)
+            expect(h.run).toHaveBeenCalledTimes(1)
+            project.controls.commitValue()
+            await vi.advanceTimersByTimeAsync(0)
+            expect(h.run).toHaveBeenCalledTimes(2)
+            expect(h.run.mock.calls.at(-1)?.[0].values.slider.value).toBe(4)
+
+            project.controls.editNumber("number", "-")
+            await vi.advanceTimersByTimeAsync(180)
+            expect(project.controls.runtimeSnapshot().values.number.value).toBe(2)
+            expect(h.run).toHaveBeenCalledTimes(2)
+            project.controls.editNumber("number", "3")
+            await vi.advanceTimersByTimeAsync(180)
+            expect(h.run).toHaveBeenCalledTimes(3)
+            expect(h.run.mock.calls.at(-1)?.[0].values.number.value).toBe(3)
+            await workspace.stop()
+            await workspace.dispose()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it("holds global ownership through a delayed Stop acknowledgement and drops late success", async () => {
+        const h = setup()
+        const { workspace } = h
+        await workspace.projects.initialize()
+        const first = workspace.getProject(ids[0])
+        if (!first) throw new Error("Missing first project")
+        await workspace.analyzeCurrent()
+        expect(await first.run.trust(true)).toBe(true)
+        await workspace.run(first)
+        const identity = first.run.state.identity
+        if (!identity) throw new Error("Missing first run")
+        const acknowledgement = deferred<void>()
+        h.stop.mockImplementationOnce(() => acknowledgement.promise)
+
+        const stopping = workspace.stop()
+        expect(workspace.state.stopPending).toBe(true)
+        h.emit({
+            type: "succeeded",
+            identity,
+            output: {
+                previewUrl: `dtm://script-output/${"a".repeat(64)}`,
+                mediaType: "image/png",
+                byteLength: 1,
+            },
+        })
+        expect(first.run.state.preview).toBeNull()
+        expect(first.run.state.phase).toBe("cancelled")
+        await workspace.open(ids[1])
+        const second = workspace.getProject(ids[1])
+        if (!second) throw new Error("Missing second project")
+        await workspace.analyzeCurrent()
+        expect(await second.run.trust(true)).toBe(true)
+        await workspace.run(second)
+        expect(h.run).toHaveBeenCalledTimes(1)
+        acknowledgement.resolve()
+        await stopping
+        await workspace.run(second)
+        expect(h.run).toHaveBeenCalledTimes(2)
+        expect(workspace.state.owner).toBe(ids[1])
+        expect(await first.run.stop()).toBe(false)
+        expect(h.stop).toHaveBeenCalledTimes(1)
+        await workspace.stop()
+        await workspace.dispose()
+    })
+
+    it("ignores old trust acknowledgements after project switching", async () => {
+        const h = setup()
+        const { workspace } = h
+        await workspace.projects.initialize()
+        const first = workspace.getProject(ids[0])
+        if (!first) throw new Error("Missing first project")
+        const entered = deferred<void>()
+        const acknowledgement = deferred<void>()
+        h.trust.mockImplementationOnce(() => {
+            entered.resolve()
+            return acknowledgement.promise
+        })
+        const approval = first.run.trust(true)
+        await entered.promise
+        await workspace.open(ids[1])
+        acknowledgement.resolve()
+        expect(await approval).toBe(false)
+        expect(first.run.state.trust).toBe("untrusted")
+        expect(workspace.getProject(ids[1])?.run.state.trust).toBe("untrusted")
+        expect(workspace.state.live).toBe(false)
+        expect(h.run).not.toHaveBeenCalled()
+        await workspace.dispose()
+    })
+})
+
+it("coalesces live replacements while the prior command admission is pending", async () => {
+    vi.useFakeTimers()
+    const h = setup()
+    const { workspace } = h
+    try {
+        await workspace.projects.initialize()
+        const project = workspace.getProject(ids[0])
+        if (!project) throw new Error("Missing project")
+        project.model.model.setValue(script("dtm.param(0, { id: 'value' }); return 'image'"))
+        await workspace.analyzeCurrent()
+        expect(await project.run.trust(true)).toBe(true)
+        const ack = deferred<void>()
+        const perform = h.run.getMockImplementation()
+        if (!perform) throw new Error("Missing run implementation")
+        h.run.mockImplementationOnce(async (request) => {
+            const identity = await perform(request)
+            await ack.promise
+            return identity
+        })
+
+        workspace.setLive(true)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(project.run.state.admitting).toBe(true)
+        project.controls.setValue("value", { type: "number", value: 1 })
+        project.controls.commitValue()
+        project.controls.setValue("value", { type: "number", value: 2 })
+        project.controls.commitValue()
+        expect(h.run).toHaveBeenCalledTimes(1)
+        ack.resolve()
+        await vi.advanceTimersByTimeAsync(0)
+        expect(h.run).toHaveBeenCalledTimes(2)
+        expect(h.run.mock.calls[1][0].values.value.value).toBe(2)
+        await workspace.stop()
+        await workspace.dispose()
+    } finally {
+        vi.useRealTimers()
+    }
+})
+
+it("does not submit the old project after switching during event subscription", async () => {
+    const h = setup()
+    const { workspace } = h
+    await workspace.projects.initialize()
+    const first = workspace.getProject(ids[0])
+    if (!first) throw new Error("Missing project")
+    await workspace.analyzeCurrent()
+    expect(await first.run.trust(true)).toBe(true)
+    const entered = deferred<void>()
+    const subscribed = deferred<void>()
+    const perform = h.subscribe.getMockImplementation()
+    if (!perform) throw new Error("Missing subscription implementation")
+    h.subscribe.mockImplementationOnce(async (listener) => {
+        entered.resolve()
+        await subscribed.promise
+        return perform(listener)
+    })
+
+    const running = workspace.run(first)
+    await entered.promise
+    await workspace.open(ids[1])
+    subscribed.resolve()
+    await running
+    expect(h.run).not.toHaveBeenCalled()
+    expect(workspace.state.owner).toBeNull()
+    const second = workspace.getProject(ids[1])
+    if (!second) throw new Error("Missing second project")
+    await workspace.analyzeCurrent()
+    expect(await second.run.trust(true)).toBe(true)
+    await workspace.run(second)
+    expect(h.run.mock.calls[0][0].projectId).toBe(ids[1])
+    await workspace.stop()
+    await workspace.dispose()
+})
+
+it("does not restart Live when source analysis started before Stop finishes later", async () => {
+    vi.useFakeTimers()
+    const h = setup()
+    const { workspace } = h
+    try {
+        await workspace.projects.initialize()
+        const project = workspace.getProject(ids[0])
+        if (!project) throw new Error("Missing project")
+        await workspace.analyzeCurrent()
+        expect(await project.run.trust(true)).toBe(true)
+        workspace.setLive(true)
+        await vi.advanceTimersByTimeAsync(0)
+        expect(h.run).toHaveBeenCalledTimes(1)
+
+        const result = deferred<ReturnType<typeof analyzeScript>>()
+        h.analysis.analyze.mockImplementationOnce(() => result.promise)
+        const source = script("return 'new'")
+        project.model.model.setValue(source)
+        await vi.advanceTimersByTimeAsync(180)
+        expect(project.state.analysisReady).toBe(false)
+
+        await workspace.stop()
+        expect(workspace.state.live).toBe(false)
+        result.resolve(
+            analyzeScript({
+                source,
+                sourceRevision: project.model.revision,
+                fileName: project.model.uri.toString(),
+            }),
+        )
+        await vi.advanceTimersByTimeAsync(0)
+        expect(project.state.analysisReady).toBe(true)
+        expect(h.run).toHaveBeenCalledTimes(1)
+        await workspace.dispose()
+    } finally {
+        vi.useRealTimers()
+    }
+})
+
+it("keeps Stop routed to the surviving run when a replacement fails before acknowledgement", async () => {
+    const h = setup()
+    const { workspace } = h
+    await workspace.projects.initialize()
+    const project = workspace.getProject(ids[0])
+    if (!project) throw new Error("Missing project")
+    await workspace.analyzeCurrent()
+    expect(await project.run.trust(true)).toBe(true)
+    await workspace.run(project)
+    const previous = project.run.state.identity
+    if (!previous) throw new Error("Missing first run")
+    const diagnostic: ScriptDiagnostic = {
+        source: "runner",
+        severity: "error",
+        message: "Input preparation failed",
+    }
+    h.run.mockImplementationOnce(async (request) => {
+        const identity: RunIdentity = {
+            ...previous,
+            runId: "replacement" as RunId,
+            clientRequestId: request.clientRequestId,
+            sourceRevision: request.source.sourceRevision,
+        }
+        h.emit({ type: "queued", identity })
+        h.emit({ type: "diagnostic", identity, diagnostic })
+        h.emit({ type: "failed", identity, diagnostic })
+        throw new Error("Admission rejected after terminal event")
+    })
+    await workspace.run(project)
+    expect(project.run.state.phase).toBe("failed")
+    expect(project.run.state.active).toBe(true)
+    expect(project.run.state.runtimeProblems).toEqual([diagnostic])
+    expect(workspace.state.owner).toBe(project.id)
+    expect(h.stop).not.toHaveBeenCalled()
+    await workspace.stop()
+    expect(h.stop).toHaveBeenCalledOnce()
+    expect(project.run.state.active).toBe(false)
+    await workspace.dispose()
 })

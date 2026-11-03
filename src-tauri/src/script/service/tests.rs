@@ -66,7 +66,10 @@ impl Harness {
     }
     async fn trust(&self) {
         self.service
-            .trust_project(self.project.clone())
+            .trust_project(
+                self.project.clone(),
+                self.store.open(&self.project).unwrap().source,
+            )
             .await
             .unwrap();
     }
@@ -161,7 +164,11 @@ async fn editor_save_preserves_only_existing_trust_and_shutdown_rejects_requests
     h.service.shutdown().await.unwrap();
     h.service.shutdown().await.unwrap();
     assert!(h.service.run(h.request(3)).await.is_err());
-    assert!(h.service.trust_project(h.project.clone()).await.is_err());
+    assert!(h
+        .service
+        .trust_project(h.project.clone(), String::new())
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -755,7 +762,7 @@ async fn real_bun_runtime_and_import_locations_map_back_from_shifted_utf16_colum
     let bun = prepared_sidecar_path(compilation_target_triple().unwrap());
     let (sender, mut events) = mpsc::unbounded_channel();
     let service = ImageScriptService::new(
-        store,
+        store.clone(),
         Arc::new(BunExecutor::new(bun)),
         Arc::default(),
         Arc::new(NoResources),
@@ -765,7 +772,10 @@ async fn real_bun_runtime_and_import_locations_map_back_from_shifted_utf16_colum
         },
     )
     .unwrap();
-    service.trust_project(project_id.clone()).await.unwrap();
+    service
+        .trust_project(project_id.clone(), store.open(&project_id).unwrap().source)
+        .await
+        .unwrap();
 
     let prefix = "createImageProcess(() => { const unicode = '😀é'; ";
     let insertion = "void 0;";
@@ -954,7 +964,10 @@ async fn detached_save_keeps_admission_serialized_until_the_write_finishes() {
         |_| {},
     )
     .unwrap();
-    service.trust_project(project.clone()).await.unwrap();
+    service
+        .trust_project(project.clone(), store.open(&project).unwrap().source)
+        .await
+        .unwrap();
 
     let save = {
         let service = service.clone();
@@ -982,4 +995,27 @@ async fn detached_save_keeps_admission_serialized_until_the_write_finishes() {
     );
     drop(scheduler);
     service.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_delayed_approval_does_not_trust_newer_saved_source() {
+    let h = Harness::new();
+    let reviewed = h.store.open(&h.project).unwrap().source;
+    let scheduler = h.service.0.scheduler.lock().await;
+    let service = h.service.clone();
+    let project = h.project.clone();
+    let pending = tokio::spawn(async move { service.trust_project(project, reviewed).await });
+
+    h.store.save(&h.project, "newer source").unwrap();
+    drop(scheduler);
+    let error = pending.await.unwrap().unwrap_err();
+    assert!(error.to_string().contains("changed before approval"));
+    assert!(h
+        .service
+        .run(h.request(1))
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("untrusted"));
+    h.service.shutdown().await.unwrap();
 }

@@ -1,7 +1,7 @@
 import type { ProjectId, RunIdentity, RunRequest, ScriptRunEvent } from "../contracts"
 
 export interface RunCommands {
-    trust(projectId: ProjectId): Promise<void>
+    trust(projectId: ProjectId, expectedSource: string): Promise<void>
     run(request: RunRequest): Promise<RunIdentity>
     /** S20 cancellation is global. The workspace must have one run owner. */
     stop(): Promise<void>
@@ -16,7 +16,8 @@ export function createRunCommands(
     invoke: <T>(command: string, args?: Record<string, unknown>) => Promise<T>,
 ): RunCommands {
     return {
-        trust: (projectId) => invoke("trust_script_project", { projectId }),
+        trust: (projectId, expectedSource) =>
+            invoke("trust_script_project", { projectId, expectedSource }),
         run: (request) => invoke("run_script", { request }),
         stop: () => invoke("cancel_script"),
     }

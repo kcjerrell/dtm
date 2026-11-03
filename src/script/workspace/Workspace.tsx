@@ -122,7 +122,7 @@ function ProjectBar({
     const current = snap.currentProjectId
     const project = snap.projects.find(({ projectId }) => projectId === current)
     const document = current ? snap.documents[current] : undefined
-    const blocked = snap.loading || state.preparing || state.closing
+    const blocked = snap.loading || state.closing
 
     const act = (action: () => Promise<void>) => {
         setActionError(null)
@@ -197,7 +197,7 @@ function ProjectBar({
                 <Button
                     size="xs"
                     variant="ghost"
-                    disabled={blocked || Boolean(state.owner)}
+                    disabled={blocked || state.preparing || Boolean(state.owner)}
                     onClick={() => act(close)}
                 >
                     Close workspace
@@ -218,8 +218,12 @@ function ProjectBar({
             {state.owner && state.owner !== current && (
                 <HStack>
                     <Text fontSize="sm">A script is running in another project.</Text>
-                    <Button size="xs" onClick={() => void workspace.stop()}>
-                        Stop active script
+                    <Button
+                        size="xs"
+                        disabled={state.stopPending}
+                        onClick={() => void workspace.stop()}
+                    >
+                        {state.stopPending ? "Stopping active script…" : "Stop active script"}
                     </Button>
                 </HStack>
             )}
@@ -309,6 +313,7 @@ function ProjectInspector({
     const controls = useSnapshot(project.controls.state)
     const session = useSnapshot(workspace.state)
     const state = useSnapshot(project.state)
+    const run = useSnapshot(project.run.state)
     const { loading } = useSnapshot(workspace.projects.state)
     const [images, setImages] = useState<{ id: number; prompt: string }[]>([])
     const [imageError, setImageError] = useState<string | null>(null)
@@ -328,6 +333,17 @@ function ProjectInspector({
             p={3}
             gap={4}
         >
+            <label>
+                <input
+                    type="checkbox"
+                    role="switch"
+                    aria-checked={session.live}
+                    checked={session.live}
+                    disabled={run.trust !== "trusted" || loading || session.closing}
+                    onChange={(event) => workspace.setLive(event.target.checked)}
+                />{" "}
+                Live run
+            </label>
             <ScriptRunPanel
                 controller={project.run}
                 onRun={() => void workspace.run(project)}
@@ -337,6 +353,7 @@ function ProjectInspector({
                     !loading &&
                     !session.closing &&
                     !session.preparing &&
+                    !session.stopPending &&
                     (!session.owner || session.owner === project.id)
                 }
             />
