@@ -295,6 +295,18 @@ pub fn run() {
             bookmarks::pick_folder_command,
             bookmarks::resolve_bookmark,
             bookmarks::stop_accessing_bookmark,
+            script::project_commands::create_script_project,
+            script::project_commands::list_script_projects,
+            script::project_commands::open_script_project,
+            script::project_commands::rename_script_project,
+            script::commands::save_trusted_script_project,
+            script::commands::trust_script_project,
+            script::commands::revoke_script_project_trust,
+            script::commands::run_script,
+            script::commands::cancel_script,
+            script::selection::pick_script_input,
+            script::selection::revoke_script_input,
+            script::selection::select_script_draw_things_input,
             dtp_connect,
             dtp_service::data::dtp_pick_watch_folder,
             dtp_service::data::dtp_find_image_from_preview_id,
@@ -328,10 +340,19 @@ pub fn run() {
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();
+            if request.uri().host() == Some("script-output") {
+                let registry = app_handle
+                    .state::<script::service::ImageScriptService>()
+                    .output_registry();
+                tauri::async_runtime::spawn_blocking(move || {
+                    responder.respond(script::protocol::respond(&registry, &request));
+                });
+                return;
+            }
             tauri::async_runtime::spawn(async move {
-                let dtp_service = app_handle.state::<dtp_service::DTPService>();
-                let dtm_protocol = dtp_service.dtm_protocol().await;
                 if request.uri().host() == Some("dtproject") {
+                    let dtp_service = app_handle.state::<dtp_service::DTPService>();
+                    let dtm_protocol = dtp_service.dtm_protocol().await;
                     dtm_protocol
                         .dtm_dtproject_protocol(request, responder)
                         .await;
@@ -361,6 +382,12 @@ pub fn run() {
                 |error| format!("failed to migrate the application database: {error:#}"),
             )?;
 
+            let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
+            let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
+            script::app::register(app, dtp_service.clone())?;
+            app.manage(dtp_service);
+            app.manage(app_handle_wrapper);
+
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("DTM")
                 .inner_size(800.0, 600.0)
@@ -378,11 +405,6 @@ pub fn run() {
 
             log::info!("DTM main window created successfully");
 
-            let app_handle_wrapper = dtp_service::AppHandleWrapper::new(Some(app.handle().clone()));
-            let dtp_service = dtp_service::DTPService::new(app_handle_wrapper.clone());
-
-            app.manage(dtp_service);
-            app.manage(app_handle_wrapper);
             // tauri::async_runtime::spawn(async move {
             //     if let Err(e) = dtp_service.init().await {
             //         eprintln!("Failed to init DB: {}", e);
@@ -410,6 +432,9 @@ pub fn run() {
         .expect("error while running tauri application")
         .run(|app_handle, event| {
             if let tauri::RunEvent::Exit = event {
+                if let Err(error) = script::app::shutdown(app_handle) {
+                    log::error!("Failed to shut down image scripts: {error:#}");
+                }
                 bookmarks::cleanup_bookmarks();
                 if let Err(error) = dtp_service::AppHandleWrapper::from(app_handle).clear_temp_dir()
                 {

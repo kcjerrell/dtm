@@ -1,4 +1,4 @@
-//! Stateful script orchestration. Application registration belongs to S40.
+//! Stateful orchestration for the global image script service.
 //!
 //! Use one instance globally. Event sinks must be prompt, nonblocking and nonpanicking.
 //! Call `shutdown` before application temp cleanup. Trust is session-local and saves
@@ -23,6 +23,7 @@ use super::{
     input::{stage_inputs, InputApprovals, InputLimits, InputResources},
     output::{AuthorizedOutputRoot, OutputLease, OutputLimits, OutputRegistry},
     project_store::ProjectStore,
+    source_map::original_location,
     types::*,
 };
 
@@ -88,7 +89,7 @@ struct Inner {
     sink: Arc<dyn Fn(ScriptRunEvent) + Send + Sync>,
     state: Mutex<State>,
     // Intentionally held over preparation/join: serializes handoffs, never execution.
-    scheduler: AsyncMutex<Option<JoinHandle<Result<()>>>>,
+    scheduler: Arc<AsyncMutex<Option<JoinHandle<Result<()>>>>>,
     submissions: Arc<Semaphore>,
 }
 #[derive(Clone)]
@@ -127,7 +128,7 @@ impl ImageScriptService {
             limits,
             sink: Arc::new(sink),
             state: Mutex::default(),
-            scheduler: AsyncMutex::new(None),
+            scheduler: Arc::new(AsyncMutex::new(None)),
             submissions: Arc::new(Semaphore::new(8)),
         })))
     }
@@ -139,6 +140,7 @@ impl ImageScriptService {
     /// Explicit warning acknowledgement belongs to the calling UI. Trust never
     /// comes from a run request, portable manifest, or project-open operation.
     pub async fn trust_project(&self, project_id: ProjectId) -> Result<()> {
+        let _scheduler = self.0.scheduler.lock().await;
         let store = self.0.store.clone();
         let project = tokio::task::spawn_blocking(move || store.open(&project_id)).await??;
         let mut state = self.0.state()?;
@@ -170,9 +172,11 @@ impl ImageScriptService {
         source: String,
         revision: SourceRevision,
     ) -> Result<SourceRevision> {
-        let _scheduler = self.0.scheduler.lock().await;
+        let scheduler = self.0.scheduler.clone().lock_owned().await;
         let inner = self.0.clone();
         tokio::task::spawn_blocking(move || -> Result<_> {
+            // Keep save and admission serialized even if the IPC caller disappears.
+            let _scheduler = scheduler;
             let old = inner.store.open(&project_id)?;
             let mut state = inner.state()?;
             if state.closed {
@@ -279,7 +283,12 @@ impl Inner {
         (self.sink)(event);
     }
 
-    async fn check_trust(self: &Arc<Self>, project_id: ProjectId) -> Result<()> {
+    async fn check_trust(
+        self: &Arc<Self>,
+        project_id: ProjectId,
+        expected_source_hash: &str,
+    ) -> Result<()> {
+        let expected_source_hash = expected_source_hash.to_owned();
         let inner = self.clone();
         tokio::task::spawn_blocking(move || -> Result<()> {
             let project = inner.store.open(&project_id)?;
@@ -287,9 +296,13 @@ impl Inner {
             if state.closed {
                 bail!("script service is shut down");
             }
-            if state.trusted.get(&project_id.0) != Some(&hash(&project.source)) {
+            let persisted_hash = hash(&project.source);
+            if state.trusted.get(&project_id.0) != Some(&persisted_hash) {
                 state.trusted.remove(&project_id.0);
                 bail!("script project is untrusted; explicit approval is required");
+            }
+            if persisted_hash != expected_source_hash {
+                bail!("script source snapshot differs from the saved project; save before running");
             }
             Ok(())
         })
@@ -299,7 +312,6 @@ impl Inner {
 
     async fn submit(self: Arc<Self>, mut request: RunRequest) -> Result<RunIdentity> {
         let mut worker = self.scheduler.lock().await;
-        self.check_trust(request.project_id.clone()).await?;
         if request.source.source.len() > 2 * 1024 * 1024
             || request.source.instrumented_source.len() > 4 * 1024 * 1024
             || request
@@ -335,6 +347,8 @@ impl Inner {
         }
         // The backend freezes owned values and computes the actual source hash.
         request.source.content_hash = hash(&request.source.source);
+        self.check_trust(request.project_id.clone(), &request.source.content_hash)
+            .await?;
         let identity = RunIdentity {
             project_id: request.project_id.clone(),
             run_id: RunId(super::input::selection_token()?),
@@ -410,7 +424,11 @@ impl Inner {
             .await?;
         let prepared = staged.transfer(prepared, cancellation.clone()).await?;
         let anchor = AuthorizedOutputRoot::from_prepared(&prepared)?;
-        self.check_trust(identity.project_id.clone()).await?;
+        self.check_trust(
+            identity.project_id.clone(),
+            &prepared.manifest().source.content_hash,
+        )
+        .await?;
         {
             let state = self.state()?;
             if state.closed || cancellation.borrow().is_some() {
@@ -422,7 +440,11 @@ impl Inner {
         }
         join_worker(worker).await?;
         // Trust may have changed while the old executor was stopping.
-        self.check_trust(identity.project_id.clone()).await?;
+        self.check_trust(
+            identity.project_id.clone(),
+            &prepared.manifest().source.content_hash,
+        )
+        .await?;
         {
             let mut state = self.state()?;
             if state.closed || cancellation.borrow().is_some() {
@@ -482,6 +504,13 @@ impl Inner {
         let terminal = match result {
             Ok(result) => result.terminal, // Logs were already emitted as bounded live deltas.
             Err(error) => ExecutionTerminal::Failed(ExecutionFailure::runner(format!("{error:#}"))),
+        };
+        let location = match &terminal {
+            ExecutionTerminal::Failed(failure) if cancellation_reason.is_none() => {
+                let entry = directory.join("process.ts");
+                original_location(&entry, &source_snapshot, failure)
+            }
+            _ => None,
         };
         let output = if cancellation_reason.is_none() {
             if let ExecutionTerminal::Succeeded(output) = &terminal {
@@ -548,10 +577,11 @@ impl Inner {
                             source: source_snapshot,
                             failure: failure.clone(),
                         });
-                        // Do not mislabel instrumented positions as editor locations.
+                        let mut diagnostic = diagnostic(source, failure.message);
+                        diagnostic.location = location;
                         ScriptRunEvent::Failed {
                             identity: identity.clone(),
-                            diagnostic: diagnostic(source, failure.message),
+                            diagnostic,
                         }
                     }
                     ExecutionTerminal::TimedOut => ScriptRunEvent::Failed {

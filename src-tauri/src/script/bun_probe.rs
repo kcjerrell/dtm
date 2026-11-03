@@ -36,7 +36,6 @@ pub fn prepared_sidecar_path(target_triple: &str) -> PathBuf {
         .join(format!("bun-{target_triple}"))
 }
 
-#[cfg(test)]
 fn supported_target_triple(os: &str, arch: &str) -> Option<&'static str> {
     match (os, arch) {
         ("linux", "x86_64") => Some("x86_64-unknown-linux-gnu"),
@@ -47,8 +46,7 @@ fn supported_target_triple(os: &str, arch: &str) -> Option<&'static str> {
     }
 }
 
-#[cfg(test)]
-fn compilation_target_triple() -> Option<&'static str> {
+pub(super) fn compilation_target_triple() -> Option<&'static str> {
     supported_target_triple(std::env::consts::OS, std::env::consts::ARCH)
 }
 
@@ -66,7 +64,11 @@ pub fn bundled_sidecar_path(current_exe: &Path) -> Result<PathBuf> {
 pub async fn validate_version(path: &Path) -> Result<()> {
     let output = tokio::time::timeout(
         VERSION_TIMEOUT,
-        Command::new(path).arg("--version").output(),
+        Command::new(path)
+            .arg("--version")
+            .env_clear()
+            .kill_on_drop(true)
+            .output(),
     )
     .await
     .with_context(|| format!("timed out validating Bun at {}", path.display()))?

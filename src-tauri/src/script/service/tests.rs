@@ -54,7 +54,7 @@ impl Harness {
             source: SourceSnapshot {
                 source_revision: SourceRevision(revision),
                 content_hash: "caller hash is not authoritative".into(),
-                source: "source snapshot".into(),
+                source: self.store.open(&self.project).unwrap().source,
                 instrumented_source: "instrumented snapshot".into(),
                 source_map: Some("frozen map".into()),
             },
@@ -568,11 +568,12 @@ async fn real_bun_composes_approved_input_events_preview_and_cleanup() {
     )
     .unwrap();
     h.events = events;
-    h.trust().await;
     let mut request = h.request(1);
     request.source.source = "createImageProcess(async (dtm) => { console.log('service round trip'); return await dtm.input('Image'); })".into();
     request.source.instrumented_source = "createImageProcess(async (dtm) => { console.log('service round trip'); return await dtm.__input('image'); })".into();
     request.source.source_map = None;
+    h.store.save(&h.project, &request.source.source).unwrap();
+    h.trust().await;
     request.inputs.push(SelectedInput::LocalFile {
         input_id: "image".into(),
         display_name: "Image".into(),
@@ -615,4 +616,370 @@ async fn real_bun_composes_approved_input_events_preview_and_cleanup() {
     assert_eq!(std::fs::read(original).unwrap(), image);
     h.service.shutdown().await.unwrap();
     assert!(!h.service.0.workspace.path().exists());
+}
+
+#[tokio::test]
+async fn a_different_source_snapshot_cannot_replace_a_trusted_active_run() {
+    let mut h = Harness::new();
+    h.trust().await;
+    let mut active = h.fake.queue_controlled().unwrap();
+    let identity = h.service.run(h.request(1)).await.unwrap();
+    active.entered().await.unwrap();
+    active.start().await.unwrap();
+
+    let mut replacement = h.request(2);
+    replacement.source.content_hash = hash(&replacement.source.source);
+    replacement.source.source = "unsaved replacement source".into();
+    assert!(h
+        .service
+        .run(replacement)
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("differs from the saved project"));
+    assert!(h
+        .service
+        .0
+        .state()
+        .unwrap()
+        .active
+        .as_ref()
+        .unwrap()
+        .cancellation
+        .borrow()
+        .is_none());
+    active.complete(ExecutionTerminal::TimedOut).await.unwrap();
+    assert!(
+        matches!(h.terminal().await, ScriptRunEvent::Failed { identity: actual, .. } if actual == identity)
+    );
+    h.service.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn each_runtime_diagnostic_uses_only_its_own_run_snapshot() {
+    let mut h = Harness::new();
+    h.trust().await;
+    let mut mapped = h.fake.queue_controlled().unwrap();
+    let mut unmapped = h.fake.queue_controlled().unwrap();
+    let mut first = h.request(1);
+    let file = "file:///project/process.ts";
+    first.source.instrumented_source = "++x".into();
+    first.source.source_map = Some(
+        serde_json::json!({
+            "version": 3,
+            "file": file,
+            "sources": [file],
+            "sourcesContent": [first.source.source],
+            "mappings": "AAAA,CAAA,CAAA",
+        })
+        .to_string(),
+    );
+    let id = h.service.run(first).await.unwrap();
+    let captured = mapped.entered().await.unwrap();
+    mapped.start().await.unwrap();
+    mapped
+        .complete(ExecutionTerminal::Failed(runtime_failure_at(&captured, 3)))
+        .await
+        .unwrap();
+
+    let diagnostic = loop {
+        if let ScriptRunEvent::Diagnostic {
+            identity,
+            diagnostic,
+        } = h.event().await
+        {
+            assert_eq!(identity, id);
+            break diagnostic;
+        }
+    };
+    assert!(
+        matches!(h.event().await, ScriptRunEvent::Failed { identity, diagnostic: duplicate }
+        if identity == id && duplicate == diagnostic)
+    );
+    let location = diagnostic.location.unwrap();
+    assert_eq!(location.file, file);
+    assert_eq!(
+        location.range.start,
+        SourcePosition {
+            line: 1,
+            column: 1,
+            offset: 0
+        }
+    );
+
+    let second = h.request(2);
+    let id = h.service.run(second).await.unwrap();
+    let captured = unmapped.entered().await.unwrap();
+    unmapped.start().await.unwrap();
+    let failure = runtime_failure_at(&captured, 3);
+    unmapped
+        .complete(ExecutionTerminal::Failed(failure.clone()))
+        .await
+        .unwrap();
+    assert!(
+        matches!(h.terminal().await, ScriptRunEvent::Failed { identity, diagnostic }
+        if identity == id && diagnostic.location.is_none())
+    );
+    let raw = h.service.last_failure().unwrap().unwrap();
+    assert_eq!(raw.identity, id);
+    assert_eq!(raw.failure, failure);
+    h.service.shutdown().await.unwrap();
+}
+
+fn runtime_failure_at(request: &ExecutionRequest, column: u32) -> ExecutionFailure {
+    let entry = request
+        .runs_root
+        .join(&request.manifest.identity.run_id.0)
+        .join("process.ts");
+    ExecutionFailure {
+        phase: ExecutionFailurePhase::UserRuntime,
+        message: "bad run".into(),
+        stack: Some("bounded raw stack".into()),
+        location: Some(ExecutionLocation {
+            file: entry.to_string_lossy().into(),
+            line: 1,
+            column,
+        }),
+    }
+}
+
+#[tokio::test]
+async fn real_bun_runtime_and_import_locations_map_back_from_shifted_utf16_columns() {
+    use crate::script::{
+        bun::BunExecutor,
+        bun_probe::{compilation_target_triple, prepared_sidecar_path},
+    };
+    let root = tempfile::tempdir().unwrap();
+    let store = Arc::new(ProjectStore::new(root.path()));
+    let project_id = store.create("test").unwrap().manifest.project_id;
+    let bun = prepared_sidecar_path(compilation_target_triple().unwrap());
+    let (sender, mut events) = mpsc::unbounded_channel();
+    let service = ImageScriptService::new(
+        store,
+        Arc::new(BunExecutor::new(bun)),
+        Arc::default(),
+        Arc::new(NoResources),
+        ServiceLimits::default(),
+        move |event| {
+            let _ = sender.send(event);
+        },
+    )
+    .unwrap();
+    service.trust_project(project_id.clone()).await.unwrap();
+
+    let prefix = "createImageProcess(() => { const unicode = '😀é'; ";
+    let insertion = "void 0;";
+    let file = "file:///editor/process.ts";
+    for (revision, tail, token, phase) in [
+        (
+            1,
+            "throw new Error('mapped'); });",
+            "Error",
+            ExecutionFailurePhase::UserRuntime,
+        ),
+        (
+            2,
+            "const value = ; });",
+            "; });",
+            ExecutionFailurePhase::Import,
+        ),
+    ] {
+        let source = format!("{prefix}{tail}");
+        let instrumented = format!("{prefix}{insertion}{tail}");
+        let prefix_width = prefix.encode_utf16().count();
+        let mut mappings = vec!["AAAA"];
+        mappings.extend(std::iter::repeat_n("CAAC", prefix_width));
+        mappings.extend(std::iter::repeat_n("CAAA", insertion.len()));
+        mappings.extend(std::iter::repeat_n("CAAC", tail.len() - 1));
+        let source_map = serde_json::json!({
+            "version": 3,
+            "file": file,
+            "sources": [file],
+            "sourcesContent": [source],
+            "mappings": mappings.join(","),
+        })
+        .to_string();
+        let original_offset = source[..source.find(token).unwrap()].encode_utf16().count() as u32;
+        let source_revision = SourceRevision(revision);
+        service
+            .save_project(project_id.clone(), source.clone(), source_revision)
+            .await
+            .unwrap();
+        let identity = service
+            .run(RunRequest {
+                project_id: project_id.clone(),
+                client_request_id: ClientRequestId(format!("real-{revision}")),
+                source: SourceSnapshot {
+                    source_revision,
+                    content_hash: String::new(),
+                    source,
+                    instrumented_source: instrumented,
+                    source_map: Some(source_map),
+                },
+                value_revision: ValueRevision(1),
+                input_revision: InputRevision(1),
+                values: Default::default(),
+                inputs: Vec::new(),
+            })
+            .await
+            .unwrap();
+
+        let diagnostic = tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                if let ScriptRunEvent::Failed {
+                    identity: actual,
+                    diagnostic,
+                } = events.recv().await.unwrap()
+                {
+                    assert_eq!(actual, identity);
+                    return diagnostic;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        let details = service.last_failure().unwrap().unwrap();
+        assert_eq!(details.identity, identity);
+        assert_eq!(details.failure.phase, phase);
+        let raw = details.failure.location.unwrap();
+        assert_eq!(raw.column, original_offset + 1 + insertion.len() as u32);
+        let mapped = diagnostic.location.unwrap();
+        assert_eq!(mapped.file, file);
+        assert_eq!(
+            mapped.range.start,
+            SourcePosition {
+                line: 1,
+                column: original_offset + 1,
+                offset: original_offset
+            }
+        );
+    }
+    service.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn protocol_keeps_prior_projects_preview_through_replacement_and_success() {
+    use tauri::http::{Request, StatusCode};
+
+    let mut h = Harness::new();
+    h.trust().await;
+    let mut first = h.fake.queue_controlled().unwrap();
+    let mut second = h.fake.queue_controlled().unwrap();
+    h.service.run(h.request(1)).await.unwrap();
+    let first_request = first.entered().await.unwrap();
+    first.start().await.unwrap();
+    first.complete(write_output(&first_request)).await.unwrap();
+    let ScriptRunEvent::Succeeded {
+        output: first_output,
+        ..
+    } = h.terminal().await
+    else {
+        panic!("expected first success");
+    };
+
+    h.project = h.store.create("second").unwrap().manifest.project_id;
+    h.trust().await;
+    let second_identity = h.service.run(h.request(2)).await.unwrap();
+    let second_request = second.entered().await.unwrap();
+    second.start().await.unwrap();
+    let registry = h.service.output_registry();
+    let preview = |url: &str| {
+        let request = Request::builder().uri(url).body(Vec::new()).unwrap();
+        super::super::protocol::respond(&registry, &request).status()
+    };
+    assert_eq!(preview(&first_output.preview_url), StatusCode::OK);
+
+    second
+        .complete(write_output(&second_request))
+        .await
+        .unwrap();
+    let ScriptRunEvent::Succeeded {
+        identity,
+        output: second_output,
+    } = h.terminal().await
+    else {
+        panic!("expected second success");
+    };
+    assert_eq!(identity, second_identity);
+    assert_ne!(first_output.preview_url, second_output.preview_url);
+    assert_eq!(preview(&first_output.preview_url), StatusCode::OK);
+    assert_eq!(preview(&second_output.preview_url), StatusCode::OK);
+    h.service.shutdown().await.unwrap();
+    assert_eq!(preview(&first_output.preview_url), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn detached_save_keeps_admission_serialized_until_the_write_finishes() {
+    use crate::script::project_store::{AtomicFileWriter, FsAtomicFileWriter};
+    use std::path::Path;
+
+    struct GatedWriter {
+        entered: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+        release: Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+
+    impl AtomicFileWriter for GatedWriter {
+        fn replace(&self, destination: &Path, contents: &[u8]) -> Result<()> {
+            if destination.ends_with("process.ts") {
+                self.entered
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .unwrap()
+                    .send(())
+                    .unwrap();
+                self.release.lock().unwrap().recv()?;
+            }
+            FsAtomicFileWriter.replace(destination, contents)
+        }
+    }
+
+    let root = tempfile::tempdir().unwrap();
+    let (entered, wait_for_write) = tokio::sync::oneshot::channel();
+    let (release, wait_for_release) = std::sync::mpsc::channel();
+    let store = Arc::new(ProjectStore::with_writer(
+        root.path(),
+        Arc::new(GatedWriter {
+            entered: Mutex::new(Some(entered)),
+            release: Mutex::new(wait_for_release),
+        }),
+    ));
+    let project = store.create("save").unwrap().manifest.project_id;
+    let service = ImageScriptService::new(
+        store.clone(),
+        Arc::new(FakeExecutor::default()),
+        Arc::default(),
+        Arc::new(NoResources),
+        ServiceLimits::default(),
+        |_| {},
+    )
+    .unwrap();
+    service.trust_project(project.clone()).await.unwrap();
+
+    let save = {
+        let service = service.clone();
+        let project = project.clone();
+        tokio::spawn(async move {
+            service
+                .save_project(project, "updated".into(), SourceRevision(1))
+                .await
+        })
+    };
+    tokio::time::timeout(Duration::from_secs(10), wait_for_write)
+        .await
+        .unwrap()
+        .unwrap();
+    save.abort();
+    assert!(save.await.unwrap_err().is_cancelled());
+    assert!(service.0.scheduler.try_lock().is_err());
+
+    release.send(()).unwrap();
+    let scheduler = service.0.scheduler.lock().await;
+    assert_eq!(store.open(&project).unwrap().source, "updated");
+    assert_eq!(
+        service.0.state().unwrap().trusted.get(&project.0),
+        Some(&hash("updated"))
+    );
+    drop(scheduler);
+    service.shutdown().await.unwrap();
 }

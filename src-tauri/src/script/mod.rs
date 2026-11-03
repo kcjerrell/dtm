@@ -1,3 +1,4 @@
+pub(crate) mod app;
 pub mod bun;
 pub mod bun_probe;
 pub mod commands;
@@ -8,5 +9,7 @@ pub mod paths;
 pub mod project_commands;
 pub mod project_store;
 pub mod protocol;
+pub(crate) mod selection;
 pub mod service;
+mod source_map;
 pub mod types;

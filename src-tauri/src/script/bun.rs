@@ -390,6 +390,13 @@ impl Drop for ChildGuard {
 #[async_trait]
 impl ScriptExecutor for BunExecutor {
     async fn prepare(&self, request: ExecutionRequest) -> Result<PreparedExecution> {
+        validate_version(&self.bun).await.with_context(|| {
+            if cfg!(dev) {
+                "Pinned Bun is unavailable. Run scripts/prepare-bun.sh host from the repository root"
+            } else {
+                "The bundled Bun sidecar is unavailable. Reinstall DTM or prepare Bun and rebuild"
+            }
+        })?;
         self.prepare_run(request)
     }
 
@@ -408,7 +415,6 @@ impl ScriptExecutor for BunExecutor {
                 logs: Vec::new(),
             });
         }
-        validate_version(&self.bun).await?;
         Self::validate_staged_inputs(&prepared)?;
         if let Some(reason) = cancellation.borrow().clone() {
             return Ok(ExecutionResult {

@@ -1,8 +1,8 @@
-//! Command surface only; registration and frontend event delivery belong to S40.
+//! Run and trust commands for the application-owned script service.
 use super::{service::ImageScriptService, types::*};
 use tauri::State;
 type CommandResult<T> = Result<T, String>;
-fn command_error(error: anyhow::Error) -> String {
+pub(super) fn command_error(error: anyhow::Error) -> String {
     format!("{error:#}")
 }
 
@@ -34,7 +34,7 @@ pub fn revoke_script_project_trust(
 ) -> CommandResult<()> {
     service.revoke_trust(&project_id).map_err(command_error)
 }
-/// S40 must route editor saves through this command to preserve trust safely.
+/// Preserve session-local approval when saving trusted source through the editor.
 #[tauri::command]
 pub async fn save_trusted_script_project(
     service: State<'_, ImageScriptService>,

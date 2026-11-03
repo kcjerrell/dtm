@@ -25,6 +25,8 @@ pub trait InputResources: Send + Sync {
     async fn resolve(&self, resource_id: &str) -> Result<Arc<dyn crate::ResourceHandle>>;
 }
 
+const MAX_LOCAL_APPROVALS: usize = 256;
+
 struct Approval {
     file: Arc<File>,
     expires: Instant,
@@ -63,6 +65,9 @@ impl InputApprovals {
             .lock()
             .map_err(|_| anyhow::anyhow!("input approvals poisoned"))?;
         entries.retain(|_, entry| entry.expires > Instant::now());
+        if entries.len() >= MAX_LOCAL_APPROVALS {
+            bail!("too many active local input selections");
+        }
         entries.insert(
             token.clone(),
             Approval {

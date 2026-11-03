@@ -10,6 +10,14 @@ Review starting point: local `scripts` at `87b8cc68fe3dbd91d00924248add5ccc7d6a4
 
 Required implementation ancestor for Wave 5: `0ab7b234f5f3121dfc25593247f88735a86993d9`. Start from the published `scripts` HEAD containing that commit **and this handoff/plan update**, and record its exact SHA in every task brief. Do not reset to the review-start remote or to the old design baseline. Verify ancestry and a clean task base before dispatch.
 
+## Wave 5 execution record
+
+The clean published Wave 5 base was `57fec268353ed7b16180ea460f735ed0a9df9c7f`. S40 used a local worker in the shared checkout, with orchestration, review, and commits owned by the primary agent.
+
+S40 emits typed `ScriptRunEvent` payloads in FIFO order on `script-run-event` to the main webview. Subscribe before submitting a run. Save the captured source through `save_trusted_script_project`, obtain explicit trust when required, then submit the same source. Admission verifies the persisted source hash before staging and again before replacing an active run.
+
+`pick_script_input({ inputId })` returns a local selection or null. `select_script_draw_things_input({ inputId, imageId })` resolves an indexed image to an opaque selection. `revoke_script_input({ selectionToken })` accepts either selection's token. Runtime locations identify the analyzer's original file URI with one-based lines and columns and UTF-16 offsets. The backend preview registry retains earlier successful output within its size, count, and age limits.
+
 ## Existing composition boundaries
 
 - S20: construct one `ImageScriptService` with the shared `ProjectStore`, executor, `InputApprovals`, real `InputResources`, limits, and a prompt nonblocking event sink. Register both store and service state. Use `output_registry()` for protocol routing. Await `shutdown()` before shared temp/bookmark cleanup.

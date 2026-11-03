@@ -28,9 +28,13 @@ function errorLocation(error: any) {
   const stack = typeof error?.stack === "string" ? error.stack : "";
   const marker = `${entryPath}:`;
   for (const frame of stack.split("\n")) {
-    const offset = frame.indexOf(marker);
+    const trimmed = frame.trim();
+    if (!trimmed.startsWith("at ")) continue;
+    const offset = trimmed.indexOf(marker);
     if (offset < 0) continue;
-    const match = /^(\d+):(\d+)/.exec(frame.slice(offset + marker.length));
+    const prefix = trimmed.slice(0, offset);
+    if (prefix !== "at " && !prefix.endsWith("(")) continue;
+    const match = /^(\d+):(\d+)\)?$/.exec(trimmed.slice(offset + marker.length));
     if (match) return { file: entryPath, line: Number(match[1]), column: Number(match[2]) };
   }
   return undefined;
