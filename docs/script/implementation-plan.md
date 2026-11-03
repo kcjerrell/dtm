@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Backend through S20 committed; S30 implemented and validated locally
+Status: Backend through S20 and frontend S30 committed; S31 implemented locally for review
 
 Target branch: `origin/scripts`
 
@@ -461,7 +461,7 @@ S30, S31, and S32 can run in parallel after the relevant lower-level tasks are m
 
 Objective: connect project persistence to Monaco with autosave and recoverable state.
 
-Local status (2026-10-21): implemented in `src/script/project/` in the existing checkout after S20 commit `5c2a3ff`. S30 changes remain uncommitted. Navigation and workspace mounting remain S41 work; no application entry or global command registration was added.
+Local status: implemented in `src/script/project/` after S20 commit `5c2a3ff`; S30 is committed in the S31 starting base `96796a118785800960118ae11d5bcafaf8c49ad8`. Navigation and workspace mounting remain S41 work; no application entry or global command registration was added.
 
 Integration API:
 
@@ -496,6 +496,20 @@ Required tests:
 ### S31 — Generated controls and runtime inlay hints
 
 Objective: reconcile analyzer descriptors with independent runtime values and render accessible controls.
+
+Local status (2026-11-03): implemented in `src/script/controls/` in the existing checkout, with a backward-compatible optional model filter/change event on the S12 inlay provider. Changes remain uncommitted for review. Workspace mounting, native image approval/picking, and run scheduling remain integration work.
+
+Integration API:
+
+- Create one `ScriptControlsController({ projectId, project, analysis, selectImage? })` per S12 `ScriptProjectModel` lifetime. Keep the controller outside renderable state. Render `<GeneratedControls controller={controller} />` under the existing Chakra provider; reads use Valtio snapshots. Source, Monaco handles, listeners, request generations, and abort controllers never enter its proxy state.
+- The host schedules `analyze()` using the injected `EditorAnalysisClient`; construction/rendering performs no analysis, IPC, or execution. Each promise is scoped to the requesting controller/model, generation, and captured source revision. The frozen analysis response has no project identity, so transports must correlate replies to their originating request promises. There is deliberately no revision-only response ingestion API. The host owns/disposes the analysis client, which may be shared.
+- Reconciliation preserves schema order and stable IDs, applies edited defaults to untouched values, and retains touched compatible values. Number and slider descriptors share the `ControlValue` numeric type; other type changes reset. `reset(id)` restores the current normalized default (or clears an image selection) and clears touched state. Duplicate IDs or invalid analysis preserve the last valid schema atomically. Source revision changes immediately hide hints until valid matching analysis returns.
+- Numeric min/max/step constraints normalize defaults and edits, with visible adjustment messages. Step snapping uses `min` or zero as its anchor. Incomplete/non-finite numeric drafts show errors while retaining the last valid runtime value; blur restores its display. S42 must consider rendered validation errors when deciding run readiness.
+- `setValue`, `editNumber`, `commitNumber`, `commitValue`, `reset`, and `selectImage` supply imperative controls. `runtimeSnapshot()` returns fresh plain `values`, `inputs`, `valueRevision`, and `inputRevision` for the later run layer. Revisions change only for effective value/selection changes; presentation/range changes and control reordering do not advance them. `onDidChange(listener)` supplies a disposable event boundary with project identity, independent revisions, change kind, and change/commit phase (including slider keyboard/pointer commits).
+- Inject `selectImage({ projectId, inputId, signal }) => Promise<SelectedInput | null>`. The adapter owns native approval/resource lookup and returns only opaque approval tokens/resource IDs and display names. Cancellation leaves the current selection intact; reset, supersession, valid schema replacement, and disposal abort outstanding requests and ignore late replies. Returned IDs must match; only contract fields are retained and display names are reduced to filenames. No native picker or arbitrary-path input API is provided here.
+- `bindInlayHints(monaco)` registers the runtime provider for this exact model and returns a disposable binding. Value/selection/range changes fire hint refresh events; invalid/pending analysis yields no positions. Dispose the controller when discarding its project, before editor/registry teardown; model disposal also tears it down. Controller disposal unregisters providers, releases subscriptions/listeners, aborts selection requests, and rejects late analysis/selection results without disposing host-owned models/transports.
+
+Validation (2026-11-03): all 25 new controls/provider tests and the complete 71-test frontend script suite pass using `npx vitest run src/script --maxWorkers=1 --no-file-parallelism`. Biome, scoped strict TypeScript (all changed TypeScript files/tests plus the existing Monaco worker declaration), `npm run build`, and `git diff --check` pass. The repository-wide `npx tsc --noEmit --pretty false` still reports the 19 existing errors outside S31 (ImageCompare, archive dialog, metadata state, scratch files, and contract fixture typing). Missing installed dependencies were restored from the unchanged lockfile with user authorization. Native picker/IPC, workspace mounting, WDIO, and packaged WKWebView behavior were not exercised.
 
 Scope:
 

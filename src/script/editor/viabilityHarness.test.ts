@@ -76,7 +76,10 @@ describe("Monaco viability harness", () => {
         )
 
         const result = await provider.provideInlayHints(
-            { getPositionAt: () => ({ lineNumber: 1, column: 13 }) } as never,
+            {
+                getValueLength: () => SOURCE.length,
+                getPositionAt: () => ({ lineNumber: 1, column: 13 }),
+            } as never,
             { containsPosition } as never,
             { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) },
         )
