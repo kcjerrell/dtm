@@ -245,14 +245,20 @@ const themeConfig = defineConfig({
                     },
                     "2": {
                         value: {
-                            _light: "#434753",
-                            _dark: "#b9bfc5",
+                            _light: GRAY[4],
+                            _dark: GRAY[13],
                         },
                     },
                     "3": {
                         value: {
-                            _light: "#565e67",
-                            _dark: "#8e97a2",
+                            _light: GRAY[6],
+                            _dark: GRAY[11],
+                        },
+                    },
+                    "4": {
+                        value: {
+                            _light: GRAY[8],
+                            _dark: GRAY[9],
                         },
                     },
                 },

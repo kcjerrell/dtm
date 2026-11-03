@@ -68,9 +68,14 @@ function View(props: ModeViewProps<never>) {
                 minWidth={0}
                 minHeight={0}
                 overflow="hidden"
-                bgColor="bg.1"
             >
-                <motion.div style={{ ...containerStyle, overflow: "hidden" }}>
+                <motion.div
+                    style={{
+                        ...containerStyle,
+                        overflow: "hidden",
+                        backgroundColor: "var(--chakra-colors-bg-1)",
+                    }}
+                >
                     <motion.img
                         id="img-b-sbs"
                         crossOrigin="anonymous"

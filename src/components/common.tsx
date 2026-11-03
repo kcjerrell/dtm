@@ -49,7 +49,7 @@ export const CheckRoot = chakra(
             zIndex: 0,
             _before: {
                 content: '""',
-                bgImage: "url(check_light.png)",
+                bgImage: "url(check_light_2.png)",
                 position: "absolute",
                 width: "100%",
                 height: "100%",
@@ -78,7 +78,7 @@ export const CheckRoot = chakra(
                 true: {
                     _after: {
                         content: '""',
-                        bgImage: "url(check_dark.png)",
+                        bgImage: "url(check_dark_2.png)",
                         position: "absolute",
                         width: "100%",
                         height: "100%",
@@ -92,7 +92,7 @@ export const CheckRoot = chakra(
                 false: {
                     _after: {
                         content: '""',
-                        bgImage: "url(check_dark.png)",
+                        bgImage: "url(check_dark_2.png)",
                         position: "absolute",
                         width: "100%",
                         height: "100%",

@@ -19,6 +19,7 @@ export function useZoomable(
         zoomViewportRef?: RefObject<HTMLElement | null>
         mapZoomPoint?: (clientX: number, clientY: number) => { clientX: number; clientY: number }
         onZoomOutBoundary?: () => void
+        minZoom?: number
         maxZoom?: number
     } = {},
 ) {
@@ -29,6 +30,7 @@ export function useZoomable(
         zoomViewportRef,
         mapZoomPoint,
         onZoomOutBoundary,
+        minZoom = MIN_ZOOM,
         maxZoom = MAX_ZOOM,
     } = options
     const posRef = useRef({ x: 0, y: 0, scale: 1 })
@@ -92,7 +94,7 @@ export function useZoomable(
 
             if (delta > 4) {
                 const elapsed = getElapsed()
-                if (elapsed > 100 && scale === 1) {
+                if (elapsed > 100 && scale === minZoom) {
                     onZoomOutBoundary?.()
                     return
                 }
@@ -100,7 +102,7 @@ export function useZoomable(
 
             const mult = pinch ? 2 : 1
             let newScale = scale * (1 - delta * mult * ZOOM_SENSITIVITY)
-            newScale = Math.min(Math.max(newScale, MIN_ZOOM), maxZoom)
+            newScale = Math.min(Math.max(newScale, minZoom), maxZoom)
 
             const ratio = newScale / scale
 
@@ -133,6 +135,7 @@ export function useZoomable(
             mapZoomPoint,
             motionRef,
             onZoomOutBoundary,
+            minZoom,
             maxZoom,
             zoomViewportRef,
         ],
@@ -152,11 +155,12 @@ export function useZoomable(
     }, [motionRef, zoom])
 
     useEffect(() => {
-        const { x, y, scale } = posRef.current
+        const { x, y } = posRef.current
+        const scale = Math.min(Math.max(posRef.current.scale, minZoom), maxZoom)
         const clamped = clampPos(x, y, scale)
         posRef.current = { x: clamped.x, y: clamped.y, scale }
         setMv()
-    }, [clampPos, setMv])
+    }, [clampPos, minZoom, maxZoom, setMv])
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         if (e.button !== 0) return

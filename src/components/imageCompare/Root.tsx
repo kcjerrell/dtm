@@ -186,26 +186,38 @@ function Root(props: ImageCompareRootProps) {
                         {...zoomHandlers}
                     >
                         {/* image a base */}
-                        <motion.div
-                            id="image-compare-stage"
-                            style={{
-                                ...imageContainerStyle,
-                                backgroundColor: "var(--chakra-colors-bg-2)",
-                            }}
+                        <Box
+                            position="absolute"
+                            inset={0}
+                            clipPath={
+                                snap.mode === "sbs"
+                                    ? snap.sbsLayout === "vertical"
+                                        ? "inset(0 50% 0 0)"
+                                        : "inset(0 0 50% 0)"
+                                    : undefined
+                            }
                         >
-                            <motion.img
-                                id={"img-a"}
-                                crossOrigin="anonymous"
-                                ref={refs.imgARef}
-                                draggable={false}
-                                src={snap.imageASrc}
-                                alt=""
+                            <motion.div
+                                id="image-compare-stage"
                                 style={{
-                                    ...getComparisonImageStyle(snap, "a"),
-                                    pointerEvents: "none",
+                                    ...imageContainerStyle,
+                                    backgroundColor: "var(--chakra-colors-bg-2)",
                                 }}
-                            />
-                        </motion.div>
+                            >
+                                <motion.img
+                                    id={"img-a"}
+                                    crossOrigin="anonymous"
+                                    ref={refs.imgARef}
+                                    draggable={false}
+                                    src={snap.imageASrc}
+                                    alt=""
+                                    style={{
+                                        ...getComparisonImageStyle(snap, "a"),
+                                        pointerEvents: "none",
+                                    }}
+                                />
+                            </motion.div>
+                        </Box>
 
                         {modes.map((mode) => mode.view)}
                     </Box>

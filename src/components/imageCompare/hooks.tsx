@@ -31,6 +31,7 @@ const MAX_TRAIL_LENGTH = 0.3
 const TRAIL_FEATHER_WIDTH = 0.08
 const MIN_VISIBLE_TRAIL_LENGTH = 0.002
 const TRANSPARENT_MASK = "linear-gradient(to right, transparent, transparent)"
+const ZOOM_OUT_MARGIN = 20
 
 export type UseModeResult<T = unknown> = {
     rootProps?: ChakraProps
@@ -136,11 +137,25 @@ export function useCreateImageCompareContext(
         }
         return { clientX, clientY }
     }, [])
+    const zoomViewportSize =
+        snap.mode === "sbs"
+            ? sbsViewportSize
+            : { width: snap.viewportWidth, height: snap.viewportHeight }
     const { handlers: zoomHandlers, style: zoomStyle } = useZoomable(viewportRef, {
         contentSize,
         contentOffset,
         viewportSize: snap.mode === "sbs" ? sbsViewportSize : undefined,
         mapZoomPoint: snap.mode === "sbs" ? mapSbsZoomPoint : undefined,
+        // Leave room to inspect the edges, using the individual pane bounds in SBS.
+        minZoom:
+            contentSize.width > 0 && contentSize.height > 0
+                ? Math.min(
+                      1,
+                      Math.max(1, zoomViewportSize.width - 2 * ZOOM_OUT_MARGIN) / contentSize.width,
+                      Math.max(1, zoomViewportSize.height - 2 * ZOOM_OUT_MARGIN) /
+                          contentSize.height,
+                  )
+                : 1,
         maxZoom: 16,
     })
 
