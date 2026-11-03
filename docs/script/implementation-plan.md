@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Backend through S20 and frontend S30–S32 committed and reviewed; Wave 5 integration ready to start
+Status: Wave 5 implementation is committed locally and the Apple Silicon application checks passed. Milestone C still requires distribution acceptance.
 
 Target branch: `origin/scripts`
 
@@ -17,6 +17,8 @@ Implementation is performed by Codex Cloud tasks. Every task starts from the lat
 Execution override for S14 and S15 (2026-10-15): run local subtasks sequentially in the existing checkout, with medium reasoning, without worktrees or additional delegation. The orchestrator reviews and validates S14 before dispatching S15. These subtasks do not commit, push, or change branches; their changes remain available for local review.
 
 Execution override for S32 (2026-11-03): use a local delegated worker in the existing clean checkout, starting at `87b8cc68fe3dbd91d00924248add5ccc7d6a436e`, with a separate read-only Wave 5 readiness review. The worker owns only `src/script/run/**` and `src/script/preview/**`; the orchestrator owns documentation, review, validation, and commits. There is no Cloud implementation launcher available in this session. Do not start S40–S43 as part of this handoff preparation.
+
+Execution override for Wave 5 (2026-11-03): start from the verified published `57fec268353ed7b16180ea460f735ed0a9df9c7f` and run S40–S43 sequentially in the shared local checkout. The orchestrator reviews, validates, and commits each task before the next starts. The [handoff](./wave-5-handoff.md) records the exact commits and remaining distribution checks.
 
 Do not launch every task from the original baseline. Work proceeds in waves. After a wave is merged and validated, the orchestrator pushes the updated `scripts` branch; the next wave starts from that new SHA.
 
@@ -49,15 +51,16 @@ Only the task assigned dependency ownership may update a lockfile. If another ta
 | Work | Current state | Remaining gate |
 | --- | --- | --- |
 | S00–S03 | Contracts, editor/Bun viability, and production WebDriver exclusion implemented | Packaged macOS/runtime and distribution checks remain release gates |
-| S10–S15 | Analyzer, persistence, editor, runner, input staging, and opaque output core implemented | Application adapters and registration belong to Wave 5 |
+| S10–S15 | Analyzer, persistence, editor, runner, input staging, and opaque output core implemented | Integrated in Wave 5 |
 | Pre-S20 repairs | Committed in `34a318597e412ea22d7bcb14fa539c1fe7783d05` | No longer an uncommitted prerequisite |
-| S20 | Committed in `5c2a3ff1` | Service/commands/events/protocol/shutdown registration in S40 |
-| S30 | Committed in `96796a118785800960118ae11d5bcafaf8c49ad8` | Workspace and real IPC composition in S41 |
-| S31 | Committed in `87b8cc68fe3dbd91d00924248add5ccc7d6a436e` | Native input adapter, analyzer transport, and scheduling in Wave 5 |
-| S32 | Committed in `0ab7b234f5f3121dfc25593247f88735a86993d9` after review | Real commands/events and workspace composition in S40/S41; live scheduling in S42 |
-| S40–S43 | Not started | Sequential integration, live behavior, and release acceptance |
-
-The leaves establish the foundations for Milestones A–C; none of those application-level milestones is accepted merely because leaf tests pass. The Image Scripts view, global service, and real command/event adapters are not mounted yet. Milestone C remains gated on S43.
+| S20 | Committed in `5c2a3ff1` | Integrated in S40 |
+| S30 | Committed in `96796a118785800960118ae11d5bcafaf8c49ad8` | Integrated in S41 |
+| S31 | Committed in `87b8cc68fe3dbd91d00924248add5ccc7d6a436e` | Integrated in S40–S42 |
+| S32 | Committed in `0ab7b234f5f3121dfc25593247f88735a86993d9` after review | Integrated in S40–S42 |
+| S40 | Committed in `faa94869fccccd99d05265c8fa00087ef9135527` | Backend integration validated |
+| S41 | Committed in `687cbf314499dbff195cbfd8d9d587e29100d323` | Manual workspace validated |
+| S42 | Committed in `8deddd1c8bc00504694f14e15764c395f7f7ee44` | Live execution and race checks passed |
+| S43 | Committed in `dfb922a0caa25fc2658cdc4cfca8515862cfc941` | Packaged Apple Silicon workflow, WebKit WDIO, and universal slices passed. Developer ID signing, notarization, and Intel launch remain open. |
 
 At review start the checkout was clean on `scripts` at `87b8cc68fe3dbd91d00924248add5ccc7d6a436e`; live `origin/scripts` was verified at `34a318597e412ea22d7bcb14fa539c1fe7783d05`, three commits behind. A later Cloud dispatch must first publish and verify an exact base containing all completed leaves; a local continuation can use the final reviewed local commit.
 

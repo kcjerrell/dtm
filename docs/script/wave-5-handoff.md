@@ -12,9 +12,31 @@ Required implementation ancestor for Wave 5: `0ab7b234f5f3121dfc25593247f88735a8
 
 ## Wave 5 execution record
 
-The clean published Wave 5 base was `57fec268353ed7b16180ea460f735ed0a9df9c7f`. S40 used a local worker in the shared checkout, with orchestration, review, and commits owned by the primary agent.
+The clean published Wave 5 base was `57fec268353ed7b16180ea460f735ed0a9df9c7f`. S40–S43 used sequential local tasks in the shared checkout. The primary agent reviewed the diffs, ran acceptance checks, and committed them.
+
+| Task | Local commit | Scope and validation |
+| --- | --- | --- |
+| S40 | `faa94869fccccd99d05265c8fa00087ef9135527` | Tauri service composition, input selection, Bun, event transport, diagnostic mapping and protocol. 82 Rust script tests, locked check and production WebDriver exclusion passed. |
+| S41 | `687cbf314499dbff195cbfd8d9d587e29100d323` | Lazy workspace, analyzer worker, mock IPC, Monaco, save recovery. 109 frontend script tests, scoped strict TypeScript and build passed. Browser mock exercised editing, selection, explicit trust, preview, failure, Stop and untrusted restoration. |
+| S42 | `8deddd1c8bc00504694f14e15764c395f7f7ee44` | Live source and control scheduling, global Stop ownership, stale event guards and exact-source trust. 117 frontend and 83 Rust script tests, scoped strict TypeScript, Biome, locked Rust check and frontend build passed. Browser mock verified Live and Stop. |
+| S43 | `dfb922a0caa25fc2658cdc4cfca8515862cfc941` | Focused WebKit WDIO, real Bun resource limits and shutdown, user guide, and pinned Bun preparation for both build workflows. Distribution acceptance remains open. |
+
+- S40 changed `src-tauri/src/lib.rs` and `src-tauri/src/script/` for production adapters, service admission, diagnostics, and tests.
+- S41 changed `src/script/{analysis,editor,preview,run,workspace}/`, `src/mocks/`, `src/App.tsx`, `src/components/ViewContainer.tsx`, `src/views.tsx`, and `vite.config.ts`.
+- S42 changed `src/script/{controls,run,workspace}/`, `src/mocks/script-commands.ts`, and the backend script commands, service, and service tests.
+- S43 changed `test/specs/image-scripts.e2e.ts`, `test/wdio.conf.ts`, `src-tauri/src/script/service/tests.rs`, `scripts/prepare-bun.sh`, the PR E2E and release workflows, and the Image Scripts and Bun packaging guides linked from the README.
+
+S43 ran `cargo test --locked --lib script::` (84 passed), `cargo test --locked --test resource` (20 passed), and the focused `npm run wdio -- --spec test/specs/image-scripts.e2e.ts` on an isolated macOS QA build (1 passed). The WDIO spec exercised Monaco's TypeScript worker, the analyzer worker, indexed input selection, explicit trust, real Bun, decoded output, failure and Stop, and reload with saved source and no trust. The final frontend scope passed strict TypeScript, Biome and the Vite production build. Broad TypeScript retains 19 existing diagnostics, including the contract fixture, and the full WDIO TypeScript config retains two existing Projects spec errors.
+
+The Apple Silicon release-profile QA bundle used bundled Bun 1.4.3 with the WebDriver build marker absent. Its packaged WebKit rendered `astro.png` picked in the native dialog with Projects disconnected, retained the preview after cancellation, and restored the saved source on relaunch with trust and Live off. Quitting while a run was active removed that session's service directory. Both original Bun archives passed pinned checksum verification, the assembled sidecar reported `x86_64 arm64`, and its ad hoc signature verified for both slices.
+
+The release-profile universal QA build also succeeded. Both the bundled DTM executable and Bun reported `x86_64 arm64` with `lipo -archs`. The bundled Bun reported 1.4.3 and the production executable lacked the WebDriver marker. After local ad hoc signing, `codesign --verify --deep --strict --all-architectures` passed and the app launched on Apple Silicon.
+
+Distribution still requires a hardened Developer ID signature, notarization and stapling, and launch of the distribution build on an Intel Mac or Intel CI host. The local keychain has no valid distribution signing identity and this host is Apple Silicon. Wave 5 commits are local on `scripts`. Milestone C remains open until these checks pass.
 
 S40 emits typed `ScriptRunEvent` payloads in FIFO order on `script-run-event` to the main webview. Subscribe before submitting a run. Save the captured source through `save_trusted_script_project`, obtain explicit trust when required, then submit the same source. Admission verifies the persisted source hash before staging and again before replacing an active run.
+
+As of S42, `trust_script_project({ projectId, expectedSource })` checks the exact reviewed text under the backend scheduler before granting approval. A project switch disables Live and detaches the previous view. A surviving run retains global ownership until it finishes or Stop settles.
 
 `pick_script_input({ inputId })` returns a local selection or null. `select_script_draw_things_input({ inputId, imageId })` resolves an indexed image to an opaque selection. `revoke_script_input({ selectionToken })` accepts either selection's token. Runtime locations identify the analyzer's original file URI with one-based lines and columns and UTF-16 offsets. The backend preview registry retains earlier successful output within its size, count, and age limits.
 
@@ -69,6 +91,8 @@ Fresh checkouts require `npm run gen-icons`, `src-tauri/test-setup.sh` from `src
 No live application IPC, native picker, mounted workspace, WDIO feature flow, or packaged WKWebView behavior was established by the baseline. S43 must exercise packaged Monaco/analyzer workers, opaque protocol previews, native selection, cancellation and reload. Universal architecture slices, signing/notarization, Intel and Apple Silicon launch checks remain separate distribution gates under [bun-packaging.md](./bun-packaging.md). Host unit/web checks do not satisfy these gates. Scripts are trusted local code with account-level filesystem/network/process access; do not describe Bun as a sandbox.
 
 ## Prompt for the Wave 5 orchestrator
+
+This is the original dispatch prompt. For a continuation, use the local commits and acceptance evidence in the execution record above.
 
 ```text
 Orchestrate Wave 5 (S40 → S41 → S42 → S43) of DTM image scripting.
