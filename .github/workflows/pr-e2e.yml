@@ -44,6 +44,9 @@ jobs:
       - name: Generate icons
         run: npm run gen-icons
         
+      - name: Prepare pinned Bun sidecar
+        run: scripts/prepare-bun.sh host
+
       - name: Build E2E app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

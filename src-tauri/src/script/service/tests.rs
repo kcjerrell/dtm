@@ -1019,3 +1019,111 @@ async fn a_delayed_approval_does_not_trust_newer_saved_source() {
         .contains("untrusted"));
     h.service.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn real_bun_enforces_output_limits_and_paths_and_joins_on_shutdown() {
+    use crate::script::{
+        bun::BunExecutor,
+        bun_probe::{compilation_target_triple, prepared_sidecar_path},
+    };
+
+    let mut h = Harness::new();
+    let target = compilation_target_triple().expect("Bun is required for this test");
+    let (send, events) = mpsc::unbounded_channel();
+    h.service = ImageScriptService::new(
+        h.store.clone(),
+        Arc::new(BunExecutor::new(prepared_sidecar_path(target))),
+        Arc::default(),
+        Arc::new(NoResources),
+        ServiceLimits::default(),
+        move |event| {
+            let _ = send.send(event);
+        },
+    )
+    .unwrap();
+    h.events = events;
+    h.trust().await;
+
+    for (revision, source, diagnostic_source, message) in [
+        (
+            1,
+            r#"import { truncateSync, writeFileSync } from "node:fs";
+                createImageProcess(() => {
+                    writeFileSync("large.png", "");
+                    truncateSync("large.png", 64 * 1024 * 1024 + 1);
+                    return "large.png";
+                });"#,
+            DiagnosticSource::Runner,
+            "output exceeds",
+        ),
+        (
+            2,
+            r#"createImageProcess(async () => {
+                await Bun.write("result.json", JSON.stringify({
+                    status: "success",
+                    output: { path: "inputs/private.png", mediaType: "image/png" },
+                }));
+                process.exit(0);
+            });"#,
+            DiagnosticSource::OutputValidation,
+            "outside authorized output directory",
+        ),
+    ] {
+        h.service
+            .save_project(h.project.clone(), source.into(), SourceRevision(revision))
+            .await
+            .unwrap();
+        let mut request = h.request(revision);
+        request.source.instrumented_source = source.into();
+        request.source.source_map = None;
+        let identity = h.service.run(request).await.unwrap();
+        let ScriptRunEvent::Failed {
+            identity: actual,
+            diagnostic,
+        } = h.terminal().await
+        else {
+            panic!("expected rejected Bun output");
+        };
+        assert_eq!(actual, identity);
+        assert_eq!(diagnostic.source, diagnostic_source);
+        assert!(diagnostic.message.contains(message), "{diagnostic:?}");
+        assert!(h.service.last_success().unwrap().is_none());
+    }
+
+    let waiting = r#"createImageProcess(async () => {
+        console.log("ready for shutdown");
+        await new Promise(() => setInterval(() => {}, 1000));
+    });"#;
+    h.service
+        .save_project(h.project.clone(), waiting.into(), SourceRevision(3))
+        .await
+        .unwrap();
+    let mut request = h.request(3);
+    request.source.instrumented_source = waiting.into();
+    request.source.source_map = None;
+    let identity = h.service.run(request).await.unwrap();
+    loop {
+        match h.event().await {
+            ScriptRunEvent::Log {
+                identity: actual,
+                message,
+                ..
+            } if message.contains("ready for shutdown") => {
+                assert_eq!(identity, actual);
+                break;
+            }
+            ScriptRunEvent::Failed { diagnostic, .. } => {
+                panic!("Bun failed before shutdown: {diagnostic:?}")
+            }
+            _ => {}
+        }
+    }
+    h.service.shutdown().await.unwrap();
+    assert!(matches!(
+        h.terminal().await,
+        ScriptRunEvent::Cancelled { identity: actual, reason: CancellationReason::Shutdown }
+        if actual == identity
+    ));
+    assert!(!h.service.0.workspace.path().exists());
+    assert!(h.service.run(h.request(4)).await.is_err());
+}

@@ -39,6 +39,10 @@ A unified library across all your Draw Things projects:
 - **Detail overlay** — select any image to view its full metadata and generation history
 - **External storage** — index projects from external drives, network folders, or anywhere macOS can reach
 
+### Image Scripts
+
+Write TypeScript image scripts with generated controls, a preview, and optional live updates. Scripts run with your account's access to files, the network, and other programs. Only run code you trust. [Image Scripts guide](docs/script/image-scripts.md)
+
 ## Installation
 
 ### Download (Recommended)
@@ -59,12 +63,14 @@ A unified library across all your Draw Things projects:
 npm install
 
 # Generate app icons
-npm run gen:icons
+npm run gen-icons
 
 # Build for current architecture
+scripts/prepare-bun.sh host
 npm run build:mac
 
 # Build Universal binary (Intel + Apple Silicon)
+scripts/prepare-bun.sh universal-apple-darwin
 npm run build:universal
 
 # Run in dev mode
@@ -82,8 +88,9 @@ source scripts/linux-env.sh
 bash scripts/verify-linux.sh
 npm ci
 npm run gen-icons
+scripts/prepare-bun.sh host
 bash scripts/test-setup.sh
-npm run tauri -- build --debug --no-bundle
+npm run tauri -- build --debug --no-bundle --features e2e
 npm run wdio
 # Run one spec with the same launcher:
 npm run wdio -- --spec ./test/specs/tauri-wdio.e2e.ts
@@ -96,10 +103,14 @@ Cargo commands or rebuilding the app in a new shell.
 
 #### Tests
 ```bash
-npm run build:debug
+npm run gen-icons
+scripts/prepare-bun.sh host
+sh scripts/test-setup.sh
+npm run build:e2e
 npm run wdio
 cd src-tauri
-cargo test
+./test-setup.sh
+cargo test --locked
 ```
 
 ## License

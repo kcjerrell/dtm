@@ -50,6 +50,9 @@ jobs:
       - name: Generate icons
         run: npm run gen-icons
 
+      - name: Prepare pinned universal Bun sidecar
+        run: scripts/prepare-bun.sh universal-apple-darwin
+
       - name: Import Apple Developer Certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

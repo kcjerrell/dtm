@@ -17,7 +17,7 @@ artifact() {
 }
 
 prepare_target() {
-  local target="$1" asset checksum archive work extracted destination actual
+  local target="$1" asset checksum archive work extracted destination actual arch
   read -r asset checksum <<<"$(artifact "$target")"
   mkdir -p "$OUT_DIR"
   archive="${OUT_DIR}/${asset}"
@@ -34,10 +34,27 @@ prepare_target() {
   unzip -q "$archive" -d "$work"
   extracted="$(find "$work" -type f -name bun -print -quit)"
   [[ -n "$extracted" ]] || { echo "error: ${asset} did not contain bun" >&2; return 1; }
+  if [[ "$(uname -s)" == Darwin && "$target" == *-apple-darwin ]]; then
+    arch="${target%%-*}"
+    if [[ "$arch" == aarch64 ]]; then arch=arm64; fi
+    lipo "$extracted" -verify_arch "$arch"
+  fi
   install -m 755 "$extracted" "${destination}.tmp"
+  # Checksum and slice validation cover cross-target preparation without Rosetta.
+  if [[ "$target" == "$(host_target)" ]]; then
+    verify_version "${destination}.tmp" "$target"
+  fi
   mv "${destination}.tmp" "$destination"
   rm -f "$archive"
-  "$destination" --version | { read -r found; [[ "$found" == "$VERSION" ]] || { echo "error: ${target} produced Bun ${found}, expected ${VERSION}" >&2; exit 1; }; }
+}
+
+verify_version() {
+  local found
+  found="$("$1" --version)"
+  [[ "$found" == "$VERSION" ]] || {
+    echo "error: $2 produced Bun ${found}, expected ${VERSION}" >&2
+    return 1
+  }
 }
 
 sha256_file() {
@@ -70,8 +87,13 @@ case "${1:-host}" in
     prepare_target aarch64-apple-darwin
     lipo -create "$OUT_DIR/bun-x86_64-apple-darwin" "$OUT_DIR/bun-aarch64-apple-darwin" -output "$OUT_DIR/bun-universal-apple-darwin.tmp"
     chmod 755 "$OUT_DIR/bun-universal-apple-darwin.tmp"
+    lipo "$OUT_DIR/bun-universal-apple-darwin.tmp" -verify_arch x86_64
+    lipo "$OUT_DIR/bun-universal-apple-darwin.tmp" -verify_arch arm64
+    # macOS requires a valid signature to run the assembled Apple Silicon slice.
+    # Tauri replaces this ad hoc signature when signing the release bundle.
+    codesign --force --sign - "$OUT_DIR/bun-universal-apple-darwin.tmp"
+    verify_version "$OUT_DIR/bun-universal-apple-darwin.tmp" universal-apple-darwin
     mv "$OUT_DIR/bun-universal-apple-darwin.tmp" "$OUT_DIR/bun-universal-apple-darwin"
-    "$OUT_DIR/bun-universal-apple-darwin" --version | grep -Fx "$VERSION" >/dev/null
     ;;
   *) prepare_target "$1" ;;
 esac
