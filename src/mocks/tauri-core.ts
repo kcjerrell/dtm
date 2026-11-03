@@ -1,4 +1,8 @@
+import { invokeScriptCommand, resolveMockScriptPreview } from "./script-commands"
+
 export const invoke = async (cmd: string, args?: any) => {
+  const script = invokeScriptCommand(cmd, args);
+  if (script) return script.value;
   console.log(`[Mock] invoke: ${cmd}`, args);
   
   switch (cmd) {
@@ -100,6 +104,9 @@ export const invoke = async (cmd: string, args?: any) => {
   }
 };
 
-export const convertFileSrc = (filePath: string) => {
+export const isTauri = () => false;
+
+export const convertFileSrc = (filePath: string, protocol?: string) => {
+  if (protocol === "script-preview") return resolveMockScriptPreview(filePath);
   return `http://localhost:1420/mock-assets/${filePath}`;
 };

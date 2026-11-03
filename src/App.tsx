@@ -78,7 +78,12 @@ function App() {
                         const View = getView(v)
                         const isActiveView = v === currentView
                         return (
-                            <ViewContainer key={v} viewId={v} isActiveView={isActiveView}>
+                            <ViewContainer
+                                key={v}
+                                viewId={v}
+                                isActiveView={isActiveView}
+                                keepEffects={v === "image-scripts"}
+                            >
                                 <View flex={"1 1 auto"} />
                             </ViewContainer>
                         )

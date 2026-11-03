@@ -8,7 +8,7 @@ export interface RunCommands {
 }
 
 export interface RunEventSource {
-    subscribe(listener: (event: ScriptRunEvent) => void): Promise<() => void>
+    subscribe(listener: (event: ScriptRunEvent) => unknown): Promise<() => void>
 }
 
 /** Importing these adapters never starts IPC or subscribes to events. */

@@ -4,7 +4,13 @@ import { type ScriptRunController, sameRevisions } from "../run/controller"
 
 /** The service owns the last-good output lease. Do not revoke its URL when a new
  * run starts or fails; S40 keeps the registry alive for the workspace lifetime. */
-export function ScriptPreview({ controller }: { controller: ScriptRunController }) {
+export function ScriptPreview({
+    controller,
+    resolveUrl = (url) => url,
+}: {
+    controller: ScriptRunController
+    resolveUrl?: (url: string) => string
+}) {
     const snap = useSnapshot(controller.state)
     const preview = snap.preview
     const stale = Boolean(preview && snap.desired && !sameRevisions(preview.identity, snap.desired))
@@ -18,7 +24,7 @@ export function ScriptPreview({ controller }: { controller: ScriptRunController 
                         inputs {preview.identity.inputRevision}
                     </Text>
                     <Image
-                        src={preview.output.previewUrl}
+                        src={resolveUrl(preview.output.previewUrl)}
                         alt="Script output"
                         objectFit="contain"
                         maxWidth="100%"

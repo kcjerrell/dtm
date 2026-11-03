@@ -1,16 +1,17 @@
+import { chakra } from "@chakra-ui/react"
 import { Activity, type PropsWithChildren, Suspense, useEffect, useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import ErrorFallback from "@/ErrorFallback"
 import { Loading } from "@/main"
-import { chakra } from "@chakra-ui/react"
 
 export function ViewContainer(
     props: PropsWithChildren<{
         isActiveView: boolean
         viewId?: string
+        keepEffects?: boolean
     }>,
 ) {
-    const { children, isActiveView, viewId } = props
+    const { children, isActiveView, viewId, keepEffects } = props
     const [mode, setMode] = useState<"hidden" | "visible">(() =>
         isActiveView ? "visible" : "hidden",
     )
@@ -26,11 +27,12 @@ export function ViewContainer(
     return (
         <ErrorBoundary FallbackComponent={ErrorFallback}>
             <Suspense fallback={<Loading />}>
-                <Activity mode={mode}>
+                <Activity mode={keepEffects ? "visible" : mode}>
                     <ViewContainerBase
                         data-view-container={viewId}
                         data-active-view={isActiveView}
                         data-activity-mode={mode}
+                        display={keepEffects && mode === "hidden" ? "none" : undefined}
                         inert={!isActiveView}
                         isActiveView={isActiveView}
                     >

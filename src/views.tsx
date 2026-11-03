@@ -26,6 +26,7 @@ export const viewDescription = [
             />
         ),
     },
+    { viewId: "image-scripts", label: "Image Scripts", icon: BiDetail },
     { viewId: "scratch", label: "Scratch", icon: BiDetail, devOnly: false },
 ].filter((item) => import.meta.env.DEV || !item.devOnly)
 // ].filter((item) => !item.devOnly)
@@ -33,6 +34,7 @@ export const viewDescription = [
 export const views = {
     metadata: lazy(() => import("./metadata/Metadata")),
     projects: lazy(() => import("./dtProjects/DTProjects")),
+    "image-scripts": lazy(() => import("./script/workspace/Workspace")),
     scratch: lazy(() => import("./scratch/Computed")),
 }
 

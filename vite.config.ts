@@ -48,13 +48,14 @@ export default defineConfig(async () => ({
   ],
   resolve: {
     tsconfigPaths: true,
-    alias: {
+    alias: [...Object.entries({
       "@": new URL("./src", import.meta.url).pathname,
       ...(isMock ? {
         "@tauri-apps/api/core": new URL("./src/mocks/tauri-core.ts", import.meta.url).pathname,
         "@tauri-apps/api/path": new URL("./src/mocks/tauri-path.ts", import.meta.url).pathname,
         "@tauri-apps/plugin-fs": new URL("./src/mocks/tauri-fs.ts", import.meta.url).pathname,
         "@tauri-store/valtio": new URL("./src/mocks/tauri-store.ts", import.meta.url).pathname,
+        "@tauri-apps/plugin-os": new URL("./src/mocks/tauri-os.ts", import.meta.url).pathname,
         "@tauri-apps/plugin-dialog": new URL("./src/mocks/tauri-dialog.ts", import.meta.url).pathname,
         "@tauri-apps/plugin-shell": new URL("./src/mocks/tauri-shell.ts", import.meta.url).pathname,
         "@tauri-apps/plugin-opener": new URL("./src/mocks/tauri-opener.ts", import.meta.url).pathname,
@@ -64,9 +65,10 @@ export default defineConfig(async () => ({
         "@tauri-apps/api/app": new URL("./src/mocks/tauri-app.ts", import.meta.url).pathname,
         "@tauri-apps/api/menu": new URL("./src/mocks/tauri-menu.ts", import.meta.url).pathname,
         "@tauri-apps/api/event": new URL("./src/mocks/tauri-event.ts", import.meta.url).pathname,
-        "@tauri-apps/api": new URL("./src/mocks/tauri-api.ts", import.meta.url).pathname,
       } : {})
-    },
+    }).map(([find, replacement]) => ({ find, replacement })),
+      ...(isMock ? [{ find: /^@tauri-apps\/api$/, replacement: new URL("./src/mocks/tauri-api.ts", import.meta.url).pathname }] : []),
+    ],
   },
 
 
