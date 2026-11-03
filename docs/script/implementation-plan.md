@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Backend through S20 and frontend S30 committed; S31 implemented locally for review
+Status: Backend through S20 and frontend S30–S32 committed and reviewed; Wave 5 integration ready to start
 
 Target branch: `origin/scripts`
 
@@ -15,6 +15,8 @@ Task brief template: [codex-task-template.md](./codex-task-template.md)
 Implementation is performed by Codex Cloud tasks. Every task starts from the latest orchestrator-pushed `origin/scripts`, works on a dedicated branch, and returns a reviewable commit or commit series. Subtasks do not merge other branches and do not expand their assigned scope. The orchestrator reviews and merges tasks in dependency order.
 
 Execution override for S14 and S15 (2026-10-15): run local subtasks sequentially in the existing checkout, with medium reasoning, without worktrees or additional delegation. The orchestrator reviews and validates S14 before dispatching S15. These subtasks do not commit, push, or change branches; their changes remain available for local review.
+
+Execution override for S32 (2026-11-03): use a local delegated worker in the existing clean checkout, starting at `87b8cc68fe3dbd91d00924248add5ccc7d6a436e`, with a separate read-only Wave 5 readiness review. The worker owns only `src/script/run/**` and `src/script/preview/**`; the orchestrator owns documentation, review, validation, and commits. There is no Cloud implementation launcher available in this session. Do not start S40–S43 as part of this handoff preparation.
 
 Do not launch every task from the original baseline. Work proceeds in waves. After a wave is merged and validated, the orchestrator pushes the updated `scripts` branch; the next wave starts from that new SHA.
 
@@ -41,6 +43,25 @@ These are integration-owned files. Leaf tasks should not edit them unless their 
 `src-tauri/src/script/mod.rs` is an expected aggregation point. When two backend leaf tasks add non-overlapping module declarations, the orchestrator resolves the conflict by retaining the union. No leaf task may rewrite unrelated declarations there.
 
 Only the task assigned dependency ownership may update a lockfile. If another task discovers a dependency requirement, it records the exact package and reason in its handoff rather than editing package files opportunistically.
+
+## Progress review (2026-11-03)
+
+| Work | Current state | Remaining gate |
+| --- | --- | --- |
+| S00–S03 | Contracts, editor/Bun viability, and production WebDriver exclusion implemented | Packaged macOS/runtime and distribution checks remain release gates |
+| S10–S15 | Analyzer, persistence, editor, runner, input staging, and opaque output core implemented | Application adapters and registration belong to Wave 5 |
+| Pre-S20 repairs | Committed in `34a318597e412ea22d7bcb14fa539c1fe7783d05` | No longer an uncommitted prerequisite |
+| S20 | Committed in `5c2a3ff1` | Service/commands/events/protocol/shutdown registration in S40 |
+| S30 | Committed in `96796a118785800960118ae11d5bcafaf8c49ad8` | Workspace and real IPC composition in S41 |
+| S31 | Committed in `87b8cc68fe3dbd91d00924248add5ccc7d6a436e` | Native input adapter, analyzer transport, and scheduling in Wave 5 |
+| S32 | Committed in `0ab7b234f5f3121dfc25593247f88735a86993d9` after review | Real commands/events and workspace composition in S40/S41; live scheduling in S42 |
+| S40–S43 | Not started | Sequential integration, live behavior, and release acceptance |
+
+The leaves establish the foundations for Milestones A–C; none of those application-level milestones is accepted merely because leaf tests pass. The Image Scripts view, global service, and real command/event adapters are not mounted yet. Milestone C remains gated on S43.
+
+At review start the checkout was clean on `scripts` at `87b8cc68fe3dbd91d00924248add5ccc7d6a436e`; live `origin/scripts` was verified at `34a318597e412ea22d7bcb14fa539c1fe7783d05`, three commits behind. A later Cloud dispatch must first publish and verify an exact base containing all completed leaves; a local continuation can use the final reviewed local commit.
+
+Fresh baseline checks: all 71 frontend script tests and 72 Rust script-library tests pass, including the prepared host Bun paths; the production WebDriver exclusion check passes. Repository-wide TypeScript still reports 19 pre-existing errors (18 elsewhere in the application and the contract-fixture literal/brand typing error). Track these separately from scoped feature validation; a frontend production build alone does not establish TypeScript correctness or packaged behavior.
 
 ## Milestones
 
@@ -318,9 +339,9 @@ Wave 2 was reviewed at `20aa547b033076cfc4871d13e4d4c141bd37e5f3`. S10–S13 are
 
 S14 and S15 can proceed independently of the repairs below. For the current execution, run S14 first, review and validate it, then run S15 in the same local checkout. Start S20 only after S11, S13, S14, S15, and the following prerequisite repairs have been reviewed and integrated. Publish the resulting branch before any later Cloud task starts.
 
-### Review repairs before S20 — completed locally
+### Review repairs before S20 — committed
 
-Local repair status (2026-10-15): the four items below are implemented against `be3921c` in the existing checkout. The 60-test Rust script-library union and 29 frontend script tests pass, including actual bundled Bun execution. Focused strict TypeScript, Biome, frontend production build, Rust check/formatting, and diff integrity checks pass. Repair changes remain uncommitted; a later Cloud task still needs a committed/pushed exact base containing them. No S20 service or application wiring is included.
+Repair status: the four items below were implemented against `be3921c` and committed in `34a318597e412ea22d7bcb14fa539c1fe7783d05`. At the 2026-10-15 repair gate, the 60-test Rust script-library union and 29 frontend script tests passed, including actual bundled Bun execution. Focused strict TypeScript, Biome, frontend production build, Rust check/formatting, and diff integrity checks passed. S20 subsequently landed separately; application wiring remains pending.
 
 - S10 now rejects nested calls capturing the actual DTM callback parameter with source-ranged diagnostics. Unrelated/shadowed receivers remain ignored; nested control discovery remains outside the MVP grammar.
 - S13 now accepts a valid existing run-local output directory when user code creates and returns a file within it. A real Bun regression covers this case; the S15 containment/validation boundary is preserved.
@@ -497,7 +518,7 @@ Required tests:
 
 Objective: reconcile analyzer descriptors with independent runtime values and render accessible controls.
 
-Local status (2026-11-03): implemented in `src/script/controls/` in the existing checkout, with a backward-compatible optional model filter/change event on the S12 inlay provider. Changes remain uncommitted for review. Workspace mounting, native image approval/picking, and run scheduling remain integration work.
+Local status (2026-11-03): implemented in `src/script/controls/` and committed in `87b8cc68fe3dbd91d00924248add5ccc7d6a436e`, with a backward-compatible optional model filter/change event on the S12 inlay provider. Workspace mounting, native image approval/picking, and run scheduling remain integration work.
 
 Integration API:
 
@@ -537,6 +558,20 @@ Required tests:
 
 Objective: render backend run state without owning scheduling policy.
 
+Local status (2026-11-03): implemented and independently reviewed under `src/script/run/` and `src/script/preview/`, committed in `0ab7b234f5f3121dfc25593247f88735a86993d9`. No contracts, packages, application registration, or scheduler were changed. See [wave-5-handoff.md](./wave-5-handoff.md) for the next orchestrator.
+
+Integration API:
+
+- Construct one `ScriptRunController({ projectId, commands, events })` per project lifetime. Inject `createRunCommands(invoke)` and `createRunEventSource(listen, eventName)` after S40 chooses the event transport/name. Importing or constructing never performs IPC, trusts, or runs. `connect()` installs the event subscription; `run()` ensures it is installed before submission.
+- Render `ScriptRunPanel`, `ScriptProblems`, `ScriptLogs`, and `ScriptPreview` under the existing Chakra provider. The host's `onRun` callback validates/flushes the exact snapshot and calls `run(request)`. Pass `canRun` from workspace readiness. Trust requires explicit warning acknowledgement and a backend response; Review trust permits explicit reapproval after a failed admission, including a terminal event preceding rejection.
+- `setDesiredRevisions` tracks source/value/input revisions independently. `run` clones the request before any async boundary and accepts only the expected project/request/revisions/backend ID. Queued/started/terminal events can precede acknowledgements; terminal settlement cannot be reverted by a late acknowledgement. Obsolete content is ignored, while prior active processes remain tracked for Stop if a replacement fails during preparation.
+- `state.admitting` disables overlapping admission; `run()` resolves on admission acknowledgement, not execution completion. S42 must coalesce desired changes while admission is pending, then submit the latest valid snapshot. The host generates globally unique client request IDs; the controller retains a bounded replay guard for the most recent 1,024 IDs.
+- Logs are capped at 65,536 display characters and 500 entries; editor/runtime problem lists are separately capped at 100. Routine text redacts local paths, including punctuation-delimited variants, and repeated diagnostic/failed payloads are deduplicated. Problem state is sanitized presentation data without source locations: S41 must apply mapped markers from the original matching analyzer/backend payloads before presentation.
+- The preview accepts only validated PNG/JPEG metadata with the S15 opaque token URL. Failures and invalid/stale success cannot erase the last good preview; staleness compares all three desired revisions. S40/S42 own registry lifetime and cross-project retention.
+- `stop()` is enabled for known active/pending backend runs, waits for terminal lifecycle rather than the command acknowledgement, and ignores a late Stop error after completion. Cancellation is global in the existing backend API: S41/S42 must maintain one global run owner. `dispose()` only detaches subscriptions and ignores late responses; it deliberately sends no global Stop that could affect another project.
+
+Validation (2026-11-03): 33 focused S32 tests and the complete 104-test frontend script union pass. Scoped strict TypeScript including all S32 tests, Biome across all 12 new files, production frontend build, and staged diff integrity checks pass. The fresh pre-S32 baseline also passed all 72 Rust script tests and the production WebDriver exclusion check. Broad TypeScript retains the 19 known baseline errors. Native IPC/picking, mounted workspace, WDIO, and packaged webview behavior remain Wave 5 checks.
+
 Scope:
 
 - Manual Run and Stop controls.
@@ -563,16 +598,22 @@ Required tests:
 
 These tasks are sequential and orchestrator-heavy. Start each from the branch produced by the prior task.
 
+Readiness decision (2026-11-03): S00–S32 provide the reviewed foundations; no prerequisite blocker was identified for starting S40. Wave 5 must implement the adapters below; they are not already supplied by the leaves. Verify the accepted S32 commit and frontend union in the handoff before dispatch. Review, validate, and commit each integration task before starting the next. Use [wave-5-handoff.md](./wave-5-handoff.md) for the integration constraints and next-orchestrator prompt.
+
 ### S40 — Backend application integration
 
 Objective: register the script service and commands in Tauri and integrate shutdown and the custom protocol.
 
 Scope:
 
-- Manage `ImageScriptService` in application setup.
-- Register script commands.
-- Route `dtm://script-output` independently of `dtproject`.
-- Stop the service before clearing the shared temp directory.
+- Manage both `ProjectStore` and one global `ImageScriptService` in application setup, independently of a connected Projects database.
+- Select and validate the fixed prepared development / bundled production Bun path using the existing `bun_probe` helpers. Missing or incompatible Bun must produce an actionable error.
+- Register project/run/trust commands; route editor saves through `save_trusted_script_project`, preserving session-local approval without granting new trust.
+- Implement a backend-owned native input picker and approval-token issuance/revocation lifecycle. Return only `SelectedInput` contract fields to the frontend; never expose a command that approves an arbitrary frontend-provided filesystem path. Add the real Draw Things `InputResources` adapter using existing resource-handle patterns; unavailable Projects resources must not block local-file use.
+- Choose and document the typed, ordered event transport consumed by S32/S41. Install frontend subscriptions before run submission. Preserve identity on every event, including pre-acknowledgement queued/terminal events.
+- Map runtime locations through the exact retained source map before emitting source locations. Preserve bounded raw failures separately; never label instrumented coordinates as editor coordinates. If mapping fails or points into runner/package internals, show a location-free diagnostic rather than an incorrect Monaco marker.
+- Route `dtm://script-output` before acquiring the `dtproject` service/protocol. Run the blocking responder on a blocking worker and preserve response leases.
+- Await service shutdown and process joins before bookmark/shared-temp cleanup; close run admission during shutdown.
 - Add only the minimum capabilities required by the frontend command surface.
 - Preserve the production security baseline from S03.
 
@@ -581,11 +622,16 @@ Owned shared files:
 - `src-tauri/src/lib.rs`
 - required `src-tauri/capabilities/*.json`
 - script-related Tauri configuration
+- focused `src-tauri/src/script/**` integration adapters, diagnostic mapping, commands, and tests
+- minimal existing resource-service access needed by the Draw Things adapter
 
 Exit criteria:
 
 - Backend integration tests and `cargo check --locked` pass.
 - Projects need not be connected to create/open a script project.
+- Native approved local input, typed events, trust-aware save/run, and opaque preview routing work without Projects connected; resource input uses the real resolver when connected.
+- Source-map regression tests cover shifted instrumentation, Unicode offsets, unmappable frames, and stale run identity.
+- Shutdown joins the active/pending run before shared cleanup, and existing `dtproject` routing still works.
 - No frontend command can spawn an arbitrary executable.
 
 ### S41 — Frontend workspace integration
@@ -596,8 +642,13 @@ Scope:
 
 - Add the lazy navigation entry.
 - Compose project selector, Monaco editor, generated-control inspector, run state, diagnostics, logs, and preview.
+- Implement the analyzer Worker entry and `EditorAnalysisClient` transport with unique request correlation, error handling, and disposal. Equal revision numbers from different projects are not request identity. Keep compiler analysis off the UI thread.
+- Retain each accepted analysis result with its exact source/revision outside Valtio; S31 exposes runtime values/inputs but deliberately does not retain instrumented source/maps. Build immutable `RunRequest` snapshots only from matching analysis and control state.
+- Adapt S32 to S40's real commands/event transport and S31's native input selector. Subscribe before submission and release subscriptions/providers/workers in the correct ownership order.
+- Present analyzer/TypeScript/runtime problems distinctly and map valid source locations into the existing marker owners; do not attach stale diagnostics to a new model.
 - Follow DTM's Valtio `snap`/mutable-state conventions.
-- Add mock-Tauri support for the new commands and events.
+- Add stateful mock-Tauri support for project persistence, trust, input selection, typed ordered events, cancellation, and usable opaque preview responses. Existing mock event methods are logging stubs and do not deliver events.
+- Respect S30's failed-save recovery: awaited disposal can reject and retains models for retry. Do not discard the workspace/editor after a failed flush.
 - Keep layout usable at DTM's minimum window size.
 
 Owned shared files:
@@ -605,12 +656,15 @@ Owned shared files:
 - `src/views.tsx`
 - narrowly required application/navigation files
 - `src/mocks/**` additions for script commands
+- `src/script/workspace/**`, focused analyzer-worker/editor adapters, and tests
 
 Exit criteria:
 
 - Web mock mode can exercise the whole view without Bun.
 - Production frontend build passes.
 - Opening the view never auto-runs a project.
+- Manual create/edit/save/analyze/select/trust/run/stop/preview/error flows work, with source diagnostics mapped only to their originating model/revision.
+- Worker transport tests cover out-of-order replies, identical revisions across projects, worker errors, and teardown; workspace tests cover failed-save navigation/unmount recovery.
 
 ### S42 — Live execution, debounce, and race hardening
 
@@ -619,12 +673,14 @@ Objective: turn the manual vertical slice into the live scripting MVP.
 Scope:
 
 - Analyze after a short editor debounce.
-- Schedule source runs only after valid analysis and complete required inputs.
+- Schedule source runs only after valid matching analysis, complete required inputs, and no control validation errors. S31 retains the last valid numeric runtime value while an incomplete numeric draft is visibly invalid; that value alone does not establish readiness.
 - Debounce parameter changes separately and run immediately on slider commit.
 - Cancel the old process only when a valid replacement is accepted.
 - Track source, value, and input revisions independently.
 - Ignore all stale analyzer and backend events.
 - Keep a visible manual-run/live-run toggle.
+- Coordinate one global run owner. `cancel_script` currently takes no run identity; a detached/old project's Stop must never cancel a newer project's run. If a narrower cancellation contract is required, review/update both sides explicitly.
+- Serialize save/trust/run admission around the exact captured snapshot. Restoration must never grant trust or auto-run; backend trust starts empty on app restart, and external persisted edits revoke it. Do not treat frontend approval state as authoritative backend trust.
 
 Primary paths:
 
@@ -638,6 +694,9 @@ Required tests:
 - Rapid slider changes cannot publish an obsolete preview.
 - Switching projects cancels or detaches correctly.
 - A late success after cancellation is ignored.
+- A terminal event before the command acknowledgement, a rejected admission after a terminal event, and duplicate diagnostic/failed payloads cannot regress state or duplicate problems.
+- Incomplete numeric drafts block replacement scheduling while retaining the last valid controls/run/preview.
+- Project switching during trust, admission, input selection, or Stop cannot affect the new project's lifecycle; current versus stale previews track all three revisions.
 
 ### S43 — MVP end-to-end validation and release gate
 
@@ -649,14 +708,22 @@ Scope:
 - Add a real Bun integration test using a small checked-in image fixture or existing prepared fixture.
 - Exercise output limits, path validation, and shutdown cleanup.
 - Validate a release-config build with WebDriver disabled.
+- Prepare checksum-pinned Bun before fresh E2E and release builds. Add `scripts/prepare-bun.sh host` to the PR E2E workflow and universal preparation to the universal macOS release workflow before Tauri builds. Verify the prepared executable/version before real-Bun acceptance: existing tests can return early when the executable is absent.
 - Update user-facing and developer documentation.
 - Fix only defects discovered within the MVP scope.
+
+Owned shared files:
+
+- focused WDIO specs/fixtures and narrowly required shared WDIO configuration
+- `.github/workflows/pr-e2e.yml` and `.github/workflows/release.yml` for Bun preparation and feature gates
+- script user/developer documentation and focused MVP defect repairs
 
 Exit criteria:
 
 - All narrow unit/integration suites pass.
 - The relevant frontend build, Rust check/tests, and WDIO spec pass.
 - macOS packaged-app Bun and WebKit behavior is validated locally if Cloud cannot perform signing/UI checks.
+- Packaged Monaco/analyzer workers, opaque preview protocol, native picker, and Bun cancellation are exercised in the actual webview. Universal slices, signing/notarization, and Intel/Apple Silicon launch evidence are recorded separately from host-only checks, as required by [bun-packaging.md](./bun-packaging.md).
 - Remaining security limitations are explicit in user-facing copy.
 
 Milestone C is complete only after S43.
