@@ -70,6 +70,9 @@ pub fn inspect_project_file(
         if read(full_path)?.is_none() {
             return Ok(None);
         }
+        if size < 100_000 {
+            return Ok(None);
+        }
     }
     Ok(Some(ProjectFile {
         path: full_path
@@ -121,11 +124,10 @@ fn discover_folder(
         }
         let path = entry.path();
         match path.extension().and_then(|s| s.to_str()) {
-            Some("sqlite3") | Some("sqlite3-wal") => {
-                let base = path.with_extension("sqlite3");
-                let key = base.to_string_lossy().into_owned();
+            Some("sqlite3") => {
+                let key = path.to_string_lossy().into_owned();
                 if !projects.contains_key(&key) {
-                    if let Some(file) = inspect_project_file(&base, folder, folder_id)? {
+                    if let Some(file) = inspect_project_file(&path, folder, folder_id)? {
                         projects.insert(key, file);
                     }
                 }
