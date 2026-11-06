@@ -4,12 +4,15 @@ import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import { RiFileSettingsLine } from "react-icons/ri"
+import { addNewItem } from "@/compare/interop"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { DottedOutlineIcon, PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
+import { SbsCompare } from "@/components/imageCompare/icons"
 import type { VideoContextType } from "@/components/video/context"
 import type { ICommand } from "@/types"
 import { writeClipboardText } from "@/utils/clipboard"
+import { determineType, getUtiFromExtension } from "@/utils/mediaTypes"
 import { showMenu } from "@/utils/menu"
 import { save } from "@/utils/tauri"
 import { useDTP } from "../state/context"
@@ -60,8 +63,13 @@ export function useImageCommands(): [
                     }
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
+                    const uti = getUtiFromExtension(determineType(data))
+                    if (!uti) {
+                        console.error("Could not determine type of media", data.slice(0, 10))
+                        return
+                    }
                     await invoke("write_clipboard_binary", {
-                        ty: `public.png`,
+                        ty: uti,
                         data,
                     })
                 },
@@ -98,10 +106,15 @@ export function useImageCommands(): [
                     }
                     const data = await selected[0].getPngData(frame)
                     if (!data) return
+                    const mediaType = determineType(data)
+                    if (!mediaType) {
+                        console.error("Could not determine type of media")
+                        return
+                    }
                     const savePath = await save({
                         canCreateDirectories: true,
                         title: "Save image",
-                        filters: [{ name: "Image", extensions: ["png"] }],
+                        filters: [{ name: "Image", extensions: [mediaType] }],
                     })
                     if (savePath) {
                         await fs.writeFile(savePath, data)
@@ -128,6 +141,43 @@ export function useImageCommands(): [
                 requiresSelection: true,
             },
             {
+                id: "compareImage",
+                getLabel: (selected, ctx) => {
+                    if (!selected[0].isVideo) return "Send to Compare"
+                    return ctx?.isContextMenu
+                        ? "Send first frame to Compare"
+                        : "Send frame to Compare"
+                },
+                getTip: (selected, _) => {
+                    selected[0].isVideo
+                        ? "Send to Compare for comparison"
+                        : "Send selected frame to Compare for comparison"
+                },
+                icon: SbsCompare,
+                action: async (selected, ctx) => {
+                    let frame: number | undefined
+                    if (ctx?.videoRef?.current) {
+                        ctx.videoRef?.current.controls.pause()
+                        frame = ctx.videoRef.current.controls.getFrame()
+                    }
+                    const data = await selected[0].getPngData(frame)
+                    if (!data) return
+                    const project = projects.getProject(selected[0].projectId)
+
+                    const mediaType = determineType(data)
+                    if (!mediaType) {
+                        console.error("Could not determine type of media")
+                        return
+                    }
+                    await addNewItem(data, mediaType, {
+                        source: "project",
+                        projectFile: project?.path,
+                        tensorId: await selected[0].getTensorId(),
+                        nodeId: selected[0].nodeId,
+                    })
+                },
+            },
+            {
                 id: "sendToMetadata",
                 getLabel: (selected, ctx) => {
                     if (!selected[0].isVideo) return "Send to Metadata"
@@ -151,8 +201,12 @@ export function useImageCommands(): [
                     const project = projects.getProject(selected[0].projectId)
 
                     const interop = await import("@/metadata/state/interop")
-
-                    await interop.sendToMetadata(data, "png", {
+                    const mediaType = determineType(data)
+                    if (!mediaType) {
+                        console.error("Could not determine type of media")
+                        return
+                    }
+                    await interop.sendToMetadata(data, mediaType, {
                         source: "project",
                         projectFile: project?.path,
                         tensorId: await selected[0].getTensorId(),

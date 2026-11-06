@@ -26,6 +26,7 @@ afterEach(async () => {
 describe("Projects", () => {
     it("can select a project", async () => {
         await App.selectView("projects")
+        await DTProjects.selectTab("projects")
 
         // verify projects are listed
         await expect(DTProjects.projectA).toBeDisplayedInViewport()
@@ -166,6 +167,7 @@ describe("Projects", () => {
 describe("Projects files", () => {
     it("projects list stays in sync with file system", async () => {
         await App.selectView("projects")
+        await DTProjects.selectTab("projects")
 
         // verify projectC and projectA is listed
         await expect(DTProjects.projectC).toBeDisplayedInViewport()
@@ -190,6 +192,7 @@ describe("Projects files", () => {
 
     it("projects are removed and readded when files are renamed", async () => {
         await App.selectView("projects")
+        await DTProjects.selectTab("projects")
 
         // verify test-project-a is listed
         await expect(DTProjects.projectA).toBeDisplayedInViewport()

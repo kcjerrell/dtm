@@ -1,4 +1,5 @@
 import "dotenv/config"
+import { capitalize } from "../util/helpers"
 import { TestProject } from "../util/projects"
 import type { WaitForOpts } from "./Metadata"
 
@@ -12,6 +13,14 @@ class DTProjects {
     get projectC2() {
         return $(`[data-test-id="project-item"]*=${TestProject.projectC2}`)
     }
+
+    async selectTab(tab: "projects" | "search") {
+        const ariaLabel = `${capitalize(tab)} tab`
+        const tabSelector = $("aria/Projects tabs").$(`aria/${ariaLabel}`)
+        await tabSelector.click()
+        await expect(tabSelector).toHaveAttribute("aria-selected", "true")
+    }
+
     get settings() {
         return $("aria/Settings")
     }
@@ -115,17 +124,17 @@ class DTProjects {
 
     async getTotalProjects() {
         const text = await $("aria/Total projects").getText()
-        return parseInt(text.split(" ")[0])
+        return parseInt(text.split(" ")[0], 10)
     }
 
     async getTotalImages() {
         const text = await $("aria/Total images").getText()
-        return parseInt(text.split(" ")[0])
+        return parseInt(text.split(" ")[0], 10)
     }
 
     async getTotalFilesize() {
         const text = await $("aria/Total filesize").getText()
-        return parseInt(text.split(" ")[0])
+        return parseInt(text.split(" ")[0], 10)
     }
 
     async getDataItemValue(label: string, opts?: WaitForOpts & { noThrow?: boolean }) {

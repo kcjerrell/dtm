@@ -1,2 +1,2 @@
-export const exit = async () => {};
-export const relaunch = async () => {};
+export const exit = async () => {}
+export const relaunch = async () => {}

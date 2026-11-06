@@ -1,15 +1,17 @@
-use crate::projects_db::{
-    dt_project::{TensorHistoryNode, ThnData, ThnFilter},
-    dtos::image::ListImagesOptions,
-    search::process_prompt,
-    DTProject,
+use crate::projects_db::{dtos::image::ListImagesOptions, search::process_prompt, DtProjectRef};
+use crate::util::DebounceTask;
+use crate::{
+    archive::DTZip,
+    dt_project::{DTProject, TensorHistoryNode, ThnData, ThnFilter},
 };
-use entity::{
-    enums::{ModelType, Sampler},
-    images,
+use anyhow::Context;
+use entity::{enums::ModelType, images};
+use sea_orm::{
+    sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait, Iterable, QueryFilter,
+    QuerySelect, Set, TransactionTrait,
 };
-use sea_orm::{sea_query::OnConflict, ConnectionTrait, EntityTrait, Set};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::models::ModelTypeAndFile;
 use super::{MixedError, ProjectsDb};
@@ -23,20 +25,30 @@ pub struct NodeModelWeight {
 }
 
 impl ProjectsDb {
-    pub async fn scan_project(&self, id: i64, full_scan: bool) -> Result<(i64, u64), MixedError> {
-        let project = self.get_project(id).await?;
+    pub async fn scan_project(&self, id: i64, full_scan: bool) -> anyhow::Result<(i64, u64)> {
+        let project = self
+            .get_project(id)
+            .await
+            .with_context(|| format!("failed to load project metadata for project {id}"))?;
 
         if project.excluded {
             return Ok((project.id, 0));
         }
 
-        let dt_project = DTProject::open(&project.full_path).await?;
-        let dt_project_info = dt_project.get_info().await?;
+        let project_ref = DtProjectRef::Path(project.full_path.clone());
+        let dt_project = project_ref
+            .open_project()
+            .await
+            .with_context(|| format!("failed to open project database for project {id}"))?;
+        let dt_project_info = dt_project
+            .get_info()
+            .await
+            .with_context(|| format!("failed to get project info for project {id}"))?;
         let end = dt_project_info.history_max_id;
 
         let start = match full_scan {
             true => 0,
-            false => project.last_id.or(Some(-1)).unwrap(),
+            false => project.last_id.unwrap_or(0),
         };
 
         for batch_start in (start..end).step_by(SCAN_BATCH_SIZE as usize) {
@@ -48,7 +60,13 @@ impl ProjectsDb {
                     )),
                     Some(ThnData::tensordata().and_legacy_prompts().and_clip()),
                 )
-                .await?;
+                .await
+                .with_context(|| {
+                    format!(
+                        "failed to load tensor history range {batch_start}..{} for project {id}",
+                        batch_start + SCAN_BATCH_SIZE as i64
+                    )
+                })?;
 
             let histories_filtered: Vec<TensorHistoryNode> = histories
                 .into_iter()
@@ -58,10 +76,13 @@ impl ProjectsDb {
                 })
                 .collect();
 
-            // currently unused, but allows for storing previews in the db
-            let preview_thumbs = HashMap::new();
+            let preview_thumbs = HashMap::default();
 
-            let models_lookup = self.process_models(&histories_filtered).await?;
+            let transaction = self.db.begin().await?;
+            let models_lookup = self
+                .process_models_on(&histories_filtered, &transaction)
+                .await
+                .with_context(|| format!("failed to process models during scan of project {id}"))?;
 
             let (images, batch_image_loras, batch_image_controls) = self.prepare_image_data(
                 project.id,
@@ -80,8 +101,9 @@ impl ProjectsDb {
                         .do_nothing()
                         .to_owned(),
                     )
-                    .exec_with_returning(&self.db)
-                    .await?
+                    .exec_with_returning(&transaction)
+                    .await
+                    .with_context(|| format!("failed to insert scanned images for project {id}"))?
             } else {
                 vec![]
             };
@@ -91,12 +113,15 @@ impl ProjectsDb {
                 node_id_to_image_id.insert(img.node_id, img.id);
             }
 
-            self.insert_related_data(
+            self.insert_related_data_on(
                 &node_id_to_image_id,
                 batch_image_loras,
                 batch_image_controls,
+                &transaction,
             )
-            .await?;
+            .await
+            .with_context(|| format!("failed to insert image loras/controls for project {id}"))?;
+            transaction.commit().await?;
         }
 
         let total = self
@@ -105,16 +130,176 @@ impl ProjectsDb {
                 take: Some(0),
                 ..Default::default()
             })
-            .await?;
+            .await
+            .with_context(|| format!("failed to query total images count for project {id}"))?;
 
-        self.rebuild_images_fts().await?;
+        // self.rebuild_images_fts()
+        //     .await
+        //     .with_context(|| format!("failed to rebuild FTS index after scanning project {id}"))?;
+
+        self.rebuild_images_fts_debounced();
 
         match total.images {
             Some(_) => Ok((project.id, total.total)),
             None => Err(MixedError::Other(
                 "Unexpected result: list_images returned no images".to_string(),
-            )),
+            )
+            .into()),
         }
+    }
+
+    /// Explicit repair reconciles only the same generated image rows used by
+    /// normal indexing. All changes (including links and FTS) commit together.
+    pub async fn repair_project(&self, id: i64) -> anyhow::Result<()> {
+        let project = self.get_project(id).await?;
+        if project.excluded {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            !project.full_path.ends_with(".dtm.zip"),
+            "SQLite repair requires a SQLite project"
+        );
+        let source = DTProject::open_snapshot(&project.full_path).await?;
+        self.reconcile_project(id, &source, None).await?;
+        crate::dt_project::close_folder(&project.full_path).await;
+        Ok(())
+    }
+
+    pub async fn repair_archive_project(
+        &self,
+        id: i64,
+        archive: Arc<DTZip>,
+        expected_size: u64,
+        expected_modified: i64,
+    ) -> anyhow::Result<()> {
+        let project = self.get_project(id).await?;
+        if project.excluded {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            project.full_path.ends_with(".dtm.zip"),
+            "archive repair requires a DTZip project"
+        );
+        anyhow::ensure!(
+            archive.archive_path == project.full_path,
+            "archive snapshot path does not match project {id}"
+        );
+        let source = DTProject::open_archive_snapshot(archive).await?;
+        self.reconcile_project(
+            id,
+            &source,
+            Some((&project.full_path, expected_size, expected_modified)),
+        )
+        .await
+    }
+
+    async fn reconcile_project(
+        &self,
+        id: i64,
+        source: &DTProject,
+        expected_archive: Option<(&str, u64, i64)>,
+    ) -> anyhow::Result<()> {
+        let end: i64 = sqlx::query_scalar("SELECT coalesce(max(rowid), 0) FROM tensorhistorynode")
+            .fetch_one(source.pool().await?)
+            .await?;
+        let transaction = self.db.begin().await?;
+        let existing: Vec<(i64, i64)> = images::Entity::find()
+            .select_only()
+            .columns([images::Column::Id, images::Column::NodeId])
+            .filter(images::Column::ProjectId.eq(id))
+            .into_tuple()
+            .all(&transaction)
+            .await?;
+        let mut stale: HashMap<i64, i64> = existing
+            .into_iter()
+            .map(|(image, node)| (node, image))
+            .collect();
+        for start in (0..=end).step_by(SCAN_BATCH_SIZE as usize) {
+            let nodes = source
+                .get_tensor_history_nodes(
+                    Some(ThnFilter::Range(
+                        start,
+                        start.saturating_add(SCAN_BATCH_SIZE as i64),
+                    )),
+                    Some(ThnData::tensordata().and_legacy_prompts().and_clip()),
+                )
+                .await
+                .with_context(|| format!("failed to read repair batch {start} for project {id}"))?;
+            let nodes: Vec<_> = nodes
+                .into_iter()
+                .filter(|n| {
+                    let data = n.data();
+                    data.index_in_a_clip() == 0 && data.generated()
+                })
+                .collect();
+            if nodes.is_empty() {
+                continue;
+            }
+            let models = self.process_models_on(&nodes, &transaction).await?;
+            let (images, loras, controls) =
+                self.prepare_image_data(id, &nodes, &models, HashMap::new());
+            let rows = images::Entity::insert_many(images)
+                .on_conflict(
+                    OnConflict::columns([images::Column::ProjectId, images::Column::NodeId])
+                        .update_columns(images::Column::iter().filter(|column| {
+                            !matches!(
+                                column,
+                                images::Column::Id
+                                    | images::Column::ProjectId
+                                    | images::Column::NodeId
+                                    | images::Column::TemplateId
+                            )
+                        }))
+                        .to_owned(),
+                )
+                .exec_with_returning(&transaction)
+                .await?;
+            let mapping: HashMap<_, _> = rows.into_iter().map(|r| (r.node_id, r.id)).collect();
+            let ids: Vec<_> = mapping.values().copied().collect();
+            entity::image_loras::Entity::delete_many()
+                .filter(entity::image_loras::Column::ImageId.is_in(ids.clone()))
+                .exec(&transaction)
+                .await?;
+            entity::image_controls::Entity::delete_many()
+                .filter(entity::image_controls::Column::ImageId.is_in(ids))
+                .exec(&transaction)
+                .await?;
+            self.insert_related_data_on(&mapping, loras, controls, &transaction)
+                .await?;
+            for node in mapping.keys() {
+                stale.remove(node);
+            }
+        }
+        let stale: Vec<_> = stale.into_values().collect();
+        for ids in stale.chunks(500) {
+            images::Entity::delete_many()
+                .filter(images::Column::Id.is_in(ids.to_vec()))
+                .exec(&transaction)
+                .await?;
+        }
+        transaction
+            .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
+            .await?;
+        if let Some((path, expected_size, expected_modified)) = expected_archive {
+            let metadata = std::fs::metadata(path)
+                .with_context(|| format!("archive changed while reconciling project {id}"))?;
+            let modified: i64 = metadata
+                .modified()
+                .with_context(|| {
+                    format!("failed to read archive modification time for project {id}")
+                })?
+                .duration_since(std::time::UNIX_EPOCH)
+                .context("archive modification time predates Unix epoch")?
+                .as_micros()
+                .try_into()
+                .context("archive modification time is outside the supported range")?;
+            anyhow::ensure!(
+                metadata.len() == expected_size && modified == expected_modified,
+                "archive changed while reconciling project {id}"
+            );
+        }
+        transaction.commit().await?;
+        Ok(())
     }
 
     // prepares entities for insert into db
@@ -123,7 +308,7 @@ impl ProjectsDb {
         project_id: i64,
         histories: &[TensorHistoryNode],
         models_lookup: &HashMap<ModelTypeAndFile, i64>,
-        preview_thumbs: HashMap<i64, Vec<u8>>,
+        _preview_thumbs: HashMap<i64, Vec<u8>>,
     ) -> (
         Vec<images::ActiveModel>,
         Vec<NodeModelWeight>,
@@ -140,7 +325,7 @@ impl ProjectsDb {
                 let clip_id = fb.clip_id();
 
                 // currently unused
-                let preview_thumb = preview_thumbs.get(&preview_id).cloned();
+                let preview_thumb = None;
 
                 let mut has_mask = false;
                 let mut has_depth = false;
@@ -193,7 +378,7 @@ impl ProjectsDb {
                     }
                 }
 
-                if h.moodboard.as_ref().is_some_and(|mb| mb.len() > 0) {
+                if h.moodboard.as_ref().is_some_and(|mb| !mb.is_empty()) {
                     has_shuffle = true;
                 }
 
@@ -238,7 +423,6 @@ impl ProjectsDb {
                             (wc % 1_000_000) as u32 * 1000,
                         )
                         .unwrap_or_default()
-                        .into()
                     }),
                     has_mask: Set(has_mask),
                     has_depth: Set(has_depth),
@@ -312,6 +496,22 @@ impl ProjectsDb {
         batch_image_loras: Vec<NodeModelWeight>,
         batch_image_controls: Vec<NodeModelWeight>,
     ) -> Result<(), MixedError> {
+        self.insert_related_data_on(
+            node_id_to_image_id,
+            batch_image_loras,
+            batch_image_controls,
+            &self.db,
+        )
+        .await
+    }
+
+    async fn insert_related_data_on<C: ConnectionTrait>(
+        &self,
+        node_id_to_image_id: &HashMap<i64, i64>,
+        batch_image_loras: Vec<NodeModelWeight>,
+        batch_image_controls: Vec<NodeModelWeight>,
+        db: &C,
+    ) -> Result<(), MixedError> {
         let mut lora_models: Vec<entity::image_loras::ActiveModel> = Vec::new();
         for lora in batch_image_loras {
             if let Some(image_id) = node_id_to_image_id.get(&lora.node_id) {
@@ -319,7 +519,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     lora_id: Set(lora.model_id),
                     weight: Set(lora.weight),
-                    ..Default::default()
                 });
             }
         }
@@ -334,7 +533,7 @@ impl ProjectsDb {
                     .do_nothing()
                     .to_owned(),
                 )
-                .exec(&self.db)
+                .exec(db)
                 .await?;
         }
 
@@ -345,7 +544,6 @@ impl ProjectsDb {
                     image_id: Set(*image_id),
                     control_id: Set(control.model_id),
                     weight: Set(control.weight),
-                    ..Default::default()
                 });
             }
         }
@@ -360,18 +558,57 @@ impl ProjectsDb {
                     .do_nothing()
                     .to_owned(),
                 )
-                .exec(&self.db)
+                .exec(db)
                 .await?;
         }
 
         Ok(())
     }
 
-    pub async fn rebuild_images_fts(&self) -> Result<(), MixedError> {
+    pub async fn finish_maintenance(&self) {
+        self.maintenance_stopped
+            .store(true, std::sync::atomic::Ordering::Release);
+        let _guard = self.maintenance_lock.lock().await;
+        // Flush the last requested rebuild; delayed callbacks now become no-ops.
+        if self.rebuild_debounce.get().is_some() {
+            if let Err(error) = self.rebuild_images_fts().await {
+                log::error!("Failed final FTS rebuild: {error:#}");
+            }
+        }
+    }
+
+    /// Rebuilding the fts index is slow - prefer rebuild_images_fts_debounced()
+    pub async fn rebuild_images_fts(&self) -> anyhow::Result<()> {
         self.db
             .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
             .await?;
-
         Ok(())
+    }
+
+    pub fn rebuild_images_fts_debounced(&self) {
+        let db = self.db.clone();
+        let lock = self.maintenance_lock.clone();
+        let stopped = self.maintenance_stopped.clone();
+        let debouncer = self.rebuild_debounce.get_or_init(|| {
+            Arc::new(DebounceTask::new(2000, move || {
+                let db = db.clone();
+                let lock = lock.clone();
+                let stopped = stopped.clone();
+                async move {
+                    let _guard = lock.lock().await;
+                    if stopped.load(std::sync::atomic::Ordering::Acquire) {
+                        return;
+                    }
+                    if let Err(error) = db
+                        .execute_unprepared("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
+                        .await
+                    {
+                        log::error!("Could not rebuild FTS: {error}");
+                    }
+                }
+            }))
+        });
+
+        debouncer.call();
     }
 }

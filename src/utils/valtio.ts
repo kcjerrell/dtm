@@ -63,7 +63,7 @@ export function bindProxy<T extends object>(proxyInstance: T): T {
 }
 
 function isBindingAware<T>(obj: T): obj is { $isBinding: boolean } & T {
-    if (obj && typeof obj === "object" && "$isBinding" in obj && obj.$isBinding) {
+    if (obj && typeof obj === "object" && "$isBinding" in obj) {
         return true
     }
     return false

@@ -30,7 +30,7 @@ describe("Model Selector Popup", () => {
 
     it("keeps model selector open for related form interactions", async () => {
         await App.selectView("projects")
-        await $("aria/Search tab").click()
+        await DTProjects.selectTab("search")
         await $("aria/Reset search").click()
 
         await $("aria/Add search filter").click()
@@ -82,7 +82,7 @@ describe("Model Selector Popup", () => {
 
     it("closes model selector on outside interaction", async () => {
         await App.selectView("projects")
-        await $("aria/Search tab").click()
+        await DTProjects.selectTab("search")
         await $("aria/Reset search").click()
 
         await expect($("#root")).toBeDisplayed()

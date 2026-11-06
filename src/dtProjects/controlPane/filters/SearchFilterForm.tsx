@@ -72,7 +72,7 @@ function SearchFilterForm<T>(props: SearchFilterFormComponentProps) {
             }}
             onClick={(e) => {
                 if (e.target !== e.currentTarget) return
-                if (!target && !!targetRef.current)
+                if (!target && targetRef.current)
                     (
                         targetRef.current?.querySelector("[data-part=trigger]") as HTMLElement
                     )?.click()

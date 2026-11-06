@@ -1,0 +1,107 @@
+import { path } from "@tauri-apps/api"
+import { convertFileSrc, invoke } from "@tauri-apps/api/core"
+import * as fs from "@tauri-apps/plugin-fs"
+import { getStoreName } from "@/utils/helpers"
+import { VALID_MEDIA_TYPES } from "./types"
+
+let _appDataDir: string
+async function getAppDataDir() {
+    if (_appDataDir) return _appDataDir
+    _appDataDir = await path.appDataDir()
+    return _appDataDir
+}
+
+let _imageFolder: string
+const savingFiles = new Set<string>()
+async function getMediaFolder() {
+    if (_imageFolder) return _imageFolder
+
+    const appDataDir = await getAppDataDir()
+    const imageFolder = await path.join(appDataDir, getStoreName("media"))
+    if (!(await fs.exists(imageFolder))) {
+        await fs.mkdir(imageFolder, { recursive: true })
+    }
+    _imageFolder = imageFolder
+    return _imageFolder
+}
+
+async function getFullPath(fname: string): Promise<string>
+async function getFullPath(id: string, ext: string): Promise<string>
+async function getFullPath(arg1: string, arg2?: string): Promise<string> {
+    if (arg1 && arg2) return await path.join(await getMediaFolder(), `${arg1}.${arg2}`)
+    if (arg1) return await path.join(await getMediaFolder(), arg1)
+    throw new Error("invalid arguments")
+}
+
+async function saveFile(
+    id: string,
+    data: Uint8Array,
+    type: string,
+): Promise<{ fname: string; url: string }> {
+    if (!id) throw new Error("invalid id")
+    if (!type || !VALID_MEDIA_TYPES.includes(type))
+        throw new Error("invalid or unsupported media type")
+    if (!data || data.length === 0) throw new Error("data is empty or missing")
+
+    const fname = `${id}.${type}`
+    savingFiles.add(fname)
+    try {
+        const fullPath = await getFullPath(id, type)
+
+        await fs.writeFile(fullPath, data, {
+            createNew: true,
+        })
+
+        return { fname: await path.basename(fullPath), url: convertFileSrc(fullPath) }
+    } catch (e) {
+        console.error(e)
+        throw e
+    } finally {
+        savingFiles.delete(fname)
+    }
+}
+
+async function removeOrphanedFiles(referencedFiles: ReadonlySet<string>) {
+    const entries = await fs.readDir(await getMediaFolder())
+    for (const entry of entries) {
+        if (!entry.isFile || entry.isSymlink || !/^[0-9a-z]{12}\.[a-z0-9]+$/.test(entry.name))
+            continue
+        if (!VALID_MEDIA_TYPES.includes(entry.name.slice(13))) continue
+        if (referencedFiles.has(entry.name) || savingFiles.has(entry.name)) continue
+        await removeFile(entry.name)
+    }
+}
+
+/** fname is the filename for a file in appdata/media */
+async function removeFile(fname: string) {
+    try {
+        await fs.remove(await getFullPath(fname))
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+async function copyToClipboard(fname: string) {
+    const data = await fs.readFile(await getFullPath(fname))
+    await invoke("write_clipboard_binary", { ty: `public.${fname.split(".").pop()}`, data })
+}
+
+async function saveCopy(fname: string, dest: string) {
+    const data = await fs.readFile(await getFullPath(fname))
+    await fs.writeFile(dest, data, {
+        createNew: true,
+    })
+}
+
+async function saveFileCopy(source: string, dest: string) {
+    await fs.copyFile(source, dest)
+}
+
+export const MediaStoreFiles = {
+    saveFileCopy,
+    saveFile,
+    removeFile,
+    removeOrphanedFiles,
+    copyToClipboard,
+    saveCopy,
+}

@@ -24,6 +24,13 @@ export type ProjectExportDialogState = {
     }
 }
 
+export type DtArchiveDialogState = {
+    dialogType: "dt-archive"
+    props: {
+        projectIds: number[]
+    }
+}
+
 export type SettingsDialogState = {
     dialogType: "settings"
     props: Record<string, unknown>
@@ -49,6 +56,7 @@ export type DialogState =
     | VideoExportDialogState
     | FrameExportDialogState
     | ProjectExportDialogState
+    | DtArchiveDialogState
     | SettingsDialogState
     | ExplorerDialogState
     | UnknownDialogState

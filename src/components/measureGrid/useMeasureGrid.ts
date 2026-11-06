@@ -61,7 +61,7 @@ export function useMeasureGrid(content?: string | null, opts: UseMeasureGridOpts
     const snap = useSnapshot(state)
 
     useLayoutEffect(() => {
-        if (!cv || !cv.sizerRef.current || !cv.sizerRef.current.parentElement) return
+        if (!cv?.sizerRef.current?.parentElement) return
         const sizer = cv.sizerRef.current
         const sizerParent = cv.sizerRef.current.parentElement
         if (cv.collapseHeight == null) {

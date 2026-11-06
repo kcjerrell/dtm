@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core"
-import { check } from "@tauri-apps/plugin-updater"
 import { store } from "@tauri-store/valtio"
 // import { check } from "@/mocks/tauri-updater"
 import type { SidebarVariant } from "@/components/sidebar/Sidebar"
+import Lifecycle from "@/lifecycle"
 import { getInstallId } from "@/state/settings"
 import { getStoreName } from "@/utils/helpers"
+import { isMacOS } from "@/utils/platform"
+
+type Update = Awaited<ReturnType<typeof import("@tauri-apps/plugin-updater")["check"]>>
 
 type AppStateType = {
     // update: Awaited<ReturnType<typeof check>>
@@ -23,9 +26,10 @@ type AppStateType = {
     sidebarStyle: {
         variant?: SidebarVariant
     }
+    sidebarActivity: Record<string, boolean | undefined>
 }
 
-let update: Awaited<ReturnType<typeof check>> = null
+let update: Update = null
 const appStore = store(
     getStoreName("app"),
     {
@@ -34,6 +38,7 @@ const appStore = store(
         updateStatus: "unknown",
         updateAttempts: 0,
         sidebarStyle: {},
+        sidebarActivity: {},
     } as AppStateType,
     {
         filterKeys: [],
@@ -44,9 +49,7 @@ const appStore = store(
     },
 )
 appStore.start()
-window.addEventListener("unloaded", () => {
-    appStore.stop()
-})
+Lifecycle.onExit(() => appStore.stop(), true)
 const appState: AppStateType = appStore.state
 
 async function getOsVersionHeaderValue(): Promise<string> {
@@ -60,8 +63,13 @@ async function getOsVersionHeaderValue(): Promise<string> {
 
 async function checkForUpdate() {
     if (appState.updateStatus !== "unknown") return
+    if (!isMacOS) {
+        appState.updateStatus = "none"
+        return
+    }
     appState.updateStatus = "checking"
     try {
+        const { check } = await import("@tauri-apps/plugin-updater")
         const installId = await getInstallId()
         const osVersionHeaderValue = await getOsVersionHeaderValue()
         update = await check({

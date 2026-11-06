@@ -5,10 +5,10 @@ export const DetailsImageContainer = chakra(
     motion.div,
     {
         base: {
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gridTemplateRows: "1fr",
-            gridTemplateAreas: '"image"',
+            display: "flex",
+            // gridTemplateColumns: "1fr",
+            // gridTemplateRows: "1fr",
+            // gridTemplateAreas: '"image"',
 
             justifyContent: "stretch",
             alignItems: "stretch",

@@ -6,6 +6,7 @@ import { SettingsPanel } from "../settingsPanel/SettingsPanel"
 import { useDTP } from "../state/context"
 import FramesExportDialog from "./clipExport/FramesExportDialog"
 import VideoExportDialog from "./clipExport/VideoExportDialog"
+import DtArchiveDialog from "./dtArchive/DtArchiveDialog"
 import ProjectExportDialog from "./projectExport/ProjectExportDialog"
 import type { DialogProps, DialogState } from "./types"
 
@@ -30,6 +31,11 @@ const _dialogs: Record<string, DialogType> = {
     "project-export": {
         Dialog: ProjectExportDialog as unknown as DialogComponent,
         panelProps: {},
+        containerProps: {},
+    },
+    "dt-archive": {
+        Dialog: DtArchiveDialog as unknown as DialogComponent,
+        panelProps: { width: "80vw" },
         containerProps: {},
     },
     settings: {
@@ -93,6 +99,8 @@ function DialogPresenter(props: DialogPresenterComponentProps) {
                     bgColor={"bg.1"}
                     role={"dialog"}
                     aria-modal="true"
+                    border={"1px solid"}
+                    borderColor={"grayc.10"}
                     {...panelProps}
                 >
                     <Dialog onClose={() => uiState.hideDialog()} {...dialogProps} />
