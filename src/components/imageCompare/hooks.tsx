@@ -146,6 +146,7 @@ export function useCreateImageCompareContext(
         contentOffset,
         viewportSize: snap.mode === "sbs" ? sbsViewportSize : undefined,
         mapZoomPoint: snap.mode === "sbs" ? mapSbsZoomPoint : undefined,
+        panMargin: ZOOM_OUT_MARGIN,
         // Leave room to inspect the edges, using the individual pane bounds in SBS.
         minZoom:
             contentSize.width > 0 && contentSize.height > 0

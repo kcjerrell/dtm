@@ -21,10 +21,11 @@ export const ToolbarSection = chakra(
 
 export const ToolbarSeparator = chakra("div", {
     base: {
-        bgColor: "gray",
+        bgColor: "fg.2",
+        opacity: 0.5,
         width: "1px",
         height: "50%",
         boxShadow: "lg",
-        marginInline: 1,
+        marginInline: 0,
     },
 })

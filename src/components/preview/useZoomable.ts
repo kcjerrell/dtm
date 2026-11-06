@@ -21,6 +21,8 @@ export function useZoomable(
         onZoomOutBoundary?: () => void
         minZoom?: number
         maxZoom?: number
+        /** Gap allowed beyond each content edge at 1x zoom, in CSS pixels. */
+        panMargin?: number
     } = {},
 ) {
     const {
@@ -32,6 +34,7 @@ export function useZoomable(
         onZoomOutBoundary,
         minZoom = MIN_ZOOM,
         maxZoom = MAX_ZOOM,
+        panMargin = 0,
     } = options
     const posRef = useRef({ x: 0, y: 0, scale: 1 })
     const xMv = useSpring(posRef.current.x, SPRING)
@@ -59,6 +62,7 @@ export function useZoomable(
             const viewportWidth = viewportSize?.width ?? viewport?.clientWidth ?? window.innerWidth
             const viewportHeight =
                 viewportSize?.height ?? viewport?.clientHeight ?? window.innerHeight
+            const margin = panMargin * currScale
 
             const clampAxis = (
                 position: number,
@@ -67,13 +71,13 @@ export function useZoomable(
                 offset: number,
             ) => {
                 const scaledLength = contentLength * currScale
-                if (scaledLength <= viewportLength) {
+                if (scaledLength + 2 * margin <= viewportLength) {
                     return viewportLength / 2 - (offset + contentLength / 2)
                 }
 
                 const scaleOverflow = (scaledLength - contentLength) / 2
-                const min = viewportLength - offset - contentLength - scaleOverflow
-                const max = -offset + scaleOverflow
+                const min = viewportLength - offset - contentLength - scaleOverflow - margin
+                const max = -offset + scaleOverflow + margin
                 return Math.min(Math.max(position, min), max)
             }
 
@@ -85,7 +89,7 @@ export function useZoomable(
                 y: clampAxis(currY, contentSize.height, viewportHeight, contentTop),
             }
         },
-        [contentOffset, contentSize, motionRef, viewportSize],
+        [contentOffset, contentSize, motionRef, viewportSize, panMargin],
     )
 
     const zoom = useCallback(

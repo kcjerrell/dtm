@@ -41,7 +41,7 @@ export type ImageCompareState = {
     /** arrange side-by-side images in a row or column */
     sbsLayout: SbsLayout
 
-    /** Image B opacity while manually aligning the images. */
+    /** Image B edge map opacity while manually aligning the images. */
     alignOpacity: number
     /** Pin is enabled while choosing an anchor or dragging around an existing anchor. */
     alignPinEnabled: boolean
@@ -87,7 +87,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         altSpeed: 5,
         altPhase: 0.0,
         sbsLayout: "vertical",
-        alignOpacity: 0.5,
+        alignOpacity: 0.7,
         alignPinEnabled: false,
         pinState: null,
         viewportWidth: 0,

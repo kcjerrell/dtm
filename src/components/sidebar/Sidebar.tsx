@@ -222,6 +222,7 @@ export function SidebarButton(props: SidebarButtonProps) {
             anim(
                 scope.current,
                 {
+                    scale: [1, 1.25, 1.25, 1.25, 1.25, 1],
                     rotate: [15, -12, 9, -6, 3, 0],
                 },
                 {

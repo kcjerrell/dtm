@@ -2,16 +2,8 @@ import { Box } from "@chakra-ui/react"
 import { motion, useTransform } from "motion/react"
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef } from "react"
 import IconButton from "../IconButton"
-import { Slider } from "../ui/slider"
 import AlignmentPanel from "./AlignmentPanel"
-import {
-    type AlignmentCorner,
-    type AlignmentPin,
-    type AlignmentRect,
-    alignAroundPin,
-    getAlignmentScreenGeometry,
-    resizeAlignment,
-} from "./alignmentGeometry"
+import { type AlignmentPin, alignAroundPin, getAlignmentScreenGeometry } from "./alignmentGeometry"
 import { ToolbarSection } from "./common"
 import { applyEdgeMask } from "./edgeMask"
 import {
@@ -24,24 +16,13 @@ import {
 import { AlignCompare, AlignmentPinMarker } from "./icons"
 import { ImageCompareContext } from "./state"
 
-const CORNERS = [
-    { corner: "nw", name: "top left", left: 0, top: 0, cursor: "nwse-resize" },
-    { corner: "ne", name: "top right", right: 0, top: 0, cursor: "nesw-resize" },
-    { corner: "sw", name: "bottom left", left: 0, bottom: 0, cursor: "nesw-resize" },
-    { corner: "se", name: "bottom right", right: 0, bottom: 0, cursor: "nwse-resize" },
-] as const
-
 interface Gesture {
     pointerId: number
     target: HTMLDivElement
-    corner?: AlignmentCorner
     startX: number
     startY: number
-    rect: AlignmentRect
     pixelsPerA: number
     offset: { x: number; y: number }
-    scaleX: number
-    scaleY: number
     pinned?: { pin: AlignmentPin; dragged: { bx: number; by: number } }
 }
 
@@ -173,38 +154,8 @@ function View(_props: ModeViewProps<never>) {
             y: zoomStyle.y.get(),
             scale: zoomStyle.scale.get(),
         })
-    const applyResize = (
-        start: Pick<Gesture, "rect" | "scaleX" | "scaleY" | "offset" | "pixelsPerA">,
-        corner: AlignmentCorner,
-        dx: number,
-        dy: number,
-    ) => {
-        const viewport = refs.viewportRef.current
-        if (!viewport || start.pixelsPerA <= 0 || !start.rect.width || !start.rect.height) return
-        const next = resizeAlignment(
-            start.rect,
-            corner,
-            { x: dx, y: dy },
-            {
-                width: viewport.clientWidth,
-                height: viewport.clientHeight,
-            },
-        )
-        const factor = next.width / start.rect.width
-        state.imageBScaleX = start.scaleX * factor
-        state.imageBScaleY = start.scaleY * factor
-        state.imageBOffset = {
-            x:
-                start.offset.x +
-                (next.x + next.width / 2 - start.rect.x - start.rect.width / 2) / start.pixelsPerA,
-            y:
-                start.offset.y +
-                (next.y + next.height / 2 - start.rect.y - start.rect.height / 2) /
-                    start.pixelsPerA,
-        }
-    }
-    const startGesture = (event: PointerEvent, corner?: AlignmentCorner) => {
-        if (event.button !== 0 || !outline.current) return
+    const startGesture = (event: PointerEvent) => {
+        if (event.button !== 0 || !event.shiftKey || !outline.current) return
         event.preventDefault()
         event.stopPropagation()
         if (gesture.current) return
@@ -235,13 +186,10 @@ function View(_props: ModeViewProps<never>) {
         gesture.current = {
             pointerId: event.pointerId,
             target,
-            corner,
             startX: event.clientX,
             startY: event.clientY,
-            ...geometry,
+            pixelsPerA: geometry.pixelsPerA,
             offset: { ...state.imageBOffset },
-            scaleX: state.imageBScaleX,
-            scaleY: state.imageBScaleY,
             pinned:
                 state.alignPinEnabled && state.pinState
                     ? { pin: { ...state.pinState }, dragged: { bx: point.bx, by: point.by } }
@@ -251,6 +199,10 @@ function View(_props: ModeViewProps<never>) {
     const moveGesture = (event: PointerEvent) => {
         const start = gesture.current
         if (!start || event.pointerId !== start.pointerId) return
+        if (!event.shiftKey) {
+            endGesture(event)
+            return
+        }
         event.stopPropagation()
         const dx = event.clientX - start.startX
         const dy = event.clientY - start.startY
@@ -271,8 +223,7 @@ function View(_props: ModeViewProps<never>) {
                 ].every(Number.isFinite)
             )
                 Object.assign(state, next)
-        } else if (start.corner) applyResize(start, start.corner, dx, dy)
-        else
+        } else
             state.imageBOffset = {
                 x: start.offset.x + dx / start.pixelsPerA,
                 y: start.offset.y + dy / start.pixelsPerA,
@@ -286,7 +237,7 @@ function View(_props: ModeViewProps<never>) {
         if (start.target.hasPointerCapture(event.pointerId))
             start.target.releasePointerCapture(event.pointerId)
     }
-    const keyAdjust = (event: KeyboardEvent, corner?: AlignmentCorner) => {
+    const keyAdjust = (event: KeyboardEvent) => {
         const directions: Record<string, [number, number]> = {
             ArrowLeft: [-1, 0],
             ArrowRight: [1, 0],
@@ -299,23 +250,8 @@ function View(_props: ModeViewProps<never>) {
         event.stopPropagation()
         if (state.alignPinEnabled) return
         const amount = event.shiftKey ? 10 : 1
-        if (corner) {
-            const geometry = currentGeometry()
-            applyResize(
-                {
-                    ...geometry,
-                    scaleX: state.imageBScaleX,
-                    scaleY: state.imageBScaleY,
-                    offset: { ...state.imageBOffset },
-                },
-                corner,
-                direction[0] * amount,
-                direction[1] * amount,
-            )
-        } else {
-            state.imageBOffset.x += direction[0] * amount
-            state.imageBOffset.y += direction[1] * amount
-        }
+        state.imageBOffset.x += direction[0] * amount
+        state.imageBOffset.y += direction[1] * amount
     }
 
     return (
@@ -341,7 +277,11 @@ function View(_props: ModeViewProps<never>) {
                     outline: snap.alignPinEnabled ? undefined : "1px solid white",
                     boxShadow: snap.alignPinEnabled ? undefined : "0 0 0 2px black",
                     pointerEvents: "auto",
-                    cursor: snap.alignPinEnabled && !snap.pinState ? "crosshair" : "move",
+                    cursor: snap.shiftHeld
+                        ? snap.alignPinEnabled && !snap.pinState
+                            ? "crosshair"
+                            : "move"
+                        : "grab",
                     touchAction: "none",
                 }}
                 onPointerDown={(event) => startGesture(event)}
@@ -369,27 +309,6 @@ function View(_props: ModeViewProps<never>) {
                         transform: `scale(${snap.imageBScaleX < 0 ? -1 : 1}, ${snap.imageBScaleY < 0 ? -1 : 1})`,
                     }}
                 />
-                {!snap.alignPinEnabled &&
-                    CORNERS.map(({ corner, name, cursor, ...position }) => (
-                        <button
-                            key={corner}
-                            type="button"
-                            aria-label={`Scale image B from ${name}`}
-                            style={{
-                                ...position,
-                                position: "absolute",
-                                width: 12,
-                                height: 12,
-                                padding: 0,
-                                background: "white",
-                                border: "1px solid black",
-                                cursor,
-                                touchAction: "none",
-                            }}
-                            onPointerDown={(event) => startGesture(event, corner)}
-                            onKeyDown={(event) => keyAdjust(event, corner)}
-                        />
-                    ))}
             </motion.div>
             {snap.alignPinEnabled && snap.pinState && (
                 <motion.button
@@ -415,7 +334,9 @@ function View(_props: ModeViewProps<never>) {
                         cursor: "pointer",
                         touchAction: "none",
                     }}
-                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => {
+                        if (event.shiftKey) event.stopPropagation()
+                    }}
                     onClick={() => {
                         state.pinState = null
                     }}
@@ -439,7 +360,7 @@ function Settings(props: ModeSettingProps<never>) {
                 variant="toolbar"
                 tbActive={snap.alignPinEnabled}
                 tipTitle="Pin alignment"
-                tipText="Click to anchor a point, then drag elsewhere in B to scale X and Y independently. Drag across the pin to flip an axis."
+                tipText="Shift-click to anchor a point, then Shift-drag elsewhere in B to scale X and Y independently. Drag across the pin to flip an axis. Drag without Shift to pan."
                 px={2}
                 aspectRatio="auto"
                 disabled={!snap.imageASrc || !snap.imageBSrc}
@@ -450,20 +371,6 @@ function Settings(props: ModeSettingProps<never>) {
             >
                 Pin
             </IconButton>
-            <Box fontSize="xs" alignSelf="center">
-                Opacity
-            </Box>
-            <Slider
-                width="6rem"
-                min={0}
-                max={1}
-                step={0.01}
-                aria-label={["Image B opacity"]}
-                value={[snap.alignOpacity]}
-                onValueChange={({ value }) => {
-                    state.alignOpacity = value[0]
-                }}
-            />
             <IconButton
                 variant="toolbar"
                 aria-label="Reset alignment"
@@ -489,7 +396,7 @@ function Button({ selected, ...rest }: ModeButtonProps) {
             tipTitle="Align"
             variant="toolbar"
             tbActive={selected}
-            tipText="Drag image B to align it. Drag a corner to scale it. Arrow keys nudge; hold Shift for larger steps."
+            tipText="Drag to pan. Hold Shift and drag image B to align it. Arrow keys nudge; hold Shift for larger steps."
             {...rest}
         >
             <AlignCompare />

@@ -342,6 +342,9 @@ TopLayer.slot = "ImageCompare.TopLayer"
  * be displayed
  */
 function getShiftText(snap: ImageCompareState): string | null {
+    if (snap.mode === "align") {
+        return snap.shiftHeld ? "pan" : "adjust image B"
+    }
     if (snap.mode === "slider") {
         if (snap.sliderEffectDisplay === "full") {
             if (snap.canvasContents === "none") return null

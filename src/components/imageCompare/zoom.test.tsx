@@ -42,14 +42,19 @@ async function setup(width: number, height: number, layout: SbsLayout) {
     Object.defineProperties(viewport, {
         clientWidth: { value: 1000 },
         clientHeight: { value: 800, configurable: true },
+        getBoundingClientRect: { value: () => ({ left: 0, top: 0, width: 1000, height: 800 }) },
     })
     function Harness() {
         result.current = useContext()
         result.current.hooks.refs.viewportRef.current = viewport
-        return null
+        return createElement("div", result.current.hooks.zoomHandlers)
     }
-    const root = createRoot(document.createElement("div"))
+    const root = createRoot(viewport)
     await act(async () => root.render(createElement(Harness)))
+    const surface = viewport.firstElementChild as HTMLElement
+    surface.setPointerCapture = vi.fn()
+    surface.hasPointerCapture = vi.fn(() => true)
+    surface.releasePointerCapture = vi.fn()
     cleanups.push(() => root.unmount())
     await act(async () => {
         Object.assign(result.current.state, {
@@ -61,11 +66,11 @@ async function setup(width: number, height: number, layout: SbsLayout) {
             imageBHeight: height,
         })
     })
-    function zoomOut() {
+    function zoom(deltaY: number) {
         act(() => {
             viewport.dispatchEvent(
                 new WheelEvent("wheel", {
-                    deltaY: 1000,
+                    deltaY,
                     clientX: 500,
                     clientY: 400,
                     cancelable: true,
@@ -73,7 +78,20 @@ async function setup(width: number, height: number, layout: SbsLayout) {
             )
         })
     }
-    return { result, zoomOut, viewport }
+    function pan(x: number, y: number) {
+        act(() => {
+            for (const [type, clientX, clientY] of [
+                ["pointerdown", 0, 0],
+                ["pointermove", x, y],
+                ["pointerup", x, y],
+            ] as const) {
+                const event = new MouseEvent(type, { bubbles: true, clientX, clientY, button: 0 })
+                Object.defineProperty(event, "pointerId", { value: 1 })
+                surface.dispatchEvent(event)
+            }
+        })
+    }
+    return { result, zoomOut: () => zoom(1000), zoom, pan, viewport }
 }
 
 describe("SBS minimum zoom", () => {
@@ -156,5 +174,64 @@ describe("minimum zoom margin", () => {
         const { state, hooks } = result.current
         expect(hooks.zoomStyle.scale.get()).toBeGreaterThan(0)
         expect(state.contentSize.height * hooks.zoomStyle.scale.get()).toBeCloseTo(1)
+    })
+})
+
+describe("pan margins", () => {
+    it.each([
+        ["slider", "vertical"],
+        ["alt", "vertical"],
+        ["align", "vertical"],
+        ["sbs", "vertical"],
+        ["sbs", "horizontal"],
+    ] as const)("scales the gap at every edge in %s (%s)", async (mode, layout) => {
+        const { result, zoom, zoomOut, pan } = await setup(1000, 800, layout)
+        await act(async () => {
+            result.current.state.mode = mode
+        })
+        const { state, hooks } = result.current
+        const paneWidth = state.viewportWidth / (mode === "sbs" && layout === "vertical" ? 2 : 1)
+        const paneHeight =
+            state.viewportHeight / (mode === "sbs" && layout === "horizontal" ? 2 : 1)
+        const { width, height } = state.contentSize
+        const { left, top } = state.contentOffset
+
+        for (const scale of [1, 2, 4]) {
+            if (scale > 1) zoom(-500)
+            expect(hooks.zoomStyle.scale.get()).toBe(scale)
+            const margin = 20 * scale
+            pan(10000, 10000)
+            expect(left + (width * (1 - scale)) / 2 + hooks.zoomStyle.x.get()).toBeCloseTo(margin)
+            expect(top + (height * (1 - scale)) / 2 + hooks.zoomStyle.y.get()).toBeCloseTo(margin)
+
+            pan(-20000, -20000)
+            expect(left + (width * (1 + scale)) / 2 + hooks.zoomStyle.x.get()).toBeCloseTo(
+                paneWidth - margin,
+            )
+            expect(top + (height * (1 + scale)) / 2 + hooks.zoomStyle.y.get()).toBeCloseTo(
+                paneHeight - margin,
+            )
+        }
+
+        zoomOut()
+        const centered = { x: hooks.zoomStyle.x.get(), y: hooks.zoomStyle.y.get() }
+        pan(10000, 10000)
+        expect(hooks.zoomStyle.x.get()).toBeCloseTo(centered.x)
+        expect(hooks.zoomStyle.y.get()).toBeCloseTo(centered.y)
+    })
+
+    it.each([
+        [1000, 200, "y"],
+        [200, 1000, "x"],
+    ] as const)("keeps the short axis centered for %s x %s images", async (width, height, axis) => {
+        const { result, zoom, pan } = await setup(width, height, "vertical")
+        await act(async () => {
+            result.current.state.mode = "align"
+        })
+        zoom(-500)
+        pan(10000, 10000)
+        expect(result.current.hooks.zoomStyle[axis].get()).toBe(0)
+        pan(-20000, -20000)
+        expect(result.current.hooks.zoomStyle[axis].get()).toBe(0)
     })
 })

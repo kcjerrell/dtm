@@ -5,6 +5,7 @@ export { IoInvertMode as DifferenceEffect } from "react-icons/io5"
 export {
     LuCrosshair as AlignmentPinMarker,
     LuMove as AlignCompare,
+    LuSlidersHorizontal as AlignmentSettings,
     LuStretchHorizontal as HorizontalLayout,
     LuStretchVertical as VerticalLayout,
 } from "react-icons/lu"

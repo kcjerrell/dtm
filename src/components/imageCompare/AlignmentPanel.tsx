@@ -1,9 +1,10 @@
-import { Box, CloseButton, NumberInput, Popover, Portal, Text } from "@chakra-ui/react"
+import { Box, NumberInput, Popover, Portal } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { Panel } from "@/components/common"
 import { useRootElementRef } from "@/hooks/useRootElement"
 import IconButton from "../IconButton"
 import { NumberInputField, NumberInputLabel, NumberInputRoot } from "../ui/number-input"
+import { AlignmentSettings } from "./icons"
 import { ImageCompareContext } from "./state"
 
 const format = (number: number) => String(Number(number.toFixed(4)))
@@ -25,7 +26,8 @@ function AlignmentField(props: {
 
     return (
         <NumberInputRoot
-            size="sm"
+            size="xs"
+            minWidth={0}
             showScrubber={false}
             display="flex"
             flexDirection="column"
@@ -75,34 +77,30 @@ export default function AlignmentPanel() {
                     variant="toolbar"
                     tbActive={open && snap.mode === "align"}
                     aria-label="Adjust alignment"
-                    px={2}
-                    aspectRatio="auto"
+                    tipTitle="Adjust alignment"
                 >
-                    Values
+                    <AlignmentSettings />
                 </IconButton>
             </Popover.Trigger>
             <Portal container={viewRef}>
                 <Popover.Positioner>
-                    <Popover.Content asChild>
+                    <Popover.Content asChild aria-label="Image B alignment">
                         <Panel
                             variant="float"
                             bgColor="bg.1"
                             color="fg.1"
-                            width="18rem"
-                            maxHeight="var(--available-height)"
-                            overflowY="auto"
+                            width="14rem"
+                            maxHeight="none"
+                            overflow="visible"
                             data-image-compare-controls=""
                         >
                             <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
-                            <Popover.Header display="flex" alignItems="center" gap={2} p={3}>
-                                <Popover.Title fontSize="sm" flex={1}>
-                                    Image B alignment
-                                </Popover.Title>
-                                <Popover.CloseTrigger asChild position="static">
-                                    <CloseButton size="xs" aria-label="Close alignment controls" />
-                                </Popover.CloseTrigger>
-                            </Popover.Header>
-                            <Popover.Body display="flex" flexDirection="column" gap={3} p={4}>
+                            <Popover.Body
+                                display="grid"
+                                gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+                                gap={2}
+                                p={0}
+                            >
                                 <AlignmentField
                                     label="X offset"
                                     value={snap.imageBOffset.x}
@@ -143,9 +141,6 @@ export default function AlignmentPanel() {
                                         state.imageBScaleY = value / 100
                                     }}
                                 />
-                                <Text fontSize="xs" color="fg.2">
-                                    Offsets use image A pixels. X and Y scales default to 100%.
-                                </Text>
                             </Popover.Body>
                         </Panel>
                     </Popover.Content>
