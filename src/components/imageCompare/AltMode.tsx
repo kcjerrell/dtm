@@ -1,7 +1,6 @@
 import { Grid } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type CSSProperties, useMemo } from "react"
-import { PiRepeatBold } from "react-icons/pi"
 import type { Snapshot } from "valtio"
 import { IconButton } from "@/components"
 import { TriangleSlider } from "../ui/slider"
@@ -14,6 +13,7 @@ import type {
     ModeViewProps,
     UseModeResult,
 } from "./hooks"
+import { SwapCompare } from "./icons"
 import { getComparisonImageStyle } from "./imageGeometry"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
@@ -157,12 +157,12 @@ function Button(props: ModeButtonProps) {
     return (
         <IconButton
             variant="toolbar"
-                        tbActive={selected}
+            tbActive={selected}
             tipTitle={"Swap"}
             tipText={tip}
             {...restProps}
         >
-            <PiRepeatBold />
+            <SwapCompare />
         </IconButton>
     )
 }

@@ -3,11 +3,6 @@ import { usePopoverContext } from "@chakra-ui/react/popover"
 import { useDebounceFn } from "ahooks"
 import { motion, useTransform } from "motion/react"
 import { type ComponentProps, useCallback, useEffect, useMemo, useState } from "react"
-import { ImBrightnessContrast } from "react-icons/im"
-import { IoInvertMode } from "react-icons/io5"
-import { MdOutlineColorLens } from "react-icons/md"
-import { TbAdjustmentsHorizontal } from "react-icons/tb"
-import { TfiSplitH } from "react-icons/tfi"
 import type { Snapshot } from "valtio"
 import { subscribeKey } from "valtio/utils"
 import { Panel, PanelSectionHeader } from "@/components/common"
@@ -25,6 +20,13 @@ import {
     type UseModeResult,
     useImageCompareHooks,
 } from "./hooks"
+import {
+    BrightnessEffect,
+    ColorEffect,
+    DifferenceEffect,
+    SliderCompare,
+    SliderSettings,
+} from "./icons"
 import { getComparisonImageStyle } from "./imageGeometry"
 import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
@@ -493,7 +495,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 tone={sliderTrail === "brightness" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("brightness")}
             >
-                <ImBrightnessContrast />
+                <BrightnessEffect />
             </IconButton>
             <IconButton
                 variant="toolbar"
@@ -501,7 +503,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 tone={sliderTrail === "color" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("color")}
             >
-                <MdOutlineColorLens />
+                <ColorEffect />
             </IconButton>
             <IconButton
                 variant="toolbar"
@@ -509,7 +511,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 tone={sliderTrail === "difference" && sliderButtonTone === "info" ? "info" : "none"}
                 onClick={() => selectEffect("difference")}
             >
-                <IoInvertMode />
+                <DifferenceEffect />
             </IconButton>
 
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
@@ -554,7 +556,7 @@ function SettingsButton(props: ComponentProps<typeof IconButton> & PopoverTrigge
             onMouseLeave={() => onLeave(context)}
             {...restProps}
         >
-            <TbAdjustmentsHorizontal />
+            <SliderSettings />
         </IconButton>
     )
 }
@@ -652,7 +654,7 @@ function Button(props: ModeButtonProps) {
             tipText={tip}
             {...restProps}
         >
-            <TfiSplitH stroke={"currentColor"} strokeWidth={0.5} />
+            <SliderCompare stroke={"currentColor"} strokeWidth={0.5} />
         </IconButton>
     )
 }

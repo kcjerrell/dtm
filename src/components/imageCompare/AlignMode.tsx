@@ -1,7 +1,6 @@
 import { Box } from "@chakra-ui/react"
 import { motion, useTransform } from "motion/react"
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef } from "react"
-import { LuCrosshair, LuMove } from "react-icons/lu"
 import IconButton from "../IconButton"
 import { Slider } from "../ui/slider"
 import AlignmentPanel from "./AlignmentPanel"
@@ -22,6 +21,7 @@ import {
     type ModeViewProps,
     useImageCompareHooks,
 } from "./hooks"
+import { AlignCompare, AlignmentPinMarker } from "./icons"
 import { ImageCompareContext } from "./state"
 
 const CORNERS = [
@@ -420,7 +420,7 @@ function View(_props: ModeViewProps<never>) {
                         state.pinState = null
                     }}
                 >
-                    <LuCrosshair size={18} />
+                    <AlignmentPinMarker size={18} />
                 </motion.button>
             )}
         </Box>
@@ -437,7 +437,7 @@ function Settings(props: ModeSettingProps<never>) {
                 aria-label="Pin"
                 aria-pressed={snap.alignPinEnabled}
                 variant="toolbar"
-                                tbActive={snap.alignPinEnabled}
+                tbActive={snap.alignPinEnabled}
                 tipTitle="Pin alignment"
                 tipText="Click to anchor a point, then drag elsewhere in B to scale X and Y independently. Drag across the pin to flip an axis."
                 px={2}
@@ -488,11 +488,11 @@ function Button({ selected, ...rest }: ModeButtonProps) {
             aria-label="Align"
             tipTitle="Align"
             variant="toolbar"
-                        tbActive={selected}
+            tbActive={selected}
             tipText="Drag image B to align it. Drag a corner to scale it. Arrow keys nudge; hold Shift for larger steps."
             {...rest}
         >
-            <LuMove />
+            <AlignCompare />
         </IconButton>
     )
 }

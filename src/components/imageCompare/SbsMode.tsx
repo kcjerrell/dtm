@@ -1,8 +1,7 @@
 import { Box } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { useMemo } from "react"
-import { LuStretchHorizontal, LuStretchVertical } from "react-icons/lu"
-import { RiLayoutColumnFill } from "react-icons/ri"
+
 import type { Snapshot } from "valtio"
 import IconButton from "../IconButton"
 import { ToolbarSection } from "./common"
@@ -15,6 +14,7 @@ import {
     type UseModeResult,
     useImageCompareHooks,
 } from "./hooks"
+import { HorizontalLayout, SbsCompare, VerticalLayout } from "./icons"
 import { getComparisonImageStyle } from "./imageGeometry"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
@@ -37,7 +37,7 @@ function useMode(
 
 function View(props: ModeViewProps<never>) {
     const { containerStyle, selfProps: _selfProps, ...restProps } = props
-    const [state, snap] = ImageCompareContext.useContext()
+    const [_state, snap] = ImageCompareContext.useContext()
     const { refs } = useImageCompareHooks()
 
     return (
@@ -101,21 +101,21 @@ function Settings(props: ModeSettingProps<never>) {
         <ToolbarSection {...restProps}>
             <IconButton
                 variant="toolbar"
-                                tbActive={snap.sbsLayout === "vertical"}
+                tbActive={snap.sbsLayout === "vertical"}
                 onClick={() => {
                     state.sbsLayout = "vertical"
                 }}
             >
-                <LuStretchVertical />
+                <VerticalLayout />
             </IconButton>
             <IconButton
                 variant="toolbar"
-                                tbActive={snap.sbsLayout === "horizontal"}
+                tbActive={snap.sbsLayout === "horizontal"}
                 onClick={() => {
                     state.sbsLayout = "horizontal"
                 }}
             >
-                <LuStretchHorizontal />
+                <HorizontalLayout />
             </IconButton>
         </ToolbarSection>
     )
@@ -130,12 +130,12 @@ function Button(props: ModeButtonProps) {
     return (
         <IconButton
             variant="toolbar"
-                        tbActive={selected}
+            tbActive={selected}
             tipTitle={"Side-by-side"}
             tipText={tip}
             {...restProps}
         >
-            <RiLayoutColumnFill />
+            <SbsCompare />
         </IconButton>
     )
 }

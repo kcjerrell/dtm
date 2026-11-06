@@ -4,7 +4,7 @@ import { type ComponentProps, useCallback, useEffect, useRef } from "react"
 import { IoArrowUndoOutline, IoTrashOutline } from "react-icons/io5"
 import type { Snapshot } from "valtio"
 import { useSnapshot } from "valtio/react"
-import { IconButton, Panel, type PanelButton } from "@/components"
+import { IconButton, Panel } from "@/components"
 import type { IconButtonProps } from "@/components/IconButton"
 import { FiX, PiImage } from "@/components/icons/icons"
 import ImageCompare from "@/components/imageCompare"
@@ -45,8 +45,6 @@ function Compare() {
     // find the index to insert the gap between pin and unpinned
     const gapIndex = items.findIndex((item) => !item.pin) + 1 || items.length + 1
 
-    const columns = 3
-
     return (
         <Box width={"full"} height={"full"} padding={0}>
             <ImageCompare.Root
@@ -73,7 +71,8 @@ function Compare() {
                         alignSelf={"end"}
                         justifySelf={"end"}
                         margin={2}
-                        width={"55%"}
+                        minWidth={"45%"}
+                        maxWidth={"75%"}
                         maxHeight={"80%"}
                         minHeight={`${panelRef.current?.getBoundingClientRect()?.height ?? 0}px`}
                         overflow={"auto"}
@@ -85,19 +84,13 @@ function Compare() {
                         zIndex={50}
                     >
                         <Grid
-                            gridTemplateColumns={`repeat(${columns}, 1fr)`}
+                            // gridTemplateColumns={`repeat(auto-fit, minmax(min(calc(33% - 3px), 150px), 1fr))`}
+                            gridTemplateColumns={`repeat(auto-fit, minmax(150px, 1fr))`}
                             gap={"3px"}
                             minHeight={0}
                             // overflowY={"auto"}
                         >
                             <AnimatePresence>
-                                {/*<HStack gridColumn={"1 / -1"}>
-                                    <Box bgColor={"fg.3"} height={"2px"} flex={"1 0 0"} />
-                                    <Box fontSize={"sm"} flex={"0 0 0"}>
-                                        Pinned
-                                    </Box>
-                                    <Box bgColor={"fg.2"} height={"2px"} flex={"1 0 0"} />
-                                </HStack>*/}
                                 <HStack
                                     order={gapIndex}
                                     key={"sep"}
@@ -110,6 +103,7 @@ function Compare() {
                                         height={"1px"}
                                         marginX={2}
                                         flex={"1 0 0"}
+                                        opacity={0.5}
                                     />
                                     <ClearPinsButton
                                         hasPinnedItems={hasPinnedItems}
@@ -190,6 +184,11 @@ function ClearItemsButton(props: ClearItemsButtonProps) {
             aria-label={showUndo ? "Undo clear images" : "Clear images"}
             tipTitle={showUndo ? "Undo clear images" : "Clear images"}
             size={"sm"}
+            minWidth={"unset"}
+            height={"unset"}
+            padding={0.5}
+            borderRadius={"0.5rem"}
+            marginX={0.5}
             display={hasUnpinnedItems || showUndo ? undefined : "none"}
             onClick={() => {
                 if (state.softRemovedItems.size > 0) {
@@ -238,6 +237,11 @@ function ClearPinsButton(props: ClearPinsButtonProps) {
             size={"sm"}
             strike={!showUndo}
             display={hasPinnedItems || showUndo ? undefined : "none"}
+            minWidth={"unset"}
+            height={"unset"}
+            padding={0.5}
+            borderRadius={"0.5rem"}
+            marginX={0.5}
             onClick={() => {
                 if (showUndo) {
                     // copying because changing a pin clears the undo

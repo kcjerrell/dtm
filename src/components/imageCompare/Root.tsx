@@ -10,14 +10,14 @@ import {
     useEffect,
     useMemo,
 } from "react"
-import { MdBlurOff, MdBlurOn } from "react-icons/md"
 import type { Snapshot } from "valtio"
 import IconButton from "../IconButton"
 import AlignMode from "./AlignMode"
 import AltMode from "./AltMode"
 import { ToolbarSection, ToolbarSeparator } from "./common"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
-import ImageSelector, { type ImageSelectorProps } from "./ImageSelector"
+import type { ImageSelectorProps } from "./ImageSelector"
+import { SmoothingOff, SmoothingOn } from "./icons"
 import { getComparisonImageStyle } from "./imageGeometry"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
@@ -251,7 +251,7 @@ function Root(props: ImageCompareRootProps) {
                                     state.smoothing = !snap.smoothing
                                 }}
                             >
-                                {snap.smoothing ? <MdBlurOn /> : <MdBlurOff />}
+                                {snap.smoothing ? <SmoothingOn /> : <SmoothingOff />}
                             </IconButton>
                         </ToolbarSection>
                         <ToolbarSeparator />

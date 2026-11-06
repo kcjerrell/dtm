@@ -7,7 +7,11 @@
     },
     "files": {
         "ignoreUnknown": false,
-        "includes": ["./src/**/*.{js,jsx,ts,tsx}", "./test/**/*.{js,jsx,ts,tsx}", "!!**/reactDevtools.js"]
+        "includes": [
+            "./src/**/*.{js,jsx,ts,tsx}",
+            "./test/**/*.{js,jsx,ts,tsx}",
+            "!!**/reactDevtools.js"
+        ]
     },
     "formatter": {
         "enabled": true,

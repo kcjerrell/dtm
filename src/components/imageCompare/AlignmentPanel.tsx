@@ -72,12 +72,12 @@ export default function AlignmentPanel() {
         >
             <Popover.Trigger asChild>
                 <IconButton
-                                    variant="toolbar"
-                                    tbActive={open && snap.mode === "align"}
-                                    aria-label="Adjust alignment"
-                                    px={2}
-                                    aspectRatio="auto"
-                                >
+                    variant="toolbar"
+                    tbActive={open && snap.mode === "align"}
+                    aria-label="Adjust alignment"
+                    px={2}
+                    aspectRatio="auto"
+                >
                     Values
                 </IconButton>
             </Popover.Trigger>

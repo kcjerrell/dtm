@@ -4,9 +4,11 @@ import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import { RiFileSettingsLine } from "react-icons/ri"
+import { addNewItem } from "@/compare/interop"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { DottedOutlineIcon, PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
+import { SbsCompare } from "@/components/imageCompare/icons"
 import type { VideoContextType } from "@/components/video/context"
 import type { ICommand } from "@/types"
 import { writeClipboardText } from "@/utils/clipboard"
@@ -137,6 +139,43 @@ export function useImageCommands(): [
                     await writeClipboardText(config)
                 },
                 requiresSelection: true,
+            },
+            {
+                id: "compareImage",
+                getLabel: (selected, ctx) => {
+                    if (!selected[0].isVideo) return "Send to Compare"
+                    return ctx?.isContextMenu
+                        ? "Send first frame to Compare"
+                        : "Send frame to Compare"
+                },
+                getTip: (selected, _) => {
+                    selected[0].isVideo
+                        ? "Send to Compare for comparison"
+                        : "Send selected frame to Compare for comparison"
+                },
+                icon: SbsCompare,
+                action: async (selected, ctx) => {
+                    let frame: number | undefined
+                    if (ctx?.videoRef?.current) {
+                        ctx.videoRef?.current.controls.pause()
+                        frame = ctx.videoRef.current.controls.getFrame()
+                    }
+                    const data = await selected[0].getPngData(frame)
+                    if (!data) return
+                    const project = projects.getProject(selected[0].projectId)
+
+                    const mediaType = determineType(data)
+                    if (!mediaType) {
+                        console.error("Could not determine type of media")
+                        return
+                    }
+                    await addNewItem(data, mediaType, {
+                        source: "project",
+                        projectFile: project?.path,
+                        tensorId: await selected[0].getTensorId(),
+                        nodeId: selected[0].nodeId,
+                    })
+                },
             },
             {
                 id: "sendToMetadata",

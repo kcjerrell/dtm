@@ -26,6 +26,7 @@ type AppStateType = {
     sidebarStyle: {
         variant?: SidebarVariant
     }
+    sidebarActivity: Record<string, boolean | undefined>
 }
 
 let update: Update = null
@@ -37,6 +38,7 @@ const appStore = store(
         updateStatus: "unknown",
         updateAttempts: 0,
         sidebarStyle: {},
+        sidebarActivity: {},
     } as AppStateType,
     {
         filterKeys: [],
