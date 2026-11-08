@@ -139,18 +139,30 @@ const Base = chakra("button", {
                 },
             },
             toolbar: {
+                "--hover-shadow": "none",
+                 "--hover-bg": "none",
                 color: "fg.1",
                 _hover: {
                     color: "fg.1",
                 },
                 transition: "all 0.2s ease",
+                _after: {
+                    content: '""',
+                    position: "absolute",
+                    border: "0px solid {colors.info}",
+                    borderTopWidth: "2px",
+                    borderBottomWidth: "2px",
+                    inset: "-1px",
+                    opacity: 0,
+                    transition: "opacity 400ms ease",
+                },
             },
         },
         tbActive: {
             true: {
                 color: "fg.1",
-                background: "bg.0/50",
-                borderColor: "grayc.13",
+                // background: "bg.0/50",
+                // borderColor: "grayc.13",
                 _hover: {
                     color: "fg.1",
                 },
@@ -159,8 +171,17 @@ const Base = chakra("button", {
                 opacity: 0.7,
                 _hover: {
                     color: "fg.1",
-                    borderColor: "grayc.13",
+                    // borderColor: "grayc.13",
                 },
+            },
+        },
+        tbOpen: {
+            true: {
+                _after: {
+                    opacity: 1,
+                },
+            },
+            false: {
             },
         },
         tone: {

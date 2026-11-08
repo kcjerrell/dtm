@@ -56,6 +56,7 @@ function Compare() {
                     <IconButton
                         variant="toolbar"
                         onClick={() => onEnter()}
+                        tbOpen={snap.isSelectorOpen}
                         aria-expanded={snap.isSelectorOpen}
                         onMouseEnter={() => onEnter()}
                         onMouseLeave={() => startCloseTimer()}

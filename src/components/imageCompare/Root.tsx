@@ -14,7 +14,7 @@ import type { Snapshot } from "valtio"
 import IconButton from "../IconButton"
 import AlignMode from "./AlignMode"
 import AltMode from "./AltMode"
-import { ToolbarSection, ToolbarSeparator } from "./common"
+import { ToolbarSection } from "./common"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import type { ImageSelectorProps } from "./ImageSelector"
 import { SmoothingOff, SmoothingOn } from "./icons"
@@ -95,7 +95,9 @@ function Root(props: ImageCompareRootProps) {
         bindMode(SbsMode, sbsMode, imageContainerStyle),
         bindMode(AlignMode, alignMode, imageContainerStyle),
     ]
-    const activeMode = modes.find((mode) => mode.name === snap.mode)
+    const activeIndex = modes.findIndex((mode) => mode.name === snap.mode)
+    const activeMode = modes[activeIndex]
+
     const imageSelectors = Children.toArray(children)
         .filter(
             (child): child is ReactElement<ImageSelectorProps> =>
@@ -228,15 +230,12 @@ function Root(props: ImageCompareRootProps) {
                     <HStack
                         gridArea={"buttons"}
                         px={8}
-                        py={1}
+                        py={0}
                         boxShadow={"0px 0px 5px -1px #00000055, 0px 3px 12px -3px #00000055"}
                         {...toolbarProps}
                     >
                         {imageSelectors.length > 0 && (
-                            <>
-                                <ToolbarSection>{imageSelectors}</ToolbarSection>
-                                <ToolbarSeparator />
-                            </>
+                            <ToolbarSection>{imageSelectors}</ToolbarSection>
                         )}
                         <ToolbarSection color={"fg.3"}>
                             <IconButton
@@ -254,14 +253,16 @@ function Root(props: ImageCompareRootProps) {
                                 {snap.smoothing ? <SmoothingOn /> : <SmoothingOff />}
                             </IconButton>
                         </ToolbarSection>
-                        <ToolbarSeparator />
-                        <ToolbarSection>
-                            {modes.map((mode) => {
+                        <ToolbarSection
+                            paddingInline={"0px"}
+                            activeIndex={activeMode ? activeIndex : undefined}
+                        >
+                            {modes.map((mode, index) => {
                                 const ModeButton = mode.Button
                                 return (
                                     <ModeButton
                                         key={mode.name}
-                                        selected={snap.mode === mode.name}
+                                        selected={index === activeIndex}
                                         onClick={() => {
                                             state.mode = mode.name
                                         }}
@@ -269,8 +270,6 @@ function Root(props: ImageCompareRootProps) {
                                 )
                             })}
                         </ToolbarSection>
-
-                        <ToolbarSeparator />
 
                         <Grid
                             overflow={"clip"}
@@ -310,7 +309,7 @@ function Root(props: ImageCompareRootProps) {
                                 })}
                             </AnimatePresence>
                         </Grid>
-                        <ShiftHint snap={snap} ml={"auto"} />
+                        <ShiftHint snap={snap} ml={"auto"}/>
                     </HStack>
                 </GridRoot>
             </Provider>
@@ -343,7 +342,7 @@ TopLayer.slot = "ImageCompare.TopLayer"
  */
 function getShiftText(snap: ImageCompareState): string | null {
     if (snap.mode === "align") {
-        return snap.shiftHeld ? "pan" : "adjust image B"
+        return snap.shiftHeld ? "adjust image B" : "pan"
     }
     if (snap.mode === "slider") {
         if (snap.sliderEffectDisplay === "full") {
@@ -383,7 +382,7 @@ function ShiftHint(props: ShiftHintProps) {
     const text = getShiftText(snap)
     if (!text) return null
     return (
-        <Box alignSelf={"center"} justifySelf={"center"} whiteSpace="nowrap" {...rest}>
+        <Box fontSize={"sm"}  alignSelf={"center"} justifySelf={"center"} whiteSpace="nowrap" {...rest}>
             {verb}
             <Kbd>Shift</Kbd>
             to {text}

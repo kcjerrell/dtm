@@ -6,6 +6,7 @@ import type { SliderEffectDisplay } from "./sliderEffectDisplay"
 export type SliderEffect = "brightness" | "color" | "difference" | "none"
 /** Names follow the stretch-axis icons: horizontal stacks panes; vertical places them side by side. */
 export type SbsLayout = "horizontal" | "vertical"
+export type AlignDisplay = "original" | "b-edges" | "both-edges"
 
 export type ImageCompareState = {
     /** the url for image a */
@@ -41,8 +42,8 @@ export type ImageCompareState = {
     /** arrange side-by-side images in a row or column */
     sbsLayout: SbsLayout
 
-    /** Image B edge map opacity while manually aligning the images. */
-    alignOpacity: number
+    /** Image rendering used while manually aligning the images. */
+    alignDisplay: AlignDisplay
     /** Pin is enabled while choosing an anchor or dragging around an existing anchor. */
     alignPinEnabled: boolean
     /** Corresponding native pixel coordinates in A and B. */
@@ -87,7 +88,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         altSpeed: 5,
         altPhase: 0.0,
         sbsLayout: "vertical",
-        alignOpacity: 0.7,
+        alignDisplay: "both-edges",
         alignPinEnabled: false,
         pinState: null,
         viewportWidth: 0,

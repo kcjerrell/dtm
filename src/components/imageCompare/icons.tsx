@@ -3,8 +3,11 @@ import type { SVGProps } from "react"
 export { ImBrightnessContrast as BrightnessEffect } from "react-icons/im"
 export { IoInvertMode as DifferenceEffect } from "react-icons/io5"
 export {
+    LuBlend as AlignBothEdges,
     LuCrosshair as AlignmentPinMarker,
+    LuImages as AlignOriginal,
     LuMove as AlignCompare,
+    LuScanLine as AlignBEdges,
     LuSlidersHorizontal as AlignmentSettings,
     LuStretchHorizontal as HorizontalLayout,
     LuStretchVertical as VerticalLayout,

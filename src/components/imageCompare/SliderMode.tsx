@@ -480,7 +480,10 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
 
     return (
-        <ToolbarSection {...restProps}>
+        <ToolbarSection
+            activeIndex={["none", "brightness", "color", "difference"].indexOf(sliderTrail)}
+            {...restProps}
+        >
             <IconButton
                 variant="toolbar"
                 tbActive={sliderTrail === "none"}
@@ -517,7 +520,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
                 <Popover.Trigger _expanded={{ background: undefined }} asChild>
                     <SettingsButton
-                        tbActive={isSettingsOpen}
+                        tbOpen={isSettingsOpen}
                         onEnter={onEnter}
                         onLeave={startCloseTimer}
                     />
