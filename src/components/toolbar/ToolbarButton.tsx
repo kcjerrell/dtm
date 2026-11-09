@@ -3,6 +3,7 @@ import type { ComponentProps } from "react"
 import { MotionBox } from "../common"
 import Tooltip from "../Tooltip"
 import { ToolbarSectionContext } from "./ToolbarSection"
+import { AnimatePresence, motion } from "motion/react"
 
 export interface ToolbarButtonProps
     extends ComponentProps<typeof Base>,
@@ -40,39 +41,34 @@ function ToolbarButton(props: ToolbarButtonProps) {
     const showIndicator = isActive || isOpen || isWaiting
 
     const button = (
-        <Base tbSelected={isSelected} {...restProps}>
+        <Base
+            tbSelected={isSelected}
+            tbIndicator={showIndicator}
+            css={{ "--tb-indicator-color": getIndicatorColor(isActive, isOpen, isWaiting) }}
+            {...restProps}
+        >
             {children}
             {isSelected && (
-                <MotionBox
+                <Box
                     className={"indicator"}
-                    layout="position"
-                    layoutId={activeItemLayoutId}
-                    transition={{ layout: { duration: 0.25, ease: "easeInOut" } }}
                     aria-hidden="true"
                     pointerEvents="none"
                     position="absolute"
                     border="0px solid {colors.highlight.1}"
                     borderTopWidth="3px"
                     borderBottomWidth="0px"
-                    inset="-3px 0px 0px 0px"
-                    // backgroundColor="blue/50"
+                    inset="-2px 0px 0px 0px"
                     backgroundColor="grayc.12/50"
-                    _dark={{backgroundColor: "grayc.13/50"}}
+                    _dark={{ backgroundColor: "grayc.13/50" }}
                     zIndex={-1}
-                />
-            )}
-            {showIndicator && (
-                <Box
-                    className={"indicator"}
-                    aria-hidden="true"
-                    pointerEvents="none"
-                    position="absolute"
-                    border={`0px solid ${getIndicatorColor(isActive, isOpen, isWaiting)}`}
-                    borderTopWidth="3px"
-                    inset="-3px 0px 0px 0px"
-                    backgroundColor="grayc.12/50"
-                    zIndex={-1}
-                />
+                    asChild
+                >
+                    <motion.div
+                        transition={{ layout: { duration: 0.2 } }}
+                        layout="position"
+                        layoutId={activeItemLayoutId}
+                    />
+                </Box>
             )}
         </Base>
     )
@@ -96,30 +92,27 @@ function ToolbarButton(props: ToolbarButtonProps) {
 
 function getIndicatorColor(isActive?: boolean, isOpen?: boolean, isWaiting?: boolean) {
     if (isOpen) return "{colors.info}"
-    if (isActive) return "gold"
-    if (isWaiting) return "{colors.success}"
+    if (isActive) return "#ffd740"
+    if (isWaiting) return "{colors.success.1}"
     return "transparent"
 }
 
 const Base = chakra("button", {
     base: {
-        display: "inline-flex",
+        display: "flex",
         position: "relative",
         appearance: "none",
         alignItems: "center",
         justifyContent: "center",
         verticalAlign: "middle",
         overflow: "visible",
-        isolation: "isolate",
         flexShrink: "0",
 
         height: "min-content",
         aspectRatio: "1",
         margin: 0,
-        paddingY: 2,
+        paddingY: 0,
 
-        transitionProperty: "common",
-        transitionDuration: "moderate",
         focusVisibleRing: "outside",
         transformOrigin: "center center",
 
@@ -128,16 +121,17 @@ const Base = chakra("button", {
 
         fontWeight: "medium",
         background: "transparent",
-        color: "fg.1",
+        color: "grayc.3",
         borderRadius: "l2",
         borderWidth: "1px",
         borderColor: "transparent",
         outline: "0",
 
-        "& > :not(.indicator)": {
+        transitionProperty: "background-color, border-color, color",
+        transitionDuration: "0.2s",
+
+        "& *": {
             transformOrigin: "center center",
-            zIndex: 1,
-            opacity: 0.7,
         },
 
         _disabled: {
@@ -148,9 +142,7 @@ const Base = chakra("button", {
         },
 
         _hover: {
-            "& > :not(.indicator)": {
-                opacity: 0.9,
-            },
+            color: "grayc.1",
         },
 
         _expanded: {},
@@ -161,24 +153,47 @@ const Base = chakra("button", {
             outline: "none",
         },
         "--tb-open-color": "{colors.info}",
+
+        _after: {
+            content: '""',
+            display: "block",
+            position: "absolute",
+            backgroundColor: "var(--tb-indicator-color)/0",
+            top: "-2px",
+            left: 0,
+            right: 0,
+            height: "3px",
+            transition: "all 0.2s ease",
+        },
     },
 
     variants: {
         tbSelected: {
             true: {
-                "& > :not(.indicator)": {
-                    opacity: 0.9,
+                color: "grayc.2",
+                _dark: {
+                    color: "grayc.3",
                 },
             },
             false: {
-                "& > :not(.indicator)": {
-                    opacity: 0.6,
+                color: "grayc.5",
+                _dark: {
+                    color: "grayc.7",
                 },
             },
         },
-        tbOpen: {
-            true: {},
-            false: {},
+        tbIndicator: {
+            true: {
+                _after: {
+                    backgroundColor: "var(--tb-indicator-color)/100",
+
+                },
+            },
+            false: {
+                _after: {
+                    backgroundColor: "var(--tb-indicator-color)/0",
+                },
+            },
         },
         size: {
             min: {

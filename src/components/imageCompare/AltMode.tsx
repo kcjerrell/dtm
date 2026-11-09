@@ -57,6 +57,8 @@ function View(props: ModeViewProps<never>) {
     const { containerStyle, selfProps: _selfProps, ...restProps } = props
     const [_, snap] = ImageCompareContext.useContext()
 
+    if (!snap.imageBSrc) return null
+
     return (
         <motion.div
             style={{
@@ -68,7 +70,7 @@ function View(props: ModeViewProps<never>) {
                 zIndex: 1,
                 pointerEvents: "none",
             }}
-            className="blink-anim"
+            className={snap.imageASrc ? "blink-anim" : undefined}
             {...restProps}
         >
             <motion.img
@@ -103,21 +105,21 @@ function Settings(props: ModeSettingProps<never>) {
                 >
                     A
                 </ToolbarButton>
-                <ToolbarButton
-                    as="span"
-                    itemId="image-b"
-                    gridColumn={"1"}
-                    gridRow={"1"}
-                    size={"sm"}
-                    fontSize={"xs"}
-                    bgColor={"bg.2"}
-                    className={"blink-anim"}
-                    style={{
-                        ...ALT_ANIM_STYLE,
-                    }}
-                >
-                    B
-                </ToolbarButton>
+                {snap.imageBSrc && (
+                    <ToolbarButton
+                        as="span"
+                        itemId="image-b"
+                        gridColumn={"1"}
+                        gridRow={"1"}
+                        size={"sm"}
+                        fontSize={"xs"}
+                        bgColor={"bg.2"}
+                        className={snap.imageASrc ? "blink-anim" : undefined}
+                        style={ALT_ANIM_STYLE}
+                    >
+                        B
+                    </ToolbarButton>
+                )}
             </Grid>
             {/*Slow*/}
             <TriangleSlider

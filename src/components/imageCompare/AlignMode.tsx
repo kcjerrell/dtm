@@ -31,6 +31,7 @@ import {
 import { AlignCompare, AlignmentPinMarker } from "./icons"
 import { getComparisonGeometry, getComparisonImageStyle } from "./imageGeometry"
 import { ImageCompareContext } from "./state"
+import { RiResetLeftFill } from "react-icons/ri";
 
 interface Gesture {
     pointerId: number
@@ -671,7 +672,7 @@ function Settings(props: ModeSettingProps<never>) {
                         state.pinState = null
                     }}
                 >
-                    Reset
+                    <RiResetLeftFill />
                 </ToolbarButton>
             </ToolbarSection>
         </>

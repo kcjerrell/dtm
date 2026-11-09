@@ -277,7 +277,7 @@ function Root(props: ImageCompareRootProps) {
                             // gridTemplateRows={"100%"}
                             // gridTemplateColumns={"100%"}
                         >
-                            <AnimatePresence mode={"popLayout"}>
+                            <AnimatePresence mode={"wait"}>
                                 {modes.map((mode) => {
                                     if (mode.name !== snap.mode) return null
                                     return (

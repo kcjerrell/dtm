@@ -51,7 +51,7 @@ function Compare() {
             <ImageCompare.Root
                 a={snap.imageA?.url}
                 b={snap.imageB?.url}
-                toolbarProps={{ bgColor: "bg.1" }}
+                toolbarProps={{ bgColor: "bg.1", borderTop: "1px solid {colors.grayc.12}" }}
             >
                 <ImageCompare.ImageSelector image={"A"}>
                     <ToolbarButton
@@ -59,7 +59,7 @@ function Compare() {
                         aria-label="Choose comparison images"
                         onClick={() => onEnter()}
                         isOpen={snap.isSelectorOpen}
-                        aria-expanded={snap.isSelectorOpen}
+                        // aria-expanded={snap.isSelectorOpen}
                         onMouseEnter={() => onEnter()}
                         onMouseLeave={() => startCloseTimer()}
                     >
@@ -421,6 +421,7 @@ function ImageABButton(props: ImageABButtonProps) {
             minHeight={"1.5rem"}
             height={"1.5rem"}
             fontSize={"1rem"}
+            fontWeight={"bold"}
             // visibility={show ? "visible" : "hidden"}
             opacity={isSelected ? 1 : 0}
             _groupHover={{
