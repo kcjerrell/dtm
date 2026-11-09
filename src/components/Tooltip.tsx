@@ -1,4 +1,4 @@
-import { Text, type TooltipContentProps, VStack } from "@chakra-ui/react"
+import { Text, type TooltipContentProps, type TooltipRootProps, VStack } from "@chakra-ui/react"
 import type { PropsWithChildren } from "react"
 import { Tooltip } from "./ui/tooltip"
 
@@ -7,6 +7,7 @@ interface TooltipProps extends TooltipContentProps {
     tip?: React.ReactNode
     tipTitle?: string
     tipText?: string
+    ids?: TooltipRootProps["ids"]
     contentProps?: TooltipContentProps
 }
 

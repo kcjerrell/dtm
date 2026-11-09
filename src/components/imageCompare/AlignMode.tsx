@@ -8,7 +8,9 @@ import {
     useId,
     useRef,
 } from "react"
-import IconButton from "../IconButton"
+import { TbLayersIntersect2, TbLayersOff, TbLayersSelectedBottom } from "react-icons/tb"
+import ToolbarButton from "../toolbar/ToolbarButton"
+import { ToolbarSection } from "../toolbar/ToolbarSection"
 import AlignmentPanel from "./AlignmentPanel"
 import {
     type AlignmentHandle,
@@ -18,7 +20,6 @@ import {
     getAlignmentScreenGeometry,
     resizeAlignment,
 } from "./alignmentGeometry"
-import { ToolbarSection } from "./common"
 import { applyEdgeMask } from "./edgeMask"
 import {
     type ImageCompareMode,
@@ -27,13 +28,7 @@ import {
     type ModeViewProps,
     useImageCompareHooks,
 } from "./hooks"
-import {
-    AlignBEdges,
-    AlignBothEdges,
-    AlignCompare,
-    AlignmentPinMarker,
-    AlignOriginal,
-} from "./icons"
+import { AlignCompare, AlignmentPinMarker } from "./icons"
 import { getComparisonGeometry, getComparisonImageStyle } from "./imageGeometry"
 import { ImageCompareContext } from "./state"
 
@@ -56,17 +51,18 @@ interface Gesture {
 }
 
 const RESIZE_HANDLES = [
-    { handle: "nw", name: "top left", left: 0, top: 0, cursor: "nwse-resize" },
-    { handle: "n", name: "top", left: "50%", top: 0, marginLeft: -6, cursor: "ns-resize" },
-    { handle: "ne", name: "top right", right: 0, top: 0, cursor: "nesw-resize" },
-    { handle: "e", name: "right", right: 0, top: "50%", marginTop: -6, cursor: "ew-resize" },
-    { handle: "se", name: "bottom right", right: 0, bottom: 0, cursor: "nwse-resize" },
-    { handle: "s", name: "bottom", left: "50%", bottom: 0, marginLeft: -6, cursor: "ns-resize" },
-    { handle: "sw", name: "bottom left", left: 0, bottom: 0, cursor: "nesw-resize" },
-    { handle: "w", name: "left", left: 0, top: "50%", marginTop: -6, cursor: "ew-resize" },
+    { handle: "nw", name: "top left", left: -8, top: -8, cursor: "nwse-resize" },
+    { handle: "n", name: "top", left: "50%", top: -8, marginLeft: -8, cursor: "ns-resize" },
+    { handle: "ne", name: "top right", right: -8, top: -8, cursor: "nesw-resize" },
+    { handle: "e", name: "right", right: -8, top: "50%", marginTop: -8, cursor: "ew-resize" },
+    { handle: "se", name: "bottom right", right: -8, bottom: -8, cursor: "nwse-resize" },
+    { handle: "s", name: "bottom", left: "50%", bottom: -8, marginLeft: -8, cursor: "ns-resize" },
+    { handle: "sw", name: "bottom left", left: -8, bottom: -8, cursor: "nesw-resize" },
+    { handle: "w", name: "left", left: -8, top: "50%", marginTop: -8, cursor: "ew-resize" },
 ] as const
 
 const AXIS_DAMPING_RATIO = 0.25
+const PIN_COLOR = "#ffd740"
 
 // White edges become #ffa0a0 / #a0c8ff without regenerating the raster buffers.
 const EDGE_FILTERS = {
@@ -75,9 +71,9 @@ const EDGE_FILTERS = {
 } as const
 
 const DISPLAY_MODES = [
-    { value: "original", label: "Show original images", Icon: AlignOriginal },
-    { value: "b-edges", label: "Show B edges", Icon: AlignBEdges },
-    { value: "both-edges", label: "Show A and B edges", Icon: AlignBothEdges },
+    { value: "b-edges", label: "Show B edges", Icon: TbLayersSelectedBottom },
+    { value: "both-edges", label: "Show A and B edges", Icon: TbLayersIntersect2 },
+    { value: "original", label: "Show original images", Icon: TbLayersOff },
 ] as const
 
 function AlignmentEdges({ image: side, style }: { image: "A" | "B"; style: CSSProperties }) {
@@ -193,7 +189,11 @@ function AlignmentEdges({ image: side, style }: { image: "A" | "B"; style: CSSPr
             ref={edgeCanvas}
             role="img"
             aria-label={`${side} edges`}
-            style={{ imageRendering: "pixelated", pointerEvents: "none", ...style }}
+            style={{
+                imageRendering: snap.smoothing ? "auto" : "pixelated",
+                pointerEvents: "none",
+                ...style,
+            }}
         />
     )
 }
@@ -206,6 +206,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
     const filterId = useId()
     const showOriginal = snap.alignDisplay === "original"
     const showBothEdges = snap.alignDisplay === "both-edges"
+    const placingPin = snap.alignPinEnabled && !snap.pinState
     const bStyle: CSSProperties = {
         position: "absolute",
         inset: 0,
@@ -222,6 +223,8 @@ function View({ containerStyle }: ModeViewProps<never>) {
         snap.imageAHeight > 0 &&
         snap.imageBWidth > 0 &&
         snap.imageBHeight > 0
+    const animateBorder = snap.mode === "align" && ready && !placingPin
+    const dashOffsets = snap.pinState ? ["16px", "0px"] : ["0px", "16px"]
     const screen = useTransform(() =>
         getAlignmentScreenGeometry(snap, {
             x: zoomStyle.x.get(),
@@ -241,6 +244,13 @@ function View({ containerStyle }: ModeViewProps<never>) {
         screen,
         (value) => value.a.y + (snap.pinState?.ay ?? 0) * value.pixelsPerA,
     )
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the mode snapshot triggers a read of current pin state
+    useEffect(() => {
+        if (state.mode !== "align" && state.alignPinEnabled && !state.pinState) {
+            state.alignPinEnabled = false
+        }
+    }, [snap.mode, state])
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: end gestures when the active mode or image pair changes
     useEffect(() => {
@@ -447,7 +457,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
             inset={0}
             zIndex={1}
             pointerEvents="none"
-            bgColor={showBothEdges ? "black" : undefined}
+            // bgColor={showBothEdges ? "black" : undefined}
             isolation="isolate"
             display={snap.mode === "align" && ready ? "block" : "none"}
         >
@@ -471,6 +481,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
                         ...getComparisonImageStyle(snap, "a"),
                         display: showBothEdges ? "block" : "none",
                         filter: `url(#${filterId}-A)`,
+                        backgroundColor: "#77777777",
                     }}
                 />
             </motion.div>
@@ -486,14 +497,8 @@ function View({ containerStyle }: ModeViewProps<never>) {
                     top,
                     width,
                     height,
-                    outline: snap.alignPinEnabled ? undefined : "1px solid white",
-                    boxShadow: snap.alignPinEnabled ? undefined : "0 0 0 2px black",
                     pointerEvents: "auto",
-                    cursor: snap.shiftHeld
-                        ? "grab"
-                        : snap.alignPinEnabled && !snap.pinState
-                          ? "crosshair"
-                          : "move",
+                    cursor: snap.shiftHeld ? "grab" : placingPin ? "crosshair" : "move",
                     touchAction: "none",
                 }}
                 onPointerDown={(event) => startGesture(event)}
@@ -522,6 +527,33 @@ function View({ containerStyle }: ModeViewProps<never>) {
                         mixBlendMode: showBothEdges ? "screen" : "normal",
                     }}
                 />
+                <svg
+                    aria-hidden="true"
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        opacity: placingPin ? 0.7 : 1,
+                        pointerEvents: "none",
+                    }}
+                >
+                    <rect width="100%" height="100%" stroke="#FFF" strokeWidth={4} fill="none" />
+                    <motion.rect
+                        width="100%"
+                        height="100%"
+                        stroke="#000"
+                        strokeWidth={4}
+                        strokeDasharray="8px"
+                        fill="none"
+                        animate={{ strokeDashoffset: animateBorder ? dashOffsets : "0px" }}
+                        transition={
+                            animateBorder
+                                ? { duration: 1, ease: "linear", repeat: Infinity }
+                                : { duration: 0 }
+                        }
+                    />
+                </svg>
                 {!snap.alignPinEnabled &&
                     snap.imageBScaleX !== 0 &&
                     snap.imageBScaleY !== 0 &&
@@ -533,11 +565,12 @@ function View({ containerStyle }: ModeViewProps<never>) {
                             style={{
                                 ...position,
                                 position: "absolute",
-                                width: 12,
-                                height: 12,
+                                width: 16,
+                                height: 16,
                                 padding: 0,
-                                background: "white",
-                                border: "1px solid black",
+                                background: "var(--chakra-colors-info)",
+                                border: "1px solid white",
+                                borderRadius: "50%",
                                 cursor: snap.shiftHeld ? "grab" : cursor,
                             }}
                             onPointerDown={(event) => startGesture(event, handle)}
@@ -561,7 +594,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
                         marginTop: -12,
                         display: "grid",
                         placeItems: "center",
-                        color: "#ffd740",
+                        color: PIN_COLOR,
                         background: "#0009",
                         border: "1px solid currentColor",
                         borderRadius: "50%",
@@ -587,73 +620,75 @@ function Settings(props: ModeSettingProps<never>) {
     const { selfProps: _selfProps, ...rest } = props
     const [state, snap] = ImageCompareContext.useContext()
     return (
-        <ToolbarSection
-            activeIndex={DISPLAY_MODES.findIndex((m) => m.value === snap.alignDisplay)}
-            {...rest}
-        >
-            {DISPLAY_MODES.map(({ value, label, Icon }) => (
-                <IconButton
-                    key={value}
-                    variant="toolbar"
-                    aria-label={label}
-                    aria-pressed={snap.alignDisplay === value}
-                    tbActive={snap.alignDisplay === value}
-                    tipTitle={label}
+        <>
+            <ToolbarSection mode="select" {...rest}>
+                {DISPLAY_MODES.map(({ value, label, Icon }) => (
+                    <ToolbarButton
+                        key={value}
+                        itemId={value}
+                        aria-label={label}
+                        aria-pressed={snap.alignDisplay === value}
+                        isSelected={snap.alignDisplay === value}
+                        tipTitle={label}
+                        onClick={() => {
+                            state.alignDisplay = value
+                        }}
+                    >
+                        <Icon />
+                    </ToolbarButton>
+                ))}
+            </ToolbarSection>
+            <ToolbarSection>
+                <ToolbarButton
+                    itemId="pin"
+                    aria-label="Pin"
+                    aria-pressed={snap.alignPinEnabled}
+                    isActive={snap.alignPinEnabled && !!snap.pinState}
+                    isWaiting={snap.alignPinEnabled && !snap.pinState}
+                    tipTitle="Pin alignment"
+                    tipText="Click B to anchor a point, then drag B to scale around it. Starting close to the pin’s horizontal or vertical line reduces movement across that line. Drag across the pin to flip. Hold Shift to pan."
+                    disabled={!snap.imageASrc || !snap.imageBSrc}
                     onClick={() => {
-                        state.alignDisplay = value
+                        state.alignPinEnabled = !state.alignPinEnabled
+                        state.pinState = null
                     }}
                 >
-                    <Icon />
-                </IconButton>
-            ))}
-            <AlignmentPanel />
-            <IconButton
-                aria-label="Pin"
-                aria-pressed={snap.alignPinEnabled}
-                variant="toolbar"
-                tbActive={snap.alignPinEnabled}
-                tipTitle="Pin alignment"
-                tipText="Click B to anchor a point, then drag B to scale around it. Starting close to the pin’s horizontal or vertical line reduces movement across that line. Drag across the pin to flip. Hold Shift to pan."
-                px={2}
-                aspectRatio="auto"
-                disabled={!snap.imageASrc || !snap.imageBSrc}
-                onClick={() => {
-                    state.alignPinEnabled = !state.alignPinEnabled
-                    state.pinState = null
-                }}
-            >
-                Pin
-            </IconButton>
-            <IconButton
-                variant="toolbar"
-                aria-label="Reset alignment"
-                tipTitle="Reset alignment"
-                disabled={!snap.imageBSrc}
-                onClick={() => {
-                    state.imageBOffset = { x: 0, y: 0 }
-                    state.imageBScaleX = 1
-                    state.imageBScaleY = 1
-                    state.pinState = null
-                }}
-            >
-                Reset
-            </IconButton>
-        </ToolbarSection>
+                    <AlignmentPinMarker />
+                </ToolbarButton>
+            </ToolbarSection>
+            <ToolbarSection>
+                <AlignmentPanel />
+                <ToolbarButton
+                    itemId="reset"
+                    aria-label="Reset alignment"
+                    tipTitle="Reset alignment"
+                    disabled={!snap.imageBSrc}
+                    onClick={() => {
+                        state.imageBOffset = { x: 0, y: 0 }
+                        state.imageBScaleX = 1
+                        state.imageBScaleY = 1
+                        if (!state.pinState) state.alignPinEnabled = false
+                        state.pinState = null
+                    }}
+                >
+                    Reset
+                </ToolbarButton>
+            </ToolbarSection>
+        </>
     )
 }
 
-function Button({ selected, ...rest }: ModeButtonProps) {
+function Button(props: ModeButtonProps) {
     return (
-        <IconButton
+        <ToolbarButton
+            itemId={"align"}
             aria-label="Align"
             tipTitle="Align"
-            variant="toolbar"
-            tbActive={selected}
             tipText="Drag image B to move it. Drag an edge handle to scale one axis or a corner to keep its proportions. Hold Shift and drag to pan. Arrow keys nudge, with larger steps when you hold Shift."
-            {...rest}
+            {...props}
         >
             <AlignCompare />
-        </IconButton>
+        </ToolbarButton>
     )
 }
 

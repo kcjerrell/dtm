@@ -12,9 +12,9 @@ import {
 } from "react"
 import type { Snapshot } from "valtio"
 import IconButton from "../IconButton"
+import { ToolbarSection } from "../toolbar/ToolbarSection"
 import AlignMode from "./AlignMode"
 import AltMode from "./AltMode"
-import { ToolbarSection } from "./common"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import type { ImageSelectorProps } from "./ImageSelector"
 import { SmoothingOff, SmoothingOn } from "./icons"
@@ -22,6 +22,7 @@ import { getComparisonImageStyle } from "./imageGeometry"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
+import ToolbarButton from "../toolbar/ToolbarButton"
 
 export interface ImageCompareRootProps extends ChakraProps {
     a?: string
@@ -232,14 +233,16 @@ function Root(props: ImageCompareRootProps) {
                         px={8}
                         py={0}
                         boxShadow={"0px 0px 5px -1px #00000055, 0px 3px 12px -3px #00000055"}
+                        zIndex={2}
+                        gap={3}
                         {...toolbarProps}
                     >
                         {imageSelectors.length > 0 && (
                             <ToolbarSection>{imageSelectors}</ToolbarSection>
                         )}
-                        <ToolbarSection color={"fg.3"}>
-                            <IconButton
-                                variant="toolbar"
+                        <ToolbarSection>
+                            <ToolbarButton
+                                itemId="smoothing"
                                 tipTitle={snap.smoothing ? "Disable smoothing" : "Enable smoothing"}
                                 tipText={
                                     snap.smoothing
@@ -251,19 +254,17 @@ function Root(props: ImageCompareRootProps) {
                                 }}
                             >
                                 {snap.smoothing ? <SmoothingOn /> : <SmoothingOff />}
-                            </IconButton>
+                            </ToolbarButton>
                         </ToolbarSection>
-                        <ToolbarSection
-                            paddingInline={"0px"}
-                            activeIndex={activeMode ? activeIndex : undefined}
-                        >
+                        <ToolbarSection mode={"select"}>
                             {modes.map((mode, index) => {
                                 const ModeButton = mode.Button
                                 return (
                                     <ModeButton
                                         key={mode.name}
-                                        selected={index === activeIndex}
+                                        isSelected={snap.mode === mode.name}
                                         onClick={() => {
+                                            console.log("hello", state.mode, mode.name)
                                             state.mode = mode.name
                                         }}
                                     />
@@ -271,45 +272,49 @@ function Root(props: ImageCompareRootProps) {
                             })}
                         </ToolbarSection>
 
-                        <Grid
-                            overflow={"clip"}
-                            gridTemplateRows={"100%"}
-                            gridTemplateColumns={"100%"}
+                        <HStack
+                            clipPath={"rect(-3px 100% 100% 0)"}
+                            // gridTemplateRows={"100%"}
+                            // gridTemplateColumns={"100%"}
                         >
-                            <AnimatePresence mode={"sync"}>
+                            <AnimatePresence mode={"popLayout"}>
                                 {modes.map((mode) => {
                                     if (mode.name !== snap.mode) return null
                                     return (
-                                        <motion.div
-                                            key={mode.name}
-                                            initial={{
-                                                x: "-100%",
-                                                opacity: 1,
-                                            }}
-                                            animate={{ x: "0%", opacity: 1 }}
-                                            exit={{
-                                                // x: "-100%",
-                                                opacity: 0,
-                                                transition: {
+                                        <HStack asChild key={mode.name}>
+                                            <motion.div
+                                                initial={{
+                                                    x: "-100%",
+                                                    opacity: 1,
+                                                }}
+                                                animate={{ x: "0%", opacity: 1 }}
+                                                exit={{
+                                                    // x: "-100%",
+                                                    opacity: 0,
+                                                    transition: {
+                                                        duration: 0.2,
+                                                        ease: "circOut",
+                                                        delay: 0,
+                                                    },
+                                                }}
+                                                transition={{
                                                     duration: 0.2,
                                                     ease: "circOut",
-                                                    delay: 0,
-                                                },
-                                            }}
-                                            transition={{
-                                                duration: 0.2,
-                                                ease: "circOut",
-                                                delay: 0.1,
-                                            }}
-                                            style={{ gridRow: "1", gridColumn: "1" }}
-                                        >
-                                            {mode.settings}
-                                        </motion.div>
+                                                    delay: 0.1,
+                                                }}
+                                                style={{
+                                                    gridRow: "1",
+                                                    gridColumn: "1",
+                                                }}
+                                            >
+                                                {mode.settings}
+                                            </motion.div>
+                                        </HStack>
                                     )
                                 })}
                             </AnimatePresence>
-                        </Grid>
-                        <ShiftHint snap={snap} ml={"auto"}/>
+                        </HStack>
+                        <ShiftHint snap={snap} ml={"auto"} />
                     </HStack>
                 </GridRoot>
             </Provider>
@@ -382,7 +387,13 @@ function ShiftHint(props: ShiftHintProps) {
     const text = getShiftText(snap)
     if (!text) return null
     return (
-        <Box fontSize={"sm"}  alignSelf={"center"} justifySelf={"center"} whiteSpace="nowrap" {...rest}>
+        <Box
+            fontSize={"sm"}
+            alignSelf={"center"}
+            justifySelf={"center"}
+            whiteSpace="nowrap"
+            {...rest}
+        >
             {verb}
             <Kbd>Shift</Kbd>
             to {text}

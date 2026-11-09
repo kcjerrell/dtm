@@ -8,6 +8,7 @@ import { IconButton, Panel } from "@/components"
 import type { IconButtonProps } from "@/components/IconButton"
 import { FiX, PiImage } from "@/components/icons/icons"
 import ImageCompare from "@/components/imageCompare"
+import ToolbarButton from "@/components/toolbar/ToolbarButton"
 import { useTimeout } from "@/hooks/useTimeout"
 import PinnedIcon from "@/metadata/toolbar/PinnedIcon"
 import { type CompareItem, useCompareStore } from "./state"
@@ -53,16 +54,17 @@ function Compare() {
                 toolbarProps={{ bgColor: "bg.1" }}
             >
                 <ImageCompare.ImageSelector image={"A"}>
-                    <IconButton
-                        variant="toolbar"
+                    <ToolbarButton
+                        itemId="image-selector"
+                        aria-label="Choose comparison images"
                         onClick={() => onEnter()}
-                        tbOpen={snap.isSelectorOpen}
+                        isOpen={snap.isSelectorOpen}
                         aria-expanded={snap.isSelectorOpen}
                         onMouseEnter={() => onEnter()}
                         onMouseLeave={() => startCloseTimer()}
                     >
                         <PiImage />
-                    </IconButton>
+                    </ToolbarButton>
                 </ImageCompare.ImageSelector>
 
                 <ImageCompare.TopLayer show={snap.isSelectorOpen}>

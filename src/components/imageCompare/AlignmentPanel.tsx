@@ -2,7 +2,7 @@ import { Box, NumberInput, Popover, Portal } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { Panel } from "@/components/common"
 import { useRootElementRef } from "@/hooks/useRootElement"
-import IconButton from "../IconButton"
+import ToolbarButton from "../toolbar/ToolbarButton"
 import { NumberInputField, NumberInputLabel, NumberInputRoot } from "../ui/number-input"
 import { AlignmentSettings } from "./icons"
 import { ImageCompareContext } from "./state"
@@ -63,24 +63,25 @@ function AlignmentField(props: {
 export default function AlignmentPanel() {
     const [state, snap] = ImageCompareContext.useContext()
     const [open, setOpen] = useState(false)
+    const isOpen = open && snap.mode === "align"
     const viewRef = useRootElementRef("view")
     const disabled = !snap.imageASrc || !snap.imageBSrc || !snap.imageAWidth || !snap.imageBWidth
 
     return (
         <Popover.Root
-            open={open && snap.mode === "align"}
+            open={isOpen}
             onOpenChange={({ open }) => setOpen(open)}
             positioning={{ placement: "top" }}
         >
             <Popover.Trigger asChild>
-                <IconButton
-                    variant="toolbar"
-                    tbActive={open && snap.mode === "align"}
+                <ToolbarButton
+                    itemId="alignment-settings"
+                    isOpen={isOpen}
                     aria-label="Adjust alignment"
                     tipTitle="Adjust alignment"
                 >
                     <AlignmentSettings />
-                </IconButton>
+                </ToolbarButton>
             </Popover.Trigger>
             <Portal container={viewRef}>
                 <Popover.Positioner>

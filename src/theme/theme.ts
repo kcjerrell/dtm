@@ -175,8 +175,22 @@ const themeConfig = defineConfig({
                     },
                 },
             },
+            marchingBorder: {
+                value: {
+                    backgroundImage:
+                        "linear-gradient(90deg, #000 50%, #FFF 0), linear-gradient(90deg, #000 50%, #FFF 0), linear-gradient(180deg, #000 50%, #FFF 0), linear-gradient(180deg, #000 50%, #FFF 0)",
+                    backgroundSize: "15px 2px, 15px 2px, 2px 15px, 2px 15px",
+                    backgroundPosition: "0 0, 0 100%, 0 0, 100% 0",
+                    backgroundRepeat: "repeat-x, repeat-x, repeat-y, repeat-y",
+                },
+            },
         }),
         semanticTokens: {
+            animations: {
+                "marchingBorder": {
+                    value: "marching-border 0.8s linear infinite"
+                }
+            },
             colors: {
                 check: {
                     "1": {
@@ -389,6 +403,9 @@ const themeConfig = defineConfig({
                 "0%, 50%": { transform: "rotateY(0deg) skewY(0deg)" },
                 "90%, 99%": { transform: "rotateY(90deg) skewY(-20deg)" },
                 "100%": { transform: "rotateY(0deg) skewY(0deg)" },
+            },
+            "marching-border": {
+                to: { backgroundPosition: "-30px 0, 30px 100%, 0 30px, 100% -30px" },
             },
         },
     },

@@ -10,7 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import { useRootElementRef } from "@/hooks/useRootElement"
 import { useTimeout } from "@/hooks/useTimeout"
 import IconButton from "../IconButton"
-import { ToolbarSection } from "./common"
+import { ToolbarSection } from "../toolbar/ToolbarSection"
 import {
     type ImageCompareHooksContextType,
     type ImageCompareMode,
@@ -31,6 +31,7 @@ import { getComparisonImageStyle } from "./imageGeometry"
 import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
 import { useSliderComparison } from "./useSliderComparison"
+import ToolbarButton from "../toolbar/ToolbarButton"
 
 interface ViewportCanvasGeometry {
     contentLeft: number
@@ -480,47 +481,41 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
 
     return (
-        <ToolbarSection
-            activeIndex={["none", "brightness", "color", "difference"].indexOf(sliderTrail)}
-            {...restProps}
-        >
-            <IconButton
-                variant="toolbar"
-                tbActive={sliderTrail === "none"}
-                tone={sliderTrail === "none" && sliderButtonTone === "info" ? "info" : "none"}
+        <ToolbarSection mode={"select"} {...restProps}>
+            <ToolbarButton
+                itemId={"none"}
+                isSelected={sliderTrail === "none"}
                 onClick={() => selectEffect("none")}
             >
                 X{/*<FaToggleOff />*/}
-            </IconButton>
-            <IconButton
-                variant="toolbar"
-                tbActive={sliderTrail === "brightness"}
-                tone={sliderTrail === "brightness" && sliderButtonTone === "info" ? "info" : "none"}
+            </ToolbarButton>
+            <ToolbarButton
+                itemId={"brightness"}
+                isSelected={sliderTrail === "brightness"}
                 onClick={() => selectEffect("brightness")}
             >
                 <BrightnessEffect />
-            </IconButton>
-            <IconButton
-                variant="toolbar"
-                tbActive={sliderTrail === "color"}
-                tone={sliderTrail === "color" && sliderButtonTone === "info" ? "info" : "none"}
+            </ToolbarButton>
+            <ToolbarButton
+                itemId={"color"}
+                isSelected={sliderTrail === "color"}
                 onClick={() => selectEffect("color")}
             >
                 <ColorEffect />
-            </IconButton>
-            <IconButton
-                variant="toolbar"
-                tbActive={sliderTrail === "difference"}
-                tone={sliderTrail === "difference" && sliderButtonTone === "info" ? "info" : "none"}
+            </ToolbarButton>
+            <ToolbarButton
+                itemId={"difference"}
+                isSelected={sliderTrail === "difference"}
                 onClick={() => selectEffect("difference")}
             >
                 <DifferenceEffect />
-            </IconButton>
+            </ToolbarButton>
 
             <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
                 <Popover.Trigger _expanded={{ background: undefined }} asChild>
                     <SettingsButton
-                        tbOpen={isSettingsOpen}
+                        itemId={"settings"}
+                        isOpen={isSettingsOpen}
                         onEnter={onEnter}
                         onLeave={startCloseTimer}
                     />
@@ -547,20 +542,19 @@ type PopoverTriggers = {
     onLeave: (context: PopoverContext) => void
 }
 
-function SettingsButton(props: ComponentProps<typeof IconButton> & PopoverTriggers) {
+function SettingsButton(props: ComponentProps<typeof ToolbarButton> & PopoverTriggers) {
     const { onEnter, onLeave, ...restProps } = props
 
     const context = usePopoverContext()
 
     return (
-        <IconButton
-            variant="toolbar"
+        <ToolbarButton
             onMouseEnter={() => onEnter(context)}
             onMouseLeave={() => onLeave(context)}
             {...restProps}
         >
             <SliderSettings />
-        </IconButton>
+        </ToolbarButton>
     )
 }
 
@@ -645,20 +639,12 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
 }
 
 function Button(props: ModeButtonProps) {
-    const { selected, ...restProps } = props
-
     const tip = `Drag the divider to compare images. Press Space to switch between effects that
                  highlight the differences between the images.`
     return (
-        <IconButton
-            variant="toolbar"
-            tbActive={selected}
-            tipTitle={"Slider"}
-            tipText={tip}
-            {...restProps}
-        >
+        <ToolbarButton itemId={"slider"} tipTitle={"Slider"} tipText={tip} {...props}>
             <SliderCompare stroke={"currentColor"} strokeWidth={0.5} />
-        </IconButton>
+        </ToolbarButton>
     )
 }
 

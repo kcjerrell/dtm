@@ -3,8 +3,8 @@ import { motion } from "motion/react"
 import { useMemo } from "react"
 
 import type { Snapshot } from "valtio"
-import IconButton from "../IconButton"
-import { ToolbarSection } from "./common"
+import ToolbarButton from "../toolbar/ToolbarButton"
+import { ToolbarSection } from "../toolbar/ToolbarSection"
 import {
     type ImageCompareHooksContextType,
     type ImageCompareMode,
@@ -98,45 +98,41 @@ function Settings(props: ModeSettingProps<never>) {
     const [state, snap] = ImageCompareContext.useContext()
 
     return (
-        <ToolbarSection {...restProps}>
-            <IconButton
-                variant="toolbar"
-                tbActive={snap.sbsLayout === "vertical"}
+        <ToolbarSection mode="select" {...restProps}>
+            <ToolbarButton
+                itemId="vertical"
+                aria-label="Vertical layout"
+                aria-pressed={snap.sbsLayout === "vertical"}
+                isSelected={snap.sbsLayout === "vertical"}
                 onClick={() => {
                     state.sbsLayout = "vertical"
                 }}
             >
                 <VerticalLayout />
-            </IconButton>
-            <IconButton
-                variant="toolbar"
-                tbActive={snap.sbsLayout === "horizontal"}
+            </ToolbarButton>
+            <ToolbarButton
+                itemId="horizontal"
+                aria-label="Horizontal layout"
+                aria-pressed={snap.sbsLayout === "horizontal"}
+                isSelected={snap.sbsLayout === "horizontal"}
                 onClick={() => {
                     state.sbsLayout = "horizontal"
                 }}
             >
                 <HorizontalLayout />
-            </IconButton>
+            </ToolbarButton>
         </ToolbarSection>
     )
 }
 
 function Button(props: ModeButtonProps) {
-    const { selected, ...restProps } = props
-
     const tip = `View, pan, and zoom images in synced side-by-side panes. Press Space to switch
                  between horizontal and vertical panes.`
 
     return (
-        <IconButton
-            variant="toolbar"
-            tbActive={selected}
-            tipTitle={"Side-by-side"}
-            tipText={tip}
-            {...restProps}
-        >
+        <ToolbarButton itemId={"sbs"} tipTitle={"Side-by-side"} tipText={tip} {...props}>
             <SbsCompare />
-        </IconButton>
+        </ToolbarButton>
     )
 }
 

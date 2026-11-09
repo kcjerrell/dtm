@@ -17,7 +17,7 @@ vi.mock("motion/react", async (importOriginal) => {
 vi.mock("@chakra-ui/react", () => ({
     Box: ({ children }: PropsWithChildren) => <div>{children}</div>,
 }))
-vi.mock("../IconButton", () => ({
+vi.mock("../toolbar/ToolbarButton", () => ({
     default: ({
         children,
         onClick,
@@ -43,7 +43,7 @@ vi.mock("../IconButton", () => ({
     ),
 }))
 vi.mock("./AlignmentPanel", () => ({ default: () => null }))
-vi.mock("./common", () => ({
+vi.mock("../toolbar/ToolbarSection", () => ({
     ToolbarSection: ({ children }: PropsWithChildren) => <div>{children}</div>,
 }))
 vi.mock("./hooks", () => ({ useImageCompareHooks: () => testHooks }))
@@ -198,6 +198,15 @@ describe("Align mode", () => {
         })
         expect(find("B edges").style.transform).toBe("scale(-1, 1)")
         expect(context.putImageData).toHaveBeenCalledTimes(2)
+        for (const smoothing of [false, true]) {
+            await act(async () => {
+                state.smoothing = smoothing
+            })
+            const rendering = smoothing ? "auto" : "pixelated"
+            expect(find("A edges").style.imageRendering).toBe(rendering)
+            expect(find("B edges").style.imageRendering).toBe(rendering)
+            expect(context.putImageData).toHaveBeenCalledTimes(2)
+        }
         for (const label of ["Show original images", "Show B edges", "Show A and B edges"]) {
             await click(label)
             expect(context.putImageData).toHaveBeenCalledTimes(2)
@@ -233,7 +242,7 @@ describe("Align mode", () => {
         expect(find("Show A and B edges").getAttribute("aria-pressed")).toBe("false")
         expect(find("B original").getAttribute("src")).toBe("b.png")
         expect(find("B original").style.display).toBe("block")
-        expect(find("B original").style.opacity).toBe("0.7")
+        expect(find("B original").style.opacity).toBe("0.5")
         expect(find("A edges").style.display).toBe("none")
         expect(find("B edges").style.display).toBe("none")
 
@@ -244,7 +253,7 @@ describe("Align mode", () => {
         expect(find("B original").style.display).toBe("none")
         expect(find("A edges").style.display).toBe("none")
         expect(find("B edges").style.display).toBe("block")
-        expect(find("B edges").style.opacity).toBe("0.7")
+        expect(find("B edges").style.opacity).toBe("0.8")
         expect(find("B edges").style.filter).toBe("none")
         expect(find("B edges").style.mixBlendMode).toBe("normal")
 
@@ -427,23 +436,82 @@ describe("Align mode", () => {
 
     it("toggles normal, pinning and pinned, including removal and replacement", async () => {
         const { state, click, find, pointer } = await setup()
+        const imageB = find("Image B alignment")
+        const border = imageB.querySelector("svg")
         expect(state.alignPinEnabled).toBe(false)
-        expect(find("Image B alignment").querySelectorAll("button")).toHaveLength(8)
+        expect(imageB.querySelectorAll("button")).toHaveLength(8)
+        expect(border?.style.opacity).toBe("1")
         await click("Pin")
         expect(find("Pin").getAttribute("aria-pressed")).toBe("true")
-        expect(find("Image B alignment").querySelector("button")).toBeNull()
-        expect(find("Image B alignment").style.cursor).toBe("crosshair")
+        expect(imageB.querySelector("button")).toBeNull()
+        expect(imageB.style.cursor).toBe("crosshair")
+        expect(border?.style.opacity).toBe("0.7")
         await pointer("pointerdown", 100, 150)
+        await pointer("pointermove", 150, 200)
+        await pointer("pointerup", 150, 200)
         expect(state.pinState).toEqual({ ax: 20, ay: 30, bx: 40, by: 60 })
+        expect(state.imageBOffset).toEqual({ x: 0, y: 0 })
+        expect(state.imageBScaleX).toBe(1)
+        expect(state.imageBScaleY).toBe(1)
+        expect(imageB.querySelector("button")).toBeNull()
+        expect(border?.style.opacity).toBe("1")
         await click("Remove alignment pin")
         expect(state.pinState).toBeNull()
         expect(state.alignPinEnabled).toBe(true)
+        expect(border?.style.opacity).toBe("0.7")
         await pointer("pointerdown", 150, 200)
         expect(state.pinState).toEqual({ ax: 30, ay: 40, bx: 60, by: 80 })
         await click("Pin")
         expect(state.pinState).toBeNull()
         expect(state.alignPinEnabled).toBe(false)
-        expect(find("Image B alignment").querySelectorAll("button")).toHaveLength(8)
+        expect(imageB.querySelectorAll("button")).toHaveLength(8)
+    })
+
+    it.each(["Pin", "Reset alignment", "leave Align"])(
+        "cancels pin placement with %s",
+        async (action) => {
+            const { state, click, find } = await setup()
+            await click("Pin")
+            if (action === "leave Align") {
+                await act(async () => {
+                    state.mode = "slider"
+                })
+                expect(state.alignPinEnabled).toBe(false)
+                await act(async () => {
+                    state.mode = "align"
+                })
+            } else {
+                await click(action)
+            }
+            expect(state.alignPinEnabled).toBe(false)
+            expect(state.pinState).toBeNull()
+            expect(find("Pin").getAttribute("aria-pressed")).toBe("false")
+            expect(find("Image B alignment").querySelectorAll("button")).toHaveLength(8)
+        },
+    )
+
+    it("preserves an active pin when leaving and returning to Align", async () => {
+        const { state, click, find, pointer } = await setup()
+        await click("Pin")
+        await pointer("pointerdown", 100, 150)
+        await pointer("pointerup", 100, 150)
+        const pin = state.pinState
+        await act(async () => {
+            state.mode = "slider"
+        })
+        expect(state.alignPinEnabled).toBe(true)
+        expect(state.pinState).toBe(pin)
+        await act(async () => {
+            state.mode = "align"
+        })
+        expect(find("Pin").getAttribute("aria-pressed")).toBe("true")
+        expect(find("Remove alignment pin")).toBeTruthy()
+        await pointer("pointerdown", 300, 350)
+        await pointer("pointermove", 400, 450)
+        await pointer("pointerup", 400, 450)
+        expect(state.imageBScaleX).toBeCloseTo(1.5)
+        expect(state.imageBScaleY).toBeCloseTo(1.5)
+        expect(state.pinState).toBe(pin)
     })
 
     it.each([

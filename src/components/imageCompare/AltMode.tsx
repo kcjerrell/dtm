@@ -2,9 +2,9 @@ import { Grid } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import { type CSSProperties, useMemo } from "react"
 import type { Snapshot } from "valtio"
-import { IconButton } from "@/components"
+import ToolbarButton from "../toolbar/ToolbarButton"
+import { ToolbarSection } from "../toolbar/ToolbarSection"
 import { TriangleSlider } from "../ui/slider"
-import { ToolbarSection } from "./common"
 import type {
     ImageCompareHooksContextType,
     ImageCompareMode,
@@ -91,9 +91,10 @@ function Settings(props: ModeSettingProps<never>) {
 
     return (
         <ToolbarSection fontSize={"sm"} fontWeight={"500"} {...restProps}>
-            <Grid>
-                <IconButton
-                    variant="toolbar"
+            <Grid aria-hidden="true">
+                <ToolbarButton
+                    as="span"
+                    itemId="image-a"
                     gridColumn={"1"}
                     gridRow={"1"}
                     size={"sm"}
@@ -101,9 +102,10 @@ function Settings(props: ModeSettingProps<never>) {
                     bgColor={"bg.2"}
                 >
                     A
-                </IconButton>
-                <IconButton
-                    variant="toolbar"
+                </ToolbarButton>
+                <ToolbarButton
+                    as="span"
+                    itemId="image-b"
                     gridColumn={"1"}
                     gridRow={"1"}
                     size={"sm"}
@@ -115,7 +117,7 @@ function Settings(props: ModeSettingProps<never>) {
                     }}
                 >
                     B
-                </IconButton>
+                </ToolbarButton>
             </Grid>
             {/*Slow*/}
             <TriangleSlider
@@ -137,8 +139,6 @@ function Settings(props: ModeSettingProps<never>) {
 }
 
 function Button(props: ModeButtonProps) {
-    const { selected, ...restProps } = props
-
     // const tip = (
     //     <>
     //         <PanelSectionHeader fontWeight={"600"}>Swap</PanelSectionHeader>
@@ -155,15 +155,9 @@ function Button(props: ModeButtonProps) {
                  between images.`
 
     return (
-        <IconButton
-            variant="toolbar"
-            tbActive={selected}
-            tipTitle={"Swap"}
-            tipText={tip}
-            {...restProps}
-        >
+        <ToolbarButton itemId={"alt"} tipTitle={"Swap"} tipText={tip} {...props}>
             <SwapCompare />
-        </IconButton>
+        </ToolbarButton>
     )
 }
 

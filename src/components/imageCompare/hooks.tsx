@@ -18,7 +18,7 @@ import {
 } from "react"
 import type { Snapshot } from "valtio"
 import { useZoomable } from "@/components/preview/useZoomable"
-import type { IconButtonProps } from "../IconButton"
+import type { ToolbarButtonProps } from "../toolbar/ToolbarButton"
 import type { ImageCompareState } from "./state"
 
 const TRAIL_SPRING = {
@@ -38,9 +38,7 @@ export type UseModeResult<T = unknown> = {
     selfProps?: T
     keyHandlers?: Record<"space", () => void>
 }
-export interface ModeButtonProps extends IconButtonProps {
-    selected: boolean
-}
+export type ModeButtonProps = Omit<ToolbarButtonProps, "itemId">
 export interface ModeViewProps<T = unknown> extends MotionProps {
     containerStyle?: MotionStyle
     selfProps?: T
