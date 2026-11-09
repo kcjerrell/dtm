@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useCreateImageCompareContext } from "./hooks"
 import { ImageCompareContext } from "./state"
 
+vi.mock("@/state/settings", () => ({
+    useSettingRef: () => ({ current: "pinch" }),
+}))
+
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 
 const sizes: Record<string, readonly [number, number]> = {

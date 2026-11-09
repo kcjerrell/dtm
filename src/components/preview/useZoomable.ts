@@ -1,6 +1,7 @@
 import { type SpringOptions, useSpring } from "motion/react"
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react"
 import { useElapsed } from "@/hooks/useDecay"
+import { useSettingRef } from "@/state/settings"
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 8
@@ -19,6 +20,7 @@ export function useZoomable(
         zoomViewportRef?: RefObject<HTMLElement | null>
         mapZoomPoint?: (clientX: number, clientY: number) => { clientX: number; clientY: number }
         onZoomOutBoundary?: () => void
+        allowShiftDrag?: boolean
         minZoom?: number
         maxZoom?: number
         /** Gap allowed beyond each content edge at 1x zoom, in CSS pixels. */
@@ -32,6 +34,7 @@ export function useZoomable(
         zoomViewportRef,
         mapZoomPoint,
         onZoomOutBoundary,
+        allowShiftDrag = false,
         minZoom = MIN_ZOOM,
         maxZoom = MAX_ZOOM,
         panMargin = 0,
@@ -41,9 +44,11 @@ export function useZoomable(
     const yMv = useSpring(posRef.current.y, SPRING)
     const scaleMv = useSpring(posRef.current.scale, SPRING)
 
-    const isDragging = useRef(false)
-    const lastPos = useRef({ x: 0, y: 0 })
+    const zoomMode = useSettingRef("app.zoomMode")
+    const drag = useRef<{ id: number; button: number; x: number; y: number } | null>(null)
     const hasMoved = useRef(false)
+    const lastPointer = useRef<{ x: number; y: number } | null>(null)
+    const gestureScale = useRef<number | null>(null)
 
     const getElapsed = useElapsed(true)
 
@@ -92,22 +97,20 @@ export function useZoomable(
         [contentOffset, contentSize, motionRef, viewportSize, panMargin],
     )
 
-    const zoom = useCallback(
-        (delta: number, clientX: number, clientY: number, pinch?: boolean) => {
+    const pan = useCallback(
+        (dx: number, dy: number) => {
             const { x, y, scale } = posRef.current
+            const clamped = clampPos(x + dx, y + dy, scale)
+            posRef.current = { ...clamped, scale }
+            setMv()
+        },
+        [clampPos, setMv],
+    )
 
-            if (delta > 4) {
-                const elapsed = getElapsed()
-                if (elapsed > 100 && scale === minZoom) {
-                    onZoomOutBoundary?.()
-                    return
-                }
-            }
-
-            const mult = pinch ? 2 : 1
-            let newScale = scale * (1 - delta * mult * ZOOM_SENSITIVITY)
-            newScale = Math.min(Math.max(newScale, minZoom), maxZoom)
-
+    const zoom = useCallback(
+        (factor: number, clientX?: number, clientY?: number) => {
+            const { x, y, scale } = posRef.current
+            const newScale = Math.min(Math.max(scale * factor, minZoom), maxZoom)
             const ratio = newScale / scale
 
             const viewportRect =
@@ -120,7 +123,10 @@ export function useZoomable(
                 ? viewportRect.top + viewportRect.height / 2
                 : window.innerHeight / 2
 
-            const zoomPoint = mapZoomPoint?.(clientX, clientY) ?? { clientX, clientY }
+            const zoomPoint =
+                clientX === undefined || clientY === undefined
+                    ? { clientX: cx, clientY: cy }
+                    : (mapZoomPoint?.(clientX, clientY) ?? { clientX, clientY })
             const mouseX = zoomPoint.clientX - cx
             const mouseY = zoomPoint.clientY - cy
 
@@ -132,17 +138,7 @@ export function useZoomable(
             posRef.current = { x: clamped.x, y: clamped.y, scale: newScale }
             setMv()
         },
-        [
-            setMv,
-            clampPos,
-            getElapsed,
-            mapZoomPoint,
-            motionRef,
-            onZoomOutBoundary,
-            minZoom,
-            maxZoom,
-            zoomViewportRef,
-        ],
+        [setMv, clampPos, mapZoomPoint, motionRef, minZoom, maxZoom, zoomViewportRef],
     )
 
     useEffect(() => {
@@ -151,12 +147,66 @@ export function useZoomable(
 
         const onWheel = (e: WheelEvent) => {
             e.preventDefault()
-            zoom(e.deltaY, e.clientX, e.clientY, e.ctrlKey)
+            if (zoomMode.current === "pinch") {
+                if (!e.ctrlKey) {
+                    const mode = e.deltaMode
+                    const unit = mode === WheelEvent.DOM_DELTA_LINE ? 16 : 1
+                    const page = mode === WheelEvent.DOM_DELTA_PAGE
+                    pan(
+                        -e.deltaX * (page ? el.clientWidth : unit),
+                        -e.deltaY * (page ? el.clientHeight : unit),
+                    )
+                    return
+                }
+            } else if (e.deltaY > 4 && getElapsed() > 100 && posRef.current.scale === minZoom) {
+                onZoomOutBoundary?.()
+                return
+            }
+
+            const sensitivity = e.ctrlKey ? 2 * ZOOM_SENSITIVITY : ZOOM_SENSITIVITY
+            zoom(1 - e.deltaY * sensitivity, e.clientX, e.clientY)
+        }
+
+        // macOS WebKit reports trackpad pinches through GestureEvent instead of Ctrl+wheel.
+        const onGestureStart = (e: Event) => {
+            if (zoomMode.current !== "pinch") return
+            e.preventDefault()
+            gestureScale.current = 1
+        }
+        const onGestureChange = (e: Event) => {
+            const previous = gestureScale.current
+            if (zoomMode.current !== "pinch" || previous === null) return
+            e.preventDefault()
+            const { scale, clientX, clientY } = e as Event & {
+                scale: number
+                clientX?: number
+                clientY?: number
+            }
+            if (!Number.isFinite(scale) || scale <= 0) return
+            gestureScale.current = scale
+            zoom(
+                scale / previous,
+                clientX ?? lastPointer.current?.x,
+                clientY ?? lastPointer.current?.y,
+            )
+        }
+        const onGestureEnd = (e: Event) => {
+            if (gestureScale.current === null) return
+            e.preventDefault()
+            gestureScale.current = null
         }
 
         el.addEventListener("wheel", onWheel, { passive: false })
-        return () => el.removeEventListener("wheel", onWheel)
-    }, [motionRef, zoom])
+        el.addEventListener("gesturestart", onGestureStart, { passive: false })
+        el.addEventListener("gesturechange", onGestureChange, { passive: false })
+        el.addEventListener("gestureend", onGestureEnd, { passive: false })
+        return () => {
+            el.removeEventListener("wheel", onWheel)
+            el.removeEventListener("gesturestart", onGestureStart)
+            el.removeEventListener("gesturechange", onGestureChange)
+            el.removeEventListener("gestureend", onGestureEnd)
+        }
+    }, [getElapsed, minZoom, motionRef, onZoomOutBoundary, pan, zoom, zoomMode])
 
     useEffect(() => {
         const { x, y } = posRef.current
@@ -166,47 +216,45 @@ export function useZoomable(
         setMv()
     }, [clampPos, minZoom, maxZoom, setMv])
 
-    const onPointerDown = useCallback((e: React.PointerEvent) => {
-        if (e.button !== 0) return
+    const onPointerDown = useCallback(
+        (e: React.PointerEvent) => {
+            if (drag.current) return
+            if (e.button === 0) hasMoved.current = false
+            if (zoomMode.current === "pinch") {
+                if (e.button !== 1 && !(e.button === 0 && allowShiftDrag && e.shiftKey)) return
+            } else if (e.button !== 0) return
 
-        isDragging.current = true
-        hasMoved.current = false
-        lastPos.current = { x: e.clientX, y: e.clientY }
-
-        const target = e.currentTarget as HTMLElement
-        target.setPointerCapture(e.pointerId)
-    }, [])
+            if (e.button === 1) e.preventDefault()
+            drag.current = { id: e.pointerId, button: e.button, x: e.clientX, y: e.clientY }
+            e.currentTarget.setPointerCapture(e.pointerId)
+        },
+        [allowShiftDrag, zoomMode],
+    )
 
     const onPointerMove = useCallback(
         (e: React.PointerEvent) => {
-            if (!isDragging.current) return
+            lastPointer.current = { x: e.clientX, y: e.clientY }
+            const current = drag.current
+            if (!current || current.id !== e.pointerId) return
             e.preventDefault()
 
-            const dx = e.clientX - lastPos.current.x
-            const dy = e.clientY - lastPos.current.y
-
-            if (dx !== 0 || dy !== 0) hasMoved.current = true
-
-            lastPos.current = { x: e.clientX, y: e.clientY }
-
-            const nextX = posRef.current.x + dx
-            const nextY = posRef.current.y + dy
-            const scale = posRef.current.scale
-
-            const clamped = clampPos(nextX, nextY, scale)
-
-            posRef.current.x = clamped.x
-            posRef.current.y = clamped.y
-            setMv()
+            const dx = e.clientX - current.x
+            const dy = e.clientY - current.y
+            if (dx === 0 && dy === 0) return
+            if (current.button === 0) hasMoved.current = true
+            current.x = e.clientX
+            current.y = e.clientY
+            pan(dx, dy)
         },
-        [setMv, clampPos],
+        [pan],
     )
 
     const onPointerUp = useCallback((e: React.PointerEvent) => {
-        if (!isDragging.current) return
-        isDragging.current = false
+        if (drag.current?.id !== e.pointerId) return
+        drag.current = null
+        if (e.type !== "pointerup") hasMoved.current = false
 
-        const target = e.currentTarget as HTMLElement
+        const target = e.currentTarget
         if (target.hasPointerCapture(e.pointerId)) target.releasePointerCapture(e.pointerId)
     }, [])
 
@@ -223,6 +271,7 @@ export function useZoomable(
             onPointerMove,
             onPointerUp,
             onPointerCancel: onPointerUp,
+            onLostPointerCapture: onPointerUp,
             onClickCapture,
         }),
         [onPointerDown, onPointerMove, onPointerUp, onClickCapture],

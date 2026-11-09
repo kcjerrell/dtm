@@ -274,16 +274,20 @@ function View({ containerStyle }: ModeViewProps<never>) {
 
     useEffect(() => {
         const viewport = refs.viewportRef.current
-        const endForZoom = () => {
+        const endForViewportGesture = () => {
             const current = gesture.current
             gesture.current = null
             if (current?.target.hasPointerCapture(current.pointerId)) {
                 current.target.releasePointerCapture(current.pointerId)
             }
         }
-        // Release the alignment gesture before the viewport handles a wheel zoom.
-        viewport?.addEventListener("wheel", endForZoom, { capture: true })
-        return () => viewport?.removeEventListener("wheel", endForZoom, { capture: true })
+        // Alignment uses the viewport transform at the start of the drag.
+        viewport?.addEventListener("wheel", endForViewportGesture, { capture: true })
+        viewport?.addEventListener("gesturestart", endForViewportGesture, { capture: true })
+        return () => {
+            viewport?.removeEventListener("wheel", endForViewportGesture, { capture: true })
+            viewport?.removeEventListener("gesturestart", endForViewportGesture, { capture: true })
+        }
     }, [refs])
 
     const currentGeometry = () =>
@@ -604,7 +608,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
                         touchAction: "none",
                     }}
                     onPointerDown={(event) => {
-                        if (!event.shiftKey) event.stopPropagation()
+                        if (event.button === 0 && !event.shiftKey) event.stopPropagation()
                     }}
                     onClick={(event) => {
                         if (!event.shiftKey) state.pinState = null

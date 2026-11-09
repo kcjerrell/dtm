@@ -47,6 +47,9 @@ vi.mock("../toolbar/ToolbarSection", () => ({
     ToolbarSection: ({ children }: PropsWithChildren) => <div>{children}</div>,
 }))
 vi.mock("./hooks", () => ({ useImageCompareHooks: () => testHooks }))
+vi.mock("@/state/settings", () => ({
+    useSettingRef: () => ({ current: "pinch" }),
+}))
 
 const testHooks = {
     zoomStyle: { x: motionValue(0), y: motionValue(0), scale: motionValue(1) },
@@ -79,7 +82,7 @@ async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, i
     let state = {} as ImageCompareState
     function Harness() {
         const [Provider, current] = ImageCompareContext.useCreate()
-        const pan = useZoomable(testHooks.refs.viewportRef)
+        const pan = useZoomable(testHooks.refs.viewportRef, { allowShiftDrag: true })
         testHooks.zoomStyle = pan.style
         state = current
         return (
@@ -133,13 +136,14 @@ async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, i
         y: number,
         shiftKey = false,
         label = "Image B alignment",
+        button = 0,
     ) => {
         await act(async () => {
             const event = new MouseEvent(type, {
                 bubbles: true,
                 clientX: x + 20,
                 clientY: y + 30,
-                button: 0,
+                button,
                 shiftKey,
             })
             Object.defineProperty(event, "pointerId", { value: 1 })
@@ -380,6 +384,21 @@ describe("Align mode", () => {
         expect(state.imageBOffset).toEqual({ x: 10, y: 10 })
         expect(testHooks.zoomStyle.x.get()).toBe(50)
         expect(testHooks.zoomStyle.y.get()).toBe(50)
+    })
+
+    it("pans with middle drag over the active alignment pin", async () => {
+        const { state, click, pointer } = await setup()
+        await click("Pin")
+        await pointer("pointerdown", 100, 150)
+        const pin = state.pinState
+        await pointer("pointerdown", 100, 150, false, "Remove alignment pin", 1)
+        expect(testHooks.refs.viewportRef.current.hasPointerCapture(1)).toBe(true)
+        await pointer("pointermove", 120, 175)
+        await pointer("pointerup", 120, 175)
+        expect(testHooks.zoomStyle.x.get()).toBe(20)
+        expect(testHooks.zoomStyle.y.get()).toBe(25)
+        expect(state.pinState).toEqual(pin)
+        expect(state.imageBOffset).toEqual({ x: 0, y: 0 })
     })
 
     it.each([

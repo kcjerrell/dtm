@@ -410,7 +410,7 @@ function View(props: ModeViewProps<SliderModeProps>) {
                         touchAction: "none",
                     }}
                     onPointerDown={(event) => {
-                        event.stopPropagation()
+                        if (event.button === 0) event.stopPropagation()
                     }}
                     onDragStart={() => {
                         state.sliderEffectDisplay = transitionSliderEffectDisplay(

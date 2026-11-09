@@ -28,6 +28,7 @@ const defaultSettings = {
     "metadata.clearHistoryOnExit": true,
     "metadata.clearPinsOnExit": false,
     "projects.showSubpathInProjectList": false,
+    "app.zoomMode": "pinch" as "pinch" | "scroll",
 }
 type Settings = typeof defaultSettings
 type SettingsKey = keyof Settings

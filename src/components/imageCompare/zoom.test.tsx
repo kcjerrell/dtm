@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { act, createElement } from "react"
 import { createRoot } from "react-dom/client"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { loadSettingsStore, updateSetting } from "@/state/settings"
 import { useCreateImageCompareContext } from "./hooks"
 import { ImageCompareContext, type SbsLayout } from "./state"
+
+vi.mock("@tauri-store/valtio", () => import("@/mocks/tauri-store"))
 
 // Observe zoom targets synchronously without waiting for spring animation frames.
 vi.mock("motion/react", async (importOriginal) => {
@@ -16,7 +19,9 @@ vi.mock("motion/react", async (importOriginal) => {
 })
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+beforeAll(loadSettingsStore)
 beforeEach(() => {
+    updateSetting("app.zoomMode", "scroll")
     vi.stubGlobal(
         "ResizeObserver",
         class {
@@ -66,33 +71,118 @@ async function setup(width: number, height: number, layout: SbsLayout) {
             imageBHeight: height,
         })
     })
-    function zoom(deltaY: number) {
-        act(() => {
-            viewport.dispatchEvent(
-                new WheelEvent("wheel", {
-                    deltaY,
-                    clientX: 500,
-                    clientY: 400,
-                    cancelable: true,
-                }),
-            )
+    function wheel(options: WheelEventInit) {
+        const event = new WheelEvent("wheel", {
+            clientX: 500,
+            clientY: 400,
+            cancelable: true,
+            ...options,
         })
+        act(() => {
+            viewport.dispatchEvent(event)
+        })
+        return event
     }
-    function pan(x: number, y: number) {
+    function pan(x: number, y: number, button = 0) {
         act(() => {
             for (const [type, clientX, clientY] of [
                 ["pointerdown", 0, 0],
                 ["pointermove", x, y],
                 ["pointerup", x, y],
             ] as const) {
-                const event = new MouseEvent(type, { bubbles: true, clientX, clientY, button: 0 })
-                Object.defineProperty(event, "pointerId", { value: 1 })
+                const event = new PointerEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX,
+                    clientY,
+                    button,
+                    pointerId: 1,
+                    pointerType: "mouse",
+                })
                 surface.dispatchEvent(event)
             }
         })
     }
-    return { result, zoomOut: () => zoom(1000), zoom, pan, viewport }
+    const zoom = (deltaY: number) => wheel({ deltaY })
+    return { result, zoomOut: () => zoom(1000), zoom, pan, wheel, viewport }
 }
+
+describe("zoom gestures", () => {
+    it("switches from wheel zoom and primary drag to trackpad pan, pinch, and middle drag", async () => {
+        const { result, zoom, pan, wheel } = await setup(1000, 800, "vertical")
+        await act(async () => {
+            result.current.state.mode = "slider"
+        })
+        const { x, y, scale } = result.current.hooks.zoomStyle
+
+        zoom(-500)
+        const startX = x.get()
+        const startY = y.get()
+        pan(20, 10)
+        expect([x.get(), y.get(), scale.get()]).toEqual([startX + 20, startY + 10, 2])
+        pan(40, 30, 1)
+        expect([x.get(), y.get(), scale.get()]).toEqual([startX + 20, startY + 10, 2])
+
+        updateSetting("app.zoomMode", "pinch")
+        const scroll = wheel({ deltaX: 30, deltaY: -40 })
+        expect(scroll.defaultPrevented).toBe(true)
+        expect([x.get(), y.get(), scale.get()]).toEqual([startX - 10, startY + 50, 2])
+
+        pan(40, 30)
+        expect([x.get(), y.get(), scale.get()]).toEqual([startX - 10, startY + 50, 2])
+        pan(40, 30, 1)
+        expect([x.get(), y.get(), scale.get()]).toEqual([startX + 30, startY + 80, 2])
+
+        wheel({ deltaY: -125, ctrlKey: true, clientX: 600, clientY: 500 })
+        expect([x.get(), y.get(), scale.get()]).toEqual([1.5 * startX - 5, 1.5 * startY + 70, 3])
+        wheel({ deltaY: 125, ctrlKey: true, clientX: 600, clientY: 500 })
+        expect([x.get(), y.get(), scale.get()]).toEqual([
+            0.75 * startX + 47.5,
+            0.75 * startY + 85,
+            1.5,
+        ])
+    })
+
+    it("uses relative WebKit pinch scales anchored in the side-by-side pane under the cursor", async () => {
+        const { result, viewport, wheel } = await setup(1000, 800, "vertical")
+        updateSetting("app.zoomMode", "pinch")
+        const { refs, zoomStyle } = result.current.hooks
+        const { scale, x } = zoomStyle
+        const pane = (left: number) => {
+            const element = document.createElement("div")
+            element.getBoundingClientRect = () => new DOMRect(left, 0, 500, 800)
+            return element
+        }
+        refs.sbsPaneARef.current = pane(0)
+        refs.sbsPaneBRef.current = pane(500)
+        const gesture = (type: string, factor: number) => {
+            const event = new Event(type, { cancelable: true })
+            Object.assign(event, { scale: factor, clientX: 750, clientY: 400 })
+            act(() => {
+                viewport.dispatchEvent(event)
+            })
+            expect(event.defaultPrevented).toBe(true)
+        }
+
+        const startX = x.get()
+        gesture("gesturestart", 1)
+        gesture("gesturechange", 1.5)
+        gesture("gesturechange", 2)
+        expect(scale.get()).toBe(2)
+        // The center of pane B maps to x=250 in A, left of the transform origin at x=500.
+        expect(x.get()).toBe(2 * startX + 250)
+        gesture("gestureend", 2)
+
+        const beforePan = x.get()
+        wheel({ deltaX: 20 })
+        expect(x.get()).toBe(beforePan - 20)
+
+        gesture("gesturestart", 1)
+        gesture("gesturechange", 0.75)
+        gesture("gestureend", 0.75)
+        expect(scale.get()).toBe(1.5)
+    })
+})
 
 describe("SBS minimum zoom", () => {
     it.each([

@@ -50,11 +50,15 @@ async function createAppMenus() {
             await updateMenu()
         },
     )
+    const zoomModeUnsub = subscribeSetting("app.zoomMode", async () => {
+        await updateMenu()
+    })
 
     _global._menuUnsubscribe = () => {
         clearHistoryUnsub()
         clearPinsUnsub()
         showProjectSubpathsUnsub()
+        zoomModeUnsub()
     }
 
     // Will become the application submenu on MacOS
@@ -261,6 +265,7 @@ type CreateOptionMenuOpts = {
     clearPinsOnExit?: boolean
     clearHistoryOnExit?: boolean
     showSubpathInProjectList?: boolean
+    pinchZoom?: boolean
 }
 
 async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
@@ -283,6 +288,17 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
                 text: "Toggle color mode",
                 action: () => {
                     toggleColorMode()
+                },
+            }),
+            await CheckMenuItem.new({
+                text: "Trackpad pan and pinch to zoom",
+                id: "options_pinchZoom",
+                checked: opts?.pinchZoom,
+                action: () => {
+                    updateSetting(
+                        "app.zoomMode",
+                        getSetting("app.zoomMode") === "pinch" ? "scroll" : "pinch",
+                    )
                 },
             }),
             await Separator(),
@@ -333,5 +349,6 @@ async function createOpts(): Promise<CreateOptionMenuOpts> {
         clearHistoryOnExit: getSetting("metadata.clearHistoryOnExit"),
         clearPinsOnExit: getSetting("metadata.clearPinsOnExit"),
         showSubpathInProjectList: getSetting("projects.showSubpathInProjectList"),
+        pinchZoom: getSetting("app.zoomMode") === "pinch",
     }
 }
