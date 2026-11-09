@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react"
 import { FiCopy, FiSave } from "react-icons/fi"
 import { PiListMagnifyingGlassBold } from "react-icons/pi"
 import { RiFileSettingsLine } from "react-icons/ri"
-import { addNewItem } from "@/compare/interop"
+import { addNewItem, notifyCompareError } from "@/compare/interop"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
 import { DottedOutlineIcon, PoseIcon } from "@/components/icons/icons"
 import VideoFrameIcon from "@/components/icons/VideoFramesIcon"
@@ -155,26 +155,25 @@ export function useImageCommands(): [
                 },
                 icon: SbsCompare,
                 action: async (selected, ctx) => {
-                    let frame: number | undefined
-                    if (ctx?.videoRef?.current) {
-                        ctx.videoRef?.current.controls.pause()
-                        frame = ctx.videoRef.current.controls.getFrame()
-                    }
-                    const data = await selected[0].getPngData(frame)
-                    if (!data) return
-                    const project = projects.getProject(selected[0].projectId)
+                    try {
+                        const resource = selected[0]
+                        const controls = ctx?.videoRef?.current?.controls
+                        controls?.pause()
+                        const { data, tensorId } = await resource.getPngResource(controls?.getFrame())
+                        if (!data?.length) throw new Error("No image data available")
+                        const project = projects.getProject(resource.projectId)
 
-                    const mediaType = determineType(data)
-                    if (!mediaType) {
-                        console.error("Could not determine type of media")
-                        return
+                        const mediaType = determineType(data)
+                        if (!mediaType) throw new Error("Could not determine type of media")
+                        await addNewItem(data, mediaType, {
+                            source: "project",
+                            projectFile: project?.path,
+                            tensorId,
+                            nodeId: resource.nodeId,
+                        })
+                    } catch (error) {
+                        notifyCompareError(error)
                     }
-                    await addNewItem(data, mediaType, {
-                        source: "project",
-                        projectFile: project?.path,
-                        tensorId: await selected[0].getTensorId(),
-                        nodeId: selected[0].nodeId,
-                    })
                 },
             },
             {

@@ -1,7 +1,12 @@
+import { Mutex } from "async-mutex"
 import { proxy } from "valtio"
 import { proxyMap, proxySet } from "valtio/utils"
 import MediaStore from "@/state/mediaStore"
-import type { CollectionItem, MediaItemSource } from "@/state/mediaStore/types"
+import {
+    type CollectionItem,
+    MediaItemAlreadyInCollectionError,
+    type MediaItemSource,
+} from "@/state/mediaStore/types"
 import { getSetting } from "@/state/settings"
 
 type CompareItemState = { pin: number | null }
@@ -26,6 +31,7 @@ function getStore() {
 }
 
 function initStore() {
+    const addItemMutex = new Mutex()
     const collection = MediaStore.defineCollection(
         "icompare",
         { pin: null as number | null },
@@ -64,13 +70,26 @@ function initStore() {
     })
 
     async function addNewItem(data: Uint8Array, type: string, source: MediaItemSource) {
-        const item = await collection.addItem(data, type, source)
-        await selectItem(item, "firstEmpty")
+        return await addItemMutex.runExclusive(async () => {
+            await collection.waitForReady()
+            const { projectFile, tensorId } = source
+            if (
+                projectFile &&
+                tensorId &&
+                collection.items.some(
+                    (item) =>
+                        item.source.projectFile === projectFile &&
+                        item.source.tensorId === tensorId,
+                )
+            ) {
+                throw new MediaItemAlreadyInCollectionError()
+            }
+            return await collection.addItem(data, type, source)
+        })
     }
 
     async function addMediaItem(id: string) {
-        if (!state.items.some((it) => it.id === id)) await collection.addExisting(id)
-        await selectItem({ id }, "firstEmpty")
+        return await addItemMutex.runExclusive(() => collection.addExisting(id))
     }
 
     async function selectItem(

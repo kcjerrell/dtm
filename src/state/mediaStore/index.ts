@@ -8,6 +8,7 @@ import { clearArray, getStoreName } from "@/utils/helpers"
 import { getCollections } from "./collections"
 import { MediaStoreFiles } from "./files"
 import {
+    MediaItemAlreadyInCollectionError,
     type MediaState,
     type MediaStateCol,
     type MediaStorage,
@@ -159,7 +160,7 @@ function createMediaStore() {
             throw new Error(`unknown media collection: ${collectionId}`)
 
         if (collectionId in item.$col) {
-            throw new Error("Item is already in collection")
+            throw new MediaItemAlreadyInCollectionError()
         }
         item.$col[collectionId] = collectionData
         return id

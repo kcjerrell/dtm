@@ -163,7 +163,7 @@ export class MediaCollection<
 
     async addExisting(id: string, state?: T) {
         await this.waitForReady()
-        const itemState = state ?? structuredClone(this.defaultItemState)
+        const itemState = structuredClone(state ?? this.defaultItemState)
         await this.storeApi.addExistingToCollection(id, this.collectionId, itemState)
         return this.items.find((it) => it.id === id)
     }

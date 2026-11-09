@@ -1,0 +1,151 @@
+import { proxy } from "valtio"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import type { MediaStoreType } from "@/state/mediaStore/types"
+
+const mocks = vi.hoisted(() => ({
+    sidebarActivity: { compare: false },
+    toast: vi.fn(),
+    saveFile: vi.fn(),
+    decode: vi.fn(),
+}))
+
+vi.mock("@/components/ui/toaster", () => ({ toaster: { create: mocks.toast } }))
+vi.mock("@/hooks/appState", () => ({ default: { store: { sidebarActivity: mocks.sidebarActivity } } }))
+vi.mock("@/lifecycle", () => ({ default: { onExit: vi.fn() } }))
+vi.mock("@/state/settings", () => ({ getSetting: vi.fn() }))
+vi.mock("@/state/mediaStore/files", () => ({ MediaStoreFiles: { saveFile: mocks.saveFile } }))
+vi.mock("@tauri-store/valtio", () => ({
+    store: (_name: string, state: MediaStoreType) => ({ state: proxy(state), start: async () => {} }),
+}))
+
+const data = new Uint8Array([1])
+const source = { source: "project", projectFile: "/test/one.sqlite", tensorId: "tensor1" }
+
+beforeEach(() => {
+    vi.resetModules()
+    vi.resetAllMocks()
+    mocks.sidebarActivity.compare = false
+    mocks.saveFile.mockImplementation(async (id: string) => ({
+        fname: `${id}.png`,
+        url: `asset://${id}.png`,
+    }))
+    mocks.decode.mockResolvedValue(undefined)
+    vi.stubGlobal(
+        "Image",
+        class {
+            decode = mocks.decode
+        },
+    )
+})
+
+afterEach(() => vi.unstubAllGlobals())
+
+describe("sending images to Compare", () => {
+    it("adds a project tensor only once when two sends overlap", async () => {
+        const { addNewItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+
+        await Promise.all([
+            addNewItem(data, "png", source),
+            addNewItem(data, "png", { ...source, nodeId: 2 }),
+        ])
+
+        const { state } = await getCompareStore()
+        expect(mocks.saveFile).toHaveBeenCalledOnce()
+        expect(state.items).toHaveLength(1)
+        expect(state.imageA).toBe(state.items[0])
+        expect(state.imageB).toBeUndefined()
+        expect(mocks.sidebarActivity.compare).toBe(true)
+        expect(mocks.toast.mock.calls.map(([toast]) => toast)).toEqual(
+            expect.arrayContaining([
+                { title: "Image added to Compare", type: "success" },
+                { title: "Image already in Compare", type: "info" },
+            ]),
+        )
+        expect(mocks.toast).toHaveBeenCalledTimes(2)
+    })
+
+    it("adds separate projects, tensors, and resources without tensor IDs", async () => {
+        const { addNewItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+
+        await addNewItem(data, "png", source)
+        await addNewItem(data, "png", { ...source, projectFile: "/test/two.sqlite" })
+        await addNewItem(data, "png", { ...source, tensorId: "tensor2" })
+        await addNewItem(data, "png", { ...source, tensorId: null })
+        await addNewItem(data, "png", { ...source, tensorId: null })
+
+        expect((await getCompareStore()).state.items).toHaveLength(5)
+        expect(mocks.toast.mock.calls.map(([toast]) => toast.type)).toEqual(Array(5).fill("success"))
+    })
+
+    it("reports a Metadata item already in Compare without marking new activity", async () => {
+        const { addMediaItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+        const { default: mediaStore } = await import("@/state/mediaStore")
+        const metadata = mediaStore.defineCollection("metadata", {})
+        const item = await metadata.addItem(data, "png", {})
+        if (!item) throw new Error("Metadata fixture was not added")
+
+        await addMediaItem(item.id)
+        expect(mocks.toast).toHaveBeenLastCalledWith({
+            title: "Image added to Compare",
+            type: "success",
+        })
+        expect(mocks.sidebarActivity.compare).toBe(true)
+
+        mocks.sidebarActivity.compare = false
+        await addMediaItem(item.id)
+
+        const { state } = await getCompareStore()
+        expect(state.items.map(({ id }) => id)).toEqual([item.id])
+        expect(state.imageB).toBeUndefined()
+        expect(mocks.sidebarActivity.compare).toBe(false)
+        expect(mocks.toast).toHaveBeenLastCalledWith({
+            title: "Image already in Compare",
+            type: "info",
+        })
+    })
+
+    it("reports other errors from either add path", async () => {
+        const { addNewItem, addMediaItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+        mocks.saveFile.mockRejectedValueOnce("Could not write file")
+
+        await addNewItem(data, "png", source)
+        await addMediaItem("missing")
+
+        expect((await getCompareStore()).state.items).toEqual([])
+        expect(mocks.sidebarActivity.compare).toBe(false)
+        expect(mocks.toast.mock.calls.map(([toast]) => toast)).toEqual([
+            {
+                title: "Could not add image to Compare",
+                type: "error",
+                description: "Could not write file",
+            },
+            {
+                title: "Could not add image to Compare",
+                type: "error",
+                description: "Item missing not found",
+            },
+        ])
+    })
+
+    it("reports a display error after an image was added", async () => {
+        const { addNewItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+        mocks.decode.mockRejectedValueOnce(new Error("Decode failed"))
+
+        await addNewItem(data, "png", source)
+
+        const { state } = await getCompareStore()
+        expect(state.items).toHaveLength(1)
+        expect(state.imageA).toBeUndefined()
+        expect(mocks.sidebarActivity.compare).toBe(true)
+        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
+            title: "Image added to Compare",
+            type: "warning",
+            description: "Could not display the image. Decode failed",
+        })
+    })
+})

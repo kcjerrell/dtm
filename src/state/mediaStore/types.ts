@@ -4,6 +4,13 @@ export const VALID_IMAGE_TYPES = ["png", "tiff", "jpg", "webp"]
 export const VALID_VIDEO_TYPES = ["mp4", "webm", "mov", "m4v"]
 export const VALID_MEDIA_TYPES = [...VALID_IMAGE_TYPES, ...VALID_VIDEO_TYPES]
 
+export class MediaItemAlreadyInCollectionError extends Error {
+    constructor() {
+        super("Item is already in collection")
+        this.name = "MediaItemAlreadyInCollectionError"
+    }
+}
+
 export type DtProjectStorage = {
     kind: "dtp"
     projectFile: string

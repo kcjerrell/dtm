@@ -1,5 +1,6 @@
 import { ButtonGroup, chakra } from "@chakra-ui/react"
 import { buildStateContext } from "@/hooks/buildStateContext"
+import { LayoutGroup } from "motion/react"
 
 let toolbarSectionId = 0
 const getToolbarSectionId = () => `toolbarSectionActiveItem${toolbarSectionId++}`
@@ -41,8 +42,7 @@ const ToolbarSectionBase = chakra(
             _dark: {
                 bgColor: "grayc.16",
                 border: "1px solid {colors.grayc.12/50}",
-
-            }
+            },
         },
     },
     {
@@ -83,7 +83,7 @@ export function ToolbarSection<K = string>(props: ToolbarSectionProps<K>) {
     return (
         <Provider>
             <ToolbarSectionBase {...restProps}>
-                {children}
+                <LayoutGroup>{children}</LayoutGroup>
                 {/*{activeColumn !== undefined && (
                     <MotionBox
                         layout="position"

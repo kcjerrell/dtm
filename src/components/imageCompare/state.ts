@@ -88,7 +88,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         altSpeed: 5,
         altPhase: 0.0,
         sbsLayout: "vertical",
-        alignDisplay: "both-edges",
+        alignDisplay: "b-edges",
         alignPinEnabled: false,
         pinState: null,
         viewportWidth: 0,

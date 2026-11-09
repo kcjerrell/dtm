@@ -65,7 +65,7 @@ function ToolbarButton(props: ToolbarButtonProps) {
                 >
                     <motion.div
                         transition={{ layout: { duration: 0.2 } }}
-                        layout="position"
+                        layout={"x"}
                         layoutId={activeItemLayoutId}
                     />
                 </Box>
@@ -186,7 +186,6 @@ const Base = chakra("button", {
             true: {
                 _after: {
                     backgroundColor: "var(--tb-indicator-color)/100",
-
                 },
             },
             false: {

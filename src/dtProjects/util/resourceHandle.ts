@@ -84,18 +84,22 @@ export class ResourceHandle {
     }
 
     async getPngData(frame?: number) {
+        return (await this.getPngResource(frame)).data
+    }
+
+    async getPngResource(frame?: number) {
         if (this.isPose) {
-            return await this.getPoseImage()
+            return { data: await this.getPoseImage(), tensorId: await this.getTensorId() }
         }
         if (this.isCanvasStack) {
-            return await this.renderCanvas()
+            return { data: await this.renderCanvas(), tensorId: null }
         }
         const tensorId =
             frame !== undefined ? await this.getFrameTensorId(frame) : await this.getTensorId()
         if (!tensorId) throw new Error("No tensor id")
 
         const data = await DtpService.getResourceImage(this.projectId, this.nodeId, tensorId)
-        return data
+        return { data, tensorId }
     }
 
     async renderCanvas() {
