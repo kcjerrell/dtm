@@ -72,7 +72,6 @@ function Compare() {
                         ref={panelRef}
                         variant={"float"}
                         alignSelf={"end"}
-                        justifySelf={"end"}
                         margin={2}
                         minWidth={"45%"}
                         maxWidth={"75%"}
@@ -87,7 +86,6 @@ function Compare() {
                         zIndex={50}
                     >
                         <Grid
-                            // gridTemplateColumns={`repeat(auto-fit, minmax(min(calc(33% - 3px), 150px), 1fr))`}
                             gridTemplateColumns={`repeat(auto-fit, minmax(150px, 1fr))`}
                             gap={"3px"}
                             minHeight={0}
@@ -281,7 +279,7 @@ function ImageItem(props: ImageItemProps) {
             {...restProps}
             asChild
         >
-            <motion.div exit={{ scale: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div layout layoutId={item.id} exit={{ scale: 0 }} transition={{ duration: 0.2 }}>
                 <Image
                     inset={0}
                     src={item.url}
