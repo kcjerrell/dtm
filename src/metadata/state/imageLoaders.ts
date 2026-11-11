@@ -66,16 +66,27 @@ export async function loadImageFromPasteboard(
 
 export async function loadMediaFromPasteboard(
     pasteboard: "general" | "drag",
+    onError?: (error: unknown) => void,
 ): Promise<LoadedMedia[]> {
-    return collectPasteboard(pasteboard, true)
+    return collectPasteboard(pasteboard, true, onError)
 }
 
-async function collectPasteboard(pasteboard: "general" | "drag", includeVideo: boolean) {
+async function collectPasteboard(
+    pasteboard: "general" | "drag",
+    includeVideo: boolean,
+    onError?: (error: unknown) => void,
+) {
     let firstItem: LoadedMedia | undefined
-    for await (const result of loadItems(pasteboard, includeVideo)) {
+    let firstError: unknown
+    for await (const result of loadItems(pasteboard, includeVideo, (error) => {
+        firstError ??= error
+    })) {
         if (!result) continue
         // Finder supplies distinct files, not alternate representations of one image.
-        if (Array.isArray(result)) return result
+        if (Array.isArray(result)) {
+            if (firstError != null) onError?.(firstError)
+            return result
+        }
 
         firstItem ??= result
         if ("kind" in result) continue
@@ -85,12 +96,14 @@ async function collectPasteboard(pasteboard: "general" | "drag", includeVideo: b
             console.warn("couldn't check pasteboard image metadata", e)
         }
     }
+    if (!firstItem && firstError != null) onError?.(firstError)
     return firstItem ? [firstItem] : []
 }
 
 async function* loadItems(
     pasteboard: "general" | "drag",
-    includeVideo = false,
+    includeVideo: boolean,
+    recordError: (error: unknown) => void,
 ): AsyncGenerator<LoadedMedia | LoadedMedia[] | undefined> {
     const types = await getOverrideOr(
         "pasteboardTypes",
@@ -142,6 +155,7 @@ async function* loadItems(
                         url,
                     })
                     if (item) items.push(item)
+                    else if (includeVideo) recordError(new Error(`Could not load media from ${url}`))
                 }
                 yield items
                 return
@@ -165,6 +179,7 @@ async function* loadItems(
                         url,
                     })
                     if (item) yield item
+                    else if (includeVideo) recordError(new Error(`Could not load media from ${url}`))
                 }
             }
 
@@ -175,8 +190,10 @@ async function* loadItems(
                     result.dtpImage.imageId,
                 )
                 if (item) yield item
+                else if (includeVideo) recordError(new Error("Could not load project image"))
             }
         } catch (e) {
+            recordError(e)
             console.warn(`Error processing UTI ${uti}:`, e)
         }
     }

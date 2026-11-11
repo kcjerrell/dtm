@@ -41,7 +41,7 @@ function Details(props: DetailsProps) {
             {imageSnap?.isVideo && imageSnap.storage.kind === "url" && (
                 <Text>Video metadata is only available for local files.</Text>
             )}
-            {imageSnap?.isVideo && imageSnap.storage.kind === "file" && (
+            {imageSnap?.isVideo && (imageSnap.storage.kind === "file" || imageSnap.storage.kind === "app") && (
                 <>
                     <ffmpeg.FfmpegComponent
                         macMessage="FFmpeg must be downloaded to load video metadata."

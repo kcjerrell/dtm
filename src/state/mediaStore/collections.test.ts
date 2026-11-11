@@ -71,7 +71,7 @@ function setup() {
                     $col: { [_collectionId]: itemState },
                 }
                 store.items.push(item)
-                return item.id
+                return { item: item.id, alreadyPresent: false }
             }),
         remove: vi.fn().mockResolvedValue(undefined),
         clear: vi.fn().mockResolvedValue(undefined),
@@ -303,11 +303,11 @@ describe("collection initialization", () => {
     })
 })
 
-describe("referenced video collection items", () => {
+describe("video collection imports", () => {
     it.each([
         ["file", "/videos/movie.mov", "mov"],
         ["url", "https://example.test/movie.mp4", "mp4"],
-    ] as const)("saves %s without caching bytes", async (kind, location, type) => {
+    ] as const)("passes the %s location to MediaStore", async (kind, location, type) => {
         const { collection, api, items } = setup()
         const video: LoadedMedia = { kind, location, type, source }
         const result = await collection.addMedia(video, state)
@@ -328,7 +328,7 @@ describe("referenced video collection items", () => {
             acquired,
             { kind: "file", location: "/videos/movie.mp4", type: "mp4", source },
         ])
-        expect(await collection.addMediaFromPasteboard("drag")).toHaveLength(2)
+        expect(await collection.importMediaFromPasteboard("drag", vi.fn())).toHaveLength(2)
         expect(api.save).toHaveBeenNthCalledWith(
             1,
             "app",

@@ -43,28 +43,17 @@ export async function getLocalImage(path: string): Promise<Uint8Array<ArrayBuffe
     // } catch {
     // 	return undefined
     // }
-    try {
-        const asset = convertFileSrc(path)
-        const data = await fetch(asset)
-        if (data) return await new Uint8Array(await data.arrayBuffer())
-    } catch (e) {
-        console.error(e)
-    }
+    const response = await fetch(convertFileSrc(path), { cache: "no-store" })
+    if (!response.ok) throw new Error(`Could not read image at ${path} (HTTP ${response.status})`)
+    return new Uint8Array(await response.arrayBuffer())
 }
 
 export async function fetchImage(
     url: string,
 ): Promise<{ data: Uint8Array<ArrayBuffer>; type: string } | undefined> {
-    try {
-        const [data, type] = (await invoke("fetch_image_file", {
-            url: url,
-        })) as [Uint8Array<ArrayBuffer>, string]
-
-        if (data && Array.isArray(data)) {
-            return { data: new Uint8Array(data), type: type }
-        }
-    } catch (e) {
-        console.error(e)
+    const [data, type] = await invoke<[number[], string]>("fetch_image_file", { url })
+    if (Array.isArray(data)) {
+        return { data: new Uint8Array(data), type }
     }
 }
 

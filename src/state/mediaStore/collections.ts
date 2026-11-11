@@ -18,6 +18,7 @@ import type {
     CollectionItem,
     CollectionOptions,
     MediaCollectionItemFactory,
+    MediaImportResult,
     MediaItemSource,
     MediaStateCol,
     MediaStoreApi,
@@ -158,7 +159,7 @@ export class MediaCollection<
     }
 
     async addItem(data: Uint8Array, type: string, source: MediaItemSource, state?: T) {
-        return await this.addStoredItem("app", data, type, source, state)
+        return (await this.importMedia({ buffer: data, type, source }, state)).item
     }
 
     async addExisting(id: string, state?: T) {
@@ -169,29 +170,24 @@ export class MediaCollection<
     }
 
     async addMedia(item: LoadedMedia, state?: T) {
-        if ("kind" in item) {
-            return await this.addStoredItem(
-                item.kind,
-                item.location,
-                item.type,
-                item.source ?? {},
-                state,
-            )
-        }
-        return await this.addItem(item.buffer, item.type, item.source ?? {}, state)
+        return (await this.importMedia(item, state)).item
     }
 
-    private async addStoredItem(
-        kind: "app" | "file" | "url",
-        data: Uint8Array | string,
-        type: string,
-        source: MediaItemSource,
+    async importMedia(
+        media: LoadedMedia,
         state?: T,
-    ) {
+    ): Promise<MediaImportResult<F | undefined>> {
         await this.waitForReady()
         const itemState = state ?? structuredClone(this.defaultItemState)
-        const id = await this.storeApi.save(kind, data, type, source, this.collectionId, itemState)
-        return this.items.find((it) => it.id === id)
+        const { item: id, alreadyPresent } = await this.storeApi.save(
+            "kind" in media ? media.kind : "app",
+            "kind" in media ? media.location : media.buffer,
+            media.type,
+            media.source ?? {},
+            this.collectionId,
+            itemState,
+        )
+        return { item: this.getItemById(id), alreadyPresent }
     }
 
     async addMediaFromFile(file: string, source?: MediaItemSource, state?: T) {
@@ -204,13 +200,21 @@ export class MediaCollection<
         if (media) return await this.addMedia(media, state)
     }
 
-    async addMediaFromPasteboard(pasteboard: "general" | "drag", state?: T): Promise<F[]> {
-        const items: F[] = []
-        for (const media of await loadMediaFromPasteboard(pasteboard)) {
-            const item = await this.addMedia(media, state)
-            if (item) items.push(item)
+    async importMediaFromPasteboard(
+        pasteboard: "general" | "drag",
+        onError: (error: unknown) => void,
+    ) {
+        const results: MediaImportResult<F>[] = []
+        for (const media of await loadMediaFromPasteboard(pasteboard, onError)) {
+            try {
+                const { item, alreadyPresent } = await this.importMedia(media)
+                if (!item) throw new Error("The imported media is unavailable")
+                results.push({ item, alreadyPresent })
+            } catch (error) {
+                onError(error)
+            }
         }
-        return items
+        return results
     }
 
     async removeItems(ids: string[]): Promise<void>

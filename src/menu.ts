@@ -138,13 +138,8 @@ async function createAppMenus() {
                         ],
                     })
                     if (imagePath == null) return
-                    const { getMetadataStore } = await import("./metadata/state/metadataStore2")
-                    const mdStore = await getMetadataStore()
-                    const item = await mdStore.collection.addImageFromFile(imagePath, {
-                        loadedFrom: "open",
-                        file: imagePath,
-                    })
-                    if (item) mdStore.selectImage(item.id)
+                    const { openMetadataImage } = await import("./metadata/state/interop")
+                    await openMetadataImage(imagePath)
                 },
             }),
             ...(isMacOS

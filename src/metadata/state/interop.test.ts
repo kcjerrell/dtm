@@ -3,20 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
     getMetadataStore: vi.fn(),
     updateSetting: vi.fn(),
+    toast: vi.fn(),
 }))
 vi.mock("./metadataStore2", () => ({ getMetadataStore: mocks.getMetadataStore }))
 vi.mock("@/state/settings", () => ({ updateSetting: mocks.updateSetting }))
+vi.mock("@/components/ui/toaster", () => ({ toaster: { create: mocks.toast } }))
 
 import { loadImage2 } from "./interop"
 
 beforeEach(() => vi.clearAllMocks())
 
+type ImportedItem = { id: string; hasMetadata: () => Promise<boolean> }
+
 describe("loadImage2", () => {
     it("serializes pasteboard loads and keeps the loading indicator active", async () => {
-        const first = Promise.withResolvers<{ id: string; hasMetadata: () => Promise<boolean> }[]>()
-        const second =
-            Promise.withResolvers<{ id: string; hasMetadata: () => Promise<boolean> }[]>()
-        const addMediaFromPasteboard = vi
+        const first = Promise.withResolvers<{ item: ImportedItem; alreadyPresent: boolean }[]>()
+        const second = Promise.withResolvers<{ item: ImportedItem; alreadyPresent: boolean }[]>()
+        const importMediaFromPasteboard = vi
             .fn()
             .mockImplementationOnce(() => first.promise)
             .mockImplementationOnce(() => second.promise)
@@ -24,25 +27,33 @@ describe("loadImage2", () => {
         const selectImage = vi.fn()
         mocks.getMetadataStore.mockResolvedValue({
             state,
-            collection: { addMediaFromPasteboard },
+            collection: { importMediaFromPasteboard },
             selectImage,
         })
 
         const firstLoad = loadImage2("general")
         const secondLoad = loadImage2("drag")
-        await vi.waitFor(() => expect(addMediaFromPasteboard).toHaveBeenCalledOnce())
+        await vi.waitFor(() => expect(importMediaFromPasteboard).toHaveBeenCalledOnce())
         expect(state.isLoadingImage).toBe(true)
 
-        first.resolve([{ id: "first", hasMetadata: vi.fn().mockResolvedValue(true) }])
+        first.resolve([
+            { item: { id: "first", hasMetadata: vi.fn().mockResolvedValue(true) }, alreadyPresent: false },
+        ])
         await firstLoad
-        await vi.waitFor(() => expect(addMediaFromPasteboard).toHaveBeenCalledTimes(2))
+        await vi.waitFor(() => expect(importMediaFromPasteboard).toHaveBeenCalledTimes(2))
         expect(state.isLoadingImage).toBe(true)
         expect(selectImage).toHaveBeenCalledWith("first")
 
-        second.resolve([{ id: "second", hasMetadata: vi.fn().mockResolvedValue(true) }])
+        second.resolve([
+            { item: { id: "second", hasMetadata: vi.fn().mockResolvedValue(true) }, alreadyPresent: true },
+        ])
         await secondLoad
         expect(state.isLoadingImage).toBe(false)
         expect(selectImage).toHaveBeenLastCalledWith("second")
+        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
+            title: "Image already in Metadata",
+            type: "info",
+        })
     })
 
     it("loads metadata before selecting the pasted item", async () => {
@@ -55,7 +66,9 @@ describe("loadImage2", () => {
         const selectImage = vi.fn()
         mocks.getMetadataStore.mockResolvedValue({
             state,
-            collection: { addMediaFromPasteboard: vi.fn().mockResolvedValue([item]) },
+            collection: {
+                importMediaFromPasteboard: vi.fn().mockResolvedValue([{ item, alreadyPresent: false }]),
+            },
             selectImage,
         })
 

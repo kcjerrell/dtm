@@ -23,6 +23,24 @@ export interface ImageCommandContext {
     videoRef?: React.RefObject<VideoContextType | null>
 }
 
+async function readProjectImage(
+    resource: ResourceHandle,
+    projectFile: string | undefined,
+    ctx?: ImageCommandContext,
+) {
+    const controls = ctx?.videoRef?.current?.controls
+    controls?.pause()
+    const { data, tensorId } = await resource.getPngResource(controls?.getFrame())
+    if (!data?.length) throw new Error("No image data available")
+    const type = determineType(data)
+    if (!type) throw new Error("Could not determine type of media")
+    return {
+        data,
+        type,
+        source: { source: "project", projectFile, tensorId, nodeId: resource.nodeId },
+    }
+}
+
 /*
     image commands:
         Copy (first/selected) image/frame   -   (menu/toolbar) image/video
@@ -157,20 +175,10 @@ export function useImageCommands(): [
                 action: async (selected, ctx) => {
                     try {
                         const resource = selected[0]
-                        const controls = ctx?.videoRef?.current?.controls
-                        controls?.pause()
-                        const { data, tensorId } = await resource.getPngResource(controls?.getFrame())
-                        if (!data?.length) throw new Error("No image data available")
-                        const project = projects.getProject(resource.projectId)
-
-                        const mediaType = determineType(data)
-                        if (!mediaType) throw new Error("Could not determine type of media")
-                        await addNewItem(data, mediaType, {
-                            source: "project",
-                            projectFile: project?.path,
-                            tensorId,
-                            nodeId: resource.nodeId,
-                        })
+                        const { data, type, source } = await readProjectImage(
+                            resource, projects.getProject(resource.projectId)?.path, ctx,
+                        )
+                        await addNewItem(data, type, source)
                     } catch (error) {
                         notifyCompareError(error)
                     }
@@ -190,27 +198,16 @@ export function useImageCommands(): [
                         : "Send image to Metadata",
                 icon: PiListMagnifyingGlassBold,
                 action: async (selected, ctx) => {
-                    let frame: number | undefined
-                    if (ctx?.videoRef?.current) {
-                        ctx.videoRef?.current.controls.pause()
-                        frame = ctx.videoRef.current.controls.getFrame()
+                    const { sendToMetadata, notifyMetadataError } = await import("@/metadata/state/interop")
+                    try {
+                        const resource = selected[0]
+                        const { data, type, source } = await readProjectImage(
+                            resource, projects.getProject(resource.projectId)?.path, ctx,
+                        )
+                        await sendToMetadata(data, type, source)
+                    } catch (error) {
+                        notifyMetadataError(error)
                     }
-                    const data = await selected[0].getPngData(frame)
-                    if (!data) return
-                    const project = projects.getProject(selected[0].projectId)
-
-                    const interop = await import("@/metadata/state/interop")
-                    const mediaType = determineType(data)
-                    if (!mediaType) {
-                        console.error("Could not determine type of media")
-                        return
-                    }
-                    await interop.sendToMetadata(data, mediaType, {
-                        source: "project",
-                        projectFile: project?.path,
-                        tensorId: await selected[0].getTensorId(),
-                        nodeId: selected[0].nodeId,
-                    })
                 },
             },
             {

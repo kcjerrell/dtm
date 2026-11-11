@@ -15,6 +15,7 @@ pub mod bookmarks;
 pub mod dt_project;
 pub mod dtp_service;
 mod ffmpeg;
+mod media_snapshot;
 pub mod projects_db;
 pub(crate) mod util;
 use archive::{clear_dt_archive_plan_cache, create_dt_archive, create_dt_archive_plan};
@@ -95,15 +96,23 @@ async fn ffmpeg_call(app: tauri::AppHandle, args: Vec<String>) -> TAResult<Strin
 
 #[tauri::command]
 async fn fetch_image_file(url: String) -> TAResult<(Vec<u8>, String)> {
-    let resp = reqwest::get(&url).await.map_err(anyhow::Error::msg)?;
+    use anyhow::Context;
+    let resp = reqwest::get(&url)
+        .await
+        .with_context(|| format!("failed to fetch image from {url}"))?
+        .error_for_status()
+        .with_context(|| format!("failed to fetch image from {url}"))?;
     let content_type = resp
         .headers()
         .get("Content-Type")
-        .unwrap()
+        .context("image response has no Content-Type")?
         .to_str()
-        .unwrap()
+        .context("invalid Content-Type in image response")?
         .to_string();
-    let bytes = resp.bytes().await.map_err(anyhow::Error::msg)?;
+    let bytes = resp
+        .bytes()
+        .await
+        .context("failed to read image response")?;
     Ok((bytes.to_vec(), content_type))
 }
 
@@ -271,6 +280,8 @@ pub fn run() {
             write_clipboard_binary,
             read_clipboard_strings,
             fetch_image_file,
+            media_snapshot::stage_media_snapshot,
+            media_snapshot::find_matching_media_file,
             vid_export::create_video_from_frames,
             vid_export::save_all_clip_frames,
             vid_export::check_pattern,

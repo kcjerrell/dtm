@@ -25,7 +25,7 @@ export type DtProjectStorage = {
 )
 
 export type MediaStorage =
-    // for media saved in MediaStore, backed by a file in appdata/images
+    // for media saved in MediaStore, backed by a file in the app data media directory
     | { kind: "app"; fname: string }
     // for local files
     | { kind: "file"; path: string }
@@ -63,6 +63,8 @@ export type MediaStoreType = {
     items: MediaStateCol[]
 }
 
+export type MediaImportResult<T> = { item: T; alreadyPresent: boolean }
+
 export type MediaStoreApi = {
     save: (
         kind: MediaStorage["kind"],
@@ -71,7 +73,7 @@ export type MediaStoreApi = {
         source: MediaState["source"],
         collectionId: string,
         collectionData: Record<string, unknown>,
-    ) => Promise<string>
+    ) => Promise<MediaImportResult<string>>
     remove: (ids: string[], collectionId: string) => Promise<void>
     clear: (collectionId: string) => Promise<void>
     waitForReady: () => Promise<void>

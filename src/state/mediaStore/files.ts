@@ -25,40 +25,58 @@ async function getMediaFolder() {
     return _imageFolder
 }
 
-async function getFullPath(fname: string): Promise<string>
-async function getFullPath(id: string, ext: string): Promise<string>
-async function getFullPath(arg1: string, arg2?: string): Promise<string> {
-    if (arg1 && arg2) return await path.join(await getMediaFolder(), `${arg1}.${arg2}`)
-    if (arg1) return await path.join(await getMediaFolder(), arg1)
-    throw new Error("invalid arguments")
+async function getFullPath(fname: string): Promise<string> {
+    if (!fname) throw new Error("missing media filename")
+    return await path.join(await getMediaFolder(), fname)
 }
 
-async function saveFile(
+type SavedFile = { fname: string; url: string }
+type SnapshotInput = Uint8Array | { kind: "file" | "url"; location: string }
+
+async function withSnapshot<T>(
     id: string,
-    data: Uint8Array,
+    input: SnapshotInput,
     type: string,
-): Promise<{ fname: string; url: string }> {
+    use: (file: SavedFile, retain: () => void) => Promise<T>,
+): Promise<T> {
     if (!id) throw new Error("invalid id")
     if (!type || !VALID_MEDIA_TYPES.includes(type))
         throw new Error("invalid or unsupported media type")
-    if (!data || data.length === 0) throw new Error("data is empty or missing")
 
     const fname = `${id}.${type}`
     savingFiles.add(fname)
+    let written = false
+    let retained = false
     try {
-        const fullPath = await getFullPath(id, type)
-
-        await fs.writeFile(fullPath, data, {
-            createNew: true,
+        const fullPath = await getFullPath(fname)
+        if (input instanceof Uint8Array) {
+            if (!input.length) throw new Error("data is empty or missing")
+            await fs.writeFile(fullPath, input, { createNew: true })
+        } else {
+            await invoke("stage_media_snapshot", { source: input, destination: fullPath })
+        }
+        written = true
+        return await use({ fname, url: convertFileSrc(fullPath) }, () => {
+            retained = true
         })
-
-        return { fname: await path.basename(fullPath), url: convertFileSrc(fullPath) }
-    } catch (e) {
-        console.error(e)
-        throw e
     } finally {
+        if (written && !retained) await removeFile(fname)
         savingFiles.delete(fname)
     }
+}
+
+async function saveFile(id: string, data: Uint8Array, type: string): Promise<SavedFile> {
+    return await withSnapshot(id, data, type, async (file, retain) => {
+        retain()
+        return file
+    })
+}
+
+async function findMatchingFile(incoming: string, candidates: string[]): Promise<number | null> {
+    return await invoke("find_matching_media_file", {
+        incoming: await getFullPath(incoming),
+        candidates: await Promise.all(candidates.map((fname) => getFullPath(fname))),
+    })
 }
 
 async function removeOrphanedFiles(referencedFiles: ReadonlySet<string>) {
@@ -87,9 +105,9 @@ async function copyToClipboard(fname: string) {
 }
 
 async function saveCopy(fname: string, dest: string) {
-    const data = await fs.readFile(await getFullPath(fname))
-    await fs.writeFile(dest, data, {
-        createNew: true,
+    await invoke("stage_media_snapshot", {
+        source: { kind: "file", location: await getFullPath(fname) },
+        destination: dest,
     })
 }
 
@@ -98,6 +116,9 @@ async function saveFileCopy(source: string, dest: string) {
 }
 
 export const MediaStoreFiles = {
+    findMatchingFile,
+    getFullPath,
+    withSnapshot,
     saveFileCopy,
     saveFile,
     removeFile,

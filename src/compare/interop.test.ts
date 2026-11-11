@@ -1,21 +1,26 @@
 import { proxy } from "valtio"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { MediaStoreType } from "@/state/mediaStore/types"
+import type { MediaStateCol, MediaStoreType } from "@/state/mediaStore/types"
 
 const mocks = vi.hoisted(() => ({
     sidebarActivity: { compare: false },
     toast: vi.fn(),
     saveFile: vi.fn(),
     decode: vi.fn(),
+    items: [] as MediaStateCol[],
+    updateSetting: vi.fn(),
 }))
 
 vi.mock("@/components/ui/toaster", () => ({ toaster: { create: mocks.toast } }))
 vi.mock("@/hooks/appState", () => ({ default: { store: { sidebarActivity: mocks.sidebarActivity } } }))
 vi.mock("@/lifecycle", () => ({ default: { onExit: vi.fn() } }))
-vi.mock("@/state/settings", () => ({ getSetting: vi.fn() }))
+vi.mock("@/state/settings", () => ({ getSetting: vi.fn(), updateSetting: mocks.updateSetting }))
 vi.mock("@/state/mediaStore/files", () => ({ MediaStoreFiles: { saveFile: mocks.saveFile } }))
 vi.mock("@tauri-store/valtio", () => ({
-    store: (_name: string, state: MediaStoreType) => ({ state: proxy(state), start: async () => {} }),
+    store: (_name: string, state: MediaStoreType) => ({
+        state: proxy({ ...state, items: structuredClone(mocks.items) }),
+        start: async () => {},
+    }),
 }))
 
 const data = new Uint8Array([1])
@@ -24,6 +29,7 @@ const source = { source: "project", projectFile: "/test/one.sqlite", tensorId: "
 beforeEach(() => {
     vi.resetModules()
     vi.resetAllMocks()
+    mocks.items = []
     mocks.sidebarActivity.compare = false
     mocks.saveFile.mockImplementation(async (id: string) => ({
         fname: `${id}.png`,
@@ -41,6 +47,61 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("sending images to Compare", () => {
+    it.each(["Compare", "Metadata"])("shares the same project image when sent to %s first", async (firstView) => {
+        const { addMediaItem, addNewItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+        const { sendToMetadata } = await import("@/metadata/state/interop")
+        const { getMetadataStore } = await import("@/metadata/state/metadataStore2")
+        if (firstView === "Compare") {
+            await addNewItem(data, "png", source)
+            await sendToMetadata(data, "png", source)
+        } else {
+            await sendToMetadata(data, "png", source)
+            await addNewItem(data, "png", source)
+        }
+
+        const { state: compare } = await getCompareStore()
+        const { state: metadata } = await getMetadataStore()
+        expect(mocks.saveFile).toHaveBeenCalledOnce()
+        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({ title: "Image added to Compare", type: "success" })
+        expect(metadata.currentItem?.id).toBe(compare.items[0].id)
+        expect(mocks.updateSetting).toHaveBeenCalledWith("app.currentView", "metadata")
+
+        await sendToMetadata(data, "png", source)
+        expect(metadata.items).toEqual([metadata.currentItem])
+        expect(mocks.toast).toHaveBeenLastCalledWith({ title: "Image already in Metadata", type: "info" })
+
+        if (!metadata.currentItem) throw new Error("expected a selected Metadata item")
+        await addMediaItem(metadata.currentItem.id)
+        expect(compare.items).toHaveLength(1)
+        expect(compare.imageB).toBeUndefined()
+        expect(mocks.toast).toHaveBeenLastCalledWith({ title: "Image already in Compare", type: "info" })
+    })
+
+    it("blocks a Metadata send when older imports assigned the same project image different IDs", async () => {
+        mocks.items = [
+            ["metadata-copy", "metadata"],
+            ["compare-copy", "icompare"],
+        ].map(([id, collectionId]) => ({
+            id,
+            type: "png",
+            url: `asset://${id}.png`,
+            thumbUrl: `asset://${id}.png`,
+            source,
+            storage: { kind: "app", fname: `${id}.png` },
+            createdAt: 0,
+            $col: { [collectionId]: { pin: null } },
+        }))
+        const { addMediaItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+
+        await addMediaItem("metadata-copy")
+
+        const { state } = await getCompareStore()
+        expect(state.items.map(({ id }) => id)).toEqual(["compare-copy"])
+        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({ title: "Image already in Compare", type: "info" })
+    })
+
     it("adds a project tensor only once when two sends overlap", async () => {
         const { addNewItem } = await import("./interop")
         const { getCompareStore } = await import("./state")

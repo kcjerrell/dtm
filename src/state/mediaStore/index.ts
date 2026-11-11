@@ -1,5 +1,5 @@
-import { convertFileSrc } from "@tauri-apps/api/core"
 import { store as createStore } from "@tauri-store/valtio"
+import { Mutex } from "async-mutex"
 import { customAlphabet } from "nanoid"
 import { proxy } from "valtio"
 import { batch } from "valtio-reactive"
@@ -9,6 +9,7 @@ import { getCollections } from "./collections"
 import { MediaStoreFiles } from "./files"
 import {
     MediaItemAlreadyInCollectionError,
+    type MediaItemSource,
     type MediaState,
     type MediaStateCol,
     type MediaStorage,
@@ -20,6 +21,23 @@ import {
 
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
+function getSourceKey(source: MediaItemSource | undefined) {
+    if (source?.projectFile && source.tensorId) {
+        return `project:${JSON.stringify([source.projectFile, source.tensorId])}`
+    }
+    if (source?.file) return `file:${source.file}`
+    if (source?.url) {
+        try {
+            const url = new URL(source.url)
+            if (url.protocol !== "https:" && url.protocol !== "http:") return
+            url.hash = ""
+            return `url:${url.href}`
+        } catch {
+            // Older items may have descriptive source strings instead of URLs.
+        }
+    }
+}
+
 function createMediaStore() {
     const tauriStore: ReturnType<typeof initStore> = initStore()
     const store = tauriStore.state
@@ -30,6 +48,7 @@ function createMediaStore() {
     } = Promise.withResolvers<boolean>()
     let isReady = false
     const pendingCleanup = new Set<Promise<void>>()
+    const sourceLocks = new Map<string, Mutex>()
 
     function initStore() {
         const storeInstance = createStore<MediaStoreType>(
@@ -78,6 +97,56 @@ function createMediaStore() {
         return id
     }
 
+    async function withSourceLock<T>(key: string | undefined, action: () => Promise<T>) {
+        if (!key) return await action()
+        const mutex = sourceLocks.get(key) ?? new Mutex()
+        sourceLocks.set(key, mutex)
+        try {
+            return await mutex.runExclusive(action)
+        } finally {
+            if (!mutex.isLocked() && sourceLocks.get(key) === mutex) sourceLocks.delete(key)
+        }
+    }
+
+    function getSourceCandidates(key: string, collectionId: string, onlyInCollection = false) {
+        return store.items
+            .filter(
+                (item) =>
+                    (!onlyInCollection || collectionId in item.$col) &&
+                    getSourceKey(item.source) === key,
+            )
+            .sort((a, b) => Number(collectionId in b.$col) - Number(collectionId in a.$col))
+    }
+
+    async function findMatchingSnapshot(
+        fname: string,
+        candidates: MediaStateCol[],
+        excludeId?: string,
+    ) {
+        const snapshots = candidates.flatMap((item) =>
+            item.id !== excludeId && item.storage.kind === "app"
+                ? [{ item, fname: item.storage.fname }]
+                : [],
+        )
+        while (snapshots.length) {
+            const index = await MediaStoreFiles.findMatchingFile(
+                fname,
+                snapshots.map((snapshot) => snapshot.fname),
+            )
+            if (index == null) return
+            const match = snapshots[index].item
+            // A collection may have removed the matching item during the file comparison.
+            if (getItem(match.id) === match) return match
+            snapshots.splice(0, index + 1)
+        }
+    }
+
+    function attachItem(item: MediaStateCol, collectionId: string, collectionData: Record<string, unknown>) {
+        const alreadyPresent = collectionId in item.$col
+        if (!alreadyPresent) item.$col[collectionId] = collectionData
+        return { item: item.id, alreadyPresent }
+    }
+
     /**
      * Internal. To save items to the media store, create a collection first.
      * Although it's possible to save items for multiple collections, it is not recommended.
@@ -93,55 +162,61 @@ function createMediaStore() {
         await waitForReady()
         if (!data || data.length === 0) throw new Error("missing data")
         if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
-        if (VALID_VIDEO_TYPES.includes(type) && kind !== "file" && kind !== "url")
+        if (kind === "app" && VALID_VIDEO_TYPES.includes(type))
             throw new Error("videos must be referenced by file or URL")
         if (!collections.getCollection(collectionId))
             throw new Error(`unknown media collection: ${collectionId}`)
 
-        const id = getNewId()
-        let storage: MediaStorage
-        let url: string
-
-        switch (kind) {
-            case "app": {
-                if (!(data instanceof Uint8Array)) throw new Error("data must be a Uint8Array")
-
-                const saved = await MediaStoreFiles.saveFile(id, data, type)
-                storage = { kind, fname: saved.fname }
-                url = saved.url
-                break
+        if (kind === "dtp") throw new Error("project storage is not supported")
+        if (kind === "file" && (typeof data !== "string" || !data.startsWith("/")))
+            throw new Error("file storage requires an absolute path")
+        if (kind === "url" && (typeof data !== "string" || !/^https?:\/\//i.test(data)))
+            throw new Error("URL storage requires an HTTP(S) URL")
+        if (kind === "app" && !(data instanceof Uint8Array))
+            throw new Error("data must be a Uint8Array")
+        const input = typeof data === "string" && kind !== "app" ? { kind, location: data } : data
+        if (typeof input === "string") throw new Error("invalid snapshot source")
+        const itemSource =
+            input instanceof Uint8Array
+                ? source
+                : input.kind === "file"
+                  ? { ...source, file: input.location, url: null }
+                  : { ...source, file: null, url: input.location }
+        const key = getSourceKey(itemSource)
+        return await withSourceLock(key, async () => {
+            const candidates = key ? getSourceCandidates(key, collectionId) : []
+            const isProject = key?.startsWith("project:")
+            if (isProject && candidates.length) {
+                return attachItem(candidates[0], collectionId, collectionData)
             }
-            case "file": {
-                if (typeof data !== "string" || !data.startsWith("/"))
-                    throw new Error("file storage requires an absolute path")
-                storage = { kind, path: data }
-                url = convertFileSrc(data)
-                break
-            }
-            case "url": {
-                if (typeof data !== "string" || !/^https?:\/\//i.test(data))
-                    throw new Error("URL storage requires an HTTP(S) URL")
-                storage = { kind, url: data }
-                url = data
-                break
-            }
-            case "dtp":
-                throw new Error("not yet supported")
-        }
 
-        const item: MediaStateCol = proxy({
-            id,
-            url,
-            thumbUrl: url,
-            type,
-            source,
-            storage,
-            createdAt: Date.now(),
-            $col: { [collectionId]: collectionData },
+            const id = getNewId()
+            function register({ fname, url }: { fname: string; url: string }) {
+                const item: MediaStateCol = proxy({
+                    id,
+                    url,
+                    thumbUrl: url,
+                    type,
+                    source: itemSource,
+                    storage: { kind: "app", fname },
+                    createdAt: Date.now(),
+                    $col: { [collectionId]: collectionData },
+                })
+                store.items.push(item)
+                return { item: id, alreadyPresent: false }
+            }
+
+            if (input instanceof Uint8Array && !candidates.length) {
+                return register(await MediaStoreFiles.saveFile(id, input, type))
+            }
+            return await MediaStoreFiles.withSnapshot(id, input, type, async (file, retain) => {
+                const match = await findMatchingSnapshot(file.fname, candidates)
+                if (match) return attachItem(match, collectionId, collectionData)
+                const result = register(file)
+                retain()
+                return result
+            })
         })
-
-        store.items.push(item)
-        return id
     }
 
     function getItem(id: string) {
@@ -159,11 +234,22 @@ function createMediaStore() {
         if (!collections.getCollection(collectionId))
             throw new Error(`unknown media collection: ${collectionId}`)
 
-        if (collectionId in item.$col) {
-            throw new MediaItemAlreadyInCollectionError()
-        }
-        item.$col[collectionId] = collectionData
-        return id
+        const key = getSourceKey(item.source)
+        return await withSourceLock(key, async () => {
+            if (getItem(id) !== item) throw new Error(`Item ${id} not found`)
+            if (collectionId in item.$col) throw new MediaItemAlreadyInCollectionError()
+            if (key) {
+                const candidates = getSourceCandidates(key, collectionId, true)
+                const match = key.startsWith("project:")
+                    ? candidates[0]
+                    : item.storage.kind === "app"
+                      ? await findMatchingSnapshot(item.storage.fname, candidates, id)
+                      : undefined
+                if (match) throw new MediaItemAlreadyInCollectionError()
+            }
+            if (getItem(id) !== item) throw new Error(`Item ${id} not found`)
+            return attachItem(item, collectionId, collectionData).item
+        })
     }
 
     /** Internal. Use the collection api to remove items from a collection */

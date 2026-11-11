@@ -1,5 +1,5 @@
 import { getVideoMetadata } from "@/commands"
-
+import { MediaStoreFiles } from "@/state/mediaStore/files"
 import type { DrawThingsMetaData } from "@/types"
 import { getDrawThingsDataFromVideo } from "../helpers"
 import type { ExifType } from "./imageMetadata"
@@ -27,8 +27,8 @@ export class MdVideo extends MdItem {
 
     async loadMetadata(force = false) {
         if (!force && this._metadataStatus && this._metadataStatus !== "failed") return
-        const filePath = this.storage.kind === "file" ? this.storage.path : undefined
-        if (!filePath) {
+        const storage = this.storage
+        if (storage.kind !== "file" && storage.kind !== "app") {
             this._metadataStatus = "done"
             this._metadataPromise.resolve()
             return
@@ -39,12 +39,15 @@ export class MdVideo extends MdItem {
         this._metadataStatus = "pending"
 
         try {
+            const filePath = storage.kind === "app"
+                ? await MediaStoreFiles.getFullPath(storage.fname)
+                : storage.path
             this._metadata = (await getVideoMetadata(filePath)) as ExifType
             this._dtData = getDrawThingsDataFromVideo(this._metadata) ?? null
             this._metadataStatus = "done"
         } catch (e) {
             this._metadataStatus = "failed"
-            console.warn("couldn't load metadata from", filePath, e)
+            console.warn("couldn't load video metadata for", this.id, e)
         } finally {
             this._metadataPromise.resolve()
         }
