@@ -1,4 +1,4 @@
-import { Box, Grid, HStack, Image } from "@chakra-ui/react"
+import { Box, Grid, HStack, Image, Text } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import { type ComponentProps, useCallback, useEffect, useRef } from "react"
 import { IoArrowUndoOutline, IoTrashOutline } from "react-icons/io5"
@@ -40,8 +40,10 @@ function Compare() {
             (a, b) => (a.pin || Number.POSITIVE_INFINITY) - (b.pin || Number.POSITIVE_INFINITY),
         )
 
+    const isEmpty = items.length === 0
     const hasPinnedItems = !!items.at(0)?.pin
-    const hasUnpinnedItems = !items.at(-1)?.pin
+    const hasUnpinnedItems = !isEmpty && !items.at(-1)?.pin
+    const showControls = !isEmpty || snap.softRemovedItems.size > 0 || snap.clearPinsUndo.size > 0
 
     // find the index to insert the gap between pin and unpinned
     const gapIndex = items.findIndex((item) => !item.pin) + 1 || items.length + 1
@@ -85,6 +87,11 @@ function Compare() {
                         borderColor={"grayc.10"}
                         zIndex={50}
                     >
+                        {isEmpty && (
+                            <Text color="fg.2" fontSize="sm" padding={3} textAlign="center">
+                                No images here. Send images from Projects or Metadata to Compare.
+                            </Text>
+                        )}
                         <Grid
                             gridTemplateColumns={`repeat(auto-fit, minmax(150px, 1fr))`}
                             gap={"3px"}
@@ -98,6 +105,7 @@ function Compare() {
                                     gridColumn={"1 / -1"}
                                     gap={0}
                                     alignItems={"center"}
+                                    display={showControls ? "flex" : "none"}
                                 >
                                     <Box
                                         bgColor={"fg.3"}
