@@ -9,10 +9,11 @@ export function store<T extends object>(
     name: string,
     initialState: T,
     _options?: unknown,
-): { state: T; start: () => Promise<void> } {
+): { state: T; start: () => Promise<void>; stop: () => Promise<void> } {
     console.log(`[Mock] Creating store: ${name}`)
     return {
         state: proxy(initialState) as T,
         start: async () => {},
+        stop: async () => {},
     }
 }

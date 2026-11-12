@@ -13,8 +13,13 @@ export type MdItemConstructorOpts = {
     type: string
 }
 
-abstract class MdItem extends MediaItemBase<{ pin: number | null }> {
-    constructor(item: MediaState, state: { pin: number | null }) {
+type MetadataItemState = {
+    pin: number | null
+    legacyId?: string
+}
+
+abstract class MdItem extends MediaItemBase<MetadataItemState> {
+    constructor(item: MediaState, state: MetadataItemState) {
         super(item, state)
         if (!item.source) throw new Error("MdItem must have a source")
         if (!item.type) throw new Error("MdItem must have a type")

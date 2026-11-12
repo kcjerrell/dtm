@@ -1,13 +1,11 @@
 import { Box, Button, Grid } from "@chakra-ui/react"
+import { useRef, useState } from "react"
 import { Fragment } from "react/jsx-runtime"
-import { useSnapshot } from "valtio"
 import { CheckRoot, Panel } from "@/components"
-import MediaStore from "@/state/mediaStore"
-import { addItem, useCollection } from "@/state/mediaStore/scratch"
-
-await MediaStore.waitForReady()
+import { useFlag } from "@/state/settings"
 
 function Empty() {
+    const [flags, setFlags] = useState(["hello_flag", "another_flag"])
     return (
         <CheckRoot width={"full"} height={"full"}>
             <Panel margin={"auto"} alignSelf={"center"}>
@@ -19,10 +17,16 @@ function Empty() {
                     gap={2}
                     alignItems={"center"}
                 >
-                    <Computed key={"ic"} cid={"ic"} col={1} />
-                    <Computed key={"md"} cid={"md"} col={3} />
+                    {flags.map((flag, i) => (
+                        <Item key={flag} flagName={flag} col={2 * i + 1} />
+                    ))}
 
-                    <Button gridColumn={"1 / span 4"} onClick={() => addItem()}>
+                    <Button
+                        gridColumn={"1 / span 4"}
+                        onClick={() => {
+                            setFlags(["hello_flag"])
+                        }}
+                    >
                         Add
                     </Button>
                 </Grid>
@@ -31,46 +35,24 @@ function Empty() {
     )
 }
 
-function Computed(props) {
-    const cid = props.cid
-    console.log(cid, "render")
+function Item(props: { row?: number; col: number; flagName: string }) {
+    const { row, col, flagName } = props
 
-    const state = useCollection(cid)
-    const snap = useSnapshot(state)
-    // const snap = state
-    const count = snap.items.length
-    console.log(state)
+    const [flag, setFlag] = useFlag(flagName)
+
+    const renderCountRef = useRef(0)
+    renderCountRef.current += 1
 
     return (
-        <Fragment>
-            {Array.from({ length: count }).map((_, i) => (
-                <Item
-                    key={state.items[i].id}
-                    state={state.items[i]}
-                    cid={cid}
-                    row={i + 1}
-                    col={props.col}
-                />
-            ))}
-        </Fragment>
-    )
-}
-
-function Item(props) {
-    const { state, row, col } = props
-    const snap = useSnapshot(state)
-    // const snap = state
-
-    return (
-        <Fragment key={snap.id}>
+        <Fragment key={flagName}>
             <Box gridColumn={col} gridRow={row}>
-                {snap.name} {snap.pin}
+                {flagName} {String(flag)} ({renderCountRef.current})
             </Box>
             <Button
                 gridColumn={col + 1}
                 gridRow={row}
                 onClick={() => {
-                    state.pin += 1
+                    setFlag(!flag)
                     // const source = state.items.find((it) => it.id === item.id)
                     // source.collection[cid].pin += 1
                 }}

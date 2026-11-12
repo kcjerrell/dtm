@@ -14,7 +14,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/components/ui/toaster", () => ({ toaster: { create: mocks.toast } }))
 vi.mock("@/hooks/appState", () => ({ default: { store: { sidebarActivity: mocks.sidebarActivity } } }))
 vi.mock("@/lifecycle", () => ({ default: { onExit: vi.fn() } }))
-vi.mock("@/state/settings", () => ({ getSetting: vi.fn(), updateSetting: mocks.updateSetting }))
+vi.mock("@/state/settings", () => ({
+    getFlag: () => true,
+    getSetting: vi.fn(),
+    updateSetting: mocks.updateSetting,
+}))
 vi.mock("@/state/mediaStore/files", () => ({ MediaStoreFiles: { saveFile: mocks.saveFile } }))
 vi.mock("@tauri-store/valtio", () => ({
     store: (_name: string, state: MediaStoreType) => ({

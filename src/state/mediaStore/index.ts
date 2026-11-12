@@ -1,7 +1,8 @@
+import { invoke } from "@tauri-apps/api/core"
 import { store as createStore } from "@tauri-store/valtio"
 import { Mutex } from "async-mutex"
 import { customAlphabet } from "nanoid"
-import { proxy } from "valtio"
+import { proxy, snapshot } from "valtio"
 import { batch } from "valtio-reactive"
 import Lifecycle from "@/lifecycle"
 import { clearArray, getStoreName } from "@/utils/helpers"
@@ -88,6 +89,12 @@ function createMediaStore() {
 
     async function waitForReady() {
         await isReadyPromise
+    }
+
+    async function persist() {
+        await waitForReady()
+        // Send the current state and await the backend's immediate save in the same call.
+        await invoke("plugin:valtio|patch", { id: tauriStore.id, state: snapshot(store) })
     }
 
     function getNewId() {
@@ -362,6 +369,7 @@ function createMediaStore() {
         getCollection,
         useCollection,
         waitForReady,
+        persist,
         reset,
         copyImageToClipboard,
         saveCopy,
