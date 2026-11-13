@@ -218,7 +218,7 @@ test_double_array(const double* field, int nx, int ny, int nz, int prec, unsigne
   int status;
   unsigned int actual_checksum;
   int dims = (nz == 1 ? ny == 1 ? 1 : 2 : 3);
-  size_t inbytes = nx * ny * nz * sizeof(double);
+  size_t inbytes = (size_t)nx * (size_t)ny * (size_t)nz * sizeof(double);
   size_t bufbytes = 1024 + inbytes;
   size_t outbytes = 0;
   void* buffer = malloc(bufbytes);
