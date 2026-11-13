@@ -250,6 +250,7 @@ describe("loadImageFromDtp", () => {
             source: {
                 loadedFrom: "project",
                 projectFile: "/projects/cats.db",
+                projectId: 7,
                 nodeId: 42,
                 tensorId: "tensor-42",
             },

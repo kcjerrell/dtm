@@ -93,9 +93,7 @@
       "identifier": "shell:allow-spawn"
     },
     "log:default",
-    "os:default",
-    "wdio-webdriver:default",
-    "wdio:default"
+    "os:default"
   ],
   "windows": [
     "main",

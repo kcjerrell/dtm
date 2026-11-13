@@ -53,23 +53,6 @@ export function useProjectsCommands(): [
                 toolbarEnableMode: "hide",
             },
             {
-                id: "archive",
-                getLabel: (selected) => `Archive project${plural(selected.length)}`,
-                tipText: "Convert project to DT Archive",
-                icon: FiDownload,
-                action: (selected) => {
-                    uiState.showDialog({
-                        dialogType: "dt-archive",
-                        props: { projectIds: selected.map((p) => p.id) },
-                    })
-                },
-                requiresSelection: true,
-                getEnabled(selected) {
-                    return selected.length > 0 && selected.every((p) => p && !p.excluded)
-                },
-                toolbarEnableMode: "hide",
-            },
-            {
                 id: "export",
                 getLabel: (selected) => `Export project${plural(selected.length)}`,
                 tipText: "Export project images to zip archives",

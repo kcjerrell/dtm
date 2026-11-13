@@ -16,6 +16,7 @@
     "build:mac": "dotenv -- tauri build",
     "build:universal": "dotenv -- tauri build --target universal-apple-darwin",
     "build:debug": "dotenv -- tauri build --debug",
+    "build:e2e": "dotenv -- tauri build --debug --no-bundle --config src-tauri/tauri.e2e.conf.json",
     "clean:vite": "rm --recursive node_modules/.vite & rm --recursive  node_modules/.vite-temp",
     "preview": "vite preview",
     "tauri": "dotenv -- tauri",

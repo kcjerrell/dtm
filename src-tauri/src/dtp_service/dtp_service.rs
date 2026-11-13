@@ -23,7 +23,6 @@ use crate::{
         AppHandleWrapper,
     },
     projects_db::{get_last_row, DtmProtocol, ProjectsDb},
-    IntoTAResult,
 };
 
 #[derive(Clone)]
@@ -281,20 +280,20 @@ impl DTPService {
             .await
             .map_err(anyhow::Error::msg)
     }
-
-    #[dtp_command]
-    /// used to reset the db in testing
-    pub async fn reset_db(&self) -> crate::TAResult<()> {
-        let db = self.get_db().await?;
-        let folders = db.list_watch_folders().await.into_ta_result()?;
-        let ids = folders.iter().map(|f| f.id).collect::<Vec<i64>>();
-        for id in ids {
-            self.change_folder(id, FolderChange::Remove).await?;
-        }
-        Ok(())
-    }
 }
 
+#[cfg(feature = "e2e")]
+#[tauri::command]
+pub async fn dtp_reset_db(state: State<'_, DTPService>) -> crate::TAResult<()> {
+    let db = state.get_db().await?;
+    let folders = db.list_watch_folders().await.map_err(anyhow::Error::from)?;
+    for folder in folders {
+        state.change_folder(folder.id, FolderChange::Remove).await?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "e2e")]
 #[dtm_command]
 pub async fn dtp_test(state: State<'_, AppHandleWrapper>) -> crate::TAResult<()> {
     println!(

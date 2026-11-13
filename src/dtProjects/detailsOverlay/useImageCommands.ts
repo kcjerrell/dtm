@@ -37,7 +37,13 @@ async function readProjectImage(
     return {
         data,
         type,
-        source: { source: "project", projectFile, tensorId, nodeId: resource.nodeId },
+        source: {
+            source: "project",
+            projectFile,
+            projectId: resource.projectId,
+            tensorId,
+            nodeId: resource.nodeId,
+        },
     }
 }
 

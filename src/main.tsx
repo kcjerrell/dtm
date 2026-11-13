@@ -1,4 +1,4 @@
-// import "@wdio/tauri-plugin"
+
 import { ChakraProvider } from "@chakra-ui/react"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
@@ -15,6 +15,10 @@ const _global = globalThis as unknown as {
 }
 
 async function bootstrap() {
+    if (import.meta.env.MODE === "e2e") {
+        await import("@wdio/tauri-plugin")
+    }
+
     await Lifecycle.init()
 
     const RootComponent = App

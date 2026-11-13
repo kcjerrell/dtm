@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { loadSettingsStore } from "./state/settings"
-import { addTestHooks } from "./testHooks"
 import { themeHelpers } from "./theme/helpers"
 import { forwardConsoleAll } from "./utils/tauriLogger"
 
@@ -16,7 +15,10 @@ async function init() {
 
     themeHelpers.applySize()
 
-    addTestHooks()
+    if (import.meta.env.MODE === "e2e") {
+        const { addTestHooks } = await import("./testHooks")
+        addTestHooks()
+    }
 
     // this store must be initialized and awaited so installId is determinate
     // if allowed to lazy load, update check may run before settings have synced from storage

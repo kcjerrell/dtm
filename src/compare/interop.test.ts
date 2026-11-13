@@ -28,7 +28,7 @@ vi.mock("@tauri-store/valtio", () => ({
 }))
 
 const data = new Uint8Array([1])
-const source = { source: "project", projectFile: "/test/one.sqlite", tensorId: "tensor1" }
+const source = { source: "project", projectId: 1, projectFile: "one.sqlite", tensorId: "tensor1" }
 
 beforeEach(() => {
     vi.resetModules()
@@ -58,7 +58,7 @@ describe("sending images to Compare", () => {
         const { getMetadataStore } = await import("@/metadata/state/metadataStore2")
         if (firstView === "Compare") {
             await addNewItem(data, "png", source)
-            await sendToMetadata(data, "png", source)
+            await sendToMetadata(data, "png", { ...source, projectFile: "/test/one.sqlite" })
         } else {
             await sendToMetadata(data, "png", source)
             await addNewItem(data, "png", source)
@@ -135,7 +135,7 @@ describe("sending images to Compare", () => {
         const { getCompareStore } = await import("./state")
 
         await addNewItem(data, "png", source)
-        await addNewItem(data, "png", { ...source, projectFile: "/test/two.sqlite" })
+        await addNewItem(new Uint8Array([2]), "png", { ...source, projectId: 2 })
         await addNewItem(data, "png", { ...source, tensorId: "tensor2" })
         await addNewItem(data, "png", { ...source, tensorId: null })
         await addNewItem(data, "png", { ...source, tensorId: null })

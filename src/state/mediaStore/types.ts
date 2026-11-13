@@ -41,6 +41,7 @@ export interface MediaItemSource extends Record<string, unknown> {
     url?: string | null
     file?: string | null
     projectFile?: string | null
+    projectId?: number | null
     nodeId?: number | null
     tensorId?: string | null
 }

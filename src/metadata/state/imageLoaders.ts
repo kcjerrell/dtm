@@ -419,6 +419,7 @@ export async function loadImageFromDtp(
         return await loadImageFromBuffer(result.image, "png", {
             loadedFrom: "project",
             projectFile: result.projectFile,
+            projectId,
             nodeId: result.history.rowid,
             tensorId: result.history.tensorHistoryName,
         })

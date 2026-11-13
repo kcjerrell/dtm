@@ -83,7 +83,7 @@ bash scripts/verify-linux.sh
 npm ci
 npm run gen-icons
 bash scripts/test-setup.sh
-npm run tauri -- build --debug --no-bundle
+npm run build:e2e
 npm run wdio
 # Run one spec with the same launcher:
 npm run wdio -- --spec ./test/specs/tauri-wdio.e2e.ts
@@ -96,7 +96,7 @@ Cargo commands or rebuilding the app in a new shell.
 
 #### Tests
 ```bash
-npm run build:debug
+npm run build:e2e
 npm run wdio
 cd src-tauri
 cargo test

@@ -36,7 +36,9 @@ describe("Model Selector Popup", () => {
         await $("aria/Add search filter").click()
         const filterForm = DTProjects.searchPanel.getFilter(0)
         await filterForm.target.click()
-        ;(await filterForm.getTargetOption("model")).click()
+        const modelOption = await filterForm.getTargetOption("model")
+        await modelOption.click()
+        await expect(filterForm.target).toHaveText("Model")
 
         await openModelList()
         await expectModelListOpen()
@@ -56,10 +58,16 @@ describe("Model Selector Popup", () => {
         await expectModelListOpen()
 
         // interacting with operator should keep model list open consistently
-        for (const op of ["is", "isnot", "is"] as const) {
+        for (const [value, label] of [
+            ["isnot", "is not"],
+            ["is", "is"],
+        ]) {
             await filterForm.operator.click()
+            const option = await filterForm.getOperatorOption(value)
+            await expect(option).toBeDisplayed()
             await expectModelListOpen()
-            await filterForm.getOperatorOption(op)
+            await option.click()
+            await expect(filterForm.operator).toHaveText(label)
             await expectModelListOpen()
         }
 
@@ -76,7 +84,11 @@ describe("Model Selector Popup", () => {
 
         // changing target should close due selector remount
         await filterForm.target.click()
-        ;(await filterForm.getTargetOption("sampler")).click()
+        const samplerOption = await filterForm.getTargetOption("sampler")
+        await expect(samplerOption).toBeDisplayed()
+        await expectModelListOpen()
+        await samplerOption.click()
+        await expect(filterForm.target).toHaveText("Sampler")
         await expectModelListClosed()
     })
 

@@ -10,12 +10,12 @@ const viteUrl = "http://localhost:1420"
 
 function runtimeMode(binaryPath) {
     const binary = readFileSync(binaryPath)
-    if (binary.includes(Buffer.from("DTM_TAURI_RUNTIME_MODE=dev\0"))) return "dev"
-    if (binary.includes(Buffer.from("DTM_TAURI_RUNTIME_MODE=build\0"))) return "build"
+    if (binary.includes(Buffer.from("DTM_E2E_RUNTIME_MODE=dev\0"))) return "dev"
+    if (binary.includes(Buffer.from("DTM_E2E_RUNTIME_MODE=build\0"))) return "build"
 
     throw new Error(
-        `Cannot determine the Tauri runtime mode for ${binaryPath}. ` +
-            "Rebuild it once with either `npm run dev` or `npm run build:debug`.",
+        `No E2E build marker found in ${binaryPath}. ` +
+            "Rebuild it with `npm run build:e2e`.",
     )
 }
 
@@ -65,10 +65,11 @@ let viteProcess
 try {
     if (mode === "dev" && !(await isPortOpen(1420))) {
         console.log(`Detected Tauri dev binary; starting Vite at ${viteUrl}.`)
-        viteProcess = spawn(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "dev:vite"], {
-            cwd: projectRoot,
-            stdio: "inherit",
-        })
+        viteProcess = spawn(
+            process.platform === "win32" ? "npm.cmd" : "npm",
+            ["run", "dev:vite", "--", "--mode", "e2e"],
+            { cwd: projectRoot, stdio: "inherit" },
+        )
         await waitForVite(viteProcess)
     }
 

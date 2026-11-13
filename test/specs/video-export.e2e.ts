@@ -41,9 +41,16 @@ function findFfprobePath(): string {
     return "ffprobe"
 }
 
-async function waitForImageGridReady() {
+async function waitForImageGridReady(previousItemCount?: number) {
     await browser.waitUntil(
-        async () => (await $('[data-testid="image-grid"]').getAttribute("aria-busy")) !== "true",
+        async () => {
+            return browser.execute((previousCount) => {
+                const grid = document.querySelector('[data-testid="image-grid"][aria-busy="false"]')
+                if (!grid || grid.closest("[inert]")) return false
+                const count = grid.querySelectorAll('[data-testid="image-item"]').length
+                return count > 0 && (previousCount === null || count < previousCount)
+            }, previousItemCount ?? null)
+        },
         {
             timeout: 60000,
             interval: 300,
@@ -53,20 +60,12 @@ async function waitForImageGridReady() {
 }
 
 async function openDetailsOverlay(item: WebdriverIO.Element) {
-    let lastError: unknown
-    for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-            await item.scrollIntoView()
-            await item.click()
-            await $("#details-overlay").waitForDisplayed({ timeout: 5000 })
-            return
-        } catch (error) {
-            lastError = error
-            await browser.keys("Escape").catch(() => {})
-            await browser.pause(300)
-        }
-    }
-    throw lastError
+    const imageId = await item.getAttribute("data-image-id")
+    const gridItem = $(`[data-testid="image-item"][data-image-id="${imageId}"]`)
+    await gridItem.scrollIntoView({ behavior: "instant", block: "center", inline: "nearest" })
+    await gridItem.waitForClickable()
+    await gridItem.click()
+    await $("#details-overlay").waitForDisplayed()
 }
 
 describe("Video Export", () => {
@@ -158,45 +157,29 @@ describe("Video Export", () => {
         // we need to select a video that does NOT have audio
         // go to the search tab
         await DTProjects.selectTab("search")
+        await $("aria/Reset search").click()
 
-        // click add filter
-        await $("aria/Add search filter").click()
-
-        // select Model in the filter type
         await $("aria/Add search filter").click()
         const filterForm = DTProjects.searchPanel.getFilter(0)
         await filterForm.target.click()
-        ;(await filterForm.getTargetOption("lora")).click()
+        const loraOption = await filterForm.getTargetOption("lora")
+        await loraOption.click()
 
-        // click select a model
-        await $('[aria-label="loras filter value selector"]').click()
+        const loraSelector = $('[aria-label="loras filter value selector"]')
+        await loraSelector.click()
+        const loraName = "Wan 2.2 A14B Lightning Low Noise Expert T2V v1.1"
+        const loraItem = $(`[aria-label="Model item ${loraName}"]`)
+        await loraItem.waitForDisplayed({ timeout: 15000 })
+        await loraItem.click()
+        await expect(loraSelector).toHaveText(expect.stringContaining(loraName))
 
-        // // select Wan 2.1 14b in the versions list
-        const versionItem = $('[aria-label*="Model version Wan 2.1 14b"]')
-        await versionItem.waitForDisplayed({ timeout: 15000 })
-        await versionItem.click()
-
-        // assert models list has been filtered and model version item is listed
-        const modelItem = $('[aria-label*="Model item"]')
-        await modelItem.waitForDisplayed({ timeout: 15000 })
-        await expect(modelItem).toBeDisplayed()
-
-        // select Wan2.1 T2V 14B
-        await modelItem.click()
-
-        // assert model name appears in the search filter
-        await expect($('[aria-label="loras filter value selector"]')).toHaveText(
-            expect.stringContaining("Wan 2.2 A14B Lightning"),
-        )
-
-        // click search
         await $("aria/Apply search").click()
-        await waitForImageGridReady()
+        await waitForImageGridReady(initialItems.length)
 
         // assert images have been reduced
         const filteredItems = await $$('[data-testid="image-item"]').getElements()
         expect(filteredItems.length).toBeGreaterThan(0)
-        expect(filteredItems.length).toBeLessThan(await initialItems.length)
+        expect(filteredItems.length).toBeLessThan(initialItems.length)
 
         // assert statusbar says "1 filter"
         await expect(DTProjects.imageToolbar.filters).toHaveText(
@@ -346,7 +329,8 @@ describe("Video Export", () => {
         await $("aria/Add search filter").click()
         const filterForm = DTProjects.searchPanel.getFilter(0)
         await filterForm.target.click()
-        ;(await filterForm.getTargetOption("model")).click()
+        const modelOption = await filterForm.getTargetOption("model")
+        await modelOption.click()
 
         await $('[aria-label="models filter value selector"]').click()
 

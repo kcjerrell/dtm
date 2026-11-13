@@ -44,10 +44,11 @@ pub static TOKIO_RT: Lazy<Runtime> =
 // sets its `dev` cfg only for the former. Keep this marker in the executable so
 // the WDIO launcher can decide whether it must start the Vite server first.
 #[used]
-static DTM_TAURI_RUNTIME_MODE: &str = if cfg!(dev) {
-    "DTM_TAURI_RUNTIME_MODE=dev\0"
+#[cfg(feature = "e2e")]
+static DTM_E2E_RUNTIME_MODE: &str = if cfg!(dev) {
+    "DTM_E2E_RUNTIME_MODE=dev\0"
 } else {
-    "DTM_TAURI_RUNTIME_MODE=build\0"
+    "DTM_E2E_RUNTIME_MODE=build\0"
 };
 
 #[tauri::command]
@@ -241,7 +242,7 @@ pub fn run() {
                 .build(),
         );
 
-    builder
+    let builder = builder
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -268,9 +269,14 @@ pub fn run() {
                 ])
                 .max_file_size(200000)
                 .build(),
-        )
+        );
+
+    #[cfg(feature = "e2e")]
+    let builder = builder
         .plugin(tauri_plugin_wdio::init())
-        .plugin(tauri_plugin_wdio_webdriver::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .invoke_handler(tauri::generate_handler![
             show_dev_window,
             is_debug_build,
@@ -307,6 +313,7 @@ pub fn run() {
             dtp_service::data::dtp_remove_watch_folder,
             dtp_service::data::dtp_update_project_exclude,
             dtp_service::data::dtp_update_watch_folder,
+            #[cfg(feature = "e2e")]
             dtp_service::dtp_service::dtp_test,
             dtp_service::dtp_service::dtp_sync,
             dtp_service::dtp_service::dtp_lock_folder,
@@ -316,6 +323,7 @@ pub fn run() {
             dtp_service::data::dtp_get_metadata,
             dtp_service::export::dtp_export_projects,
             dtp_service::dt_data::dtp_dt_get_tensor_history_nodes,
+            #[cfg(feature = "e2e")]
             dtp_service::dtp_service::dtp_reset_db,
             dtp_service::resource::dtp_get_resource_image,
             dtp_service::resource::dtp_get_resource_json,

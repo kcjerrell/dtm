@@ -23,8 +23,8 @@ import {
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12)
 
 function getSourceKey(source: MediaItemSource | undefined) {
-    if (source?.projectFile && source.tensorId) {
-        return `project:${JSON.stringify([source.projectFile, source.tensorId])}`
+    if (source?.projectId != null && source.tensorId) {
+        return `project:${JSON.stringify([source.projectId, source.tensorId])}`
     }
     if (source?.file) return `file:${source.file}`
     if (source?.url) {

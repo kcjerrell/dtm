@@ -19,7 +19,6 @@
     }
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [],
     "security": {
       "assetProtocol": {
