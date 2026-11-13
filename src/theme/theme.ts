@@ -10,41 +10,41 @@ import { buttonRecipe } from "./button"
 
 const IS_TAHOE = version().startsWith("26")
 
-const grayValues = [
-    "#0e0f10", // 0    17
-    "#141617", // 1    16
-    "#1f2224", // 2    15
-    "#232629", // 3    14
-    "#2e3235", // 4    13
-    "#353940", // 5    12
-    "#434753", // 6    11
-    "#565e67", // 7    10
-    "#8e97a2", // 8    9
-    "#b9bfc5", // 9    8
-    "#c7c9ca", // 10   7
-    "#dbdddf", // 11   6
-    "#dedfe1", // 12   5
-    "#e0e1e2", // 13   4
-    "#e4e6e7", // 14   3
-    "#e8eaeb", // 15   2
-    "#EDEFF0", // 16   1
-    "#f2f3f4", // 17   0
+const GRAY = [
+    "#0e0f10", // 0
+    "#191b1d", // 1
+    "#26292c", // 2
+    "#34393e", // 3
+    "#444a50", // 4
+    "#545b62", // 5
+    "#646b72", // 6
+    "#747c83", // 7
+    "#858c93", // 8
+    "#949ba2", // 9
+    "#a4aab0", // 10
+    "#b2b7bc", // 11
+    "#c0c5c9", // 12
+    "#cdd1d5", // 13
+    "#d9dcdf", // 14
+    "#e4e6e8", // 15
+    "#edeeef", // 16
+    "#f2f3f4", // 17
 ]
 
-const grays = grayValues.reduce(
+const grays = GRAY.reduce(
     (acc, value, index) => {
         acc[index] = { value }
         return acc
     },
     {} as Record<number, { value: string }>,
 )
-const grayc = Array.from({ length: grayValues.length }).reduce<
+const grayc = Array.from({ length: GRAY.length }).reduce<
     Record<number, { value: { _light: string; _dark: string } }>
 >((acc, _, index) => {
     acc[index] = {
         value: {
-            _light: grayValues[index],
-            _dark: grayValues[grayValues.length - 1 - index],
+            _light: GRAY[index],
+            _dark: GRAY[GRAY.length - 1 - index],
         },
     }
     return acc
@@ -111,7 +111,7 @@ const themeConfig = defineConfig({
             // scrollbarGutter: "stable",
             _scrollbar: { backgroundColor: "none", width: "8px", borderRadius: "0 50% 50% 0" },
             _scrollbarThumb: {
-                backgroundColor: "fg.2/50",
+                backgroundColor: "fg.2/30",
                 width: "4px",
                 borderRadius: "2px 7px 7px 2px",
                 boxShadow: "pane1",
@@ -137,6 +137,9 @@ const themeConfig = defineConfig({
             height: "100vh",
             width: "100vw",
             position: "relative",
+        },
+        ".blink-anim": {
+            animation: "infinite steps(1, end) blink-anim",
         },
     },
     theme: {
@@ -172,8 +175,22 @@ const themeConfig = defineConfig({
                     },
                 },
             },
+            marchingBorder: {
+                value: {
+                    backgroundImage:
+                        "linear-gradient(90deg, #000 50%, #FFF 0), linear-gradient(90deg, #000 50%, #FFF 0), linear-gradient(180deg, #000 50%, #FFF 0), linear-gradient(180deg, #000 50%, #FFF 0)",
+                    backgroundSize: "15px 2px, 15px 2px, 2px 15px, 2px 15px",
+                    backgroundPosition: "0 0, 0 100%, 0 0, 100% 0",
+                    backgroundRepeat: "repeat-x, repeat-x, repeat-y, repeat-y",
+                },
+            },
         }),
         semanticTokens: {
+            animations: {
+                "marchingBorder": {
+                    value: "marching-border 0.8s linear infinite"
+                }
+            },
             colors: {
                 check: {
                     "1": {
@@ -242,14 +259,20 @@ const themeConfig = defineConfig({
                     },
                     "2": {
                         value: {
-                            _light: "#434753",
-                            _dark: "#b9bfc5",
+                            _light: GRAY[4],
+                            _dark: GRAY[13],
                         },
                     },
                     "3": {
                         value: {
-                            _light: "#565e67",
-                            _dark: "#8e97a2",
+                            _light: GRAY[6],
+                            _dark: GRAY[11],
+                        },
+                    },
+                    "4": {
+                        value: {
+                            _light: GRAY[8],
+                            _dark: GRAY[9],
                         },
                     },
                 },
@@ -276,23 +299,27 @@ const themeConfig = defineConfig({
                     DEFAULT: {
                         value: {
                             _light: "#EC5F47",
-                            // _light: "#e9624dff",
-                            _dark: "#d25542",
+                            _dark: "#D25542",
                         },
                     },
                     "1": {
                         value: {
-                            _light: "#d25741ff",
-                            // _light: "#e9624dff",
-                            _dark: "#d25542",
+                            _light: "#D25542",
+                            _dark: "#B84F40",
                         },
                     },
                 },
                 info: {
                     DEFAULT: {
                         value: {
-                            _light: "#5098dbff",
-                            _dark: "#689fd3",
+                            _light: "#5098DB",
+                            _dark: "#689FD3",
+                        },
+                    },
+                    "1": {
+                        value: {
+                            _light: "#689FD3",
+                            _dark: "#5B8CBA",
                         },
                     },
                 },
@@ -360,6 +387,25 @@ const themeConfig = defineConfig({
             fadeIn: {
                 from: { opacity: 0 },
                 to: { opacity: 1 },
+            },
+            "blink-anim": {
+                // "0%, 49.999%": { opacity: 0 },
+                "0%, 49.999%": { visibility: "hidden" },
+                // "50%, 100%": { opacity: 1 },
+                "50%, 100%": { visibility: "visible" },
+            },
+            "flip-button": {
+                "0%": { transform: "rotateY(0deg) skewY(0deg)" },
+                "40%, 49%": { transform: "rotateY(-90deg) skewY(20deg)" },
+                "50%, 100%": { transform: "rotateY(0deg) skewY(0deg)" },
+            },
+            "flip-button-inv": {
+                "0%, 50%": { transform: "rotateY(0deg) skewY(0deg)" },
+                "90%, 99%": { transform: "rotateY(90deg) skewY(-20deg)" },
+                "100%": { transform: "rotateY(0deg) skewY(0deg)" },
+            },
+            "marching-border": {
+                to: { backgroundPosition: "-30px 0, 30px 100%, 0 30px, 100% -30px" },
             },
         },
     },

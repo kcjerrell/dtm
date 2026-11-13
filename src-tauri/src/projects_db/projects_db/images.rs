@@ -1,10 +1,12 @@
-use crate::projects_db::{
-    dtos::{
-        clip::{ClipExtra, ClipFrame},
-        image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+use crate::{
+    dt_project::ClipExtra,
+    projects_db::{
+        dtos::image::{ImageCount, ImageExtra, ListImagesOptions, ListImagesResult},
+        folder_cache, search, DtProjectRef,
     },
-    folder_cache, search, DTProject,
+    IntoTAResult,
 };
+use anyhow::Context;
 use entity::{images, projects, watch_folders};
 use sea_orm::{
     ColumnTrait, EntityTrait, ExprTrait, JoinType, Order, PaginatorTrait, QueryFilter, QueryOrder,
@@ -132,6 +134,8 @@ impl ProjectsDb {
             });
         }
 
+        let count = query.clone().count(&self.db).await?;
+
         if let Some(skip) = opts.skip {
             query = query.offset(skip as u64);
         }
@@ -140,7 +144,6 @@ impl ProjectsDb {
             query = query.limit(take as u64);
         }
 
-        let count = query.clone().count(&self.db).await?;
         let result = query.into_model::<ImageExtra>().all(&self.db).await?;
 
         Ok(ListImagesResult {
@@ -174,21 +177,31 @@ impl ProjectsDb {
             .column(images::Column::NodeId)
             .into_tuple()
             .one(&self.db)
-            .await?;
+            .await
+            .into_ta_result()
+            .with_context(|| format!("failed to query image {image_id} for clip {clip_id}"))?;
 
         let (rel_path, watchfolder_id, node_id) =
-            result.ok_or_else(|| anyhow::anyhow!("Image or Project not found"))?;
+            result.ok_or_else(|| anyhow::anyhow!("image {image_id} or project not found"))?;
 
         let watch_folder_path = folder_cache::get_folder(watchfolder_id)
-            .ok_or_else(|| anyhow::anyhow!("Watch folder {watchfolder_id} not found in cache"))?;
+            .ok_or_else(|| anyhow::anyhow!("watch folder {watchfolder_id} not found in cache"))?;
 
         let full_path = std::path::Path::new(&watch_folder_path).join(rel_path);
-        let full_path_str = full_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path encoding"))?;
+        let full_path_str = full_path.to_str().ok_or_else(|| {
+            anyhow::anyhow!("invalid path encoding for '{}'", full_path.display())
+        })?;
 
-        let dt_project = DTProject::get(full_path_str).await?;
-        let clip = dt_project.get_clip_and_frames(node_id, clip_id).await?;
+        let dt_project = DtProjectRef::Path(full_path_str.to_string())
+            .get_project()
+            .await
+            .with_context(|| format!("failed to open project at {}", full_path.display()))?;
+        let clip = dt_project
+            .get_clip_and_frames(node_id, clip_id)
+            .await
+            .with_context(|| {
+                format!("failed to get clip {clip_id} and frames for node {node_id}")
+            })?;
 
         Ok(clip)
     }

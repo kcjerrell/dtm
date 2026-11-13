@@ -1,8 +1,8 @@
+import { chakra } from "@chakra-ui/react"
+import { motion } from "motion/react"
 import { Activity, type PropsWithChildren, Suspense, useEffect, useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import ErrorFallback from "@/ErrorFallback"
-import { Loading } from "@/main"
-import { chakra } from "@chakra-ui/react"
 
 export function ViewContainer(
     props: PropsWithChildren<{
@@ -67,3 +67,22 @@ const ViewContainerBase = chakra("div", {
         },
     },
 })
+
+function Loading() {
+    return (
+        <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={"loading-container"}
+            transition={{ duration: 2 }}
+            style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+            }}
+        >
+            <div className={"loading-text"}>Loading...</div>
+        </motion.div>
+    )
+}

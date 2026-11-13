@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "24"
           cache: npm
 
       - name: Install Rust
@@ -44,11 +44,8 @@ jobs:
       - name: Generate icons
         run: npm run gen-icons
         
-      - name: Build debug app
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run build:debug
+      - name: Build E2E app
+        run: npm run build:e2e
 
       - name: Set up test data
         run: sh scripts/test-setup.sh

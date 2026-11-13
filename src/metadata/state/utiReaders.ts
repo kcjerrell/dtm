@@ -61,7 +61,9 @@ function isPose(type: string, data: unknown) {
 
 function binaryTypeReader(uti: string, data: Uint8Array) {
     if (!data || data.length === 0) return undefined
-    return { uti, data: { buffer: data, type: determineType(data) } }
+    const type = determineType(data) ?? determineType(uti)
+    if (!type) return undefined
+    return { uti, data: { buffer: data, type } }
 }
 
 export function tryRead(uti: string, data: string | Uint8Array) {

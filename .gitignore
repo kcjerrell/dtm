@@ -34,3 +34,8 @@ test_data/
 # Generated test-data release archives
 test_data*.zip
 test/artifacts/
+
+# Local Linux test runtime and diagnostics
+work/
+
+src-tauri/binaries

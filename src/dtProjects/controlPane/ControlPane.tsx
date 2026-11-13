@@ -1,9 +1,9 @@
 import { Box, HStack } from "@chakra-ui/react"
 import { IconButton, Panel } from "@/components"
 import { GoGear, MdImageSearch, PiCoffee } from "@/components/icons/icons"
+import Tabs from "@/components/tabs"
 import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
 import { useDTP } from "@/dtProjects/state/context"
-import Tabs from "@/components/tabs"
 import ProjectsPanel from "./projectsPanel/ProjectsPanel"
 import SearchPanel from "./SearchPanel"
 
@@ -34,7 +34,7 @@ function ControlPane(props: ControlPane) {
             width={"full"}
             paddingY={0}
             paddingX={0}
-            borderRadius={"md"}
+            borderRadius={"none"}
             variant={"float"}
             bgColor={"grayc.16"}
             _dark={{

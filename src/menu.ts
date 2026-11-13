@@ -7,13 +7,14 @@ import {
     PredefinedMenuItem,
     Submenu,
 } from "@tauri-apps/api/menu"
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import { open } from "@tauri-apps/plugin-dialog"
-import { exit } from "@tauri-apps/plugin-process"
 import { toggleColorMode } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import { postMessage } from "./state/Messages"
 import { getSetting, subscribeSetting, updateSetting } from "./state/settings"
 import { themeHelpers } from "./theme/helpers"
+import { isMacOS } from "./utils/platform"
 import { viewDescription } from "./views"
 
 const Separator = () => PredefinedMenuItem.new({ item: "Separator" })
@@ -49,11 +50,15 @@ async function createAppMenus() {
             await updateMenu()
         },
     )
+    const zoomModeUnsub = subscribeSetting("app.zoomMode", async () => {
+        await updateMenu()
+    })
 
     _global._menuUnsubscribe = () => {
         clearHistoryUnsub()
         clearPinsUnsub()
         showProjectSubpathsUnsub()
+        zoomModeUnsub()
     }
 
     // Will become the application submenu on MacOS
@@ -64,24 +69,32 @@ async function createAppMenus() {
                 item: { About: aboutApp },
                 text: "About",
             }),
-            await MenuItem.new({
-                text: "Check for Updates...",
-                id: "about_checkForUpdates",
-                action: async () => {
-                    postMessage({
-                        channel: "toolbar",
-                        message: "Checking for updates...",
-                        uType: "update",
-                        duration: 3000,
-                    })
-                    await AppStore.checkForUpdate()
-                },
-            }),
+            ...(isMacOS
+                ? [
+                      await MenuItem.new({
+                          text: "Check for Updates...",
+                          id: "about_checkForUpdates",
+                          action: async () => {
+                              postMessage({
+                                  channel: "toolbar",
+                                  message: "Checking for updates...",
+                                  uType: "update",
+                                  duration: 3000,
+                              })
+                              await AppStore.checkForUpdate()
+                          },
+                      }),
+                  ]
+                : []),
             await Separator(),
-            await PredefinedMenuItem.new({
-                item: "Services",
-                text: "Services",
-            }),
+            ...(isMacOS
+                ? [
+                      await PredefinedMenuItem.new({
+                          item: "Services",
+                          text: "Services",
+                      }),
+                  ]
+                : []),
             await Separator(),
             await PredefinedMenuItem.new({
                 item: "Hide",
@@ -99,9 +112,9 @@ async function createAppMenus() {
             await MenuItem.new({
                 id: "dtm_quit",
                 text: "Quit DTM",
-                accelerator: "Command+Q",
+                accelerator: isMacOS ? "Command+Q" : "Ctrl+Q",
                 action: async () => {
-                    await exit(0)
+                    await getCurrentWindow().close()
                 },
             }),
         ],
@@ -125,48 +138,48 @@ async function createAppMenus() {
                         ],
                     })
                     if (imagePath == null) return
-                    const [{ ImageItem }, { addImageItem }] = await Promise.all([
-                        import("./metadata/state/ImageItem"),
-                        import("./metadata/state/metadataStore"),
-                    ])
-                    const item = await ImageItem.fromFile(imagePath, {
-                        loadedFrom: "open",
-                        file: imagePath,
-                    })
-                    if (item) addImageItem(item)
+                    const { openMetadataImage } = await import("./metadata/state/interop")
+                    await openMetadataImage(imagePath)
                 },
             }),
-            await MenuItem.new({
-                text: "Open from pasteboard...",
-                id: "file_openPasteboard",
-                action: async () => {
-                    const { loadImage2 } = await import("./metadata/state/imageLoaders")
-                    await loadImage2("general")
-                },
-            }),
+            ...(isMacOS
+                ? [
+                      await MenuItem.new({
+                          text: "Open from pasteboard...",
+                          id: "file_openPasteboard",
+                          action: async () => {
+                              const { loadImage2 } = await import("./metadata/state/interop")
+                              await loadImage2("general")
+                          },
+                      }),
+                  ]
+                : []),
             await Separator(),
             await MenuItem.new({
                 text: "Close",
                 id: "file_close",
                 action: async () => {
-                    const { clearCurrent } = await import("./metadata/state/metadataStore")
-                    await clearCurrent()
+                    const { getMetadataStore } = await import("./metadata/state/metadataStore2")
+                    const mdStore = await getMetadataStore()
+                    mdStore.selectImage(null)
                 },
             }),
             await MenuItem.new({
                 text: "Close unpinned",
                 id: "file_closeUnpinned",
                 action: async () => {
-                    const { clearAll } = await import("./metadata/state/metadataStore")
-                    await clearAll(true)
+                    const { getMetadataStore } = await import("./metadata/state/metadataStore2")
+                    const mdStore = await getMetadataStore()
+                    await mdStore.clearAll(true)
                 },
             }),
             await MenuItem.new({
                 text: "Close all",
                 id: "file_closeAll",
                 action: async () => {
-                    const { clearAll } = await import("./metadata/state/metadataStore")
-                    await clearAll(false)
+                    const { getMetadataStore } = await import("./metadata/state/metadataStore2")
+                    const mdStore = await getMetadataStore()
+                    await mdStore.clearAll(false)
                 },
             }),
         ],
@@ -247,6 +260,7 @@ type CreateOptionMenuOpts = {
     clearPinsOnExit?: boolean
     clearHistoryOnExit?: boolean
     showSubpathInProjectList?: boolean
+    pinchZoom?: boolean
 }
 
 async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
@@ -269,6 +283,17 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
                 text: "Toggle color mode",
                 action: () => {
                     toggleColorMode()
+                },
+            }),
+            await CheckMenuItem.new({
+                text: "Trackpad pan and pinch to zoom",
+                id: "options_pinchZoom",
+                checked: opts?.pinchZoom,
+                action: () => {
+                    updateSetting(
+                        "app.zoomMode",
+                        getSetting("app.zoomMode") === "pinch" ? "scroll" : "pinch",
+                    )
                 },
             }),
             await Separator(),
@@ -319,5 +344,6 @@ async function createOpts(): Promise<CreateOptionMenuOpts> {
         clearHistoryOnExit: getSetting("metadata.clearHistoryOnExit"),
         clearPinsOnExit: getSetting("metadata.clearPinsOnExit"),
         showSubpathInProjectList: getSetting("projects.showSubpathInProjectList"),
+        pinchZoom: getSetting("app.zoomMode") === "pinch",
     }
 }

@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core"
 import { store } from "@tauri-store/valtio"
 import { nanoid } from "nanoid"
-import { type RefObject, useCallback, useRef } from "react"
-import { useSnapshot } from "valtio"
+import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react"
+import { type Snapshot, subscribe, useSnapshot } from "valtio"
+import type { Format } from "@/commands"
 import { getStoreName } from "@/utils/helpers"
 
 let settingStore: ReturnType<typeof initStore> | undefined
@@ -17,6 +18,8 @@ const defaultSettings = {
     "vidExport.videoSource": "preview",
     "projectExport.outputDir": "",
     "projectExport.source": "preview",
+    "dtArchive.format": { jpg: 90 } as Format,
+    "dtArchive.folder": null as string | null,
     "ui.imageSize": 200,
     "ui.defaultMute": true,
     "app.currentView": "metadata",
@@ -25,6 +28,8 @@ const defaultSettings = {
     "metadata.clearHistoryOnExit": true,
     "metadata.clearPinsOnExit": false,
     "projects.showSubpathInProjectList": false,
+    "app.zoomMode": "pinch" as "pinch" | "scroll",
+    "app.flags": [] as string[],
 }
 type Settings = typeof defaultSettings
 type SettingsKey = keyof Settings
@@ -96,6 +101,28 @@ export function getSetting<K extends SettingsKey>(key: K) {
     return getSettingStore().state[key]
 }
 
+export function getFlag(flag: string): boolean {
+    return getSetting("app.flags").includes(flag)
+}
+
+export function updateFlag(flag: string, value = true) {
+    const flags = getSetting("app.flags")
+    if (flags.includes(flag) === value) return
+
+    updateSetting("app.flags", value ? [...flags, flag] : flags.filter((entry) => entry !== flag))
+}
+
+function subscribeFlags(onChange: () => void) {
+    return subscribe(getSettingStore().state, onChange)
+}
+
+export function useFlag(flag: string) {
+    const readFlag = useCallback(() => getFlag(flag), [flag])
+    const value = useSyncExternalStore(subscribeFlags, readFlag, readFlag)
+    const setFlag = useCallback((value = true) => updateFlag(flag, value), [flag])
+    return [value, setFlag] as const
+}
+
 export function subscribeSetting<K extends SettingsKey>(
     key: K,
     callback: (value: Settings[K]) => void,
@@ -117,7 +144,10 @@ export function subscribeSetting<K extends SettingsKey>(
  */
 export function useSetting<K extends SettingsKey>(
     key: K,
-): [Settings[K], (value: Settings[K] | ((prevState: Settings[K]) => Settings[K])) => void] {
+): [
+    Snapshot<Settings[K]>,
+    (value: Settings[K] | ((prevState: Settings[K]) => Settings[K])) => void,
+] {
     const store = getSettingStore()
     const snap = useSnapshot(store.state)
 
@@ -135,7 +165,7 @@ export function useSetting<K extends SettingsKey>(
 /**
  * Hook to use an app-wide setting in a non-reactive context. Mirrors the useRef() api
  * @param key The setting key
- * @returns A ref to the setting value
+ * @returns A ref to the setting value. Assign a new value to `current` will update the setting.
  */
 export function useSettingRef<K extends SettingsKey>(key: K): RefObject<Settings[K]> {
     const store = getSettingStore()

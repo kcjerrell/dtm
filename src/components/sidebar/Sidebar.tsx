@@ -1,7 +1,10 @@
 import { chakra, HStack, IconButton, Spacer, VStack } from "@chakra-ui/react"
-import type { ComponentProps, PropsWithChildren } from "react"
-import { FaMinus, FaMoon, FaPlus } from "@/components/icons/icons"
+import { motion, useAnimate } from "motion/react"
+import { type ComponentProps, type PropsWithChildren, useEffect } from "react"
+import { useSnapshot } from "valtio/react"
+import { FaMinus, FaMoon, FaPlus, IconType } from "@/components/icons/icons"
 import { toggleColorMode } from "@/components/ui/color-mode"
+import AppStore from "@/hooks/appState"
 import UpgradeButton from "@/metadata/toolbar/UpgradeButton"
 import { useSetting } from "@/state/settings"
 import { themeHelpers } from "@/theme/helpers"
@@ -18,7 +21,7 @@ const Root = chakra(
             alignItems: "stretch",
             gap: 0,
             paddingTop: "30px",
-            bgColor: "grayc.14",
+            bgColor: "grayc.15",
             _dark: {
                 bgColor: "grayc.17",
             },
@@ -200,7 +203,7 @@ interface SidebarButtonProps extends ComponentProps<typeof ButtonBase> {
     item: {
         viewId: string
         label: string
-        icon: React.FC | null
+        icon: IconType | null
     }
     isActive?: boolean
     isUpgrade?: boolean
@@ -210,6 +213,28 @@ export function SidebarButton(props: SidebarButtonProps) {
     const { item, onClick, isActive = false, isUpgrade = false, ref, children, ...rest } = props
     const { label, icon: Icon } = item
     const [isSidebarVisible, _] = useSetting("app.isSidebarVisible")
+
+    const activity = useSnapshot(AppStore.store.sidebarActivity)[item.viewId]
+    const [scope, anim] = useAnimate()
+
+    useEffect(() => {
+        if (activity) {
+            anim(
+                scope.current,
+                {
+                    scale: [1, 1.25, 1.25, 1.25, 1.25, 1],
+                    rotate: [15, -12, 9, -6, 3, 0],
+                },
+                {
+                    duration: 1.5,
+                    ease: "easeIn",
+                    onComplete: () => {
+                        delete AppStore.store.sidebarActivity[item.viewId]
+                    },
+                },
+            )
+        }
+    }, [activity, item.viewId, scope, anim])
 
     return (
         <ButtonBase
@@ -227,9 +252,16 @@ export function SidebarButton(props: SidebarButtonProps) {
         >
             {Icon ? (
                 <>
-                    <ButtonContent asChild>
-                        <Icon />
-                    </ButtonContent>
+                    <motion.div ref={scope} style={{ transformOrigin: "50% 100%" }}>
+                        <Icon
+                            style={{
+                                aspectRatio: 1,
+                                margin: "auto",
+                                width: "20px",
+                                height: "20px",
+                            }}
+                        />
+                    </motion.div>
                     <ButtonLabel>{label}</ButtonLabel>
                 </>
             ) : (

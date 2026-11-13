@@ -1,6 +1,8 @@
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener"
 import { useMemo } from "react"
+import { RiLayoutColumnFill } from "react-icons/ri"
 import { useSnapshot } from "valtio"
+import { addMediaItem } from "@/compare/interop"
 import type { IconType } from "@/components/icons/icons"
 import {
     FiClipboard,
@@ -12,18 +14,17 @@ import {
 } from "@/components/icons/icons"
 import { postMessage } from "@/state/Messages"
 import type { ICommand1 } from "@/types"
-import ImageStore from "@/utils/imageStore"
 import { save } from "@/utils/tauri"
-import { loadImage2 } from "../state/imageLoaders"
-import type MediaItem from "../state/mediaItem"
-import { clearAll, getMetadataStore, pinImage } from "../state/metadataStore"
+import { loadImage2 } from "../state/interop"
+import type MdItem from "../state/MdItem"
+import { useMetadataStore } from "../state/metadataStore2"
 import PinnedIcon from "./PinnedIcon"
 
 export function useMediaItemCommands() {
-    const state = getMetadataStore()
-    const snap = useSnapshot(state)
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
 
-    const commands: ICommand1<MediaItem>[] = useMemo(
+    const commands: ICommand1<MdItem>[] = useMemo(
         () =>
             [
                 {
@@ -43,21 +44,22 @@ export function useMediaItemCommands() {
                     label: "Copy image",
                     icon: FiCopy,
                     requiresSelection: true,
+                    getEnabled: (item) => !!item && !item.isVideo && item.storage.kind === "app",
                     onClick: async (item) => {
                         if (!item) return
-                        await ImageStore.copy(item?.id)
+                        await item.copyImageToClipboard()
                     },
                 },
                 {
                     id: "pinImage",
                     getLabel: (item) => (item?.pin ? "Unpin image" : "Pin image"),
-                    icon: (props: { item: MediaItem }) => <PinnedIcon pin={props.item?.pin} />,
+                    icon: (props: { item: MdItem }) => <PinnedIcon pin={props.item?.pin} />,
                     requiresSelection: true,
                     onClick: async (item) => {
                         if (!item) return
                         const isPinned = typeof item?.pin === "number"
                         const pin = !isPinned
-                        pinImage(true, pin)
+                        mdStore.pinImage(true, pin)
                         postMessage({
                             message: pin ? "Image pinned" : "Pin removed",
                             uType: "pinimage",
@@ -69,7 +71,9 @@ export function useMediaItemCommands() {
                 {
                     id: "clearUnpinned",
                     label: "Clear unpinned images",
-                    onClick: () => clearAll(true),
+                    onClick: async () => {
+                        await mdStore.clearAll(true)
+                    },
                     getEnabled: () => {
                         return (
                             snap.items.length > 0 &&
@@ -86,14 +90,18 @@ export function useMediaItemCommands() {
                         if (!item) return
                         const savePath = await save({
                             canCreateDirectories: true,
-                            title: "Save image",
-                            filters: [{ name: "Image", extensions: [item.type] }],
+                            title: item.isVideo ? "Save video" : "Save image",
+                            filters: [
+                                { name: item.isVideo ? "Video" : "Image", extensions: [item.type] },
+                            ],
                         })
                         if (savePath) {
-                            await ImageStore.saveCopy(item.id, savePath)
+                            await item.saveCopy(savePath)
                         }
                     },
                     requiresSelection: true,
+                    getEnabled: (item) =>
+                        !!item && (item.storage.kind === "app" || item.storage.kind === "file"),
                     icon: FiSave,
                 },
                 {
@@ -118,8 +126,19 @@ export function useMediaItemCommands() {
                     toolbarEnableMode: "hide",
                     icon: TbBrowser,
                 },
-            ] as ICommand1<MediaItem>[],
-        [snap.items],
+                {
+                    id: "compare",
+                    label: "Compare image",
+                    onClick: async (item) => {
+                        if (!item?.id) return
+                        await addMediaItem(item.id)
+                    },
+                    getEnabled: (item) => !!item?.id,
+                    toolbarEnableMode: "hide",
+                    icon: RiLayoutColumnFill,
+                },
+            ] as ICommand1<MdItem>[],
+        [snap.items, mdStore],
     )
 
     return commands

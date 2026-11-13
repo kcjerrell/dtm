@@ -578,17 +578,17 @@ const templates = {
     },
     // todo: find out what model versions these are for
     Stage2: (props: DataItemTemplateProps<"stage2">) => {
-        const { value, ...rest } = props
+        const { value } = props
         if (!value || (value.guidance === 0 && value.steps === 0)) return null
         return null
     },
     ImagePrior: (props: DataItemTemplateProps<"imagePrior">) => {
-        const { value, ...rest } = props
+        const { value } = props
         if (!value || value.steps === 0) return null
         return null
     },
     AestheticScore: (props: DataItemTemplateProps<"aestheticScore">) => {
-        const { value, ...rest } = props
+        const { value } = props
         if (!value || (value.positive === 0 && value.negative === 0)) return null
         return null
     },

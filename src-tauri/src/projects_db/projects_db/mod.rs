@@ -1,4 +1,6 @@
-use anyhow::{anyhow, Result};
+use std::sync::{Arc, OnceLock};
+
+use anyhow::{anyhow, Context, Result};
 use migration::{Migrator, MigratorTrait};
 use once_cell::sync::Lazy;
 use sea_orm::{Database, DatabaseConnection};
@@ -12,19 +14,34 @@ mod projects;
 mod watchfolders;
 pub use mixed_error::MixedError;
 
+use crate::util::DebounceTask;
+
 static PROJECTS_DB: Lazy<RwLock<Option<ProjectsDb>>> = Lazy::new(|| RwLock::new(None));
 
 #[derive(Clone, Debug)]
 pub struct ProjectsDb {
     pub db: DatabaseConnection,
+    rebuild_debounce: Arc<OnceLock<Arc<DebounceTask>>>,
+    maintenance_lock: Arc<tokio::sync::Mutex<()>>,
+    maintenance_stopped: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl ProjectsDb {
     pub async fn new(db_path: &str) -> Result<Self> {
-        let db = Database::connect(db_path).await?;
-        Migrator::up(&db, None).await?;
+        let db = Database::connect(db_path)
+            .await
+            .with_context(|| format!("failed to connect to database at '{db_path}'"))?;
+        Migrator::up(&db, None)
+            .await
+            .with_context(|| format!("failed to run database migrations on '{db_path}'"))?;
 
-        let projects_db = Self { db: db };
+        projects::clear_project_paths();
+        let projects_db = Self {
+            db,
+            rebuild_debounce: Arc::new(OnceLock::new()),
+            maintenance_lock: Arc::new(tokio::sync::Mutex::new(())),
+            maintenance_stopped: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        };
 
         let mut singleton = PROJECTS_DB.write().await;
         *singleton = Some(projects_db.clone());
@@ -34,9 +51,9 @@ impl ProjectsDb {
 
     pub async fn get() -> Result<ProjectsDb> {
         let singleton = PROJECTS_DB.read().await;
-        match singleton.clone() {
-            Some(projects_db) => Ok(projects_db),
-            None => Err(anyhow!("DB not ready")),
+        match singleton.as_ref() {
+            Some(projects_db) => Ok(projects_db.clone()),
+            None => Err(anyhow!("ProjectsDb is not initialized")),
         }
     }
 }
