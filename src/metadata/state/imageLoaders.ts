@@ -194,17 +194,19 @@ async function createMediaItem(
 
 function preprocess(input: string | Uint8Array) {
     try {
-        if (
-            typeof input === "string" &&
-            (input.startsWith("https://cdn.discordapp.com") ||
-                input.startsWith("https://media.discordapp.net"))
-        ) {
+        if (typeof input === "string") {
             const url = new URL(input)
-            url.searchParams.delete("format")
-            url.searchParams.delete("quality")
-            url.searchParams.delete("width")
-            url.searchParams.delete("height")
-            return url.toString()
+            const allowedHosts = new Set([
+                "cdn.discordapp.com",
+                "media.discordapp.net",
+            ])
+            if (url.protocol === "https:" && allowedHosts.has(url.hostname)) {
+                url.searchParams.delete("format")
+                url.searchParams.delete("quality")
+                url.searchParams.delete("width")
+                url.searchParams.delete("height")
+                return url.toString()
+            }
         }
     } catch (e) {
         console.warn(`Error preprocessing input:`, e)
