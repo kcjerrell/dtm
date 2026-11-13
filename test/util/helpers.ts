@@ -176,10 +176,9 @@ export function getClipboardText() {
 /** verifies osascript can write/read clipboard in this runtime (macOS only) */
 export function assertOsaScriptClipboardAvailable() {
     const token = `wdio-clipboard-check-${Date.now()}`
-    const escapedToken = token.replace(/"/g, '\\"')
 
     try {
-        execSync(`osascript -e 'set the clipboard to "${escapedToken}"'`)
+        execFileSync("osascript", ["-e", `set the clipboard to ${JSON.stringify(token)}`])
         const result = execSync("osascript -e 'the clipboard as text'", {
             encoding: "utf8",
         }).trim()
