@@ -1,5 +1,5 @@
 import { Box, chakra } from "@chakra-ui/react"
-import type { ComponentProps } from "react"
+import { PropsWithChildren, ViewTransition, type ComponentProps } from "react"
 import { MotionBox } from "../common"
 import Tooltip from "../Tooltip"
 import { ToolbarSectionContext } from "./ToolbarSection"
@@ -25,7 +25,7 @@ export interface ToolbarButtonProps
 function ToolbarButton(props: ToolbarButtonProps) {
     const {
         children,
-        itemId: _itemId,
+        itemId,
         isSelected,
         isActive,
         isOpen,
@@ -36,42 +36,79 @@ function ToolbarButton(props: ToolbarButtonProps) {
         ...restProps
     } = props
 
-    const [, { activeItemLayoutId }] = ToolbarSectionContext.useContext()
+    const [, { activeItemLayoutId, mode }] = ToolbarSectionContext.useContext()
+    // const hv = ToolbarSectionContext.useContextHooks()
 
     const showIndicator = isActive || isOpen || isWaiting
 
-    const button = (
-        <Base
-            tbSelected={isSelected}
-            tbIndicator={showIndicator}
-            css={{ "--tb-indicator-color": getIndicatorColor(isActive, isOpen, isWaiting) }}
-            {...restProps}
-        >
-            {children}
-            {isSelected && (
-                <Box
-                    className={"indicator"}
-                    aria-hidden="true"
-                    pointerEvents="none"
-                    position="absolute"
-                    border="0px solid {colors.highlight.1}"
-                    borderTopWidth="3px"
-                    borderBottomWidth="0px"
-                    inset="-2px 0px 0px 0px"
-                    backgroundColor="grayc.12/50"
-                    _dark={{ backgroundColor: "grayc.13/50" }}
-                    zIndex={-1}
-                    asChild
-                >
-                    <motion.div
-                        transition={{ layout: { duration: 0.2 } }}
-                        layout={"x"}
-                        layoutId={activeItemLayoutId}
-                    />
-                </Box>
-            )}
-        </Base>
+    return (
+        <TooltipWrapper tip={tip} tipText={tipText} tipTitle={tipTitle}>
+            <Base
+                tbSelected={isSelected}
+                tbIndicator={showIndicator}
+                css={{
+                    "--tb-indicator-color": getIndicatorColor(
+                        isSelected,
+                        isActive,
+                        isOpen,
+                        isWaiting,
+                    ),
+                    "& > *": {
+                        zIndex: 5,
+                    },
+                    // "& svg": { shapeRendering: "crispEdges" },
+                }}
+                {...restProps}
+            >
+                <SelectedIndicator
+                    name={activeItemLayoutId}
+                    {...{ mode, isSelected, showIndicator }}
+                />
+                {/*<ViewTransition name={activeItemLayoutId + itemId} default={"tb-icon"}>*/}
+                {children}
+                {/*</ViewTransition>*/}
+            </Base>
+        </TooltipWrapper>
+
+        /*{mode === "select" && isSelected && (
+                <SelectedIndicator name={activeItemLayoutId} show={true} />
+            )}*/
     )
+}
+
+function SelectedIndicator(props) {
+    const { name, isSelected, showIndicator, mode } = props
+    if (!isSelected && !showIndicator) return null
+
+    return (
+        <MotionBox
+            layoutId={mode === "select" ? name : undefined}
+            layout={mode === "select" ? "position" : false}
+            className={"indicator"}
+            aria-hidden="true"
+            pointerEvents="none"
+            position="absolute"
+            zIndex={0}
+            border="0px solid {var(--tb-indicator-color)}"
+            borderTopWidth="3px"
+            borderBottomWidth="3px"
+            borderLeft={"1px solid {colors.grayc.12}"}
+            borderRight={"1px solid {colors.grayc.12}"}
+            inset="-2px -1px -2px -1px"
+            boxShadow={"pane0"}
+            bgColor={"#ffffff44"}
+            _dark={{
+                bgColor: "#ffffff11",
+            }}
+            // backgroundColor="grayc.12/50"
+            // _dark={{ backgroundColor: "grayc.13/50" }}
+        />
+    )
+}
+
+type TooltipWrapperProps = Pick<ComponentProps<typeof Tooltip>, "tip" | "tipTitle" | "tipText">
+function TooltipWrapper(props: PropsWithChildren<TooltipWrapperProps>) {
+    const { tip, tipTitle, tipText, children } = props
 
     if (tip || tipTitle || tipText) {
         return (
@@ -79,18 +116,32 @@ function ToolbarButton(props: ToolbarButtonProps) {
                 tip={tip}
                 tipTitle={tipTitle}
                 tipText={tipText}
-                ids={restProps.id ? { trigger: restProps.id } : undefined}
+                // ids={restProps.id ? { trigger: restProps.id } : undefined}
                 whiteSpace="normal"
             >
-                {button}
+                {children}
             </Tooltip>
         )
     }
 
-    return button
+    return children
 }
 
-function getIndicatorColor(isActive?: boolean, isOpen?: boolean, isWaiting?: boolean) {
+function IconWrapper(props: PropsWithChildren) {
+    return (
+        <ViewTransition enter={"tb-icon"} {...getHandlers("icon", "icon")}>
+            {props.children}
+        </ViewTransition>
+    )
+}
+
+function getIndicatorColor(
+    isSelected?: boolean,
+    isActive?: boolean,
+    isOpen?: boolean,
+    isWaiting?: boolean,
+) {
+    if (isSelected) return "{colors.highlight.1}"
     if (isOpen) return "{colors.info}"
     if (isActive) return "#ffd740"
     if (isWaiting) return "{colors.success.1}"
@@ -99,40 +150,55 @@ function getIndicatorColor(isActive?: boolean, isOpen?: boolean, isWaiting?: boo
 
 const Base = chakra("button", {
     base: {
+        // boxSizing: "content-box",
+
         display: "flex",
         position: "relative",
         appearance: "none",
-        alignItems: "center",
-        justifyContent: "center",
-        verticalAlign: "middle",
         overflow: "visible",
-        flexShrink: "0",
 
-        height: "min-content",
-        aspectRatio: "1",
         margin: 0,
         paddingY: 0,
+        height: "min-content",
+        aspectRatio: "1",
+        flexShrink: "0",
+
+        justifyContent: "center",
+        alignItems: "center",
+        verticalAlign: "middle",
 
         focusVisibleRing: "outside",
         transformOrigin: "center center",
-
         userSelect: "none",
         whiteSpace: "nowrap",
-
         fontWeight: "medium",
+
         background: "transparent",
         color: "grayc.3",
-        borderRadius: "l2",
-        borderWidth: "1px",
+        borderRadius: "0",
+        borderWidth: "0px",
         borderColor: "transparent",
         outline: "0",
 
+//         _first: {
+//             borderLeft: "1px solid {colors.grayc.12}",
+//         },
+//
+//         _last: {
+//             borderRight: "1px solid {colors.grayc.12}",
+//         },
+
+        // _dark: {
+        //     _first: {
+        //         borderLeft: "1px solid {colors.grayc.15}",
+        //     },
+        //     _last: {
+        //         borderRight: "1px solid {colors.grayc.15}",
+        //     },
+        // },
+
         transitionProperty: "background-color, border-color, color",
         transitionDuration: "0.2s",
-
-        "& *": {
-            transformOrigin: "center center",
-        },
 
         _disabled: {
             layerStyle: "disabled",
@@ -154,17 +220,18 @@ const Base = chakra("button", {
         },
         "--tb-open-color": "{colors.info}",
 
-        _after: {
-            content: '""',
-            display: "block",
-            position: "absolute",
-            backgroundColor: "var(--tb-indicator-color)/0",
-            top: "-2px",
-            left: 0,
-            right: 0,
-            height: "3px",
-            transition: "all 0.2s ease",
-        },
+        // _after: {
+        //     content: '""',
+        //     display: "block",
+        //     position: "absolute",
+        //     backgroundColor: "var(--tb-indicator-color)/0",
+        //     top: "-5px",
+        //     left: 0,
+        //     right: 0,
+        //     bottom: "-5px",
+        //     // height: "150%",
+        //     transition: "all 0.2s ease",
+        // },
     },
 
     variants: {
@@ -172,14 +239,22 @@ const Base = chakra("button", {
             true: {
                 color: "grayc.2",
                 _dark: {
-                    color: "grayc.3",
+                    color: "grayc.2",
                 },
+                // // borderColor: "grayc.8",
+                // borderTopColor: "highlight.1",
+                // borderBottomColor: "highlight.1",
+                // // transform: "translateY(-3px)"
+                // transform: "scale(1)"
             },
             false: {
                 color: "grayc.5",
                 _dark: {
-                    color: "grayc.7",
+                    color: "grayc.5",
                 },
+                // "& > *": {
+                //     transform: "scale(0.9)"
+                // }
             },
         },
         tbIndicator: {
@@ -202,8 +277,8 @@ const Base = chakra("button", {
                 minW: 0,
                 textStyle: "xs",
                 _icon: {
-                    width: "4",
-                    height: "4",
+                    width: "round(1rem, 2px)",
+                    height: "round(1rem, 2px)",
                 },
             },
             "2xs": {
@@ -213,8 +288,8 @@ const Base = chakra("button", {
                 px: "2",
                 gap: "1",
                 _icon: {
-                    width: "3.5",
-                    height: "3.5",
+                    width: "round(0.875rem, 2px)",
+                    height: "round(0.875rem, 2px)",
                 },
             },
             xs: {
@@ -224,8 +299,8 @@ const Base = chakra("button", {
                 px: "2.5",
                 gap: "1",
                 _icon: {
-                    width: "4",
-                    height: "4",
+                    width: "round(1rem, 2px)",
+                    height: "round(1rem, 2px)",
                 },
             },
             sm: {
@@ -234,9 +309,10 @@ const Base = chakra("button", {
                 px: "0",
                 textStyle: "sm",
                 gap: "2",
+                fontSize: "18px",
                 _icon: {
-                    width: "5",
-                    height: "5",
+                    width: "round(1.25rem, 2px)",
+                    height: "round(1.25rem, 2px)",
                 },
             },
             md: {
@@ -246,8 +322,8 @@ const Base = chakra("button", {
                 px: "0",
                 gap: "2",
                 _icon: {
-                    width: "6",
-                    height: "6",
+                    width: "round(1.5rem, 2px)",
+                    height: "round(1.5rem, 2px)",
                 },
             },
             lg: {
@@ -257,8 +333,8 @@ const Base = chakra("button", {
                 px: "5",
                 gap: "3",
                 _icon: {
-                    width: "5",
-                    height: "5",
+                    width: "round(1.25rem, 2px)",
+                    height: "round(1.25rem, 2px)",
                 },
             },
             xl: {
@@ -268,8 +344,8 @@ const Base = chakra("button", {
                 px: "5",
                 gap: "2.5",
                 _icon: {
-                    width: "5",
-                    height: "5",
+                    width: "round(1.25rem, 2px)",
+                    height: "round(1.25rem, 2px)",
                 },
             },
             "2xl": {
@@ -279,8 +355,8 @@ const Base = chakra("button", {
                 px: "7",
                 gap: "3",
                 _icon: {
-                    width: "6",
-                    height: "6",
+                    width: "round(1.5rem, 2px)",
+                    height: "round(1.5rem, 2px)",
                 },
             },
         },

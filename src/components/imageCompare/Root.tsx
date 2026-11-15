@@ -1,5 +1,5 @@
 import { Box, chakra, Flex, Grid, HStack, Kbd } from "@chakra-ui/react"
-import { AnimatePresence, type MotionStyle, motion } from "motion/react"
+import { type MotionStyle, motion } from "motion/react"
 import {
     Children,
     type CSSProperties,
@@ -11,18 +11,19 @@ import {
     useMemo,
 } from "react"
 import type { Snapshot } from "valtio"
-import IconButton from "../IconButton"
-import { ToolbarSection } from "../toolbar/ToolbarSection"
+
+import ToolbarButton from "../toolbar/ToolbarButton"
+import { ToolbarSection, ToolbarSeparator } from "../toolbar/ToolbarSection"
 import AlignMode from "./AlignMode"
 import AltMode from "./AltMode"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import type { ImageSelectorProps } from "./ImageSelector"
 import { SmoothingOff, SmoothingOn } from "./icons"
 import { getComparisonImageStyle } from "./imageGeometry"
+import ModeSettings from "./ModeSettings"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
-import ToolbarButton from "../toolbar/ToolbarButton"
 
 export interface ImageCompareRootProps extends ChakraProps {
     a?: string
@@ -32,7 +33,7 @@ export interface ImageCompareRootProps extends ChakraProps {
     imageProps?: CSSProperties
 }
 
-interface BoundMode {
+export interface BoundMode {
     name: string
     rootProps?: ChakraProps
     Button: ImageCompareMode<unknown>["Button"]
@@ -234,7 +235,8 @@ function Root(props: ImageCompareRootProps) {
                         py={0}
                         boxShadow={"0px 0px 5px -1px #00000055, 0px 3px 12px -3px #00000055"}
                         zIndex={2}
-                        gap={3}
+                        gap={"round(0.75rem, 1px)"}
+                        overflow={"visible"}
                         {...toolbarProps}
                     >
                         {imageSelectors.length > 0 && (
@@ -256,7 +258,7 @@ function Root(props: ImageCompareRootProps) {
                                 {snap.smoothing ? <SmoothingOn /> : <SmoothingOff />}
                             </ToolbarButton>
                         </ToolbarSection>
-                        <ToolbarSection mode={"select"}>
+                        <ToolbarSection mode={"select"} activeItemId={snap.mode}>
                             {modes.map((mode, index) => {
                                 const ModeButton = mode.Button
                                 return (
@@ -271,49 +273,8 @@ function Root(props: ImageCompareRootProps) {
                                 )
                             })}
                         </ToolbarSection>
-
-                        <HStack
-                            clipPath={"rect(-3px 100% 100% 0)"}
-                            // gridTemplateRows={"100%"}
-                            // gridTemplateColumns={"100%"}
-                        >
-                            <AnimatePresence mode={"wait"}>
-                                {modes.map((mode) => {
-                                    if (mode.name !== snap.mode) return null
-                                    return (
-                                        <HStack asChild key={mode.name}>
-                                            <motion.div
-                                                initial={{
-                                                    x: "-100%",
-                                                    opacity: 1,
-                                                }}
-                                                animate={{ x: "0%", opacity: 1 }}
-                                                exit={{
-                                                    // x: "-100%",
-                                                    opacity: 0,
-                                                    transition: {
-                                                        duration: 0.2,
-                                                        ease: "circOut",
-                                                        delay: 0,
-                                                    },
-                                                }}
-                                                transition={{
-                                                    duration: 0.2,
-                                                    ease: "circOut",
-                                                    delay: 0.1,
-                                                }}
-                                                style={{
-                                                    gridRow: "1",
-                                                    gridColumn: "1",
-                                                }}
-                                            >
-                                                {mode.settings}
-                                            </motion.div>
-                                        </HStack>
-                                    )
-                                })}
-                            </AnimatePresence>
-                        </HStack>
+                        <ToolbarSeparator />
+                        {activeMode && <ModeSettings activeMode={activeMode} modes={modes} />}
                         <ShiftHint snap={snap} ml={"auto"} />
                     </HStack>
                 </GridRoot>

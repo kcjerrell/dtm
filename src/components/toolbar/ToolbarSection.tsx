@@ -1,6 +1,7 @@
 import { ButtonGroup, chakra } from "@chakra-ui/react"
 import { buildStateContext } from "@/hooks/buildStateContext"
-import { LayoutGroup } from "motion/react"
+import { LayoutGroup, motion } from "motion/react"
+import { startTransition, useEffect, useState, ViewTransition } from "react"
 
 let toolbarSectionId = 0
 const getToolbarSectionId = () => `toolbarSectionActiveItem${toolbarSectionId++}`
@@ -15,25 +16,26 @@ export const ToolbarSectionContext = buildStateContext(
             mode: props?.mode ?? "normal",
         }
     },
-    { nullDefault: true },
+    {
+        nullDefault: true,
+    },
 )
 
 const ToolbarSectionBase = chakra(
-    ButtonGroup,
+    "div",
     {
         base: {
             bgColor: "grayc.14",
-            border: "1px solid {colors.grayc.10/50}",
+            // borderX: "1px solid {colors.grayc.12}",
             borderRadius: "none",
-            borderBottomRadius: "none",
-            borderBottom: "none",
+            // borderBottomRadius: "none",
+            // borderBottom: "none",
             // display: "grid",
             // gridTemplateRows: "auto",
             // gridAutoFlow: "column",
             position: "relative",
             display: "flex",
 
-            isolation: "isolate",
             paddingX: 0,
             paddingY: 0,
             gap: 0,
@@ -45,11 +47,6 @@ const ToolbarSectionBase = chakra(
             },
         },
     },
-    {
-        defaultProps: {
-            size: "xs",
-        },
-    },
 )
 
 interface ToolbarSectionProps<K = string> extends ChakraProps {
@@ -59,9 +56,11 @@ interface ToolbarSectionProps<K = string> extends ChakraProps {
 }
 
 export function ToolbarSection<K = string>(props: ToolbarSectionProps<K>) {
-    const { children, mode, onSelectItem, ...restProps } = props
+    const { children, mode, onSelectItem, activeItemId, ...restProps } = props
 
-    const [Provider] = ToolbarSectionContext.useCreateState(props)
+    const [Provider, _] = ToolbarSectionContext.useCreateState(props)
+
+    // const hv = ToolbarSectionContext.useContextHooks()
 
     //     useEffect(() => {
     //         const unsub = subscribeKey(state, "activeItemId", (value) => {
@@ -82,8 +81,9 @@ export function ToolbarSection<K = string>(props: ToolbarSectionProps<K>) {
 
     return (
         <Provider>
-            <ToolbarSectionBase {...restProps}>
-                <LayoutGroup>{children}</LayoutGroup>
+            <ToolbarSectionBase {...restProps} asChild>
+                <motion.div layout={"y"}>{children}</motion.div>
+                {/*{children}*/}
                 {/*{activeColumn !== undefined && (
                     <MotionBox
                         layout="position"

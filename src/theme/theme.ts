@@ -187,9 +187,9 @@ const themeConfig = defineConfig({
         }),
         semanticTokens: {
             animations: {
-                "marchingBorder": {
-                    value: "marching-border 0.8s linear infinite"
-                }
+                marchingBorder: {
+                    value: "marching-border 0.8s linear infinite",
+                },
             },
             colors: {
                 check: {
