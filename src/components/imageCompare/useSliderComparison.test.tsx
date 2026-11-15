@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { act, createElement } from "react"
+import { Activity, act, createElement } from "react"
 import { createRoot } from "react-dom/client"
+import type { Snapshot } from "valtio"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { compareBrightness, compareColor, compareDifference } from "./compareImages"
-import { ImageCompareContext } from "./state"
+import * as raster from "./raster"
+import { ImageCompareContext, type ImageCompareState } from "./state"
 import { useSliderComparison } from "./useSliderComparison"
 
 vi.mock("./compareImages", () => ({
@@ -15,6 +17,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 const cleanups: (() => void)[] = []
 afterEach(() => {
     for (const cleanup of cleanups.splice(0)) act(cleanup)
+    vi.restoreAllMocks()
     vi.clearAllMocks()
 })
 
@@ -29,27 +32,41 @@ function image(src: string, complete = true) {
     return element
 }
 
-function setup(loaded = true) {
+function setup(loaded = true, withActivity = false) {
     const refs = {
         imgARef: { current: image("a.png", loaded) },
         imgBRef: { current: image("b.png", loaded) },
-        offscreenCanvasRef: { current: document.createElement("canvas") },
+        offscreenCanvasRef: { current: null as raster.RasterSource | null },
     }
-    const onGenerated = vi.fn()
-    function useContext() {
-        const [, state, snap] = ImageCompareContext.useCreate()
-        const generate = useSliderComparison(state, snap, refs, onGenerated)
-        return { state, generate }
+    const result = {} as {
+        current: ReturnType<typeof useSliderComparison> & { state: ImageCompareState }
     }
-    const result = {} as { current: ReturnType<typeof useContext> }
-    function Harness() {
-        result.current = useContext()
+
+    function Comparison({
+        state,
+        snap,
+    }: {
+        state: ImageCompareState
+        snap: Snapshot<ImageCompareState>
+    }) {
+        const comparison = useSliderComparison(state, snap, refs)
+        result.current = { state, ...comparison }
         return null
+    }
+
+    function Harness() {
+        const [, state, snap] = ImageCompareContext.useCreate()
+        const comparison = createElement(Comparison, { state, snap })
+        return withActivity ? (
+            <Activity mode={snap.mode === "slider" ? "visible" : "hidden"}>{comparison}</Activity>
+        ) : (
+            comparison
+        )
     }
     const root = createRoot(document.createElement("div"))
     act(() => root.render(createElement(Harness)))
     cleanups.push(() => root.unmount())
-    return { result, refs, onGenerated }
+    return { result, refs }
 }
 
 async function selectComparison(setupResult: ReturnType<typeof setup>) {
@@ -95,7 +112,7 @@ describe("slider comparison regeneration", () => {
     })
 
     it("defers changes while inactive and reuses an unchanged buffer on return", async () => {
-        const context = setup()
+        const context = setup(true, true)
         await selectComparison(context)
         expect(compareDifference).toHaveBeenCalledTimes(1)
         const { state } = context.result.current
@@ -204,7 +221,7 @@ describe("slider comparison regeneration", () => {
             context.result.current.state.sliderTrail = "none"
         })
         expect(context.result.current.state.canvasContents).toBe("none")
-        expect(context.onGenerated).toHaveBeenLastCalledWith("none")
+        expect(context.result.current.displayedEffect).toBe("none")
     })
 
     it("never compares the previous source while a replacement is pending", async () => {
@@ -221,6 +238,105 @@ describe("slider comparison regeneration", () => {
         expect(compareDifference).toHaveBeenCalledTimes(2)
     })
 
+    it("drops and releases a late raster after clearing and reselecting the same URL", async () => {
+        const stale = Promise.withResolvers<raster.RasterSource>()
+        const render = vi.spyOn(raster, "renderRaster").mockReturnValueOnce(stale.promise)
+        const context = setup()
+        await selectComparison(context)
+        const { state } = context.result.current
+
+        await act(async () => {
+            state.imageBSrc = undefined
+            state.imagePairRevision++
+            state.imageBSrc = "b.png"
+            state.imagePairRevision++
+        })
+        expect(render.mock.calls[0][1].aborted).toBe(true)
+        expect(render).toHaveBeenCalledTimes(2)
+        const latest = context.refs.offscreenCanvasRef.current
+        expect(latest).not.toBeNull()
+
+        const rejected = document.createElement("canvas")
+        await act(async () => stale.resolve(rejected))
+        expect(rejected.width).toBe(0)
+        expect(context.refs.offscreenCanvasRef.current).toBe(latest)
+    })
+
+    it("drops a raster completed while Activity is hidden and rebuilds on reveal", async () => {
+        const stale = Promise.withResolvers<raster.RasterSource>()
+        const render = vi.spyOn(raster, "renderRaster").mockReturnValueOnce(stale.promise)
+        const context = setup(true, true)
+        await selectComparison(context)
+        const { state } = context.result.current
+
+        await act(async () => {
+            state.mode = "alt"
+        })
+        expect(render.mock.calls[0][1].aborted).toBe(true)
+        expect(render).toHaveBeenCalledTimes(1)
+
+        const rejected = document.createElement("canvas")
+        await act(async () => stale.resolve(rejected))
+        expect(rejected.width).toBe(0)
+        expect(context.refs.offscreenCanvasRef.current).toBeNull()
+
+        await act(async () => {
+            state.mode = "slider"
+        })
+        expect(render).toHaveBeenCalledTimes(2)
+        expect(context.result.current.displayedEffect).toBe("difference")
+    })
+
+    it("hides a retained raster for old alignment while its replacement is pending", async () => {
+        const context = setup(true, true)
+        await selectComparison(context)
+        expect(context.result.current.displayedEffect).toBe("difference")
+        const previous = context.refs.offscreenCanvasRef.current
+        const next = Promise.withResolvers<raster.RasterSource>()
+        vi.spyOn(raster, "renderRaster").mockReturnValueOnce(next.promise)
+
+        await act(async () => {
+            context.result.current.state.mode = "align"
+            context.result.current.state.imageBOffset.x = 12
+        })
+        await act(async () => {
+            context.result.current.state.mode = "slider"
+        })
+        expect(context.result.current.displayedEffect).toBe("none")
+
+        await act(async () => next.resolve(document.createElement("canvas")))
+        expect(previous?.width).toBe(0)
+        expect(context.result.current.displayedEffect).toBe("difference")
+    })
+
+    it("cancels a pending settings update on hide and applies the latest value on reveal", async () => {
+        vi.useFakeTimers()
+        try {
+            const context = setup(true, true)
+            await selectComparison(context)
+            const { state } = context.result.current
+            await act(async () => {
+                state.sliderGain = 15
+            })
+            expect(compareDifference).toHaveBeenCalledTimes(1)
+            expect(context.result.current.displayedEffect).toBe("difference")
+
+            await act(async () => {
+                state.mode = "alt"
+            })
+            await act(async () => vi.advanceTimersByTimeAsync(500))
+            expect(compareDifference).toHaveBeenCalledTimes(1)
+
+            await act(async () => {
+                state.mode = "slider"
+            })
+            expect(compareDifference).toHaveBeenCalledTimes(2)
+            expect(state.sliderRasterKey?.gain).toBe(15)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
     it("does not cache failed generation and allows retry", async () => {
         const context = setup()
         const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
@@ -230,7 +346,7 @@ describe("slider comparison regeneration", () => {
             })
             await selectComparison(context)
             expect(context.result.current.state.canvasContents).toBe("none")
-            expect(context.onGenerated).toHaveBeenLastCalledWith("none")
+            expect(context.result.current.displayedEffect).toBe("none")
             await act(async () => {
                 context.result.current.generate()
             })

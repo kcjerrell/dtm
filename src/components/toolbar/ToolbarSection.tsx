@@ -1,7 +1,6 @@
-import { ButtonGroup, chakra } from "@chakra-ui/react"
+import { chakra } from "@chakra-ui/react"
+import { motion } from "motion/react"
 import { buildStateContext } from "@/hooks/buildStateContext"
-import { LayoutGroup, motion } from "motion/react"
-import { startTransition, useEffect, useState, ViewTransition } from "react"
 
 let toolbarSectionId = 0
 const getToolbarSectionId = () => `toolbarSectionActiveItem${toolbarSectionId++}`
@@ -21,33 +20,30 @@ export const ToolbarSectionContext = buildStateContext(
     },
 )
 
-const ToolbarSectionBase = chakra(
-    "div",
-    {
-        base: {
-            bgColor: "grayc.14",
-            // borderX: "1px solid {colors.grayc.12}",
-            borderRadius: "none",
-            // borderBottomRadius: "none",
-            // borderBottom: "none",
-            // display: "grid",
-            // gridTemplateRows: "auto",
-            // gridAutoFlow: "column",
-            position: "relative",
-            display: "flex",
+const ToolbarSectionBase = chakra("div", {
+    base: {
+        bgColor: "grayc.14",
+        // borderX: "1px solid {colors.grayc.12}",
+        borderRadius: "none",
+        // borderBottomRadius: "none",
+        // borderBottom: "none",
+        // display: "grid",
+        // gridTemplateRows: "auto",
+        // gridAutoFlow: "column",
+        position: "relative",
+        display: "flex",
 
-            paddingX: 0,
-            paddingY: 0,
-            gap: 0,
-            overflow: "visible",
+        paddingX: 0,
+        paddingY: 0,
+        gap: 0,
+        overflow: "visible",
 
-            _dark: {
-                bgColor: "grayc.16",
-                border: "1px solid {colors.grayc.12/50}",
-            },
+        _dark: {
+            bgColor: "grayc.16",
+            border: "1px solid {colors.grayc.12/50}",
         },
     },
-)
+})
 
 interface ToolbarSectionProps<K = string> extends ChakraProps {
     mode?: "normal" | "select"

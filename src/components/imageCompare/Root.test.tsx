@@ -2,16 +2,35 @@
 
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react"
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import type { PropsWithChildren } from "react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
-import Root from "./Root"
+import { comparisonZoomProperties } from "./imageGeometry"
+import Root, { type ImageCompareRootProps } from "./Root"
 
 vi.mock("@/state/settings", () => ({
     useSetting: () => ["compare"],
     useSettingRef: () => ({ current: "pinch" }),
 }))
 
+vi.mock("motion/react", async (importOriginal) => {
+    const motion = await importOriginal<typeof import("motion/react")>()
+    return {
+        ...motion,
+        useSpring: (value: number | { get(): number }) =>
+            motion.useMotionValue(typeof value === "number" ? value : value.get()),
+    }
+})
+
 beforeEach(() => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null)
+    vi.stubGlobal(
+        "Image",
+        class {
+            naturalWidth = 640
+            naturalHeight = 480
+            async decode() {}
+        },
+    )
     vi.stubGlobal(
         "ResizeObserver",
         class {
@@ -28,12 +47,12 @@ afterEach(() => {
     vi.unstubAllGlobals()
 })
 
-function setup() {
-    render(
-        <ChakraProvider value={defaultSystem}>
-            <Root />
-        </ChakraProvider>,
-    )
+function withTheme({ children }: PropsWithChildren) {
+    return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>
+}
+
+function setup(props: ImageCompareRootProps = {}) {
+    return render(<Root {...props} />, { wrapper: withTheme })
 }
 
 async function cycleMode(shiftKey: boolean) {
@@ -73,4 +92,88 @@ it("restores the selected layout when returning to side-by-side mode", async () 
     await cycleMode(true)
 
     expect(screen.getByRole("button", { name: "Horizontal layout", pressed: true })).toBeTruthy()
+})
+
+it.each(["toolbar", "keyboard"])(
+    "cancels unfinished Align pin placement via the %s",
+    async (control) => {
+        setup({ a: "a.png", b: "b.png" })
+        await act(async () => fireEvent.click(screen.getByRole("button", { name: "Align" })))
+
+        await waitFor(() => {
+            expect(screen.getByRole<HTMLButtonElement>("button", { name: "Pin" }).disabled).toBe(
+                false,
+            )
+        })
+        await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pin" })))
+        expect(screen.getByRole("button", { name: "Pin", pressed: true })).toBeTruthy()
+
+        if (control === "toolbar") {
+            await act(async () =>
+                fireEvent.click(screen.getByRole("button", { name: "Side-by-side" })),
+            )
+        } else {
+            await cycleMode(true)
+        }
+        await screen.findByRole("button", { name: "Vertical layout" })
+        await act(async () => fireEvent.click(screen.getByRole("button", { name: "Align" })))
+        expect(await screen.findByRole("button", { name: "Pin", pressed: false })).toBeTruthy()
+    },
+)
+
+it("shows the latest image when revealing Swap and Side-by-side after a hidden replacement", async () => {
+    const { container, rerender } = setup({ a: "a.png", b: "old-b.png" })
+    const imageB = (mode: string) => container.querySelector(`#img-b-${mode}`)
+    await waitFor(() => expect(imageB("slider")?.getAttribute("src")).toBe("old-b.png"))
+
+    await act(async () => rerender(<Root a="a.png" b="new-b.png" />))
+    await waitFor(() => expect(imageB("slider")?.getAttribute("src")).toBe("new-b.png"))
+    await cycleMode(false)
+    expect(imageB("alt")?.getAttribute("src")).toBe("new-b.png")
+    await cycleMode(false)
+    expect(imageB("sbs")?.getAttribute("src")).toBe("new-b.png")
+})
+
+it("keeps each revealed layer on the viewport's current transform after zoom and pan", async () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000)
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(800)
+    const { container } = setup({ a: "a.png", b: "b.png" })
+    const viewport = container.querySelector<HTMLElement>("#image-compare-viewport")
+    const stage = container.querySelector<HTMLElement>("#image-compare-stage")
+    if (!viewport || !stage) throw new Error("Missing comparison viewport or stage")
+    const readZoom = () => Number(viewport.style.getPropertyValue(comparisonZoomProperties.scale))
+    const readPan = () => Number(viewport.style.getPropertyValue(comparisonZoomProperties.x))
+    const expectTransform = (selector: string) => {
+        const layer = container.querySelector<HTMLElement>(selector)?.parentElement
+        expect(layer?.style.transform).toBe(stage.style.transform)
+    }
+    await waitFor(() => expect(container.querySelector("#img-b-alt")).toBeTruthy())
+    await cycleMode(false)
+    await cycleMode(false)
+    await cycleMode(false)
+    await screen.findByRole("button", { name: "Show A and B edges" })
+    await act(async () =>
+        fireEvent.click(screen.getByRole("button", { name: "Show A and B edges" })),
+    )
+    await cycleMode(false)
+
+    await act(async () => fireEvent.wheel(viewport, { ctrlKey: true, deltaY: -150 }))
+    await waitFor(() => expect(readZoom()).toBeCloseTo(1.6))
+    const beforePan = readPan()
+    await act(async () => fireEvent.wheel(viewport, { deltaX: 35, deltaY: -25 }))
+    await waitFor(() => expect(readPan()).not.toBe(beforePan))
+    expect(stage.style.transform).toContain(comparisonZoomProperties.scale)
+
+    await cycleMode(false)
+    expectTransform("#img-b-alt")
+    await cycleMode(false)
+    expectTransform("#img-b-sbs")
+    await cycleMode(false)
+    expectTransform('canvas[aria-label="A edges"]')
+    const outline = screen.getByRole("group", { name: "Image B alignment" })
+    expect(outline.style.left).toContain(comparisonZoomProperties.x)
+    expect(outline.style.top).toContain(comparisonZoomProperties.y)
+    expect(outline.style.width).toContain(comparisonZoomProperties.scale)
+    await cycleMode(false)
+    expectTransform("#img-b-slider")
 })

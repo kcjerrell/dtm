@@ -41,20 +41,21 @@ function Details(props: DetailsProps) {
             {imageSnap?.isVideo && imageSnap.storage.kind === "url" && (
                 <Text>Video metadata is only available for local files.</Text>
             )}
-            {imageSnap?.isVideo && (imageSnap.storage.kind === "file" || imageSnap.storage.kind === "app") && (
-                <>
-                    <ffmpeg.FfmpegComponent
-                        macMessage="FFmpeg must be downloaded to load video metadata."
-                        linuxMessage="Please install FFmpeg and FFprobe with your package manager in order to load video metadata."
-                    />
-                    {ffmpeg.isReady && (imageSnap as MdVideo)?.metadataStatus === "pending" && (
-                        <HStack justifyContent={"center"} alignItems={"center"} width={"full"}>
-                            <Spinner />
-                            <Text>Loading video metadata</Text>
-                        </HStack>
-                    )}
-                </>
-            )}
+            {imageSnap?.isVideo &&
+                (imageSnap.storage.kind === "file" || imageSnap.storage.kind === "app") && (
+                    <>
+                        <ffmpeg.FfmpegComponent
+                            macMessage="FFmpeg must be downloaded to load video metadata."
+                            linuxMessage="Please install FFmpeg and FFprobe with your package manager in order to load video metadata."
+                        />
+                        {ffmpeg.isReady && (imageSnap as MdVideo)?.metadataStatus === "pending" && (
+                            <HStack justifyContent={"center"} alignItems={"center"} width={"full"}>
+                                <Spinner />
+                                <Text>Loading video metadata</Text>
+                            </HStack>
+                        )}
+                    </>
+                )}
             {groups.map(({ name, items }) => {
                 return (
                     <MeasureGrid

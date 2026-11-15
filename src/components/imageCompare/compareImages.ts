@@ -35,6 +35,10 @@ export interface CompareDifferenceOptions extends CompareImageOptions {
     color?: string
 }
 
+export type RasterImage = HTMLImageElement | ImageBitmap
+export type RasterCanvas = HTMLCanvasElement | OffscreenCanvas
+type RasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+
 const DEFAULT_BRIGHTNESS_GAIN = 4
 const DEFAULT_BRIGHTNESS_THRESHOLD = 0.005
 const BRIGHTNESS_BASE_SHADE = 0x80
@@ -54,7 +58,7 @@ const DIRECTION_COLOR_LIGHTNESS = 0.72
 const DIRECTION_COLOR_CHROMA = 0.16
 
 interface ComparisonBuffers {
-    context: CanvasRenderingContext2D
+    context: RasterContext
     imageA: Uint8ClampedArray
     imageB: Uint8ClampedArray
     output: ImageData
@@ -67,9 +71,9 @@ interface ComparisonBuffers {
  * shade and opacity ramp toward opaque white when B is brighter or opaque black when B is darker.
  */
 export function compareBrightness(
-    imageA: HTMLImageElement,
-    imageB: HTMLImageElement,
-    canvas: HTMLCanvasElement,
+    imageA: RasterImage,
+    imageB: RasterImage,
+    canvas: RasterCanvas,
     opts: CompareBrightnessOptions = {},
 ): void {
     const {
@@ -111,9 +115,9 @@ export function compareBrightness(
  * fixed chroma, while opacity encodes the vector magnitude.
  */
 export function compareColor(
-    imageA: HTMLImageElement,
-    imageB: HTMLImageElement,
-    canvas: HTMLCanvasElement,
+    imageA: RasterImage,
+    imageB: RasterImage,
+    canvas: RasterCanvas,
     opts: CompareColorOptions = {},
 ): void {
     const {
@@ -171,9 +175,9 @@ export function compareColor(
  * for alpha-only changes.
  */
 export function compareDifference(
-    imageA: HTMLImageElement,
-    imageB: HTMLImageElement,
-    canvas: HTMLCanvasElement,
+    imageA: RasterImage,
+    imageB: RasterImage,
+    canvas: RasterCanvas,
     opts: CompareDifferenceOptions = {},
 ): void {
     const {
@@ -214,15 +218,13 @@ export function compareDifference(
  * before each draw gives both equal-sized input buffers transparent, zero-filled padding.
  */
 function prepareComparison(
-    imageA: HTMLImageElement,
-    imageB: HTMLImageElement,
-    canvas: HTMLCanvasElement,
+    imageA: RasterImage,
+    imageB: RasterImage,
+    canvas: RasterCanvas,
     opts: CompareImageOptions,
 ): ComparisonBuffers {
-    const widthA = imageDimension(imageA.naturalWidth, imageA.width)
-    const heightA = imageDimension(imageA.naturalHeight, imageA.height)
-    const widthB = imageDimension(imageB.naturalWidth, imageB.width)
-    const heightB = imageDimension(imageB.naturalHeight, imageB.height)
+    const { width: widthA, height: heightA } = getImageDimensions(imageA)
+    const { width: widthB, height: heightB } = getImageDimensions(imageB)
     if (!widthA || !heightA || !widthB || !heightB) {
         throw new Error("Cannot compare images with empty dimensions")
     }
@@ -271,6 +273,15 @@ function prepareComparison(
 
 function imageDimension(natural: number, fallback: number): number {
     return Math.max(0, Math.round(natural || fallback))
+}
+
+function getImageDimensions(image: RasterImage) {
+    return "naturalWidth" in image
+        ? {
+              width: imageDimension(image.naturalWidth, image.width),
+              height: imageDimension(image.naturalHeight, image.height),
+          }
+        : { width: image.width, height: image.height }
 }
 
 function nonnegativeOption(value: number | undefined, fallback: number): number {
@@ -342,7 +353,7 @@ function linearToSrgb(value: number): number {
     return clamp01(encoded)
 }
 
-function parseCssColor(context: CanvasRenderingContext2D, color: string): Uint8ClampedArray {
+function parseCssColor(context: RasterContext, color: string): Uint8ClampedArray {
     context.clearRect(0, 0, 1, 1)
     context.fillStyle = DEFAULT_DIFFERENCE_COLOR
     context.fillStyle = color // Invalid CSS colors are ignored, leaving the default in place.

@@ -1,3 +1,4 @@
+import { styleEffect } from "motion"
 import {
     type MotionProps,
     type MotionStyle,
@@ -13,12 +14,15 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
 } from "react"
 import type { Snapshot } from "valtio"
 import { useZoomable } from "@/components/preview/useZoomable"
 import type { ToolbarButtonProps } from "../toolbar/ToolbarButton"
+import { comparisonZoomProperties } from "./imageGeometry"
+import { type RasterSource, releaseRaster } from "./raster"
 import type { ImageCompareState } from "./state"
 
 const TRAIL_SPRING = {
@@ -62,7 +66,7 @@ export type ImageCompareHooksContextType = {
     refs: {
         imgARef: RefObject<HTMLImageElement | null>
         imgBRef: RefObject<HTMLImageElement | null>
-        offscreenCanvasRef: RefObject<HTMLCanvasElement | null>
+        offscreenCanvasRef: RefObject<RasterSource | null>
         normalCanvasRef: RefObject<HTMLCanvasElement | null>
         invertedCanvasRef: RefObject<HTMLCanvasElement | null>
         viewportRef: RefObject<HTMLDivElement | null>
@@ -91,7 +95,7 @@ export function useCreateImageCompareContext(
 ) {
     const imgARef = useRef<HTMLImageElement>(null)
     const imgBRef = useRef<HTMLImageElement>(null)
-    const offscreenCanvasRef = useRef<HTMLCanvasElement>(null)
+    const offscreenCanvasRef = useRef<RasterSource>(null)
     const normalCanvasRef = useRef<HTMLCanvasElement>(null)
     const invertedCanvasRef = useRef<HTMLCanvasElement>(null)
     const viewportRef = useRef<HTMLDivElement>(null)
@@ -159,6 +163,21 @@ export function useCreateImageCompareContext(
         maxZoom: 16,
     })
 
+    useLayoutEffect(() => {
+        const viewport = viewportRef.current
+        if (!viewport) return
+
+        // The viewport stays mounted across mode switches. Its layers inherit the
+        // current pan and zoom even when Activity reconnects their DOM refs.
+        const unbind = styleEffect(viewport, {
+            [comparisonZoomProperties.x]: zoomStyle.x,
+            [comparisonZoomProperties.y]: zoomStyle.y,
+            [comparisonZoomProperties.scale]: zoomStyle.scale,
+        })
+        styleEffect.flush(viewport)
+        return unbind
+    }, [zoomStyle])
+
     const sliderMv = useMotionValue(0.5)
     const dividerXMv = useMotionValue(0)
     const clipMv = useTransform(sliderMv, (value) => `inset(0 0 0 ${value * 100}%)`)
@@ -173,6 +192,15 @@ export function useCreateImageCompareContext(
     )
 
     const loadImageGen = useRef({ A: 0, B: 0 })
+    const clearSliderRaster = useCallback(() => {
+        state.canvasContents = "none"
+        state.sliderRasterKey = null
+        releaseRaster(offscreenCanvasRef.current)
+        offscreenCanvasRef.current = null
+    }, [state])
+
+    useEffect(() => clearSliderRaster, [clearSliderRaster])
+
     const setImage = useCallback(
         async (side: "A" | "B", src: string | undefined) => {
             const [srcKey, wKey, hKey] = imgKeys(side)
@@ -190,6 +218,7 @@ export function useCreateImageCompareContext(
             state[srcKey] = src
             state[wKey] = w
             state[hKey] = h
+            state.imagePairRevision += 1
 
             // reset shared state
             state.imageBOffset = { x: 0, y: 0 }
@@ -198,19 +227,15 @@ export function useCreateImageCompareContext(
             state.pinState = null
 
             // Comparison pixels and alignment belong to the previous pair
-            state.canvasContents = "none"
-            for (const canvas of [
-                offscreenCanvasRef.current,
-                normalCanvasRef.current,
-                invertedCanvasRef.current,
-            ]) {
+            clearSliderRaster()
+            for (const canvas of [normalCanvasRef.current, invertedCanvasRef.current]) {
                 if (canvas) {
                     canvas.width = 0
                     canvas.height = 0
                 }
             }
         },
-        [state],
+        [clearSliderRaster, state],
     )
 
     const cv = useMemo(

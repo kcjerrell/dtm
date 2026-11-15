@@ -1,5 +1,5 @@
-import { Box, Grid } from "@chakra-ui/react"
-import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from "motion/react"
+import { Grid } from "@chakra-ui/react"
+import { AnimatePresence, motion } from "motion/react"
 import type { BoundMode } from "./Root"
 
 interface ModeSettingsProps {

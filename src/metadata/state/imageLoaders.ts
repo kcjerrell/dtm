@@ -155,7 +155,8 @@ async function* loadItems(
                         url,
                     })
                     if (item) items.push(item)
-                    else if (includeVideo) recordError(new Error(`Could not load media from ${url}`))
+                    else if (includeVideo)
+                        recordError(new Error(`Could not load media from ${url}`))
                 }
                 yield items
                 return
@@ -179,7 +180,8 @@ async function* loadItems(
                         url,
                     })
                     if (item) yield item
-                    else if (includeVideo) recordError(new Error(`Could not load media from ${url}`))
+                    else if (includeVideo)
+                        recordError(new Error(`Could not load media from ${url}`))
                 }
             }
 
@@ -203,10 +205,7 @@ function preprocess(input: string) {
     try {
         if (typeof input === "string") {
             const url = new URL(input)
-            const allowedHosts = new Set([
-                "cdn.discordapp.com",
-                "media.discordapp.net",
-            ])
+            const allowedHosts = new Set(["cdn.discordapp.com", "media.discordapp.net"])
             if (url.protocol === "https:" && allowedHosts.has(url.hostname)) {
                 url.searchParams.delete("format")
                 url.searchParams.delete("quality")

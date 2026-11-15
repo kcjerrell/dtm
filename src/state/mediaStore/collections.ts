@@ -173,10 +173,7 @@ export class MediaCollection<
         return (await this.importMedia(item, state)).item
     }
 
-    async importMedia(
-        media: LoadedMedia,
-        state?: T,
-    ): Promise<MediaImportResult<F | undefined>> {
+    async importMedia(media: LoadedMedia, state?: T): Promise<MediaImportResult<F | undefined>> {
         await this.waitForReady()
         const itemState = state ?? structuredClone(this.defaultItemState)
         const { item: id, alreadyPresent } = await this.storeApi.save(

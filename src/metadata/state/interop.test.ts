@@ -37,7 +37,10 @@ describe("loadImage2", () => {
         expect(state.isLoadingImage).toBe(true)
 
         first.resolve([
-            { item: { id: "first", hasMetadata: vi.fn().mockResolvedValue(true) }, alreadyPresent: false },
+            {
+                item: { id: "first", hasMetadata: vi.fn().mockResolvedValue(true) },
+                alreadyPresent: false,
+            },
         ])
         await firstLoad
         await vi.waitFor(() => expect(importMediaFromPasteboard).toHaveBeenCalledTimes(2))
@@ -45,7 +48,10 @@ describe("loadImage2", () => {
         expect(selectImage).toHaveBeenCalledWith("first")
 
         second.resolve([
-            { item: { id: "second", hasMetadata: vi.fn().mockResolvedValue(true) }, alreadyPresent: true },
+            {
+                item: { id: "second", hasMetadata: vi.fn().mockResolvedValue(true) },
+                alreadyPresent: true,
+            },
         ])
         await secondLoad
         expect(state.isLoadingImage).toBe(false)
@@ -67,7 +73,9 @@ describe("loadImage2", () => {
         mocks.getMetadataStore.mockResolvedValue({
             state,
             collection: {
-                importMediaFromPasteboard: vi.fn().mockResolvedValue([{ item, alreadyPresent: false }]),
+                importMediaFromPasteboard: vi
+                    .fn()
+                    .mockResolvedValue([{ item, alreadyPresent: false }]),
             },
             selectImage,
         })

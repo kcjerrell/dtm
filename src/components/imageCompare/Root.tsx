@@ -1,12 +1,14 @@
-import { Box, chakra, Flex, Grid, HStack, Kbd } from "@chakra-ui/react"
+import { Box, chakra, Flex, HStack, Kbd } from "@chakra-ui/react"
 import { type MotionStyle, motion } from "motion/react"
 import {
+    Activity,
     Children,
     type CSSProperties,
     isValidElement,
     type PropsWithChildren,
     type ReactElement,
     type ReactNode,
+    useCallback,
     useEffect,
     useMemo,
 } from "react"
@@ -19,11 +21,12 @@ import AltMode from "./AltMode"
 import { type ImageCompareMode, type UseModeResult, useCreateImageCompareContext } from "./hooks"
 import type { ImageSelectorProps } from "./ImageSelector"
 import { SmoothingOff, SmoothingOn } from "./icons"
-import { getComparisonImageStyle } from "./imageGeometry"
+import { comparisonZoomTransform, getComparisonImageStyle } from "./imageGeometry"
 import ModeSettings from "./ModeSettings"
 import SbsMode from "./SbsMode"
 import SliderMode from "./SliderMode"
 import { ImageCompareContext, type ImageCompareState } from "./state"
+import { getCurrentSliderEffect } from "./useSliderComparison"
 
 export interface ImageCompareRootProps extends ChakraProps {
     a?: string
@@ -41,6 +44,8 @@ export interface BoundMode {
     settings: ReactElement
     keyHandlers?: Record<"space", () => void>
 }
+
+const modeNames = [SliderMode.name, AltMode.name, SbsMode.name, AlignMode.name]
 
 function bindMode<T>(
     Mode: ImageCompareMode<T>,
@@ -67,7 +72,7 @@ function Root(props: ImageCompareRootProps) {
     const { children, imageProps, toolbarProps, a, b, ...restProps } = props
     const [Provider, state, snap] = ImageCompareContext.useCreate(props)
     const [HooksProvider, hooks] = useCreateImageCompareContext(state, snap)
-    const { refs, zoomHandlers, zoomStyle } = hooks
+    const { refs, zoomHandlers } = hooks
     const { setImage } = hooks
 
     const contentSize = snap.contentSize
@@ -80,15 +85,15 @@ function Root(props: ImageCompareRootProps) {
 
     const imageContainerStyle: MotionStyle = useMemo(
         () => ({
-            ...zoomStyle,
             position: "absolute",
             left: contentOffset.left,
             top: contentOffset.top,
             width: contentSize.width,
             height: contentSize.height,
+            transform: comparisonZoomTransform,
             transformOrigin: "center center",
         }),
-        [contentSize.height, contentSize.width, zoomStyle, contentOffset.left, contentOffset.top],
+        [contentSize.height, contentSize.width, contentOffset.left, contentOffset.top],
     )
 
     const modes = [
@@ -99,6 +104,16 @@ function Root(props: ImageCompareRootProps) {
     ]
     const activeIndex = modes.findIndex((mode) => mode.name === snap.mode)
     const activeMode = modes[activeIndex]
+
+    const setMode = useCallback(
+        (mode: string) => {
+            if (state.mode === "align" && mode !== "align" && !state.pinState) {
+                state.alignPinEnabled = false
+            }
+            state.mode = mode
+        },
+        [state],
+    )
 
     const imageSelectors = Children.toArray(children)
         .filter(
@@ -145,12 +160,9 @@ function Root(props: ImageCompareRootProps) {
                 activeMode?.keyHandlers?.space?.()
             } else if (e.code === "Tab") {
                 e.preventDefault()
-                const names = ["slider", "alt", "sbs", "align"]
-                state.mode =
-                    names[
-                        (names.indexOf(state.mode) + (e.shiftKey ? -1 : 1) + names.length) %
-                            names.length
-                    ]
+                const index = modeNames.indexOf(state.mode)
+                const step = e.shiftKey ? -1 : 1
+                setMode(modeNames[(index + step + modeNames.length) % modeNames.length])
             }
         }
         const keyup = (e: KeyboardEvent) => {
@@ -165,7 +177,7 @@ function Root(props: ImageCompareRootProps) {
             document.removeEventListener("keydown", keydown)
             document.removeEventListener("keyup", keyup)
         }
-    }, [state, activeMode?.keyHandlers])
+    }, [state, activeMode?.keyHandlers, setMode])
 
     return (
         <HooksProvider value={hooks}>
@@ -223,7 +235,14 @@ function Root(props: ImageCompareRootProps) {
                             </motion.div>
                         </Box>
 
-                        {modes.map((mode) => mode.view)}
+                        {modes.map((mode) => (
+                            <Activity
+                                key={mode.name}
+                                mode={activeMode === mode ? "visible" : "hidden"}
+                            >
+                                {mode.view}
+                            </Activity>
+                        ))}
                     </Box>
 
                     {topLayer}
@@ -259,16 +278,13 @@ function Root(props: ImageCompareRootProps) {
                             </ToolbarButton>
                         </ToolbarSection>
                         <ToolbarSection mode={"select"} activeItemId={snap.mode}>
-                            {modes.map((mode, index) => {
+                            {modes.map((mode) => {
                                 const ModeButton = mode.Button
                                 return (
                                     <ModeButton
                                         key={mode.name}
                                         isSelected={snap.mode === mode.name}
-                                        onClick={() => {
-                                            console.log("hello", state.mode, mode.name)
-                                            state.mode = mode.name
-                                        }}
+                                        onClick={() => setMode(mode.name)}
                                     />
                                 )
                             })}
@@ -312,7 +328,7 @@ function getShiftText(snap: ImageCompareState): string | null {
     }
     if (snap.mode === "slider") {
         if (snap.sliderEffectDisplay === "full") {
-            if (snap.canvasContents === "none") return null
+            if (getCurrentSliderEffect(snap) === "none") return null
             return snap.sliderDragging ? "show trail effect" : "hide whole effect"
         }
         if (snap.sliderEffectDisplay === "hidden") {
@@ -322,7 +338,7 @@ function getShiftText(snap: ImageCompareState): string | null {
         if (snap.sliderDragging) {
             return snap.sliderTrail === "none" ? null : "hide trail effect"
         }
-        return snap.canvasContents === "none" ? null : "show whole effect"
+        return getCurrentSliderEffect(snap) === "none" ? null : "show whole effect"
     }
     if (snap.mode === "alt") {
         // animation is active

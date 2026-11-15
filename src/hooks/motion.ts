@@ -1,5 +1,5 @@
 import { type SpringOptions, useMotionValue, useSpring } from "motion/react"
-import { RefObject, useEffect, useRef } from "react"
+import { type RefObject, useEffect, useRef } from "react"
 
 export function useMotionRect(x: number, y: number, width: number, height: number) {
     const mvX = useMotionValue(x)

@@ -12,7 +12,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock("@/components/ui/toaster", () => ({ toaster: { create: mocks.toast } }))
-vi.mock("@/hooks/appState", () => ({ default: { store: { sidebarActivity: mocks.sidebarActivity } } }))
+vi.mock("@/hooks/appState", () => ({
+    default: { store: { sidebarActivity: mocks.sidebarActivity } },
+}))
 vi.mock("@/lifecycle", () => ({ default: { onExit: vi.fn() } }))
 vi.mock("@/state/settings", () => ({
     getFlag: () => true,
@@ -51,36 +53,48 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("sending images to Compare", () => {
-    it.each(["Compare", "Metadata"])("shares the same project image when sent to %s first", async (firstView) => {
-        const { addMediaItem, addNewItem } = await import("./interop")
-        const { getCompareStore } = await import("./state")
-        const { sendToMetadata } = await import("@/metadata/state/interop")
-        const { getMetadataStore } = await import("@/metadata/state/metadataStore2")
-        if (firstView === "Compare") {
-            await addNewItem(data, "png", source)
-            await sendToMetadata(data, "png", { ...source, projectFile: "/test/one.sqlite" })
-        } else {
+    it.each(["Compare", "Metadata"])(
+        "shares the same project image when sent to %s first",
+        async (firstView) => {
+            const { addMediaItem, addNewItem } = await import("./interop")
+            const { getCompareStore } = await import("./state")
+            const { sendToMetadata } = await import("@/metadata/state/interop")
+            const { getMetadataStore } = await import("@/metadata/state/metadataStore2")
+            if (firstView === "Compare") {
+                await addNewItem(data, "png", source)
+                await sendToMetadata(data, "png", { ...source, projectFile: "/test/one.sqlite" })
+            } else {
+                await sendToMetadata(data, "png", source)
+                await addNewItem(data, "png", source)
+            }
+
+            const { state: compare } = await getCompareStore()
+            const { state: metadata } = await getMetadataStore()
+            expect(mocks.saveFile).toHaveBeenCalledOnce()
+            expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
+                title: "Image added to Compare",
+                type: "success",
+            })
+            expect(metadata.currentItem?.id).toBe(compare.items[0].id)
+            expect(mocks.updateSetting).toHaveBeenCalledWith("app.currentView", "metadata")
+
             await sendToMetadata(data, "png", source)
-            await addNewItem(data, "png", source)
-        }
+            expect(metadata.items).toEqual([metadata.currentItem])
+            expect(mocks.toast).toHaveBeenLastCalledWith({
+                title: "Image already in Metadata",
+                type: "info",
+            })
 
-        const { state: compare } = await getCompareStore()
-        const { state: metadata } = await getMetadataStore()
-        expect(mocks.saveFile).toHaveBeenCalledOnce()
-        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({ title: "Image added to Compare", type: "success" })
-        expect(metadata.currentItem?.id).toBe(compare.items[0].id)
-        expect(mocks.updateSetting).toHaveBeenCalledWith("app.currentView", "metadata")
-
-        await sendToMetadata(data, "png", source)
-        expect(metadata.items).toEqual([metadata.currentItem])
-        expect(mocks.toast).toHaveBeenLastCalledWith({ title: "Image already in Metadata", type: "info" })
-
-        if (!metadata.currentItem) throw new Error("expected a selected Metadata item")
-        await addMediaItem(metadata.currentItem.id)
-        expect(compare.items).toHaveLength(1)
-        expect(compare.imageB).toBeUndefined()
-        expect(mocks.toast).toHaveBeenLastCalledWith({ title: "Image already in Compare", type: "info" })
-    })
+            if (!metadata.currentItem) throw new Error("expected a selected Metadata item")
+            await addMediaItem(metadata.currentItem.id)
+            expect(compare.items).toHaveLength(1)
+            expect(compare.imageB).toBeUndefined()
+            expect(mocks.toast).toHaveBeenLastCalledWith({
+                title: "Image already in Compare",
+                type: "info",
+            })
+        },
+    )
 
     it("blocks a Metadata send when older imports assigned the same project image different IDs", async () => {
         mocks.items = [
@@ -103,7 +117,10 @@ describe("sending images to Compare", () => {
 
         const { state } = await getCompareStore()
         expect(state.items.map(({ id }) => id)).toEqual(["compare-copy"])
-        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({ title: "Image already in Compare", type: "info" })
+        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
+            title: "Image already in Compare",
+            type: "info",
+        })
     })
 
     it("adds a project tensor only once when two sends overlap", async () => {
@@ -141,7 +158,9 @@ describe("sending images to Compare", () => {
         await addNewItem(data, "png", { ...source, tensorId: null })
 
         expect((await getCompareStore()).state.items).toHaveLength(5)
-        expect(mocks.toast.mock.calls.map(([toast]) => toast.type)).toEqual(Array(5).fill("success"))
+        expect(mocks.toast.mock.calls.map(([toast]) => toast.type)).toEqual(
+            Array(5).fill("success"),
+        )
     })
 
     it("reports a Metadata item already in Compare without marking new activity", async () => {

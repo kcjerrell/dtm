@@ -1,141 +1,199 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import type { Snapshot } from "valtio"
-import { compareBrightness, compareColor, compareDifference } from "./compareImages"
+import { subscribeKey } from "valtio/utils"
 import type { ImageCompareHooksContextType } from "./hooks"
+import { releaseRaster, renderRaster } from "./raster"
 import type { ImageCompareState, SliderEffect } from "./state"
 
 type ComparisonRefs = Pick<
     ImageCompareHooksContextType["refs"],
     "imgARef" | "imgBRef" | "offscreenCanvasRef"
 >
-type ComparisonKey = (string | number | boolean | undefined)[]
+type ComparisonKey = NonNullable<ImageCompareState["sliderRasterKey"]>
 
-/** Owns the expensive image-space buffer independently of viewport pan/zoom copies. */
+export function sliderRasterImageKey(state: Snapshot<ImageCompareState>) {
+    return JSON.stringify([
+        state.imagePairRevision,
+        state.imageASrc,
+        state.imageBSrc,
+        state.imageAWidth,
+        state.imageAHeight,
+        state.imageBWidth,
+        state.imageBHeight,
+        state.imageBOffset.x,
+        state.imageBOffset.y,
+        state.imageBScaleX,
+        state.imageBScaleY,
+        state.smoothing,
+        state.sliderTrail,
+    ])
+}
+
+export function getCurrentSliderEffect(
+    snap: Snapshot<ImageCompareState>,
+    currentImageKey = sliderRasterImageKey(snap),
+): SliderEffect {
+    return snap.sliderRasterKey?.imageKey === currentImageKey ? snap.canvasContents : "none"
+}
+
+function matches(previous: Snapshot<ComparisonKey> | null, next: Snapshot<ComparisonKey>) {
+    return (
+        previous?.imageKey === next.imageKey &&
+        previous.gain === next.gain &&
+        previous.threshold === next.threshold
+    )
+}
+
+function sourceReady(
+    image: HTMLImageElement | null,
+    src: string | undefined,
+): image is HTMLImageElement {
+    return (
+        !!image &&
+        !!src &&
+        image.getAttribute("src") === src &&
+        image.complete &&
+        image.naturalWidth > 0 &&
+        image.naturalHeight > 0
+    )
+}
+
+/** Owns the image-space raster independently of viewport pan/zoom copies. */
 export function useSliderComparison(
     state: ImageCompareState,
     snap: Snapshot<ImageCompareState>,
-    refs: ComparisonRefs,
-    onGenerated: (effect: SliderEffect) => void,
+    { imgARef, imgBRef, offscreenCanvasRef }: ComparisonRefs,
 ) {
-    const lastGenerated = useRef<ComparisonKey | null>(null)
+    const pending = useRef<{ controller: AbortController; key: ComparisonKey } | null>(null)
+    const currentImageKey = sliderRasterImageKey(snap)
+
+    const abortPending = useCallback(() => {
+        pending.current?.controller.abort()
+        pending.current = null
+    }, [])
+
+    const clearRaster = useCallback(() => {
+        releaseRaster(offscreenCanvasRef.current)
+        offscreenCanvasRef.current = null
+        state.sliderRasterKey = null
+        state.canvasContents = "none"
+    }, [offscreenCanvasRef, state])
 
     const generate = useCallback(() => {
         if (state.mode !== "slider") return
         const effect = state.sliderTrail
         if (effect === "none") {
-            lastGenerated.current = null
-            state.canvasContents = "none"
-            onGenerated("none")
+            abortPending()
+            clearRaster()
             return
         }
 
-        const imageA = refs.imgARef.current
-        const imageB = refs.imgBRef.current
-        const loaded = (image: HTMLImageElement | null, src?: string) =>
-            image &&
-            src &&
-            image.getAttribute("src") === src &&
-            image.complete &&
-            image.naturalWidth > 0 &&
-            image.naturalHeight > 0
-        if (
-            !loaded(imageA, state.imageASrc) ||
-            !loaded(imageB, state.imageBSrc) ||
-            !imageA ||
-            !imageB ||
-            !state.imageAWidth ||
-            !state.imageAHeight ||
-            !state.imageBWidth ||
-            !state.imageBHeight
-        )
-            return
+        const key = {
+            imageKey: sliderRasterImageKey(state),
+            gain: state.sliderGain,
+            threshold: state.sliderThreshold,
+        }
+        if (matches(pending.current?.key ?? null, key)) return
+        abortPending()
 
-        const key: ComparisonKey = [
-            state.imageASrc,
-            state.imageBSrc,
-            imageA.naturalWidth,
-            imageA.naturalHeight,
-            imageB.naturalWidth,
-            imageB.naturalHeight,
-            state.imageBOffset.x,
-            state.imageBOffset.y,
-            state.imageBScaleX,
-            state.imageBScaleY,
-            state.smoothing,
-            effect,
-            state.sliderThreshold,
-            state.sliderGain,
-        ]
-        const canvas = refs.offscreenCanvasRef.current ?? document.createElement("canvas")
         if (
             state.canvasContents === effect &&
-            canvas.width > 0 &&
-            canvas.height > 0 &&
-            lastGenerated.current?.every((value, index) => value === key[index])
+            offscreenCanvasRef.current &&
+            matches(state.sliderRasterKey, key)
         )
             return
 
-        refs.offscreenCanvasRef.current = canvas
-        try {
-            const compare =
-                effect === "brightness"
-                    ? compareBrightness
-                    : effect === "color"
-                      ? compareColor
-                      : compareDifference
-            compare(imageA, imageB, canvas, {
-                imageBOffset: state.imageBOffset,
-                imageBScaleX: state.imageBScaleX,
-                imageBScaleY: state.imageBScaleY,
-                smoothing: state.smoothing,
-                gain: state.sliderGain,
-                threshold: state.sliderThreshold,
+        const imageA = imgARef.current
+        const imageB = imgBRef.current
+        if (!sourceReady(imageA, state.imageASrc) || !sourceReady(imageB, state.imageBSrc)) return
+
+        const controller = new AbortController()
+        pending.current = { controller, key }
+        const isCurrent = () =>
+            !controller.signal.aborted &&
+            state.mode === "slider" &&
+            sliderRasterImageKey(state) === key.imageKey &&
+            state.sliderGain === key.gain &&
+            state.sliderThreshold === key.threshold
+
+        void renderRaster(
+            {
+                kind: "slider",
+                effect,
+                imageA,
+                imageB,
+                options: {
+                    imageBOffset: { x: state.imageBOffset.x, y: state.imageBOffset.y },
+                    imageBScaleX: state.imageBScaleX,
+                    imageBScaleY: state.imageBScaleY,
+                    smoothing: state.smoothing,
+                    gain: key.gain,
+                    threshold: key.threshold,
+                },
+            },
+            controller.signal,
+        )
+            .then((raster) => {
+                if (!isCurrent()) {
+                    releaseRaster(raster)
+                    return
+                }
+                releaseRaster(offscreenCanvasRef.current)
+                offscreenCanvasRef.current = raster
+                state.sliderRasterKey = key
+                state.canvasContents = effect
             })
-            lastGenerated.current = key
-            state.canvasContents = effect
-            onGenerated(effect)
-        } catch (error) {
-            lastGenerated.current = null
-            state.canvasContents = "none"
-            onGenerated("none")
-            console.error("Failed to generate image comparison", error)
-        }
-    }, [onGenerated, refs, state])
+            .catch((error) => {
+                if (!isCurrent()) return
+                clearRaster()
+                console.error("Failed to generate image comparison", error)
+            })
+            .finally(() => {
+                if (pending.current?.controller === controller) pending.current = null
+            })
+    }, [abortPending, clearRaster, imgARef, imgBRef, offscreenCanvasRef, state])
 
-    // Snapshot dependencies trigger reads from the current mutable state. Gain/threshold
-    // changes are requested by the existing debounced controls instead of this effect.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: snapshot values intentionally trigger current proxy reads
-    useEffect(() => {
-        generate()
-    }, [
-        generate,
-        snap.mode,
-        snap.imageASrc,
-        snap.imageBSrc,
-        snap.imageAWidth,
-        snap.imageAHeight,
-        snap.imageBWidth,
-        snap.imageBHeight,
-        snap.imageBOffset.x,
-        snap.imageBOffset.y,
-        snap.imageBScaleX,
-        snap.imageBScaleY,
-        snap.smoothing,
-        snap.sliderTrail,
-    ])
+    useLayoutEffect(() => {
+        if (snap.mode === "slider") return abortPending
+    }, [abortPending, snap.mode])
 
     useEffect(() => {
-        // A sibling mode may report B's dimensions before the canonical image loads.
-        // Listen as well as observing dimensions, including same-sized replacements.
-        const imageA = refs.imgARef.current
-        const imageB = refs.imgBRef.current
+        if (snap.mode !== "slider") return
+
+        const imageA = imgARef.current
+        const imageB = imgBRef.current
         imageA?.addEventListener("load", generate)
         imageB?.addEventListener("load", generate)
+
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const scheduleParameters = () => {
+            abortPending()
+            clearTimeout(timer)
+            timer = setTimeout(generate, 500)
+        }
+        const unsubscribeGain = subscribeKey(state, "sliderGain", scheduleParameters, true)
+        const unsubscribeThreshold = subscribeKey(
+            state,
+            "sliderThreshold",
+            scheduleParameters,
+            true,
+        )
+
         return () => {
             imageA?.removeEventListener("load", generate)
             imageB?.removeEventListener("load", generate)
+            unsubscribeGain()
+            unsubscribeThreshold()
+            clearTimeout(timer)
         }
-    }, [generate, refs])
+    }, [abortPending, generate, imgARef, imgBRef, snap.mode, state])
 
-    return generate
+    // Snapshot changes trigger reads of the latest mutable inputs. Reconnecting this
+    // effect also handles a reveal after a load event fired while Slider was hidden.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: revision, sources, and render settings are represented by currentImageKey
+    useEffect(() => {
+        generate()
+    }, [generate, currentImageKey, snap.mode])
+
+    return { displayedEffect: getCurrentSliderEffect(snap, currentImageKey), generate }
 }

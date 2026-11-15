@@ -1,15 +1,21 @@
 import { Box, HStack, Popover, Portal, VStack } from "@chakra-ui/react"
 import { usePopoverContext } from "@chakra-ui/react/popover"
-import { useDebounceFn } from "ahooks"
 import { motion, useTransform } from "motion/react"
-import { type ComponentProps, useCallback, useEffect, useMemo, useState } from "react"
+import {
+    type ComponentProps,
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useState,
+} from "react"
 import type { Snapshot } from "valtio"
 import { subscribeKey } from "valtio/utils"
 import { Panel, PanelSectionHeader } from "@/components/common"
 import { Slider } from "@/components/ui/slider"
 import { useRootElementRef } from "@/hooks/useRootElement"
 import { useTimeout } from "@/hooks/useTimeout"
-import IconButton from "../IconButton"
+import ToolbarButton from "../toolbar/ToolbarButton"
 import { ToolbarSection } from "../toolbar/ToolbarSection"
 import {
     type ImageCompareHooksContextType,
@@ -28,10 +34,10 @@ import {
     SliderSettings,
 } from "./icons"
 import { getComparisonImageStyle } from "./imageGeometry"
-import { type SliderEffectDisplay, transitionSliderEffectDisplay } from "./sliderEffectDisplay"
+import type { RasterSource } from "./raster"
+import { transitionSliderEffectDisplay } from "./sliderEffectDisplay"
 import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
-import { useSliderComparison } from "./useSliderComparison"
-import ToolbarButton from "../toolbar/ToolbarButton"
+import { sliderRasterImageKey, useSliderComparison } from "./useSliderComparison"
 
 interface ViewportCanvasGeometry {
     contentLeft: number
@@ -45,11 +51,7 @@ interface ViewportCanvasGeometry {
 
 interface SliderModeProps {
     sliderTrail: SliderEffect
-    displayedEffect: SliderEffect
-    effectDisplay: SliderEffectDisplay
-    sliderButtonTone: "info" | "selected"
     selectEffect: (effect: SliderEffect) => void
-    updateEffectParam: () => void
 }
 
 const NEXT_SLIDER_EFFECT: Record<SliderEffect, SliderEffect> = {
@@ -59,8 +61,17 @@ const NEXT_SLIDER_EFFECT: Record<SliderEffect, SliderEffect> = {
     difference: "none",
 }
 
+function clearViewportCanvases(
+    normal: HTMLCanvasElement | null,
+    inverted: HTMLCanvasElement | null,
+) {
+    for (const canvas of [normal, inverted]) {
+        if (canvas) canvas.width = canvas.height = 0
+    }
+}
+
 function drawComparisonRegion(
-    source: HTMLCanvasElement | null,
+    source: RasterSource,
     target: HTMLCanvasElement | null,
     geometry: ViewportCanvasGeometry,
     smoothing: boolean,
@@ -78,7 +89,7 @@ function drawComparisonRegion(
     context.setTransform(1, 0, 0, 1, 0, 0)
     context.clearRect(0, 0, pixelWidth, pixelHeight)
 
-    if (!source?.width || !source.height || !geometry.contentWidth || !geometry.contentHeight) {
+    if (!source.width || !source.height || !geometry.contentWidth || !geometry.contentHeight) {
         return
     }
 
@@ -119,17 +130,8 @@ function drawComparisonRegion(
 function useMode(
     state: ImageCompareState,
     snap: Snapshot<ImageCompareState>,
-    hooks: ImageCompareHooksContextType,
+    _hooks: ImageCompareHooksContextType,
 ): UseModeResult<SliderModeProps> {
-    const { refs, zoomStyle } = hooks
-    const contentSize = snap.contentSize
-    const contentOffset = snap.contentOffset
-
-    const sliderTrail = snap.sliderTrail
-    const effectDisplay = snap.sliderEffectDisplay
-    const displayedEffect = effectDisplay === "full" ? snap.canvasContents : sliderTrail
-    const sliderButtonTone = snap.shiftHeld ? ("info" as const) : ("selected" as const)
-
     useEffect(
         () =>
             subscribeKey(
@@ -147,111 +149,11 @@ function useMode(
         [state],
     )
 
-    const copyComparisonBuffer = useCallback(
-        (effect: SliderEffect = state.canvasContents) => {
-            const scale = zoomStyle.scale.get()
-            const scaledWidth = contentSize.width * scale
-            const scaledHeight = contentSize.height * scale
-            const geometry = {
-                contentLeft:
-                    contentOffset.left + zoomStyle.x.get() + (contentSize.width - scaledWidth) / 2,
-                contentTop:
-                    contentOffset.top + zoomStyle.y.get() + (contentSize.height - scaledHeight) / 2,
-                contentWidth: scaledWidth,
-                contentHeight: scaledHeight,
-                viewportWidth: snap.viewportWidth,
-                viewportHeight: snap.viewportHeight,
-                pixelRatio: snap.viewportPixelRatio,
-            }
-            const source = effect === "none" ? null : refs.offscreenCanvasRef.current
-
-            drawComparisonRegion(source, refs.normalCanvasRef.current, geometry, snap.smoothing)
-            drawComparisonRegion(source, refs.invertedCanvasRef.current, geometry, snap.smoothing)
-        },
-        [
-            contentOffset.left,
-            contentOffset.top,
-            contentSize.height,
-            contentSize.width,
-            snap.viewportHeight,
-            snap.viewportPixelRatio,
-            snap.viewportWidth,
-            snap.smoothing,
-            state,
-            zoomStyle.scale,
-            zoomStyle.x,
-            zoomStyle.y,
-            refs,
-        ],
-    )
-
-    const copySettledComparisonBuffer = useCallback(
-        (effect: SliderEffect = state.canvasContents) => {
-            if (
-                effect !== "none" &&
-                (zoomStyle.x.isAnimating() ||
-                    zoomStyle.y.isAnimating() ||
-                    zoomStyle.scale.isAnimating())
-            ) {
-                return
-            }
-            copyComparisonBuffer(effect)
-        },
-        [copyComparisonBuffer, state, zoomStyle.scale, zoomStyle.x, zoomStyle.y],
-    )
-
-    const copyActiveComparisonBuffer = useCallback(
-        (effect: SliderEffect = state.canvasContents) => {
-            if (state.sliderEffectDisplay === "full") copyComparisonBuffer(effect)
-            else copySettledComparisonBuffer(effect)
-        },
-        [copyComparisonBuffer, copySettledComparisonBuffer, state],
-    )
-
-    const generateComparison = useSliderComparison(state, snap, refs, copyActiveComparisonBuffer)
-
-    const { run: updateEffectParam } = useDebounceFn(generateComparison, { wait: 500 })
-
-    useEffect(() => {
-        let animationFrame: number | undefined
-        const scheduleCopy = () => {
-            if (animationFrame !== undefined) return
-            animationFrame = requestAnimationFrame(() => {
-                animationFrame = undefined
-                if (effectDisplay === "full") copyComparisonBuffer()
-                else copySettledComparisonBuffer()
-            })
-        }
-        const eventName = effectDisplay === "full" ? "change" : "animationComplete"
-        const unsubscribeX = zoomStyle.x.on(eventName, scheduleCopy)
-        const unsubscribeY = zoomStyle.y.on(eventName, scheduleCopy)
-        const unsubscribeScale = zoomStyle.scale.on(eventName, scheduleCopy)
-        scheduleCopy()
-
-        return () => {
-            if (animationFrame !== undefined) cancelAnimationFrame(animationFrame)
-            unsubscribeX()
-            unsubscribeY()
-            unsubscribeScale()
-        }
-    }, [
-        copyComparisonBuffer,
-        copySettledComparisonBuffer,
-        effectDisplay,
-        zoomStyle.scale,
-        zoomStyle.x,
-        zoomStyle.y,
-    ])
-
     const selectEffect = useCallback(
         (effect: SliderEffect) => {
             state.sliderTrail = effect
-            if (effect === "none") {
-                state.canvasContents = "none"
-                copyActiveComparisonBuffer("none")
-            }
         },
-        [copyActiveComparisonBuffer, state],
+        [state],
     )
 
     const keyHandlers = useMemo(
@@ -263,41 +165,127 @@ function useMode(
         [selectEffect, state],
     )
 
-    const selfProps = useMemo(
-        () => ({
-            sliderTrail,
-            displayedEffect,
-            effectDisplay,
-            sliderButtonTone,
-            selectEffect,
-            updateEffectParam,
-        }),
-        [
-            displayedEffect,
-            effectDisplay,
-            selectEffect,
-            sliderButtonTone,
-            sliderTrail,
-            updateEffectParam,
-        ],
-    )
+    const sliderTrail = snap.sliderTrail
+    const selfProps = useMemo(() => ({ sliderTrail, selectEffect }), [selectEffect, sliderTrail])
 
     return { selfProps, keyHandlers }
 }
 
 function View(props: ModeViewProps<SliderModeProps>) {
-    const { containerStyle, selfProps } = props
+    const { containerStyle } = props
     const [state, snap] = ImageCompareContext.useContext()
-    const { refs, mv } = useImageCompareHooks()
+    const { refs, mv, zoomStyle } = useImageCompareHooks()
+    const { offscreenCanvasRef, normalCanvasRef, invertedCanvasRef } = refs
+    const { displayedEffect } = useSliderComparison(state, snap, refs)
     const leftOfSliderClipMv = useTransform(
         mv.sliderMv,
         (value) => `inset(0 ${(1 - value) * 100}% 0 0)`,
     )
-    if (!selfProps) return null
-
-    const { displayedEffect, effectDisplay } = selfProps
+    const effectDisplay = snap.sliderEffectDisplay
     const showEffect =
         snap.mode === "slider" && displayedEffect !== "none" && effectDisplay !== "hidden"
+
+    const { width: contentWidth, height: contentHeight } = snap.contentSize
+    const { left: contentLeft, top: contentTop } = snap.contentOffset
+    const { viewportWidth, viewportHeight, viewportPixelRatio, smoothing } = snap
+    const { x, y, scale } = zoomStyle
+
+    // A retained raster may be reused, but its viewport copies need the current zoom.
+    // Draw before revealing an overlay, then follow the existing full/trail zoom rules.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the raster key changes when a fresh result replaces the source
+    useLayoutEffect(() => {
+        if (!showEffect) return
+        const clear = () =>
+            clearViewportCanvases(normalCanvasRef.current, invertedCanvasRef.current)
+        // Activity can reconnect layout effects from a snapshot taken while the refs
+        // were detached. Clear old DOM canvas pixels before making them visible.
+        if (state.sliderRasterKey?.imageKey !== sliderRasterImageKey(state)) {
+            clear()
+            return
+        }
+        const copy = () => {
+            const source = offscreenCanvasRef.current
+            if (state.mode !== "slider") return
+            if (!source || state.canvasContents !== displayedEffect) {
+                clear()
+                return
+            }
+
+            const zoom = scale.get()
+            const scaledWidth = contentWidth * zoom
+            const scaledHeight = contentHeight * zoom
+            const geometry = {
+                contentLeft: contentLeft + x.get() + (contentWidth - scaledWidth) / 2,
+                contentTop: contentTop + y.get() + (contentHeight - scaledHeight) / 2,
+                contentWidth: scaledWidth,
+                contentHeight: scaledHeight,
+                viewportWidth,
+                viewportHeight,
+                pixelRatio: viewportPixelRatio,
+            }
+            drawComparisonRegion(source, normalCanvasRef.current, geometry, smoothing)
+            drawComparisonRegion(source, invertedCanvasRef.current, geometry, smoothing)
+        }
+        copy()
+
+        let animationFrame: number | undefined
+        const scheduleCopy = () => {
+            if (animationFrame !== undefined) return
+            animationFrame = requestAnimationFrame(() => {
+                animationFrame = undefined
+                if (
+                    effectDisplay === "full" ||
+                    !(x.isAnimating() || y.isAnimating() || scale.isAnimating())
+                )
+                    copy()
+            })
+        }
+        const eventName = effectDisplay === "full" ? "change" : "animationComplete"
+        const unsubscribeX = x.on(eventName, scheduleCopy)
+        const unsubscribeY = y.on(eventName, scheduleCopy)
+        const unsubscribeScale = scale.on(eventName, scheduleCopy)
+
+        return () => {
+            if (animationFrame !== undefined) cancelAnimationFrame(animationFrame)
+            unsubscribeX()
+            unsubscribeY()
+            unsubscribeScale()
+        }
+    }, [
+        contentHeight,
+        contentLeft,
+        contentTop,
+        contentWidth,
+        displayedEffect,
+        effectDisplay,
+        invertedCanvasRef,
+        normalCanvasRef,
+        offscreenCanvasRef,
+        scale,
+        showEffect,
+        smoothing,
+        snap.sliderRasterKey,
+        state,
+        viewportHeight,
+        viewportPixelRatio,
+        viewportWidth,
+        x,
+        y,
+    ])
+
+    useLayoutEffect(() => {
+        if (snap.mode !== "slider") return
+        const normal = normalCanvasRef.current
+        const inverted = invertedCanvasRef.current
+        return () => {
+            // Keep the reusable image-space raster and release its viewport copies.
+            clearViewportCanvases(normal, inverted)
+            if (!state.sliderDragging) return
+            state.sliderDragging = false
+            state.sliderEffectDisplay = state.shiftHeld ? "full" : "trail"
+        }
+    }, [invertedCanvasRef, normalCanvasRef, snap.mode, state])
+
     const showFullEffect = effectDisplay === "full"
     const showSplitEffect = showFullEffect && displayedEffect !== "difference"
 
@@ -478,7 +466,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     }, [cancelCloseTimer])
 
     if (!selfProps) return null
-    const { selectEffect, sliderButtonTone, sliderTrail, updateEffectParam } = selfProps
+    const { selectEffect, sliderTrail } = selfProps
 
     return (
         <ToolbarSection mode={"select"} {...restProps}>
@@ -525,7 +513,6 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                         <SettingsContent
                             state={state}
                             snap={snap}
-                            updateEffectParam={updateEffectParam}
                             onEnter={onEnter}
                             onLeave={startCloseTimer}
                         />
@@ -561,11 +548,10 @@ function SettingsButton(props: ComponentProps<typeof ToolbarButton> & PopoverTri
 interface SettingsContentProps extends ComponentProps<typeof Popover.Content> {
     state: ReturnType<(typeof ImageCompareContext)["useContext"]>[0]
     snap: ReturnType<(typeof ImageCompareContext)["useContext"]>[1]
-    updateEffectParam: () => void
 }
 
 function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
-    const { state, snap, updateEffectParam, onEnter, onLeave, ...restProps } = props
+    const { state, snap, onEnter, onLeave, ...restProps } = props
 
     const context = usePopoverContext()
 
@@ -605,7 +591,6 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
                         value={[snap.sliderThreshold]}
                         onValueChange={(value) => {
                             state.sliderThreshold = value.value[0]
-                            updateEffectParam()
                         }}
                         mx={1}
                         marginBottom={"2"}
@@ -628,7 +613,6 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
                         value={[snap.sliderGain]}
                         onValueChange={(value) => {
                             state.sliderGain = value.value[0]
-                            updateEffectParam()
                         }}
                         mx={1}
                     />

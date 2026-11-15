@@ -53,7 +53,10 @@ export async function loadImage2(pasteboard: "general" | "drag") {
                 const duplicates = results.filter(({ alreadyPresent }) => alreadyPresent)
                 if (duplicates.length === 1) notifyMetadataDuplicate(duplicates[0].item.isVideo)
                 else if (duplicates.length) {
-                    toaster.create({ title: `${duplicates.length} items already in Metadata`, type: "info" })
+                    toaster.create({
+                        title: `${duplicates.length} items already in Metadata`,
+                        type: "info",
+                    })
                 }
             } finally {
                 mdStore.state.isLoadingImage = false
@@ -72,7 +75,10 @@ export function handleDrop(data: unknown) {
 }
 
 function notifyMetadataDuplicate(isVideo?: boolean) {
-    toaster.create({ title: isVideo ? "Video already in Metadata" : "Image already in Metadata", type: "info" })
+    toaster.create({
+        title: isVideo ? "Video already in Metadata" : "Image already in Metadata",
+        type: "info",
+    })
 }
 
 export function notifyMetadataError(error: unknown) {

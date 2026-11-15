@@ -182,7 +182,9 @@ export function useImageCommands(): [
                     try {
                         const resource = selected[0]
                         const { data, type, source } = await readProjectImage(
-                            resource, projects.getProject(resource.projectId)?.path, ctx,
+                            resource,
+                            projects.getProject(resource.projectId)?.path,
+                            ctx,
                         )
                         await addNewItem(data, type, source)
                     } catch (error) {
@@ -204,11 +206,15 @@ export function useImageCommands(): [
                         : "Send image to Metadata",
                 icon: PiListMagnifyingGlassBold,
                 action: async (selected, ctx) => {
-                    const { sendToMetadata, notifyMetadataError } = await import("@/metadata/state/interop")
+                    const { sendToMetadata, notifyMetadataError } = await import(
+                        "@/metadata/state/interop"
+                    )
                     try {
                         const resource = selected[0]
                         const { data, type, source } = await readProjectImage(
-                            resource, projects.getProject(resource.projectId)?.path, ctx,
+                            resource,
+                            projects.getProject(resource.projectId)?.path,
+                            ctx,
                         )
                         await sendToMetadata(data, type, source)
                     } catch (error) {

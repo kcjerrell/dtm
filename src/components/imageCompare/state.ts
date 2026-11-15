@@ -13,6 +13,8 @@ export type ImageCompareState = {
     imageASrc?: string
     /** the url for image b */
     imageBSrc?: string
+    /** Advances when either loaded source changes, even if an earlier pair is restored. */
+    imagePairRevision: number
 
     /** whether to apply smoothing to the images */
     smoothing: boolean
@@ -23,6 +25,7 @@ export type ImageCompareState = {
     sliderTrail: SliderEffect
     /** The slider trail effect currently stored in the canvas */
     canvasContents: SliderEffect
+    sliderRasterKey: { imageKey: string; gain: number; threshold: number } | null
     /** minimum perceptual difference shown by the slider effect */
     sliderThreshold: number
     /** multiplier applied to perceptual differences above the threshold */
@@ -75,12 +78,14 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
     (_props?: ImageCompareRootProps) => ({
         imageASrc: undefined,
         imageBSrc: undefined,
+        imagePairRevision: 0,
         smoothing: true,
         mode: "slider",
         sliderTrail: "none" as SliderEffect,
         sliderDragging: false,
         sliderEffectDisplay: "trail" as SliderEffectDisplay,
         canvasContents: "none",
+        sliderRasterKey: null,
         sliderThreshold: 0.02,
         sliderGain: 10,
         shiftHeld: false,

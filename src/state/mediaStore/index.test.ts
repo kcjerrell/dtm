@@ -35,28 +35,35 @@ beforeEach(() => {
     cachedFiles.clear()
     incomingFiles.clear()
     io.saveFile.mockImplementation(writeSnapshot)
-    io.withSnapshot.mockImplementation(async (
-        id: string,
-        input: SnapshotInput,
-        type: string,
-        use: (file: SavedFile, retain: () => void) => Promise<unknown>,
-    ) => {
-        const bytes = input instanceof Uint8Array ? input : incomingFiles.get(input.location)
-        if (!bytes) throw new Error("missing incoming file")
-        const file = writeSnapshot(id, bytes, type)
-        let retained = false
-        try {
-            return await use(file, () => { retained = true })
-        } finally {
-            if (!retained) cachedFiles.delete(file.fname)
-        }
-    })
+    io.withSnapshot.mockImplementation(
+        async (
+            id: string,
+            input: SnapshotInput,
+            type: string,
+            use: (file: SavedFile, retain: () => void) => Promise<unknown>,
+        ) => {
+            const bytes = input instanceof Uint8Array ? input : incomingFiles.get(input.location)
+            if (!bytes) throw new Error("missing incoming file")
+            const file = writeSnapshot(id, bytes, type)
+            let retained = false
+            try {
+                return await use(file, () => {
+                    retained = true
+                })
+            } finally {
+                if (!retained) cachedFiles.delete(file.fname)
+            }
+        },
+    )
     io.findMatchingFile.mockImplementation((incoming: string, candidates: string[]) => {
         const bytes = cachedFiles.get(incoming)
         const index = candidates.findIndex((fname) => {
             const candidate = cachedFiles.get(fname)
-            return candidate && candidate.length === bytes?.length &&
+            return (
+                candidate &&
+                candidate.length === bytes?.length &&
                 candidate.every((value, i) => value === bytes[i])
+            )
         })
         return index < 0 ? null : index
     })
@@ -94,33 +101,37 @@ describe("video media-store snapshots", () => {
 })
 
 describe("file and URL image versions", () => {
-    it.each([
-        { file: "/images/cat.png" },
-        { url: "https://example.test/cat.png" },
-    ])("finds earlier versions and shares the matching snapshot for %j", async (source) => {
-        const metadata = MediaStore.defineCollection(`versions-${Object.keys(source)[0]}`, { pin: 0 })
-        const compare = MediaStore.defineCollection(`compare-${Object.keys(source)[0]}`, { pin: 0 })
-        const image = { buffer: new Uint8Array([1]), type: "png", source }
-        const original = await metadata.importMedia(image, { pin: 1 })
-        const changed = await metadata.importMedia({ ...image, buffer: new Uint8Array([2]) })
-        const restored = await metadata.importMedia(image)
-        const shared = await compare.importMedia(image)
+    it.each([{ file: "/images/cat.png" }, { url: "https://example.test/cat.png" }])(
+        "finds earlier versions and shares the matching snapshot for %j",
+        async (source) => {
+            const metadata = MediaStore.defineCollection(`versions-${Object.keys(source)[0]}`, {
+                pin: 0,
+            })
+            const compare = MediaStore.defineCollection(`compare-${Object.keys(source)[0]}`, {
+                pin: 0,
+            })
+            const image = { buffer: new Uint8Array([1]), type: "png", source }
+            const original = await metadata.importMedia(image, { pin: 1 })
+            const changed = await metadata.importMedia({ ...image, buffer: new Uint8Array([2]) })
+            const restored = await metadata.importMedia(image)
+            const shared = await compare.importMedia(image)
 
-        expect(changed.alreadyPresent).toBe(false)
-        expect(restored).toEqual({ item: original.item, alreadyPresent: true })
-        expect(shared.item?.id).toBe(original.item?.id)
-        expect(shared.alreadyPresent).toBe(false)
-        expect(shared.item?.pin).toBe(0)
-        expect(original.item?.pin).toBe(1)
-        expect([...cachedFiles.values()]).toEqual([new Uint8Array([1]), new Uint8Array([2])])
-        if (!changed.item) throw new Error("expected a changed version")
-        expect((await compare.addExisting(changed.item.id))?.id).toBe(changed.item.id)
-        expect(compare.items).toHaveLength(2)
-        await metadata.clear()
-        expect(io.removeFile).not.toHaveBeenCalledWith(`${original.item?.id}.png`)
-        await compare.clear()
-        expect(io.removeFile).toHaveBeenCalledWith(`${original.item?.id}.png`)
-    })
+            expect(changed.alreadyPresent).toBe(false)
+            expect(restored).toEqual({ item: original.item, alreadyPresent: true })
+            expect(shared.item?.id).toBe(original.item?.id)
+            expect(shared.alreadyPresent).toBe(false)
+            expect(shared.item?.pin).toBe(0)
+            expect(original.item?.pin).toBe(1)
+            expect([...cachedFiles.values()]).toEqual([new Uint8Array([1]), new Uint8Array([2])])
+            if (!changed.item) throw new Error("expected a changed version")
+            expect((await compare.addExisting(changed.item.id))?.id).toBe(changed.item.id)
+            expect(compare.items).toHaveLength(2)
+            await metadata.clear()
+            expect(io.removeFile).not.toHaveBeenCalledWith(`${original.item?.id}.png`)
+            await compare.clear()
+            expect(io.removeFile).toHaveBeenCalledWith(`${original.item?.id}.png`)
+        },
+    )
 
     it("keeps identical bytes from distinct paths and raw clipboard pastes", async () => {
         const collection = MediaStore.defineCollection("different-sources", {})

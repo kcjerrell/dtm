@@ -1,13 +1,16 @@
 import { Box } from "@chakra-ui/react"
-import { motion, useTransform } from "motion/react"
+import { motion } from "motion/react"
 import {
     type CSSProperties,
     type KeyboardEvent,
     type PointerEvent,
+    type RefObject,
     useEffect,
     useId,
+    useLayoutEffect,
     useRef,
 } from "react"
+import { RiResetLeftFill } from "react-icons/ri"
 import { TbLayersIntersect2, TbLayersOff, TbLayersSelectedBottom } from "react-icons/tb"
 import ToolbarButton from "../toolbar/ToolbarButton"
 import { ToolbarSection } from "../toolbar/ToolbarSection"
@@ -20,7 +23,6 @@ import {
     getAlignmentScreenGeometry,
     resizeAlignment,
 } from "./alignmentGeometry"
-import { applyEdgeMask } from "./edgeMask"
 import {
     type ImageCompareMode,
     type ModeButtonProps,
@@ -29,9 +31,14 @@ import {
     useImageCompareHooks,
 } from "./hooks"
 import { AlignCompare, AlignmentPinMarker } from "./icons"
-import { getComparisonGeometry, getComparisonImageStyle } from "./imageGeometry"
-import { ImageCompareContext } from "./state"
-import { RiResetLeftFill } from "react-icons/ri";
+import {
+    getComparisonGeometry,
+    getComparisonImageStyle,
+    getZoomedLength,
+    getZoomedPosition,
+} from "./imageGeometry"
+import { releaseRaster, renderRaster } from "./raster"
+import { ImageCompareContext, type ImageCompareState } from "./state"
 
 interface Gesture {
     pointerId: number
@@ -77,121 +84,149 @@ const DISPLAY_MODES = [
     { value: "original", label: "Show original images", Icon: TbLayersOff },
 ] as const
 
-function AlignmentEdges({ image: side, style }: { image: "A" | "B"; style: CSSProperties }) {
-    const [state, snap] = ImageCompareContext.useContext()
-    const { refs } = useImageCompareHooks()
-    const imageRef = side === "A" ? refs.imgARef : refs.imgBRef
-    const srcKey = side === "A" ? "imageASrc" : "imageBSrc"
-    const src = snap[srcKey]
-    const edgeCanvas = useRef<HTMLCanvasElement>(null)
-    const edgeSource = useRef<{
-        src: string
-        width: number
-        height: number
-        naturalWidth: number
-        naturalHeight: number
-    } | null>(null)
+type ImageSide = "A" | "B"
+type EdgeInput = Pick<
+    ImageCompareState,
+    "imageASrc" | "imageBSrc" | "imageAWidth" | "imageAHeight" | "imageBWidth" | "imageBHeight"
+>
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: snapshot dependencies trigger current state reads; placement and zoom reuse the buffer
-    useEffect(() => {
-        const image = imageRef.current
-        const clear = () => {
-            edgeSource.current = null
-            if (edgeCanvas.current) {
-                edgeCanvas.current.width = 0
-                edgeCanvas.current.height = 0
-            }
+function getEdgeTarget(state: EdgeInput, side: ImageSide) {
+    const { imageASrc, imageBSrc, imageAWidth, imageAHeight, imageBWidth, imageBHeight } = state
+    // Fit both maps on the same pixel grid so their edge widths match.
+    const { a, b } = getComparisonGeometry({ imageAWidth, imageAHeight, imageBWidth, imageBHeight })
+    const fitted = side === "A" ? a : b
+    return {
+        src: side === "A" ? imageASrc : imageBSrc,
+        naturalWidth: side === "A" ? imageAWidth : imageBWidth,
+        naturalHeight: side === "A" ? imageAHeight : imageBHeight,
+        width: Math.max(1, Math.round(fitted.width)),
+        height: Math.max(1, Math.round(fitted.height)),
+    }
+}
+
+function getEdgeKey({
+    src,
+    width,
+    height,
+    naturalWidth,
+    naturalHeight,
+}: ReturnType<typeof getEdgeTarget>) {
+    return JSON.stringify([src, width, height, naturalWidth, naturalHeight])
+}
+
+interface AlignmentEdgesProps {
+    side: ImageSide
+    imageRef: RefObject<HTMLImageElement | null>
+    rasterKey: string
+    style: CSSProperties
+}
+
+function AlignmentEdges({ side, imageRef, rasterKey, style }: AlignmentEdgesProps) {
+    const [state, snap] = ImageCompareContext.useContext()
+    const { imagePairRevision, mode, alignDisplay, smoothing } = snap
+    const active =
+        mode === "align" &&
+        !!snap.imageASrc &&
+        !!snap.imageBSrc &&
+        alignDisplay !== "original" &&
+        (side === "B" || alignDisplay === "both-edges")
+    const edgeCanvas = useRef<HTMLCanvasElement>(null)
+    const painted = useRef(false)
+
+    useLayoutEffect(() => {
+        const canvas = edgeCanvas.current
+        // A hidden Activity can reconnect before its subscription catches up.
+        if (canvas && getEdgeKey(getEdgeTarget(state, side)) !== rasterKey) {
+            painted.current = false
+            canvas.width = 0
+            canvas.height = 0
         }
-        const update = () => {
-            const canvas = edgeCanvas.current
-            const src = state[srcKey]
-            if (edgeSource.current?.src !== src) clear()
-            if (
-                !canvas ||
-                !image ||
-                !src ||
-                state.mode !== "align" ||
-                state.alignDisplay === "original" ||
-                (side === "A" && state.alignDisplay !== "both-edges") ||
-                image.getAttribute("src") !== src ||
-                !image.complete ||
-                !image.naturalWidth ||
-                !image.naturalHeight
-            )
-                return
-            // Detect both maps on the same fitted pixel grid, independently of
-            // manual alignment and viewport zoom, so their edge widths match.
-            const geometry = getComparisonGeometry({
-                imageAWidth: state.imageAWidth,
-                imageAHeight: state.imageAHeight,
-                imageBWidth: state.imageBWidth,
-                imageBHeight: state.imageBHeight,
-            })
-            const fitted = side === "A" ? geometry.a : geometry.b
-            const width = Math.max(1, Math.round(fitted.width))
-            const height = Math.max(1, Math.round(fitted.height))
-            if (
-                edgeSource.current?.src === src &&
-                edgeSource.current.width === width &&
-                edgeSource.current.height === height &&
-                edgeSource.current.naturalWidth === image.naturalWidth &&
-                edgeSource.current.naturalHeight === image.naturalHeight
-            )
-                return
+    }, [state, side, rasterKey])
+
+    useEffect(() => {
+        const canvas = edgeCanvas.current
+        const image = imageRef.current
+        const target = getEdgeTarget(state, side)
+        const { src, width, height, naturalWidth, naturalHeight } = target
+        if (!active || !canvas || !image || !src || getEdgeKey(target) !== rasterKey) return
+
+        let request: AbortController | undefined
+        const current = () =>
+            state.mode === "align" &&
+            state.alignDisplay !== "original" &&
+            (side === "B" || state.alignDisplay === "both-edges") &&
+            state.imagePairRevision === imagePairRevision &&
+            edgeCanvas.current === canvas &&
+            imageRef.current === image
+        const loaded = () =>
+            image.getAttribute("src") === src &&
+            image.complete &&
+            image.naturalWidth === naturalWidth &&
+            image.naturalHeight === naturalHeight &&
+            naturalWidth > 0 &&
+            naturalHeight > 0
+        const clear = () => {
+            request?.abort()
+            request = undefined
+            painted.current = false
+            canvas.width = 0
+            canvas.height = 0
+        }
+        const update = async () => {
+            if (painted.current || request || !current() || !loaded()) return
+
+            const pending = new AbortController()
+            request = pending
             try {
-                canvas.width = width
-                canvas.height = height
-                const context = canvas.getContext("2d", { willReadFrequently: true })
-                if (!context) throw new Error("Could not get a 2D context for alignment edges")
-                context.imageSmoothingEnabled = true
-                context.imageSmoothingQuality = "high"
-                context.drawImage(image, 0, 0, width, height)
-                const pixels = context.getImageData(0, 0, canvas.width, canvas.height)
-                applyEdgeMask(
-                    pixels,
-                    Math.min(width / image.naturalWidth, height / image.naturalHeight),
+                const raster = await renderRaster(
+                    {
+                        kind: "edges",
+                        image,
+                        width,
+                        height,
+                        upscale: Math.min(width / naturalWidth, height / naturalHeight),
+                    },
+                    pending.signal,
                 )
-                context.putImageData(pixels, 0, 0)
-                edgeSource.current = {
-                    src,
-                    width,
-                    height,
-                    naturalWidth: image.naturalWidth,
-                    naturalHeight: image.naturalHeight,
+                try {
+                    if (pending.signal.aborted || !current() || !loaded()) return
+                    const context = canvas.getContext("2d")
+                    if (!context) throw new Error("Could not get a 2D context for alignment edges")
+                    canvas.width = width
+                    canvas.height = height
+                    context.drawImage(raster, 0, 0)
+                    painted.current = true
+                } finally {
+                    releaseRaster(raster)
                 }
             } catch (error) {
-                clear()
-                console.error(`Failed to generate image ${side} alignment edges`, error)
+                if (!pending.signal.aborted && current()) {
+                    clear()
+                    console.error(`Failed to generate image ${side} alignment edges`, error)
+                }
+            } finally {
+                if (request === pending) request = undefined
             }
         }
-        update()
-        image?.addEventListener("load", update)
-        image?.addEventListener("error", clear)
+        void update()
+        image.addEventListener("load", update)
+        image.addEventListener("error", clear)
         return () => {
-            image?.removeEventListener("load", update)
-            image?.removeEventListener("error", clear)
+            request?.abort()
+            image.removeEventListener("load", update)
+            image.removeEventListener("error", clear)
         }
-    }, [
-        state,
-        imageRef,
-        srcKey,
-        side,
-        snap.mode,
-        snap.alignDisplay,
-        src,
-        snap.imageAWidth,
-        snap.imageAHeight,
-        snap.imageBWidth,
-        snap.imageBHeight,
-    ])
+    }, [active, state, imagePairRevision, imageRef, side, rasterKey])
 
     return (
         <canvas
             ref={edgeCanvas}
             role="img"
             aria-label={`${side} edges`}
+            width={0}
+            height={0}
             style={{
-                imageRendering: snap.smoothing ? "auto" : "pixelated",
+                imageRendering: smoothing ? "auto" : "pixelated",
                 pointerEvents: "none",
                 ...style,
             }}
@@ -204,9 +239,12 @@ function View({ containerStyle }: ModeViewProps<never>) {
     const { zoomStyle, refs } = useImageCompareHooks()
     const gesture = useRef<Gesture | null>(null)
     const outline = useRef<HTMLDivElement>(null)
+    const imageBRef = useRef<HTMLImageElement>(null)
     const filterId = useId()
     const showOriginal = snap.alignDisplay === "original"
     const showBothEdges = snap.alignDisplay === "both-edges"
+    const edgeAKey = getEdgeKey(getEdgeTarget(snap, "A"))
+    const edgeBKey = getEdgeKey(getEdgeTarget(snap, "B"))
     const placingPin = snap.alignPinEnabled && !snap.pinState
     const bStyle: CSSProperties = {
         position: "absolute",
@@ -226,32 +264,11 @@ function View({ containerStyle }: ModeViewProps<never>) {
         snap.imageBHeight > 0
     const animateBorder = snap.mode === "align" && ready && !placingPin
     const dashOffsets = snap.pinState ? ["16px", "0px"] : ["0px", "16px"]
-    const screen = useTransform(() =>
-        getAlignmentScreenGeometry(snap, {
-            x: zoomStyle.x.get(),
-            y: zoomStyle.y.get(),
-            scale: zoomStyle.scale.get(),
-        }),
-    )
-    const left = useTransform(screen, (value) => value.rect.x)
-    const top = useTransform(screen, (value) => value.rect.y)
-    const width = useTransform(screen, (value) => value.rect.width)
-    const height = useTransform(screen, (value) => value.rect.height)
-    const pinLeft = useTransform(
-        screen,
-        (value) => value.a.x + (snap.pinState?.ax ?? 0) * value.pixelsPerA,
-    )
-    const pinTop = useTransform(
-        screen,
-        (value) => value.a.y + (snap.pinState?.ay ?? 0) * value.pixelsPerA,
-    )
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: the mode snapshot triggers a read of current pin state
-    useEffect(() => {
-        if (state.mode !== "align" && state.alignPinEnabled && !state.pinState) {
-            state.alignPinEnabled = false
-        }
-    }, [snap.mode, state])
+    // Project positions from the same zoom origin as the image stage. Handles
+    // and the pin keep their fixed screen size while their positions track it.
+    const centerX = snap.contentOffset.left + snap.contentSize.width / 2
+    const centerY = snap.contentOffset.top + snap.contentSize.height / 2
+    const { a, rect, pixelsPerA } = getAlignmentScreenGeometry(snap, { x: 0, y: 0, scale: 1 })
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: end gestures when the active mode or image pair changes
     useEffect(() => {
@@ -481,7 +498,10 @@ function View({ containerStyle }: ModeViewProps<never>) {
             </svg>
             <motion.div style={containerStyle}>
                 <AlignmentEdges
-                    image="A"
+                    key={edgeAKey}
+                    rasterKey={edgeAKey}
+                    side="A"
+                    imageRef={refs.imgARef}
                     style={{
                         ...getComparisonImageStyle(snap, "a"),
                         display: showBothEdges ? "block" : "none",
@@ -498,10 +518,10 @@ function View({ containerStyle }: ModeViewProps<never>) {
                 data-image-align=""
                 style={{
                     position: "absolute",
-                    left,
-                    top,
-                    width,
-                    height,
+                    left: getZoomedPosition(rect.x, centerX, "x"),
+                    top: getZoomedPosition(rect.y, centerY, "y"),
+                    width: getZoomedLength(rect.width),
+                    height: getZoomedLength(rect.height),
                     pointerEvents: "auto",
                     cursor: snap.shiftHeld ? "grab" : placingPin ? "crosshair" : "move",
                     touchAction: "none",
@@ -516,6 +536,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
                 onKeyDown={(event) => keyAdjust(event)}
             >
                 <img
+                    ref={imageBRef}
                     src={snap.imageBSrc}
                     alt="B original"
                     crossOrigin="anonymous"
@@ -523,7 +544,10 @@ function View({ containerStyle }: ModeViewProps<never>) {
                     style={{ ...bStyle, display: showOriginal ? "block" : "none", opacity: 0.5 }}
                 />
                 <AlignmentEdges
-                    image="B"
+                    key={edgeBKey}
+                    rasterKey={edgeBKey}
+                    side="B"
+                    imageRef={imageBRef}
                     style={{
                         ...bStyle,
                         display: showOriginal ? "none" : "block",
@@ -590,8 +614,8 @@ function View({ containerStyle }: ModeViewProps<never>) {
                     title="Remove pin and choose a new anchor"
                     style={{
                         position: "absolute",
-                        left: pinLeft,
-                        top: pinTop,
+                        left: getZoomedPosition(a.x + snap.pinState.ax * pixelsPerA, centerX, "x"),
+                        top: getZoomedPosition(a.y + snap.pinState.ay * pixelsPerA, centerY, "y"),
                         width: 24,
                         height: 24,
                         padding: 0,

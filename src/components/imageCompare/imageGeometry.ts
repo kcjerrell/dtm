@@ -1,5 +1,27 @@
 import type { CSSProperties } from "react"
 
+export const comparisonZoomProperties = {
+    x: "--image-compare-pan-x",
+    y: "--image-compare-pan-y",
+    scale: "--image-compare-zoom",
+} as const
+
+const zoom = `var(${comparisonZoomProperties.scale}, 1)`
+const pan = {
+    x: `var(${comparisonZoomProperties.x}, 0) * 1px`,
+    y: `var(${comparisonZoomProperties.y}, 0) * 1px`,
+}
+
+export const comparisonZoomTransform = `translate(calc(${pan.x}), calc(${pan.y})) scale(${zoom})`
+
+export function getZoomedPosition(position: number, center: number, axis: "x" | "y") {
+    return `calc(${center}px + (${position - center}px * ${zoom}) + (${pan[axis]}))`
+}
+
+export function getZoomedLength(length: number) {
+    return `calc(${length}px * ${zoom})`
+}
+
 interface ImageGeometryInput {
     imageAWidth: number
     imageAHeight: number

@@ -39,9 +39,10 @@ export class MdVideo extends MdItem {
         this._metadataStatus = "pending"
 
         try {
-            const filePath = storage.kind === "app"
-                ? await MediaStoreFiles.getFullPath(storage.fname)
-                : storage.path
+            const filePath =
+                storage.kind === "app"
+                    ? await MediaStoreFiles.getFullPath(storage.fname)
+                    : storage.path
             this._metadata = (await getVideoMetadata(filePath)) as ExifType
             this._dtData = getDrawThingsDataFromVideo(this._metadata) ?? null
             this._metadataStatus = "done"

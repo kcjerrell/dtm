@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import { motionValue } from "motion/react"
-import { act, type PropsWithChildren } from "react"
+import { Activity, act, type PropsWithChildren } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useZoomable } from "../preview/useZoomable"
 import AlignMode from "./AlignMode"
+import { releaseRaster, renderRaster } from "./raster"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
 // Observe pan targets without waiting for spring animation frames.
@@ -50,12 +51,15 @@ vi.mock("./hooks", () => ({ useImageCompareHooks: () => testHooks }))
 vi.mock("@/state/settings", () => ({
     useSettingRef: () => ({ current: "pinch" }),
 }))
+vi.mock("./raster", () => ({
+    renderRaster: vi.fn(),
+    releaseRaster: vi.fn(),
+}))
 
 const testHooks = {
     zoomStyle: { x: motionValue(0), y: motionValue(0), scale: motionValue(1) },
     refs: {
         imgARef: { current: null as HTMLImageElement | null },
-        imgBRef: { current: null as HTMLImageElement | null },
         viewportRef: { current: document.createElement("div") },
     },
 }
@@ -73,22 +77,25 @@ HTMLElement.prototype.releasePointerCapture = function () {
 const cleanups: (() => void)[] = []
 afterEach(() => {
     for (const cleanup of cleanups.splice(0)) act(cleanup)
-    testHooks.refs.imgARef.current = null
-    testHooks.refs.imgBRef.current = null
+    vi.mocked(renderRaster).mockReset()
+    vi.mocked(releaseRaster).mockReset()
     vi.restoreAllMocks()
 })
 
 async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, imageBHeight = 200) {
     let state = {} as ImageCompareState
     function Harness() {
-        const [Provider, current] = ImageCompareContext.useCreate()
+        const [Provider, current, snap] = ImageCompareContext.useCreate()
         const pan = useZoomable(testHooks.refs.viewportRef, { allowShiftDrag: true })
         testHooks.zoomStyle = pan.style
         state = current
         return (
             <Provider>
                 <div ref={testHooks.refs.viewportRef} {...pan.handlers}>
-                    <AlignMode.View />
+                    <img ref={testHooks.refs.imgARef} alt="A original" src={snap.imageASrc} />
+                    <Activity mode={snap.mode === "align" ? "visible" : "hidden"}>
+                        <AlignMode.View />
+                    </Activity>
                 </div>
                 <AlignMode.Settings />
             </Provider>
@@ -106,6 +113,7 @@ async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, i
     await act(async () => {
         Object.assign(state, {
             mode: "align",
+            alignDisplay: "both-edges",
             imageASrc: "a.png",
             imageBSrc: "b.png",
             viewportWidth: 500,
@@ -153,46 +161,47 @@ async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, i
     return { state, find, click, pointer }
 }
 
+function rasterCanvas(width: number, height: number) {
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    return canvas
+}
+
+function mockRaster() {
+    const drawImage = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+        drawImage,
+    } as unknown as CanvasRenderingContext2D)
+    vi.mocked(renderRaster).mockImplementation(async (request) => {
+        if (request.kind !== "edges") throw new Error("Expected an Align edge request")
+        return rasterCanvas(request.width, request.height)
+    })
+    return drawImage
+}
+
+async function loadImage(image: HTMLElement, width: number, height: number) {
+    await act(async () => {
+        Object.defineProperties(image, {
+            complete: { value: true, configurable: true },
+            naturalWidth: { value: width, configurable: true },
+            naturalHeight: { value: height, configurable: true },
+        })
+        image.dispatchEvent(new Event("load"))
+    })
+}
+
 describe("Align mode", () => {
-    it("generates white edge buffers and reuses them across display modes and alignment", async () => {
-        for (const side of ["A", "B"] as const) {
-            const image = document.createElement("img")
-            image.src = `${side.toLowerCase()}.png`
-            Object.defineProperties(image, {
-                complete: { value: true },
-                naturalWidth: { value: 5 },
-                naturalHeight: { value: 5 },
-            })
-            testHooks.refs[side === "A" ? "imgARef" : "imgBRef"].current = image
-        }
-        const context = {
-            drawImage: vi.fn(),
-            getImageData: vi.fn(() => {
-                const data = new Uint8ClampedArray(5 * 5 * 4)
-                for (let y = 0; y < 5; y++) {
-                    for (let x = 0; x < 5; x++) {
-                        const shade = x < 2 ? 0 : 255
-                        data.set([shade, shade, shade, 255], (y * 5 + x) * 4)
-                    }
-                }
-                return { data, width: 5, height: 5 }
-            }),
-            putImageData: vi.fn(),
-        }
-        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-            context as unknown as CanvasRenderingContext2D,
-        )
+    it("paints generated edge buffers and reuses them across display modes and alignment", async () => {
+        const drawImage = mockRaster()
         const { state, find, click } = await setup(5, 5, 5, 5)
+        await loadImage(find("A original"), 5, 5)
+        await loadImage(find("B original"), 5, 5)
         expect(find("A edges").getAttribute("width")).toBe("5")
         expect(find("B edges").getAttribute("width")).toBe("5")
         expect(find("B edges").style.opacity).toBe("1")
-        expect(context.putImageData).toHaveBeenCalledTimes(2)
-        expect([...context.putImageData.mock.calls[0][0].data.slice(4, 8)]).toEqual([
-            255, 255, 255, 255,
-        ])
-        expect([...context.putImageData.mock.calls[1][0].data.slice(4, 8)]).toEqual([
-            255, 255, 255, 255,
-        ])
+        expect(drawImage).toHaveBeenCalledTimes(2)
+        expect(releaseRaster).toHaveBeenCalledTimes(2)
         await act(async () => {
             state.imageBOffset = { x: 10, y: 20 }
             state.imageBScaleX = -1
@@ -201,7 +210,7 @@ describe("Align mode", () => {
             testHooks.zoomStyle.scale.set(2)
         })
         expect(find("B edges").style.transform).toBe("scale(-1, 1)")
-        expect(context.putImageData).toHaveBeenCalledTimes(2)
+        expect(renderRaster).toHaveBeenCalledTimes(2)
         for (const smoothing of [false, true]) {
             await act(async () => {
                 state.smoothing = smoothing
@@ -209,17 +218,19 @@ describe("Align mode", () => {
             const rendering = smoothing ? "auto" : "pixelated"
             expect(find("A edges").style.imageRendering).toBe(rendering)
             expect(find("B edges").style.imageRendering).toBe(rendering)
-            expect(context.putImageData).toHaveBeenCalledTimes(2)
+            expect(renderRaster).toHaveBeenCalledTimes(2)
         }
         for (const label of ["Show original images", "Show B edges", "Show A and B edges"]) {
             await click(label)
-            expect(context.putImageData).toHaveBeenCalledTimes(2)
+            expect(renderRaster).toHaveBeenCalledTimes(2)
             expect(state.imageBOffset).toEqual({ x: 10, y: 20 })
             expect(state.imageBScaleX).toBe(-1)
             expect(state.imageBScaleY).toBe(2)
         }
         await act(async () => {
+            Object.defineProperty(find("A original"), "complete", { value: false })
             state.imageASrc = "new-a.png"
+            state.imagePairRevision++
         })
         expect(find("A edges").getAttribute("width")).toBe("0")
         expect(find("B edges").getAttribute("width")).toBe("5")
@@ -281,66 +292,104 @@ describe("Align mode", () => {
     ])(
         "fits %sx%s and %sx%s to a shared edge resolution",
         async (aw, ah, bw, bh, expectedAW, expectedAH, expectedBW, expectedBH) => {
-            for (const [side, width, height] of [
-                ["A", aw, ah],
-                ["B", bw, bh],
-            ] as const) {
-                const image = document.createElement("img")
-                image.src = `${side.toLowerCase()}.png`
-                Object.defineProperties(image, {
-                    complete: { value: true },
-                    naturalWidth: { value: width },
-                    naturalHeight: { value: height },
-                })
-                testHooks.refs[side === "A" ? "imgARef" : "imgBRef"].current = image
-            }
-            const context = {
-                drawImage: vi.fn(),
-                // Pixel convolution is covered separately; only observe raster sizes here.
-                getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(), width: 0, height: 0 })),
-                putImageData: vi.fn(),
-            }
-            vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-                context as unknown as CanvasRenderingContext2D,
-            )
+            mockRaster()
             const { find, state } = await setup(aw, ah, bw, bh)
+            const imageA = find("A original")
+            const imageB = find("B original")
+            await loadImage(imageA, aw, ah)
+            await loadImage(imageB, bw, bh)
             expect(find("A edges").getAttribute("width")).toBe(String(expectedAW))
             expect(find("A edges").getAttribute("height")).toBe(String(expectedAH))
             expect(find("B edges").getAttribute("width")).toBe(String(expectedBW))
             expect(find("B edges").getAttribute("height")).toBe(String(expectedBH))
-            expect(context.drawImage).toHaveBeenNthCalledWith(
+            expect(renderRaster).toHaveBeenNthCalledWith(
                 1,
-                testHooks.refs.imgARef.current,
-                0,
-                0,
-                expectedAW,
-                expectedAH,
+                {
+                    kind: "edges",
+                    image: imageA,
+                    width: expectedAW,
+                    height: expectedAH,
+                    upscale: Math.min(expectedAW / aw, expectedAH / ah),
+                },
+                expect.any(AbortSignal),
             )
-            expect(context.drawImage).toHaveBeenNthCalledWith(
+            expect(renderRaster).toHaveBeenNthCalledWith(
                 2,
-                testHooks.refs.imgBRef.current,
-                0,
-                0,
-                expectedBW,
-                expectedBH,
+                {
+                    kind: "edges",
+                    image: imageB,
+                    width: expectedBW,
+                    height: expectedBH,
+                    upscale: Math.min(expectedBW / bw, expectedBH / bh),
+                },
+                expect.any(AbortSignal),
             )
-            expect(context.getImageData).toHaveBeenNthCalledWith(1, 0, 0, expectedAW, expectedAH)
-            expect(context.getImageData).toHaveBeenNthCalledWith(2, 0, 0, expectedBW, expectedBH)
 
             // Changing the partner's resolution also updates the shared raster scale.
             if (aw === 384 && ah === 512) {
                 await act(async () => {
+                    Object.defineProperty(imageB, "complete", { value: false })
                     state.imageBSrc = "larger-b.png"
                     state.imageBWidth = 2048
                     state.imageBHeight = 2048
+                    state.imagePairRevision++
                 })
                 expect(find("A edges").getAttribute("width")).toBe("1536")
                 expect(find("A edges").getAttribute("height")).toBe("2048")
-                expect(context.drawImage).toHaveBeenCalledTimes(3)
+                expect(renderRaster).toHaveBeenCalledTimes(3)
                 expect(find("B edges").getAttribute("width")).toBe("0")
             }
         },
     )
+
+    it("releases an old raster and catches up to a same-size replacement on reveal", async () => {
+        const drawImage = mockRaster()
+        const { state, find } = await setup(5, 5, 5, 5)
+        await act(async () => {
+            state.alignDisplay = "b-edges"
+        })
+        const imageB = find("B original")
+        const delayed = Promise.withResolvers<HTMLCanvasElement>()
+        vi.mocked(renderRaster).mockReturnValueOnce(delayed.promise)
+        await loadImage(imageB, 5, 5)
+        const [, signal] = vi.mocked(renderRaster).mock.calls[0]
+        const oldCanvas = find("B edges")
+
+        await act(async () => {
+            state.mode = "slider"
+        })
+        expect(signal.aborted).toBe(true)
+        await act(async () => {
+            Object.defineProperty(imageB, "complete", { value: false })
+            state.imageBSrc = "next-b.png"
+            state.imagePairRevision++
+        })
+        await loadImage(imageB, 5, 5)
+        expect(renderRaster).toHaveBeenCalledTimes(1)
+        await act(async () => {
+            state.mode = "align"
+        })
+        const currentCanvas = find("B edges")
+        expect(currentCanvas).not.toBe(oldCanvas)
+        expect(imageB.getAttribute("src")).toBe("next-b.png")
+        expect(currentCanvas.getAttribute("width")).toBe("5")
+        expect(renderRaster).toHaveBeenCalledTimes(2)
+        expect(drawImage).toHaveBeenCalledTimes(1)
+
+        const staleRaster = rasterCanvas(5, 5)
+        await act(async () => delayed.resolve(staleRaster))
+        expect(releaseRaster).toHaveBeenCalledWith(staleRaster)
+        expect(drawImage).toHaveBeenCalledTimes(1)
+
+        await act(async () => {
+            state.mode = "slider"
+        })
+        await act(async () => {
+            state.mode = "align"
+        })
+        expect(find("B edges")).toBe(currentCanvas)
+        expect(renderRaster).toHaveBeenCalledTimes(2)
+    })
 
     it.each(["unpinned", "pinning", "pinned"])(
         "pans without changing alignment when %s and Shift is held",
@@ -486,28 +535,15 @@ describe("Align mode", () => {
         expect(imageB.querySelectorAll("button")).toHaveLength(8)
     })
 
-    it.each(["Pin", "Reset alignment", "leave Align"])(
-        "cancels pin placement with %s",
-        async (action) => {
-            const { state, click, find } = await setup()
-            await click("Pin")
-            if (action === "leave Align") {
-                await act(async () => {
-                    state.mode = "slider"
-                })
-                expect(state.alignPinEnabled).toBe(false)
-                await act(async () => {
-                    state.mode = "align"
-                })
-            } else {
-                await click(action)
-            }
-            expect(state.alignPinEnabled).toBe(false)
-            expect(state.pinState).toBeNull()
-            expect(find("Pin").getAttribute("aria-pressed")).toBe("false")
-            expect(find("Image B alignment").querySelectorAll("button")).toHaveLength(8)
-        },
-    )
+    it.each(["Pin", "Reset alignment"])("cancels pin placement with %s", async (action) => {
+        const { state, click, find } = await setup()
+        await click("Pin")
+        await click(action)
+        expect(state.alignPinEnabled).toBe(false)
+        expect(state.pinState).toBeNull()
+        expect(find("Pin").getAttribute("aria-pressed")).toBe("false")
+        expect(find("Image B alignment").querySelectorAll("button")).toHaveLength(8)
+    })
 
     it("preserves an active pin when leaving and returning to Align", async () => {
         const { state, click, find, pointer } = await setup()
@@ -531,6 +567,19 @@ describe("Align mode", () => {
         expect(state.imageBScaleX).toBeCloseTo(1.5)
         expect(state.imageBScaleY).toBeCloseTo(1.5)
         expect(state.pinState).toBe(pin)
+    })
+
+    it("releases pointer capture when hidden", async () => {
+        const { state, find, pointer } = await setup()
+        const alignment = find("Image B alignment")
+        await pointer("pointerdown", 150, 150)
+        expect(alignment.hasPointerCapture(1)).toBe(true)
+
+        await act(async () => {
+            state.mode = "slider"
+        })
+
+        expect(alignment.hasPointerCapture(1)).toBe(false)
     })
 
     it.each([

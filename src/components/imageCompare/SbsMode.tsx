@@ -130,7 +130,13 @@ function Button(props: ModeButtonProps) {
                  between horizontal and vertical panes.`
 
     return (
-        <ToolbarButton itemId={"sbs"} tipTitle={"Side-by-side"} tipText={tip} {...props}>
+        <ToolbarButton
+            itemId="sbs"
+            aria-label="Side-by-side"
+            tipTitle="Side-by-side"
+            tipText={tip}
+            {...props}
+        >
             <SbsCompare />
         </ToolbarButton>
     )

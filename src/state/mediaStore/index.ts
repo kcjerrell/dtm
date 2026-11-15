@@ -148,7 +148,11 @@ function createMediaStore() {
         }
     }
 
-    function attachItem(item: MediaStateCol, collectionId: string, collectionData: Record<string, unknown>) {
+    function attachItem(
+        item: MediaStateCol,
+        collectionId: string,
+        collectionData: Record<string, unknown>,
+    ) {
         const alreadyPresent = collectionId in item.$col
         if (!alreadyPresent) item.$col[collectionId] = collectionData
         return { item: item.id, alreadyPresent }

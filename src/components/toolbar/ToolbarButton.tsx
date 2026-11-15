@@ -1,9 +1,8 @@
-import { Box, chakra } from "@chakra-ui/react"
-import { PropsWithChildren, ViewTransition, type ComponentProps } from "react"
+import { chakra } from "@chakra-ui/react"
+import { type ComponentProps, type PropsWithChildren, ViewTransition } from "react"
 import { MotionBox } from "../common"
 import Tooltip from "../Tooltip"
 import { ToolbarSectionContext } from "./ToolbarSection"
-import { AnimatePresence, motion } from "motion/react"
 
 export interface ToolbarButtonProps
     extends ComponentProps<typeof Base>,
@@ -127,7 +126,7 @@ function TooltipWrapper(props: PropsWithChildren<TooltipWrapperProps>) {
     return children
 }
 
-function IconWrapper(props: PropsWithChildren) {
+function _IconWrapper(props: PropsWithChildren) {
     return (
         <ViewTransition enter={"tb-icon"} {...getHandlers("icon", "icon")}>
             {props.children}
@@ -180,13 +179,13 @@ const Base = chakra("button", {
         borderColor: "transparent",
         outline: "0",
 
-//         _first: {
-//             borderLeft: "1px solid {colors.grayc.12}",
-//         },
-//
-//         _last: {
-//             borderRight: "1px solid {colors.grayc.12}",
-//         },
+        //         _first: {
+        //             borderLeft: "1px solid {colors.grayc.12}",
+        //         },
+        //
+        //         _last: {
+        //             borderRight: "1px solid {colors.grayc.12}",
+        //         },
 
         // _dark: {
         //     _first: {

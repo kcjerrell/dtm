@@ -137,6 +137,8 @@ describe("setImage", () => {
             expect(state.alignPinEnabled).toBe(true)
             expect(state.sliderTrail).toBe("difference")
             expect(state.canvasContents).toBe("none")
+            expect(state.imagePairRevision).toBe(3)
+            expect(hooks.refs.offscreenCanvasRef.current).toBeNull()
             for (const canvas of canvases) expect([canvas.width, canvas.height]).toEqual([0, 0])
         },
     )
@@ -156,6 +158,7 @@ describe("setImage", () => {
         })
 
         expectAlignmentPreserved(context)
+        expect(context.result.current.state.imagePairRevision).toBe(2)
         expect(canvas.width).toBe(300)
         expect(decode).not.toHaveBeenCalled()
     })
@@ -257,5 +260,20 @@ describe("setImage", () => {
         expect(state.imageASrc).toBeUndefined()
         expect([state.imageAWidth, state.imageAHeight]).toEqual([512, 512])
         expect(state.imageBSrc).toBe("b.png")
+    })
+
+    it("releases a retained slider bitmap when the comparison closes", () => {
+        const { result } = setup()
+        const close = vi.fn()
+        const bitmap: ImageBitmap = { width: 512, height: 512, close }
+        const { hooks } = result.current
+        hooks.refs.offscreenCanvasRef.current = bitmap
+
+        const unmount = cleanups.pop()
+        expect(unmount).toBeDefined()
+        act(() => unmount?.())
+
+        expect(close).toHaveBeenCalledOnce()
+        expect(hooks.refs.offscreenCanvasRef.current).toBeNull()
     })
 })
