@@ -2,7 +2,6 @@ import { Box } from "@chakra-ui/react"
 import { motion } from "motion/react"
 import {
     type CSSProperties,
-    type KeyboardEvent,
     type PointerEvent,
     type RefObject,
     useEffect,
@@ -59,14 +58,14 @@ interface Gesture {
 }
 
 const RESIZE_HANDLES = [
-    { handle: "nw", name: "top left", left: -8, top: -8, cursor: "nwse-resize" },
-    { handle: "n", name: "top", left: "50%", top: -8, marginLeft: -8, cursor: "ns-resize" },
-    { handle: "ne", name: "top right", right: -8, top: -8, cursor: "nesw-resize" },
-    { handle: "e", name: "right", right: -8, top: "50%", marginTop: -8, cursor: "ew-resize" },
-    { handle: "se", name: "bottom right", right: -8, bottom: -8, cursor: "nwse-resize" },
-    { handle: "s", name: "bottom", left: "50%", bottom: -8, marginLeft: -8, cursor: "ns-resize" },
-    { handle: "sw", name: "bottom left", left: -8, bottom: -8, cursor: "nesw-resize" },
-    { handle: "w", name: "left", left: -8, top: "50%", marginTop: -8, cursor: "ew-resize" },
+    { handle: "nw", left: -8, top: -8, cursor: "nwse-resize" },
+    { handle: "n", left: "50%", top: -8, marginLeft: -8, cursor: "ns-resize" },
+    { handle: "ne", right: -8, top: -8, cursor: "nesw-resize" },
+    { handle: "e", right: -8, top: "50%", marginTop: -8, cursor: "ew-resize" },
+    { handle: "se", right: -8, bottom: -8, cursor: "nwse-resize" },
+    { handle: "s", left: "50%", bottom: -8, marginLeft: -8, cursor: "ns-resize" },
+    { handle: "sw", left: -8, bottom: -8, cursor: "nesw-resize" },
+    { handle: "w", left: -8, top: "50%", marginTop: -8, cursor: "ew-resize" },
 ] as const
 
 const AXIS_DAMPING_RATIO = 0.25
@@ -335,10 +334,9 @@ function View({ containerStyle }: ModeViewProps<never>) {
             y: start.offset.y + (next.y - rect.y + (next.height - rect.height) / 2) / pixelsPerA,
         }
     }
-    const startGesture = (event: PointerEvent<HTMLElement>, handle?: AlignmentHandle) => {
+    const startGesture = (event: PointerEvent<HTMLDivElement>, handle?: AlignmentHandle) => {
         const target = outline.current
         if (event.button !== 0 || event.shiftKey || !target) return
-        event.preventDefault()
         event.stopPropagation()
         if (gesture.current) return
         const geometry = currentGeometry()
@@ -380,7 +378,6 @@ function View({ containerStyle }: ModeViewProps<never>) {
                 },
             }
         }
-        event.currentTarget.focus({ preventScroll: true })
         target.setPointerCapture(event.pointerId)
         gesture.current = {
             pointerId: event.pointerId,
@@ -442,37 +439,6 @@ function View({ containerStyle }: ModeViewProps<never>) {
         if (start.target.hasPointerCapture(event.pointerId))
             start.target.releasePointerCapture(event.pointerId)
     }
-    const keyAdjust = (event: KeyboardEvent, handle?: AlignmentHandle) => {
-        const directions: Record<string, [number, number]> = {
-            ArrowLeft: [-1, 0],
-            ArrowRight: [1, 0],
-            ArrowUp: [0, -1],
-            ArrowDown: [0, 1],
-        }
-        const direction = directions[event.key]
-        if (!direction) return
-        event.preventDefault()
-        event.stopPropagation()
-        if (state.alignPinEnabled) return
-        const amount = event.shiftKey ? 10 : 1
-        if (handle) {
-            applyResize(
-                {
-                    ...currentGeometry(),
-                    scaleX: state.imageBScaleX,
-                    scaleY: state.imageBScaleY,
-                    offset: { ...state.imageBOffset },
-                },
-                handle,
-                direction[0] * amount,
-                direction[1] * amount,
-            )
-        } else {
-            state.imageBOffset.x += direction[0] * amount
-            state.imageBOffset.y += direction[1] * amount
-        }
-    }
-
     return (
         <Box
             position="absolute"
@@ -513,9 +479,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
             <motion.div
                 ref={outline}
                 role="group"
-                tabIndex={0}
                 aria-label="Image B alignment"
-                data-image-align=""
                 style={{
                     position: "absolute",
                     left: getZoomedPosition(rect.x, centerX, "x"),
@@ -525,6 +489,7 @@ function View({ containerStyle }: ModeViewProps<never>) {
                     pointerEvents: "auto",
                     cursor: snap.shiftHeld ? "grab" : placingPin ? "crosshair" : "move",
                     touchAction: "none",
+                    userSelect: "none",
                 }}
                 onPointerDown={(event) => startGesture(event)}
                 onPointerMove={moveGesture}
@@ -533,7 +498,6 @@ function View({ containerStyle }: ModeViewProps<never>) {
                 onLostPointerCapture={() => {
                     gesture.current = null
                 }}
-                onKeyDown={(event) => keyAdjust(event)}
             >
                 <img
                     ref={imageBRef}
@@ -586,24 +550,22 @@ function View({ containerStyle }: ModeViewProps<never>) {
                 {!snap.alignPinEnabled &&
                     snap.imageBScaleX !== 0 &&
                     snap.imageBScaleY !== 0 &&
-                    RESIZE_HANDLES.map(({ handle, name, cursor, ...position }) => (
-                        <button
+                    RESIZE_HANDLES.map(({ handle, cursor, ...position }) => (
+                        <div
                             key={handle}
-                            type="button"
-                            aria-label={`Scale image B from ${name}`}
+                            data-alignment-handle={handle}
+                            aria-hidden="true"
                             style={{
                                 ...position,
                                 position: "absolute",
                                 width: 16,
                                 height: 16,
-                                padding: 0,
                                 background: "var(--chakra-colors-info)",
                                 border: "1px solid white",
                                 borderRadius: "50%",
                                 cursor: snap.shiftHeld ? "grab" : cursor,
                             }}
                             onPointerDown={(event) => startGesture(event, handle)}
-                            onKeyDown={(event) => keyAdjust(event, handle)}
                         />
                     ))}
             </motion.div>
@@ -624,8 +586,8 @@ function View({ containerStyle }: ModeViewProps<never>) {
                         display: "grid",
                         placeItems: "center",
                         color: PIN_COLOR,
-                        background: "#0009",
-                        border: "1px solid currentColor",
+                        // background: "#0009",
+                        // border: "1px solid currentColor",
                         borderRadius: "50%",
                         pointerEvents: "auto",
                         cursor: snap.shiftHeld ? "grab" : "pointer",
@@ -638,7 +600,12 @@ function View({ containerStyle }: ModeViewProps<never>) {
                         if (!event.shiftKey) state.pinState = null
                     }}
                 >
-                    <AlignmentPinMarker size={18} />
+                    <AlignmentPinMarker
+                        size={18}
+                        fill={"#00000077"}
+                        filter={"drop-shadow(0px 0px 3px #000000)"}
+                        // style={{ outline: "2px solid black", borderRadius: "50%" }}
+                    />
                 </motion.button>
             )}
         </Box>
@@ -713,7 +680,7 @@ function Button(props: ModeButtonProps) {
             itemId={"align"}
             aria-label="Align"
             tipTitle="Align"
-            tipText="Drag image B to move it. Drag an edge handle to scale one axis or a corner to keep its proportions. Hold Shift and drag to pan. Arrow keys nudge, with larger steps when you hold Shift."
+            tipText="Drag image B to move it. Drag an edge handle to scale one axis or a corner to keep its proportions. Hold Shift and drag to pan. Use Adjust alignment to enter exact values."
             {...props}
         >
             <AlignCompare />

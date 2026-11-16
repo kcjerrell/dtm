@@ -9,7 +9,7 @@
     "npm": ">=10"
   },
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "dotenv -- tauri dev",
     "dev:web": "MOCK_TAURI=true vite",
     "dev:vite": "vite",
     "build": "vite build",

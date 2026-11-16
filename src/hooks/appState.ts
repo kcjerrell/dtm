@@ -72,10 +72,12 @@ async function checkForUpdate() {
         const { check } = await import("@tauri-apps/plugin-updater")
         const installId = await getInstallId()
         const osVersionHeaderValue = await getOsVersionHeaderValue()
+        const buildId = await invoke<string | null>("get_build_id")
         update = await check({
             headers: {
                 "DTM-Install-Id": installId,
                 "DTM-OS-Version": osVersionHeaderValue,
+                ...(buildId && { "DTM-Release-Token": buildId }),
             },
         })
         if (update) {

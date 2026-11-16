@@ -1,5 +1,5 @@
 import { chakra } from "@chakra-ui/react"
-import { type ComponentProps, type PropsWithChildren, ViewTransition } from "react"
+import type { ComponentProps, PropsWithChildren } from "react"
 import { MotionBox } from "../common"
 import Tooltip from "../Tooltip"
 import { ToolbarSectionContext } from "./ToolbarSection"

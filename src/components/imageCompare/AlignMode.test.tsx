@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useZoomable } from "../preview/useZoomable"
 import AlignMode from "./AlignMode"
+import type { AlignmentHandle } from "./alignmentGeometry"
 import { releaseRaster, renderRaster } from "./raster"
 import { ImageCompareContext, type ImageCompareState } from "./state"
 
@@ -138,12 +139,17 @@ async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, i
     const click = async (label: string) => {
         await act(async () => find(label).click())
     }
+    const findHandle = (handle: AlignmentHandle) => {
+        const element = container.querySelector<HTMLElement>(`[data-alignment-handle="${handle}"]`)
+        if (!element) throw new Error(`Missing alignment handle ${handle}`)
+        return element
+    }
     const pointer = async (
         type: string,
         x: number,
         y: number,
         shiftKey = false,
-        label = "Image B alignment",
+        target = find("Image B alignment"),
         button = 0,
     ) => {
         await act(async () => {
@@ -155,10 +161,10 @@ async function setup(imageAWidth = 100, imageAHeight = 100, imageBWidth = 200, i
                 shiftKey,
             })
             Object.defineProperty(event, "pointerId", { value: 1 })
-            find(label).dispatchEvent(event)
+            target.dispatchEvent(event)
         })
     }
-    return { state, find, click, pointer }
+    return { state, find, findHandle, click, pointer }
 }
 
 function rasterCanvas(width: number, height: number) {
@@ -416,8 +422,8 @@ describe("Align mode", () => {
     )
 
     it("pans from a resize handle with Shift and moves B from its interior without Shift", async () => {
-        const { state, pointer } = await setup()
-        await pointer("pointerdown", 6, 6, true, "Scale image B from top left")
+        const { state, findHandle, pointer } = await setup()
+        await pointer("pointerdown", 6, 6, true, findHandle("nw"))
         await pointer("pointermove", 56, 56, true)
         await pointer("pointerup", 56, 56, true)
         expect(state.imageBScaleX).toBe(1)
@@ -436,11 +442,11 @@ describe("Align mode", () => {
     })
 
     it("pans with middle drag over the active alignment pin", async () => {
-        const { state, click, pointer } = await setup()
+        const { state, click, find, pointer } = await setup()
         await click("Pin")
         await pointer("pointerdown", 100, 150)
         const pin = state.pinState
-        await pointer("pointerdown", 100, 150, false, "Remove alignment pin", 1)
+        await pointer("pointerdown", 100, 150, false, find("Remove alignment pin"), 1)
         expect(testHooks.refs.viewportRef.current.hasPointerCapture(1)).toBe(true)
         await pointer("pointermove", 120, 175)
         await pointer("pointerup", 120, 175)
@@ -451,18 +457,18 @@ describe("Align mode", () => {
     })
 
     it.each([
-        ["right", 394, 250, -0.72, 0.4, 6, 0],
-        ["bottom", 250, 344, -0.6, 0.48, 0, 4],
-        ["bottom right", 394, 344, -0.72, 0.48, 6, 4],
+        ["e", 394, 250, -0.72, 0.4, 6, 0],
+        ["s", 250, 344, -0.6, 0.48, 0, 4],
+        ["se", 394, 344, -0.72, 0.48, 6, 4],
     ] as const)(
         "resizes a reflected image from the %s handle",
         async (handle, x, y, scaleX, scaleY, offsetX, offsetY) => {
-            const { state, find, pointer } = await setup()
+            const { state, find, findHandle, pointer } = await setup()
             await act(async () => {
                 state.imageBScaleX = -0.6
                 state.imageBScaleY = 0.4
             })
-            await pointer("pointerdown", x, y, false, `Scale image B from ${handle}`)
+            await pointer("pointerdown", x, y, false, findHandle(handle))
             expect(find("Image B alignment").hasPointerCapture(1)).toBe(true)
             await pointer("pointermove", x + 60, y + 40)
             await pointer("pointerup", x + 60, y + 40)
@@ -506,12 +512,13 @@ describe("Align mode", () => {
         const { state, click, find, pointer } = await setup()
         const imageB = find("Image B alignment")
         const border = imageB.querySelector("svg")
+        const handles = () => imageB.querySelectorAll("[data-alignment-handle]")
         expect(state.alignPinEnabled).toBe(false)
-        expect(imageB.querySelectorAll("button")).toHaveLength(8)
+        expect(handles()).toHaveLength(8)
         expect(border?.style.opacity).toBe("1")
         await click("Pin")
         expect(find("Pin").getAttribute("aria-pressed")).toBe("true")
-        expect(imageB.querySelector("button")).toBeNull()
+        expect(handles()).toHaveLength(0)
         expect(imageB.style.cursor).toBe("crosshair")
         expect(border?.style.opacity).toBe("0.7")
         await pointer("pointerdown", 100, 150)
@@ -521,7 +528,7 @@ describe("Align mode", () => {
         expect(state.imageBOffset).toEqual({ x: 0, y: 0 })
         expect(state.imageBScaleX).toBe(1)
         expect(state.imageBScaleY).toBe(1)
-        expect(imageB.querySelector("button")).toBeNull()
+        expect(handles()).toHaveLength(0)
         expect(border?.style.opacity).toBe("1")
         await click("Remove alignment pin")
         expect(state.pinState).toBeNull()
@@ -532,7 +539,7 @@ describe("Align mode", () => {
         await click("Pin")
         expect(state.pinState).toBeNull()
         expect(state.alignPinEnabled).toBe(false)
-        expect(imageB.querySelectorAll("button")).toHaveLength(8)
+        expect(handles()).toHaveLength(8)
     })
 
     it.each(["Pin", "Reset alignment"])("cancels pin placement with %s", async (action) => {
@@ -542,7 +549,8 @@ describe("Align mode", () => {
         expect(state.alignPinEnabled).toBe(false)
         expect(state.pinState).toBeNull()
         expect(find("Pin").getAttribute("aria-pressed")).toBe("false")
-        expect(find("Image B alignment").querySelectorAll("button")).toHaveLength(8)
+        const imageB = find("Image B alignment")
+        expect(imageB.querySelectorAll("[data-alignment-handle]")).toHaveLength(8)
     })
 
     it("preserves an active pin when leaving and returning to Align", async () => {

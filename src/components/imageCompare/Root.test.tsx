@@ -57,7 +57,11 @@ function setup(props: ImageCompareRootProps = {}) {
 
 async function cycleMode(shiftKey: boolean) {
     await act(async () => {
-        fireEvent.keyDown(document.body, { code: "Tab", shiftKey })
+        fireEvent.keyDown(document.activeElement ?? document.body, {
+            key: "Tab",
+            code: "Tab",
+            shiftKey,
+        })
     })
 }
 
@@ -92,6 +96,41 @@ it("restores the selected layout when returning to side-by-side mode", async () 
     await cycleMode(true)
 
     expect(screen.getByRole("button", { name: "Horizontal layout", pressed: true })).toBeTruthy()
+})
+
+it.each([
+    ["image", false, "X"],
+    ["resize handle", true, "Vertical layout"],
+])("cycles modes with Tab after dragging the Align %s", async (surface, shiftKey, nextSetting) => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000)
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(800)
+    setup({ a: "a.png", b: "b.png" })
+    await cycleMode(true)
+    const outline = await screen.findByRole("group", { name: "Image B alignment" })
+    const target =
+        surface === "image"
+            ? outline
+            : outline.querySelector<HTMLElement>('[data-alignment-handle="nw"]')
+    if (!target) throw new Error("Missing alignment resize handle")
+
+    const setPointerCapture = vi.fn()
+    Object.assign(outline, { setPointerCapture, hasPointerCapture: () => false })
+    fireEvent.pointerDown(target, { pointerId: 1, button: 0, clientX: 250, clientY: 300 })
+    expect(setPointerCapture).toHaveBeenCalledWith(1)
+    expect(document.activeElement).toBe(document.body)
+    fireEvent.pointerMove(outline, { pointerId: 1, clientX: 260, clientY: 310 })
+    fireEvent.pointerUp(outline, { pointerId: 1, button: 0 })
+    target.focus()
+    expect(document.activeElement).toBe(document.body)
+
+    const onKeyDown = vi.fn()
+    document.addEventListener("keydown", onKeyDown, { once: true })
+    fireEvent.keyDown(target, { key: "ArrowRight", code: "ArrowRight" })
+    document.removeEventListener("keydown", onKeyDown)
+    expect(onKeyDown).toHaveBeenCalledOnce()
+
+    await cycleMode(shiftKey)
+    expect(screen.getByRole("button", { name: nextSetting })).toBeTruthy()
 })
 
 it.each(["toolbar", "keyboard"])(

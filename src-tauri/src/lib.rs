@@ -37,6 +37,9 @@ pub use tensor::{Tensor, TensorValue};
 mod error;
 pub use error::{IntoTAResult, TACommandError, TAResult};
 
+use anyhow::Context;
+use semver::Version;
+
 pub static TOKIO_RT: Lazy<Runtime> =
     Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
@@ -225,6 +228,18 @@ fn get_os_version() -> String {
     }
 }
 
+#[tauri::command]
+fn get_build_id(app: tauri::AppHandle) -> String {
+    let version = &app.package_info().version;
+
+    let (build_type, ident) = match option_env!("DTM_BUILD_ID") {
+        Some(id) => ("release", id),
+        None => ("dev", option_env!("DTM_DEV_ID").unwrap_or("unknown")),
+    };
+
+    format!("{version}+{build_type}.{ident}")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -332,6 +347,7 @@ pub fn run() {
             clear_dt_archive_plan_cache,
             // #[cfg(feature = "tensor_bench")]
             // projects_db::print_tensor_benchmarks,
+            get_build_id
         ])
         .register_asynchronous_uri_scheme_protocol("dtm", |ctx, request, responder| {
             let app_handle = ctx.app_handle().clone();

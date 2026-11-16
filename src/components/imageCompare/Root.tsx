@@ -148,11 +148,11 @@ function Root(props: ImageCompareRootProps) {
                 state.shiftHeld = true
                 return
             }
-            // Preserve normal keyboard interaction in controls and the alignment overlay.
+            // Preserve normal keyboard interaction in controls.
             if (
                 e.target instanceof Element &&
                 e.target.closest(
-                    "button, input, textarea, select, [contenteditable='true'], [role='slider'], [data-image-align], [data-image-compare-controls]",
+                    "button, input, textarea, select, [contenteditable='true'], [role='slider'], [data-image-compare-controls]",
                 )
             )
                 return
