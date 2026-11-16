@@ -72,6 +72,7 @@ export function capitalize(text: string) {
 }
 
 export function getStoreName(name: string) {
+    if (import.meta.env.MODE === "e2e") return `e2e_${name}`
     if (import.meta.env.DEV) return `dev_${name}`
     return name
 }

@@ -58,7 +58,9 @@ fn version_file(app: &AppHandle) -> Result<PathBuf> {
 
     fs::create_dir_all(&path).context("Failed to create app data dir")?;
 
-    let filename = if cfg!(debug_assertions) {
+    let filename = if cfg!(feature = "e2e") {
+        "e2e_version.txt"
+    } else if cfg!(debug_assertions) {
         "dev_version.txt"
     } else {
         "version.txt"
@@ -142,6 +144,16 @@ async fn run_migration(
 async fn migrate_0_5_0(app: AppHandle, db: &sea_orm::DatabaseConnection) -> Result<()> {
     log::info!("Running migration 0.5.0");
 
+    if !cfg!(feature = "e2e") {
+        remove_legacy_settings_files(&app)?;
+    }
+
+    add_db_maintenance(db, MaintenanceTaskKind::RescanClipCount).await?;
+
+    Ok(())
+}
+
+fn remove_legacy_settings_files(app: &AppHandle) -> Result<()> {
     let store_dir = app
         .path()
         .app_data_dir()
@@ -162,8 +174,6 @@ async fn migrate_0_5_0(app: AppHandle, db: &sea_orm::DatabaseConnection) -> Resu
     if settings_file.exists() {
         fs::remove_file(settings_file).context("Failed to remove settings file")?;
     }
-
-    add_db_maintenance(db, MaintenanceTaskKind::RescanClipCount).await?;
 
     Ok(())
 }

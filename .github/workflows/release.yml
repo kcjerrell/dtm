@@ -31,9 +31,9 @@ jobs:
           node-version: lts/*
           cache: npm
 
-      # Rust toolchain
+      # Match rust-toolchain.toml so both targets are installed for the compiler Cargo uses.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.0
         with:
           targets: ${{ matrix.rust-targets }}
 

@@ -48,6 +48,7 @@ function createMediaStore() {
         reject: rejectReady,
     } = Promise.withResolvers<boolean>()
     let isReady = false
+    let loadError: string | null = null
     const pendingCleanup = new Set<Promise<void>>()
     const sourceLocks = new Map<string, Mutex>()
 
@@ -62,17 +63,21 @@ function createMediaStore() {
             },
         )
         Lifecycle.onExit(async () => {
-            // skip cleanup if exitting before store has finished loading
+            // skip cleanup if exiting before store has finished loading
             if (!isReady) return
 
             await collections.onExit()
             await clearUnusedItems()
-            const referencedFiles = new Set(
-                store.items.flatMap((item) =>
-                    item.storage.kind === "app" ? [item.storage.fname] : [],
-                ),
-            )
-            await MediaStoreFiles.removeOrphanedFiles(referencedFiles)
+
+            // only remove unknown files if we know the store loaded correctly
+            if (!loadError) {
+                const referencedFiles = new Set(
+                    store.items.flatMap((item) =>
+                        item.storage.kind === "app" ? [item.storage.fname] : [],
+                    ),
+                )
+                await MediaStoreFiles.removeOrphanedFiles(referencedFiles)
+            }
         }, false)
         queueMicrotask(async () => {
             try {
@@ -81,6 +86,7 @@ function createMediaStore() {
                 resolveReady(true)
                 isReady = true
             } catch (error) {
+                loadError = String(error)
                 rejectReady(error)
             }
         })

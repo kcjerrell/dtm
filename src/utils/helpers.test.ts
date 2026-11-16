@@ -1,5 +1,23 @@
-import { describe, expect, it } from "vitest"
-import { compareItems, getKeyPaths, groupMap, plural } from "./helpers"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { compareItems, getKeyPaths, getStoreName, groupMap, plural } from "./helpers"
+
+describe("getStoreName", () => {
+    afterEach(() => vi.unstubAllEnvs())
+
+    it.each([
+        { mode: "e2e", dev: true, prefix: "e2e_" },
+        { mode: "e2e", dev: false, prefix: "e2e_" },
+        { mode: "development", dev: true, prefix: "dev_" },
+        { mode: "production", dev: false, prefix: "" },
+    ])("uses '$prefix' in $mode mode with DEV=$dev", ({ mode, dev, prefix }) => {
+        vi.stubEnv("MODE", mode)
+        vi.stubEnv("DEV", dev)
+
+        for (const name of ["app", "settings", "metadata", "images", "media"]) {
+            expect(getStoreName(name)).toBe(`${prefix}${name}`)
+        }
+    })
+})
 
 describe("compareItems", () => {
     const keyFn = (item: { id: number }) => item.id

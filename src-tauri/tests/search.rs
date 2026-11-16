@@ -76,7 +76,7 @@ mod tests {
                 None,
                 Some(first_word.to_string()),
                 None,
-                Some(phrase),
+                Some(phrase.clone()),
                 None,
                 None,
                 None,
@@ -84,7 +84,6 @@ mod tests {
                 None,
                 None,
                 None,
-                Some(true),
             )
             .await
             .unwrap();
@@ -93,7 +92,7 @@ mod tests {
         let phrase_result = dtps
             .list_images(
                 None,
-                Some(phrase),
+                Some(phrase.clone()),
                 None,
                 None,
                 None,

@@ -315,15 +315,20 @@ pub async fn dtp_connect(
     auto_watch: bool,
 ) -> crate::TAResult<()> {
     let db_path = get_db_url(&app_handle);
-    check_old_path(&app_handle);
+    if !cfg!(feature = "e2e") {
+        check_old_path(&app_handle);
+    }
     state.connect(channel, auto_watch, db_path).await?;
     Ok(())
 }
 
-#[cfg(dev)]
-const PROJECT_FILE_NAME: &str = "projects4-dev.db";
-#[cfg(not(dev))]
-const PROJECT_FILE_NAME: &str = "projects4.db";
+const PROJECT_FILE_NAME: &str = if cfg!(feature = "e2e") {
+    "projects4-e2e.db"
+} else if cfg!(dev) {
+    "projects4-dev.db"
+} else {
+    "projects4.db"
+};
 
 pub fn get_db_url(app_handle: &AppHandleWrapper) -> String {
     let app_data_dir = app_handle.get_app_data_dir().unwrap();

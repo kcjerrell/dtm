@@ -28,7 +28,7 @@ function useMode(
     snap: Snapshot<ImageCompareState>,
     _hooks: ImageCompareHooksContextType,
 ): UseModeResult<never> {
-    const altAnimationDuration = `${3 / snap.altSpeed}s`
+    const altAnimationDuration = `${4 / snap.altSpeed}s`
     const altAnimationState = snap.shiftHeld || snap.altSpeedInput === 0 ? "paused" : "running"
     const altPhase = ((snap.shiftHeld && snap.altSpeedInput === 0 ? 0.5 : 0) + snap.altPhase) % 1
 
