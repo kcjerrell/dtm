@@ -157,8 +157,9 @@ it("keeps each revealed layer on the viewport's current transform after zoom and
     )
     await cycleMode(false)
 
+    await waitFor(() => expect(readZoom()).toBeCloseTo(0.96))
     await act(async () => fireEvent.wheel(viewport, { ctrlKey: true, deltaY: -150 }))
-    await waitFor(() => expect(readZoom()).toBeCloseTo(1.6))
+    await waitFor(() => expect(readZoom()).toBeCloseTo(0.96 * 1.6))
     const beforePan = readPan()
     await act(async () => fireEvent.wheel(viewport, { deltaX: 35, deltaY: -25 }))
     await waitFor(() => expect(readPan()).not.toBe(beforePan))

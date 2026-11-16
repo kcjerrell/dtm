@@ -45,9 +45,11 @@ async function setup(width: number, height: number, layout: SbsLayout) {
     const result = {} as { current: ReturnType<typeof useContext> }
     const viewport = document.createElement("div")
     Object.defineProperties(viewport, {
-        clientWidth: { value: 1000 },
+        clientWidth: { value: 1000, configurable: true },
         clientHeight: { value: 800, configurable: true },
-        getBoundingClientRect: { value: () => ({ left: 0, top: 0, width: 1000, height: 800 }) },
+        getBoundingClientRect: {
+            value: () => new DOMRect(0, 0, viewport.clientWidth, viewport.clientHeight),
+        },
     })
     function Harness() {
         result.current = useContext()
@@ -114,33 +116,35 @@ describe("zoom gestures", () => {
             result.current.state.mode = "slider"
         })
         const { x, y, scale } = result.current.hooks.zoomStyle
+        const fittedScale = scale.get()
+        const expectTransform = (panX: number, panY: number, zoomFactor: number) => {
+            expect(x.get()).toBeCloseTo(panX)
+            expect(y.get()).toBeCloseTo(panY)
+            expect(scale.get()).toBeCloseTo(fittedScale * zoomFactor)
+        }
 
         zoom(-500)
         const startX = x.get()
         const startY = y.get()
         pan(20, 10)
-        expect([x.get(), y.get(), scale.get()]).toEqual([startX + 20, startY + 10, 2])
+        expectTransform(startX + 20, startY + 10, 2)
         pan(40, 30, 1)
-        expect([x.get(), y.get(), scale.get()]).toEqual([startX + 20, startY + 10, 2])
+        expectTransform(startX + 20, startY + 10, 2)
 
         updateSetting("app.zoomMode", "pinch")
         const scroll = wheel({ deltaX: 30, deltaY: -40 })
         expect(scroll.defaultPrevented).toBe(true)
-        expect([x.get(), y.get(), scale.get()]).toEqual([startX - 10, startY + 50, 2])
+        expectTransform(startX - 10, startY + 50, 2)
 
         pan(40, 30)
-        expect([x.get(), y.get(), scale.get()]).toEqual([startX - 10, startY + 50, 2])
+        expectTransform(startX - 10, startY + 50, 2)
         pan(40, 30, 1)
-        expect([x.get(), y.get(), scale.get()]).toEqual([startX + 30, startY + 80, 2])
+        expectTransform(startX + 30, startY + 80, 2)
 
         wheel({ deltaY: -125, ctrlKey: true, clientX: 600, clientY: 500 })
-        expect([x.get(), y.get(), scale.get()]).toEqual([1.5 * startX - 5, 1.5 * startY + 70, 3])
+        expectTransform(1.5 * startX - 5, 1.5 * startY + 70, 3)
         wheel({ deltaY: 125, ctrlKey: true, clientX: 600, clientY: 500 })
-        expect([x.get(), y.get(), scale.get()]).toEqual([
-            0.75 * startX + 47.5,
-            0.75 * startY + 85,
-            1.5,
-        ])
+        expectTransform(0.75 * startX + 47.5, 0.75 * startY + 85, 1.5)
     })
 
     it("uses relative WebKit pinch scales anchored in the side-by-side pane under the cursor", async () => {
@@ -148,6 +152,7 @@ describe("zoom gestures", () => {
         updateSetting("app.zoomMode", "pinch")
         const { refs, zoomStyle } = result.current.hooks
         const { scale, x } = zoomStyle
+        const fittedScale = scale.get()
         const pane = (left: number) => {
             const element = document.createElement("div")
             element.getBoundingClientRect = () => new DOMRect(left, 0, 500, 800)
@@ -168,9 +173,9 @@ describe("zoom gestures", () => {
         gesture("gesturestart", 1)
         gesture("gesturechange", 1.5)
         gesture("gesturechange", 2)
-        expect(scale.get()).toBe(2)
+        expect(scale.get()).toBeCloseTo(fittedScale * 2)
         // The center of pane B maps to x=250 in A, left of the transform origin at x=500.
-        expect(x.get()).toBe(2 * startX + 250)
+        expect(x.get()).toBeCloseTo(2 * startX + 250)
         gesture("gestureend", 2)
 
         const beforePan = x.get()
@@ -180,7 +185,7 @@ describe("zoom gestures", () => {
         gesture("gesturestart", 1)
         gesture("gesturechange", 0.75)
         gesture("gestureend", 0.75)
-        expect(scale.get()).toBe(1.5)
+        expect(scale.get()).toBeCloseTo(fittedScale * 1.5)
     })
 })
 
@@ -192,7 +197,6 @@ describe("SBS minimum zoom", () => {
         [1000, 500, "horizontal", 0.72],
     ] as const)("fits %s x %s content in %s panes", async (width, height, layout, minimum) => {
         const { result, zoomOut } = await setup(width, height, layout)
-        zoomOut()
         const { state, hooks } = result.current
         const scale = hooks.zoomStyle.scale.get()
         expect(scale).toBeCloseTo(minimum)
@@ -207,6 +211,8 @@ describe("SBS minimum zoom", () => {
         expect(
             state.contentOffset.top + state.contentSize.height / 2 + hooks.zoomStyle.y.get(),
         ).toBeCloseTo(paneHeight / 2)
+        zoomOut()
+        expect(hooks.zoomStyle.scale.get()).toBeCloseTo(minimum)
     })
 
     it("reclamps zoom when the layout, viewport, or mode raises the minimum", async () => {
@@ -254,6 +260,39 @@ describe("minimum zoom margin", () => {
         expect(hooks.zoomStyle.y.get()).toBe(0)
     })
 
+    it("keeps all edges visible when a fitted viewport becomes width-limited", async () => {
+        const { result, viewport, zoom, zoomOut } = await setup(1000, 800, "vertical")
+        await act(async () => {
+            result.current.state.mode = "slider"
+        })
+        const { state, hooks } = result.current
+        const expectFit = (scale: number) => {
+            expect(hooks.zoomStyle.scale.get()).toBeCloseTo(scale)
+            expect(hooks.zoomStyle.x.get()).toBe(0)
+            expect(hooks.zoomStyle.y.get()).toBe(0)
+            const horizontal = (state.viewportWidth - state.contentSize.width * scale) / 2
+            const vertical = (state.viewportHeight - state.contentSize.height * scale) / 2
+            expect(Math.min(horizontal, vertical)).toBeCloseTo(20)
+        }
+        const resize = (width: number) =>
+            act(async () => {
+                Object.defineProperty(viewport, "clientWidth", { value: width })
+                window.dispatchEvent(new Event("resize"))
+            })
+
+        expectFit(0.95)
+        await resize(500)
+        expectFit(0.92)
+        await resize(1000)
+        expectFit(0.95)
+
+        zoom(-500)
+        await resize(500)
+        expect(hooks.zoomStyle.scale.get()).toBeCloseTo(1.9)
+        zoomOut()
+        expectFit(0.92)
+    })
+
     it("keeps a positive scale when a pane is smaller than the margins", async () => {
         const { result, zoomOut, viewport } = await setup(1000, 800, "horizontal")
         await act(async () => {
@@ -286,9 +325,11 @@ describe("pan margins", () => {
         const { width, height } = state.contentSize
         const { left, top } = state.contentOffset
 
+        // Start the pan checks at 1x regardless of the mode's fitted scale.
+        zoom(500 * (1 - 1 / hooks.zoomStyle.scale.get()))
         for (const scale of [1, 2, 4]) {
             if (scale > 1) zoom(-500)
-            expect(hooks.zoomStyle.scale.get()).toBe(scale)
+            expect(hooks.zoomStyle.scale.get()).toBeCloseTo(scale)
             const margin = 20 * scale
             pan(10000, 10000)
             expect(left + (width * (1 - scale)) / 2 + hooks.zoomStyle.x.get()).toBeCloseTo(margin)

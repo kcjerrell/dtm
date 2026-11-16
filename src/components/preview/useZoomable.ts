@@ -1,5 +1,5 @@
 import { type SpringOptions, useSpring } from "motion/react"
-import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react"
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useElapsed } from "@/hooks/useDecay"
 import { useSettingRef } from "@/state/settings"
 
@@ -23,6 +23,8 @@ export function useZoomable(
         allowShiftDrag?: boolean
         minZoom?: number
         maxZoom?: number
+        /** Start at minimum zoom and follow changes to it while fitted. */
+        fitAtMinZoom?: boolean
         /** Gap allowed beyond each content edge at 1x zoom, in CSS pixels. */
         panMargin?: number
     } = {},
@@ -37,9 +39,11 @@ export function useZoomable(
         allowShiftDrag = false,
         minZoom = MIN_ZOOM,
         maxZoom = MAX_ZOOM,
+        fitAtMinZoom = false,
         panMargin = 0,
     } = options
-    const posRef = useRef({ x: 0, y: 0, scale: 1 })
+    const posRef = useRef({ x: 0, y: 0, scale: fitAtMinZoom ? minZoom : 1 })
+    const previousMinZoom = useRef(minZoom)
     const xMv = useSpring(posRef.current.x, SPRING)
     const yMv = useSpring(posRef.current.y, SPRING)
     const scaleMv = useSpring(posRef.current.scale, SPRING)
@@ -52,12 +56,16 @@ export function useZoomable(
 
     const getElapsed = useElapsed(true)
 
-    const setMv = useCallback(() => {
-        const { x, y, scale } = posRef.current
-        xMv.set(x)
-        yMv.set(y)
-        scaleMv.set(scale)
-    }, [xMv, yMv, scaleMv])
+    const setMv = useCallback(
+        (immediate = false) => {
+            const { x, y, scale } = posRef.current
+            const update = immediate ? "jump" : "set"
+            xMv[update](x)
+            yMv[update](y)
+            scaleMv[update](scale)
+        },
+        [xMv, yMv, scaleMv],
+    )
 
     const clampPos = useCallback(
         (currX: number, currY: number, currScale: number) => {
@@ -76,7 +84,10 @@ export function useZoomable(
                 offset: number,
             ) => {
                 const scaledLength = contentLength * currScale
-                if (scaledLength + 2 * margin <= viewportLength) {
+                if (
+                    (fitAtMinZoom && currScale === minZoom) ||
+                    scaledLength + 2 * margin <= viewportLength
+                ) {
                     return viewportLength / 2 - (offset + contentLength / 2)
                 }
 
@@ -94,7 +105,7 @@ export function useZoomable(
                 y: clampAxis(currY, contentSize.height, viewportHeight, contentTop),
             }
         },
-        [contentOffset, contentSize, motionRef, viewportSize, panMargin],
+        [contentOffset, contentSize, motionRef, viewportSize, panMargin, fitAtMinZoom, minZoom],
     )
 
     const pan = useCallback(
@@ -208,13 +219,15 @@ export function useZoomable(
         }
     }, [getElapsed, minZoom, motionRef, onZoomOutBoundary, pan, zoom, zoomMode])
 
-    useEffect(() => {
-        const { x, y } = posRef.current
-        const scale = Math.min(Math.max(posRef.current.scale, minZoom), maxZoom)
+    useLayoutEffect(() => {
+        const { x, y, scale: currentScale } = posRef.current
+        const fitted = fitAtMinZoom && currentScale === previousMinZoom.current
+        previousMinZoom.current = minZoom
+        const scale = fitted ? minZoom : Math.min(Math.max(currentScale, minZoom), maxZoom)
         const clamped = clampPos(x, y, scale)
         posRef.current = { x: clamped.x, y: clamped.y, scale }
-        setMv()
-    }, [clampPos, minZoom, maxZoom, setMv])
+        setMv(fitted)
+    }, [clampPos, fitAtMinZoom, minZoom, maxZoom, setMv])
 
     const onPointerDown = useCallback(
         (e: React.PointerEvent) => {
@@ -286,9 +299,11 @@ export function useZoomable(
     }, [xMv, yMv, scaleMv])
 
     const reset = useCallback(() => {
-        posRef.current = { x: 0, y: 0, scale: 1 }
+        const scale = fitAtMinZoom ? minZoom : 1
+        const position = fitAtMinZoom ? clampPos(0, 0, scale) : { x: 0, y: 0 }
+        posRef.current = { ...position, scale }
         setMv()
-    }, [setMv])
+    }, [clampPos, fitAtMinZoom, minZoom, setMv])
 
     return { handlers, style, reset }
 }

@@ -388,7 +388,7 @@ const GridRoot = chakra("div", {
         minHeight: 0,
         justifyContent: "stretch",
         alignItems: "stretch",
-        gridTemplateColumns: "1fr",
+        gridTemplateColumns: "minmax(0, 1fr)",
         gridTemplateRows: "minmax(0, 1fr) min-content",
         gridTemplateAreas: '"image" "buttons"',
     },

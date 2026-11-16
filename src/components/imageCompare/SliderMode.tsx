@@ -469,57 +469,60 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
     const { selectEffect, sliderTrail } = selfProps
 
     return (
-        <ToolbarSection mode={"select"} {...restProps}>
-            <ToolbarButton
-                itemId={"none"}
-                isSelected={sliderTrail === "none"}
-                onClick={() => selectEffect("none")}
-            >
-                X{/*<FaToggleOff />*/}
-            </ToolbarButton>
-            <ToolbarButton
-                itemId={"brightness"}
-                isSelected={sliderTrail === "brightness"}
-                onClick={() => selectEffect("brightness")}
-            >
-                <BrightnessEffect />
-            </ToolbarButton>
-            <ToolbarButton
-                itemId={"color"}
-                isSelected={sliderTrail === "color"}
-                onClick={() => selectEffect("color")}
-            >
-                <ColorEffect />
-            </ToolbarButton>
-            <ToolbarButton
-                itemId={"difference"}
-                isSelected={sliderTrail === "difference"}
-                onClick={() => selectEffect("difference")}
-            >
-                <DifferenceEffect />
-            </ToolbarButton>
-
-            <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
-                <Popover.Trigger _expanded={{ background: undefined }} asChild>
-                    <SettingsButton
-                        itemId={"settings"}
-                        isOpen={isSettingsOpen}
-                        onEnter={onEnter}
-                        onLeave={startCloseTimer}
-                    />
-                </Popover.Trigger>
-                <Portal container={viewRef}>
-                    <Popover.Positioner>
-                        <SettingsContent
-                            state={state}
-                            snap={snap}
+        <>
+            <ToolbarSection mode={"select"} {...restProps}>
+                <ToolbarButton
+                    itemId={"none"}
+                    isSelected={sliderTrail === "none"}
+                    onClick={() => selectEffect("none")}
+                >
+                    X{/*<FaToggleOff />*/}
+                </ToolbarButton>
+                <ToolbarButton
+                    itemId={"brightness"}
+                    isSelected={sliderTrail === "brightness"}
+                    onClick={() => selectEffect("brightness")}
+                >
+                    <BrightnessEffect />
+                </ToolbarButton>
+                <ToolbarButton
+                    itemId={"color"}
+                    isSelected={sliderTrail === "color"}
+                    onClick={() => selectEffect("color")}
+                >
+                    <ColorEffect />
+                </ToolbarButton>
+                <ToolbarButton
+                    itemId={"difference"}
+                    isSelected={sliderTrail === "difference"}
+                    onClick={() => selectEffect("difference")}
+                >
+                    <DifferenceEffect />
+                </ToolbarButton>
+            </ToolbarSection>
+            <ToolbarSection>
+                <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
+                    <Popover.Trigger _expanded={{ background: undefined }} asChild>
+                        <SettingsButton
+                            itemId={"settings"}
+                            isOpen={isSettingsOpen}
                             onEnter={onEnter}
                             onLeave={startCloseTimer}
                         />
-                    </Popover.Positioner>
-                </Portal>
-            </Popover.Root>
-        </ToolbarSection>
+                    </Popover.Trigger>
+                    <Portal container={viewRef}>
+                        <Popover.Positioner>
+                            <SettingsContent
+                                state={state}
+                                snap={snap}
+                                onEnter={onEnter}
+                                onLeave={startCloseTimer}
+                            />
+                        </Popover.Positioner>
+                    </Portal>
+                </Popover.Root>
+            </ToolbarSection>
+        </>
     )
 }
 

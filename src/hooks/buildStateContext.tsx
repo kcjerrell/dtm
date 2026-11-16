@@ -11,29 +11,32 @@ type BuildContextOptions<C extends object, P = unknown, H = unknown> = {
 
 type Provider = (props: PropsWithChildren) => React.ReactNode
 
-type BuildContextResult<C extends object, P = unknown> = {
-    useCreateState: (props?: P) => [Provider, C]
-    useCreate: (props?: P) => [Provider, C, Snapshot<C>]
+type BuildContextResult<C extends object, P = unknown, H = unknown> = {
+    useCreateState: (props?: P) => [Provider, C, H]
+    useCreate: (props?: P) => [Provider, C, Snapshot<C>, H]
     useContext: () => [C, Snapshot<C>]
     useContextState: () => C
-    _context: React.Context<C | null>
+    context: React.Context<{ state: C; hv: H | null } | null>
+    useContextHooks: () => H
     // getValue: () => C
     // useSnap: () => Snapshot<C>
 }
 
-export function buildStateContext<C extends object, P = unknown>(
+export function buildStateContext<C extends object, P = unknown, H = unknown>(
     initFn: ContextInitializer<C, P>,
-    opts?: BuildContextOptions<C>,
-): BuildContextResult<C, P> {
+    opts?: BuildContextOptions<C, P, H>,
+): BuildContextResult<C, P, H> {
     const { nullDefault = false } = opts ?? {}
-    const useHooks = opts?.useHooks ?? (() => {})
+    const useHooks = opts?.useHooks ?? (() => null)
 
-    const Ctx = createContext<C | null>(nullDefault ? null : initFn())
+    const Ctx = createContext<{ state: C; hv: H | null } | null>(
+        nullDefault ? null : { state: initFn(), hv: null },
+    )
 
-    function useCreate(props?: P, opts?: UseProxyRefOpts<C>): [Provider, C, Snapshot<C>] {
+    function useCreate(props?: P, opts?: UseProxyRefOpts<C>): [Provider, C, Snapshot<C>, H] {
         const { state, snap } = useProxyRef(() => initFn(props), opts)
 
-        const hv = useHooks(props, state)
+        const hv = useHooks(props as P, state)
 
         const Provider = useCallback(
             (props: PropsWithChildren) => {
@@ -42,13 +45,13 @@ export function buildStateContext<C extends object, P = unknown>(
             [state, hv],
         )
 
-        return [Provider, state, snap, hv]
+        return [Provider, state, snap, hv as H]
     }
 
-    function useCreateState(props?: P, opts?: UseProxyRefOpts<C>): [Provider, C] {
+    function useCreateState(props?: P, opts?: UseProxyRefOpts<C>): [Provider, C, H] {
         const state = useProxyRefState(() => initFn(props), opts)
 
-        const hv = useHooks(props, state)
+        const hv = useHooks(props as P, state)
 
         const Provider = useCallback(
             (props: PropsWithChildren) => {
@@ -57,32 +60,35 @@ export function buildStateContext<C extends object, P = unknown>(
             [state, hv],
         )
 
-        return [Provider, state, hv]
+        return [Provider, state, hv as H]
     }
 
     function useContext(): [C, Snapshot<C>] {
-        const { state } = React.useContext(Ctx)
+        const ctx = React.useContext(Ctx)
 
-        if (!state) throw new Error("Context not found")
+        if (!ctx) throw new Error("Context not found")
 
+        const { state } = ctx
         const snap = useSnapshot(state)
         return [state, snap]
     }
 
     function useContextState(): C {
-        const { state } = React.useContext(Ctx)
+        const ctx = React.useContext(Ctx)
 
-        if (!state) throw new Error("Context not found")
+        if (!ctx) throw new Error("Context not found")
+        const { state } = ctx
 
         return state
     }
 
     function useContextHooks(): H {
-        const { hv } = React.useContext(Ctx)
+        const ctx = React.useContext(Ctx)
 
-        if (!hv) throw new Error("Context not found")
+        if (!ctx) throw new Error("Context not found")
+        const { hv } = ctx
 
-        return hv
+        return hv as H
     }
 
     return {
@@ -91,7 +97,7 @@ export function buildStateContext<C extends object, P = unknown>(
         useContext,
         useContextState,
         useContextHooks,
-        _context: Ctx,
+        context: Ctx,
     }
 }
 

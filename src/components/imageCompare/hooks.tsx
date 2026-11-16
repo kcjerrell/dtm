@@ -111,12 +111,15 @@ export function useCreateImageCompareContext(
         () => ({ left: snap.contentOffset.left, top: snap.contentOffset.top }),
         [snap.contentOffset.left, snap.contentOffset.top],
     )
-    const sbsViewportSize = useMemo(
-        () => ({
-            width: snap.viewportWidth / (snap.sbsLayout === "vertical" ? 2 : 1),
-            height: snap.viewportHeight / (snap.sbsLayout === "horizontal" ? 2 : 1),
-        }),
-        [snap.sbsLayout, snap.viewportHeight, snap.viewportWidth],
+    const zoomViewportSize = useMemo(
+        () =>
+            snap.mode === "sbs"
+                ? {
+                      width: snap.viewportWidth / (snap.sbsLayout === "vertical" ? 2 : 1),
+                      height: snap.viewportHeight / (snap.sbsLayout === "horizontal" ? 2 : 1),
+                  }
+                : { width: snap.viewportWidth, height: snap.viewportHeight },
+        [snap.mode, snap.sbsLayout, snap.viewportHeight, snap.viewportWidth],
     )
     const mapSbsZoomPoint = useCallback((clientX: number, clientY: number) => {
         const paneA = sbsPaneARef.current?.getBoundingClientRect()
@@ -139,17 +142,14 @@ export function useCreateImageCompareContext(
         }
         return { clientX, clientY }
     }, [])
-    const zoomViewportSize =
-        snap.mode === "sbs"
-            ? sbsViewportSize
-            : { width: snap.viewportWidth, height: snap.viewportHeight }
     const { handlers: zoomHandlers, style: zoomStyle } = useZoomable(viewportRef, {
         contentSize,
         contentOffset,
-        viewportSize: snap.mode === "sbs" ? sbsViewportSize : undefined,
+        viewportSize: zoomViewportSize,
         mapZoomPoint: snap.mode === "sbs" ? mapSbsZoomPoint : undefined,
         allowShiftDrag: snap.mode === "align",
         panMargin: ZOOM_OUT_MARGIN,
+        fitAtMinZoom: true,
         // Leave room to inspect the edges, using the individual pane bounds in SBS.
         minZoom:
             contentSize.width > 0 && contentSize.height > 0
@@ -276,8 +276,8 @@ export function useCreateImageCompareContext(
         ],
     ) as ImageCompareHooksContextType
 
-    useEffect(() => {
-        const viewport = cv.refs.viewportRef.current
+    useLayoutEffect(() => {
+        const viewport = viewportRef.current
         if (!viewport) return
 
         const updateSize = () => {
@@ -285,7 +285,7 @@ export function useCreateImageCompareContext(
             state.viewportWidth = width
             state.viewportHeight = viewport.clientHeight
             state.viewportPixelRatio = window.devicePixelRatio || 1
-            cv.mv.dividerXMv.set((cv.mv.sliderMv.get() - 0.5) * width)
+            dividerXMv.set((sliderMv.get() - 0.5) * width)
         }
         const observer = new ResizeObserver(updateSize)
         observer.observe(viewport)
@@ -296,7 +296,7 @@ export function useCreateImageCompareContext(
             observer.disconnect()
             window.removeEventListener("resize", updateSize)
         }
-    }, [cv, state])
+    }, [dividerXMv, sliderMv, state])
 
     return [ImageCompareHooksContext, cv] as const
 }

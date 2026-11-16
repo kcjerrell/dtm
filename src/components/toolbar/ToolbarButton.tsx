@@ -55,7 +55,6 @@ function ToolbarButton(props: ToolbarButtonProps) {
                     "& > *": {
                         zIndex: 5,
                     },
-                    // "& svg": { shapeRendering: "crispEdges" },
                 }}
                 {...restProps}
             >
@@ -63,9 +62,7 @@ function ToolbarButton(props: ToolbarButtonProps) {
                     name={activeItemLayoutId}
                     {...{ mode, isSelected, showIndicator }}
                 />
-                {/*<ViewTransition name={activeItemLayoutId + itemId} default={"tb-icon"}>*/}
                 {children}
-                {/*</ViewTransition>*/}
             </Base>
         </TooltipWrapper>
 
@@ -124,14 +121,6 @@ function TooltipWrapper(props: PropsWithChildren<TooltipWrapperProps>) {
     }
 
     return children
-}
-
-function _IconWrapper(props: PropsWithChildren) {
-    return (
-        <ViewTransition enter={"tb-icon"} {...getHandlers("icon", "icon")}>
-            {props.children}
-        </ViewTransition>
-    )
 }
 
 function getIndicatorColor(
