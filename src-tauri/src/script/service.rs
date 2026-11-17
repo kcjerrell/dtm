@@ -27,6 +27,10 @@ use super::{
     types::*,
 };
 
+mod packages;
+use packages::PackageJob;
+pub(crate) use packages::{PackageOperation, PackageProgress};
+
 #[derive(Clone, Copy)]
 pub struct ServiceLimits {
     pub timeout: Duration,
@@ -71,15 +75,23 @@ pub struct RunFailureDetails {
 #[derive(Default)]
 struct State {
     closed: bool,
-    trusted: HashMap<String, String>,
+    trusted: HashMap<String, TrustedProject>,
+    package_job: Option<PackageJob>,
     pending: Option<RunControl>,
     active: Option<RunControl>,
     last_good: Option<(RunIdentity, OutputLease)>,
     last_failure: Option<RunFailureDetails>,
 }
+#[derive(PartialEq, Eq)]
+struct TrustedProject {
+    source_hash: String,
+    package_revision: Option<String>,
+}
+
 struct Inner {
     store: Arc<ProjectStore>,
     executor: Arc<dyn ScriptExecutor>,
+    package_bun: Option<PathBuf>,
     approvals: Arc<InputApprovals>,
     resources: Arc<dyn InputResources>,
     outputs: Arc<OutputRegistry>,
@@ -105,6 +117,18 @@ impl ImageScriptService {
         limits: ServiceLimits,
         sink: impl Fn(ScriptRunEvent) + Send + Sync + 'static,
     ) -> Result<Self> {
+        Self::new_with_package_runtime(store, executor, approvals, resources, limits, None, sink)
+    }
+
+    pub(super) fn new_with_package_runtime(
+        store: Arc<ProjectStore>,
+        executor: Arc<dyn ScriptExecutor>,
+        approvals: Arc<InputApprovals>,
+        resources: Arc<dyn InputResources>,
+        limits: ServiceLimits,
+        package_bun: Option<PathBuf>,
+        sink: impl Fn(ScriptRunEvent) + Send + Sync + 'static,
+    ) -> Result<Self> {
         if limits.timeout.is_zero() {
             bail!("script timeout must be positive");
         }
@@ -121,6 +145,7 @@ impl ImageScriptService {
         Ok(Self(Arc::new(Inner {
             store,
             executor,
+            package_bun,
             approvals,
             resources,
             outputs,
@@ -144,22 +169,43 @@ impl ImageScriptService {
         project_id: ProjectId,
         expected_source: String,
     ) -> Result<()> {
+        self.trust_project_with_packages(project_id, expected_source, None)
+            .await
+    }
+
+    pub(super) async fn trust_project_with_packages(
+        &self,
+        project_id: ProjectId,
+        expected_source: String,
+        expected_package_revision: Option<String>,
+    ) -> Result<()> {
         let _scheduler = self.0.scheduler.lock().await;
         let store = self.0.store.clone();
-        let project = tokio::task::spawn_blocking(move || store.open(&project_id)).await??;
+        let (project, _access, package_revision) = tokio::task::spawn_blocking(move || {
+            let project = store.open(&project_id)?;
+            let access = store.package_access(&project_id, false)?;
+            let revision = access.current()?.map(|generation| generation.revision());
+            Ok::<_, anyhow::Error>((project, access, revision))
+        })
+        .await??;
         let mut state = self.0.state()?;
         if state.closed {
             bail!("script service is shut down");
         }
         let id = project.manifest.project_id.0;
-        let saved_hash = hash(&project.source);
-        if project.source != expected_source {
-            if state.trusted.get(&id) != Some(&saved_hash) {
+        let approval = TrustedProject {
+            source_hash: hash(&project.source),
+            package_revision,
+        };
+        if project.source != expected_source
+            || approval.package_revision != expected_package_revision
+        {
+            if state.trusted.get(&id) != Some(&approval) {
                 state.trusted.remove(&id);
             }
-            bail!("the saved script changed before approval; review it and try again");
+            bail!("the saved script or package revision changed before approval; review it and try again");
         }
-        state.trusted.insert(id, saved_hash);
+        state.trusted.insert(id, approval);
         Ok(())
     }
 
@@ -192,13 +238,16 @@ impl ImageScriptService {
             if state.closed {
                 bail!("script service is shut down");
             }
-            let trusted = state.trusted.get(&project_id.0) == Some(&hash(&old.source));
+            let trusted = state
+                .trusted
+                .get(&project_id.0)
+                .is_some_and(|approval| approval.source_hash == hash(&old.source));
             if !trusted {
                 state.trusted.remove(&project_id.0);
             }
             inner.store.save(&project_id, &source)?;
-            if trusted {
-                state.trusted.insert(project_id.0, hash(&source));
+            if let Some(approval) = state.trusted.get_mut(&project_id.0) {
+                approval.source_hash = hash(&source);
             }
             Ok(revision)
         })
@@ -248,17 +297,26 @@ impl ImageScriptService {
     /// Idempotent; first closes admission and cancels staging/execution, then joins
     /// the executor and its cleanup before revoking previews. Existing read leases survive.
     pub async fn shutdown(&self) -> Result<()> {
-        {
+        let install = {
             let mut state = self.0.state()?;
             state.closed = true;
             self.0.submissions.close();
             for run in [&state.pending, &state.active].into_iter().flatten() {
                 run.cancel(CancellationReason::Shutdown);
             }
-        }
+            state.package_job.as_ref().map(|job| {
+                job.cancel.send_replace(true);
+                job.done.clone()
+            })
+        };
         let inner = self.0.clone();
         // Own shutdown as well: cancelling its caller must not drop the runner join.
         tokio::spawn(async move {
+            if let Some(mut done) = install {
+                done.wait_for(|completed| *completed)
+                    .await
+                    .context("script package installation did not shut down cleanly")?;
+            }
             let mut worker = inner.scheduler.lock().await;
             join_worker(&mut worker).await?;
             let inner = inner.clone();
@@ -297,6 +355,7 @@ impl Inner {
         self: &Arc<Self>,
         project_id: ProjectId,
         expected_source_hash: &str,
+        package_revision: Option<String>,
     ) -> Result<()> {
         let expected_source_hash = expected_source_hash.to_owned();
         let inner = self.clone();
@@ -306,12 +365,15 @@ impl Inner {
             if state.closed {
                 bail!("script service is shut down");
             }
-            let persisted_hash = hash(&project.source);
-            if state.trusted.get(&project_id.0) != Some(&persisted_hash) {
+            let persisted = TrustedProject {
+                source_hash: hash(&project.source),
+                package_revision,
+            };
+            if state.trusted.get(&project_id.0) != Some(&persisted) {
                 state.trusted.remove(&project_id.0);
                 bail!("script project is untrusted; explicit approval is required");
             }
-            if persisted_hash != expected_source_hash {
+            if persisted.source_hash != expected_source_hash {
                 bail!("script source snapshot differs from the saved project; save before running");
             }
             Ok(())
@@ -322,6 +384,19 @@ impl Inner {
 
     async fn submit(self: Arc<Self>, mut request: RunRequest) -> Result<RunIdentity> {
         let mut worker = self.scheduler.lock().await;
+        {
+            let state = self.state()?;
+            if state.closed {
+                bail!("script service is shut down");
+            }
+            if state
+                .package_job
+                .as_ref()
+                .is_some_and(|job| job.project == request.project_id)
+            {
+                bail!("wait for the project's package installation before running");
+            }
+        }
         if request.source.source.len() > 2 * 1024 * 1024
             || request.source.instrumented_source.len() > 4 * 1024 * 1024
             || request
@@ -357,8 +432,34 @@ impl Inner {
         }
         // The backend freezes owned values and computes the actual source hash.
         request.source.content_hash = hash(&request.source.source);
-        self.check_trust(request.project_id.clone(), &request.source.content_hash)
-            .await?;
+        let (package_snapshot, package_revision) = {
+            let store = self.store.clone();
+            let project = request.project_id.clone();
+            tokio::task::spawn_blocking(move || {
+                let access = store.package_access(&project, false)?;
+                let generation = access.current()?;
+                let modules = generation
+                    .as_ref()
+                    .map(|generation| generation.installed_modules())
+                    .transpose()?;
+                let revision = generation.map(|generation| generation.revision());
+                Ok::<_, anyhow::Error>((
+                    PackageRunSnapshot {
+                        _access: Arc::new(access),
+                        modules,
+                    },
+                    revision,
+                ))
+            })
+            .await
+            .context("script package snapshot worker failed")??
+        };
+        self.check_trust(
+            request.project_id.clone(),
+            &request.source.content_hash,
+            package_revision.clone(),
+        )
+        .await?;
         let identity = RunIdentity {
             project_id: request.project_id.clone(),
             run_id: RunId(super::input::selection_token()?),
@@ -382,7 +483,13 @@ impl Inner {
             identity: identity.clone(),
         });
         let result = self
-            .prepare_and_dispatch(request, &identity, receiver, &mut worker)
+            .prepare_and_dispatch(
+                request,
+                (package_snapshot, package_revision),
+                &identity,
+                receiver,
+                &mut worker,
+            )
             .await;
         let pending = self.state()?.pending.take();
         if let Err(error) = &result {
@@ -404,6 +511,7 @@ impl Inner {
     async fn prepare_and_dispatch(
         self: &Arc<Self>,
         request: RunRequest,
+        (package_snapshot, package_revision): (PackageRunSnapshot, Option<String>),
         identity: &RunIdentity,
         cancellation: watch::Receiver<Option<CancellationReason>>,
         worker: &mut Option<JoinHandle<Result<()>>>,
@@ -427,6 +535,7 @@ impl Inner {
         let prepared = self
             .executor
             .prepare(ExecutionRequest {
+                packages: Some(package_snapshot),
                 runs_root: self.workspace.path().join("runs"),
                 manifest,
                 timeout: self.limits.timeout,
@@ -437,6 +546,7 @@ impl Inner {
         self.check_trust(
             identity.project_id.clone(),
             &prepared.manifest().source.content_hash,
+            package_revision.clone(),
         )
         .await?;
         {
@@ -453,6 +563,7 @@ impl Inner {
         self.check_trust(
             identity.project_id.clone(),
             &prepared.manifest().source.content_hash,
+            package_revision,
         )
         .await?;
         {

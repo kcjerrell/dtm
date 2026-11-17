@@ -64,6 +64,17 @@ impl BunExecutor {
         if let Some(map) = &request.manifest.source.source_map {
             write_new(&run.join("process.ts.map"), map.as_bytes())?;
         }
+        if let Some(modules) = request
+            .packages
+            .as_ref()
+            .and_then(|packages| packages.modules.as_ref())
+        {
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(modules, run.join("node_modules"))
+                .context("failed to attach locked script packages to the run")?;
+            #[cfg(not(unix))]
+            bail!("locked script packages are unavailable on this platform");
+        }
         std::fs::create_dir(run.join("inputs"))
             .context("failed to create prepared input staging directory")?;
         make_readonly(&manifest)?;
@@ -241,8 +252,7 @@ fn read_result(path: &Path) -> Result<ExecutionTerminal> {
 async fn capture<R: tokio::io::AsyncRead + Unpin>(
     mut reader: R,
     stream: ExecutionLogStream,
-    identity: super::types::RunIdentity,
-    observer: ExecutionObserver,
+    observe: impl Fn(ExecutionLog),
 ) -> Result<ExecutionLog> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 8192];
@@ -261,26 +271,20 @@ async fn capture<R: tokio::io::AsyncRead + Unpin>(
         let newly_truncated = !truncated && count > remaining;
         truncated |= count > remaining;
         if !text.is_empty() || newly_truncated {
-            observer.emit(
-                &identity,
-                ExecutionEventKind::Log(ExecutionLog {
-                    stream,
-                    text,
-                    truncated,
-                }),
-            );
+            observe(ExecutionLog {
+                stream,
+                text,
+                truncated,
+            });
         }
     }
     let tail = decode_log_delta(&mut pending_utf8, true);
     if !tail.is_empty() {
-        observer.emit(
-            &identity,
-            ExecutionEventKind::Log(ExecutionLog {
-                stream,
-                text: tail,
-                truncated,
-            }),
-        );
+        observe(ExecutionLog {
+            stream,
+            text: tail,
+            truncated,
+        });
     }
     Ok(ExecutionLog {
         stream,
@@ -387,6 +391,96 @@ impl Drop for ChildGuard {
     }
 }
 
+/// One app-owned process with bounded output and process-group cleanup on every exit path.
+pub(super) async fn run_package_command(
+    mut command: Command,
+    mut cancellation: watch::Receiver<bool>,
+    log: std::sync::Arc<dyn Fn(ExecutionLog) + Send + Sync>,
+) -> Result<()> {
+    if *cancellation.borrow() {
+        bail!("script package installation cancelled");
+    }
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    configure_group(&mut command);
+    let mut child = ChildGuard(Some(
+        command
+            .spawn()
+            .context("failed to start Bun package command")?,
+    ));
+    let process = child
+        .0
+        .as_mut()
+        .context("the Bun package process is unavailable")?;
+    let process_id = process
+        .id()
+        .context("Bun package process had no process ID")?;
+    let out = process
+        .stdout
+        .take()
+        .context("Bun package stdout unavailable")?;
+    let err = process
+        .stderr
+        .take()
+        .context("Bun package stderr unavailable")?;
+    let mut captures = tokio::task::JoinSet::new();
+    let log_stdout = log.clone();
+    captures.spawn(capture(out, ExecutionLogStream::Stdout, move |chunk| {
+        log_stdout(chunk)
+    }));
+    captures.spawn(capture(err, ExecutionLogStream::Stderr, move |chunk| {
+        log(chunk)
+    }));
+    let status = async {
+        tokio::select! {
+            status = child.0.as_mut().context("the Bun package process is unavailable")?.wait() => {
+                let status = status.context("failed waiting for Bun package command")?;
+                #[cfg(unix)]
+                signal_group(process_id, libc::SIGKILL)?;
+                child.0.take();
+                Ok(status)
+            }
+            _ = cancellation.changed() => {
+                terminate(&mut child).await?;
+                bail!("script package installation cancelled");
+            }
+            _ = tokio::time::sleep(Duration::from_secs(300)) => {
+                terminate(&mut child).await?;
+                bail!("Bun package command timed out");
+            }
+        }
+    }
+    .await;
+    drop(child);
+    // A detached descendant can still own an output pipe. Bound the drain before publishing
+    // a terminal event, and join aborted capture tasks so no later progress can leak through.
+    let logs = tokio::time::timeout(Duration::from_secs(1), async {
+        let mut logs = Vec::new();
+        while let Some(result) = captures.join_next().await {
+            logs.push(result.context("package output capture task failed")??);
+        }
+        Ok::<_, anyhow::Error>(logs)
+    })
+    .await;
+    if !matches!(logs, Ok(Ok(_))) {
+        captures.shutdown().await;
+    }
+    let status = status?;
+    let logs = logs.context("Bun package output did not close after process exit")??;
+    if !status.success() {
+        let details = logs
+            .iter()
+            .find(|log| log.stream == ExecutionLogStream::Stderr && !log.text.trim().is_empty())
+            .or_else(|| logs.first())
+            .map_or("", |log| log.text.trim());
+        bail!("Bun package command exited with {status}: {details}");
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl ScriptExecutor for BunExecutor {
     async fn prepare(&self, request: ExecutionRequest) -> Result<PreparedExecution> {
@@ -430,7 +524,7 @@ impl ScriptExecutor for BunExecutor {
         let timeout = prepared.request.timeout;
         let mut command = Command::new(&self.bun);
         command
-            .arg("--no-install")
+            .args(["--no-install", "--no-env-file"])
             .args([
                 runner.as_os_str(),
                 manifest.as_os_str(),
@@ -458,6 +552,8 @@ impl ScriptExecutor for BunExecutor {
                 process_id: Some(process_id),
             },
         );
+        let stdout_identity = identity.clone();
+        let stdout_observer = observer.clone();
         let stdout = tokio::spawn(capture(
             child
                 .0
@@ -467,8 +563,7 @@ impl ScriptExecutor for BunExecutor {
                 .take()
                 .context("Bun stdout unavailable")?,
             ExecutionLogStream::Stdout,
-            identity.clone(),
-            observer.clone(),
+            move |log| stdout_observer.emit(&stdout_identity, ExecutionEventKind::Log(log)),
         ));
         let stderr = tokio::spawn(capture(
             child
@@ -479,8 +574,7 @@ impl ScriptExecutor for BunExecutor {
                 .take()
                 .context("Bun stderr unavailable")?,
             ExecutionLogStream::Stderr,
-            identity,
-            observer,
+            move |log| observer.emit(&identity, ExecutionEventKind::Log(log)),
         ));
         let terminal = tokio::select! {
           status = child.0.as_mut().unwrap().wait() => {
@@ -729,9 +823,11 @@ mod tests {
         let identity = request(root.path(), "utf8", "", Duration::ZERO)
             .manifest
             .identity;
-        let result = capture(reader, ExecutionLogStream::Stdout, identity, observer)
-            .await
-            .unwrap();
+        let result = capture(reader, ExecutionLogStream::Stdout, |log| {
+            observer.emit(&identity, ExecutionEventKind::Log(log));
+        })
+        .await
+        .unwrap();
         let mut text = String::new();
         let mut count = 0;
         while let Ok(event) = rx.try_recv() {
@@ -764,6 +860,7 @@ mod tests {
 
     fn request(root: &Path, id: &str, source: &str, timeout: Duration) -> ExecutionRequest {
         ExecutionRequest {
+            packages: None,
             runs_root: root.to_path_buf(),
             timeout,
             manifest: RunManifest {

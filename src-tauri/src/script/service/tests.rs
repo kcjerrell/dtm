@@ -990,7 +990,13 @@ async fn detached_save_keeps_admission_serialized_until_the_write_finishes() {
     let scheduler = service.0.scheduler.lock().await;
     assert_eq!(store.open(&project).unwrap().source, "updated");
     assert_eq!(
-        service.0.state().unwrap().trusted.get(&project.0),
+        service
+            .0
+            .state()
+            .unwrap()
+            .trusted
+            .get(&project.0)
+            .map(|approval| &approval.source_hash),
         Some(&hash("updated"))
     );
     drop(scheduler);
@@ -1126,4 +1132,396 @@ async fn real_bun_enforces_output_limits_and_paths_and_joins_on_shutdown() {
     ));
     assert!(!h.service.0.workspace.path().exists());
     assert!(h.service.run(h.request(4)).await.is_err());
+}
+
+#[cfg(unix)]
+mod package_installation {
+    use super::*;
+    use crate::script::packages::{ScriptDependencies, ScriptLifecycleApproval};
+    use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+
+    const PACKAGE: &str = "test-package";
+
+    fn dependencies() -> ScriptDependencies {
+        [(PACKAGE.to_owned(), "1.0.0".to_owned())].into()
+    }
+
+    fn use_package_runtime(h: &mut Harness, path: PathBuf, executor: Arc<dyn ScriptExecutor>) {
+        let (tx, events) = mpsc::unbounded_channel();
+        h.service = ImageScriptService::new_with_package_runtime(
+            h.store.clone(),
+            executor,
+            Arc::default(),
+            Arc::new(NoResources),
+            ServiceLimits::default(),
+            Some(path),
+            move |event| {
+                let _ = tx.send(event);
+            },
+        )
+        .unwrap();
+        h.events = events;
+    }
+
+    fn fake_package_tool(root: &Path) -> PathBuf {
+        let path = root.join("fake-bun");
+        fs::write(&path, r#"#!/bin/sh
+set -eu
+if [ "$1" = "--version" ]; then printf '1.4.3\n'; exit; fi
+mode=$(cat "${0%/*}/install-mode")
+if [ "$1" = pm ]; then
+    test "$2" = trust
+    test "$5" = test-package
+    printf 'lifecycle ran\n' > node_modules/test-package/approved
+    printf 'changed by Bun trust\n' > bun.lock
+    printf 'changed by Bun trust\n' > package.json
+    exit
+fi
+frozen=0
+skip_scripts=0
+for option; do
+    case "$option" in
+        --frozen-lockfile) frozen=1 ;;
+        --ignore-scripts) skip_scripts=1 ;;
+    esac
+done
+test "$skip_scripts" = 1
+if [ "$mode" = blocked ]; then
+    printf 'ready to cancel\n'
+    while :; do sleep 10; done
+fi
+if [ "$frozen" = 1 ]; then
+    if [ "$mode" = mismatch ]; then
+        printf 'wrong lock\n' > bun.lock
+    elif ! grep -q '^locked fixture$' bun.lock; then
+        printf 'lockfile mismatch\n' >&2
+        exit 1
+    fi
+else
+    printf 'locked fixture\n' > bun.lock
+fi
+mkdir -p node_modules/test-package
+if [ "$mode" = unsupported ]; then
+    printf '{"name":"test-package","version":"1.0.0","os":["other-platform"]}\n' > node_modules/test-package/package.json
+else
+    printf '{"name":"test-package","version":"1.0.0"}\n' > node_modules/test-package/package.json
+fi
+"#).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::write(root.join("install-mode"), "normal").unwrap();
+        path
+    }
+
+    async fn fake_harness() -> Harness {
+        let mut h = Harness::new();
+        let tool = fake_package_tool(h._root.path());
+        let executor = Arc::new(h.fake.clone());
+        use_package_runtime(&mut h, tool, executor);
+        h
+    }
+
+    #[tokio::test]
+    async fn locked_package_restore_repairs_missing_modules_and_preserves_the_reviewed_pair() {
+        let h = fake_harness().await;
+        h.trust().await;
+        let initial = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "initial".into(),
+                PackageOperation::Set(dependencies()),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        assert!(initial.installed);
+        assert_eq!(initial.dependencies, dependencies());
+        let source = h.store.open(&h.project).unwrap().source;
+        assert!(h
+            .service
+            .trust_project(h.project.clone(), source.clone())
+            .await
+            .is_err());
+        assert!(h
+            .service
+            .run(h.request(1))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("untrusted"));
+        h.service
+            .trust_project_with_packages(
+                h.project.clone(),
+                source.clone(),
+                initial.revision.clone(),
+            )
+            .await
+            .unwrap();
+
+        let lease = h.store.package_access(&h.project, false).unwrap();
+        let generation = lease.current().unwrap().unwrap();
+        let modules = generation.installed_modules().unwrap();
+        // A second writer cannot replace a generation while a reader owns the cross-process lease.
+        assert!(h.store.package_access(&h.project, true).is_err());
+        let export = h._root.path().join("export");
+        h.store.export(&h.project, &export).unwrap();
+        let exported_lock = fs::read(export.join("bun.lock")).unwrap();
+        assert!(export.join("package.json").is_file());
+        assert!(!export.join("node_modules").exists());
+        drop(lease);
+
+        fs::write(
+            modules.join(PACKAGE).join("package.json"),
+            "broken cached metadata",
+        )
+        .unwrap();
+        let corrupt = h
+            .service
+            .dependency_status(h.project.clone())
+            .await
+            .unwrap();
+        assert!(!corrupt.installed);
+        assert_eq!(corrupt.lock_fingerprint, initial.lock_fingerprint);
+
+        fs::remove_dir_all(&modules).unwrap();
+        let missing = h
+            .service
+            .dependency_status(h.project.clone())
+            .await
+            .unwrap();
+        assert!(!missing.installed);
+        assert_eq!(missing.lock_fingerprint, initial.lock_fingerprint);
+
+        let approval = ScriptLifecycleApproval {
+            lock_fingerprint: initial.lock_fingerprint.clone().unwrap(),
+            packages: vec![PACKAGE.into()],
+        };
+        let restored = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "restore".into(),
+                PackageOperation::Restore(Some(approval)),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        assert_eq!(restored.lock_fingerprint, initial.lock_fingerprint);
+        assert_ne!(restored.revision, initial.revision);
+        let current = h.store.package_access(&h.project, false).unwrap();
+        let restored_generation = current.current().unwrap().unwrap();
+        assert_eq!(restored_generation.portable_files()[1].1, exported_lock);
+        assert!(restored_generation
+            .installed_modules()
+            .unwrap()
+            .join(PACKAGE)
+            .join("approved")
+            .is_file());
+        assert!(h
+            .service
+            .trust_project_with_packages(h.project.clone(), source, initial.revision)
+            .await
+            .is_err());
+        assert!(h
+            .service
+            .run(h.request(2))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("untrusted"));
+        drop(current);
+        h.service.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_lock_and_platform_checks_preserve_the_active_generation() {
+        let h = fake_harness().await;
+        let initial = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "initial".into(),
+                PackageOperation::Set(dependencies()),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        let wrong_approval = ScriptLifecycleApproval {
+            lock_fingerprint: "wrong lock".into(),
+            packages: vec![PACKAGE.into()],
+        };
+        for (mode, operation, error) in [
+            (
+                "normal",
+                PackageOperation::Restore(Some(wrong_approval)),
+                "before lifecycle script approval",
+            ),
+            (
+                "mismatch",
+                PackageOperation::Restore(None),
+                "frozen script package restore changed bun.lock",
+            ),
+            (
+                "unsupported",
+                PackageOperation::Set(dependencies()),
+                "unsupported on this platform",
+            ),
+        ] {
+            fs::write(h._root.path().join("install-mode"), mode).unwrap();
+            let failure = h
+                .service
+                .change_dependencies(h.project.clone(), mode.into(), operation, |_| {})
+                .await
+                .unwrap_err();
+            assert!(format!("{failure:#}").contains(error), "{failure:#}");
+            assert_eq!(
+                h.service
+                    .dependency_status(h.project.clone())
+                    .await
+                    .unwrap(),
+                initial
+            );
+        }
+        h.service.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn package_cancellation_joins_output_and_keeps_the_previous_generation() {
+        use super::super::packages::PackagePhase;
+
+        let h = fake_harness().await;
+        let initial = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "initial".into(),
+                PackageOperation::Set(dependencies()),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        fs::write(h._root.path().join("install-mode"), "blocked").unwrap();
+        let service = h.service.clone();
+        let project = h.project.clone();
+        let (tx, mut events) = mpsc::unbounded_channel();
+        let task = tokio::spawn(async move {
+            service
+                .change_dependencies(
+                    project,
+                    "cancel-me".into(),
+                    PackageOperation::Restore(None),
+                    move |event| {
+                        let _ = tx.send(event);
+                    },
+                )
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while let Some(event) = events.recv().await {
+                assert_eq!(event.operation_id, "cancel-me");
+                if event
+                    .message
+                    .is_some_and(|line| line.contains("ready to cancel"))
+                {
+                    return;
+                }
+            }
+            panic!("Bun did not report its install stage");
+        })
+        .await
+        .unwrap();
+
+        assert!(!h
+            .service
+            .cancel_dependency_install(&h.project, "wrong-operation")
+            .unwrap());
+        assert!(h
+            .service
+            .cancel_dependency_install(&h.project, "cancel-me")
+            .unwrap());
+        assert!(tokio::time::timeout(Duration::from_secs(5), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .is_err());
+        let mut last = None;
+        while let Some(event) = events.recv().await {
+            last = Some(event.phase);
+        }
+        assert!(matches!(last, Some(PackagePhase::Cancelled)));
+        assert_eq!(
+            h.service
+                .dependency_status(h.project.clone())
+                .await
+                .unwrap(),
+            initial
+        );
+        h.service.shutdown().await.unwrap();
+    }
+
+    /// The offline suite uses a controlled child process. Run this explicitly with network access.
+    #[tokio::test]
+    #[ignore = "fetches a fixed package from the npm registry"]
+    async fn real_bun_installs_restores_and_runs_a_locked_package() {
+        use crate::script::{
+            bun::BunExecutor,
+            bun_probe::{compilation_target_triple, prepared_sidecar_path},
+        };
+
+        let mut h = Harness::new();
+        let bun = prepared_sidecar_path(compilation_target_triple().unwrap());
+        use_package_runtime(&mut h, bun.clone(), Arc::new(BunExecutor::new(bun)));
+        let initial = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "initial".into(),
+                PackageOperation::Set([("is-number".into(), "7.0.0".into())].into()),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        let restored = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "restore".into(),
+                PackageOperation::Restore(None),
+                |_| {},
+            )
+            .await
+            .unwrap();
+        assert_eq!(restored.lock_fingerprint, initial.lock_fingerprint);
+
+        use base64::Engine as _;
+        let fixture = base64::engine::general_purpose::STANDARD
+            .encode(crate::script::output::tests::image(image::ImageFormat::Png));
+        let source = r#"import isNumber from "is-number";
+            createImageProcess(() => {
+                if (!isNumber("42") || isNumber("not a number")) throw new Error("broken package import");
+                return Uint8Array.from(atob("FIXTURE_PNG"), c => c.charCodeAt(0));
+            });"#.replace("FIXTURE_PNG", &fixture);
+        h.service
+            .save_project(h.project.clone(), source.clone(), SourceRevision(1))
+            .await
+            .unwrap();
+        h.service
+            .trust_project_with_packages(
+                h.project.clone(),
+                source.clone(),
+                restored.revision.clone(),
+            )
+            .await
+            .unwrap();
+        let mut request = h.request(1);
+        request.source.instrumented_source = source;
+        request.source.source_map = None;
+        h.service.run(request).await.unwrap();
+        let terminal = h.terminal().await;
+        assert!(
+            matches!(terminal, ScriptRunEvent::Succeeded { .. }),
+            "{terminal:?}"
+        );
+        h.service.shutdown().await.unwrap();
+    }
 }

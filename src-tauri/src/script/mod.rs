@@ -5,6 +5,8 @@ pub mod commands;
 pub mod executor;
 pub mod input;
 pub mod output;
+pub(crate) mod package_commands;
+mod packages;
 pub mod paths;
 pub mod project_commands;
 pub mod project_store;

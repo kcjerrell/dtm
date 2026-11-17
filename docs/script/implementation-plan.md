@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Status: Wave 5 implementation is committed locally and the Apple Silicon application checks passed. Milestone C still requires distribution acceptance.
+Wave 5 and the S50 locked package backend are implemented. Milestone C still requires distribution acceptance.
 
 Target branch: `origin/scripts`
 
@@ -736,6 +736,17 @@ Milestone C is complete only after S43.
 ### S50 — Locked package environment
 
 Add explicit dependency commands, per-project `package.json` and `bun.lock`, frozen-lock restoration, install progress/cancellation, and lifecycle-script trust policy. Disable runtime auto-install. Test cache corruption, lock mismatch, cancellation, and unsupported platform packages.
+
+S51 can call the S50 backend through these Tauri commands.
+
+- `get_script_dependencies` returns the direct dependency versions, active `revision`, `lockFingerprint`, and whether modules are installed for this target.
+- `set_script_dependencies` replaces the full map of exact npm versions. An empty map removes the project's dependencies.
+- `restore_script_dependencies` reinstalls the locked versions. Install hooks are skipped by default. An explicit `lifecycleApproval` can authorize named hooks for a single restore against the reviewed `lockFingerprint`. Approval is by package name within that locked graph, including any transitive occurrence of the same name.
+- Install and restore take a caller-generated `operationId` and a `progress` channel. Each event carries the operation ID, a phase, and an optional message. Pass the same operation ID with the project ID to `cancel_script_dependency_install`.
+
+Package files and installed modules publish together as a project-local generation. Project export carries the portable manifest and lockfile. A successful dependency change requires new Run/Live approval. The trust action for a project with dependencies must include the reviewed `expectedPackageRevision` along with the exact source. Bun runtime auto-install is disabled.
+
+The standard Rust scripting suite covers package failure and recovery cases. With the pinned sidecar prepared and registry access available, run `cargo test --locked --lib real_bun_installs_restores_and_runs_a_locked_package -- --ignored` from `src-tauri` to exercise install, frozen restore, and execution through the service.
 
 ### S51 — Package UI and TypeScript declaration sync
 

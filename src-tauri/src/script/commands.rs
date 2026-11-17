@@ -22,9 +22,10 @@ pub async fn trust_script_project(
     service: State<'_, ImageScriptService>,
     project_id: ProjectId,
     expected_source: String,
+    expected_package_revision: Option<String>,
 ) -> CommandResult<()> {
     service
-        .trust_project(project_id, expected_source)
+        .trust_project_with_packages(project_id, expected_source, expected_package_revision)
         .await
         .map_err(command_error)
 }

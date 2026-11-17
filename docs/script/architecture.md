@@ -167,14 +167,19 @@ App-managed projects live under an image-scripts app-data directory:
 image-scripts/projects/<uuid>/
     dtm.json
     process.ts
-    package.json       # post-MVP
-    bun.lock           # post-MVP
-    node_modules/      # generated; never exported
+    .dtm-packages/
+        current
+        generation-<id>/
+            package.json
+            bun.lock
+            node_modules/
 ```
 
 `dtm.json` contains portable, versioned metadata such as project ID, display name, schema version, and entry filename. Trust decisions, recent-project state, private paths, selected inputs, parameter values, and editor view state stay in DTM-local metadata and are not exported with the script.
 
 Backend writes are atomic. Runs use an immutable source snapshot identified by revision and content hash; they do not read a file that autosave might currently be replacing.
+
+The active package generation keeps its manifest, lockfile, and installed modules together. Exports place `package.json` and `bun.lock` beside `process.ts`. Generated modules stay local.
 
 ## Execution and transport
 
@@ -232,7 +237,7 @@ Required controls before the first executable milestone:
 - Keep Bun spawning in Rust; do not add a frontend Bun shell capability.
 - Start with a minimal environment and run-specific working directory.
 - Validate output containment and enforce resource caps.
-- Make dependency installation a separate future trust action.
+- Require an explicit dependency install action and separate approval for any install hooks.
 - Gate the existing WDIO/WebDriver plugins out of production builds before shipping scripts.
 
 OS-level sandboxing or a capability-broker helper is a later security project. Environment filtering and temporary directories must not be described as isolation.

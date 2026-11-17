@@ -474,6 +474,7 @@ mod tests {
         manifest.values = BTreeMap::new();
         manifest.inputs = inputs;
         ExecutionRequest {
+            packages: None,
             runs_root: root.into(),
             manifest,
             timeout: Duration::from_secs(5),

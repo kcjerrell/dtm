@@ -16,9 +16,17 @@ pub const EXECUTION_LOG_LIMIT: usize = 64 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct ExecutionRequest {
+    pub(super) packages: Option<PackageRunSnapshot>,
     pub runs_root: PathBuf,
     pub manifest: RunManifest,
     pub timeout: Duration,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct PackageRunSnapshot {
+    // Hold a cross-process shared lease until execution and cleanup are complete.
+    pub(super) _access: Arc<super::packages::PackageAccess>,
+    pub(super) modules: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -213,6 +221,7 @@ mod tests {
 
     fn request(root: &Path) -> ExecutionRequest {
         ExecutionRequest {
+            packages: None,
             runs_root: root.to_path_buf(),
             timeout: Duration::from_secs(1),
             manifest: RunManifest {

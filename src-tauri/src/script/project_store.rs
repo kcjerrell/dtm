@@ -14,6 +14,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use super::{
+    packages::PackageAccess,
     paths::{
         validate_entry_file, validate_project_id, ScriptPaths, ENTRY_FILE_NAME, MANIFEST_FILE_NAME,
     },
@@ -208,9 +209,10 @@ impl ProjectStore {
         Ok(manifest)
     }
 
-    /// Copies only the two portable MVP files into a newly-created directory.
+    /// Copies the portable source, manifest and locked dependencies into a new directory.
     pub fn export(&self, project_id: &ProjectId, destination: &Path) -> Result<()> {
         let project = self.open(project_id)?;
+        let packages = self.package_access(project_id, false)?;
         if destination.exists() {
             bail!(
                 "export destination already exists: {}",
@@ -233,6 +235,11 @@ impl ProjectStore {
             &staging.path().join(ENTRY_FILE_NAME),
             project.source.as_bytes(),
         )?;
+        if let Some(generation) = packages.current()? {
+            for (name, contents) in generation.portable_files() {
+                write_new_file(&staging.path().join(name), contents)?;
+            }
+        }
         let staging_path = staging.keep();
         if let Err(error) = fs::rename(&staging_path, destination) {
             let _ = fs::remove_dir_all(&staging_path);
@@ -242,6 +249,16 @@ impl ProjectStore {
         }
         sync_directory(parent)?;
         Ok(())
+    }
+
+    pub(super) fn package_access(
+        &self,
+        project_id: &ProjectId,
+        write: bool,
+    ) -> Result<PackageAccess> {
+        let directory = self.existing_project_dir(project_id)?;
+        self.read_manifest(&directory, project_id)?;
+        PackageAccess::open(directory, write)
     }
 
     fn initialize_project(&self, directory: &Path, manifest: &ProjectManifest) -> Result<()> {

@@ -182,6 +182,12 @@ describe("Image Scripts", () => {
         const projectId = await newProject.getAttribute("value")
         if (!projectId) throw new Error("The created script project has no ID")
         await expect(picker).toHaveValue(projectId)
+        expect(await invoke("get_script_dependencies", { projectId })).toEqual({
+            dependencies: {},
+            revision: null,
+            lockFingerprint: null,
+            installed: false,
+        })
         await waitForRun("idle")
         await expect(run()).not.toBeEnabled()
 

@@ -740,6 +740,7 @@ pub(super) mod tests {
         manifest.values.clear();
         let prepared = executor
             .prepare(ExecutionRequest {
+                packages: None,
                 runs_root: runs.path().into(),
                 manifest,
                 timeout: Duration::from_secs(5),

@@ -36,12 +36,13 @@ pub fn register(app: &tauri::App, projects: DTPService) -> Result<()> {
     let approvals = Arc::new(InputApprovals::default());
     let resources = Arc::new(DrawThingsInputs::new(projects));
     let (sender, mut events) = tokio::sync::mpsc::unbounded_channel::<ScriptRunEvent>();
-    let service = ImageScriptService::new(
+    let service = ImageScriptService::new_with_package_runtime(
         store.clone(),
-        Arc::new(BunExecutor::new(path)),
+        Arc::new(BunExecutor::new(path.clone())),
         approvals.clone(),
         resources.clone(),
         ServiceLimits::default(),
+        Some(path),
         move |event| {
             let _ = sender.send(event);
         },
