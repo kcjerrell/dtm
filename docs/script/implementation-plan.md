@@ -770,6 +770,8 @@ For a 3000 × 2000 fixture, the Bun runner peaked at 110.2 MiB RSS for JPEG and 
 
 Separately evaluate an OS-level helper sandbox or capability broker. Do not block the trusted-local MVP on this investigation, but do not market untrusted script execution until it produces an enforceable filesystem/network/process policy.
 
+Use the [S60 handoff](./s60-handoff.md) for the starting commit, threat model, and Apple Silicon validation scope.
+
 ## Orchestrator procedure
 
 For every wave:
