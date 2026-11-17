@@ -130,10 +130,10 @@ export function useMediaItemCommands() {
                     id: "compare",
                     label: "Compare image",
                     onClick: async (item) => {
-                        if (!item?.id) return
+                        if (!item?.id || item.isVideo) return
                         await addMediaItem(item.id)
                     },
-                    getEnabled: (item) => !!item?.id,
+                    getEnabled: (item) => !!item?.id && !item.isVideo,
                     toolbarEnableMode: "hide",
                     icon: RiLayoutColumnFill,
                 },

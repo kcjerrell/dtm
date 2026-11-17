@@ -73,6 +73,7 @@ export type ImageCompareHooksContextType = {
         sbsPaneARef: RefObject<HTMLDivElement | null>
         sbsPaneBRef: RefObject<HTMLDivElement | null>
         dragRef: RefObject<HTMLDivElement | null>
+        alignmentPanelRef: RefObject<HTMLDivElement | null>
     }
     mv: {
         sliderMv: MotionValue<number>
@@ -102,6 +103,7 @@ export function useCreateImageCompareContext(
     const sbsPaneARef = useRef<HTMLDivElement>(null)
     const sbsPaneBRef = useRef<HTMLDivElement>(null)
     const dragRef = useRef<HTMLDivElement>(null)
+    const alignmentPanelRef = useRef<HTMLDivElement>(null)
 
     const contentSize = useMemo(
         () => ({ width: snap.contentSize.width, height: snap.contentSize.height }),
@@ -250,6 +252,7 @@ export function useCreateImageCompareContext(
                 sbsPaneARef,
                 sbsPaneBRef,
                 dragRef,
+                alignmentPanelRef,
             },
             mv: {
                 sliderMv,

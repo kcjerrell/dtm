@@ -4,6 +4,7 @@ import { Panel } from "@/components/common"
 import { useRootElementRef } from "@/hooks/useRootElement"
 import ToolbarButton from "../toolbar/ToolbarButton"
 import { NumberInputField, NumberInputLabel, NumberInputRoot } from "../ui/number-input"
+import { useImageCompareHooks } from "./hooks"
 import { AlignmentSettings } from "./icons"
 import { ImageCompareContext } from "./state"
 
@@ -62,21 +63,32 @@ function AlignmentField(props: {
 
 export default function AlignmentPanel() {
     const [state, snap] = ImageCompareContext.useContext()
+    const {
+        refs: { alignmentPanelRef },
+    } = useImageCompareHooks()
     const [open, setOpen] = useState(false)
-    const isOpen = open && snap.mode === "align"
     const viewRef = useRootElementRef("view")
     const disabled = !snap.imageASrc || !snap.imageBSrc || !snap.imageAWidth || !snap.imageBWidth
+    const isOpen = open && snap.mode === "align" && !disabled
 
     return (
         <Popover.Root
             open={isOpen}
             onOpenChange={({ open }) => setOpen(open)}
             positioning={{ placement: "top" }}
+            portalled={false}
+            restoreFocus={false}
+            initialFocusEl={() =>
+                alignmentPanelRef.current?.querySelector<HTMLInputElement>(
+                    "input:not(:disabled)",
+                ) ?? alignmentPanelRef.current
+            }
         >
             <Popover.Trigger asChild>
                 <ToolbarButton
                     itemId="alignment-settings"
                     isOpen={isOpen}
+                    disabled={disabled}
                     aria-label="Adjust alignment"
                     tipTitle="Adjust alignment"
                 >
@@ -87,13 +99,13 @@ export default function AlignmentPanel() {
                 <Popover.Positioner>
                     <Popover.Content asChild aria-label="Image B alignment">
                         <Panel
+                            ref={isOpen ? alignmentPanelRef : null}
                             variant="float"
                             bgColor="bg.1"
                             color="fg.1"
                             width="14rem"
                             maxHeight="none"
                             overflow="visible"
-                            data-image-compare-controls=""
                         >
                             <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
                             <Popover.Body

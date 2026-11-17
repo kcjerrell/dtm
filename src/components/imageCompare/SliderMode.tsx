@@ -501,10 +501,17 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 </ToolbarButton>
             </ToolbarSection>
             <ToolbarSection>
-                <Popover.Root positioning={{ placement: "top" }} open={isSettingsOpen}>
+                <Popover.Root
+                    positioning={{ placement: "top" }}
+                    open={isSettingsOpen}
+                    autoFocus={false}
+                    portalled={false}
+                    restoreFocus={false}
+                >
                     <Popover.Trigger _expanded={{ background: undefined }} asChild>
                         <SettingsButton
                             itemId={"settings"}
+                            aria-label="Slider effect settings"
                             isOpen={isSettingsOpen}
                             onEnter={onEnter}
                             onLeave={startCloseTimer}

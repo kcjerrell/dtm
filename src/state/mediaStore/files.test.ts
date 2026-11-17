@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+const invoke = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const fs = vi.hoisted(() => ({
     exists: vi.fn().mockResolvedValue(true),
     mkdir: vi.fn(),
@@ -15,7 +16,10 @@ vi.mock("@tauri-apps/api", () => ({
         basename: async (name: string) => name.split("/").at(-1),
     },
 }))
-vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => `asset://${path}` }))
+vi.mock("@tauri-apps/api/core", () => ({
+    convertFileSrc: (path: string) => `asset://${path}`,
+    invoke,
+}))
 vi.mock("@tauri-apps/plugin-fs", () => fs)
 vi.mock("@/utils/helpers", () => ({ getStoreName: (name: string) => name }))
 
@@ -35,6 +39,18 @@ beforeEach(() => {
     fs.exists.mockResolvedValue(true)
     fs.remove.mockResolvedValue(undefined)
     fs.writeFile.mockResolvedValue(undefined)
+})
+
+it("allows replacing the destination of a user-selected copy", async () => {
+    const { MediaStoreFiles } = await import("./files")
+
+    await MediaStoreFiles.saveCopy("aaaaaaaaaaaa.png", "/export.png")
+
+    expect(invoke).toHaveBeenCalledWith("stage_media_snapshot", {
+        source: { kind: "file", location: "/app/media/aaaaaaaaaaaa.png" },
+        destination: "/export.png",
+        replaceExisting: true,
+    })
 })
 
 describe("orphaned media files", () => {

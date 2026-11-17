@@ -31,6 +31,16 @@ vi.mock("@tauri-store/valtio", () => ({
 
 const data = new Uint8Array([1])
 const source = { source: "project", projectId: 1, projectFile: "one.sqlite", tensorId: "tensor1" }
+const video: MediaStateCol = {
+    id: "metadata-video",
+    type: "mp4",
+    url: "asset://clip.mp4",
+    thumbUrl: "asset://clip.mp4",
+    source: { file: "/videos/clip.mp4" },
+    storage: { kind: "app", fname: "clip.mp4" },
+    createdAt: 0,
+    $col: { metadata: { pin: 1 } },
+}
 
 beforeEach(() => {
     vi.resetModules()
@@ -53,6 +63,47 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("sending images to Compare", () => {
+    it("rejects importing new videos and attaching existing Metadata videos", async () => {
+        mocks.items = [video]
+        const { addMediaItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+        const { getMetadataStore } = await import("@/metadata/state/metadataStore2")
+        const { collection, state } = await getCompareStore()
+
+        await expect(
+            collection.importMedia({ kind: "file", location: "/videos/other.mov", type: "mov" }),
+        ).rejects.toThrow("Videos are not allowed in this collection")
+        await addMediaItem(video.id)
+
+        expect((await getMetadataStore()).state.items[0]?.isVideo).toBe(true)
+        expect(state.items).toHaveLength(0)
+        expect(mocks.saveFile).not.toHaveBeenCalled()
+        expect(mocks.decode).not.toHaveBeenCalled()
+        expect(mocks.sidebarActivity.compare).toBe(false)
+        expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
+            title: "Could not add image to Compare",
+            type: "error",
+            description: "Videos are not allowed in this collection",
+        })
+    })
+
+    it("hides a previously added video while accepting a still from the same project source", async () => {
+        mocks.items = [{ ...video, source, $col: { ...video.$col, icompare: { pin: 1 } } }]
+        const { addNewItem } = await import("./interop")
+        const { getCompareStore } = await import("./state")
+        const { getMetadataStore } = await import("@/metadata/state/metadataStore2")
+        const { state: compare } = await getCompareStore()
+
+        expect(compare.items).toHaveLength(0)
+        await addNewItem(data, "png", source)
+
+        expect(compare.items.map(({ type }) => type)).toEqual(["png"])
+        expect(compare.imageA).toBe(compare.items[0])
+        expect((await getMetadataStore()).state.items.map(({ id, pin }) => ({ id, pin }))).toEqual([
+            { id: video.id, pin: 1 },
+        ])
+    })
+
     it.each(["Compare", "Metadata"])(
         "shares the same project image when sent to %s first",
         async (firstView) => {

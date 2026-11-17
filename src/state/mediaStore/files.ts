@@ -108,6 +108,7 @@ async function saveCopy(fname: string, dest: string) {
     await invoke("stage_media_snapshot", {
         source: { kind: "file", location: await getFullPath(fname) },
         destination: dest,
+        replaceExisting: true,
     })
 }
 

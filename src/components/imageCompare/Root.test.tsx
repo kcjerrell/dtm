@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react"
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { PropsWithChildren } from "react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { comparisonZoomProperties } from "./imageGeometry"
@@ -65,6 +65,24 @@ async function cycleMode(shiftKey: boolean) {
     })
 }
 
+async function dragSlider(thumb: HTMLElement, expectedValue: string) {
+    const control = thumb.parentElement
+    if (!control) throw new Error("Missing slider control")
+    vi.spyOn(control, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 80, 20))
+    vi.spyOn(thumb, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 0, 20))
+    const focus = vi.spyOn(thumb, "focus")
+    await act(async () => {
+        fireEvent.pointerDown(thumb, { pointerId: 1, button: 0, clientX: 0, clientY: 10 })
+    })
+    await waitFor(() => expect(focus).toHaveBeenCalled())
+    await act(async () => {
+        fireEvent.pointerMove(document, { pointerId: 1, clientX: 40, clientY: 10 })
+        fireEvent.pointerUp(document, { pointerId: 1, button: 0, clientX: 40, clientY: 10 })
+    })
+    await waitFor(() => expect(thumb.getAttribute("aria-valuenow")).toBe(expectedValue))
+    expect(document.activeElement).toBe(document.body)
+}
+
 it("settles on the latest settings after consecutive mode changes", async () => {
     setup()
 
@@ -96,6 +114,64 @@ it("restores the selected layout when returning to side-by-side mode", async () 
     await cycleMode(true)
 
     expect(screen.getByRole("button", { name: "Horizontal layout", pressed: true })).toBeTruthy()
+})
+
+it("cycles modes after interacting with the Slider and Swap settings", async () => {
+    setup({ a: "a.png", b: "b.png" })
+    const sliderSettings = screen.getByRole("button", { name: "Slider effect settings" })
+    await act(async () => fireEvent.mouseEnter(sliderSettings))
+    const settings = await screen.findByRole("dialog")
+    const [threshold, gain] = within(settings).getAllByRole("slider")
+    await dragSlider(threshold, "0.1")
+    await dragSlider(gain, "11")
+    await cycleMode(false)
+
+    const speed = screen.getByRole("slider", { name: "Alternation speed" })
+    await dragSlider(speed, "5")
+    await cycleMode(false)
+
+    const layout = screen.getByRole("button", { name: "Vertical layout" })
+    await act(async () => layout.focus())
+    expect(document.activeElement).toBe(document.body)
+    await cycleMode(false)
+    expect(screen.getByRole("button", { name: "Adjust alignment" })).toBeTruthy()
+})
+
+it("focuses the first alignment field and wraps Tab in both directions", async () => {
+    setup({ a: "a.png", b: "b.png" })
+    await cycleMode(true)
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Adjust alignment" })))
+
+    const panel = await screen.findByRole("dialog", { name: "Image B alignment" })
+    const fields = ["X offset", "Y offset", "Scale X (%)", "Scale Y (%)"].map((name) =>
+        within(panel).getByRole("spinbutton", { name }),
+    )
+    await waitFor(() => expect(document.activeElement).toBe(fields[0]))
+
+    for (const field of [...fields.slice(1), fields[0]]) {
+        await cycleMode(false)
+        expect(document.activeElement).toBe(field)
+    }
+    await cycleMode(true)
+    expect(document.activeElement).toBe(fields[3])
+
+    await act(async () => fireEvent.keyDown(fields[3], { key: "Escape", code: "Escape" }))
+    await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Image B alignment" })).toBeNull(),
+    )
+    await cycleMode(false)
+    expect(screen.getByRole("button", { name: "Slider effect settings" })).toBeTruthy()
+})
+
+it("continues cycling modes when manual alignment has no editable fields", async () => {
+    setup({ a: "a.png" })
+    await cycleMode(true)
+
+    const settings = screen.getByRole<HTMLButtonElement>("button", { name: "Adjust alignment" })
+    expect(settings.disabled).toBe(true)
+
+    await cycleMode(false)
+    expect(screen.getByRole("button", { name: "Slider effect settings" })).toBeTruthy()
 })
 
 it.each([

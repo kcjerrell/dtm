@@ -122,10 +122,12 @@ function createMediaStore() {
     }
 
     function getSourceCandidates(key: string, collectionId: string, onlyInCollection = false) {
+        const collection = collections.getCollection(collectionId)
         return store.items
             .filter(
                 (item) =>
                     (!onlyInCollection || collectionId in item.$col) &&
+                    collection?.allowsMediaType(item.type) &&
                     getSourceKey(item.source) === key,
             )
             .sort((a, b) => Number(collectionId in b.$col) - Number(collectionId in a.$col))
@@ -179,10 +181,12 @@ function createMediaStore() {
         await waitForReady()
         if (!data || data.length === 0) throw new Error("missing data")
         if (!type || !VALID_MEDIA_TYPES.includes(type)) throw new Error("invalid type")
+        const collection = collections.getCollection(collectionId)
+        if (!collection) throw new Error(`unknown media collection: ${collectionId}`)
+        if (!collection.allowsMediaType(type))
+            throw new Error("Videos are not allowed in this collection")
         if (kind === "app" && VALID_VIDEO_TYPES.includes(type))
             throw new Error("videos must be referenced by file or URL")
-        if (!collections.getCollection(collectionId))
-            throw new Error(`unknown media collection: ${collectionId}`)
 
         if (kind === "dtp") throw new Error("project storage is not supported")
         if (kind === "file" && (typeof data !== "string" || !data.startsWith("/")))
@@ -248,8 +252,10 @@ function createMediaStore() {
         await waitForReady()
         const item = getItem(id)
         if (!item) throw new Error(`Item ${id} not found`)
-        if (!collections.getCollection(collectionId))
-            throw new Error(`unknown media collection: ${collectionId}`)
+        const collection = collections.getCollection(collectionId)
+        if (!collection) throw new Error(`unknown media collection: ${collectionId}`)
+        if (!collection.allowsMediaType(item.type))
+            throw new Error("Videos are not allowed in this collection")
 
         const key = getSourceKey(item.source)
         return await withSourceLock(key, async () => {

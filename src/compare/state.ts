@@ -34,6 +34,7 @@ function initStore() {
         "icompare",
         { pin: null as number | null },
         {
+            allowVideo: false,
             version: 1,
             onItemsChanged: () => {
                 const state = getStore().state

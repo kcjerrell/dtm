@@ -24,6 +24,7 @@ import type {
     MediaStoreApi,
     MediaStoreType,
 } from "./types"
+import { VALID_VIDEO_TYPES } from "./types"
 
 export function getCollections(store: MediaStoreType, api: MediaStoreApi) {
     const collections = new Map<
@@ -94,6 +95,7 @@ export class MediaCollection<
                 const mappedItems: F[] = []
                 for (const item of store.items) {
                     if (!item.$col[collectionId]) continue
+                    if (!this.allowsMediaType(item.type)) continue
 
                     const mappedItem = this.itemMap.getItem(item)
                     if (!mappedItem) continue
@@ -139,6 +141,10 @@ export class MediaCollection<
 
     get items(): F[] {
         return this.compItems.items
+    }
+
+    allowsMediaType(type: string): boolean {
+        return this.options.allowVideo !== false || !VALID_VIDEO_TYPES.includes(type)
     }
 
     /** Internal collection lifecycle coordination. */

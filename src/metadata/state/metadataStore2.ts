@@ -172,6 +172,7 @@ function initStore(): MetadataStore {
         "metadata",
         { pin: null as number | null },
         {
+            allowVideo: true,
             itemFactory: (item, state) => {
                 let mdItem: MdItem | undefined
                 if (VALID_IMAGE_TYPES.includes(item.type)) mdItem = new MdImage(item, state)

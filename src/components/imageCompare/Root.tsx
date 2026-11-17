@@ -4,6 +4,7 @@ import {
     Activity,
     Children,
     type CSSProperties,
+    type FocusEvent,
     isValidElement,
     type PropsWithChildren,
     type ReactElement,
@@ -72,7 +73,10 @@ function Root(props: ImageCompareRootProps) {
     const { children, imageProps, toolbarProps, a, b, ...restProps } = props
     const [Provider, state, snap] = ImageCompareContext.useCreate(props)
     const [HooksProvider, hooks] = useCreateImageCompareContext(state, snap)
-    const { refs, zoomHandlers } = hooks
+    const {
+        refs: { alignmentPanelRef, viewportRef, imgARef },
+        zoomHandlers,
+    } = hooks
     const { setImage } = hooks
 
     const contentSize = snap.contentSize
@@ -142,27 +146,53 @@ function Root(props: ImageCompareRootProps) {
     }, [b, setImage])
 
     useEffect(() => {
+        const tabKeydown = (e: KeyboardEvent) => {
+            if (e.key !== "Tab" || viewportRef.current?.closest("[inert]")) return
+
+            e.preventDefault()
+            e.stopPropagation()
+
+            const step = e.shiftKey ? -1 : 1
+            const alignmentPanel = alignmentPanelRef.current
+            if (alignmentPanel) {
+                const fields = Array.from(
+                    alignmentPanel.querySelectorAll<HTMLInputElement>("input:not(:disabled)"),
+                )
+                const activeElement = document.activeElement
+                const currentField =
+                    activeElement instanceof HTMLInputElement ? fields.indexOf(activeElement) : -1
+                const nextField =
+                    currentField === -1
+                        ? fields.at(e.shiftKey ? -1 : 0)
+                        : fields[(currentField + step + fields.length) % fields.length]
+                nextField?.focus({ preventScroll: true })
+                return
+            }
+
+            const index = modeNames.indexOf(state.mode)
+            setMode(modeNames[(index + step + modeNames.length) % modeNames.length])
+        }
         const keydown = (e: KeyboardEvent) => {
-            if (e.defaultPrevented) return
+            if (
+                e.defaultPrevented ||
+                alignmentPanelRef.current ||
+                viewportRef.current?.closest("[inert]")
+            )
+                return
             if (e.key === "Shift") {
                 state.shiftHeld = true
                 return
             }
-            // Preserve normal keyboard interaction in controls.
             if (
-                e.target instanceof Element &&
-                e.target.closest(
-                    "button, input, textarea, select, [contenteditable='true'], [role='slider'], [data-image-compare-controls]",
+                e.code === "Space" &&
+                !(
+                    e.target instanceof Element &&
+                    e.target.closest(
+                        "button, input, textarea, select, [contenteditable], [role='slider']",
+                    )
                 )
-            )
-                return
-            if (e.code === "Space") {
+            ) {
                 activeMode?.keyHandlers?.space?.()
-            } else if (e.code === "Tab") {
-                e.preventDefault()
-                const index = modeNames.indexOf(state.mode)
-                const step = e.shiftKey ? -1 : 1
-                setMode(modeNames[(index + step + modeNames.length) % modeNames.length])
             }
         }
         const keyup = (e: KeyboardEvent) => {
@@ -170,14 +200,26 @@ function Root(props: ImageCompareRootProps) {
                 state.shiftHeld = false
             }
         }
+        document.addEventListener("keydown", tabKeydown, true)
         document.addEventListener("keydown", keydown)
         document.addEventListener("keyup", keyup)
 
         return () => {
+            document.removeEventListener("keydown", tabKeydown, true)
             document.removeEventListener("keydown", keydown)
             document.removeEventListener("keyup", keyup)
         }
-    }, [state, activeMode?.keyHandlers, setMode])
+    }, [state, activeMode?.keyHandlers, setMode, alignmentPanelRef, viewportRef])
+
+    function releaseControlFocus(event: FocusEvent<HTMLDivElement>) {
+        if (
+            event.target instanceof HTMLElement &&
+            !alignmentPanelRef.current?.contains(event.target)
+        ) {
+            event.stopPropagation()
+            event.target.blur()
+        }
+    }
 
     return (
         <HooksProvider value={hooks}>
@@ -188,10 +230,14 @@ function Root(props: ImageCompareRootProps) {
                     // defining anim duration on common parent
                     {...(activeMode?.rootProps ?? {})}
                     {...restProps}
+                    onFocusCapture={(event) => {
+                        releaseControlFocus(event)
+                        restProps.onFocusCapture?.(event)
+                    }}
                 >
                     {/* image viewport */}
                     <Box
-                        ref={refs.viewportRef}
+                        ref={viewportRef}
                         id="image-compare-viewport"
                         gridArea={"image"}
                         position={"relative"}
@@ -223,7 +269,7 @@ function Root(props: ImageCompareRootProps) {
                                 <motion.img
                                     id={"img-a"}
                                     crossOrigin="anonymous"
-                                    ref={refs.imgARef}
+                                    ref={imgARef}
                                     draggable={false}
                                     src={snap.imageASrc}
                                     alt=""

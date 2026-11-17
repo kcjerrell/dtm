@@ -19,6 +19,7 @@ pub(crate) enum SnapshotSource {
 pub(crate) async fn stage_media_snapshot(
     source: SnapshotSource,
     destination: PathBuf,
+    replace_existing: Option<bool>,
 ) -> TAResult<()> {
     let parent = destination
         .parent()
@@ -72,9 +73,12 @@ pub(crate) async fn stage_media_snapshot(
         .await
         .context("failed to flush staged media")?;
     drop(output);
-    staged
-        .persist_noclobber(&destination)
-        .with_context(|| format!("failed to cache media at {}", destination.display()))?;
+    let saved = if replace_existing == Some(true) {
+        staged.persist(&destination)
+    } else {
+        staged.persist_noclobber(&destination)
+    };
+    saved.with_context(|| format!("failed to save media at {}", destination.display()))?;
     Ok(())
 }
 
@@ -151,15 +155,44 @@ mod tests {
         let source = dir.path().join("source");
         let snapshot = dir.path().join("snapshot");
         std::fs::write(&source, b"original")?;
-        stage_media_snapshot(SnapshotSource::File(source.clone()), snapshot.clone()).await?;
+        stage_media_snapshot(SnapshotSource::File(source.clone()), snapshot.clone(), None).await?;
 
         std::fs::write(&source, b"changed")?;
         assert!(
-            stage_media_snapshot(SnapshotSource::File(source), snapshot.clone())
+            stage_media_snapshot(SnapshotSource::File(source), snapshot.clone(), None)
                 .await
                 .is_err()
         );
         assert_eq!(std::fs::read(snapshot)?, b"original");
+        assert_eq!(std::fs::read_dir(dir.path())?.count(), 2);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn replaces_an_existing_copy_only_after_staging_succeeds() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let source = dir.path().join("source");
+        let destination = dir.path().join("export");
+        std::fs::write(&source, b"")?;
+        std::fs::write(&destination, b"original")?;
+
+        assert!(stage_media_snapshot(
+            SnapshotSource::File(source.clone()),
+            destination.clone(),
+            Some(true),
+        )
+        .await
+        .is_err());
+        assert_eq!(std::fs::read(&destination)?, b"original");
+
+        std::fs::write(&source, b"replacement")?;
+        stage_media_snapshot(
+            SnapshotSource::File(source),
+            destination.clone(),
+            Some(true),
+        )
+        .await?;
+        assert_eq!(std::fs::read(destination)?, b"replacement");
         assert_eq!(std::fs::read_dir(dir.path())?.count(), 2);
         Ok(())
     }

@@ -92,6 +92,8 @@ export type CollectionOptions<
     T extends Record<string, unknown> = Record<string, unknown>,
     F extends MediaItemBase<T> = CollectionItem<T>,
 > = {
+    /** Video is allowed unless explicitly disabled for this collection. */
+    allowVideo?: boolean
     itemFactory?: MediaCollectionItemFactory<T, F>
     onItemsChanged?: () => void
     /** The version number for the collection item's data type. Currently unused. */
