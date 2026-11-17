@@ -1,5 +1,9 @@
 import { invokeScriptCommand, resolveMockScriptPreview } from "./script-commands"
 
+export class Channel<T> {
+    constructor(public onmessage: (response: T) => void = () => {}) {}
+}
+
 export const invoke = async (cmd: string, args?: any) => {
   const script = invokeScriptCommand(cmd, args);
   if (script) return script.value;

@@ -17,6 +17,7 @@ declare module "monaco-editor/languages/features/typescript/tsWorker.js" {
 
     export class TypeScriptWorker {
         constructor(context: WorkerContext, createData: WorkerCreateData)
+        updateExtraLibs(extraLibs: WorkerCreateData["extraLibs"]): Promise<void>
         getSemanticDiagnostics(fileName: string): Promise<Array<{ code: number | string }>>
         getCompletionsAtPosition(
             fileName: string,

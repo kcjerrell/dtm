@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Wave 5 and the S50 locked package backend are implemented. Milestone C still requires distribution acceptance.
+Wave 5, the S50 locked package backend, and the S51 workspace are implemented. Milestone C still requires distribution acceptance.
 
 Target branch: `origin/scripts`
 
@@ -751,6 +751,12 @@ The standard Rust scripting suite covers package failure and recovery cases. Wit
 ### S51 — Package UI and TypeScript declaration sync
 
 Add dependency management UI and make installed package declarations available to the editor. Keep the language-service adapter boundary so a real `tsserver` bridge can replace Monaco virtual libraries if arbitrary-package resolution becomes unreliable.
+
+The workspace sends the displayed `expectedPackageState.revision` with install and restore actions. The backend compares it under the package write lock, so an older workspace view cannot overwrite a newer package set.
+
+`get_script_dependency_declarations` reads declarations and package resolution metadata for the exact installed revision under a read lease. The editor adapter registers those files under the active project's virtual `node_modules` path and releases them when the project or revision changes. The workspace reports when the snapshot is incomplete or exceeds its size limits.
+
+The Apple Silicon WebKit smoke installed `kleur@4.1.5` and verified declaration lookup through its `kleur/colors` export, actual Bun execution, trust reset on frozen restore, and type removal on uninstall.
 
 ### S52 — Sharp acceptance
 

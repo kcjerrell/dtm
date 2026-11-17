@@ -1,11 +1,16 @@
-import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core"
+import { Channel, convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import type { ImageSelector } from "../controls"
+import { createPackageCommands } from "../packages/adapters"
 import { createProjectCommands } from "../project"
 import { createRunCommands, createRunEventSource } from "../run"
 
 export const projectCommands = createProjectCommands(invoke)
 export const runCommands = createRunCommands(invoke)
+export const packageCommands = createPackageCommands(
+    invoke,
+    (onProgress) => new Channel(onProgress),
+)
 export const runEvents = createRunEventSource(listen, "script-run-event")
 
 export function scriptInputSelector(getImageId: () => number | undefined): ImageSelector {

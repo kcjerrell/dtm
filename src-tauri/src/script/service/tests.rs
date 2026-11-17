@@ -1137,7 +1137,9 @@ async fn real_bun_enforces_output_limits_and_paths_and_joins_on_shutdown() {
 #[cfg(unix)]
 mod package_installation {
     use super::*;
-    use crate::script::packages::{ScriptDependencies, ScriptLifecycleApproval};
+    use crate::script::packages::{
+        ExpectedPackageState, ScriptDependencies, ScriptLifecycleApproval,
+    };
     use std::{fs, os::unix::fs::PermissionsExt, path::Path};
 
     const PACKAGE: &str = "test-package";
@@ -1230,6 +1232,7 @@ fi
                 h.project.clone(),
                 "initial".into(),
                 PackageOperation::Set(dependencies()),
+                Some(ExpectedPackageState { revision: None }),
                 |_| {},
             )
             .await
@@ -1302,6 +1305,9 @@ fi
                 h.project.clone(),
                 "restore".into(),
                 PackageOperation::Restore(Some(approval)),
+                Some(ExpectedPackageState {
+                    revision: initial.revision.clone(),
+                }),
                 |_| {},
             )
             .await
@@ -1342,10 +1348,30 @@ fi
                 h.project.clone(),
                 "initial".into(),
                 PackageOperation::Set(dependencies()),
+                Some(ExpectedPackageState { revision: None }),
                 |_| {},
             )
             .await
             .unwrap();
+        let stale = h
+            .service
+            .change_dependencies(
+                h.project.clone(),
+                "stale".into(),
+                PackageOperation::Set(ScriptDependencies::new()),
+                Some(ExpectedPackageState { revision: None }),
+                |_| {},
+            )
+            .await
+            .unwrap_err();
+        assert!(format!("{stale:#}").contains("dependencies changed before the operation"));
+        assert_eq!(
+            h.service
+                .dependency_status(h.project.clone())
+                .await
+                .unwrap(),
+            initial
+        );
         let wrong_approval = ScriptLifecycleApproval {
             lock_fingerprint: "wrong lock".into(),
             packages: vec![PACKAGE.into()],
@@ -1370,7 +1396,7 @@ fi
             fs::write(h._root.path().join("install-mode"), mode).unwrap();
             let failure = h
                 .service
-                .change_dependencies(h.project.clone(), mode.into(), operation, |_| {})
+                .change_dependencies(h.project.clone(), mode.into(), operation, None, |_| {})
                 .await
                 .unwrap_err();
             assert!(format!("{failure:#}").contains(error), "{failure:#}");
@@ -1396,6 +1422,7 @@ fi
                 h.project.clone(),
                 "initial".into(),
                 PackageOperation::Set(dependencies()),
+                Some(ExpectedPackageState { revision: None }),
                 |_| {},
             )
             .await
@@ -1410,6 +1437,7 @@ fi
                     project,
                     "cancel-me".into(),
                     PackageOperation::Restore(None),
+                    None,
                     move |event| {
                         let _ = tx.send(event);
                     },
@@ -1477,6 +1505,7 @@ fi
                 h.project.clone(),
                 "initial".into(),
                 PackageOperation::Set([("is-number".into(), "7.0.0".into())].into()),
+                Some(ExpectedPackageState { revision: None }),
                 |_| {},
             )
             .await
@@ -1487,6 +1516,9 @@ fi
                 h.project.clone(),
                 "restore".into(),
                 PackageOperation::Restore(None),
+                Some(ExpectedPackageState {
+                    revision: initial.revision.clone(),
+                }),
                 |_| {},
             )
             .await

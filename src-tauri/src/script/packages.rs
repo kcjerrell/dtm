@@ -40,6 +40,12 @@ pub struct ScriptLifecycleApproval {
     pub packages: Vec<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExpectedPackageState {
+    pub(super) revision: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PackageManifest {

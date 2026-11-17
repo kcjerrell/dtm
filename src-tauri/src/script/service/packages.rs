@@ -9,8 +9,8 @@ use crate::script::{
     bun::run_package_command,
     bun_probe::validate_version,
     packages::{
-        read_file, stamp_modules, validate_dependencies, write_manifest, PackageAccess,
-        ScriptDependencies, ScriptDependencyStatus, ScriptLifecycleApproval,
+        read_file, stamp_modules, validate_dependencies, write_manifest, ExpectedPackageState,
+        PackageAccess, ScriptDependencies, ScriptDependencyStatus, ScriptLifecycleApproval,
     },
     types::ProjectId,
 };
@@ -106,6 +106,7 @@ impl ImageScriptService {
         project: ProjectId,
         operation_id: String,
         operation: PackageOperation,
+        expected_state: Option<ExpectedPackageState>,
         progress: impl Fn(PackageProgress) + Send + Sync + 'static,
     ) -> Result<ScriptDependencyStatus> {
         if operation_id.is_empty() || operation_id.len() > 128 {
@@ -155,7 +156,14 @@ impl ImageScriptService {
         tokio::spawn(async move {
             reporter.emit(PackagePhase::Preparing, None);
             let result = inner
-                .install_dependencies(&project, operation, &bun, &reporter, &cancelled)
+                .install_dependencies(
+                    &project,
+                    operation,
+                    expected_state,
+                    &bun,
+                    &reporter,
+                    &cancelled,
+                )
                 .await;
             let phase = {
                 let mut state = inner.state()?;
@@ -197,6 +205,7 @@ impl Inner {
         self: &Arc<Self>,
         project: &ProjectId,
         operation: PackageOperation,
+        expected_state: Option<ExpectedPackageState>,
         bun: &Path,
         reporter: &Arc<Reporter>,
         cancelled: &watch::Receiver<bool>,
@@ -204,7 +213,16 @@ impl Inner {
         let store = self.store.clone();
         let access = {
             let project = project.clone();
-            tokio::task::spawn_blocking(move || store.package_access(&project, true))
+            tokio::task::spawn_blocking(move || {
+                let access = store.package_access(&project, true)?;
+                if let Some(expected) = expected_state {
+                    let revision = access.current()?.map(|generation| generation.revision());
+                    if revision != expected.revision {
+                        bail!("script dependencies changed before the operation started; review them and try again");
+                    }
+                }
+                Ok(access)
+            })
                 .await
                 .context("script package lock worker failed")??
         };

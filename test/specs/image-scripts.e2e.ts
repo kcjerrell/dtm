@@ -94,6 +94,25 @@ async function waitForRun(phase: string) {
     await expect($(`p=Run status: ${phase}`)).toBeDisplayed()
 }
 
+async function selectIndexedInput(imageId: number) {
+    const chooseImage = $("aria/Choose image for Source image")
+    await chooseImage.waitForExist()
+    await $("button=Load recent Draw Things images").click()
+    const sourcePicker = $('select[aria-label="Image selection source"]')
+    await sourcePicker.$(`option[value="${imageId}"]`).waitForExist()
+    await browser.execute((id) => {
+        const picker = document.querySelector<HTMLSelectElement>(
+            'select[aria-label="Image selection source"]',
+        )
+        if (!picker) throw new Error("Image source picker is unavailable")
+        picker.value = String(id)
+        picker.dispatchEvent(new Event("change", { bubbles: true }))
+    }, imageId)
+    await expect(sourcePicker).toHaveValue(String(imageId))
+    await chooseImage.click()
+    await expect($(`p=Draw Things image ${imageId}`)).toBeDisplayed()
+}
+
 interface Folder {
     id: number
     path: string
@@ -188,6 +207,7 @@ describe("Image Scripts", () => {
             lockFingerprint: null,
             installed: false,
         })
+        await $("summary*=Packages").waitForDisplayed()
         await waitForRun("idle")
         await expect(run()).not.toBeEnabled()
 
@@ -199,20 +219,8 @@ describe("Image Scripts", () => {
         await editSource(projectId, goodSource)
         await expect(problems()).toHaveText(expect.stringContaining("No problems."))
         await $("p*=Waiting for source analysis").waitForExist({ reverse: true })
-        await $("button=Load recent Draw Things images").click()
-        const sourcePicker = $('select[aria-label="Image selection source"]')
-        await sourcePicker.$(`option[value="${imageId}"]`).waitForExist()
-        await browser.execute((id) => {
-            const picker = document.querySelector<HTMLSelectElement>(
-                'select[aria-label="Image selection source"]',
-            )
-            if (!picker) throw new Error("Image source picker is unavailable")
-            picker.value = String(id)
-            picker.dispatchEvent(new Event("change", { bubbles: true }))
-        }, imageId)
-        await expect(sourcePicker).toHaveValue(String(imageId))
-        await chooseImage.click()
-        await expect($(`p=Draw Things image ${imageId}`)).toBeDisplayed()
+        if (imageId === undefined) throw new Error("The fixture image was not indexed")
+        await selectIndexedInput(imageId)
         await expect(run()).not.toBeEnabled()
 
         await $("label=I understand and trust this script").click()
@@ -268,4 +276,64 @@ describe("Image Scripts", () => {
         expect(stored.manifest.projectId).toBe(projectId)
         expect(stored.source).toBe(waitingSource)
     })
+
+    // This case exercises the real public registry. The standard suite is usable offline.
+    const registryTest = process.env.DTM_TEST_SCRIPT_REGISTRY === "1" ? it : it.skip
+    registryTest(
+        "installs package types in Monaco, runs the package, and clears types on removal",
+        async function () {
+            this.timeout(120_000)
+            await openWorkspace()
+            const name = `${projectName} packages`
+            await $("aria/New script project name").setValue(name)
+            await $("button=Create").click()
+            const picker = $('select[aria-label="Script project"]')
+            const option = picker.$(`option=${name}`)
+            await option.waitForExist()
+            const projectId = await option.getAttribute("value")
+            if (!projectId || imageId === undefined)
+                throw new Error("Package QA fixtures are unavailable")
+            await expect(picker).toHaveValue(projectId)
+
+            const importLine = 'import { red } from "kleur/colors"; '
+            const valid =
+                importLine + script('console.log(red("package run succeeded")); return image')
+            await editSource(projectId, valid)
+            await expect(problems()).toHaveText(expect.stringContaining("2307"))
+
+            await $("summary*=Packages").click()
+            await $("aria/Package name").setValue("kleur")
+            await $("aria/Exact package version").setValue("4.1.5")
+            await $("button=Install package").click()
+            const remove = $("aria/Remove kleur")
+            await remove.waitForEnabled({ timeout: 30_000 })
+            await expect(problems()).toHaveText(expect.stringContaining("No problems."))
+
+            // Check that the subpath is actually typed and wasn't treated as an ambient any.
+            await editSource(
+                projectId,
+                importLine + script('const value: number = red("text"); return image'),
+            )
+            await expect(problems()).toHaveText(expect.stringContaining("2322"))
+            await editSource(projectId, valid)
+            await expect(problems()).toHaveText(expect.stringContaining("No problems."))
+
+            await selectIndexedInput(imageId)
+            await $("label=I understand and trust this script").click()
+            await $("button=Trust this script").click()
+            await expect($("p=Trust: trusted")).toBeDisplayed()
+            await run().click()
+            await waitForRun("succeeded")
+            await expect(logs()).toHaveText(expect.stringContaining("package run succeeded"))
+
+            await $("button=Restore packages").click()
+            await expect($("p=Trust: untrusted")).toBeDisplayed({ wait: 30_000 })
+            await remove.waitForEnabled()
+            await expect(problems()).toHaveText(expect.stringContaining("No problems."))
+            await remove.click()
+            await expect(remove).not.toExist()
+            await expect(problems()).toHaveText(expect.stringContaining("2307"))
+            await expect(run()).not.toBeEnabled()
+        },
+    )
 })

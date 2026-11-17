@@ -12,10 +12,14 @@ export function ScriptRunPanel({
     controller,
     onRun,
     canRun = true,
+    canTrust = true,
+    dependencies = [],
 }: {
     controller: ScriptRunController
     onRun: () => void
     canRun?: boolean
+    canTrust?: boolean
+    dependencies?: readonly string[]
 }) {
     const snap = useSnapshot(controller.state)
     const [acknowledged, setAcknowledged] = useState(false)
@@ -28,22 +32,28 @@ export function ScriptRunPanel({
             <Text>Trust: {snap.trust}</Text>
             {snap.trust !== "trusted" && (
                 <Stack gap={2}>
-                    <Text id={warningId}>{TRUST_WARNING}</Text>
+                    <Text id={warningId}>
+                        {TRUST_WARNING}
+                        {dependencies.length > 0 &&
+                            ` Approval includes ${dependencies.join(", ")}.`}
+                    </Text>
                     <label>
                         <input
                             type="checkbox"
                             checked={acknowledged}
                             aria-describedby={warningId}
-                            disabled={snap.trust === "pending"}
+                            disabled={!canTrust || snap.trust === "pending"}
                             onChange={(event) => setAcknowledged(event.target.checked)}
                         />{" "}
                         I understand and trust this script
                     </label>
                     <Button
                         alignSelf="start"
-                        disabled={!acknowledged || snap.trust === "pending"}
+                        disabled={!canTrust || !acknowledged || snap.trust === "pending"}
                         onClick={() => {
+                            if (!canTrust) return
                             void controller.trust(acknowledged)
+                            setAcknowledged(false)
                         }}
                     >
                         {snap.trust === "pending" ? "Trusting script…" : "Trust this script"}

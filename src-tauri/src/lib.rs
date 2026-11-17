@@ -305,6 +305,7 @@ pub fn run() {
             script::commands::run_script,
             script::commands::cancel_script,
             script::package_commands::get_script_dependencies,
+            script::package_commands::get_script_dependency_declarations,
             script::package_commands::set_script_dependencies,
             script::package_commands::restore_script_dependencies,
             script::package_commands::cancel_script_dependency_install,

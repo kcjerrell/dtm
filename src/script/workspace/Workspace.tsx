@@ -6,13 +6,15 @@ import { useSnapshot } from "valtio"
 import type { ProjectId, ScriptDiagnostic } from "../contracts"
 import { GeneratedControls } from "../controls"
 import { ScriptEditorSession } from "../editor/modelRegistry"
-import { createScriptModelRegistry } from "../editor/monacoApi"
+import { createScriptModelRegistry, createScriptPackageDeclarations } from "../editor/monacoApi"
 import { createWorkerAnalysisClient } from "../editor/workerAnalysisClient"
+import { ScriptPackagePanel } from "../packages/PackagePanel"
 import { ScriptPreview } from "../preview"
 import { createLocalProjectSessionStorage, createProjectEditorBindings } from "../project"
 import { ScriptLogs, ScriptProblems, ScriptRunPanel } from "../run"
 import { redactLocalPaths } from "../run/presentation"
 import {
+    packageCommands,
     projectCommands,
     revokeScriptInput,
     runCommands,
@@ -49,6 +51,8 @@ export default function ScriptWorkspace(props: ChakraProps) {
             session: createLocalProjectSessionStorage(window.localStorage),
             commands: projectCommands,
             run: runCommands,
+            packageCommands,
+            declarations: createScriptPackageDeclarations(),
             events: runEvents,
             analysis: createWorkerAnalysisClient(),
             selectImage: scriptInputSelector(() => resourceId.current),
@@ -116,6 +120,7 @@ function ProjectBar({
 }) {
     const snap = useSnapshot(workspace.projects.state)
     const state = useSnapshot(workspace.state)
+    const packages = useSnapshot(workspace.packages.state)
     const [name, setName] = useState("")
     const [actionError, setActionError] = useState<string | null>(null)
     const [editingName, setEditingName] = useState(false)
@@ -197,7 +202,9 @@ function ProjectBar({
                 <Button
                     size="xs"
                     variant="ghost"
-                    disabled={blocked || state.preparing || Boolean(state.owner)}
+                    disabled={
+                        blocked || state.preparing || Boolean(state.owner || packages.operation)
+                    }
                     onClick={() => act(close)}
                 >
                     Close workspace
@@ -315,6 +322,16 @@ function ProjectInspector({
     const state = useSnapshot(project.state)
     const run = useSnapshot(project.run.state)
     const { loading } = useSnapshot(workspace.projects.state)
+    const packages = useSnapshot(workspace.packages.state)
+    const packageStatus = packages.status
+    const packageReady =
+        packageStatus !== null &&
+        !packages.loading &&
+        packages.operation?.projectId !== project.id &&
+        (packageStatus.revision === null || packageStatus.installed)
+    const dependencies = Object.entries(packageStatus?.dependencies ?? {}).map(
+        ([name, version]) => `${name}@${version}`,
+    )
     const [images, setImages] = useState<{ id: number; prompt: string }[]>([])
     const [imageError, setImageError] = useState<string | null>(null)
     const [choice, setChoice] = useState("")
@@ -339,15 +356,21 @@ function ProjectInspector({
                     role="switch"
                     aria-checked={session.live}
                     checked={session.live}
-                    disabled={run.trust !== "trusted" || loading || session.closing}
+                    disabled={
+                        run.trust !== "trusted" || !packageReady || loading || session.closing
+                    }
                     onChange={(event) => workspace.setLive(event.target.checked)}
                 />{" "}
                 Live run
             </label>
             <ScriptRunPanel
+                key={packageStatus?.revision ?? "no-package-revision"}
                 controller={project.run}
                 onRun={() => void workspace.run(project)}
+                canTrust={packageReady && !loading && !session.closing}
+                dependencies={dependencies}
                 canRun={
+                    packageReady &&
                     state.analysisReady &&
                     controlsReady(controls.controls) &&
                     !loading &&
@@ -355,6 +378,17 @@ function ProjectInspector({
                     !session.preparing &&
                     !session.stopPending &&
                     (!session.owner || session.owner === project.id)
+                }
+            />
+            <ScriptPackagePanel
+                controller={workspace.packages}
+                projectId={project.id}
+                canChange={
+                    !loading &&
+                    !session.closing &&
+                    !session.preparing &&
+                    session.owner !== project.id &&
+                    run.trust !== "pending"
                 }
             />
             <ScriptPreview controller={project.run} resolveUrl={scriptPreviewUrl} />

@@ -11,6 +11,7 @@ import type {
 } from "../contracts"
 import { deferred, harness, script } from "../controls/testHelpers"
 import { EDITOR_MARKER_OWNERS } from "../editor/modelRegistry"
+import type { PackageCommands, ScriptDependencyStatus } from "../packages/adapters"
 import type { ProjectCommands, StoredProject } from "../project"
 import { ScriptWorkspaceController } from "./controller"
 
@@ -70,6 +71,24 @@ function setup(selectImage = vi.fn(async (): Promise<SelectedInput | null> => nu
         if (identity) emit({ type: "cancelled", identity, reason: "user" })
     })
     const trust = vi.fn(async () => {})
+    const dependencyStatus = vi.fn<PackageCommands["status"]>(async () => ({
+        dependencies: {},
+        revision: null,
+        lockFingerprint: null,
+        installed: false,
+    }))
+    const packageCommands = {
+        status: dependencyStatus,
+        declarations: vi.fn<PackageCommands["declarations"]>(async (_, revision) => ({
+            revision,
+            files: [],
+            truncated: false,
+        })),
+        set: vi.fn<PackageCommands["set"]>(),
+        restore: vi.fn<PackageCommands["restore"]>(),
+        cancel: vi.fn<PackageCommands["cancel"]>(),
+    }
+    const declarations = { replace: vi.fn(), clear: vi.fn() }
     const disposeEditor = vi.fn()
     const revokeInput = vi.fn(async (_: string) => {})
     const editor = {
@@ -117,6 +136,8 @@ function setup(selectImage = vi.fn(async (): Promise<SelectedInput | null> => nu
         analysis,
         events: { subscribe },
         run: { run, trust, stop },
+        packageCommands,
+        declarations,
         session: {
             load: () => ({ schemaVersion: 1, lastProjectId: ids[0], views: {} }),
             save() {},
@@ -135,6 +156,8 @@ function setup(selectImage = vi.fn(async (): Promise<SelectedInput | null> => nu
         editor,
         run,
         trust,
+        packageCommands,
+        declarations,
         stop,
         emit,
         revokeInput,
@@ -582,5 +605,58 @@ it("keeps Stop routed to the surviving run when a replacement fails before ackno
     await workspace.stop()
     expect(h.stop).toHaveBeenCalledOnce()
     expect(project.run.state.active).toBe(false)
+    await workspace.dispose()
+})
+
+it("requires fresh trust for the installed package revision before allowing Run", async () => {
+    const h = setup()
+    const { workspace } = h
+    await workspace.projects.initialize()
+    const project = workspace.getProject(ids[0])
+    if (!project) throw new Error("Missing project")
+    await workspace.analyzeCurrent()
+    expect(await project.run.trust(true)).toBe(true)
+    const installed: ScriptDependencyStatus = {
+        dependencies: { "is-number": "7.0.0" },
+        revision: "generation:test",
+        lockFingerprint: "lock",
+        installed: true,
+    }
+    h.packageCommands.set.mockResolvedValueOnce(installed)
+    h.packageCommands.declarations.mockResolvedValueOnce({
+        revision: "generation:test",
+        files: [
+            {
+                path: "node_modules/is-number/index.d.ts",
+                content: "export default function isNumber(value: unknown): boolean;",
+            },
+        ],
+        truncated: true,
+    })
+    const changed = await workspace.packages.set(project.id, null, installed.dependencies)
+    expect(changed).toBe(true)
+    expect(h.packageCommands.set).toHaveBeenCalledWith(
+        {
+            projectId: project.id,
+            operationId: expect.any(String),
+            expectedPackageState: { revision: null },
+            dependencies: installed.dependencies,
+        },
+        expect.any(Function),
+    )
+    expect(project.run.state.trust).toBe("untrusted")
+    expect(workspace.state.live).toBe(false)
+    expect(workspace.packages.state.declarationTruncated).toBe(true)
+    await workspace.run(project)
+    expect(h.run).not.toHaveBeenCalled()
+    expect(await project.run.trust(true)).toBe(true)
+    expect(h.trust).toHaveBeenLastCalledWith(
+        project.id,
+        project.model.model.getValue(),
+        installed.revision,
+    )
+    await workspace.run(project)
+    expect(h.run).toHaveBeenCalledOnce()
+    await workspace.stop()
     await workspace.dispose()
 })

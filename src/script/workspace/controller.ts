@@ -13,6 +13,9 @@ import type {
 import { type ImageSelector, ScriptControlsController } from "../controls"
 import type { EditorAnalysisClient } from "../editor/analysisClient"
 import { EDITOR_MARKER_OWNERS, type ScriptProjectModel } from "../editor/modelRegistry"
+import type { PackageDeclarationAdapter } from "../editor/packageDeclarations"
+import type { PackageCommands } from "../packages/adapters"
+import { ScriptPackageController } from "../packages/controller"
 import {
     type ProjectCommands,
     type ProjectControllerOptions,
@@ -46,6 +49,8 @@ export interface WorkspaceProject {
 
 export interface WorkspaceOptions extends ProjectControllerOptions {
     run: RunCommands
+    packageCommands: PackageCommands
+    declarations: PackageDeclarationAdapter
     events: RunEventSource
     analysis: EditorAnalysisClient
     selectImage: ImageSelector
@@ -82,6 +87,7 @@ export class ScriptWorkspaceController {
         error: null as string | null,
     })
     readonly projects: ScriptProjectController
+    readonly packages: ScriptPackageController
     readonly #contexts = new Map<ProjectId, WorkspaceProject>()
     readonly #persisted = new Map<ProjectId, string>()
     #disposed = false
@@ -91,6 +97,19 @@ export class ScriptWorkspaceController {
     #stopEpoch = 0
 
     constructor(private readonly options: WorkspaceOptions) {
+        this.packages = new ScriptPackageController({
+            commands: options.packageCommands,
+            declarations: options.declarations,
+            canChange: (id) => {
+                const project = this.getProject(id)
+                return Boolean(project && this.#canChangePackages(project))
+            },
+            onStart: () => this.#disableLive(),
+            onRevisionChange: (id) => {
+                this.getProject(id)?.run.invalidateTrust()
+                this.#disableLive()
+            },
+        })
         const commands: ProjectCommands = {
             ...options.commands,
             create: async (name) => {
@@ -132,6 +151,7 @@ export class ScriptWorkspaceController {
                     project.activation++
                     project.run.invalidateTrust()
                     this.state.error = null
+                    this.packages.activate(id, project.model.uri.toString())
                     void this.#analyze(project)
                 },
             },
@@ -174,9 +194,24 @@ export class ScriptWorkspaceController {
         project.run.invalidateTrust()
     }
 
+    #canChangePackages(project: WorkspaceProject): boolean {
+        return (
+            this.#isCurrent(project) &&
+            !this.state.closing &&
+            !this.state.preparing &&
+            this.state.owner !== project.id &&
+            project.run.state.trust !== "pending"
+        )
+    }
+
     setLive(enabled: boolean): void {
         const project = this.getProject(this.projects.state.currentProjectId)
-        if (!enabled || !project || project.run.state.trust !== "trusted") {
+        if (
+            !enabled ||
+            !project ||
+            project.run.state.trust !== "trusted" ||
+            this.packages.readyRevision(project.id) === undefined
+        ) {
             this.#disableLive()
             return
         }
@@ -274,18 +309,33 @@ export class ScriptWorkspaceController {
                     this.state.error = null
                     const captured = sourceOf(project)
                     const activation = project.activation
+                    const revision = this.packages.readyRevision(id)
                     try {
+                        if (revision === undefined)
+                            throw new Error(
+                                "Load or restore the script’s packages before trusting it.",
+                            )
                         await this.#prepareSaved(project, captured, activation)
-                        await this.options.run.trust(id, captured.source)
+                        if (revision !== this.packages.readyRevision(id))
+                            throw new Error(
+                                "The script’s packages changed. Review them and try again.",
+                            )
+                        if (revision === null) await this.options.run.trust(id, captured.source)
+                        else await this.options.run.trust(id, captured.source, revision)
                         if (
                             this.#isCurrent(project, activation) &&
-                            !matchesSource(project, captured)
+                            (!matchesSource(project, captured) ||
+                                revision !== this.packages.readyRevision(id))
                         )
                             throw new Error(
-                                "The script changed while approval was pending. Review it and try again.",
+                                "The script or its packages changed while approval was pending. Review it and try again.",
                             )
                     } catch (error) {
-                        if (this.#isCurrent(project, activation)) this.#report(error)
+                        if (this.#isCurrent(project, activation)) {
+                            this.#report(error)
+                            if (String(error).includes("package revision changed"))
+                                void this.packages.refresh()
+                        }
                         throw error
                     }
                 },
@@ -301,6 +351,7 @@ export class ScriptWorkspaceController {
                             run.invalidateTrust()
                             this.#disableLive()
                         }
+                        if (this.#isCurrent(project, activation)) void this.packages.refresh()
                         throw error
                     }
                 },
@@ -548,8 +599,10 @@ export class ScriptWorkspaceController {
     async run(project: WorkspaceProject): Promise<void> {
         const source = project.accepted
         const run = project.run
+        const packageRevision = this.packages.readyRevision(project.id)
         if (
             !source ||
+            packageRevision === undefined ||
             this.state.preparing ||
             this.state.stopPending ||
             this.state.closing ||
@@ -572,6 +625,7 @@ export class ScriptWorkspaceController {
             await this.#prepareSaved(project, source, activation)
             if (
                 project.accepted !== source ||
+                packageRevision !== this.packages.readyRevision(project.id) ||
                 stopEpoch !== this.#stopEpoch ||
                 run.state.trust !== "trusted" ||
                 !run.state.desired ||
@@ -640,6 +694,7 @@ export class ScriptWorkspaceController {
             this.#contexts.clear()
             this.#persisted.clear()
             this.options.analysis.dispose()
+            this.packages.dispose()
             this.options.disposeEditor()
         } catch (error) {
             this.#report(error)
