@@ -20,6 +20,7 @@ pub struct ExecutionRequest {
     pub runs_root: PathBuf,
     pub manifest: RunManifest,
     pub timeout: Duration,
+    pub output_byte_limit: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -224,6 +225,7 @@ mod tests {
             packages: None,
             runs_root: root.to_path_buf(),
             timeout: Duration::from_secs(1),
+            output_byte_limit: crate::script::input::InputLimits::default().max_file_bytes,
             manifest: RunManifest {
                 schema_version: RUN_MANIFEST_SCHEMA_VERSION,
                 identity: RunIdentity {

@@ -30,7 +30,14 @@ interface DtmContext {
     param(defaultValue: string, options?: Pick<DtmParamOptions, "id" | "label">): string
 }
 
-type DtmImageResult = DtmImageInput | Uint8Array | string
+/** The file-output portion of an installed Sharp pipeline. */
+interface DtmSharpPipeline {
+    toFile(path: string): Promise<{ format: string }>
+    png(): DtmSharpPipeline
+    jpeg(): DtmSharpPipeline
+}
+
+type DtmImageResult = DtmImageInput | Uint8Array | string | DtmSharpPipeline
 
 declare function createImageProcess(
     process: (dtm: DtmContext) => DtmImageResult | Promise<DtmImageResult>,

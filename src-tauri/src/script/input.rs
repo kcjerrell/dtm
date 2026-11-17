@@ -245,14 +245,14 @@ pub async fn stage_inputs(
             let (byte_length, content_hash) =
                 copy_checked(&mut reader, &mut writer, remaining, &cancel)?;
             drop(writer);
-            let media_type = validate_image(&path, limits)?;
+            let image = validate_image(&path, limits)?;
             check_cancelled(&cancel)?;
             Ok((
                 staged,
                 MaterializedInput {
                     input_id: id,
                     file_name: name,
-                    media_type,
+                    media_type: image.media_type.into(),
                     byte_length,
                     content_hash,
                 },
@@ -345,9 +345,15 @@ fn copy_checked(
     Ok((length, hex::encode(hash.finalize())))
 }
 
+pub(super) struct ValidatedImage {
+    pub media_type: &'static str,
+    pub width: u32,
+    pub height: u32,
+}
+
 /// Content detection and bounded decoding for PNG/JPEG. Decode is needed to reject corrupt payloads;
 /// no decoded image is retained. Limits apply to dimensions and decoder allocation.
-pub fn validate_image(path: &Path, limits: InputLimits) -> Result<String> {
+pub(super) fn validate_image(path: &Path, limits: InputLimits) -> Result<ValidatedImage> {
     let mut reader =
         image::ImageReader::new(BufReader::new(File::open(path)?)).with_guessed_format()?;
     let media = match reader.format() {
@@ -360,10 +366,14 @@ pub fn validate_image(path: &Path, limits: InputLimits) -> Result<String> {
     decode_limits.max_image_height = Some(limits.max_dimension);
     decode_limits.max_alloc = Some(limits.max_decode_bytes);
     reader.limits(decode_limits);
-    reader
+    let image = reader
         .decode()
         .context("invalid or over-limit input image")?;
-    Ok(media.into())
+    Ok(ValidatedImage {
+        media_type: media,
+        width: image.width(),
+        height: image.height(),
+    })
 }
 
 struct LocalReader {
@@ -475,6 +485,7 @@ mod tests {
         manifest.inputs = inputs;
         ExecutionRequest {
             packages: None,
+            output_byte_limit: InputLimits::default().max_file_bytes,
             runs_root: root.into(),
             manifest,
             timeout: Duration::from_secs(5),

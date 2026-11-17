@@ -183,7 +183,7 @@ impl OutputRegistry {
         )?;
         destination.flush()?;
         drop(destination);
-        let media_type = validate_image(&path, self.limits.image)?;
+        let image = validate_image(&path, self.limits.image)?;
         let mut permissions = std::fs::metadata(&path)?.permissions();
         permissions.set_readonly(true);
         std::fs::set_permissions(&path, permissions)?;
@@ -223,10 +223,10 @@ impl OutputRegistry {
             directory,
             metadata: OutputMetadata {
                 preview_url: format!("dtm://script-output/{token}"),
-                media_type,
+                media_type: image.media_type.into(),
                 byte_length: length,
-                width: None,
-                height: None,
+                width: Some(image.width),
+                height: Some(image.height),
             },
         }));
         state.live.push(Arc::downgrade(&lease.0));
@@ -428,6 +428,8 @@ pub(super) mod tests {
         let first = registry.register(&authorized, &execution(&path)).unwrap();
         assert_eq!(first.metadata().media_type, "image/jpeg");
         assert_eq!(first.metadata().byte_length, bytes.len() as u64);
+        assert_eq!(first.metadata().width, Some(2));
+        assert_eq!(first.metadata().height, Some(2));
         assert_eq!(token(&first).len(), 64);
         assert!(token(&first).bytes().all(|b| b.is_ascii_hexdigit()));
         assert!(!first
@@ -741,6 +743,7 @@ pub(super) mod tests {
         let prepared = executor
             .prepare(ExecutionRequest {
                 packages: None,
+                output_byte_limit: InputLimits::default().max_file_bytes,
                 runs_root: runs.path().into(),
                 manifest,
                 timeout: Duration::from_secs(5),

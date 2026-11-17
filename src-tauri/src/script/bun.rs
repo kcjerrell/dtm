@@ -531,6 +531,7 @@ impl ScriptExecutor for BunExecutor {
                 entry.as_os_str(),
                 result_path.as_os_str(),
             ])
+            .arg(prepared.request.output_byte_limit.to_string())
             .current_dir(&run_directory)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -863,6 +864,7 @@ mod tests {
             packages: None,
             runs_root: root.to_path_buf(),
             timeout,
+            output_byte_limit: crate::script::input::InputLimits::default().max_file_bytes,
             manifest: RunManifest {
                 schema_version: RUN_MANIFEST_SCHEMA_VERSION,
                 identity: RunIdentity {
@@ -896,6 +898,100 @@ mod tests {
             .unwrap();
         (root, result)
     }
+
+    async fn run_with_sharp_fixture(
+        source: &str,
+        output_byte_limit: u64,
+    ) -> (tempfile::TempDir, ExecutionResult) {
+        let bun = prepared_bun().expect("prepare the pinned Bun with scripts/prepare-bun.sh host");
+        let root = tempfile::tempdir().unwrap();
+        let executor = BunExecutor::new(bun);
+        let mut request = request(root.path(), "sharp", source, Duration::from_secs(5));
+        request.output_byte_limit = output_byte_limit;
+        let prepared = executor.prepare(request).await.unwrap();
+        let package = prepared.run_directory.join("node_modules/sharp");
+        std::fs::create_dir_all(&package).unwrap();
+        std::fs::write(
+            package.join("package.json"),
+            r#"{"exports":{".":{"import":"./index.mjs","require":"./index.cjs"}}}"#,
+        )
+        .unwrap();
+        let fixture = r#"
+            class Sharp {
+                constructor(format = "png") { this.format = format; }
+                async toFile(path) {
+                    if (!path.endsWith(".png")) throw new Error("expected PNG default");
+                    await Bun.write(path, Uint8Array.of(1, 2, 3));
+                    return { format: this.format };
+                }
+            }
+        "#;
+        for (name, export) in [
+            ("index.mjs", "export default Sharp;"),
+            ("index.cjs", "module.exports = Sharp;"),
+        ] {
+            std::fs::write(package.join(name), format!("{fixture}\n{export}")).unwrap();
+        }
+        let (_tx, rx) = watch::channel(None);
+        let result = executor.execute_prepared(prepared, rx).await.unwrap();
+        (root, result)
+    }
+
+    #[tokio::test]
+    async fn renders_installed_sharp_esm_and_commonjs_pipelines() {
+        for (import, format, media_type, extension) in [
+            ("import Sharp from 'sharp';", "png", "image/png", "png"),
+            (
+                "const Sharp = require('sharp');",
+                "jpeg",
+                "image/jpeg",
+                "jpg",
+            ),
+        ] {
+            let (root, result) = run_with_sharp_fixture(
+                &format!("{import} createImageProcess(() => new Sharp('{format}'));"),
+                3,
+            )
+            .await;
+            let ExecutionTerminal::Succeeded(output) = result.terminal else {
+                panic!("expected Sharp output, got {:?}", result.terminal);
+            };
+            assert!(output
+                .path
+                .starts_with(root.path().canonicalize().unwrap().join("sharp/output")));
+            assert_eq!(output.path.extension().unwrap(), extension);
+            assert_eq!(output.media_type, media_type);
+            assert_eq!(std::fs::read(output.path).unwrap(), [1, 2, 3]);
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_sharp_impostors_unsupported_formats_and_over_limit_files() {
+        for (source, limit, reason) in [
+            (
+                "createImageProcess(() => ({ toFile() { throw new Error('unexpected call'); } }));",
+                3,
+                "installed Sharp pipeline",
+            ),
+            (
+                "import Sharp from 'sharp'; createImageProcess(() => new Sharp('webp'));",
+                3,
+                "Sharp output must be PNG or JPEG",
+            ),
+            (
+                "import Sharp from 'sharp'; createImageProcess(() => new Sharp());",
+                2,
+                "output exceeds 2 bytes",
+            ),
+        ] {
+            let (_root, result) = run_with_sharp_fixture(source, limit).await;
+            let ExecutionTerminal::Failed(failure) = result.terminal else {
+                panic!("expected Sharp rejection, got {:?}", result.terminal);
+            };
+            assert!(failure.message.contains(reason), "{failure:?}");
+        }
+    }
+
     #[test]
     fn rejects_missing_partial_oversized_and_malformed_results() {
         let d = tempfile::tempdir().unwrap();

@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, rm } from "node:fs/promises"
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import App from "../pageobjects/App"
@@ -113,6 +113,25 @@ async function selectIndexedInput(imageId: number) {
     await expect($(`p=Draw Things image ${imageId}`)).toBeDisplayed()
 }
 
+async function createScriptProject(name: string) {
+    await $("aria/New script project name").setValue(name)
+    await $("button=Create").click()
+    const picker = $('select[aria-label="Script project"]')
+    const option = picker.$(`option=${name}`)
+    await option.waitForExist()
+    const id = await option.getAttribute("value")
+    if (!id) throw new Error("The created script project has no ID")
+    await expect(picker).toHaveValue(id)
+    return id
+}
+
+async function installPackage(name: string, version: string) {
+    await $("aria/Package name").setValue(name)
+    await $("aria/Exact package version").setValue(version)
+    await $("button=Install package").click()
+    await $(`aria/Remove ${name}`).waitForEnabled({ timeout: 30_000 })
+}
+
 interface Folder {
     id: number
     path: string
@@ -193,14 +212,8 @@ describe("Image Scripts", () => {
     it("edits, analyzes and runs real Bun, keeps a preview on failure and Stop, and restores without trust", async function () {
         this.timeout(90_000)
         await openWorkspace()
-        await $("aria/New script project name").setValue(projectName)
-        await $("button=Create").click()
+        const projectId = await createScriptProject(projectName)
         const picker = $('select[aria-label="Script project"]')
-        const newProject = picker.$(`option=${projectName}`)
-        await newProject.waitForExist()
-        const projectId = await newProject.getAttribute("value")
-        if (!projectId) throw new Error("The created script project has no ID")
-        await expect(picker).toHaveValue(projectId)
         expect(await invoke("get_script_dependencies", { projectId })).toEqual({
             dependencies: {},
             revision: null,
@@ -284,16 +297,8 @@ describe("Image Scripts", () => {
         async function () {
             this.timeout(120_000)
             await openWorkspace()
-            const name = `${projectName} packages`
-            await $("aria/New script project name").setValue(name)
-            await $("button=Create").click()
-            const picker = $('select[aria-label="Script project"]')
-            const option = picker.$(`option=${name}`)
-            await option.waitForExist()
-            const projectId = await option.getAttribute("value")
-            if (!projectId || imageId === undefined)
-                throw new Error("Package QA fixtures are unavailable")
-            await expect(picker).toHaveValue(projectId)
+            const projectId = await createScriptProject(`${projectName} packages`)
+            if (imageId === undefined) throw new Error("The fixture image was not indexed")
 
             const importLine = 'import { red } from "kleur/colors"; '
             const valid =
@@ -302,11 +307,8 @@ describe("Image Scripts", () => {
             await expect(problems()).toHaveText(expect.stringContaining("2307"))
 
             await $("summary*=Packages").click()
-            await $("aria/Package name").setValue("kleur")
-            await $("aria/Exact package version").setValue("4.1.5")
-            await $("button=Install package").click()
+            await installPackage("kleur", "4.1.5")
             const remove = $("aria/Remove kleur")
-            await remove.waitForEnabled({ timeout: 30_000 })
             await expect(problems()).toHaveText(expect.stringContaining("No problems."))
 
             // Check that the subpath is actually typed and wasn't treated as an ambient any.
@@ -334,6 +336,69 @@ describe("Image Scripts", () => {
             await expect(remove).not.toExist()
             await expect(problems()).toHaveText(expect.stringContaining("2307"))
             await expect(run()).not.toBeEnabled()
+        },
+    )
+
+    registryTest(
+        "runs a native Sharp pipeline and keeps the previous preview when stopped",
+        async function () {
+            this.timeout(150_000)
+            await openWorkspace()
+            const projectId = await createScriptProject(`${projectName} sharp`)
+            if (imageId === undefined) throw new Error("The fixture image was not indexed")
+            await $("summary*=Packages").click()
+            await installPackage("sharp", "0.35.5")
+
+            const template = await readFile(
+                new URL("../../docs/script/sharp-resize.ts", import.meta.url),
+                "utf8",
+            )
+            await editSource(projectId, template)
+            await expect(problems()).toHaveText(expect.stringContaining("No problems."))
+
+            const withSharp = (body: string) => `import sharp from "sharp"; ${script(body)}`
+            const source = withSharp(
+                'return sharp(image.path).resize(64, 48, { fit: "fill" }).jpeg()',
+            )
+            await editSource(projectId, source)
+            await expect(problems()).toHaveText(expect.stringContaining("No problems."))
+            await selectIndexedInput(imageId)
+            await $("label=I understand and trust this script").click()
+            await $("button=Trust this script").click()
+            await expect($("p=Trust: trusted")).toBeDisplayed()
+            await run().click()
+            await waitForRun("succeeded")
+            const preview = $(outputSelector)
+            await preview.waitForExist()
+            const initialUrl = await preview.getAttribute("src")
+            if (!initialUrl) throw new Error("The Sharp run did not provide a preview URL")
+            await browser.waitUntil(
+                () =>
+                    browser.execute((selector) => {
+                        const img = document.querySelector<HTMLImageElement>(selector)
+                        return Boolean(
+                            img?.complete && img.naturalWidth === 64 && img.naturalHeight === 48,
+                        )
+                    }, outputSelector),
+                { timeoutMsg: "WebKit did not decode the resized Sharp output" },
+            )
+
+            // One worker and a large PNG encode keep native work active until Stop takes ownership.
+            const slow = withSharp(`sharp.concurrency(1);
+            const encode = sharp.prototype.toFile;
+            sharp.prototype.toFile = function (...args) {
+                const pending = Reflect.apply(encode, this, args);
+                console.log("started Sharp encode");
+                return pending;
+            };
+            return sharp(image.path).resize(8192, 8192, { fit: "fill" }).blur(100).png({ compressionLevel: 9 })`)
+            await editSource(projectId, slow)
+            await run().waitForEnabled()
+            await run().click()
+            await expect(logs()).toHaveText(expect.stringContaining("started Sharp encode"))
+            await stop().click()
+            await waitForRun("cancelled")
+            await expect(preview).toHaveAttribute("src", initialUrl)
         },
     )
 })

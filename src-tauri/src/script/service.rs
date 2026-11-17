@@ -539,6 +539,7 @@ impl Inner {
                 runs_root: self.workspace.path().join("runs"),
                 manifest,
                 timeout: self.limits.timeout,
+                output_byte_limit: self.limits.outputs.image.max_file_bytes,
             })
             .await?;
         let prepared = staged.transfer(prepared, cancellation.clone()).await?;

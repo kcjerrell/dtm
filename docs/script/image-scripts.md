@@ -28,6 +28,12 @@ Open **Packages** to install an npm package by name and exact version. DTM pins 
 
 Restore reinstalls the versions from the current lockfile. DTM skips install hooks by default. You can explicitly approve hooks for selected dependency names during a restore. Approval covers every locked occurrence of a selected name and applies to that restore only. A package change turns off Live run and requires fresh script approval.
 
+## Resize with Sharp
+
+In **Packages**, install `sharp` with exact version `0.35.5`, then paste the [Sharp resize template](./sharp-resize.ts) into the editor. Choose an image and set **Width** before reviewing and trusting the script. The template corrects orientation and preserves aspect ratio without enlarging the image.
+
+Return the Sharp pipeline directly. DTM asks Sharp to encode into the run's output directory, with PNG as the default and `.jpeg()` for JPEG. DTM validates the saved file and reports its format, dimensions, and byte length. Press **Stop** to cancel the run and keep the previous successful preview. [Sharp output options](https://sharp.pixelplumbing.com/api-output/)
+
 ## Development checks
 
 From the repository root, prepare the pinned Bun sidecar before building Tauri:
@@ -44,7 +50,7 @@ npm run wdio -- --spec test/specs/image-scripts.e2e.ts
 
 Use an isolated app data directory or bundle identifier for WDIO. The spec adds its own indexed fixture folder and creates a uniquely named script project. The fixture exercises real Bun, Monaco, and the opaque preview protocol in the WebView. Native local-file selection is a separate interactive check.
 
-With npm registry access, run `DTM_TEST_SCRIPT_REGISTRY=1 npm run wdio -- --spec test/specs/image-scripts.e2e.ts` to also exercise package installation, typed subpath imports, frozen restore, and removal in the WebView.
+With npm registry access, run `DTM_TEST_SCRIPT_REGISTRY=1 npm run wdio -- --spec test/specs/image-scripts.e2e.ts` to also exercise package installation, typed subpath imports, frozen restore, removal, and Sharp output and cancellation in the WebView.
 
 Run `npm run dev:web` to exercise the workspace in a browser with mock IPC. The mock simulates execution and never evaluates editor source in the web page.
 

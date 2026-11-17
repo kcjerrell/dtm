@@ -1,6 +1,6 @@
 # Image scripting implementation plan
 
-Wave 5, the S50 locked package backend, and the S51 workspace are implemented. Milestone C still requires distribution acceptance.
+Wave 5 and S50–S52 are implemented. Sharp acceptance covered Apple Silicon macOS. Milestone C still requires distribution acceptance.
 
 Target branch: `origin/scripts`
 
@@ -761,6 +761,10 @@ The Apple Silicon WebKit smoke installed `kleur@4.1.5` and verified declaration 
 ### S52 — Sharp acceptance
 
 Add the documented Sharp result adapter and an example template. Validate install and execution on macOS ARM64, macOS x64/universal distribution, and supported Linux. Confirm cancellation, memory behavior, output metadata, and lockfile portability.
+
+On Apple Silicon macOS, pinned Bun 1.4.3 installed `sharp@0.35.5` with lifecycle scripts skipped. A fresh frozen restore reused the lockfile byte for byte. The WebKit test verified the [resize template](./sharp-resize.ts) in Monaco, decoded a 64 × 48 JPEG from a returned Sharp pipeline, and kept that preview when Stop cancelled a subsequent native encode. Rust verifies dimensions and format from the saved image.
+
+For a 3000 × 2000 fixture, the Bun runner peaked at 110.2 MiB RSS for JPEG and 72.5 MiB for PNG. The adapter writes directly to disk and checks the encoded file against the configured output byte limit. Apple Silicon is the acceptance target for this pass. Intel and Linux runtime checks are deferred.
 
 ### S60 — Stronger isolation investigation
 

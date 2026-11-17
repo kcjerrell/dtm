@@ -197,7 +197,7 @@ Images are transported through files:
 - Rust canonicalizes and validates the output path, file size, and media type.
 - The frontend receives metadata and an opaque `dtm://script-output/<token>` URL, never a full image in JSON.
 
-The initial image result contract supports a staged input, a typed byte buffer, or a validated path. Sharp-specific normalization is deferred until package support.
+The image result contract supports a staged input, a typed byte buffer, a validated path, or a pipeline from the project's installed Sharp package. The runner encodes a Sharp pipeline directly to a managed PNG or JPEG file. Rust validates the file and derives its format and dimensions from the decoded image.
 
 ## Run lifecycle
 
