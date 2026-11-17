@@ -32,7 +32,7 @@ export const ContentPane = chakra(
             alignItems: "stretch",
             justifyContent: "start",
             gap: 0,
-            // minWidth: 0,
+            minWidth: 0,
             overflow: "clip",
         },
     }),

@@ -53,6 +53,19 @@ it("allows replacing the destination of a user-selected copy", async () => {
     })
 })
 
+it("saves a copy of a file-backed video from the original path", async () => {
+    const { MediaStoreFiles } = await import("./files")
+
+    await MediaStoreFiles.saveFileCopy("/videos/movie.mp4", "/export.mp4")
+
+    expect(invoke).toHaveBeenCalledWith("stage_media_snapshot", {
+        source: { kind: "file", location: "/videos/movie.mp4" },
+        destination: "/export.mp4",
+        replaceExisting: true,
+    })
+    expect(fs.exists).not.toHaveBeenCalled()
+})
+
 describe("orphaned media files", () => {
     it("removes only generated files not referenced by persisted media", async () => {
         fs.readDir.mockResolvedValue([

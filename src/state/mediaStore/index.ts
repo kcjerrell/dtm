@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core"
+import { convertFileSrc, invoke } from "@tauri-apps/api/core"
 import { store as createStore } from "@tauri-store/valtio"
 import { Mutex } from "async-mutex"
 import { customAlphabet } from "nanoid"
@@ -47,12 +47,14 @@ function createMediaStore() {
         resolve: resolveReady,
         reject: rejectReady,
     } = Promise.withResolvers<boolean>()
-    let isReady = false
-    let loadError: string | null = null
+    // A failed startup can precede the first caller waiting for readiness.
+    void isReadyPromise.catch(() => {})
     const pendingCleanup = new Set<Promise<void>>()
     const sourceLocks = new Map<string, Mutex>()
 
     function initStore() {
+        let isReady = false
+        let startupFailure: { error: unknown } | undefined
         const storeInstance = createStore<MediaStoreType>(
             getStoreName("media"),
             { items: [] as MediaStateCol[] },
@@ -60,33 +62,37 @@ function createMediaStore() {
                 autoStart: false,
                 saveOnChange: true,
                 saveOnExit: true,
+                hooks: {
+                    error(error) {
+                        if (!isReady) startupFailure ??= { error }
+                        console.error(error)
+                    },
+                },
             },
         )
         Lifecycle.onExit(async () => {
-            // skip cleanup if exiting before store has finished loading
+            // Cleanup requires a successfully loaded store.
             if (!isReady) return
 
             await collections.onExit()
             await clearUnusedItems()
 
-            // only remove unknown files if we know the store loaded correctly
-            if (!loadError) {
-                const referencedFiles = new Set(
-                    store.items.flatMap((item) =>
-                        item.storage.kind === "app" ? [item.storage.fname] : [],
-                    ),
-                )
-                await MediaStoreFiles.removeOrphanedFiles(referencedFiles)
-            }
+            const referencedFiles = new Set(
+                store.items.flatMap((item) =>
+                    item.storage.kind === "app" ? [item.storage.fname] : [],
+                ),
+            )
+            await MediaStoreFiles.removeOrphanedFiles(referencedFiles)
         }, false)
         queueMicrotask(async () => {
             try {
                 await storeInstance.start()
-                console.debug("Media store started")
-                resolveReady(true)
+                // Valtio can report a startup error through its hook and still fulfill start().
+                if (startupFailure) throw startupFailure.error
                 isReady = true
+                resolveReady(true)
+                console.debug("Media store started")
             } catch (error) {
-                loadError = String(error)
                 rejectReady(error)
             }
         })
@@ -156,6 +162,10 @@ function createMediaStore() {
         }
     }
 
+    function findFileReference(path: string, candidates: MediaStateCol[]) {
+        return candidates.find((item) => item.storage.kind === "file" && item.storage.path === path)
+    }
+
     function attachItem(
         item: MediaStateCol,
         collectionId: string,
@@ -185,8 +195,8 @@ function createMediaStore() {
         if (!collection) throw new Error(`unknown media collection: ${collectionId}`)
         if (!collection.allowsMediaType(type))
             throw new Error("Videos are not allowed in this collection")
-        if (kind === "app" && VALID_VIDEO_TYPES.includes(type))
-            throw new Error("videos must be referenced by file or URL")
+        const isVideo = VALID_VIDEO_TYPES.includes(type)
+        if (kind === "app" && isVideo) throw new Error("videos must be referenced by file or URL")
 
         if (kind === "dtp") throw new Error("project storage is not supported")
         if (kind === "file" && (typeof data !== "string" || !data.startsWith("/")))
@@ -197,6 +207,17 @@ function createMediaStore() {
             throw new Error("data must be a Uint8Array")
         const input = typeof data === "string" && kind !== "app" ? { kind, location: data } : data
         if (typeof input === "string") throw new Error("invalid snapshot source")
+        const filePath =
+            isVideo && !(input instanceof Uint8Array) && input.kind === "file"
+                ? input.location
+                : undefined
+        const fileUrl = filePath && convertFileSrc(filePath)
+        if (fileUrl) {
+            const response = await fetch(fileUrl, { method: "HEAD", cache: "no-store" })
+            if (!response.ok || response.headers.get("content-length") === "0") {
+                throw new Error(`Could not read video at ${filePath}`)
+            }
+        }
         const itemSource =
             input instanceof Uint8Array
                 ? source
@@ -207,19 +228,19 @@ function createMediaStore() {
         return await withSourceLock(key, async () => {
             const candidates = key ? getSourceCandidates(key, collectionId) : []
             const isProject = key?.startsWith("project:")
-            if (isProject && candidates.length) {
+            if (!filePath && isProject && candidates.length) {
                 return attachItem(candidates[0], collectionId, collectionData)
             }
 
             const id = getNewId()
-            function register({ fname, url }: { fname: string; url: string }) {
+            function register(url: string, storage: MediaStorage) {
                 const item: MediaStateCol = proxy({
                     id,
                     url,
                     thumbUrl: url,
                     type,
                     source: itemSource,
-                    storage: { kind: "app", fname },
+                    storage,
                     createdAt: Date.now(),
                     $col: { [collectionId]: collectionData },
                 })
@@ -227,13 +248,19 @@ function createMediaStore() {
                 return { item: id, alreadyPresent: false }
             }
 
+            if (filePath && fileUrl) {
+                const match = findFileReference(filePath, candidates)
+                if (match) return attachItem(match, collectionId, collectionData)
+                return register(fileUrl, { kind: "file", path: filePath })
+            }
             if (input instanceof Uint8Array && !candidates.length) {
-                return register(await MediaStoreFiles.saveFile(id, input, type))
+                const { fname, url } = await MediaStoreFiles.saveFile(id, input, type)
+                return register(url, { kind: "app", fname })
             }
             return await MediaStoreFiles.withSnapshot(id, input, type, async (file, retain) => {
                 const match = await findMatchingSnapshot(file.fname, candidates)
                 if (match) return attachItem(match, collectionId, collectionData)
-                const result = register(file)
+                const result = register(file.url, { kind: "app", fname: file.fname })
                 retain()
                 return result
             })
@@ -263,11 +290,14 @@ function createMediaStore() {
             if (collectionId in item.$col) throw new MediaItemAlreadyInCollectionError()
             if (key) {
                 const candidates = getSourceCandidates(key, collectionId, true)
-                const match = key.startsWith("project:")
-                    ? candidates[0]
-                    : item.storage.kind === "app"
-                      ? await findMatchingSnapshot(item.storage.fname, candidates, id)
-                      : undefined
+                const match =
+                    item.storage.kind === "file"
+                        ? findFileReference(item.storage.path, candidates)
+                        : key.startsWith("project:")
+                          ? candidates[0]
+                          : item.storage.kind === "app"
+                            ? await findMatchingSnapshot(item.storage.fname, candidates, id)
+                            : undefined
                 if (match) throw new MediaItemAlreadyInCollectionError()
             }
             if (getItem(id) !== item) throw new Error(`Item ${id} not found`)

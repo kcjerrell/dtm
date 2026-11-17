@@ -303,7 +303,7 @@ function ImageItem(props: ImageItemProps) {
             >
                 <Image
                     inset={0}
-                    src={item.url}
+                    src={item.thumbUrl}
                     alt={`Image ${index + 1}`}
                     width={"full"}
                     aspectRatio={1}

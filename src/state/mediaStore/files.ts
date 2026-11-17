@@ -105,15 +105,15 @@ async function copyToClipboard(fname: string) {
 }
 
 async function saveCopy(fname: string, dest: string) {
-    await invoke("stage_media_snapshot", {
-        source: { kind: "file", location: await getFullPath(fname) },
-        destination: dest,
-        replaceExisting: true,
-    })
+    await saveFileCopy(await getFullPath(fname), dest)
 }
 
 async function saveFileCopy(source: string, dest: string) {
-    await fs.copyFile(source, dest)
+    await invoke("stage_media_snapshot", {
+        source: { kind: "file", location: source },
+        destination: dest,
+        replaceExisting: true,
+    })
 }
 
 export const MediaStoreFiles = {

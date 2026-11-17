@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { join } from "node:path"
 import fse from "fs-extra"
+import { build } from "plist"
 import App from "../pageobjects/App"
 import Metadata from "../pageobjects/Metadata"
 import { getPasteboardData, setPasteboardOverride } from "../util/clipdump"
@@ -285,17 +286,61 @@ describe("Metadata", () => {
         await md.toolbar.loadFromClipboard.click()
         await md.dropHere.waitForDisplayed({ reverse: true })
 
-        // assert the current item is a video
         await expect($("#metadata video")).toBeDisplayed()
+        await browser.waitUntil(
+            () =>
+                browser.execute(() => {
+                    const video = document.querySelector<HTMLVideoElement>("#metadata video")
+                    return !!video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+                }),
+            { timeoutMsg: "Expected the source video to load a frame" },
+        )
 
         // ffmpeg is already installed, so metadata should load without an install step
         await md.selectTab("details")
-        await md.getDataItemValue("filename", { timeout: 60000 })
+        expect(await md.getDataItemValue("filename", { timeout: 60000 })).toContain(videoPath)
 
         expect(await md.getDataItemValue("nb_streams")).toContain("2")
         expect(parseFloat((await md.getDataItemValue("duration")) ?? "0")).toBeGreaterThan(0)
         expect(await md.getDataItemValue("tags")).toContain("comment")
         expect(await md.getDataItemValue("tags")).toContain("model")
         expect(await md.getDataItemValue("tags")).toContain("v2")
+
+        const copyPath = join(tempDir, "video-copy.mp4")
+        await setTestOverride({ saveDialogPath: copyPath })
+        await md.toolbar.saveImage.click()
+        await waitForFile(copyPath)
+        expect(await fse.readFile(copyPath)).toEqual(await fse.readFile(videoPath))
+    })
+
+    it("scrolls a long image history without moving the details pane", async () => {
+        await App.selectView("metadata")
+        const paneLeft = await md.detailsTab.execute((tab) => tab.getBoundingClientRect().left)
+        const initialCount = await md.history.getItemCount()
+        const paths = Array.from({ length: 32 }, (_, i) => join(tempDir, `history-${i}.png`))
+        const imagePath = getFile("astro.png")
+        await Promise.all(paths.map((path) => fse.copyFile(imagePath, path)))
+        await setPasteboardOverride({ NSFilenamesPboardType: build(paths) })
+        await md.triggerDrop()
+
+        await browser.waitUntil(() =>
+            md.history.getItemCount().then((count) => count === initialCount + paths.length),
+        )
+        expect(await md.detailsTab.execute((tab) => tab.getBoundingClientRect().left)).toBe(
+            paneLeft,
+        )
+
+        const scrollLeft = await browser.execute(() => {
+            const history = document.querySelector('[role="tablist"][aria-label="Image history"]')
+            const scroller = history?.parentElement
+            if (!scroller) throw new Error("Image history scroll container is missing")
+            scroller.scrollLeft = scroller.scrollWidth
+            return scroller.scrollLeft
+        })
+        expect(scrollLeft).toBeGreaterThan(0)
+        expect(await md.detailsTab.execute((tab) => tab.getBoundingClientRect().left)).toBe(
+            paneLeft,
+        )
+        await md.selectTab("details")
     })
 })

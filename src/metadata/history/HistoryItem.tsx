@@ -112,49 +112,59 @@ const VideoThumbContainer = chakra("div", {
     },
 })
 
-const HistoryItemBase = chakra("div", {
-    base: {
-        display: "flex",
-        flexDirection: "column",
-        height: "4rem",
-        width: "4rem",
-        flex: "0 0 4rem",
-        padding: "0px",
-        overflow: "hidden",
-        border: "1px solid",
-        borderColor: "gray.700/50",
-        marginInline: "-0.5px",
-        backgroundColor: "var(--chakra-colors-gray-700)",
-        marginTop: "0px",
-        transformOrigin: "top",
-        borderRadius: "0% 0% 0 0",
-        zIndex: 0,
-        transform: "scale(1) translateY(5px)",
-        transition: "all 0.2s ease",
-        _hover: {
-            borderRadius: "10% 10% 0 0",
-            zIndex: 2,
-            transform: "scale(1.2) translateY(-2px)",
-        },
-    },
-    variants: {
-        isSelected: {
-            true: {
-                marginTop: "-3px",
+const HistoryItemBase = chakra(
+    "div",
+    {
+        base: {
+            display: "flex",
+            flexDirection: "column",
+            height: "4rem",
+            width: "4rem",
+            flex: "0 0 4rem",
+            padding: "0px",
+            overflow: "hidden",
+            border: "1px solid",
+            borderColor: "gray.700/50",
+            marginInline: "-0.5px",
+            backgroundColor: "var(--chakra-colors-gray-700)",
+            boxShadow: "{shadows.pane1}",
+            marginTop: "0px",
+            transformOrigin: "top",
+            borderRadius: "0% 0% 0 0",
+            zIndex: 0,
+            transform: "scale(1) translateY(5px)",
+            transition: "all 0.2s linear, border-radius 0.1s ease, z-index 0s",
+            // clipPath: "rect(0% 100% 100% 0%)",
+            _hover: {
                 borderRadius: "10% 10% 0 0",
-                borderTop: 0,
-                zIndex: 1,
-                transform: "scale(1.1) translateY(2px)",
+                zIndex: 2,
+                transform: "scale(1.2) translateY(-2px)",
             },
         },
-        isPinned: {
-            true: {
-                marginTop: "-3px",
-                borderTop: 0,
+        variants: {
+            isSelected: {
+                true: {
+                    marginTop: "-3px",
+                    borderRadius: "10% 10% 0 0",
+                    borderTop: 0,
+                    zIndex: 1,
+                    transform: "scale(1.1) translateY(2px)",
+                },
+            },
+            isPinned: {
+                true: {
+                    marginTop: "-3px",
+                    borderTop: 0,
+                },
             },
         },
     },
-})
+    {
+        defaultProps: {
+            className: "history-item",
+        },
+    },
+)
 
 const HistoryItemIndicator = chakra("div", {
     base: {

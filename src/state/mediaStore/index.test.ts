@@ -1,11 +1,15 @@
 import { proxy } from "valtio"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const io = vi.hoisted(() => ({
     saveFile: vi.fn(),
     withSnapshot: vi.fn(),
     findMatchingFile: vi.fn(),
     removeFile: vi.fn(),
+}))
+vi.mock("@tauri-apps/api/core", () => ({
+    convertFileSrc: (path: string) => `asset://localhost/${encodeURIComponent(path)}`,
+    invoke: vi.fn(),
 }))
 vi.mock("./files", () => ({ MediaStoreFiles: io }))
 vi.mock("@/lifecycle", () => ({ default: { onExit: vi.fn() } }))
@@ -32,6 +36,7 @@ function writeSnapshot(id: string, data: Uint8Array, type: string) {
 
 beforeEach(() => {
     vi.resetAllMocks()
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })))
     cachedFiles.clear()
     incomingFiles.clear()
     io.saveFile.mockImplementation(writeSnapshot)
@@ -69,15 +74,55 @@ beforeEach(() => {
     })
 })
 
-describe("video media-store snapshots", () => {
+afterEach(() => {
+    vi.unstubAllGlobals()
+})
+
+describe("video media-store imports", () => {
     const collection = MediaStore.defineCollection("video-test", { pin: null as number | null })
 
+    it("references a local video by path and shares it across collections", async () => {
+        const otherCollection = MediaStore.defineCollection("other-videos", {})
+        const path = "/videos/my movie.mp4"
+        const url = `asset://localhost/${encodeURIComponent(path)}`
+        const input = { kind: "file" as const, location: path, type: "mp4" }
+        const [first, duplicate, shared] = await Promise.all([
+            collection.importMedia(input),
+            collection.importMedia(input),
+            otherCollection.importMedia(input),
+        ])
+
+        expect(first.item?.storage).toEqual({ kind: "file", path })
+        expect(first.item?.source.file).toBe(path)
+        expect(first.item?.url).toBe(url)
+        expect(first.item?.thumbUrl).toBe(url)
+        expect(duplicate).toEqual({ item: first.item, alreadyPresent: true })
+        expect(shared.item?.id).toBe(first.item?.id)
+        expect(shared.alreadyPresent).toBe(false)
+        expect(fetch).toHaveBeenCalledWith(url, { method: "HEAD", cache: "no-store" })
+        expect(io.saveFile).not.toHaveBeenCalled()
+        expect(io.withSnapshot).not.toHaveBeenCalled()
+        expect(io.findMatchingFile).not.toHaveBeenCalled()
+        await Promise.all([collection.clear(), otherCollection.clear()])
+        expect(io.removeFile).not.toHaveBeenCalled()
+    })
+
     it.each([
-        ["file", "/videos/movie.mp4"],
-        ["url", "https://example.test/movie.mp4"],
-    ] as const)("snapshots a %s video and reuses matching versions", async (kind, location) => {
-        const source = { [kind]: location }
-        const input = { kind, location, type: "mp4", source }
+        new Response(null, { status: 404 }),
+        new Response(null, { headers: { "content-length": "0" } }),
+    ])("rejects an unreadable or empty local video", async (response) => {
+        vi.mocked(fetch).mockResolvedValueOnce(response)
+
+        await expect(
+            collection.addMedia({ kind: "file", location: "/videos/missing.mp4", type: "mp4" }),
+        ).rejects.toThrow("Could not read video")
+        expect(collection.items).toHaveLength(0)
+        expect(io.withSnapshot).not.toHaveBeenCalled()
+    })
+
+    it("snapshots a remote video and reuses matching versions", async () => {
+        const location = "https://example.test/movie.mp4"
+        const input = { kind: "url" as const, location, type: "mp4" }
         incomingFiles.set(location, new Uint8Array([1]))
         const first = await collection.importMedia(input)
         const duplicate = await collection.importMedia(input)
@@ -154,7 +199,6 @@ describe("media-store reset", () => {
         const videos = MediaStore.defineCollection("reset-videos", {})
         await Promise.all([images.waitForReady(), videos.waitForReady()])
         io.saveFile.mockResolvedValue({ fname: "cached.png", url: "asset://cached.png" })
-        incomingFiles.set("/videos/movie.mp4", new Uint8Array([1]))
         incomingFiles.set("https://example.test/movie.mp4", new Uint8Array([1]))
         incomingFiles.set("https://example.test/image.png", new Uint8Array([1]))
         await images.addItem(new Uint8Array([1]), "png", {})
@@ -180,7 +224,7 @@ describe("media-store reset", () => {
 
         expect(images.items).toHaveLength(0)
         expect(videos.items).toHaveLength(0)
-        expect(io.removeFile).toHaveBeenCalledTimes(3)
+        expect(io.removeFile).toHaveBeenCalledTimes(2)
         expect(MediaStore.getCollection("reset-images")).toBe(images)
         const item = await images.addMedia({
             kind: "url",

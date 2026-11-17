@@ -1,3 +1,4 @@
+import type { StoreHooks, StoreOptions } from "@tauri-store/valtio"
 import { proxy } from "valtio"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MediaItemBase } from "./MediaItem"
@@ -8,7 +9,9 @@ const fixtures = vi.hoisted(() => ({
     state: undefined as MediaStoreType | undefined,
     api: undefined as MediaStoreApi | undefined,
     onExit: vi.fn<(callback: () => Promise<void>) => void>(),
-    start: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    start: vi
+        .fn<(hooks?: StoreHooks<MediaStoreType>) => Promise<void>>()
+        .mockResolvedValue(undefined),
     removeFile: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
     copyToClipboard: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
     saveCopy: vi.fn<(fname: string, dest: string) => Promise<void>>().mockResolvedValue(undefined),
@@ -35,10 +38,10 @@ vi.mock("./collections", async (importOriginal) => {
     }
 })
 vi.mock("@tauri-store/valtio", () => ({
-    store: (_name: string, initial: MediaStoreType) => {
+    store: (_name: string, initial: MediaStoreType, options?: StoreOptions<MediaStoreType>) => {
         const state = proxy({ ...initial, items: structuredClone(fixtures.items) })
         fixtures.state = state
-        return { state, start: () => fixtures.start() }
+        return { state, start: () => fixtures.start(options?.hooks) }
     },
 }))
 
@@ -82,6 +85,20 @@ beforeEach(() => {
 })
 
 describe("media-store hydration", () => {
+    it("rejects readiness and preserves cached files when start reports an error and fulfills", async () => {
+        const error = new Error("native media load failed")
+        fixtures.start.mockImplementation(async (hooks) => {
+            await hooks?.error?.(error)
+        })
+        const { default: mediaStore } = await import("./index")
+
+        await expect(mediaStore.waitForReady()).rejects.toBe(error)
+        await fixtures.onExit.mock.calls[0][0]()
+
+        expect(fixtures.removeFile).not.toHaveBeenCalled()
+        expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
+    })
+
     it.each(["save", "remove", "clear", "attach"] as const)(
         "waits for hydration before the internal %s action",
         async (action) => {
