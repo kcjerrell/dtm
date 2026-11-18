@@ -28,7 +28,10 @@
     "check:fix": "biome check --write",
     "update-fbs": "./scripts/update-fbs.sh",
     "version": "tsx ./scripts/version.ts",
-    "wdio": "node ./scripts/wdio.mjs"
+    "test:wdio": "node ./scripts/wdio.mjs",
+    "typecheck": "npx tsc --noEmit",
+    "test:web": "vitest run",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.38.0",
@@ -68,13 +71,16 @@
     "valtio-reactive": "^0.2.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.13",
     "@babel/plugin-proposal-decorators": "^7.29.7",
     "@biomejs/biome": "2.5.12",
     "@chakra-ui/cli": "^3.38.0",
     "@octokit/rest": "^22.0.1",
+    "@rolldown/plugin-babel": "^0.3.1",
     "@tauri-apps/cli": "^2.12.4",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
+    "@types/babel__core": "^7.20.5",
     "@types/chance": "^1.1.8",
     "@types/fs-extra": "^11.0.4",
     "@types/mocha": "^10.0.10",

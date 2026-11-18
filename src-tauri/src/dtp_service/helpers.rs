@@ -292,7 +292,7 @@ mod synchronization_tests {
         let folder = dir.path().to_str().unwrap();
         let base = dir.path().join("project.sqlite3");
         let wal = dir.path().join("project.sqlite3-wal");
-        fs::write(&base, [1; 20]).unwrap();
+        fs::write(&base, vec![1; 100_001]).unwrap();
         for size in [0, 30, 10, 0] {
             if size == 0 {
                 let _ = fs::remove_file(&wal);
@@ -302,7 +302,7 @@ mod synchronization_tests {
             let inspected = inspect_project_file(&base, folder, 1).unwrap().unwrap();
             let files = get_folder_files(folder, 1, true).await.unwrap();
             let discovered = &files.projects[base.to_str().unwrap()];
-            assert_eq!(inspected.filesize, 20 + size as u64);
+            assert_eq!(inspected.filesize, 100_001 + size as u64);
             assert_eq!(inspected.filesize, discovered.filesize);
             assert_eq!(inspected.modified, discovered.modified);
         }
@@ -314,6 +314,42 @@ mod synchronization_tests {
             .unwrap()
             .projects
             .is_empty());
+    }
+
+    #[tokio::test]
+    async fn sqlite_discovery_filters_by_combined_base_and_wal_size() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let folder = dir.path().to_str().unwrap();
+        let base = dir.path().join("project.sqlite3");
+        let wal = dir.path().join("project.sqlite3-wal");
+        fs::write(&base, vec![1; 99_990])?;
+
+        for (wal_size, expected_size) in [
+            (0, None),
+            (9, None),
+            (10, Some(100_000)),
+            (11, Some(100_001)),
+            (0, None),
+        ] {
+            fs::write(&wal, vec![2; wal_size])?;
+            let inspected = inspect_project_file(&base, folder, 1)?;
+            let discovered = get_folder_files(folder, 1, true).await?;
+
+            assert_eq!(inspected.map(|file| file.filesize), expected_size);
+            assert_eq!(
+                discovered
+                    .projects
+                    .get(base.to_str().unwrap())
+                    .map(|file| file.filesize),
+                expected_size
+            );
+            assert_eq!(
+                discovered.projects.len(),
+                usize::from(expected_size.is_some())
+            );
+        }
+
+        Ok(())
     }
 
     #[tokio::test]
@@ -340,7 +376,7 @@ mod synchronization_tests {
         let dir = tempfile::tempdir().unwrap();
         let folder = dir.path().to_str().unwrap();
         fs::create_dir(dir.path().join("nested")).unwrap();
-        fs::write(dir.path().join("nested/project.sqlite3"), [0; 10]).unwrap();
+        fs::write(dir.path().join("nested/project.sqlite3"), vec![0; 100_001]).unwrap();
         assert!(get_folder_files(folder, 1, false)
             .await
             .unwrap()

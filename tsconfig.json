@@ -16,8 +16,6 @@
     "emitDecoratorMetadata": false,
     /* Linting */
     "strict": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
@@ -25,7 +23,7 @@
     "types": [],
   },
   "include": ["./src", "./src/global.ts"],
-  "exclude": [],
+  "exclude": ["./src/scratch"],
   "references": [
     {
       "path": "./tsconfig.node.json",

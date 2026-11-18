@@ -352,9 +352,13 @@ mod tests {
             &cached,
             &options(1, Format::Png(PngEffort::Balanced), "/first")
         ));
-        assert!(should_regenerate_preview(
+        assert!(!should_regenerate_preview(
             &cached,
             &options(1, Format::Jpg(90), "/first")
+        ));
+        assert!(should_regenerate_preview(
+            &cached,
+            &options(1, Format::Jpg(80), "/first")
         ));
         assert!(!should_regenerate_preview(
             &cached,

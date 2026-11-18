@@ -8,7 +8,7 @@ on:
 
 jobs:
   e2e:
-    name: Build Debug App + WDIO E2E
+    name: Typecheck + Web, Rust, and WDIO Tests
     runs-on: macos-26
     timeout-minutes: 45
 
@@ -41,17 +41,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run web tests
+        run: npm run test:web
+
       - name: Generate icons
         run: npm run gen-icons
-        
+
+      - name: Set up Rust test data
+        working-directory: src-tauri
+        run: bash ./test-setup.sh
+
+      - name: Run Rust tests
+        run: npm run test:rust
+
       - name: Build E2E app
         run: npm run build:e2e
 
-      - name: Set up test data
-        run: sh scripts/test-setup.sh
+      - name: Set up WDIO test data
+        run: bash scripts/test-setup.sh
 
       - name: Run WDIO tests
-        run: npm run wdio
+        run: npm run test:wdio
 
       - name: Upload WDIO failure screenshots
         if: ${{ always() }}

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict"
 import fse from "fs-extra"
 import App from "../pageobjects/App"
 import DTProjects from "../pageobjects/DTProjects"
@@ -51,8 +52,9 @@ describe("Projects", () => {
         expect(updatedCount).toBeLessThan(countBefore)
 
         const projectAId = await DTProjects.projectA.getAttribute("data-project-id")
+        assert.ok(projectAId, "Project A is missing its data-project-id")
         for (const el of await DTProjects.images.getElements()) {
-            await expect(el).toHaveAttribute("data-project-id", projectAId ?? undefined)
+            await expect(el).toHaveAttribute("data-project-id", projectAId)
         }
 
         // select project C
@@ -67,8 +69,9 @@ describe("Projects", () => {
         expect(updatedCount).toBeLessThan(countBefore)
 
         const projectCId = await DTProjects.projectC.getAttribute("data-project-id")
+        assert.ok(projectCId, "Project C is missing its data-project-id")
         for (const el of await DTProjects.images.getElements()) {
-            await expect(el).toHaveAttribute("data-project-id", projectCId ?? undefined)
+            await expect(el).toHaveAttribute("data-project-id", projectCId)
         }
 
         // deselect project

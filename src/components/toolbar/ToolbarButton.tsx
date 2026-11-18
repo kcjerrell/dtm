@@ -72,7 +72,14 @@ function ToolbarButton(props: ToolbarButtonProps) {
     )
 }
 
-function SelectedIndicator(props) {
+interface SelectedIndicatorProps {
+    name: string
+    isSelected?: boolean
+    showIndicator?: boolean
+    mode: "normal" | "select"
+}
+
+function SelectedIndicator(props: SelectedIndicatorProps) {
     const { name, isSelected, showIndicator, mode } = props
     if (!isSelected && !showIndicator) return null
 

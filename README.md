@@ -84,9 +84,9 @@ npm ci
 npm run gen-icons
 bash scripts/test-setup.sh
 npm run build:e2e
-npm run wdio
+npm run test:wdio
 # Run one spec with the same launcher:
-npm run wdio -- --spec ./test/specs/tauri-wdio.e2e.ts
+npm run test:wdio -- --spec ./test/specs/tauri-wdio.e2e.ts
 ```
 
 The launcher also starts Vite when the existing debug binary was built in dev
@@ -97,9 +97,10 @@ Cargo commands or rebuilding the app in a new shell.
 #### Tests
 ```bash
 npm run build:e2e
-npm run wdio
-cd src-tauri
-cargo test
+npm run test:wdio
+npm run test:web
+npm run test:rust
+npm run typecheck
 ```
 
 ## License
