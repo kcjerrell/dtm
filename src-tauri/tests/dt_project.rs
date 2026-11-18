@@ -7,7 +7,11 @@ mod tests {
     #[tokio::test]
     async fn test_tensor_history_node() -> Result<(), Box<dyn std::error::Error>> {
         let dt_project = dtm_lib::projects_db::DtProjectRef::Path(
-            "../test_data/projects/test-project-a2.sqlite3".to_string(),
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/test_data/projects/test-project-a2.sqlite3"
+            )
+            .to_string(),
         )
         .open_project()
         .await?;
@@ -19,7 +23,8 @@ mod tests {
             )
             .await?;
 
-        println!("{:?}", nodes[0].tensordata);
+        assert_eq!(nodes.len(), 5);
+        assert!(nodes.iter().all(|node| node.tensordata.is_some()));
 
         Ok(())
     }

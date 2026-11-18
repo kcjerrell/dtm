@@ -31,7 +31,7 @@
     "test:wdio": "node ./scripts/wdio.mjs",
     "typecheck": "npx tsc --noEmit",
     "test:web": "vitest run",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
+    "test:rust": "cd src-tauri && cargo test"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.38.0",

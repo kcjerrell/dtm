@@ -611,7 +611,10 @@ mod regressions {
             .await
             .unwrap();
         let original = std::fs::read(&project.full_path).unwrap();
-        std::fs::write(&project.full_path, b"not a database").unwrap();
+        // Keep the file above the project-size filter so the scan reads the invalid database.
+        let mut invalid = original.clone();
+        invalid[..14].copy_from_slice(b"not a database");
+        std::fs::write(&project.full_path, invalid).unwrap();
         let job = UpdateProjectJob::from_id(&db, project.id, false, true)
             .await
             .unwrap();

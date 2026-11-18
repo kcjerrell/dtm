@@ -31,16 +31,22 @@ export type RasterReply =
     | { kind: "bitmap"; bitmap: ImageBitmap }
     | { kind: "error"; message: string }
 
-const compare = {
-    brightness: compareBrightness,
-    color: compareColor,
-    difference: compareDifference,
-}
-
 export function drawRaster(job: RasterJob<RasterImage>, canvas: RasterCanvas): void {
     if (job.kind === "slider") {
-        compare[job.effect](job.imageA, job.imageB, canvas, job.options)
-        return
+        // Worker messages are not runtime-validated by the RasterJob type.
+        switch (job.effect) {
+            case "brightness":
+                compareBrightness(job.imageA, job.imageB, canvas, job.options)
+                return
+            case "color":
+                compareColor(job.imageA, job.imageB, canvas, job.options)
+                return
+            case "difference":
+                compareDifference(job.imageA, job.imageB, canvas, job.options)
+                return
+            default:
+                throw new Error("Unsupported comparison effect")
+        }
     }
 
     canvas.width = job.width
