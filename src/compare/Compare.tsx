@@ -1,4 +1,4 @@
-import { Box, Grid, HStack, Image, Text } from "@chakra-ui/react"
+import { Box, Grid, HStack, Image, Spinner, Text } from "@chakra-ui/react"
 import { AnimatePresence, motion } from "motion/react"
 import { type ComponentProps, useCallback, useEffect, useRef } from "react"
 import { IoArrowUndoOutline, IoTrashOutline } from "react-icons/io5"
@@ -149,6 +149,10 @@ function Compare() {
                                             }
                                             isA={isA}
                                             isB={isB}
+                                            isLoading={
+                                                snap.loading.a === item.id ||
+                                                snap.loading.b === item.id
+                                            }
                                             onClick={async () => {
                                                 selectItem(item, "firstEmptyOrB")
                                             }}
@@ -169,6 +173,7 @@ function Compare() {
 interface ImageItemProps extends ChakraProps {
     isA?: boolean
     isB?: boolean
+    isLoading?: boolean
     item: Snapshot<CompareItem>
     index: number
     onSelectSide: (side: ImageSide, clear?: boolean) => void
@@ -182,7 +187,7 @@ interface ClearItemsButtonProps extends ComponentProps<typeof IconButton> {
 
 function ClearItemsButton(props: ClearItemsButtonProps) {
     const { hasUnpinnedItems, ...restProps } = props
-    const { state, collection, selectItem } = useCompareStore()
+    const { state, collection, clearItems } = useCompareStore()
     const snap = useSnapshot(state)
 
     const showUndo = !!snap.softRemovedItems.size
@@ -211,13 +216,7 @@ function ClearItemsButton(props: ClearItemsButtonProps) {
                 if (state.softRemovedItems.size > 0) {
                     state.softRemovedItems.clear()
                 } else {
-                    for (const item of state.items) {
-                        if (!item.pin) state.softRemovedItems.add(item.id)
-                    }
-                    if (state.imageA && state.softRemovedItems.has(state.imageA.id))
-                        selectItem(undefined, "A")
-                    if (state.imageB && state.softRemovedItems.has(state.imageB.id))
-                        selectItem(undefined, "B")
+                    clearItems()
                 }
             }}
             {...restProps}
@@ -284,7 +283,17 @@ function ClearPinsButton(props: ClearPinsButtonProps) {
 }
 
 function ImageItem(props: ImageItemProps) {
-    const { isA, isB, item, index, onSelectSide, onRemoveItem, onPinItem, ...restProps } = props
+    const {
+        isA,
+        isB,
+        isLoading,
+        item,
+        index,
+        onSelectSide,
+        onRemoveItem,
+        onPinItem,
+        ...restProps
+    } = props
 
     return (
         <Box
@@ -315,6 +324,21 @@ function ImageItem(props: ImageItemProps) {
                     borderBottomColor={isB ? "blue.400" : undefined}
                     borderWidth={isA || isB ? "2px" : "0px"}
                 />
+                {isLoading && (
+                    <Box
+                        position="absolute"
+                        inset={0}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        bg="blackAlpha.500"
+                        pointerEvents="none"
+                        role="status"
+                        aria-label={`Loading image ${index + 1}`}
+                    >
+                        <Spinner size="lg" color="white" />
+                    </Box>
+                )}
                 <IconButton
                     css={{
                         "--hover-bg": "colors.transparent",

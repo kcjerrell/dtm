@@ -21,7 +21,9 @@ vi.mock("@/state/settings", () => ({
     getSetting: vi.fn(),
     updateSetting: mocks.updateSetting,
 }))
-vi.mock("@/state/mediaStore/files", () => ({ MediaStoreFiles: { saveFile: mocks.saveFile } }))
+vi.mock("@/state/mediaStore/files", () => ({
+    MediaStoreFiles: { saveFile: mocks.saveFile, removeFile: vi.fn() },
+}))
 vi.mock("@tauri-store/valtio", () => ({
     store: (_name: string, state: MediaStoreType) => ({
         state: proxy({ ...state, items: structuredClone(mocks.items) }),
@@ -282,5 +284,118 @@ describe("sending images to Compare", () => {
             type: "warning",
             description: "Could not display the image. Decode failed",
         })
+    })
+})
+
+describe("Compare selection", () => {
+    async function fixture() {
+        const store = await (await import("./state")).getCompareStore()
+        const a = await store.addNewItem(data, "png", source)
+        const b = await store.addNewItem(new Uint8Array([2]), "png", { ...source, tensorId: "b" })
+        if (!a || !b) throw new Error("Missing Compare fixtures")
+        return { ...store, a, b }
+    }
+
+    it.each(["A", "B"] as const)("keeps the latest selection for %s", async (side) => {
+        const { state, selectItem, a, b } = await fixture()
+        const olderDecode = Promise.withResolvers<void>()
+        const newerDecode = Promise.withResolvers<void>()
+        mocks.decode
+            .mockReturnValueOnce(olderDecode.promise)
+            .mockReturnValueOnce(newerDecode.promise)
+        const older = selectItem(a, side)
+        const newer = selectItem(b, side)
+        expect(state.loading[side === "A" ? "a" : "b"]).toBe(b.id)
+        newerDecode.resolve()
+        await newer
+        olderDecode.resolve()
+        await older
+        expect(state[side === "A" ? "imageA" : "imageB"]?.id).toBe(b.id)
+        expect(state.loading).toEqual({ a: undefined, b: undefined })
+    })
+
+    it.each(["clear slot", "remove item", "clear images"])(
+        "invalidates a pending selection on %s, even after undoing clear images",
+        async (action) => {
+            const { state, selectItem, removeItem, clearItems, a } = await fixture()
+            const decode = Promise.withResolvers<void>()
+            mocks.decode.mockReturnValueOnce(decode.promise)
+            const pending = selectItem(a, "A")
+            if (action === "clear slot") await selectItem(undefined, "A")
+            else if (action === "remove item") await removeItem(a)
+            else {
+                clearItems()
+                state.softRemovedItems.clear()
+            }
+            expect(state.loading.a).toBeUndefined()
+            decode.resolve()
+            await pending
+            expect(state.imageA).toBeUndefined()
+        },
+    )
+
+    it.each(["firstEmpty", "firstEmptyOrB"] as const)(
+        "reserves independent slots before decoding with %s",
+        async (side) => {
+            const { state, selectItem, a, b } = await fixture()
+            const decodeA = Promise.withResolvers<void>()
+            const decodeB = Promise.withResolvers<void>()
+            mocks.decode.mockReturnValueOnce(decodeA.promise).mockReturnValueOnce(decodeB.promise)
+            const pendingA = selectItem(a, side)
+            const pendingB = selectItem(b, side)
+            expect(state.loading).toEqual({ a: a.id, b: b.id })
+            decodeB.resolve()
+            await pendingB
+            expect(state.imageA).toBeUndefined()
+            expect(state.imageB?.id).toBe(b.id)
+            decodeA.resolve()
+            await pendingA
+            expect(state.imageA?.id).toBe(a.id)
+        },
+    )
+
+    it("skips decoding firstEmpty when both slots are occupied", async () => {
+        const { selectItem, a, b } = await fixture()
+        await selectItem(a, "A")
+        await selectItem(b, "B")
+        mocks.decode.mockClear()
+        await selectItem(a, "firstEmpty")
+        expect(mocks.decode).not.toHaveBeenCalled()
+    })
+
+    it("clears a failed load without changing the selected image", async () => {
+        const { state, selectItem, a, b } = await fixture()
+        await selectItem(a, "A")
+        mocks.decode.mockRejectedValueOnce(new Error("Decode failed"))
+        await expect(selectItem(b, "A")).rejects.toThrow("Decode failed")
+        expect(state.imageA?.id).toBe(a.id)
+        expect(state.loading.a).toBeUndefined()
+    })
+
+    it("discards an obsolete decode failure without clearing the newer load", async () => {
+        const { state, selectItem, a, b } = await fixture()
+        const olderDecode = Promise.withResolvers<void>()
+        const newerDecode = Promise.withResolvers<void>()
+        mocks.decode
+            .mockReturnValueOnce(olderDecode.promise)
+            .mockReturnValueOnce(newerDecode.promise)
+        const older = selectItem(a, "A")
+        const newer = selectItem(b, "A")
+        olderDecode.reject(new Error("Obsolete failure"))
+        await older
+        expect(state.loading.a).toBe(b.id)
+        newerDecode.resolve()
+        await newer
+        expect(state.imageA?.id).toBe(b.id)
+    })
+
+    it("clears pin-restore history immediately on individual removal", async () => {
+        const { state, removeItem, pinItem, clearPins, a, b } = await fixture()
+        pinItem(a.id, true)
+        state.clearPinsUndo.set(a.id, 1)
+        clearPins()
+        const removal = removeItem(b)
+        expect(state.clearPinsUndo.size).toBe(0)
+        await removal
     })
 })

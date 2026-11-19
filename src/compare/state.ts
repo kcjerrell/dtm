@@ -15,6 +15,7 @@ type CompareStoreState = {
     items: CompareItem[]
     imageA: CompareItem | undefined
     imageB: CompareItem | undefined
+    loading: { a: string | undefined; b: string | undefined }
     isSelectorOpen: boolean
     softRemovedItems: Set<string>
     clearPinsUndo: Map<string, number>
@@ -44,6 +45,12 @@ function initStore() {
                 if (state.imageB && !state.items.includes(state.imageB)) {
                     state.imageB = undefined
                 }
+                for (const side of ["a", "b"] as const) {
+                    const id = state.loading[side]
+                    if (id && !state.items.some((item) => item.id === id)) {
+                        state.loading[side] = undefined
+                    }
+                }
             },
             onExit: () => {
                 const clearItems = getSetting("metadata.clearHistoryOnExit")
@@ -60,6 +67,7 @@ function initStore() {
     const state: CompareStoreState = proxy({
         imageA: undefined,
         imageB: undefined,
+        loading: { a: undefined, b: undefined },
         get items() {
             return collection.items
         },
@@ -83,31 +91,66 @@ function initStore() {
         side: "A" | "B" | "firstEmpty" | "firstEmptyOrB",
     ) {
         if (!item) {
-            if (side === "A") state.imageA = undefined
-            if (side === "B") state.imageB = undefined
+            if (side === "A") {
+                state.loading.a = undefined
+                state.imageA = undefined
+            }
+            if (side === "B") {
+                state.loading.b = undefined
+                state.imageB = undefined
+            }
             return
         }
 
         const cItem = state.items.find((it) => it.id === item?.id)
-        if (!cItem) return
+        if (!cItem || state.softRemovedItems.has(cItem.id)) return
 
-        const preload = new Image()
-        preload.src = cItem.url
-        await preload.decode()
-
-        if (side === "A") state.imageA = cItem
-        if (side === "B") state.imageB = cItem
         if (side === "firstEmpty") {
-            if (!state.imageA) state.imageA = cItem
-            else if (!state.imageB) state.imageB = cItem
+            if (!state.imageA && !state.loading.a) side = "A"
+            else if (!state.imageB && !state.loading.b) side = "B"
+            else return
         }
         if (side === "firstEmptyOrB") {
-            if (!state.imageA) state.imageA = cItem
+            side = !state.imageA && !state.loading.a ? "A" : "B"
+        }
+
+        const slot = side === "A" ? "a" : "b"
+        state.loading[slot] = cItem.id
+        try {
+            const preload = new Image()
+            preload.src = cItem.url
+            await preload.decode()
+
+            if (state.loading[slot] !== cItem.id) return
+            if (!state.items.includes(cItem) || state.softRemovedItems.has(cItem.id)) return
+            if (side === "A") state.imageA = cItem
             else state.imageB = cItem
+        } catch (error) {
+            if (state.loading[slot] === cItem.id) throw error
+        } finally {
+            if (state.loading[slot] === cItem.id) state.loading[slot] = undefined
+        }
+    }
+
+    function clearSelection(id: string) {
+        if (state.loading.a === id) state.loading.a = undefined
+        if (state.loading.b === id) state.loading.b = undefined
+        if (state.imageA?.id === id) state.imageA = undefined
+        if (state.imageB?.id === id) state.imageB = undefined
+    }
+
+    function clearItems() {
+        state.clearPinsUndo.clear()
+        for (const item of state.items) {
+            if (item.pin) continue
+            state.softRemovedItems.add(item.id)
+            clearSelection(item.id)
         }
     }
 
     async function removeItem(item: { id: string }) {
+        state.clearPinsUndo.clear()
+        clearSelection(item.id)
         await collection.removeItems([item.id])
     }
 
@@ -142,6 +185,7 @@ function initStore() {
         addMediaItem,
         selectItem,
         removeItem,
+        clearItems,
         pinItem,
         clearPins,
     }
