@@ -1,4 +1,5 @@
 import { chakra } from "@chakra-ui/react"
+import { AnimatePresence } from "motion/react"
 import type { ComponentProps, PropsWithChildren } from "react"
 import { MotionBox } from "../common"
 import Tooltip from "../Tooltip"
@@ -38,7 +39,7 @@ function ToolbarButton(props: ToolbarButtonProps) {
     const [, { activeItemLayoutId, mode }] = ToolbarSectionContext.useContext()
     // const hv = ToolbarSectionContext.useContextHooks()
 
-    const showIndicator = isActive || isOpen || isWaiting
+    const showIndicator = isActive || isOpen || isWaiting || isSelected
 
     return (
         <TooltipWrapper tip={tip} tipText={tipText} tipTitle={tipTitle}>
@@ -46,22 +47,32 @@ function ToolbarButton(props: ToolbarButtonProps) {
                 tbSelected={isSelected}
                 tbIndicator={showIndicator}
                 css={{
-                    "--tb-indicator-color": getIndicatorColor(
-                        isSelected,
-                        isActive,
-                        isOpen,
-                        isWaiting,
-                    ),
+                    // "--tb-indicator-color": getIndicatorColor(
+                    //     isSelected,
+                    //     isActive,
+                    //     isOpen,
+                    //     isWaiting,
+                    // ),
                     "& > *": {
                         zIndex: 5,
                     },
                 }}
                 {...restProps}
             >
-                <SelectedIndicator
-                    name={activeItemLayoutId}
-                    {...{ mode, isSelected, showIndicator }}
-                />
+                <AnimatePresence mode={"wait"}>
+                    {showIndicator && (
+                        <SelectedIndicator
+                            name={activeItemLayoutId}
+                            indicatorColor={getIndicatorColor(
+                                isSelected,
+                                isActive,
+                                isOpen,
+                                isWaiting,
+                            )}
+                            {...{ mode }}
+                        />
+                    )}
+                </AnimatePresence>
                 {children}
             </Base>
         </TooltipWrapper>
@@ -75,24 +86,29 @@ function ToolbarButton(props: ToolbarButtonProps) {
 interface SelectedIndicatorProps {
     name: string
     isSelected?: boolean
-    showIndicator?: boolean
+    // showIndicator?: boolean
     mode: "normal" | "select"
+    indicatorColor: string
 }
 
 function SelectedIndicator(props: SelectedIndicatorProps) {
-    const { name, isSelected, showIndicator, mode } = props
-    if (!isSelected && !showIndicator) return null
+    const { name, mode, indicatorColor } = props
+    // if (!isSelected && !showIndicator) return null
 
     return (
         <MotionBox
             layoutId={mode === "select" ? name : undefined}
             layout={mode === "select" ? "position" : false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className={"indicator"}
             aria-hidden="true"
             pointerEvents="none"
             position="absolute"
             zIndex={0}
-            border="0px solid {var(--tb-indicator-color)}"
+            border="0px solid"
+            borderColor={indicatorColor}
             borderTopWidth="3px"
             borderBottomWidth="3px"
             borderLeft={"1px solid {colors.grayc.12}"}
@@ -103,6 +119,7 @@ function SelectedIndicator(props: SelectedIndicatorProps) {
             _dark={{
                 bgColor: "#ffffff11",
             }}
+            transition={{ opacity: { duration: 0.2 } }}
             // backgroundColor="grayc.12/50"
             // _dark={{ backgroundColor: "grayc.13/50" }}
         />

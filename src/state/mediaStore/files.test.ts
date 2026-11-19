@@ -5,9 +5,11 @@ const fs = vi.hoisted(() => ({
     exists: vi.fn().mockResolvedValue(true),
     mkdir: vi.fn(),
     readDir: vi.fn(),
+    readFile: vi.fn(),
     remove: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn().mockResolvedValue(undefined),
 }))
+const createImageThumbnail = vi.hoisted(() => vi.fn())
 
 vi.mock("@tauri-apps/api", () => ({
     path: {
@@ -22,6 +24,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }))
 vi.mock("@tauri-apps/plugin-fs", () => fs)
 vi.mock("@/utils/helpers", () => ({ getStoreName: (name: string) => name }))
+vi.mock("./thumbnail", () => ({ createImageThumbnail }))
 
 type Entry = { name: string; isFile: boolean; isDirectory: boolean; isSymlink: boolean }
 function entry(name: string, kind: "file" | "directory" | "symlink" = "file"): Entry {
@@ -66,11 +69,59 @@ it("saves a copy of a file-backed video from the original path", async () => {
     expect(fs.exists).not.toHaveBeenCalled()
 })
 
+it("saves a PNG thumbnail beside a new image snapshot and removes both together", async () => {
+    const data = new Uint8Array([1])
+    const thumbnail = new Uint8Array([2])
+    fs.readFile.mockResolvedValueOnce(data)
+    createImageThumbnail.mockResolvedValueOnce(thumbnail)
+    const { MediaStoreFiles } = await import("./files")
+    const thumbUrl = await MediaStoreFiles.withSnapshot(
+        "aaaaaaaaaaaa",
+        { kind: "file", location: "/images/source.jpg" },
+        "jpg",
+        async (file, retain) => {
+            const url = await file.createThumbnail()
+            retain()
+            return url
+        },
+    )
+
+    expect(fs.readFile).toHaveBeenCalledWith("/app/media/aaaaaaaaaaaa.jpg")
+    expect(createImageThumbnail).toHaveBeenCalledWith(data, "jpg")
+    expect(thumbUrl).toBe("asset:///app/media/aaaaaaaaaaaat.png")
+    expect(fs.writeFile).toHaveBeenCalledExactlyOnceWith(
+        "/app/media/aaaaaaaaaaaat.png",
+        thumbnail,
+        { createNew: true },
+    )
+    expect(fs.remove).not.toHaveBeenCalled()
+    await MediaStoreFiles.removeSnapshot("aaaaaaaaaaaa.jpg")
+    expect(fs.remove.mock.calls).toEqual([
+        ["/app/media/aaaaaaaaaaaa.jpg"],
+        ["/app/media/aaaaaaaaaaaat.png"],
+    ])
+})
+
+it("removes the staged original when thumbnail generation fails", async () => {
+    const error = new Error("image decode failed")
+    createImageThumbnail.mockRejectedValueOnce(error)
+    const { MediaStoreFiles } = await import("./files")
+
+    await expect(
+        MediaStoreFiles.withSnapshot("aaaaaaaaaaaa", new Uint8Array([1]), "png", (file) =>
+            file.createThumbnail(),
+        ),
+    ).rejects.toMatchObject({ cause: error })
+    expect(fs.remove).toHaveBeenCalledExactlyOnceWith("/app/media/aaaaaaaaaaaa.png")
+})
+
 describe("orphaned media files", () => {
     it("removes only generated files not referenced by persisted media", async () => {
         fs.readDir.mockResolvedValue([
             entry("aaaaaaaaaaaa.png"),
+            entry("aaaaaaaaaaaat.png"),
             entry("bbbbbbbbbbbb.webp"),
+            entry("bbbbbbbbbbbbt.png"),
             entry("cccccccccccc.mp4"),
             entry("notes.txt"),
             entry("dddddddddddd.png", "directory"),
@@ -83,26 +134,35 @@ describe("orphaned media files", () => {
 
         expect(fs.remove.mock.calls).toEqual([
             ["/app/media/bbbbbbbbbbbb.webp"],
+            ["/app/media/bbbbbbbbbbbbt.png"],
             ["/app/media/cccccccccccc.mp4"],
         ])
     })
 
     it("leaves files being written alone", async () => {
-        fs.readDir.mockResolvedValue([entry("ffffffffffff.png")])
-        let finishWrite: (() => void) | undefined
-        fs.writeFile.mockImplementation(
-            () =>
-                new Promise<void>((resolve) => {
-                    finishWrite = resolve
-                }),
-        )
+        fs.readDir.mockResolvedValue([entry("ffffffffffff.png"), entry("fffffffffffft.png")])
+        const started = Promise.withResolvers<void>()
+        const finish = Promise.withResolvers<Uint8Array>()
+        createImageThumbnail.mockImplementationOnce(() => {
+            started.resolve()
+            return finish.promise
+        })
         const { MediaStoreFiles } = await import("./files")
 
-        const saving = MediaStoreFiles.saveFile("ffffffffffff", new Uint8Array([1]), "png")
+        const saving = MediaStoreFiles.withSnapshot(
+            "ffffffffffff",
+            new Uint8Array([1]),
+            "png",
+            async (file, retain) => {
+                await file.createThumbnail()
+                retain()
+            },
+        )
+        await started.promise
         await MediaStoreFiles.removeOrphanedFiles(new Set())
 
         expect(fs.remove).not.toHaveBeenCalled()
-        finishWrite?.()
+        finish.resolve(new Uint8Array([2]))
         await saving
     })
 })

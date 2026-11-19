@@ -4,6 +4,7 @@ import { ChakraProvider, defaultSystem } from "@chakra-ui/react"
 import "@testing-library/jest-dom/vitest"
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
+import type { MediaStoreFiles } from "@/state/mediaStore/files"
 import { loadSettingsStore } from "@/state/settings"
 import Compare from "./Compare"
 import { getCompareStore } from "./state"
@@ -14,8 +15,16 @@ vi.mock("@/lifecycle", () => ({ default: { onExit: vi.fn() } }))
 vi.mock("@tauri-store/valtio", () => import("@/mocks/tauri-store"))
 vi.mock("@/state/mediaStore/files", () => ({
     MediaStoreFiles: {
-        saveFile: async (id: string) => ({ fname: `${id}.png`, url: `asset://${id}.png` }),
-        removeFile: vi.fn().mockResolvedValue(undefined),
+        withSnapshot: (async (id, _data, type, use) =>
+            use(
+                {
+                    fname: `${id}.${type}`,
+                    url: `asset://${id}.${type}`,
+                    createThumbnail: async () => `asset://${id}t.png`,
+                },
+                () => {},
+            )) satisfies typeof MediaStoreFiles.withSnapshot,
+        removeSnapshot: vi.fn().mockResolvedValue(undefined),
     },
 }))
 

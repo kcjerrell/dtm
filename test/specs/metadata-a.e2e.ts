@@ -343,4 +343,74 @@ describe("Metadata", () => {
         )
         await md.selectTab("details")
     })
+
+    it("uses the same upward-cropped 180px thumbnail in Metadata History and Compare", async () => {
+        await App.selectView("metadata")
+        const portrait = await browser.execute(() => {
+            const canvas = document.createElement("canvas")
+            canvas.width = 100
+            canvas.height = 200
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("Could not draw the portrait fixture")
+            ctx.fillStyle = "#f00"
+            ctx.fillRect(0, 0, 100, 40)
+            ctx.fillStyle = "#00f"
+            ctx.fillRect(0, 40, 100, 160)
+            return canvas.toDataURL("image/png").split(",")[1]
+        })
+        const imagePath = join(tempDir, "portrait.png")
+        await fse.writeFile(imagePath, Buffer.from(portrait, "base64"))
+        await setPasteboardOverride({ NSFilenamesPboardType: build([imagePath]) })
+        await md.triggerDrop()
+        await md.currentImage.waitForExist()
+        await browser.waitUntil(() =>
+            md.currentImage.execute((el) => {
+                const image = el as HTMLImageElement
+                return image.naturalWidth === 100 && image.naturalHeight === 200
+            }),
+        )
+
+        const historyImage = $(
+            '[role="tablist"][aria-label="Image history"] [aria-selected="true"] img',
+        )
+        await historyImage.waitForExist()
+        await browser.waitUntil(() =>
+            historyImage.execute((el) => (el as HTMLImageElement).naturalWidth > 0),
+        )
+        const historySrc = await historyImage.getAttribute("src")
+        const originalSrc = await md.currentImage.getAttribute("src")
+        if (!historySrc || !originalSrc) throw new Error("Expected both image URLs")
+        expect(historySrc).toBe(originalSrc.replace(/\.png$/, "t.png"))
+        const thumbnail = await browser.execute(async (src) => {
+            const image = new Image()
+            image.crossOrigin = "anonymous"
+            image.src = src
+            await image.decode()
+            const canvas = document.createElement("canvas")
+            canvas.width = image.naturalWidth
+            canvas.height = image.naturalHeight
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("Could not read thumbnail pixels")
+            ctx.drawImage(image, 0, 0)
+            return {
+                size: [canvas.width, canvas.height],
+                nearTop: Array.from(ctx.getImageData(90, 12, 1, 1).data),
+                middle: Array.from(ctx.getImageData(90, 90, 1, 1).data),
+            }
+        }, historySrc)
+        expect(thumbnail).toEqual({
+            size: [180, 180],
+            nearTop: [255, 0, 0, 255],
+            middle: [0, 0, 255, 255],
+        })
+
+        await $("aria/Compare image").click()
+        await $("button=Compare").click()
+        await $("aria/Choose comparison images").click()
+        const compareImage = $('img[alt="Image 1"]')
+        await expect(compareImage).toHaveAttribute("src", historySrc)
+        await browser.waitUntil(() =>
+            compareImage.execute((el) => (el as HTMLImageElement).naturalWidth === 180),
+        )
+    })
 })

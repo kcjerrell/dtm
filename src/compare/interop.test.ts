@@ -1,11 +1,12 @@
 import { proxy } from "valtio"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import type { MediaStoreFiles } from "@/state/mediaStore/files"
 import type { MediaStateCol, MediaStoreType } from "@/state/mediaStore/types"
 
 const mocks = vi.hoisted(() => ({
     sidebarActivity: { compare: false },
     toast: vi.fn(),
-    saveFile: vi.fn(),
+    withSnapshot: vi.fn<typeof MediaStoreFiles.withSnapshot>(),
     decode: vi.fn(),
     items: [] as MediaStateCol[],
     updateSetting: vi.fn(),
@@ -22,7 +23,7 @@ vi.mock("@/state/settings", () => ({
     updateSetting: mocks.updateSetting,
 }))
 vi.mock("@/state/mediaStore/files", () => ({
-    MediaStoreFiles: { saveFile: mocks.saveFile, removeFile: vi.fn() },
+    MediaStoreFiles: { withSnapshot: mocks.withSnapshot, removeSnapshot: vi.fn() },
 }))
 vi.mock("@tauri-store/valtio", () => ({
     store: (_name: string, state: MediaStoreType) => ({
@@ -49,10 +50,16 @@ beforeEach(() => {
     vi.resetAllMocks()
     mocks.items = []
     mocks.sidebarActivity.compare = false
-    mocks.saveFile.mockImplementation(async (id: string) => ({
-        fname: `${id}.png`,
-        url: `asset://${id}.png`,
-    }))
+    mocks.withSnapshot.mockImplementation(async (id, _input, type, use) =>
+        use(
+            {
+                fname: `${id}.${type}`,
+                url: `asset://${id}.${type}`,
+                createThumbnail: async () => `asset://${id}t.png`,
+            },
+            () => {},
+        ),
+    )
     mocks.decode.mockResolvedValue(undefined)
     vi.stubGlobal(
         "Image",
@@ -79,7 +86,7 @@ describe("sending images to Compare", () => {
 
         expect((await getMetadataStore()).state.items[0]?.isVideo).toBe(true)
         expect(state.items).toHaveLength(0)
-        expect(mocks.saveFile).not.toHaveBeenCalled()
+        expect(mocks.withSnapshot).not.toHaveBeenCalled()
         expect(mocks.decode).not.toHaveBeenCalled()
         expect(mocks.sidebarActivity.compare).toBe(false)
         expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
@@ -123,7 +130,7 @@ describe("sending images to Compare", () => {
 
             const { state: compare } = await getCompareStore()
             const { state: metadata } = await getMetadataStore()
-            expect(mocks.saveFile).toHaveBeenCalledOnce()
+            expect(mocks.withSnapshot).toHaveBeenCalledOnce()
             expect(mocks.toast).toHaveBeenCalledExactlyOnceWith({
                 title: "Image added to Compare",
                 type: "success",
@@ -186,7 +193,7 @@ describe("sending images to Compare", () => {
         ])
 
         const { state } = await getCompareStore()
-        expect(mocks.saveFile).toHaveBeenCalledOnce()
+        expect(mocks.withSnapshot).toHaveBeenCalledOnce()
         expect(state.items).toHaveLength(1)
         expect(state.imageA).toBe(state.items[0])
         expect(state.imageB).toBeUndefined()
@@ -247,7 +254,7 @@ describe("sending images to Compare", () => {
     it("reports other errors from either add path", async () => {
         const { addNewItem, addMediaItem } = await import("./interop")
         const { getCompareStore } = await import("./state")
-        mocks.saveFile.mockRejectedValueOnce("Could not write file")
+        mocks.withSnapshot.mockRejectedValueOnce("Could not write file")
 
         await addNewItem(data, "png", source)
         await addMediaItem("missing")

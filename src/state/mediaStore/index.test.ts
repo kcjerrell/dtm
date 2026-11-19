@@ -2,10 +2,10 @@ import { proxy } from "valtio"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const io = vi.hoisted(() => ({
-    saveFile: vi.fn(),
     withSnapshot: vi.fn(),
     findMatchingFile: vi.fn(),
-    removeFile: vi.fn(),
+    removeSnapshot: vi.fn(),
+    createThumbnail: vi.fn(),
 }))
 vi.mock("@tauri-apps/api/core", () => ({
     convertFileSrc: (path: string) => `asset://localhost/${encodeURIComponent(path)}`,
@@ -23,23 +23,17 @@ vi.mock("@tauri-store/valtio", () => ({
 import MediaStore from "./index"
 
 type SnapshotInput = Uint8Array | { kind: "file" | "url"; location: string }
-type SavedFile = { fname: string; url: string }
+type SavedFile = { fname: string; url: string; createThumbnail: () => Promise<string> }
 
 const cachedFiles = new Map<string, Uint8Array>()
 const incomingFiles = new Map<string, Uint8Array>()
-
-function writeSnapshot(id: string, data: Uint8Array, type: string) {
-    const fname = `${id}.${type}`
-    cachedFiles.set(fname, data.slice())
-    return { fname, url: `asset://${fname}` }
-}
 
 beforeEach(() => {
     vi.resetAllMocks()
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })))
     cachedFiles.clear()
     incomingFiles.clear()
-    io.saveFile.mockImplementation(writeSnapshot)
+    io.createThumbnail.mockImplementation(async (id: string) => `asset://${id}t.png`)
     io.withSnapshot.mockImplementation(
         async (
             id: string,
@@ -49,7 +43,15 @@ beforeEach(() => {
         ) => {
             const bytes = input instanceof Uint8Array ? input : incomingFiles.get(input.location)
             if (!bytes) throw new Error("missing incoming file")
-            const file = writeSnapshot(id, bytes, type)
+            const fname = `${id}.${type}`
+            const url = `asset://${fname}`
+            cachedFiles.set(fname, bytes.slice())
+            const file = {
+                fname,
+                url,
+                createThumbnail: () =>
+                    type === "mp4" ? Promise.resolve(url) : io.createThumbnail(id),
+            }
             let retained = false
             try {
                 return await use(file, () => {
@@ -100,11 +102,10 @@ describe("video media-store imports", () => {
         expect(shared.item?.id).toBe(first.item?.id)
         expect(shared.alreadyPresent).toBe(false)
         expect(fetch).toHaveBeenCalledWith(url, { method: "HEAD", cache: "no-store" })
-        expect(io.saveFile).not.toHaveBeenCalled()
         expect(io.withSnapshot).not.toHaveBeenCalled()
         expect(io.findMatchingFile).not.toHaveBeenCalled()
         await Promise.all([collection.clear(), otherCollection.clear()])
-        expect(io.removeFile).not.toHaveBeenCalled()
+        expect(io.removeSnapshot).not.toHaveBeenCalled()
     })
 
     it.each([
@@ -131,6 +132,8 @@ describe("video media-store imports", () => {
 
         expect(first.item?.storage).toEqual({ kind: "app", fname: `${first.item?.id}.mp4` })
         expect(first.item?.url).toBe(`asset://${first.item?.id}.mp4`)
+        expect(first.item?.thumbUrl).toBe(first.item?.url)
+        expect(io.createThumbnail).not.toHaveBeenCalled()
         expect(duplicate).toEqual({ item: first.item, alreadyPresent: true })
         expect(changed.alreadyPresent).toBe(false)
         expect([...cachedFiles.values()]).toEqual([new Uint8Array([1]), new Uint8Array([2])])
@@ -141,7 +144,7 @@ describe("video media-store imports", () => {
         await expect(collection.addItem(new Uint8Array([1]), "mp4", {})).rejects.toThrow(
             "videos must be referenced",
         )
-        expect(io.saveFile).not.toHaveBeenCalled()
+        expect(io.withSnapshot).not.toHaveBeenCalled()
     })
 })
 
@@ -167,14 +170,17 @@ describe("file and URL image versions", () => {
             expect(shared.alreadyPresent).toBe(false)
             expect(shared.item?.pin).toBe(0)
             expect(original.item?.pin).toBe(1)
+            expect(original.item?.thumbUrl).toBe(`asset://${original.item?.id}t.png`)
+            expect(shared.item?.thumbUrl).toBe(original.item?.thumbUrl)
+            expect(io.createThumbnail).toHaveBeenCalledTimes(2)
             expect([...cachedFiles.values()]).toEqual([new Uint8Array([1]), new Uint8Array([2])])
             if (!changed.item) throw new Error("expected a changed version")
             expect((await compare.addExisting(changed.item.id))?.id).toBe(changed.item.id)
             expect(compare.items).toHaveLength(2)
             await metadata.clear()
-            expect(io.removeFile).not.toHaveBeenCalledWith(`${original.item?.id}.png`)
+            expect(io.removeSnapshot).not.toHaveBeenCalledWith(`${original.item?.id}.png`)
             await compare.clear()
-            expect(io.removeFile).toHaveBeenCalledWith(`${original.item?.id}.png`)
+            expect(io.removeSnapshot).toHaveBeenCalledWith(`${original.item?.id}.png`)
         },
     )
 
@@ -198,10 +204,9 @@ describe("media-store reset", () => {
         const images = MediaStore.defineCollection("reset-images", {}, { version: 1 })
         const videos = MediaStore.defineCollection("reset-videos", {})
         await Promise.all([images.waitForReady(), videos.waitForReady()])
-        io.saveFile.mockResolvedValue({ fname: "cached.png", url: "asset://cached.png" })
         incomingFiles.set("https://example.test/movie.mp4", new Uint8Array([1]))
         incomingFiles.set("https://example.test/image.png", new Uint8Array([1]))
-        await images.addItem(new Uint8Array([1]), "png", {})
+        const image = await images.addItem(new Uint8Array([1]), "png", {})
         await videos.addMedia({ kind: "file", location: "/videos/movie.mp4", type: "mp4" })
         await videos.addMedia({
             kind: "url",
@@ -210,21 +215,21 @@ describe("media-store reset", () => {
         })
 
         const cleanup = Promise.withResolvers<void>()
-        io.removeFile.mockReturnValueOnce(cleanup.promise)
+        io.removeSnapshot.mockReturnValueOnce(cleanup.promise)
         let completed = false
         async function resetStore() {
             await MediaStore.reset()
             completed = true
         }
         const resetting = resetStore()
-        await vi.waitFor(() => expect(io.removeFile).toHaveBeenCalledWith("cached.png"))
+        await vi.waitFor(() => expect(io.removeSnapshot).toHaveBeenCalledWith(`${image?.id}.png`))
         expect(completed).toBe(false)
         cleanup.resolve()
         await resetting
 
         expect(images.items).toHaveLength(0)
         expect(videos.items).toHaveLength(0)
-        expect(io.removeFile).toHaveBeenCalledTimes(2)
+        expect(io.removeSnapshot).toHaveBeenCalledTimes(2)
         expect(MediaStore.getCollection("reset-images")).toBe(images)
         const item = await images.addMedia({
             kind: "url",

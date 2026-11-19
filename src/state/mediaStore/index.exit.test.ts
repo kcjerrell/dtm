@@ -1,6 +1,7 @@
 import type { StoreHooks, StoreOptions } from "@tauri-store/valtio"
 import { proxy } from "valtio"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { MediaStoreFiles } from "./files"
 import { MediaItemBase } from "./MediaItem"
 import type { MediaState, MediaStateCol, MediaStoreApi, MediaStoreType } from "./types"
 
@@ -12,13 +13,10 @@ const fixtures = vi.hoisted(() => ({
     start: vi
         .fn<(hooks?: StoreHooks<MediaStoreType>) => Promise<void>>()
         .mockResolvedValue(undefined),
-    removeFile: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
+    removeSnapshot: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
     copyToClipboard: vi.fn<(fname: string) => Promise<void>>().mockResolvedValue(undefined),
     saveCopy: vi.fn<(fname: string, dest: string) => Promise<void>>().mockResolvedValue(undefined),
-    saveFile:
-        vi.fn<
-            (id: string, data: Uint8Array, type: string) => Promise<{ fname: string; url: string }>
-        >(),
+    withSnapshot: vi.fn<typeof MediaStoreFiles.withSnapshot>(),
     removeOrphanedFiles: vi
         .fn<(files: ReadonlySet<string>) => Promise<void>>()
         .mockResolvedValue(undefined),
@@ -76,12 +74,18 @@ beforeEach(() => {
     fixtures.state = undefined
     fixtures.api = undefined
     fixtures.start.mockResolvedValue(undefined)
-    fixtures.removeFile.mockResolvedValue(undefined)
+    fixtures.removeSnapshot.mockResolvedValue(undefined)
     fixtures.removeOrphanedFiles.mockResolvedValue(undefined)
-    fixtures.saveFile.mockImplementation(async (id, _data, type) => ({
-        fname: `${id}.${type}`,
-        url: `asset://${id}.${type}`,
-    }))
+    fixtures.withSnapshot.mockImplementation(async (id, _data, type, use) =>
+        use(
+            {
+                fname: `${id}.${type}`,
+                url: `asset://${id}.${type}`,
+                createThumbnail: async () => `asset://${id}t.png`,
+            },
+            () => {},
+        ),
+    )
 })
 
 describe("media-store hydration", () => {
@@ -95,7 +99,7 @@ describe("media-store hydration", () => {
         await expect(mediaStore.waitForReady()).rejects.toBe(error)
         await fixtures.onExit.mock.calls[0][0]()
 
-        expect(fixtures.removeFile).not.toHaveBeenCalled()
+        expect(fixtures.removeSnapshot).not.toHaveBeenCalled()
         expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
     })
 
@@ -128,19 +132,19 @@ describe("media-store hydration", () => {
             }
             const pending = actions[action]()
             expect(fixtures.state?.items).toEqual([])
-            expect(fixtures.saveFile).not.toHaveBeenCalled()
-            expect(fixtures.removeFile).not.toHaveBeenCalled()
+            expect(fixtures.withSnapshot).not.toHaveBeenCalled()
+            expect(fixtures.removeSnapshot).not.toHaveBeenCalled()
             loading.resolve()
             await pending
 
             if (action === "save") {
                 expect(fixtures.state?.items).toHaveLength(2)
-                expect(fixtures.saveFile).toHaveBeenCalledOnce()
+                expect(fixtures.withSnapshot).toHaveBeenCalledOnce()
             } else if (action === "attach") {
                 expect(fixtures.state?.items[0].$col).toEqual({ a: {}, b: {} })
             } else {
                 expect(fixtures.state?.items).toEqual([])
-                expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("restored.png")
+                expect(fixtures.removeSnapshot).toHaveBeenCalledExactlyOnceWith("restored.png")
             }
         },
     )
@@ -206,7 +210,7 @@ describe("media-store exit cleanup", () => {
 
         expect(fixtures.state?.items).toHaveLength(1)
         expect(fixtures.state?.items[0].$col).toEqual({ a: {} })
-        expect(fixtures.removeFile).not.toHaveBeenCalled()
+        expect(fixtures.removeSnapshot).not.toHaveBeenCalled()
     })
 
     it("sweeps orphans on exit after cleanup and retains unloaded collections", async () => {
@@ -224,14 +228,14 @@ describe("media-store exit cleanup", () => {
     it("waits for item removal before sweeping orphaned files", async () => {
         fixtures.items = [item("only-a", ["a"])]
         const removal = Promise.withResolvers<void>()
-        fixtures.removeFile.mockImplementation(async () => removal.promise)
+        fixtures.removeSnapshot.mockImplementation(async () => removal.promise)
         const { default: mediaStore } = await import("./index")
         const collection = mediaStore.defineCollection("a", { clear: false }, exitOptions)
         await collection.waitForReady()
         collection.items[0].cState.clear = true
 
         const exiting = fixtures.onExit.mock.calls[0][0]()
-        await vi.waitFor(() => expect(fixtures.removeFile).toHaveBeenCalledOnce())
+        await vi.waitFor(() => expect(fixtures.removeSnapshot).toHaveBeenCalledOnce())
         expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
         removal.resolve()
         await exiting
@@ -259,7 +263,7 @@ describe("media-store exit cleanup", () => {
             expect(fixtures.state?.items).toHaveLength(1)
             expect(fixtures.state?.items[0].$col).toEqual({ broken: {} })
             expect(collection.items).toEqual([])
-            expect(fixtures.removeFile).not.toHaveBeenCalled()
+            expect(fixtures.removeSnapshot).not.toHaveBeenCalled()
             const storedItem = fixtures.state?.items[0]
             if (!storedItem) throw new Error("expected persisted store item")
             await expect(collection.addExisting(storedItem.id)).rejects.toThrow(
@@ -290,7 +294,7 @@ describe("media-store exit cleanup", () => {
         expect(second).not.toBe(first)
         expect(second?.id).toBe(first.id)
         expect(fixtures.state?.items).toHaveLength(1)
-        expect(fixtures.saveFile).toHaveBeenCalledOnce()
+        expect(fixtures.withSnapshot).toHaveBeenCalledOnce()
         const log = vi.spyOn(console, "error").mockImplementation(() => {})
         try {
             await expect(broken.addExisting(first.id)).resolves.toBeUndefined()
@@ -302,14 +306,14 @@ describe("media-store exit cleanup", () => {
             await a.removeItems(first.id)
             expect(a.items).toEqual([])
             expect(b.items[0]).toBe(second)
-            expect(fixtures.removeFile).not.toHaveBeenCalled()
+            expect(fixtures.removeSnapshot).not.toHaveBeenCalled()
             await b.clear()
             expect(fixtures.state?.items).toHaveLength(1)
             expect(fixtures.state?.items[0].$col).toEqual({ broken: {} })
             await broken.clear()
             await mediaStore.reset()
             expect(fixtures.state?.items).toEqual([])
-            expect(fixtures.removeFile).toHaveBeenCalledOnce()
+            expect(fixtures.removeSnapshot).toHaveBeenCalledOnce()
         } finally {
             log.mockRestore()
         }
@@ -331,7 +335,7 @@ describe("media-store exit cleanup", () => {
         await Promise.all([a.waitForReady(), b.waitForReady()])
         await fixtures.onExit.mock.calls[0][0]()
         expect(fixtures.state?.items).toEqual([])
-        expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("only-a.png")
+        expect(fixtures.removeSnapshot).toHaveBeenCalledExactlyOnceWith("only-a.png")
     })
 
     it("awaits cleanup already started by a public removal before sweeping files", async () => {
@@ -340,11 +344,11 @@ describe("media-store exit cleanup", () => {
         const a = mediaStore.defineCollection("a", {})
         await a.waitForReady()
         const removal = Promise.withResolvers<void>()
-        fixtures.removeFile.mockImplementation(() => removal.promise)
+        fixtures.removeSnapshot.mockImplementation(() => removal.promise)
         const removing = a.removeItems("only-a")
         await vi.waitFor(() => expect(a.items).toEqual([]))
         const exiting = fixtures.onExit.mock.calls[0][0]()
-        await vi.waitFor(() => expect(fixtures.removeFile).toHaveBeenCalledOnce())
+        await vi.waitFor(() => expect(fixtures.removeSnapshot).toHaveBeenCalledOnce())
         expect(fixtures.removeOrphanedFiles).not.toHaveBeenCalled()
         removal.resolve()
         await removing
@@ -363,7 +367,7 @@ describe("media-store exit cleanup", () => {
 
         expect(fixtures.state?.items.map((it) => it.id)).toEqual(["only-b"])
         expect(fixtures.state?.items[0].$col).toEqual({ b: {} })
-        expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("only-a.png")
+        expect(fixtures.removeSnapshot).toHaveBeenCalledExactlyOnceWith("only-a.png")
         expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
             new Set(["only-b.png"]),
         )
@@ -381,7 +385,7 @@ describe("media-store exit cleanup", () => {
 
         expect(fixtures.state?.items.map((it) => it.id)).toEqual(["shared"])
         expect(fixtures.state?.items[0].$col).toEqual({ a: {} })
-        expect(fixtures.removeFile).toHaveBeenCalledExactlyOnceWith("only-b.png")
+        expect(fixtures.removeSnapshot).toHaveBeenCalledExactlyOnceWith("only-b.png")
         expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
             new Set(["shared.png"]),
         )
@@ -397,7 +401,7 @@ describe("media-store exit cleanup", () => {
         await fixtures.onExit.mock.calls[0][0]()
 
         expect(fixtures.state?.items[0].$col).toEqual({ b: {} })
-        expect(fixtures.removeFile).not.toHaveBeenCalled()
+        expect(fixtures.removeSnapshot).not.toHaveBeenCalled()
         expect(fixtures.removeOrphanedFiles).toHaveBeenCalledExactlyOnceWith(
             new Set(["shared.png"]),
         )

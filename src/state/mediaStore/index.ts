@@ -233,11 +233,11 @@ function createMediaStore() {
             }
 
             const id = getNewId()
-            function register(url: string, storage: MediaStorage) {
+            function register(url: string, thumbUrl: string, storage: MediaStorage) {
                 const item: MediaStateCol = proxy({
                     id,
                     url,
-                    thumbUrl: url,
+                    thumbUrl,
                     type,
                     source: itemSource,
                     storage,
@@ -251,16 +251,13 @@ function createMediaStore() {
             if (filePath && fileUrl) {
                 const match = findFileReference(filePath, candidates)
                 if (match) return attachItem(match, collectionId, collectionData)
-                return register(fileUrl, { kind: "file", path: filePath })
-            }
-            if (input instanceof Uint8Array && !candidates.length) {
-                const { fname, url } = await MediaStoreFiles.saveFile(id, input, type)
-                return register(url, { kind: "app", fname })
+                return register(fileUrl, fileUrl, { kind: "file", path: filePath })
             }
             return await MediaStoreFiles.withSnapshot(id, input, type, async (file, retain) => {
                 const match = await findMatchingSnapshot(file.fname, candidates)
                 if (match) return attachItem(match, collectionId, collectionData)
-                const result = register(file.url, { kind: "app", fname: file.fname })
+                const thumbUrl = await file.createThumbnail()
+                const result = register(file.url, thumbUrl, { kind: "app", fname: file.fname })
                 retain()
                 return result
             })
@@ -354,7 +351,7 @@ function createMediaStore() {
             for (const item of clearItems) {
                 try {
                     if (item.storage.kind === "app") {
-                        await MediaStoreFiles.removeFile(item.storage.fname)
+                        await MediaStoreFiles.removeSnapshot(item.storage.fname)
                     }
                 } catch (e) {
                     console.error(e)

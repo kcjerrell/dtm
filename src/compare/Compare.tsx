@@ -83,9 +83,15 @@ function Compare() {
                         variant={"float"}
                         alignSelf={"end"}
                         margin={2}
-                        minWidth={"45%"}
                         maxWidth={"75%"}
                         maxHeight={"80%"}
+                        // the panel will close if no longer hovered, clearing the removed items state
+                        // this ensures the image selector does not get smaller once open
+                        minWidth={
+                            panelRef.current
+                                ? `${panelRef.current?.getBoundingClientRect()?.width}px`
+                                : "45%"
+                        }
                         minHeight={`${panelRef.current?.getBoundingClientRect()?.height ?? 0}px`}
                         overflow={"auto"}
                         className={"panel-scroll"}
