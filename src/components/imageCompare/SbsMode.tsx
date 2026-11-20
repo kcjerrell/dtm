@@ -102,6 +102,7 @@ function Settings(props: ModeSettingProps<never>) {
             <ToolbarButton
                 itemId="vertical"
                 aria-label="Vertical layout"
+                tipTitle="Vertical layout"
                 aria-pressed={snap.sbsLayout === "vertical"}
                 isSelected={snap.sbsLayout === "vertical"}
                 onClick={() => {
@@ -113,6 +114,7 @@ function Settings(props: ModeSettingProps<never>) {
             <ToolbarButton
                 itemId="horizontal"
                 aria-label="Horizontal layout"
+                tipTitle="Horizontal layout"
                 aria-pressed={snap.sbsLayout === "horizontal"}
                 isSelected={snap.sbsLayout === "horizontal"}
                 onClick={() => {

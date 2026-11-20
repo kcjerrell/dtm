@@ -50,7 +50,11 @@ vi.mock("../toolbar/ToolbarSection", () => ({
 }))
 vi.mock("./hooks", () => ({ useImageCompareHooks: () => testHooks }))
 vi.mock("@/state/settings", () => ({
+    useFlag: vi.fn().mockReturnValue([true, vi.fn()]),
     useSettingRef: () => ({ current: "pinch" }),
+}))
+vi.mock("../ui/toaster", () => ({
+    toaster: { create: vi.fn() },
 }))
 vi.mock("./raster", () => ({
     renderRaster: vi.fn(),

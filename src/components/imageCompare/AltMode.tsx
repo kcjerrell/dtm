@@ -157,7 +157,7 @@ function Button(props: ModeButtonProps) {
                  between images.`
 
     return (
-        <ToolbarButton itemId={"alt"} tipTitle={"Swap"} tipText={tip} {...props}>
+        <ToolbarButton itemId="alt" aria-label="Swap" tipTitle="Swap" tipText={tip} {...props}>
             <SwapCompare />
         </ToolbarButton>
     )

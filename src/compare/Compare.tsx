@@ -77,13 +77,13 @@ function Compare() {
                     </ToolbarButton>
                 </ImageCompare.ImageSelector>
 
-                <ImageCompare.TopLayer show={snap.isSelectorOpen}>
+                <ImageCompare.TopLayer show={snap.holdOpen || snap.isSelectorOpen}>
                     <Panel
                         ref={panelRef}
                         variant={"float"}
                         alignSelf={"end"}
                         margin={2}
-                        maxWidth={"75%"}
+                        width={"75%"}
                         maxHeight={"80%"}
                         // the panel will close if no longer hovered, clearing the removed items state
                         // this ensures the image selector does not get smaller once open
@@ -93,13 +93,14 @@ function Compare() {
                                 : "45%"
                         }
                         minHeight={`${panelRef.current?.getBoundingClientRect()?.height ?? 0}px`}
-                        overflow={"auto"}
+                        overflowY={"scroll"}
+                        overflowX={"clip"}
                         className={"panel-scroll"}
                         onMouseEnter={() => onEnter()}
                         onMouseLeave={() => startCloseTimer()}
-                        border={"1px solid"}
-                        borderColor={"grayc.10"}
+                        layerStyle="tooltipSurface"
                         zIndex={50}
+                        paddingRight={0}
                     >
                         {isEmpty && (
                             <Text color="fg.2" fontSize="sm" padding={3} textAlign="center">
@@ -110,7 +111,7 @@ function Compare() {
                             gridTemplateColumns={`repeat(auto-fit, minmax(150px, 1fr))`}
                             gap={"3px"}
                             minHeight={0}
-                            // overflowY={"auto"}
+                            justifySelf={"stretch"}
                         >
                             <AnimatePresence>
                                 <HStack
@@ -324,12 +325,19 @@ function ImageItem(props: ImageItemProps) {
                     aspectRatio={1}
                     alignSelf={"start"}
                     objectFit={"cover"}
-                    borderStyle={"solid"}
-                    borderColor={isA ? "red.400" : isB ? "blue.400" : "transparent"}
-                    borderRightColor={isB ? "blue.400" : undefined}
-                    borderBottomColor={isB ? "blue.400" : undefined}
-                    borderWidth={isA || isB ? "2px" : "0px"}
                 />
+                {(isA || isB) && (
+                    <Box
+                        position="absolute"
+                        inset={0}
+                        pointerEvents="none"
+                        boxShadow={
+                            isA && isB
+                                ? "inset 2px 2px var(--chakra-colors-red-400), inset -2px -2px var(--chakra-colors-blue-400)"
+                                : `inset 0 0 0 2px var(--chakra-colors-${isA ? "red" : "blue"}-400)`
+                        }
+                    />
+                )}
                 {isLoading && (
                     <Box
                         position="absolute"

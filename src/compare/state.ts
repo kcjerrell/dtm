@@ -19,6 +19,7 @@ type CompareStoreState = {
     isSelectorOpen: boolean
     softRemovedItems: Set<string>
     clearPinsUndo: Map<string, number>
+    holdOpen: boolean
 }
 
 let _store: ReturnType<typeof initStore>
@@ -74,6 +75,7 @@ function initStore() {
         isSelectorOpen: false,
         softRemovedItems: proxySet(),
         clearPinsUndo: proxyMap(),
+        holdOpen: false,
     })
 
     async function addNewItem(data: Uint8Array, type: string, source: MediaItemSource) {

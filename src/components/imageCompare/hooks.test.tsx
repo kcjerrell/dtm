@@ -6,6 +6,7 @@ import { useCreateImageCompareContext } from "./hooks"
 import { ImageCompareContext } from "./state"
 
 vi.mock("@/state/settings", () => ({
+    useFlag: vi.fn().mockReturnValue([true, vi.fn()]),
     useSettingRef: () => ({ current: "pinch" }),
 }))
 

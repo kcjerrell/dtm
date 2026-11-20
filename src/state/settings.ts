@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core"
 import { store } from "@tauri-store/valtio"
 import { nanoid } from "nanoid"
-import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react"
-import { type Snapshot, subscribe, useSnapshot } from "valtio"
+import { type RefObject, useCallback, useRef } from "react"
+import { type Snapshot, useSnapshot } from "valtio"
 import type { Format } from "@/commands"
 import { getStoreName } from "@/utils/helpers"
 
@@ -112,14 +112,15 @@ export function updateFlag(flag: string, value = true) {
     updateSetting("app.flags", value ? [...flags, flag] : flags.filter((entry) => entry !== flag))
 }
 
-function subscribeFlags(onChange: () => void) {
-    return subscribe(getSettingStore().state, onChange)
-}
-
 export function useFlag(flag: string) {
-    const readFlag = useCallback(() => getFlag(flag), [flag])
-    const value = useSyncExternalStore(subscribeFlags, readFlag, readFlag)
-    const setFlag = useCallback((value = true) => updateFlag(flag, value), [flag])
+    const [flags, _] = useSetting("app.flags")
+    const value = flags.includes(flag)
+    const setFlag = useCallback(
+        (value = true) => {
+            updateFlag(flag, value)
+        },
+        [flag],
+    )
     return [value, setFlag] as const
 }
 

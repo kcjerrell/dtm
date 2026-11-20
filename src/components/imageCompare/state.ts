@@ -4,6 +4,7 @@ import type { ImageCompareRootProps } from "./Root"
 import type { SliderEffectDisplay } from "./sliderEffectDisplay"
 
 export type SliderEffect = "brightness" | "color" | "difference" | "none"
+export type BrightnessBlendMode = "darken" | "normal" | "lighten"
 /** Names follow the stretch-axis icons: horizontal stacks panes; vertical places them side by side. */
 export type SbsLayout = "horizontal" | "vertical"
 export type AlignDisplay = "original" | "b-edges" | "both-edges"
@@ -23,6 +24,7 @@ export type ImageCompareState = {
     mode: string
     /** The selected slider trail effect */
     sliderTrail: SliderEffect
+    brightnessBlendMode: BrightnessBlendMode
     /** The slider trail effect currently stored in the canvas */
     canvasContents: SliderEffect
     sliderRasterKey: { imageKey: string; gain: number; threshold: number } | null
@@ -82,6 +84,7 @@ export const ImageCompareContext = buildStateContext<ImageCompareState, ImageCom
         smoothing: true,
         mode: "slider",
         sliderTrail: "none" as SliderEffect,
+        brightnessBlendMode: "normal",
         sliderDragging: false,
         sliderEffectDisplay: "trail" as SliderEffectDisplay,
         canvasContents: "none",

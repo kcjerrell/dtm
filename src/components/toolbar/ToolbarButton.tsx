@@ -119,7 +119,7 @@ function SelectedIndicator(props: SelectedIndicatorProps) {
             _dark={{
                 bgColor: "#ffffff11",
             }}
-            transition={{ opacity: { duration: 0.2 } }}
+            transition={{ opacity: { duration: 0.2 }, layout: { duration: 0.2 } }}
             // backgroundColor="grayc.12/50"
             // _dark={{ backgroundColor: "grayc.13/50" }}
         />

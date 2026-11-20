@@ -12,7 +12,7 @@ import { open } from "@tauri-apps/plugin-dialog"
 import { toggleColorMode } from "./components/ui/color-mode"
 import AppStore from "./hooks/appState"
 import { postMessage } from "./state/Messages"
-import { getSetting, subscribeSetting, updateSetting } from "./state/settings"
+import { getSetting, subscribeSetting, updateFlag, updateSetting } from "./state/settings"
 import { themeHelpers } from "./theme/helpers"
 import { isMacOS } from "./utils/platform"
 import { viewDescription } from "./views"
@@ -294,6 +294,7 @@ async function createOptionsMenu(opts?: CreateOptionMenuOpts) {
                         "app.zoomMode",
                         getSetting("app.zoomMode") === "pinch" ? "scroll" : "pinch",
                     )
+                    updateFlag("notifyPinchZoom", false)
                 },
             }),
             await Separator(),

@@ -40,7 +40,7 @@ const ToolbarSectionBase = chakra("div", {
 
         _dark: {
             bgColor: "grayc.16",
-            border: "1px solid {colors.grayc.12/50}",
+            // border: "1px solid {colors.grayc.12/50}",
         },
     },
 })

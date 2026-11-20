@@ -155,6 +155,14 @@ const themeConfig = defineConfig({
             button: buttonRecipe,
         },
         layerStyles: defineLayerStyles({
+            tooltipSurface: {
+                value: {
+                    bgColor: "bg.2",
+                    color: "fg.2",
+                    border: "1px solid #77777777",
+                    boxShadow: "md",
+                },
+            },
             borderA: {
                 value: {
                     border: "1px solid",
@@ -276,23 +284,6 @@ const themeConfig = defineConfig({
                         },
                     },
                 },
-                // grays: {
-                //     "0": { value: "#0e0f10" },
-                //     "1": { value: "#141617" },
-                //     "2": { value: "#1f2224" },
-                //     "3": { value: "#272932" },
-                //     "4": { value: "#272a2d" },
-                //     "5": { value: "#434753" },
-                //     "6": { value: "#434753" },
-                //     "7": { value: "#565e67" },
-                //     "8": { value: "#8e97a2" },
-                //     "9": { value: "#b9bfc5" },
-                //     "10": { value: "#c7c9ca" },
-                //     "11": { value: "#dbdddf" },
-                //     "12": { value: "#e0e1e2" },
-                //     "13": { value: "#e8eaeb" },
-                //     "14": { value: "#f2f3f4" },
-                // },
                 grays,
                 grayc,
                 highlight: {

@@ -81,6 +81,7 @@ function Root(props: ImageCompareRootProps) {
 
     const contentSize = snap.contentSize
     const contentOffset = snap.contentOffset
+    const smoothingLabel = snap.smoothing ? "Disable smoothing" : "Enable smoothing"
 
     const sliderMode = SliderMode.useMode(state, snap, hooks)
     const altMode = AltMode.useMode(state, snap, hooks)
@@ -310,7 +311,8 @@ function Root(props: ImageCompareRootProps) {
                         <ToolbarSection>
                             <ToolbarButton
                                 itemId="smoothing"
-                                tipTitle={snap.smoothing ? "Disable smoothing" : "Enable smoothing"}
+                                aria-label={smoothingLabel}
+                                tipTitle={smoothingLabel}
                                 tipText={
                                     snap.smoothing
                                         ? "Click to disable smoothing on scaled-up images."

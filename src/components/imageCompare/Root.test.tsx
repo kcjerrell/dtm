@@ -8,6 +8,7 @@ import { comparisonZoomProperties } from "./imageGeometry"
 import Root, { type ImageCompareRootProps } from "./Root"
 
 vi.mock("@/state/settings", () => ({
+    useFlag: vi.fn().mockReturnValue([true, vi.fn()]),
     useSetting: () => ["compare"],
     useSettingRef: () => ({ current: "pinch" }),
 }))
@@ -175,7 +176,7 @@ it("continues cycling modes when manual alignment has no editable fields", async
 })
 
 it.each([
-    ["image", false, "X"],
+    ["image", false, "No effect"],
     ["resize handle", true, "Vertical layout"],
 ])("cycles modes with Tab after dragging the Align %s", async (surface, shiftKey, nextSetting) => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000)

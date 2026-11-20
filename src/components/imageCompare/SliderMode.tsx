@@ -1,4 +1,4 @@
-import { Box, HStack, Popover, Portal, VStack } from "@chakra-ui/react"
+import { Box, Popover, Portal, VStack } from "@chakra-ui/react"
 import { usePopoverContext } from "@chakra-ui/react/popover"
 import { motion, useTransform } from "motion/react"
 import {
@@ -36,7 +36,12 @@ import {
 import { getComparisonImageStyle } from "./imageGeometry"
 import type { RasterSource } from "./raster"
 import { transitionSliderEffectDisplay } from "./sliderEffectDisplay"
-import { ImageCompareContext, type ImageCompareState, type SliderEffect } from "./state"
+import {
+    type BrightnessBlendMode,
+    ImageCompareContext,
+    type ImageCompareState,
+    type SliderEffect,
+} from "./state"
 import { sliderRasterImageKey, useSliderComparison } from "./useSliderComparison"
 
 interface ViewportCanvasGeometry {
@@ -60,6 +65,12 @@ const NEXT_SLIDER_EFFECT: Record<SliderEffect, SliderEffect> = {
     color: "difference",
     difference: "none",
 }
+
+const BRIGHTNESS_BLEND_MODES = [
+    { value: "darken", label: "Darken" },
+    { value: "normal", label: "Normal" },
+    { value: "lighten", label: "Lighten" },
+] satisfies { value: BrightnessBlendMode; label: string }[]
 
 function clearViewportCanvases(
     normal: HTMLCanvasElement | null,
@@ -288,6 +299,7 @@ function View(props: ModeViewProps<SliderModeProps>) {
 
     const showFullEffect = effectDisplay === "full"
     const showSplitEffect = showFullEffect && displayedEffect !== "difference"
+    const blendMode = displayedEffect === "brightness" ? snap.brightnessBlendMode : "normal"
 
     function getFilter(side: "A" | "B") {
         if (displayedEffect === "none" || displayedEffect === "difference") return "none"
@@ -346,7 +358,7 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     WebkitMaskImage: showSplitEffect ? "none" : mv.normalCanvasMaskMv,
                     maskRepeat: "no-repeat",
                     WebkitMaskRepeat: "no-repeat",
-                    mixBlendMode: "normal",
+                    mixBlendMode: blendMode,
                     filter: getFilter("A"),
                 }}
                 id="image-compare-canvas-inverted"
@@ -369,7 +381,7 @@ function View(props: ModeViewProps<SliderModeProps>) {
                     WebkitMaskImage: showFullEffect ? "none" : mv.invertedCanvasMaskMv,
                     maskRepeat: "no-repeat",
                     WebkitMaskRepeat: "no-repeat",
-                    mixBlendMode: "normal",
+                    mixBlendMode: blendMode,
                     filter: getFilter("B"),
                 }}
             />
@@ -473,6 +485,9 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
             <ToolbarSection mode={"select"} {...restProps}>
                 <ToolbarButton
                     itemId={"none"}
+                    aria-label="No effect"
+                    tipTitle="No effect"
+                    aria-pressed={sliderTrail === "none"}
                     isSelected={sliderTrail === "none"}
                     onClick={() => selectEffect("none")}
                 >
@@ -480,6 +495,9 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 </ToolbarButton>
                 <ToolbarButton
                     itemId={"brightness"}
+                    aria-label="Brightness"
+                    tipTitle="Brightness"
+                    aria-pressed={sliderTrail === "brightness"}
                     isSelected={sliderTrail === "brightness"}
                     onClick={() => selectEffect("brightness")}
                 >
@@ -487,6 +505,9 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 </ToolbarButton>
                 <ToolbarButton
                     itemId={"color"}
+                    aria-label="Color"
+                    tipTitle="Color"
+                    aria-pressed={sliderTrail === "color"}
                     isSelected={sliderTrail === "color"}
                     onClick={() => selectEffect("color")}
                 >
@@ -494,6 +515,9 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                 </ToolbarButton>
                 <ToolbarButton
                     itemId={"difference"}
+                    aria-label="Difference"
+                    tipTitle="Difference"
+                    aria-pressed={sliderTrail === "difference"}
                     isSelected={sliderTrail === "difference"}
                     onClick={() => selectEffect("difference")}
                 >
@@ -512,6 +536,7 @@ function Settings(props: ModeSettingProps<SliderModeProps>) {
                         <SettingsButton
                             itemId={"settings"}
                             aria-label="Slider effect settings"
+                            tipTitle="Slider effect settings"
                             isOpen={isSettingsOpen}
                             onEnter={onEnter}
                             onLeave={startCloseTimer}
@@ -560,41 +585,44 @@ interface SettingsContentProps extends ComponentProps<typeof Popover.Content> {
     snap: ReturnType<(typeof ImageCompareContext)["useContext"]>[1]
 }
 
+const settingsGroupStyle = {
+    width: "full",
+    bgColor: "bg.1",
+    borderRadius: "sm",
+    padding: 3,
+    gap: 1,
+} as const
+
 function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
     const { state, snap, onEnter, onLeave, ...restProps } = props
 
     const context = usePopoverContext()
 
     return (
-        <Popover.Content
-            // borderRadius={"lg"}
-            // boxShadow={"pane1"}
-            // padding={4}
-            asChild
-        >
+        <Popover.Content asChild>
             <Panel
                 variant={"float"}
-                bgColor={"bg.1"}
+                layerStyle="tooltipSurface"
                 width={"15rem"}
                 onMouseEnter={() => onEnter(context)}
                 onMouseLeave={() => onLeave(context)}
-                padding={3}
+                padding={1}
                 {...restProps}
             >
-                <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
-                <VStack gap={1}>
-                    <HStack
-                        padding={0}
-                        color={"fg.1"}
-                        justifyContent={"space-between"}
-                        width={"full"}
-                    >
-                        <PanelSectionHeader>Threshold</PanelSectionHeader>
-                        <Box>{snap.sliderThreshold}</Box>
-                    </HStack>
+                <Popover.Arrow css={{ "--arrow-background": "{colors.bg.2}" }} />
+                <VStack
+                    gap={1}
+                    css={{
+                        '& [data-scope="slider"][data-part="track"]': {
+                            bgColor: "grays.8",
+                            _dark: { bgColor: "grays.0" },
+                        },
+                    }}
+                >
                     <Slider
-                        // minWidth="12rem"
-                        width={"full"}
+                        {...settingsGroupStyle}
+                        label={<PanelSectionHeader as="span">Threshold</PanelSectionHeader>}
+                        showValue
                         min={0}
                         max={0.2}
                         step={0.01}
@@ -602,21 +630,11 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
                         onValueChange={(value) => {
                             state.sliderThreshold = value.value[0]
                         }}
-                        mx={1}
-                        marginBottom={"2"}
-                    />{" "}
-                    <HStack
-                        padding={1}
-                        color={"fg.1"}
-                        justifyContent={"space-between"}
-                        width={"full"}
-                    >
-                        <PanelSectionHeader>Gain</PanelSectionHeader>
-                        <Box>{snap.sliderGain}</Box>
-                    </HStack>
+                    />
                     <Slider
-                        width={"full"}
-                        // minWidth="12rem"
+                        {...settingsGroupStyle}
+                        label={<PanelSectionHeader as="span">Gain</PanelSectionHeader>}
+                        showValue
                         min={1}
                         max={20}
                         step={1}
@@ -624,8 +642,34 @@ function SettingsContent(props: SettingsContentProps & PopoverTriggers) {
                         onValueChange={(value) => {
                             state.sliderGain = value.value[0]
                         }}
-                        mx={1}
                     />
+                    <VStack {...settingsGroupStyle} align="stretch" gap={2}>
+                        <PanelSectionHeader>Brightness blend mode</PanelSectionHeader>
+                        <ToolbarSection
+                            mode="select"
+                            role="group"
+                            aria-label="Brightness blend mode"
+                        >
+                            {BRIGHTNESS_BLEND_MODES.map(({ value, label }) => (
+                                <ToolbarButton
+                                    key={value}
+                                    itemId={value}
+                                    type="button"
+                                    size="2xs"
+                                    aspectRatio="auto"
+                                    flex={1}
+                                    disabled={snap.sliderTrail !== "brightness"}
+                                    isSelected={snap.brightnessBlendMode === value}
+                                    aria-pressed={snap.brightnessBlendMode === value}
+                                    onClick={() => {
+                                        state.brightnessBlendMode = value
+                                    }}
+                                >
+                                    <span>{label}</span>
+                                </ToolbarButton>
+                            ))}
+                        </ToolbarSection>
+                    </VStack>
                 </VStack>
             </Panel>
         </Popover.Content>
@@ -636,7 +680,13 @@ function Button(props: ModeButtonProps) {
     const tip = `Drag the divider to compare images. Press Space to switch between effects that
                  highlight the differences between the images.`
     return (
-        <ToolbarButton itemId={"slider"} tipTitle={"Slider"} tipText={tip} {...props}>
+        <ToolbarButton
+            itemId="slider"
+            aria-label="Slider"
+            tipTitle="Slider"
+            tipText={tip}
+            {...props}
+        >
             <SliderCompare stroke={"currentColor"} strokeWidth={0.5} />
         </ToolbarButton>
     )

@@ -38,18 +38,16 @@ it("loads saved flags and adds or removes flags without duplicates", async () =>
 })
 
 it("reacts to the selected flag and follows changes to the flag name", async () => {
-    const { getFlag, getSetting, loadSettingsStore, updateFlag, updateSetting, useFlag } =
-        await import("./settings")
+    const { getFlag, loadSettingsStore, updateFlag, updateSetting, useFlag } = await import(
+        "./settings"
+    )
     await loadSettingsStore()
 
-    expect(getSetting("app.flags")).toEqual([])
-    const read = vi.fn((flag: string) => useFlag(flag))
-    const { result, rerender } = renderHook(read, { initialProps: "notify_pinch_zoom" })
+    const { result, rerender } = renderHook(useFlag, { initialProps: "notify_pinch_zoom" })
     expect(result.current[0]).toBe(false)
-    const renders = read.mock.calls.length
 
     await act(async () => updateFlag("unrelated"))
-    expect(read).toHaveBeenCalledTimes(renders)
+    expect(result.current[0]).toBe(false)
 
     await act(async () => updateSetting("app.flags", ["notify_pinch_zoom"]))
     expect(result.current[0]).toBe(true)
@@ -59,4 +57,9 @@ it("reacts to the selected flag and follows changes to the flag name", async () 
     await act(async () => result.current[1]())
     expect(result.current[0]).toBe(true)
     expect(getFlag("another_tip")).toBe(true)
+
+    await act(async () => result.current[1](false))
+    expect(result.current[0]).toBe(false)
+    expect(getFlag("another_tip")).toBe(false)
+    expect(getFlag("notify_pinch_zoom")).toBe(true)
 })

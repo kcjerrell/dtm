@@ -1,7 +1,9 @@
 import { type SpringOptions, useSpring } from "motion/react"
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useElapsed } from "@/hooks/useDecay"
-import { useSettingRef } from "@/state/settings"
+import { getFlag, updateFlag, useFlag, useSettingRef } from "@/state/settings"
+import { toaster } from "../ui/toaster"
+import { NotifyPinchToast } from "./toast"
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 8
@@ -55,6 +57,21 @@ export function useZoomable(
     const gestureScale = useRef<number | null>(null)
 
     const getElapsed = useElapsed(true)
+
+    const [flag, _] = useFlag("notifyPinchZoom")
+    useEffect(() => {
+        if (!flag) {
+            queueMicrotask(() => {
+                if (getFlag("notifyPinchZoom")) return
+                updateFlag("notifyPinchZoom", true)
+                toaster.create({
+                    title: "Controls have changed",
+                    description: NotifyPinchToast(zoomMode.current),
+                    closable: true,
+                })
+            })
+        }
+    }, [flag, zoomMode])
 
     const setMv = useCallback(
         (immediate = false) => {

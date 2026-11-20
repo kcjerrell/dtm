@@ -101,13 +101,12 @@ export default function AlignmentPanel() {
                         <Panel
                             ref={isOpen ? alignmentPanelRef : null}
                             variant="float"
-                            bgColor="bg.1"
-                            color="fg.1"
+                            layerStyle="tooltipSurface"
                             width="14rem"
                             maxHeight="none"
                             overflow="visible"
                         >
-                            <Popover.Arrow css={{ "--arrow-background": "{colors.bg.1}" }} />
+                            <Popover.Arrow css={{ "--arrow-background": "{colors.bg.2}" }} />
                             <Popover.Body
                                 display="grid"
                                 gridTemplateColumns="repeat(2, minmax(0, 1fr))"
