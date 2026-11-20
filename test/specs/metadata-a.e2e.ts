@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { join } from "node:path"
 import fse from "fs-extra"
+import { build } from "plist"
 import App from "../pageobjects/App"
 import Metadata from "../pageobjects/Metadata"
 import { getPasteboardData, setPasteboardOverride } from "../util/clipdump"
@@ -69,14 +70,16 @@ describe("Metadata", () => {
         await fse.ensureDir(tempDir)
         await fse.emptyDir(tempDir)
         await browser.execute(() => {
-            window.__reset_metadata_store()
+            return window.__reset_media_store()
         })
     })
 
     it("loads image dropped from finder", async () => {
         // go to metadata tab
         await App.selectView("metadata")
+
         // clear images if there any
+        await md.toolbar.toolbar.waitForExist()
         if (await md.toolbar.clearUnpinned.isExisting()) {
             await md.toolbar.clearUnpinned.click()
         }
@@ -192,7 +195,7 @@ describe("Metadata", () => {
         // paste the image
         await md.toolbar.loadFromClipboard.click()
 
-        browser.waitUntil(
+        await browser.waitUntil(
             async () => {
                 return (await md.history.getItemCount()) === 3
             },
@@ -223,6 +226,11 @@ describe("Metadata", () => {
         // flow extracts them from disk
         await removeFfmpegBinaries()
         await stageFfmpegArchives()
+
+        if (process.platform === "linux") {
+            expect(await ffmpegInstalled()).toBe(true)
+            return
+        }
 
         await App.selectView("metadata")
         // clear images if there any
@@ -278,16 +286,131 @@ describe("Metadata", () => {
         await md.toolbar.loadFromClipboard.click()
         await md.dropHere.waitForDisplayed({ reverse: true })
 
-        // assert the current item is a video
         await expect($("#metadata video")).toBeDisplayed()
+        await browser.waitUntil(
+            () =>
+                browser.execute(() => {
+                    const video = document.querySelector<HTMLVideoElement>("#metadata video")
+                    return !!video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+                }),
+            { timeoutMsg: "Expected the source video to load a frame" },
+        )
 
         // ffmpeg is already installed, so metadata should load without an install step
-        await md.getDataItemValue("filename", { timeout: 60000 })
+        await md.selectTab("details")
+        expect(await md.getDataItemValue("filename", { timeout: 60000 })).toContain(videoPath)
 
         expect(await md.getDataItemValue("nb_streams")).toContain("2")
         expect(parseFloat((await md.getDataItemValue("duration")) ?? "0")).toBeGreaterThan(0)
         expect(await md.getDataItemValue("tags")).toContain("comment")
         expect(await md.getDataItemValue("tags")).toContain("model")
         expect(await md.getDataItemValue("tags")).toContain("v2")
+
+        const copyPath = join(tempDir, "video-copy.mp4")
+        await setTestOverride({ saveDialogPath: copyPath })
+        await md.toolbar.saveImage.click()
+        await waitForFile(copyPath)
+        expect(await fse.readFile(copyPath)).toEqual(await fse.readFile(videoPath))
+    })
+
+    it("scrolls a long image history without moving the details pane", async () => {
+        await App.selectView("metadata")
+        const paneLeft = await md.detailsTab.execute((tab) => tab.getBoundingClientRect().left)
+        const initialCount = await md.history.getItemCount()
+        const paths = Array.from({ length: 32 }, (_, i) => join(tempDir, `history-${i}.png`))
+        const imagePath = getFile("astro.png")
+        await Promise.all(paths.map((path) => fse.copyFile(imagePath, path)))
+        await setPasteboardOverride({ NSFilenamesPboardType: build(paths) })
+        await md.triggerDrop()
+
+        await browser.waitUntil(() =>
+            md.history.getItemCount().then((count) => count === initialCount + paths.length),
+        )
+        expect(await md.detailsTab.execute((tab) => tab.getBoundingClientRect().left)).toBe(
+            paneLeft,
+        )
+
+        const scrollLeft = await browser.execute(() => {
+            const history = document.querySelector('[role="tablist"][aria-label="Image history"]')
+            const scroller = history?.parentElement
+            if (!scroller) throw new Error("Image history scroll container is missing")
+            scroller.scrollLeft = scroller.scrollWidth
+            return scroller.scrollLeft
+        })
+        expect(scrollLeft).toBeGreaterThan(0)
+        expect(await md.detailsTab.execute((tab) => tab.getBoundingClientRect().left)).toBe(
+            paneLeft,
+        )
+        await md.selectTab("details")
+    })
+
+    it("uses the same upward-cropped 180px thumbnail in Metadata History and Compare", async () => {
+        await App.selectView("metadata")
+        const portrait = await browser.execute(() => {
+            const canvas = document.createElement("canvas")
+            canvas.width = 100
+            canvas.height = 200
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("Could not draw the portrait fixture")
+            ctx.fillStyle = "#f00"
+            ctx.fillRect(0, 0, 100, 40)
+            ctx.fillStyle = "#00f"
+            ctx.fillRect(0, 40, 100, 160)
+            return canvas.toDataURL("image/png").split(",")[1]
+        })
+        const imagePath = join(tempDir, "portrait.png")
+        await fse.writeFile(imagePath, Buffer.from(portrait, "base64"))
+        await setPasteboardOverride({ NSFilenamesPboardType: build([imagePath]) })
+        await md.triggerDrop()
+        await md.currentImage.waitForExist()
+        await browser.waitUntil(() =>
+            md.currentImage.execute((el) => {
+                const image = el as HTMLImageElement
+                return image.naturalWidth === 100 && image.naturalHeight === 200
+            }),
+        )
+
+        const historyImage = $(
+            '[role="tablist"][aria-label="Image history"] [aria-selected="true"] img',
+        )
+        await historyImage.waitForExist()
+        await browser.waitUntil(() =>
+            historyImage.execute((el) => (el as HTMLImageElement).naturalWidth > 0),
+        )
+        const historySrc = await historyImage.getAttribute("src")
+        const originalSrc = await md.currentImage.getAttribute("src")
+        if (!historySrc || !originalSrc) throw new Error("Expected both image URLs")
+        expect(historySrc).toBe(originalSrc.replace(/\.png$/, "t.png"))
+        const thumbnail = await browser.execute(async (src) => {
+            const image = new Image()
+            image.crossOrigin = "anonymous"
+            image.src = src
+            await image.decode()
+            const canvas = document.createElement("canvas")
+            canvas.width = image.naturalWidth
+            canvas.height = image.naturalHeight
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("Could not read thumbnail pixels")
+            ctx.drawImage(image, 0, 0)
+            return {
+                size: [canvas.width, canvas.height],
+                nearTop: Array.from(ctx.getImageData(90, 12, 1, 1).data),
+                middle: Array.from(ctx.getImageData(90, 90, 1, 1).data),
+            }
+        }, historySrc)
+        expect(thumbnail).toEqual({
+            size: [180, 180],
+            nearTop: [255, 0, 0, 255],
+            middle: [0, 0, 255, 255],
+        })
+
+        await $("aria/Compare image").click()
+        await $("button=Compare").click()
+        await $("aria/Choose comparison images").click()
+        const compareImage = $('img[alt="Image 1"]')
+        await expect(compareImage).toHaveAttribute("src", historySrc)
+        await browser.waitUntil(() =>
+            compareImage.execute((el) => (el as HTMLImageElement).naturalWidth === 180),
+        )
     })
 })

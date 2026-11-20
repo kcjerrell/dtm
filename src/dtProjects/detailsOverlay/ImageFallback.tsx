@@ -1,10 +1,4 @@
-import { Box } from "@chakra-ui/react"
-
-interface ImageFallbackProps extends ChakraProps {}
-
-function ImageFallback(props: ImageFallbackProps) {
-    const { ...restProps } = props
-
+function ImageFallback() {
     return (
         <div
             style={{

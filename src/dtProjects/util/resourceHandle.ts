@@ -1,7 +1,8 @@
 import { DtpService, type ImageExtra } from "@/commands"
 import DTProject from "@/commands/DTProject"
 import type { TensorHistoryNode } from "@/commands/DTProjectTypes"
-import { drawPose, pointsToPose, tensorToPoints } from "@/utils/pose"
+import { determineType, getMimeTypeFromExtension } from "@/utils/mediaTypes"
+import { drawPose } from "@/utils/pose"
 import type { OpenPose } from "@/utils/poseHelpers"
 import { getBounds, getLayer } from "../detailsOverlay/CanvasStackComponent"
 import { type CanvasStack, isCanvasStack, type SubItem } from "../types"
@@ -83,18 +84,22 @@ export class ResourceHandle {
     }
 
     async getPngData(frame?: number) {
+        return (await this.getPngResource(frame)).data
+    }
+
+    async getPngResource(frame?: number) {
         if (this.isPose) {
-            return await this.getPoseImage()
+            return { data: await this.getPoseImage(), tensorId: await this.getTensorId() }
         }
         if (this.isCanvasStack) {
-            return await this.renderCanvas()
+            return { data: await this.renderCanvas(), tensorId: null }
         }
         const tensorId =
             frame !== undefined ? await this.getFrameTensorId(frame) : await this.getTensorId()
         if (!tensorId) throw new Error("No tensor id")
 
-        const data = await DtpService.decodeTensor(this.projectId, tensorId, true, this.nodeId)
-        return data
+        const data = await DtpService.getResourceImage(this.projectId, this.nodeId, tensorId)
+        return { data, tensorId }
     }
 
     async renderCanvas() {
@@ -114,12 +119,15 @@ export class ResourceHandle {
         if (!ctx) throw new Error("No canvas context")
 
         const images = layers.map(async (layer) => {
-            const tensor = await DtpService.decodeTensor(
+            const layerData = await DtpService.getResourceImage(
                 this.projectId,
+                null,
                 `tensor_history_${layer.tensorData.tensor_id}`,
-                true,
             )
-            const blob = new Blob([tensor], { type: "image/png" })
+            const mediaType = determineType(layerData)
+            const mimeType = getMimeTypeFromExtension(mediaType)
+            if (!mimeType) throw new Error("couldn't determine media type")
+            const blob = new Blob([layerData], { type: mimeType })
             const imageBitmap = await createImageBitmap(blob)
             return { imageBitmap, layer }
         })
@@ -146,12 +154,8 @@ export class ResourceHandle {
         ) {
             throw new Error("Not a pose")
         }
-        let pose = this.subItem.pose
-        if (!pose) {
-            const data = await DtpService.decodeTensor(this.projectId, this.subItem.tensorId, false)
-            const points = tensorToPoints(data)
-            pose = pointsToPose(points, this.subItem.width ?? 1024, this.subItem.height ?? 1024)
-        }
+        const data = await DtpService.getResourceJson(this.projectId, null, this.subItem.tensorId)
+        const pose = JSON.parse(data)
         return pose
     }
 

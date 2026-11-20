@@ -6,7 +6,7 @@ use objc2_foundation::{NSArray, NSData, NSString};
 pub fn get_clipboard(pasteboard: Option<String>) -> Result<Retained<NSPasteboard>> {
     unsafe {
         match pasteboard.as_deref() {
-            Some("drag") => Ok(NSPasteboard::pasteboardWithName(&*NSPasteboardNameDrag)),
+            Some("drag") => Ok(NSPasteboard::pasteboardWithName(NSPasteboardNameDrag)),
             Some("general") | None => Ok(NSPasteboard::generalPasteboard()),
             Some(other) => bail!("Unknown pasteboard name: {other}"),
         }
@@ -58,12 +58,12 @@ pub fn read_clipboard_strings(
         let type_array = NSArray::from_slice(&[&*ns_type]);
 
         // Only proceed if available
-        if pb.availableTypeFromArray(&*type_array).is_none() {
+        if pb.availableTypeFromArray(&type_array).is_none() {
             continue;
         }
 
         // Try to read as NSString
-        if let Some(s) = pb.stringForType(&*ns_type) {
+        if let Some(s) = pb.stringForType(&ns_type) {
             results.insert(ty, s.to_string());
         }
     }

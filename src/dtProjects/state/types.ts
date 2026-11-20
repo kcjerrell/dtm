@@ -79,6 +79,7 @@ export type DTPEvents = {
 
     sync_started: () => void
     sync_complete: () => void
+    sync_failed: (error: string) => void
 
     folder_sync_started: (payload: number) => void
     folder_sync_complete: (payload: number) => void

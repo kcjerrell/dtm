@@ -6,14 +6,14 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  e2e:
-    name: Build Debug App + WDIO E2E
+  web:
+    name: Typecheck + Web Tests
     runs-on: macos-26
     timeout-minutes: 45
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout
@@ -22,7 +22,32 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Run web tests
+        run: npm run test:web
+
+  rust:
+    name: Rust Tests
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
           cache: npm
 
       - name: Install Rust
@@ -43,18 +68,56 @@ jobs:
 
       - name: Generate icons
         run: npm run gen-icons
-        
-      - name: Build debug app
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run build:debug
 
-      - name: Set up test data
-        run: sh scripts/test-setup.sh
+      - name: Set up Rust test data
+        working-directory: src-tauri
+        run: bash ./test-setup.sh
+
+      - name: Run Rust tests
+        run: npm run test:rust
+
+  wdio:
+    name: WDIO Tests
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Rust cache
+        id: rust-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: npm run gen-icons
+
+      - name: Build E2E app
+        run: npm run build:e2e
+
+      - name: Set up WDIO test data
+        run: bash scripts/test-setup.sh
 
       - name: Run WDIO tests
-        run: npm run wdio
+        run: npm run test:wdio
 
       - name: Upload WDIO failure screenshots
         if: ${{ always() }}
@@ -72,17 +135,3 @@ jobs:
           path: |
             ~/Library/Logs/com.kcjer.dtm
             ~/Library/Application Support/com.kcjer.dtm
-
-            !**/*.7z
-            !**/bin/**
-          if-no-files-found: ignore
-
-      - name: Save Rust cache
-        if: ${{ always() && !cancelled() }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ steps.rust-cache-restore.outputs.cache-primary-key }}

@@ -1,5 +1,5 @@
+import path from "node:path"
 import fse from "fs-extra"
-import path from "path"
 import { getTestDataRootDir } from "./paths"
 
 export function getFile(filename: string, checkExists = true) {

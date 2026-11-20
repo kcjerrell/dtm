@@ -1,6 +1,7 @@
 import { Box, FormatByte, Grid } from "@chakra-ui/react"
 import { listen } from "@tauri-apps/api/event"
-import { memo, type PropsWithChildren, useEffect } from "react"
+import { platform } from "@tauri-apps/plugin-os"
+import { memo, useEffect } from "react"
 import { ffmpegCheck, ffmpegDownload } from "@/commands"
 import { PanelButton, PanelSection, Progress } from "@/components"
 import { useProxyRef } from "./valtioHooks"
@@ -14,7 +15,13 @@ type FfmpegProgress = {
     state: string
 }
 
+type FfmpegComponentProps = ChakraProps & {
+    linuxMessage: string
+    macMessage: string
+}
+
 export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
+    const usesSystemFfmpeg = platform() === "linux"
     const { state, snap } = useProxyRef(() => ({
         showComponent: false,
         status: "unknown" as FfmpegStatus,
@@ -25,10 +32,16 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
     }))
 
     useEffect(() => {
-        ffmpegCheck().then((result) => {
-            state.status = result ? "installed" : "not-installed"
-            if (!result) state.showComponent = true
-        })
+        ffmpegCheck()
+            .then((result) => {
+                state.status = result ? "installed" : "not-installed"
+                if (!result) state.showComponent = true
+            })
+            .catch((error) => {
+                state.status = "error"
+                state.progressText = String(error)
+                state.showComponent = true
+            })
     }, [state])
 
     const installFfmpeg = async () => {
@@ -48,7 +61,7 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
         })
         state.status = "installing"
         try {
-            state.progressText = "Downloading..."
+            state.progressText = usesSystemFfmpeg ? "Checking system tools..." : "Downloading..."
             await ffmpegDownload()
             state.status = "installed"
             onComplete?.()
@@ -60,8 +73,8 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
         }
     }
 
-    const FfmpegComponent = memo((props: PropsWithChildren<ChakraProps>) => {
-        const { children, ...restProps } = props
+    const FfmpegComponent = memo((props: FfmpegComponentProps) => {
+        const { linuxMessage, macMessage, ...restProps } = props
         if (!snap.showComponent) return null
         return (
             <PanelSection data-testid="ffmpeg-section" {...restProps}>
@@ -73,7 +86,7 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
                     justifyContent={"center"}
                     gap={4}
                 >
-                    <Box>{children}</Box>
+                    <Box>{usesSystemFfmpeg ? linuxMessage : macMessage}</Box>
                     <PanelButton
                         onClick={() => {
                             installFfmpeg()
@@ -82,14 +95,19 @@ export function useFfmpeg(hideOnComplete = false, onComplete?: () => void) {
                     >
                         {
                             {
-                                "not-installed": "Install",
-                                installing: "Installing...",
+                                "not-installed": usesSystemFfmpeg ? "Check again" : "Install",
+                                installing: usesSystemFfmpeg ? "Checking..." : "Installing...",
                                 installed: "Done!",
                                 error: "Retry",
-                                unknown: "Install",
+                                unknown: usesSystemFfmpeg ? "Check" : "Install",
                             }[snap.status]
                         }
                     </PanelButton>
+                    {snap.status === "error" && (
+                        <Box gridColumn="span 2" color="fg.error">
+                            {snap.progressText}
+                        </Box>
+                    )}
                     {snap.total > 0 && (
                         //
                         <Progress

@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { proxy, useSnapshot } from "valtio"
 import type { Model } from "@/commands"
-import type { MediaType, SamplerType } from '@/types'
+import type { MediaType, SamplerType } from "@/types"
 import { arrayIfOnly } from "@/utils/helpers"
 import {
     type FilterValueSelector,

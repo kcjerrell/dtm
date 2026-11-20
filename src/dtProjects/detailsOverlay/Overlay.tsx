@@ -28,7 +28,7 @@ function Overlay(props: DetailsOverlayProps) {
 
     // using a ref so the imagecommands (for video) can access the video context
     const videoContextRef = useRef<VideoContextType>(null)
-    const isVideo = !!item?.num_frames
+    const _isVideo = !!item?.num_frames
 
     const hotkeys = useMemo(
         () => ({
@@ -78,7 +78,6 @@ function Overlay(props: DetailsOverlayProps) {
                         item={item}
                         itemDetails={itemDetails}
                         subItem={snap.subItem}
-                        showSpinner={showSpinner}
                         videoRef={videoContextRef}
                     />
                 )}

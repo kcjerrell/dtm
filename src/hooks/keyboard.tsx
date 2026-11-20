@@ -33,7 +33,7 @@ export function useScopedHotkeys(
         scopeStack.push(scope)
         // console.log("sstack+", scopeStack)
         return () => {
-            const popped = scopeStack.pop()
+            const _popped = scopeStack.pop()
             disableScope(scope)
             // console.log("sstack-", scopeStack)
             // if (popped !== scope) alert("ooops messed up")

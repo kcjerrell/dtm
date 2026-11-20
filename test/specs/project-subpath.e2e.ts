@@ -53,6 +53,20 @@ async function closeSettingsDialog() {
     await $("aria/Close dialog").click()
 }
 
+async function enableRecursiveScanning(folderPath: string) {
+    const folder = $(`//span[normalize-space(.)="${folderPath}"]/parent::div`)
+    const toggleRecursive = $("aria/Toggle recursive")
+    if (!(await toggleRecursive.isEnabled())) {
+        await folder.click()
+    }
+
+    await expect(toggleRecursive).toBeEnabled()
+    await toggleRecursive.click()
+    await browser.waitUntil(async () => folder.$("svg").isExisting(), {
+        timeoutMsg: `Recursive scanning was not enabled for ${folderPath}`,
+    })
+}
+
 async function updateShowSubpathSetting(value: boolean) {
     if (!(await getShowSubpathSetting().isDisplayed())) {
         await DTProjects.settings.click()
@@ -107,6 +121,7 @@ describe("Project subpath labels", () => {
         }, projectsAPath)
         await $("aria/Add folder").click()
         await expect($(`div=${projectsAPath}`)).toBeDisplayedInViewport()
+        await enableRecursiveScanning(projectsAPath)
 
         await browser.execute((folderPath) => {
             window.__E2E_FILE_PATH__ = folderPath

@@ -7,9 +7,12 @@ import { Tooltip } from "."
 
 const Base = chakra("button", {
     base: {
+        margin: 0,
+        height: "min-content",
+        paddingY: 2,
         color: "fg.3",
         aspectRatio: "1",
-        bgColor: "transparent",
+        background: "transparent",
         display: "inline-flex",
         appearance: "none",
         alignItems: "center",
@@ -25,30 +28,51 @@ const Base = chakra("button", {
         // cursor: "button",
         flexShrink: "0",
         outline: "0",
-        lineHeight: "1.2",
+        // lineHeight: "1.2",
         isolation: "isolate",
         fontWeight: "medium",
         transitionProperty: "common",
         transitionDuration: "moderate",
         focusVisibleRing: "outside",
         transformOrigin: "center center",
+        "& *": {
+            transformOrigin: "center center",
+        },
         _disabled: {
             layerStyle: "disabled",
             cursor: "default",
             pointerEvents: "none",
             _hover: { scale: 1 },
         },
+        _hover: {
+            color: "fg.2",
+            background: "var(--hover-bg)",
+            borderColor: "var(--hover-border)",
+            boxShadow: "var(--hover-shadow)",
+        },
+        _expanded: {
+            background: "var(--hover-bg)",
+            borderColor: "var(--hover-border)",
+            boxShadow: "var(--hover-shadow)",
+        },
         _icon: {},
+        _focusVisible: {
+            outline: "none",
+        },
+        "--hover-bg": "{colors.bg.0/50}",
+        "--hover-shadow": "0px 0px 4px -2px #00000088",
+        "--hover-border": "transparent",
+        "--tb-open-color": "{colors.info}",
     },
 
     variants: {
         variant: {
             ghost: {
-                bgColor: "transparent",
+                background: "transparent",
                 border: "none",
             },
             inset: {
-                bgColor: "bg.1",
+                background: "bg.1",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 paddingBlock: 0.5,
@@ -74,8 +98,14 @@ const Base = chakra("button", {
                 "& > *": {
                     scale: 1,
                 },
+                _after: {
+                    scale: 1.1,
+                },
                 _hover: {
                     "& > *": {
+                        scale: 1.1,
+                    },
+                    _after: {
                         scale: 1.1,
                     },
                 },
@@ -109,10 +139,103 @@ const Base = chakra("button", {
                     marginRight: 0,
                 },
             },
+            toolbar: {
+                "--hover-shadow": "none",
+                "--hover-bg": "none",
+                color: "fg.1",
+                _hover: {
+                    color: "fg.1",
+                },
+                transition: "all 0.2s ease",
+                // _after: {
+                //     content: '""',
+                //     position: "absolute",
+                //     border: "0px solid var(--tb-open-color)",
+                //     borderTopWidth: "3px",
+                //     // borderBottomWidth: "2px",
+                //     inset: "-1px",
+                //     opacity: 0,
+                //     transition: "opacity 1000ms ease",
+                //     // transition: "none",
+                //     zIndex: 0
+                // },
+                "& > *": {
+                    zIndex: 1,
+                },
+            },
+        },
+        tbActive: {
+            true: {
+                color: "fg.1",
+                _hover: {
+                    color: "fg.1",
+                },
+            },
+            false: {
+                opacity: 0.7,
+                _hover: {
+                    color: "fg.1",
+                    // borderColor: "grayc.13",
+                },
+            },
+        },
+        tbOpen: {
+            true: {
+                // _after: {
+                //     opacity: 1,
+                // },
+            },
+            false: {},
+        },
+        tone: {
+            danger: {
+                background: "color-mix(in srgb, {colors.bg.1} 70%, {colors.red.500} 30%)",
+                "--hover-bg": "color-mix(in srgb, {colors.bg.1} 60%, {colors.red.500} 40%)",
+                "--hover-border": "{colors.red.500/40}",
+                "--hover-shadow": "0px 1px 5px -3px #00000055",
+            },
+            success: {
+                color: "grayc.2",
+                fontWeight: "600",
+                background: "color-mix(in srgb, {colors.grayc.15} 80%, {colors.success.1} 20%)",
+                border: "2px solid {colors.success.1}",
+                "--hover-bg": "{colors.success.1/90}",
+                "--hover-border": "{colors.success.1}",
+                "--hover-shadow": "0px 1px 5px -3px #00000055",
+            },
+            none: {
+                // "--hover-bg": "{colors.bg.0/50}",
+                // "--hover-shadow": "0px 0px 4px -2px #00000088",
+                // "--hover-border": "transparent",
+            },
+            selected: {
+                color: "white",
+                fontWeight: "600",
+                background: "highlight.1",
+                "--hover-bg": "{colors.highlight}",
+            },
+            active: {
+                color: "{colors.fg.1}",
+                fontWeight: "600",
+                background: "{colors.bg.3}",
+                boxShadow: "0px 0px 4px -2px #00000088",
+                "--hover-bg": "{colors.bg.0/50}",
+                "--hover-shadow": "0px 0px 4px -2px #00000088",
+                "--hover-border": "transparent",
+                _hover: {
+                    color: "fg.1",
+                },
+            },
+            info: {
+                color: "white",
+                fontWeight: "600",
+                background: "info.1",
+                "--hover-bg": "{colors.info}",
+            },
         },
         toggled: {
             true: {
-                bgColor: "bg.2",
+                background: "bg.2",
                 border: "1px solid {gray/30}",
                 color: "fg.1",
                 _hover: {
@@ -122,12 +245,26 @@ const Base = chakra("button", {
             },
             false: {
                 color: "fg.3/70",
-                bgColor: "bg.deep",
+                background: "bg.deep",
                 border: "1px solid {gray/30}",
                 _hover: {
                     color: "fg.3",
                 },
             },
+        },
+        strike: {
+            true: {
+                position: "relative",
+                _after: {
+                    content: '""',
+                    position: "absolute",
+                    background: "currentColor",
+                    height: "0.15em",
+                    width: "75%",
+                    transform: "rotate(45deg)",
+                },
+            },
+            false: {},
         },
         size: {
             min: {
@@ -137,8 +274,8 @@ const Base = chakra("button", {
                 minW: 0,
                 textStyle: "xs",
                 _icon: {
-                    width: "5",
-                    height: "5",
+                    width: "4",
+                    height: "4",
                 },
             },
             "2xs": {
@@ -224,10 +361,26 @@ const Base = chakra("button", {
 
     compoundVariants: [
         {
+            tbActive: true,
+            tone: "info",
+            css: {
+                background: "color-mix(in srgb, {colors.info.1} 50%, {colors.bg.0} 50%)",
+            },
+        },
+        {
+            tbActive: undefined,
+            tbOpen: true,
+            css: {
+                _after: {
+                    bgColor: "grayc.12/50",
+                },
+            },
+        },
+        {
             variant: "ghost",
             toggled: true,
             css: {
-                bgColor: "unset",
+                background: "unset",
                 border: "none",
                 color: "fg.1",
                 _hover: {
@@ -239,7 +392,7 @@ const Base = chakra("button", {
             variant: "ghost",
             toggled: false,
             css: {
-                bgColor: "unset",
+                background: "unset",
                 border: "none",
                 color: "fg.3/70",
                 _hover: {
@@ -247,11 +400,31 @@ const Base = chakra("button", {
                 },
             },
         },
+        {
+            strike: true,
+            size: "sm",
+            css: {
+                _after: {
+                    width: "75%",
+                },
+            },
+        },
+        {
+            strike: true,
+            size: "xs",
+            css: {
+                _after: {
+                    width: "60%",
+                },
+            },
+        },
     ],
 
     defaultVariants: {
+        tone: "none",
         variant: "simple",
         size: "sm",
+        strike: false,
     },
 })
 
@@ -268,7 +441,7 @@ const IconButton = (props: IconButtonProps) => {
 
     if (tip || tipTitle || tipText) {
         return (
-            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText}>
+            <Tooltip tip={tip} tipTitle={tipTitle} tipText={tipText} whiteSpace={"normal"}>
                 {button}
             </Tooltip>
         )

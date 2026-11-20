@@ -337,9 +337,6 @@ function PreviewZoom(props: PreviewZoomProps) {
             >
                 <motion.div
                     {...handlers}
-                    style={{
-                        ...style,
-                    }}
                     initial={{
                         opacity: 0,
                         backgroundColor: "#00000000",
@@ -359,26 +356,29 @@ function PreviewZoom(props: PreviewZoomProps) {
                         },
                     }}
                 >
-                    {stackCanvas ? (
-                        <CanvasStackComponent
-                            stack={stackCanvas}
-                            showCanvasOutlines={showCanvasOutlines}
-                        />
-                    ) : (
-                        <motion.img
-                            ref={imgRef}
-                            style={{
-                                position: "absolute",
-                                objectFit: "contain",
-                                left: leftMv,
-                                top: topMv,
-                                width: widthMv,
-                                height: heightMv,
-                            }}
-                            src={src ?? undefined}
-                            transition={posTransition}
-                        />
-                    )}
+                    <motion.div style={{ position: "absolute", inset: 0, ...style }}>
+                        {stackCanvas ? (
+                            <CanvasStackComponent
+                                stack={stackCanvas}
+                                showCanvasOutlines={showCanvasOutlines}
+                            />
+                        ) : (
+                            <motion.img
+                                ref={imgRef}
+                                draggable={false}
+                                style={{
+                                    position: "absolute",
+                                    objectFit: "contain",
+                                    left: leftMv,
+                                    top: topMv,
+                                    width: widthMv,
+                                    height: heightMv,
+                                }}
+                                src={src ?? undefined}
+                                transition={posTransition}
+                            />
+                        )}
+                    </motion.div>
                 </motion.div>
             </Box>
         </>

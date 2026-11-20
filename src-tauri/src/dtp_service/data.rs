@@ -1,19 +1,22 @@
+#![allow(clippy::too_many_arguments)]
+
 use crate::{
     bookmarks::{self, PickFolderResult},
+    dt_project::{ClipExtra, TensorHistoryNode, TensorSize, ThnData, ThnFilter},
     dtp_service::{
         events::DTPEvent,
-        jobs::{SyncJob, UpdateProjectJob},
+        jobs::{FolderChange, SyncJob},
         AppHandleWrapper, DTPService,
     },
     projects_db::{
-        dt_project::{TensorHistoryNode, ThnFilter},
         dtos::{
-            clip::ClipExtra, image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
-            tensor::TensorSize, watch_folder::WatchFolderDTO,
+            image::ListImagesResult, model::ModelExtra, project::ProjectExtra,
+            watch_folder::WatchFolderDTO,
         },
         filters::ListImagesFilter,
         folder_cache, DecodeTensorOptions, DrawThingsMetadata, DtProjectRef,
     },
+    IntoTAResult, TAResult,
 };
 use dtm_macros::dtp_commands;
 
@@ -37,29 +40,20 @@ impl DTPService {
         project_id: i64,
         exclude: bool,
     ) -> crate::TAResult<()> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-
-        db.update_exclude(project_id, exclude)
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        if !exclude {
-            self.add_job(
-                UpdateProjectJob::from_id(&db, project_id, true, false)
-                    .await
-                    .map_err(anyhow::Error::msg)?,
-            )
-        }
-
-        let project = db
+        let project = self
+            .get_db()
+            .await?
             .get_project(project_id)
             .await
             .map_err(anyhow::Error::msg)?;
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::ProjectUpdated(
-                project,
-            ));
-
+        self.change_folder(
+            project.watchfolder_id,
+            FolderChange::Exclude {
+                project_id,
+                exclude,
+            },
+        )
+        .await?;
         Ok(())
     }
 
@@ -110,12 +104,9 @@ impl DTPService {
     }
 
     #[dtp_command]
-    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> crate::TAResult<ClipExtra> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-        Ok(db
-            .get_clip(image_id, clip_id)
-            .await
-            .map_err(anyhow::Error::msg)?)
+    pub async fn get_clip(&self, image_id: i64, clip_id: i64) -> TAResult<ClipExtra> {
+        let db = self.get_db().await.map_err(|e| anyhow::anyhow!(e))?;
+        Ok(db.get_clip(image_id, clip_id).await?)
     }
 
     #[dtp_command]
@@ -139,11 +130,7 @@ impl DTPService {
         Ok(())
     }
 
-    pub async fn add_watchfolder(
-        self: &Self,
-        path: String,
-        bookmark: String,
-    ) -> anyhow::Result<()> {
+    pub async fn add_watchfolder(&self, path: String, bookmark: String) -> anyhow::Result<()> {
         self.internal_add_watch_folder(path, bookmark)
             .await
             .map_err(anyhow::Error::msg)
@@ -154,6 +141,7 @@ impl DTPService {
         path: String,
         bookmark: String,
     ) -> anyhow::Result<()> {
+        let _lifecycle = self.lifecycle.lock().await;
         let db = self.get_db().await.map_err(anyhow::Error::msg)?;
         let folder = db
             .add_watch_folder(&path, &bookmark, false)
@@ -189,37 +177,23 @@ impl DTPService {
             .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
 
         let scheduler = self.scheduler.read().await;
-        let scheduler = scheduler.as_ref().unwrap();
+        let scheduler = scheduler
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Scheduler not ready"))?;
         scheduler.add_job(SyncJob::new(false));
         Ok(())
     }
 
     #[dtp_command]
     pub async fn remove_watch_folder(&self, id: i64) -> crate::TAResult<()> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-        db.remove_watch_folders(vec![id])
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
-
-        // the projects will be removed automatically by the db
-        self.events.emit(DTPEvent::ProjectsChanged);
-
+        self.change_folder(id, FolderChange::Remove).await?;
         Ok(())
     }
 
     #[dtp_command]
     pub async fn update_watch_folder(&self, id: i64, recursive: bool) -> crate::TAResult<()> {
-        let db = self.get_db().await.map_err(anyhow::Error::msg)?;
-        db.update_watch_folder(id, Some(recursive), None, None)
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        self.events
-            .emit(crate::dtp_service::events::DTPEvent::WatchFoldersChanged);
-
+        self.change_folder(id, FolderChange::Recursion(recursive))
+            .await?;
         Ok(())
     }
 
@@ -239,19 +213,22 @@ impl DTPService {
     pub async fn get_metadata(&self, image_id: i64) -> crate::TAResult<DrawThingsMetadata> {
         let pdb = self.get_db().await.map_err(anyhow::Error::msg)?;
         let image = pdb.get_image(image_id).await.map_err(anyhow::Error::msg)?;
-        let dt_project = pdb
-            .get_dt_project(DtProjectRef::Id(image.project_id))
+        let dt_project = DtProjectRef::Id(image.project_id)
+            .get_project()
             .await
             .map_err(anyhow::Error::msg)?;
         let nodes = dt_project
-            .get_tensor_history_nodes(Some(ThnFilter::Rowid(image.node_id)), None)
+            .get_tensor_history_nodes(
+                Some(ThnFilter::Rowid(image.node_id)),
+                Some(ThnData::legacy_prompts()),
+            )
             .await
             .map_err(anyhow::Error::msg)?;
         let node = nodes
             .into_iter()
             .next()
             .ok_or_else(|| anyhow::anyhow!("Node not found"))?;
-        Ok(DrawThingsMetadata::try_from(&node.node_data()).map_err(anyhow::Error::msg)?)
+        Ok(DrawThingsMetadata::try_from(&node).map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
@@ -260,65 +237,26 @@ impl DTPService {
         project_id: i64,
         tensor_id: String,
     ) -> crate::TAResult<TensorSize> {
-        let project = self
-            .get_project(project_id)
-            .await
-            .map_err(anyhow::Error::msg)?;
-        Ok(project
+        let project_ref = DtProjectRef::Id(project_id);
+        let dt_project = project_ref.get_project().await?;
+        Ok(dt_project
             .get_tensor_size(&tensor_id)
             .await
             .map_err(anyhow::Error::msg)?)
     }
 
     #[dtp_command]
-    pub async fn decode_tensor(
-        &self,
-        project_id: i64,
-        node_id: Option<i64>,
-        tensor_id: String,
-        as_png: bool,
-    ) -> crate::TAResult<tauri::ipc::Response> {
-        let project = self
-            .get_project(project_id)
-            .await
-            .map_err(anyhow::Error::msg)?;
-        let tensor = project
-            .get_tensor_raw(&tensor_id)
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        let metadata = match node_id {
-            Some(node) => {
-                let nodes = project
-                    .get_tensor_history_nodes(Some(ThnFilter::Rowid(node)), None)
-                    .await
-                    .map_err(anyhow::Error::msg)?;
-                nodes.into_iter().next().map(|n| n.node_data())
-            }
-            None => None,
-        };
-
-        let buffer = crate::projects_db::decode_tensor(
-            tensor,
-            DecodeTensorOptions {
-                as_png,
-                history_node: metadata,
-                size: None,
-            },
-        )?;
-        Ok(tauri::ipc::Response::new(buffer))
-    }
-
-    #[dtp_command]
     pub async fn find_predecessor(
         &self,
-        _project_id: i64,
-        _row_id: i64,
-        _lineage: i64,
-        _logical_time: i64,
+        project_id: i64,
+        row_id: i64,
     ) -> crate::TAResult<Vec<TensorHistoryNode>> {
-        // Pending rework — returns empty until find_predecessor_candidates is reimplemented.
-        Ok(vec![])
+        DtProjectRef::Id(project_id)
+            .get_project()
+            .await?
+            .get_predecessors(row_id)
+            .await
+            .into_ta_result()
     }
 
     // Helper method to get a DTProject instance
@@ -326,9 +264,8 @@ impl DTPService {
         &self,
         project_id: i64,
     ) -> anyhow::Result<std::sync::Arc<crate::projects_db::DTProject>> {
-        let db = self.get_db().await?;
-        let project_ref = crate::projects_db::DtProjectRef::Id(project_id);
-        Ok(db.get_dt_project(project_ref).await?)
+        let project_ref = DtProjectRef::Id(project_id);
+        project_ref.get_project().await
     }
 }
 

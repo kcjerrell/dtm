@@ -1,7 +1,7 @@
 import { Box, Button, Grid, Input } from "@chakra-ui/react"
+import { useRef } from "react"
 import { proxy, useSnapshot } from "valtio"
 import { CheckRoot, Panel } from "@/components"
-import { useRef } from "react"
 
 class Version {
     constructor(
@@ -80,7 +80,9 @@ function Empty() {
                 >
                     <Box></Box>
                     {snap.features.map((f) => (
-                        <Box key={f} px={0.5}>{f}</Box>
+                        <Box key={f} px={0.5}>
+                            {f}
+                        </Box>
                     ))}
                     {snap.versions.map((v) => {
                         const versionState = store.versions.find((vv) => vv.version === v.version)

@@ -1,4 +1,4 @@
-import { Text, type TooltipContentProps, VStack } from "@chakra-ui/react"
+import { Text, type TooltipContentProps, type TooltipRootProps, VStack } from "@chakra-ui/react"
 import type { PropsWithChildren } from "react"
 import { Tooltip } from "./ui/tooltip"
 
@@ -7,6 +7,7 @@ interface TooltipProps extends TooltipContentProps {
     tip?: React.ReactNode
     tipTitle?: string
     tipText?: string
+    ids?: TooltipRootProps["ids"]
     contentProps?: TooltipContentProps
 }
 
@@ -18,9 +19,16 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
             <Text fontWeight={600} color={"fg.2"} fontSize={"sm"}>
                 {tipTitle}
             </Text>
-            <Text color={"fg.2"} fontSize={"sm"}>
-                {tipText}
-            </Text>
+            {tipText && (
+                <Text
+                    color={"fg.2"}
+                    fontSize={"sm"}
+                    whiteSpace={"normal"}
+                    _dark={{ fontWeight: "light" }}
+                >
+                    {tipText}
+                </Text>
+            )}
         </VStack>
     )
 
@@ -31,14 +39,11 @@ function TooltipComponent(props: PropsWithChildren<TooltipProps>) {
             content={Content}
             contentProps={{
                 fontSize: "sm",
-                bgColor: "bg.2",
-                color: "fg.2",
+                layerStyle: "tooltipSurface",
                 paddingY: 1,
                 paddingX: 2,
                 lineHeight: "1.25rem",
                 whiteSpace: "pre-line",
-                // boxShadow: "pane2",
-                border: "1px solid #77777777",
                 ...contentProps,
             }}
             positioning={{ placement: "top" }}

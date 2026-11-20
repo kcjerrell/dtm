@@ -19,7 +19,11 @@ export {
 } from "react-icons/fi"
 export { GiBodyBalance as PoseIcon, GiNeedleDrill } from "react-icons/gi"
 export { GoGear } from "react-icons/go"
-export { IoChevronDown as ChevronDown, IoChevronForward as ChevronForward } from "react-icons/io5"
+export {
+    IoChevronDown as ChevronDown,
+    IoChevronForward as ChevronForward,
+    IoChevronUp as ChevronUp,
+} from "react-icons/io5"
 export type { IconType } from "react-icons/lib"
 export { LuFolderTree, LuLayers, LuMoon, LuSun, LuX } from "react-icons/lu"
 export { MdBlock, MdDoNotDisturbOn, MdImageSearch } from "react-icons/md"

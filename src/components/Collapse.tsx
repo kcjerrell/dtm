@@ -1,9 +1,8 @@
-import { useProxyRef } from "@/hooks/valtioHooks"
 import { Box, Button, type ButtonProps } from "@chakra-ui/react"
 import {
     createContext,
     type PropsWithChildren,
-    RefObject,
+    type RefObject,
     useCallback,
     useContext,
     useRef,
@@ -22,14 +21,14 @@ type CollapseContextType = {
 
 const CollapseContext = createContext<CollapseContextType | undefined>(undefined)
 
-interface CollapseRootProps extends ChakraProps {
+interface CollapseRootProps {
     /** duration of the collapse transition in seconds */
     duration: number
     onStateChange?: (state: "open" | "closed") => void
 }
 
 export function CollapseRoot(props: PropsWithChildren<CollapseRootProps>) {
-    const { children, duration, onStateChange, ...rest } = props
+    const { children, duration, onStateChange } = props
 
     const [state, setStateState] = useState<CollapseState>("closed")
     const setState = useCallback(
@@ -42,14 +41,14 @@ export function CollapseRoot(props: PropsWithChildren<CollapseRootProps>) {
 
     const height = useRef(0)
     const contentRef = useRef<HTMLDivElement>(null)
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const timeoutRef = useRef<number | null>(null)
 
     const scheduleChange = useCallback(
         (state: CollapseState) => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current)
             }
-            timeoutRef.current = setTimeout(() => {
+            timeoutRef.current = window.setTimeout(() => {
                 setState(state)
                 timeoutRef.current = null
             }, duration * 1000)

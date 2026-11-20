@@ -73,17 +73,14 @@
         "/Volumes/**"
       ]
     },
-    "http:default",
     "opener:allow-open-path",
     "opener:allow-open-url",
     "opener:allow-default-urls",
     "opener:allow-reveal-item-in-dir",
     "store:default",
     "valtio:default",
-    "updater:default",
     "process:default",
     "dialog:default",
-    "window-state:default",
     "core:window:allow-is-visible",
     {
       "allow": [

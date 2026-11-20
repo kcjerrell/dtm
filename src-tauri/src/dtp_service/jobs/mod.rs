@@ -15,3 +15,6 @@ pub use project_jobs::{AddProjectJob, RemoveProjectJob, UpdateProjectJob};
 pub use sync::SyncJob;
 pub use sync_folder::{ProjectSync, SyncFolderJob};
 pub use sync_models::{FetchModels, SyncModelsJob};
+
+mod folder_change;
+pub use folder_change::{FolderChange, FolderChangeJob};

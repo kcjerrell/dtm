@@ -1,18 +1,20 @@
 import { type BoxProps, chakra } from "@chakra-ui/react"
 import { type MotionProps, motion } from "motion/react"
 import { useEffect, useRef } from "react"
+import { useSnapshot } from "valtio"
 import FrameCountIndicator from "@/components/FrameCountIndicator"
-import type MediaItem from "../state/mediaItem"
+import type MdItem from "../state/MdItem"
 import { useVideoThumbnail } from "./VideoThumbnailProvider"
 
 interface HistoryItemProps extends BoxProps {
-    image: ReadonlyState<MediaItem>
+    image: MdItem
     isSelected: boolean
     onSelect?: () => void
     isPinned?: boolean
 }
 function HistoryItem(props: HistoryItemProps) {
-    const { image, isSelected, onSelect, isPinned, ...restProps } = props
+    const { image: imageState, isSelected, onSelect, isPinned, ...restProps } = props
+    const image = useSnapshot(imageState)
     const ref = useRef<HTMLDivElement>(null)
 
     const Thumbnail = image?.isVideo ? VideoThumbnail : ImageThumbnail
@@ -70,12 +72,13 @@ function HistoryItem(props: HistoryItemProps) {
     )
 }
 
-const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
+const ImageThumbnail = (props: MotionProps & { item: ReadonlyState<MdItem> }) => {
     const { item, ...restProps } = props
+
     return <motion.img src={item?.thumbUrl} {...restProps} />
 }
 
-const VideoThumbnail = (props: MotionProps & { item: ReadonlyState<MediaItem> }) => {
+const VideoThumbnail = (props: MotionProps & { item: ReadonlyState<MdItem> }) => {
     const { item, ...restProps } = props
 
     const canvasRef = useVideoThumbnail(item?.id, "thumbnail")
@@ -109,49 +112,59 @@ const VideoThumbContainer = chakra("div", {
     },
 })
 
-const HistoryItemBase = chakra("div", {
-    base: {
-        display: "flex",
-        flexDirection: "column",
-        height: "4rem",
-        width: "4rem",
-        flex: "0 0 4rem",
-        padding: "0px",
-        overflow: "hidden",
-        border: "1px solid",
-        borderColor: "gray.700/50",
-        marginInline: "-0.5px",
-        backgroundColor: "var(--chakra-colors-gray-700)",
-        marginTop: "0px",
-        transformOrigin: "top",
-        borderRadius: "0% 0% 0 0",
-        zIndex: 0,
-        transform: "scale(1) translateY(5px)",
-        transition: "all 0.2s ease",
-        _hover: {
-            borderRadius: "10% 10% 0 0",
-            zIndex: 2,
-            transform: "scale(1.2) translateY(-2px)",
-        },
-    },
-    variants: {
-        isSelected: {
-            true: {
-                marginTop: "-3px",
+const HistoryItemBase = chakra(
+    "div",
+    {
+        base: {
+            display: "flex",
+            flexDirection: "column",
+            height: "4rem",
+            width: "4rem",
+            flex: "0 0 4rem",
+            padding: "0px",
+            overflow: "hidden",
+            border: "1px solid",
+            borderColor: "gray.700/50",
+            marginInline: "-0.5px",
+            backgroundColor: "var(--chakra-colors-gray-700)",
+            boxShadow: "{shadows.pane1}",
+            marginTop: "0px",
+            transformOrigin: "top",
+            borderRadius: "0% 0% 0 0",
+            zIndex: 0,
+            transform: "scale(1) translateY(5px)",
+            transition: "all 0.2s linear, border-radius 0.1s ease, z-index 0s",
+            // clipPath: "rect(0% 100% 100% 0%)",
+            _hover: {
                 borderRadius: "10% 10% 0 0",
-                borderTop: 0,
-                zIndex: 1,
-                transform: "scale(1.1) translateY(2px)",
+                zIndex: 2,
+                transform: "scale(1.2) translateY(-2px)",
             },
         },
-        isPinned: {
-            true: {
-                marginTop: "-3px",
-                borderTop: 0,
+        variants: {
+            isSelected: {
+                true: {
+                    marginTop: "-3px",
+                    borderRadius: "10% 10% 0 0",
+                    borderTop: 0,
+                    zIndex: 1,
+                    transform: "scale(1.1) translateY(2px)",
+                },
+            },
+            isPinned: {
+                true: {
+                    marginTop: "-3px",
+                    borderTop: 0,
+                },
             },
         },
     },
-})
+    {
+        defaultProps: {
+            className: "history-item",
+        },
+    },
+)
 
 const HistoryItemIndicator = chakra("div", {
     base: {

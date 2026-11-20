@@ -1,3 +1,4 @@
+import assert from "node:assert/strict"
 import fse from "fs-extra"
 import App from "../pageobjects/App"
 import DTProjects from "../pageobjects/DTProjects"
@@ -26,6 +27,7 @@ afterEach(async () => {
 describe("Projects", () => {
     it("can select a project", async () => {
         await App.selectView("projects")
+        await DTProjects.selectTab("projects")
 
         // verify projects are listed
         await expect(DTProjects.projectA).toBeDisplayedInViewport()
@@ -50,8 +52,9 @@ describe("Projects", () => {
         expect(updatedCount).toBeLessThan(countBefore)
 
         const projectAId = await DTProjects.projectA.getAttribute("data-project-id")
+        assert.ok(projectAId, "Project A is missing its data-project-id")
         for (const el of await DTProjects.images.getElements()) {
-            await expect(el).toHaveAttribute("data-project-id", projectAId ?? undefined)
+            await expect(el).toHaveAttribute("data-project-id", projectAId)
         }
 
         // select project C
@@ -66,8 +69,9 @@ describe("Projects", () => {
         expect(updatedCount).toBeLessThan(countBefore)
 
         const projectCId = await DTProjects.projectC.getAttribute("data-project-id")
+        assert.ok(projectCId, "Project C is missing its data-project-id")
         for (const el of await DTProjects.images.getElements()) {
-            await expect(el).toHaveAttribute("data-project-id", projectCId ?? undefined)
+            await expect(el).toHaveAttribute("data-project-id", projectCId)
         }
 
         // deselect project
@@ -166,6 +170,7 @@ describe("Projects", () => {
 describe("Projects files", () => {
     it("projects list stays in sync with file system", async () => {
         await App.selectView("projects")
+        await DTProjects.selectTab("projects")
 
         // verify projectC and projectA is listed
         await expect(DTProjects.projectC).toBeDisplayedInViewport()
@@ -190,6 +195,7 @@ describe("Projects files", () => {
 
     it("projects are removed and readded when files are renamed", async () => {
         await App.selectView("projects")
+        await DTProjects.selectTab("projects")
 
         // verify test-project-a is listed
         await expect(DTProjects.projectA).toBeDisplayedInViewport()

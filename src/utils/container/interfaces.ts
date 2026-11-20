@@ -20,7 +20,7 @@ export type EventMap = {
 
 export type ContainerEventHandler<P extends object | never = never> = (payload: P) => void
 
-export interface IStateService<C extends IContainer = IContainer> extends IDisposable {}
+export interface IStateService<_C extends IContainer = IContainer> extends IDisposable {}
 
 /**
  * Abstract base class for controllers using valtio state proxies

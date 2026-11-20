@@ -2,8 +2,8 @@ import { Box, Button, chakra, Em, HStack, Textarea, VStack } from "@chakra-ui/re
 import { useEffect, useRef, useState } from "react"
 import { PanelButton, Tooltip } from "@/components"
 import { PiInfo } from "@/components/icons/icons"
-import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
 import TabContent from "@/components/TabContent"
+import { CLOSE_TRANSIENT_POPUPS_EVENT } from "@/dtProjects/imagesList/ContentPanelPopup"
 import { useDTP } from "../state/context"
 import SearchFilterForm from "./filters/SearchFilterForm"
 

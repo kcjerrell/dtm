@@ -13,12 +13,11 @@ interface ItemWrapperProps {
     item: ImageExtra
     itemDetails?: Snapshot<TensorHistoryNode>
     subItem?: Snapshot<UIControllerState["detailsView"]["subItem"]>
-    showSpinner: boolean
     videoRef?: React.RefObject<VideoContextType | null>
 }
 
 function ItemWrapper(props: ItemWrapperProps) {
-    const { item, itemDetails, subItem, showSpinner, videoRef } = props
+    const { item, itemDetails, subItem, videoRef } = props
 
     if (!item) return null
     if (!item.is_ready) return <ImageFallback />

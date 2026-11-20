@@ -34,10 +34,10 @@ impl SyncModelsJob {
 #[async_trait::async_trait]
 impl Job for SyncModelsJob {
     fn get_label(&self) -> String {
-        format!("SyncModelsJob")
+        "SyncModelsJob".to_string()
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let pdb = ctx.dtp.get_db().await.unwrap();
         for model_info in self.model_info.iter() {
             pdb.scan_model_info(&model_info.path, model_info.model_type)
@@ -53,10 +53,10 @@ pub struct FetchModels;
 #[async_trait::async_trait]
 impl Job for FetchModels {
     fn get_label(&self) -> String {
-        format!("FetchModels")
+        "FetchModels".to_string()
     }
 
-    async fn execute(self: &Self, ctx: &JobContext) -> Result<JobResult, String> {
+    async fn execute(&self, ctx: &JobContext) -> Result<JobResult, String> {
         let app_data_dir = ctx
             .app_handle
             .get_app_data_dir()

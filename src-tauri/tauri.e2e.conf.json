@@ -1,0 +1,21 @@
+{
+  "build": {
+    "features": ["e2e"],
+    "beforeDevCommand": "npm run dev:vite -- --mode e2e",
+    "beforeBuildCommand": "npm run build -- --mode e2e"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "default",
+        "macos",
+        {
+          "identifier": "wdio-e2e",
+          "windows": ["main", "dev"],
+          "permissions": ["wdio-webdriver:default", "wdio:default"]
+        }
+      ]
+    }
+  }
+}

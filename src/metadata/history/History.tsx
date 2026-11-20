@@ -2,8 +2,7 @@ import { chakra, type StackProps } from "@chakra-ui/react"
 import { motion, useMotionValue } from "motion/react"
 import { useCallback, useRef } from "react"
 import { useSnapshot } from "valtio"
-import type MediaItem from "../state/mediaItem"
-import { getMetadataStore, selectImage } from "../state/metadataStore"
+import { useMetadataStore } from "../state/metadataStore2"
 import HistoryItem from "./HistoryItem"
 
 interface HistoryProps extends Omit<StackProps, "onSelect"> {}
@@ -11,12 +10,13 @@ interface HistoryProps extends Omit<StackProps, "onSelect"> {}
 function History(props: HistoryProps) {
     const { ...restProps } = props
 
-    const snap = useSnapshot(getMetadataStore())
-    const { items: images, currentItem: currentImage } = snap
+    const mdStore = useMetadataStore()
+    const snap = useSnapshot(mdStore.state)
+    const { currentItem } = snap
 
-    const pinned = images.filter((i) => i.pin != null) as MediaItem[]
-    const unpinned = images.filter((i) => i.pin == null) as MediaItem[]
-    const imageItems = [...pinned, ...unpinned] as ReadonlyState<MediaItem[]>
+    const pinned = mdStore.collection.useFilterMapItems((item) => item.pin != null)
+    const unpinned = mdStore.collection.useFilterMapItems((item) => item.pin == null)
+    const imageItems = [...pinned, ...unpinned]
 
     const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -82,13 +82,13 @@ function History(props: HistoryProps) {
                     {imageItems.map((image, i) => (
                         <HistoryItem
                             role={"tab"}
-                            aria-controls={`image-${i + 1}`}
+                            aria-controls={`image-${image.id}`}
                             id={`image-item-${i + 1}`}
-                            aria-selected={currentImage?.id === image.id}
+                            aria-selected={currentItem?.id === image.id}
                             key={image.id}
                             image={image}
-                            isSelected={currentImage?.id === image.id}
-                            onSelect={() => selectImage(image)}
+                            isSelected={currentItem?.id === image.id}
+                            onSelect={() => mdStore.selectImage(image.id)}
                             isPinned={image.pin != null}
                         />
                     ))}
